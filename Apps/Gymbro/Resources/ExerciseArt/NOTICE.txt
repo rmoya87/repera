@@ -1,0 +1,3 @@
+Gymbro exercise illustrations in this folder are original assets created for Gymbro.
+They are not copies of Gym visual / openGym catalogue media.
+Style: instructional flat vector on dark charcoal with lime accent.

@@ -1,0 +1,46 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdata/
+xcuserdata/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+timeline.xctimeline
+playground.xcworkspace
+
+# Generated
+Gymbro.xcodeproj/
+Gymbro.xcworkspace/
+*.xcworkspace/xcuserdata/
+
+# SPM
+.swiftpm/
+Packages/**/.build/
+.build/
+
+# Secrets
+.env
+.env.*
+!.env.example
+**/Secrets.plist
+**/GoogleService-Info.plist
+
+# OS
+.DS_Store
+*.swp
+*~
+
+# Supabase
+supabase/.branches
+supabase/.temp
+
+# Clone local de openGym (referencia); no versionar en este repo
+reference/
+
+# Node (por si se abre el clone local)
+**/node_modules/
+**/dist/

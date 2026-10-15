@@ -1,0 +1,124 @@
+name: Gymbro
+options:
+  bundleIdPrefix: app.gymbroapp
+  deploymentTarget:
+    iOS: "26.0"
+    watchOS: "26.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+packages:
+  GymbroDomain:
+    path: Packages/GymbroDomain
+
+settings:
+  BASE_SDK: iphoneos
+  SWIFT_VERSION: "6.0"
+  SWIFT_STRICT_CONCURRENCY: complete
+  TARGETED_DEVICE_FAMILY: "1"
+  DEVELOPMENT_TEAM: 9DTDGQ8UUQ
+  CODE_SIGN_STYLE: Automatic
+
+targets:
+  Gymbro:
+    type: application
+    platform: iOS
+    sources:
+      - path: Apps/Gymbro/Sources
+      # XcodeGen 2.46 + objectVersion 77 omite `resources:`; hay que declarar assets a mano.
+      - path: Apps/Gymbro/Resources/Assets.xcassets
+        buildPhase: resources
+      - path: Apps/Gymbro/Resources/ExerciseArt
+        buildPhase: resources
+        type: folder
+      - path: Apps/Gymbro/Resources/LaunchScreen.storyboard
+        buildPhase: resources
+    resources: []
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: app.gymbroapp.ios
+      INFOPLIST_FILE: Apps/Gymbro/Resources/Info.plist
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      TARGETED_DEVICE_FAMILY: "1"
+      GENERATE_INFOPLIST_FILE: false
+      CURRENT_PROJECT_VERSION: 2
+      MARKETING_VERSION: "1.0.0"
+      CODE_SIGN_STYLE: Automatic
+      DEVELOPMENT_TEAM: 9DTDGQ8UUQ
+      SWIFT_EMIT_MODULE_INTERFACE: NO
+      CODE_SIGN_ENTITLEMENTS: Apps/Gymbro/Resources/Gymbro.entitlements
+    entitlements:
+      path: Apps/Gymbro/Resources/Gymbro.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.background-delivery: true
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.app.gymbroapp.ios
+        com.apple.developer.icloud-services:
+          - CloudDocuments
+        com.apple.developer.ubiquity-container-identifiers:
+          - iCloud.app.gymbroapp.ios
+    dependencies:
+      - package: GymbroDomain
+      - target: GymbroWatch
+        embed: true
+      - sdk: HealthKit.framework
+    info:
+      path: Apps/Gymbro/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Gymbro
+        UILaunchStoryboardName: LaunchScreen
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSSupportsLiveActivities: false
+        UIFileSharingEnabled: false
+        LSSupportsOpeningDocumentsInPlace: false
+        NSCameraUsageDescription: Gymbro usa la cámara para leer ejercicios de una pizarra o TV y montar la sesión.
+        NSPhotoLibraryUsageDescription: Gymbro lee fotos de pizarras o pantallas para importar el entrenamiento.
+        NSHealthShareUsageDescription: Gymbro lee peso, calorías activas, tiempo y entrenos de Apple Salud / Apple Watch para calcular calorías y duración reales.
+        NSHealthUpdateUsageDescription: Gymbro guarda el entreno en Apple Salud usando las calorías y el tiempo que reporta Salud / Apple Watch.
+        NSUbiquitousContainers:
+          iCloud.app.gymbroapp.ios:
+            NSUbiquitousContainerIsDocumentScopePublic: false
+            NSUbiquitousContainerName: Gymbro
+            NSUbiquitousContainerSupportedFolderLevels: Any
+
+  GymbroWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: Apps/GymbroWatch/Sources
+    resources:
+      - path: Apps/GymbroWatch/Resources
+        excludes:
+          - Info.plist
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: app.gymbroapp.ios.watchkitapp
+      INFOPLIST_FILE: Apps/GymbroWatch/Resources/Info.plist
+      GENERATE_INFOPLIST_FILE: false
+      CURRENT_PROJECT_VERSION: 2
+      MARKETING_VERSION: "1.0.0"
+      CODE_SIGN_STYLE: Automatic
+      DEVELOPMENT_TEAM: 9DTDGQ8UUQ
+      SDKROOT: watchos
+    dependencies:
+      - package: GymbroDomain
+    info:
+      path: Apps/GymbroWatch/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Gymbro
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: app.gymbroapp.ios
+        WKRunsIndependentlyOfCompanionApp: false
+        NSMotionUsageDescription: Gymbro usa el movimiento del Watch para contar repeticiones durante el entrenamiento.
+
+schemes:
+  Gymbro:
+    build:
+      targets:
+        Gymbro: all
+        GymbroWatch: all
+    run:
+      config: Debug
+      executable: Gymbro
