@@ -1,34 +1,51 @@
 import GymbroDomain
 import SwiftUI
 
-/// Asigna o quita la rutina de un día de la semana.
+/// Asigna o quita la rutina de un día de la semana (elige entre plantillas de Diario → Rutinas).
 struct DayOverrideSheet: View {
     @Environment(GymbroStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     var isoWeekday: Int
     var dayLabel: String
+    /// Crear plantilla nueva ya asignada a este día.
+    var onCreateNew: (() -> Void)?
 
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    OGPageHeader(title: dayLabel) {
+                        CloseToolbarButton { dismiss() }
+                    }
+                    .ogListPageHeaderRow()
+                }
                 Section("Rutina para \(CalendarHelpers.weekdayName(isoWeekday))") {
                     Button("Día libre (sin rutina)") {
-                        if let current = store.state.routines.first(where: { $0.weekday == isoWeekday }) {
+                        if let current = store.routine(forWeekday: isoWeekday) {
                             store.assignRoutine(current.id, toWeekday: nil)
                         }
                         dismiss()
                     }
-                    ForEach(store.state.routines) { routine in
+                    if let onCreateNew {
                         Button {
-                            // Quita el día de quien lo tuviera
-                            for r in store.state.routines where r.weekday == isoWeekday && r.id != routine.id {
-                                store.assignRoutine(r.id, toWeekday: nil)
-                            }
+                            dismiss()
+                            onCreateNew()
+                        } label: {
+                            Label("Nueva rutina para este día", systemImage: "plus")
+                        }
+                    }
+                    ForEach(store.libraryRoutines) { routine in
+                        Button {
                             store.assignRoutine(routine.id, toWeekday: isoWeekday)
                             dismiss()
                         } label: {
                             HStack {
-                                Text(routine.title)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(routine.title)
+                                    Text(routineSummary(routine))
+                                        .font(.caption)
+                                        .foregroundStyle(OG.label2)
+                                }
                                 Spacer()
                                 if routine.weekday == isoWeekday {
                                     Image(systemName: "checkmark")
@@ -38,21 +55,29 @@ struct DayOverrideSheet: View {
                         }
                     }
                 }
-                Section {
-                    Text("También puedes crear rutinas nuevas en Plan.")
-                        .font(.footnote)
-                        .foregroundStyle(OG.label2)
+                if store.libraryRoutines.isEmpty {
+                    Section {
+                        Text("Crea rutinas en la pestaña Rutinas y asígnalas aquí a cada día.")
+                            .font(.footnote)
+                            .foregroundStyle(OG.label2)
+                    }
                 }
             }
             .ogListChrome()
-            .navigationTitle(dayLabel)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    CloseToolbarButton { dismiss() }
-                }
-            }
+            .ogContentTitleNav()
+            .toolbar(.hidden, for: .navigationBar)
         }
         .preferredColorScheme(.dark)
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
+    }
+
+    private func routineSummary(_ routine: Routine) -> String {
+        let strength = routine.blocks.filter { $0.kind == .strength }.flatMap(\.exercises).count
+        let wods = routine.blocks.filter { $0.kind == .wod }.count
+        var parts: [String] = []
+        if strength > 0 { parts.append("\(strength) ej.") }
+        if wods > 0 { parts.append("\(wods) WOD") }
+        if parts.isEmpty { parts.append("Vacía") }
+        return parts.joined(separator: " · ")
     }
 }

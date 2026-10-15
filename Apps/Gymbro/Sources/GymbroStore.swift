@@ -159,8 +159,20 @@ final class GymbroStore: NSObject {
         if state.settings.scheduleMode == .rotation {
             return RotationEngine.nextRoutine(state: state)
         }
-        let day = CalendarHelpers.isoWeekday(for: date)
-        return state.routines.first { $0.weekday == day }
+        return routineForDay(date)
+    }
+
+    /// Entreno del día: suelto (fecha) tiene prioridad sobre el plan semanal (weekday).
+    func routineForDay(_ date: Date, calendar: Calendar = .current) -> Routine? {
+        let dayStart = calendar.startOfDay(for: date)
+        if let oneOff = state.routines.first(where: { routine in
+            guard let scheduled = routine.scheduledDate else { return false }
+            return calendar.isDate(scheduled, inSameDayAs: dayStart)
+        }) {
+            return oneOff
+        }
+        let iso = CalendarHelpers.isoWeekday(for: date, calendar: calendar)
+        return state.routines.first { $0.scheduledDate == nil && $0.weekday == iso }
     }
 
     func startTodaySession() {
@@ -234,16 +246,18 @@ final class GymbroStore: NSObject {
         }
     }
 
-    /// Guarda el OCR como bloque(s) del día elegido del plan (fuerza o WOD).
-    /// `weekday` es ISO (1=lun … 7=dom): se respeta tal cual (p. ej. viernes → viernes, no hoy).
+    /// Guarda el OCR como entreno suelto de un día concreto (no entra en el plan semanal de Diario).
     @discardableResult
     func saveBoardToDay(
         weekday: Int,
         lines: [BoardImportLine],
         ocrText: String?,
         planName: String = "Entreno",
-        blocks: [RoutineBlock]? = nil
+        blocks: [RoutineBlock]? = nil,
+        onDate: Date? = nil
     ) -> Routine {
+        let calendar = Calendar.current
+        let date = calendar.startOfDay(for: onDate ?? Self.dateForISOWeekday(weekday))
         var catalog = state.exercises
         var imported = BoardImportParser.buildRoutine(
             title: planName,
@@ -255,24 +269,39 @@ final class GymbroStore: NSObject {
         if let blocks, !blocks.isEmpty {
             imported.blocks = blocks
         }
-        imported.weekday = weekday
-        let day = CalendarHelpers.weekdayName(weekday)
+        imported.weekday = nil
+        imported.scheduledDate = date
+        let day = CalendarHelpers.weekdayName(CalendarHelpers.isoWeekday(for: date))
         imported.title = planName == "Entreno" || planName == "Mi plan"
             ? "Entreno · \(day)"
             : "\(planName) · \(day)"
         imported.isFavorite = false
 
-        if let idx = state.routines.firstIndex(where: { $0.weekday == weekday }) {
+        if let idx = state.routines.firstIndex(where: {
+            guard let scheduled = $0.scheduledDate else { return false }
+            return calendar.isDate(scheduled, inSameDayAs: date)
+        }) {
             var existing = state.routines[idx]
             existing.blocks.append(contentsOf: imported.blocks)
             if existing.title.isEmpty { existing.title = imported.title }
-            existing.weekday = weekday
+            existing.scheduledDate = date
+            existing.weekday = nil
             saveRoutine(existing)
             return existing
         } else {
             saveRoutine(imported)
             return imported
         }
+    }
+
+    /// Próxima fecha del calendario con ese weekday ISO (hoy si coincide).
+    private static func dateForISOWeekday(_ iso: Int, from: Date = Date(), calendar: Calendar = .current) -> Date {
+        let start = calendar.startOfDay(for: from)
+        for offset in 0..<7 {
+            guard let d = calendar.date(byAdding: .day, value: offset, to: start) else { continue }
+            if CalendarHelpers.isoWeekday(for: d, calendar: calendar) == iso { return d }
+        }
+        return start
     }
 
     func importCSV(_ text: String) -> CSVImportResult {
@@ -325,6 +354,37 @@ final class GymbroStore: NSObject {
         } else {
             Task { await HealthKitStore.shared.discardLiveTracking() }
         }
+    }
+
+    /// Guarda un entreno ya terminado a partir de resultados apuntados (sin seguir la sesión en vivo).
+    @discardableResult
+    func logFinalResults(
+        from routine: Routine,
+        exercises: [SessionExercise],
+        notes: String? = nil,
+        startedAt: Date = Date(),
+        finishedAt: Date = Date()
+    ) -> WorkoutSession {
+        var session = SessionController.from(routine: routine, exercises: state.exercises)
+        // Emparejar por posición (mismo orden que el plan).
+        for i in session.exercises.indices {
+            guard exercises.indices.contains(i) else { continue }
+            let draft = exercises[i]
+            session.exercises[i].loggedSets = draft.loggedSets
+            session.exercises[i].completedReps = draft.loggedSets
+                .filter { !$0.isWarmup }
+                .reduce(0) { $0 + $1.reps }
+            session.exercises[i].isCompleted = !draft.loggedSets.isEmpty
+        }
+        session.phase = .finished
+        session.startedAt = startedAt
+        session.finishedAt = finishedAt
+        let trimmed = notes?.trimmingCharacters(in: .whitespacesAndNewlines)
+        session.notes = (trimmed?.isEmpty == false) ? trimmed : nil
+        upsertWorkout(session)
+        advanceRotationIfNeeded(finishedRoutineId: routine.id)
+        persist()
+        return session
     }
 
     private func advanceRotationIfNeeded(finishedRoutineId: UUID?) {
@@ -419,6 +479,16 @@ final class GymbroStore: NSObject {
         mutateActive { $0.removeLastLoggedSet() }
     }
 
+    /// Notas libres del entreno en curso (persistidas con la sesión).
+    func updateActiveSessionNotes(_ notes: String) {
+        guard var session = state.activeSession else { return }
+        let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        session.notes = trimmed.isEmpty ? nil : trimmed
+        state.activeSession = session
+        persist()
+        pushActiveToWatch()
+    }
+
     func applyWatchSession(_ session: WorkoutSession) {
         state.activeSession = session
         if session.phase == .finished {
@@ -446,27 +516,41 @@ final class GymbroStore: NSObject {
     // MARK: - Routines
 
     func saveRoutine(_ routine: Routine) {
-        // Un día del plan solo puede tener una rutina.
-        if let day = routine.weekday {
+        var draft = routine
+        if let scheduled = draft.scheduledDate {
+            draft.scheduledDate = Calendar.current.startOfDay(for: scheduled)
+            // Entreno suelto: no pisa el plan semanal; solo otro suelto del mismo día.
             var removeIds: [UUID] = []
-            for i in state.routines.indices where state.routines[i].id != routine.id && state.routines[i].weekday == day {
-                if state.routines[i].isFavorite {
-                    state.routines[i].weekday = nil
-                } else {
-                    removeIds.append(state.routines[i].id)
+            for other in state.routines where other.id != draft.id {
+                guard let otherDate = other.scheduledDate else { continue }
+                if Calendar.current.isDate(otherDate, inSameDayAs: draft.scheduledDate!) {
+                    if other.isFavorite {
+                        // favorito suelto → quitar fecha
+                        if let i = state.routines.firstIndex(where: { $0.id == other.id }) {
+                            state.routines[i].scheduledDate = nil
+                        }
+                    } else {
+                        removeIds.append(other.id)
+                    }
                 }
             }
-            if !removeIds.isEmpty {
-                state.routines.removeAll { removeIds.contains($0.id) }
+            state.routines.removeAll { removeIds.contains($0.id) }
+        } else if let day = draft.weekday {
+            // Un día del plan → una plantilla. Las demás se desasignan (no se borran).
+            for i in state.routines.indices where state.routines[i].id != draft.id
+                && state.routines[i].scheduledDate == nil
+                && state.routines[i].weekday == day {
+                state.routines[i].weekday = nil
             }
         }
-        if let idx = state.routines.firstIndex(where: { $0.id == routine.id }) {
-            state.routines[idx] = routine
+        if let idx = state.routines.firstIndex(where: { $0.id == draft.id }) {
+            state.routines[idx] = draft
         } else {
-            state.routines.append(routine)
+            state.routines.append(draft)
         }
         state.routines.sort {
-            ($0.weekday ?? 99, $0.title) < ($1.weekday ?? 99, $1.title)
+            ($0.weekday ?? 99, $0.scheduledDate ?? .distantFuture, $0.title)
+                < ($1.weekday ?? 99, $1.scheduledDate ?? .distantFuture, $1.title)
         }
         persist()
     }
@@ -480,21 +564,43 @@ final class GymbroStore: NSObject {
         persist()
     }
 
-    func deleteAllRoutines() {
-        // Conserva favoritos (sin día); borra el resto del plan.
-        state.routines = state.routines.compactMap { routine in
-            guard routine.isFavorite else { return nil }
-            var keep = routine
-            keep.weekday = nil
-            return keep
+    /// Quita todas las asignaciones de días; conserva plantillas de Rutinas y entrenos sueltos.
+    func clearWeeklySchedule() {
+        for i in state.routines.indices where state.routines[i].scheduledDate == nil {
+            state.routines[i].weekday = nil
         }
         state.rotation = nil
         persist()
     }
 
-    /// Rutinas con día asignado (plan semanal).
+    func deleteAllRoutines() {
+        // Solo borra el plan semanal; conserva favoritos, plantillas sin día y entrenos sueltos.
+        state.routines = state.routines.compactMap { routine in
+            if routine.isOneOff { return routine }
+            if routine.isFavorite || routine.weekday == nil {
+                var keep = routine
+                keep.weekday = nil
+                return keep
+            }
+            // Rutina solo del plan (con día, no favorita): se elimina al vaciar el plan antiguo.
+            return nil
+        }
+        state.rotation = nil
+        persist()
+    }
+
+    /// Días del plan semanal (Diario). Excluye entrenos sueltos.
     var plannedRoutines: [Routine] {
-        state.routines.filter { $0.weekday != nil }.sorted { ($0.weekday ?? 99) < ($1.weekday ?? 99) }
+        state.routines
+            .filter(\.isWeeklyPlan)
+            .sorted { ($0.weekday ?? 99) < ($1.weekday ?? 99) }
+    }
+
+    /// Rutinas reutilizables (Diario → Rutinas). Excluye entrenos sueltos por fecha.
+    var libraryRoutines: [Routine] {
+        state.routines
+            .filter(\.isLibraryRoutine)
+            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
     /// Plantillas favoritas (habituales).
@@ -502,16 +608,18 @@ final class GymbroStore: NSObject {
         state.routines.filter(\.isFavorite).sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
+    /// Rutina asignada a un día ISO del plan (1 = lunes … 7 = domingo).
+    func routine(forWeekday day: Int) -> Routine? {
+        state.routines.first { $0.isWeeklyPlan && $0.weekday == day }
+    }
+
     func setRoutineFavorite(_ id: UUID, isFavorite: Bool) {
         guard let i = state.routines.firstIndex(where: { $0.id == id }) else { return }
         state.routines[i].isFavorite = isFavorite
-        if !isFavorite, state.routines[i].weekday == nil {
-            state.routines.remove(at: i)
-        }
         persist()
     }
 
-    /// Quita de favoritos; si no tiene día en el plan, elimina la plantilla.
+    /// Quita de favoritos; la plantilla sigue en Diario → Rutinas.
     func removeFavorite(_ id: UUID) {
         setRoutineFavorite(id, isFavorite: false)
     }
@@ -640,8 +748,27 @@ final class GymbroStore: NSObject {
 
     // MARK: - Exercises
 
-    func addCustomExercise(name: String, muscleGroup: String, equipment: String?) {
-        let exercise = Exercise(name: name, muscleGroup: muscleGroup, equipment: equipment, isCustom: true)
+    func addCustomExercise(
+        name: String,
+        muscleGroup: String,
+        equipment: String?,
+        targetMuscle: String? = nil,
+        secondaryMuscles: [String] = [],
+        bodyPart: String? = nil,
+        detailDescription: String? = nil,
+        instructions: [String] = []
+    ) {
+        let exercise = Exercise(
+            name: name,
+            muscleGroup: muscleGroup,
+            equipment: equipment,
+            isCustom: true,
+            targetMuscle: targetMuscle,
+            secondaryMuscles: secondaryMuscles,
+            bodyPart: bodyPart,
+            detailDescription: detailDescription,
+            instructions: instructions
+        )
         state.exercises.append(exercise)
         persist()
     }
@@ -657,6 +784,101 @@ final class GymbroStore: NSObject {
         persist()
     }
 
+    func loadPreference(for exerciseId: UUID) -> ExerciseLoadPreference {
+        state.exerciseLoadPrefs[exerciseId.uuidString] ?? ExerciseLoadPreference()
+    }
+
+    func setLoadPreference(_ pref: ExerciseLoadPreference, for exerciseId: UUID) {
+        state.exerciseLoadPrefs[exerciseId.uuidString] = pref
+        persist()
+    }
+
+    /// Línea de discos bajo una serie, respetando preferencias de la ficha del ejercicio.
+    func plateCompactLine(exerciseId: UUID, targetKg: Double) -> String? {
+        let pref = loadPreference(for: exerciseId)
+        guard pref.mode != .off else { return nil }
+        let base: Double = {
+            switch pref.mode {
+            case .perSide:
+                return pref.baseWeightKg > 0 ? pref.baseWeightKg : state.settings.barbellKg
+            case .singleStack:
+                return pref.baseWeightKg
+            case .off:
+                return 0
+            }
+        }()
+        let solution = PlateMath.solve(
+            targetKg: targetKg,
+            baseKg: base,
+            mode: pref.mode,
+            availablePlatesKg: state.settings.ownedPlatesKg
+        )
+        return solution.compactLabel(mode: pref.mode)
+    }
+
+    func plateSummaryLine(exerciseId: UUID, targetKg: Double) -> String? {
+        let pref = loadPreference(for: exerciseId)
+        guard pref.mode != .off else { return nil }
+        let base: Double = {
+            switch pref.mode {
+            case .perSide:
+                return pref.baseWeightKg > 0 ? pref.baseWeightKg : state.settings.barbellKg
+            case .singleStack:
+                return pref.baseWeightKg
+            case .off:
+                return 0
+            }
+        }()
+        let solution = PlateMath.solve(
+            targetKg: targetKg,
+            baseKg: base,
+            mode: pref.mode,
+            availablePlatesKg: state.settings.ownedPlatesKg
+        )
+        if pref.mode == .singleStack, !solution.perSide.isEmpty {
+            let parts = solution.perSide.map { "\($0.countPerSide)×\(String(format: "%g", $0.plateKg))" }.joined(separator: " + ")
+            return "Pila: \(parts) → \(String(format: "%g", solution.achievedKg)) kg"
+        }
+        return solution.summary
+    }
+
+    /// Añade el ejercicio al entreno suelto de hoy (Inicio · Entreno del día). No modifica rutinas del plan semanal.
+    @discardableResult
+    func addExerciseToTodayWorkout(_ exerciseId: UUID, sets: Int = 3, reps: Int = 8) -> Bool {
+        guard state.exercises.contains(where: { $0.id == exerciseId }) else { return false }
+        let today = Calendar.current.startOfDay(for: Date())
+        let item = RoutineExercise(
+            exerciseId: exerciseId,
+            plannedSets: (0..<sets).map { _ in PlannedSet(targetReps: reps, targetWeightKg: nil) }
+        )
+
+        if var existing = state.routines.first(where: { routine in
+            guard let scheduled = routine.scheduledDate else { return false }
+            return Calendar.current.isDate(scheduled, inSameDayAs: today)
+        }) {
+            if let idx = existing.blocks.firstIndex(where: { $0.kind == .strength }) {
+                if existing.blocks[idx].exercises.contains(where: { $0.exerciseId == exerciseId }) {
+                    return true
+                }
+                existing.blocks[idx].exercises.append(item)
+            } else {
+                existing.blocks.insert(.strength(exercises: [item]), at: 0)
+            }
+            saveRoutine(existing)
+            return true
+        }
+
+        let routine = Routine(
+            title: "Entreno del día",
+            weekday: nil,
+            scheduledDate: today,
+            blocks: [.strength(title: "Bloque", exercises: [item])],
+            progression: .off
+        )
+        saveRoutine(routine)
+        return true
+    }
+
     func startFreestyle(title: String, exerciseIds: [UUID], sets: Int = 3, reps: Int = 8) {
         let items: [RoutineExercise] = exerciseIds.compactMap { eid in
             guard state.exercises.contains(where: { $0.id == eid }) else { return nil }
@@ -670,10 +892,24 @@ final class GymbroStore: NSObject {
         startSession(from: routine)
     }
 
+    /// Asigna una plantilla a un día del plan (o la desasigna). Un día solo puede tener una rutina.
     func assignRoutine(_ routineId: UUID, toWeekday day: Int?) {
         guard let i = state.routines.firstIndex(where: { $0.id == routineId }) else { return }
-        state.routines[i].weekday = day
-        state.routines.sort { ($0.weekday ?? 99) < ($1.weekday ?? 99) }
+        if let day {
+            for j in state.routines.indices where state.routines[j].id != routineId
+                && state.routines[j].scheduledDate == nil
+                && state.routines[j].weekday == day {
+                state.routines[j].weekday = nil
+            }
+            state.routines[i].scheduledDate = nil
+            state.routines[i].weekday = day
+        } else {
+            state.routines[i].weekday = nil
+        }
+        state.routines.sort {
+            ($0.weekday ?? 99, $0.scheduledDate ?? .distantFuture, $0.title)
+                < ($1.weekday ?? 99, $1.scheduledDate ?? .distantFuture, $1.title)
+        }
         persist()
     }
 

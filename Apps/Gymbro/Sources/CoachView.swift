@@ -7,12 +7,10 @@ struct CoachView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Coach local")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(OG.label)
-                Text("Consejos a partir de tu historial, fatiga y peso. Sin internet.")
-                    .font(.system(size: 15))
-                    .foregroundStyle(OG.label2)
+                OGPageHeader(
+                    title: "Coach",
+                    subtitle: "Consejos a partir de tu historial, fatiga y peso. Sin internet."
+                )
 
                 ForEach(store.coachInsights) { insight in
                     OGCard {
@@ -28,11 +26,10 @@ struct CoachView: View {
                 }
             }
             .padding(.horizontal, OG.pad)
-            .padding(.vertical, 12)
+            .padding(.top, 8)
+            .padding(.bottom, 28)
         }
         .background(OG.bg)
-        .navigationTitle("Coach")
-        .toolbarBackground(OG.bg, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
+        .ogContentTitleNav()
     }
 }

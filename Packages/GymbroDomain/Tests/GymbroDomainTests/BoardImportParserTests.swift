@@ -124,11 +124,16 @@ struct BoardImportParserTests {
         #expect(blocks[0].title != "4-4-3-3 PUSH PRESS @7-8")
         let push = blocks[0].movements.first { !$0.isRest }
         #expect(push?.repScheme == [4, 4, 3, 3])
-        #expect(push?.name.uppercased().contains("PUSH") == true)
+        #expect(push?.name == "Push press")
+        #expect(push?.exerciseId != nil)
+        let deadlift = blocks[0].movements.first { $0.name.localizedCaseInsensitiveContains("muerto") || $0.name.localizedCaseInsensitiveContains("dead") }
+        #expect(deadlift?.exerciseId != nil)
         #expect(blocks[0].movements.contains(where: { $0.isRest }))
         #expect(blocks[1].wodFormat == .emom)
         #expect(blocks[1].emomIntervalSeconds == 300)
         #expect(blocks[1].rounds == 4)
+        let thruster = blocks[1].movements.first { $0.name.localizedCaseInsensitiveContains("Thruster") }
+        #expect(thruster?.exerciseId != nil)
         #expect(blocks[1].movements.filter { !$0.isRest }.count >= 4)
     }
 

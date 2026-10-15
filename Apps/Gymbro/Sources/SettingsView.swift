@@ -14,9 +14,17 @@ struct SettingsView: View {
     @State private var healthBusy = false
     @State private var photoItem: PhotosPickerItem?
 
+    /// Catálogo de discos editables (incluye los estándar + fracciones comunes).
+    private static let plateCatalog: [Double] = [25, 20, 15, 10, 5, 2.5, 1.25, 1, 0.5]
+
     var body: some View {
         @Bindable var store = store
         Form {
+            Section {
+                OGPageHeader(title: "Ajustes")
+                    .ogListPageHeaderRow()
+            }
+
             Section {
                 HStack(spacing: 14) {
                     iCloudAvatarBadge
@@ -140,6 +148,11 @@ struct SettingsView: View {
                 } label: {
                     Label("Peso corporal", systemImage: "scalemass")
                 }
+                NavigationLink {
+                    CoachView()
+                } label: {
+                    Label("Coach", systemImage: "lightbulb")
+                }
             }
 
             Section("Entrenamiento") {
@@ -154,7 +167,22 @@ struct SettingsView: View {
                     Text("kg").tag(WeightUnit.kg)
                     Text("lb").tag(WeightUnit.lb)
                 }
-                Text("Los días del plan se editan en Diario.")
+                Picker("Modo de plan", selection: Binding(
+                    get: { store.state.settings.scheduleMode },
+                    set: { store.setScheduleMode($0) }
+                )) {
+                    ForEach(ScheduleMode.allCases, id: \.self) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                if store.state.settings.scheduleMode == .rotation {
+                    NavigationLink {
+                        RotationPlanEditor()
+                    } label: {
+                        Label("Editar rotación", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                }
+                Text("Los días del plan semanal se editan en Diario → Programado / Rutinas.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 Picker("Semana empieza", selection: Binding(
@@ -250,9 +278,26 @@ struct SettingsView: View {
                     in: 7...30,
                     step: 1
                 )
-                Text("Discos por lado: \(store.state.settings.ownedPlatesKg.map { String(format: "%g", $0) }.joined(separator: ", ")) kg")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                ForEach(plateOptions, id: \.self) { plate in
+                    Toggle(
+                        "\(String(format: "%g", plate)) kg",
+                        isOn: Binding(
+                            get: { store.state.settings.ownedPlatesKg.contains(plate) },
+                            set: { on in
+                                var s = store.state.settings
+                                if on {
+                                    if !s.ownedPlatesKg.contains(plate) {
+                                        s.ownedPlatesKg.append(plate)
+                                        s.ownedPlatesKg.sort(by: >)
+                                    }
+                                } else {
+                                    s.ownedPlatesKg.removeAll { $0 == plate }
+                                }
+                                store.updateSettings(s)
+                            }
+                        )
+                    )
+                }
                 Button("Restaurar discos estándar") {
                     var s = store.state.settings
                     s.ownedPlatesKg = PlateMath.defaultPlatesKg
@@ -262,7 +307,7 @@ struct SettingsView: View {
             } header: {
                 Text("Barra y discos")
             } footer: {
-                Text("Sirve durante el entreno: calcula qué discos poner en cada lado para llegar al peso de la serie (p. ej. 100 kg con barra de 20 → 2×20 + 2×10 + …).")
+                Text("Marca los discos que tienes. Durante el entreno se calcula la carga (por lado o una pila, según el ejercicio).")
             }
 
             Section("Objetivo de peso") {
@@ -305,9 +350,7 @@ struct SettingsView: View {
             }
         }
         .ogListChrome()
-        .navigationTitle("Ajustes")
-        .toolbarBackground(OG.bg, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
+        .ogContentTitleNav()
         .task {
             health.refreshAuthorizationStatus()
             if health.isAuthorized {
@@ -384,10 +427,112 @@ struct SettingsView: View {
         }
     }
 
+    /// Catálogo + cualquier disco que el usuario ya tuviera guardado.
+    private var plateOptions: [Double] {
+        Array(Set(Self.plateCatalog + store.state.settings.ownedPlatesKg)).sorted(by: >)
+    }
+
     private func exportBackup() {
         guard let data = LocalStore.shared.exportJSON(store.state) else { return }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("gymbro-backup.json")
         try? data.write(to: url)
         exportURL = url
+    }
+}
+
+// MARK: - Rotación A→B→C
+
+/// Orden de plantillas cuando el plan está en modo rotación (no por día de la semana).
+struct RotationPlanEditor: View {
+    @Environment(GymbroStore.self) private var store
+
+    private var library: [Routine] {
+        store.libraryRoutines
+    }
+
+    private var orderedIds: [UUID] {
+        store.state.rotation?.routineIds ?? []
+    }
+
+    var body: some View {
+        List {
+            Section {
+                OGPageHeader(
+                    title: "Rotación",
+                    subtitle: "El siguiente entreno del día sigue este orden, no el día de la semana."
+                )
+                .ogListPageHeaderRow()
+            }
+
+            Section {
+                if orderedIds.isEmpty {
+                    Text("Añade rutinas de Diario → Rutinas para armar la cola.")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                }
+                ForEach(orderedIds, id: \.self) { id in
+                    let title = library.first(where: { $0.id == id })?.title
+                        ?? store.state.routines.first(where: { $0.id == id })?.title
+                        ?? "Rutina"
+                    Text(title)
+                        .foregroundStyle(OG.label)
+                }
+                .onMove(perform: move)
+                .onDelete(perform: delete)
+            } header: {
+                Text("Orden")
+            } footer: {
+                Text("Arrastra para reordenar. Al terminar un entreno de la cola, avanza a la siguiente.")
+            }
+
+            Section("Disponibles") {
+                let inRotation = Set(orderedIds)
+                let available = library.filter { !inRotation.contains($0.id) }
+                if available.isEmpty {
+                    Text("No hay más rutinas. Crea alguna en Diario → Rutinas.")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                } else {
+                    ForEach(available) { routine in
+                        Button {
+                            append(routine.id)
+                        } label: {
+                            Label(routine.title, systemImage: "plus.circle")
+                        }
+                    }
+                }
+            }
+        }
+        .ogListChrome()
+        .ogContentTitleNav()
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                EditButton()
+            }
+        }
+        .onAppear {
+            if store.state.rotation == nil, store.state.settings.scheduleMode == .rotation {
+                store.updateRotation(RotationPlan(routineIds: library.map(\.id)))
+            }
+        }
+    }
+
+    private func append(_ id: UUID) {
+        var plan = store.state.rotation ?? RotationPlan()
+        guard !plan.routineIds.contains(id) else { return }
+        plan.routineIds.append(id)
+        store.updateRotation(plan)
+    }
+
+    private func move(from source: IndexSet, to destination: Int) {
+        var plan = store.state.rotation ?? RotationPlan()
+        plan.routineIds.move(fromOffsets: source, toOffset: destination)
+        store.updateRotation(plan)
+    }
+
+    private func delete(at offsets: IndexSet) {
+        var plan = store.state.rotation ?? RotationPlan()
+        plan.routineIds.remove(atOffsets: offsets)
+        store.updateRotation(plan.routineIds.isEmpty ? nil : plan)
     }
 }

@@ -163,11 +163,39 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var targetReps: Int
     public var targetWeightKg: Double?
+    /// Objetivo de RIR para esta serie (nil = sin definir).
+    public var targetRir: Double?
 
-    public init(id: UUID = UUID(), targetReps: Int, targetWeightKg: Double? = nil) {
+    public init(
+        id: UUID = UUID(),
+        targetReps: Int,
+        targetWeightKg: Double? = nil,
+        targetRir: Double? = nil
+    ) {
         self.id = id
         self.targetReps = targetReps
         self.targetWeightKg = targetWeightKg
+        self.targetRir = targetRir
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, targetReps, targetWeightKg, targetRir
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        targetReps = try c.decode(Int.self, forKey: .targetReps)
+        targetWeightKg = try c.decodeIfPresent(Double.self, forKey: .targetWeightKg)
+        targetRir = try c.decodeIfPresent(Double.self, forKey: .targetRir)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(targetReps, forKey: .targetReps)
+        try c.encodeIfPresent(targetWeightKg, forKey: .targetWeightKg)
+        try c.encodeIfPresent(targetRir, forKey: .targetRir)
     }
 }
 
@@ -600,13 +628,24 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
 public struct Routine: Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var title: String
-    /// 1 = Monday … 7 = Sunday (ISO). Nil = rotation / unscheduled / solo favorito.
+    /// 1 = Monday … 7 = Sunday (ISO). Plan semanal (Diario) cuando `scheduledDate == nil`.
     public var weekday: Int?
+    /// Día concreto (inicio del día). Si no es nil → entreno suelto de ese día (no es plan semanal).
+    public var scheduledDate: Date?
     /// Plantilla habitual reutilizable desde Crear → Favoritos.
     public var isFavorite: Bool
     /// Bloques del entreno (fuerza y/o WOD). Fuente de verdad.
     public var blocks: [RoutineBlock]
     public var progression: ProgressionPolicy
+
+    /// Forma parte del plan semanal de Diario (no es un entreno suelto).
+    public var isWeeklyPlan: Bool { scheduledDate == nil && weekday != nil }
+
+    /// Plantilla reutilizable (Diario → Rutinas): no es un entreno suelto por fecha.
+    public var isLibraryRoutine: Bool { scheduledDate == nil }
+
+    /// Entreno suelto ligado a un día del calendario.
+    public var isOneOff: Bool { scheduledDate != nil }
 
     /// Ejercicios de fuerza aplanados (compat sesión / import).
     public var exercises: [RoutineExercise] {
@@ -624,6 +663,7 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
         id: UUID = UUID(),
         title: String,
         weekday: Int? = nil,
+        scheduledDate: Date? = nil,
         exercises: [RoutineExercise] = [],
         blocks: [RoutineBlock]? = nil,
         progression: ProgressionPolicy = .linear,
@@ -632,6 +672,7 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
         self.id = id
         self.title = title
         self.weekday = weekday
+        self.scheduledDate = scheduledDate.map { Calendar.current.startOfDay(for: $0) }
         self.isFavorite = isFavorite
         if let blocks, !blocks.isEmpty {
             self.blocks = blocks
@@ -644,7 +685,7 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, title, weekday, exercises, blocks, progression, isFavorite
+        case id, title, weekday, scheduledDate, exercises, blocks, progression, isFavorite
     }
 
     public init(from decoder: Decoder) throws {
@@ -652,6 +693,11 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
         id = try c.decode(UUID.self, forKey: .id)
         title = try c.decode(String.self, forKey: .title)
         weekday = try c.decodeIfPresent(Int.self, forKey: .weekday)
+        if let raw = try c.decodeIfPresent(Date.self, forKey: .scheduledDate) {
+            scheduledDate = Calendar.current.startOfDay(for: raw)
+        } else {
+            scheduledDate = nil
+        }
         isFavorite = try c.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
         progression = try c.decodeIfPresent(ProgressionPolicy.self, forKey: .progression) ?? .linear
         let legacy = try c.decodeIfPresent([RoutineExercise].self, forKey: .exercises) ?? []
@@ -670,6 +716,7 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
         try c.encode(id, forKey: .id)
         try c.encode(title, forKey: .title)
         try c.encodeIfPresent(weekday, forKey: .weekday)
+        try c.encodeIfPresent(scheduledDate, forKey: .scheduledDate)
         try c.encode(isFavorite, forKey: .isFavorite)
         try c.encode(blocks, forKey: .blocks)
         try c.encode(exercises, forKey: .exercises)
@@ -831,6 +878,8 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     public var phase: SessionPhase
     public var startedAt: Date?
     public var finishedAt: Date?
+    /// Notas libres del entreno (cómo te sentiste, sueño, etc.).
+    public var notes: String?
     /// Calorías según Apple Salud / Watch (fuente de verdad).
     public var appleActiveEnergyKcal: Double?
     /// Duración según Apple Salud / Watch (segundos).
@@ -847,6 +896,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         phase: SessionPhase = .idle,
         startedAt: Date? = nil,
         finishedAt: Date? = nil,
+        notes: String? = nil,
         appleActiveEnergyKcal: Double? = nil,
         appleDurationSeconds: TimeInterval? = nil,
         healthKitWorkoutUUID: UUID? = nil
@@ -859,9 +909,48 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         self.phase = phase
         self.startedAt = startedAt
         self.finishedAt = finishedAt
+        self.notes = notes
         self.appleActiveEnergyKcal = appleActiveEnergyKcal
         self.appleDurationSeconds = appleDurationSeconds
         self.healthKitWorkoutUUID = healthKitWorkoutUUID
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, routineId, exercises, currentIndex, phase
+        case startedAt, finishedAt, notes
+        case appleActiveEnergyKcal, appleDurationSeconds, healthKitWorkoutUUID
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        routineId = try c.decodeIfPresent(UUID.self, forKey: .routineId)
+        exercises = try c.decode([SessionExercise].self, forKey: .exercises)
+        currentIndex = try c.decodeIfPresent(Int.self, forKey: .currentIndex) ?? 0
+        phase = try c.decodeIfPresent(SessionPhase.self, forKey: .phase) ?? .idle
+        startedAt = try c.decodeIfPresent(Date.self, forKey: .startedAt)
+        finishedAt = try c.decodeIfPresent(Date.self, forKey: .finishedAt)
+        notes = try c.decodeIfPresent(String.self, forKey: .notes)
+        appleActiveEnergyKcal = try c.decodeIfPresent(Double.self, forKey: .appleActiveEnergyKcal)
+        appleDurationSeconds = try c.decodeIfPresent(TimeInterval.self, forKey: .appleDurationSeconds)
+        healthKitWorkoutUUID = try c.decodeIfPresent(UUID.self, forKey: .healthKitWorkoutUUID)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(title, forKey: .title)
+        try c.encodeIfPresent(routineId, forKey: .routineId)
+        try c.encode(exercises, forKey: .exercises)
+        try c.encode(currentIndex, forKey: .currentIndex)
+        try c.encode(phase, forKey: .phase)
+        try c.encodeIfPresent(startedAt, forKey: .startedAt)
+        try c.encodeIfPresent(finishedAt, forKey: .finishedAt)
+        try c.encodeIfPresent(notes, forKey: .notes)
+        try c.encodeIfPresent(appleActiveEnergyKcal, forKey: .appleActiveEnergyKcal)
+        try c.encodeIfPresent(appleDurationSeconds, forKey: .appleDurationSeconds)
+        try c.encodeIfPresent(healthKitWorkoutUUID, forKey: .healthKitWorkoutUUID)
     }
 
     public var currentExercise: SessionExercise? {
@@ -928,8 +1017,7 @@ public struct PersonalRecord: Identifiable, Codable, Sendable, Hashable {
     }
 
     public var estimatedOneRM: Double {
-        // Epley
-        weightKg * (1 + Double(reps) / 30.0)
+        PlateMath.epleyOneRM(weightKg: weightKg, reps: reps)
     }
 }
 
@@ -984,6 +1072,8 @@ public struct AppState: Codable, Sendable, Equatable {
     public var activeSession: WorkoutSession?
     public var rotation: RotationPlan?
     public var favoriteTimers: [FavoriteTimer]
+    /// Preferencias de carga de discos por ejercicio (`exerciseId.uuidString`).
+    public var exerciseLoadPrefs: [String: ExerciseLoadPreference]
     /// Used to resolve local vs iCloud conflicts (last write wins).
     public var updatedAt: Date
 
@@ -996,6 +1086,7 @@ public struct AppState: Codable, Sendable, Equatable {
         activeSession: WorkoutSession? = nil,
         rotation: RotationPlan? = nil,
         favoriteTimers: [FavoriteTimer] = [],
+        exerciseLoadPrefs: [String: ExerciseLoadPreference] = [:],
         updatedAt: Date = Date()
     ) {
         self.settings = settings
@@ -1006,11 +1097,13 @@ public struct AppState: Codable, Sendable, Equatable {
         self.activeSession = activeSession
         self.rotation = rotation
         self.favoriteTimers = favoriteTimers
+        self.exerciseLoadPrefs = exerciseLoadPrefs
         self.updatedAt = updatedAt
     }
 
     enum CodingKeys: String, CodingKey {
-        case settings, exercises, routines, workouts, bodyWeights, activeSession, rotation, favoriteTimers, updatedAt
+        case settings, exercises, routines, workouts, bodyWeights, activeSession, rotation, favoriteTimers
+        case exerciseLoadPrefs, updatedAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -1023,6 +1116,7 @@ public struct AppState: Codable, Sendable, Equatable {
         activeSession = try c.decodeIfPresent(WorkoutSession.self, forKey: .activeSession)
         rotation = try c.decodeIfPresent(RotationPlan.self, forKey: .rotation)
         favoriteTimers = try c.decodeIfPresent([FavoriteTimer].self, forKey: .favoriteTimers) ?? []
+        exerciseLoadPrefs = try c.decodeIfPresent([String: ExerciseLoadPreference].self, forKey: .exerciseLoadPrefs) ?? [:]
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .distantPast
     }
 
@@ -1036,6 +1130,7 @@ public struct AppState: Codable, Sendable, Equatable {
         try c.encodeIfPresent(activeSession, forKey: .activeSession)
         try c.encodeIfPresent(rotation, forKey: .rotation)
         try c.encode(favoriteTimers, forKey: .favoriteTimers)
+        try c.encode(exerciseLoadPrefs, forKey: .exerciseLoadPrefs)
         try c.encode(updatedAt, forKey: .updatedAt)
     }
 }

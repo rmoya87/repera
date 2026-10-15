@@ -78,8 +78,12 @@ struct PhotoLibraryPicker: UIViewControllerRepresentable {
 
             BoardScanLog.info("PhotoLibraryPicker: types=\(provider.registeredTypeIdentifiers.joined(separator: ","))")
 
-            let finish: (UIImage?) -> Void = { image in
-                DispatchQueue.main.async {
+            // NSItemProvider no es Sendable; es seguro usarlo para carga desde colas de Photos.
+            nonisolated(unsafe) let itemProvider = provider
+            Task { [weak self] in
+                let image = await Self.loadImage(from: itemProvider)
+                await MainActor.run {
+                    guard let self else { return }
                     if let image {
                         BoardScanLog.image(image, step: "PhotoLibraryPicker")
                     } else {
@@ -89,43 +93,37 @@ struct PhotoLibraryPicker: UIViewControllerRepresentable {
                     self.parent.dismiss()
                 }
             }
+        }
 
-            // Preferir bytes (más fiable con HEIC que loadObject).
-            if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
-                provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, error in
-                    if let error {
-                        BoardScanLog.error("loadDataRepresentation: \(error.localizedDescription)")
-                    }
-                    if let data, let image = UIImage(data: data) {
-                        finish(image)
-                        return
-                    }
-                    // Fallback UIImage
-                    if provider.canLoadObject(ofClass: UIImage.self) {
-                        provider.loadObject(ofClass: UIImage.self) { object, err in
-                            if let err {
-                                BoardScanLog.error("loadObject: \(err.localizedDescription)")
-                            }
-                            finish(object as? UIImage)
+        /// Preferir bytes (HEIC/JPEG); si falla, `loadObject` de `UIImage`.
+        private static func loadImage(from provider: NSItemProvider) async -> UIImage? {
+            // Los completion handlers de NSItemProvider son @Sendable; el tipo no lo es.
+            nonisolated(unsafe) let itemProvider = provider
+
+            if itemProvider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+                let data = await withCheckedContinuation { (continuation: CheckedContinuation<Data?, Never>) in
+                    itemProvider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, error in
+                        if let error {
+                            BoardScanLog.error("loadDataRepresentation: \(error.localizedDescription)")
                         }
-                    } else {
-                        finish(nil)
+                        continuation.resume(returning: data)
                     }
                 }
-                return
+                if let data, let image = UIImage(data: data) {
+                    return image
+                }
             }
 
-            if provider.canLoadObject(ofClass: UIImage.self) {
-                provider.loadObject(ofClass: UIImage.self) { object, error in
+            guard itemProvider.canLoadObject(ofClass: UIImage.self) else { return nil }
+
+            return await withCheckedContinuation { continuation in
+                _ = itemProvider.loadObject(ofClass: UIImage.self) { object, error in
                     if let error {
                         BoardScanLog.error("loadObject: \(error.localizedDescription)")
                     }
-                    finish(object as? UIImage)
+                    continuation.resume(returning: object as? UIImage)
                 }
-                return
             }
-
-            finish(nil)
         }
     }
 }

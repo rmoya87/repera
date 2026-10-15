@@ -536,24 +536,62 @@ public enum BoardImportParser {
     }
 
     private static func bestMatch(for name: String, in catalog: [Exercise]) -> Exercise? {
-        let needle = CrossFitGlossary.normalize(CrossFitGlossary.canonicalName(for: name))
-        guard !needle.isEmpty else { return nil }
-        if let exact = catalog.first(where: { CrossFitGlossary.normalize($0.name) == needle }) {
-            return exact
-        }
-        let scored: [(Exercise, Int)] = catalog.compactMap { ex in
-            let hay = CrossFitGlossary.normalize(ex.name)
-            if hay.contains(needle) || needle.contains(hay) {
-                return (ex, abs(hay.count - needle.count))
+        let cleaned = stripMovementModifiers(name)
+        let candidates = [
+            CrossFitGlossary.normalize(CrossFitGlossary.canonicalName(for: cleaned)),
+            CrossFitGlossary.normalize(CrossFitGlossary.expand(cleaned)),
+            CrossFitGlossary.normalize(cleaned),
+            CrossFitGlossary.normalize(CrossFitGlossary.canonicalName(for: name)),
+        ].filter { !$0.isEmpty }
+
+        for needle in candidates {
+            if let exact = catalog.first(where: { CrossFitGlossary.normalize($0.name) == needle }) {
+                return exact
             }
-            let tokens = needle.split(separator: " ")
-            let hits = tokens.filter { hay.contains($0) }.count
-            if hits >= 2 || (tokens.count == 1 && hits == 1 && needle.count >= 4) {
-                return (ex, 100 - hits * 10)
-            }
-            return nil
         }
-        return scored.min(by: { $0.1 < $1.1 })?.0
+
+        var best: (Exercise, Int)?
+        for needle in candidates {
+            for ex in catalog {
+                let hay = CrossFitGlossary.normalize(ex.name)
+                var score: Int?
+                if hay == needle {
+                    score = 0
+                } else if hay.contains(needle) || needle.contains(hay) {
+                    score = abs(hay.count - needle.count) + 1
+                } else {
+                    let tokens = needle.split(separator: " ").filter { $0.count >= 3 }
+                    let hits = tokens.filter { hay.contains($0) }.count
+                    if hits >= 2 || (tokens.count == 1 && hits == 1) {
+                        score = 50 - hits * 10
+                    }
+                }
+                if let score, best == nil || score < best!.1 {
+                    best = (ex, score)
+                }
+            }
+        }
+        return best?.0
+    }
+
+    /// Quita sufijos de estilo WOD que no forman parte del nombre del ejercicio.
+    private static func stripMovementModifiers(_ raw: String) -> String {
+        var s = raw
+        let junk = [
+            #"\bt\s*&\s*g\b"#,
+            #"\btouch\s+and\s+go\b"#,
+            #"\bafap\b"#,
+            #"\bbn\b"#,
+            #"\bbtn\b"#,
+            #"\bbehind\s+neck\b"#,
+            #"\bunbroken\b"#,
+            #"\buat\b"#,
+        ]
+        for pattern in junk {
+            s = s.replacingOccurrences(of: pattern, with: " ", options: [.regularExpression, .caseInsensitive])
+        }
+        return s.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
@@ -631,12 +669,37 @@ public enum CrossFitGlossary {
         "bmú": "Muscle-up barra",
         "rmu": "Muscle-up anillas",
         "pull up": "Dominadas",
+        "pull ups": "Dominadas",
         "pull-up": "Dominadas",
+        "pull-ups": "Dominadas",
+        "pullups": "Dominadas",
         "pu": "Dominadas",
         "chin up": "Dominadas supinas",
         "thruster": "Thruster",
+        "thrusters": "Thruster",
         "kb swing": "Swing kettlebell",
         "american swing": "Swing americano",
+        "american kb swing": "Swing americano",
+        "american kettlebell swing": "Swing americano",
+        "kb american swing": "Swing americano",
+        "deadlift": "Peso muerto",
+        "deadlifts": "Peso muerto",
+        "deadlift t&g": "Peso muerto",
+        "deadlift t and g": "Peso muerto",
+        "deadlift touch and go": "Peso muerto",
+        "dl": "Peso muerto",
+        "dl t&g": "Peso muerto",
+        "t&g": "",
+        "touch and go": "",
+        "push presses": "Push press",
+        "cal": "Air bike",
+        "cals": "Air bike",
+        "calorie": "Air bike",
+        "calories": "Air bike",
+        "cal row": "Air bike",
+        "cal ski": "SkiErg",
+        "row": "Air bike",
+        "ski": "SkiErg",
         "tgu": "Turkish get-up",
         "ghd": "GHD sit-up",
         "afap": "lo más rápido posible",

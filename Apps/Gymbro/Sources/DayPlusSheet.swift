@@ -2,13 +2,13 @@ import GymbroDomain
 import SwiftUI
 import UIKit
 
-/// Menú para dar de alta un entreno de un día (no el plan semanal).
+/// Menú para dar de alta un entreno de un día concreto (no el plan semanal).
 struct DayPlusSheet: View {
     @Environment(GymbroStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
-    /// Día ISO (1=lun … 7=dom) al que se asignará el entreno. Por defecto: hoy.
-    var targetWeekday: Int = CalendarHelpers.isoWeekday()
+    /// Día del calendario al que se asigna el entreno suelto.
+    var targetDate: Date = Calendar.current.startOfDay(for: Date())
     var onGoPlan: () -> Void
     var onStartedWorkout: () -> Void
 
@@ -24,11 +24,20 @@ struct DayPlusSheet: View {
     @State private var errorMessage: String?
     @State private var showDayEditor = false
 
+    private var targetWeekday: Int { CalendarHelpers.isoWeekday(for: targetDate) }
     private var dayName: String { CalendarHelpers.weekdayName(targetWeekday) }
+    private var dayStart: Date { Calendar.current.startOfDay(for: targetDate) }
 
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    OGPageHeader(title: "Añadir entreno") {
+                        CloseToolbarButton { dismiss() }
+                    }
+                    .ogListPageHeaderRow()
+                }
+
                 Section {
                     Button {
                         showDayEditor = true
@@ -110,13 +119,8 @@ struct DayPlusSheet: View {
                 }
             }
             .ogListChrome()
-            .navigationTitle("Añadir entreno")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    CloseToolbarButton { dismiss() }
-                }
-            }
+            .ogContentTitleNav()
+            .toolbar(.hidden, for: .navigationBar)
             .confirmationDialog("Escanear pizarra", isPresented: $showImageSourceDialog, titleVisibility: .visible) {
                 if UIImagePickerController.isSourceTypeAvailable(.camera) {
                     Button("Tomar foto") { showCameraPicker = true }
@@ -140,7 +144,8 @@ struct DayPlusSheet: View {
                     lines: reviewLines,
                     ocrText: reviewOCR,
                     detectedBlocks: reviewBlocks,
-                    preferredWeekday: targetWeekday
+                    preferredWeekday: targetWeekday,
+                    preferredDate: dayStart
                 ) { started in
                     showReview = false
                     if started {
@@ -154,15 +159,16 @@ struct DayPlusSheet: View {
             .sheet(isPresented: $showDayEditor) {
                 DayEditorView(
                     routine: Routine(
-                        title: dayName,
-                        weekday: targetWeekday,
+                        title: "Entreno · \(dayName)",
+                        weekday: nil,
+                        scheduledDate: dayStart,
                         blocks: [.strength(title: "Bloque")],
-                        progression: .linear
+                        progression: .off
                     ),
-                    mode: .plan(isNew: true)
+                    mode: .oneOff(isNew: true)
                 )
                 .onDisappear {
-                    if store.state.routines.contains(where: { $0.weekday == targetWeekday }) {
+                    if store.routineForDay(dayStart)?.isOneOff == true {
                         dismiss()
                     }
                 }
@@ -225,10 +231,13 @@ struct BoardImportReviewView: View {
     var detectedBlocks: [RoutineBlock] = []
     /// Día ISO preferido al abrir (p. ej. viernes seleccionado). Si nil, hoy.
     var preferredWeekday: Int? = nil
+    /// Fecha concreta para entreno suelto (Inicio).
+    var preferredDate: Date? = nil
     var embedsNavigationStack: Bool = true
     var onDone: (_ started: Bool) -> Void
 
     @State private var targetWeekday: Int = CalendarHelpers.isoWeekday()
+    @State private var targetDate: Date = Calendar.current.startOfDay(for: Date())
     @State private var blocks: [RoutineBlock] = []
     @State private var didApplyPreferredDay = false
 
@@ -302,15 +311,23 @@ struct BoardImportReviewView: View {
                     }
                 }
                 .pickerStyle(.menu)
+                .onChange(of: targetWeekday) { _, day in
+                    targetDate = resolvedSaveDate(for: day)
+                }
             } header: {
                 Text("Guardar entreno")
             } footer: {
-                Text("Entreno suelto para \(CalendarHelpers.weekdayName(targetWeekday)). No crea tu plan semanal; eso se hace en Diario.")
+                Text("Se guarda como entreno suelto de \(CalendarHelpers.weekdayName(targetWeekday)) (aparece en Inicio · Entreno del día). No forma parte del plan semanal de Diario ni del historial hasta que lo termines.")
             }
         }
         .ogListChrome()
-        .navigationTitle("De la pizarra")
-        .navigationBarTitleDisplayMode(.inline)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            OGPageHeader(title: "De la pizarra")
+                .padding(.horizontal, OG.pad)
+                .padding(.top, 8)
+                .background(OG.bg)
+        }
+        .ogContentTitleNav()
         .toolbar {
             if embedsNavigationStack {
                 ToolbarItem(placement: .cancellationAction) {
@@ -323,12 +340,15 @@ struct BoardImportReviewView: View {
             ToolbarItemGroup(placement: .confirmationAction) {
                 Button("Al \(CalendarHelpers.weekdayName(targetWeekday).prefix(3).lowercased())") {
                     let day = targetWeekday
-                    BoardScanLog.info("Review Al día weekday=\(day) (\(CalendarHelpers.weekdayName(day)))")
+                    let saveDate = resolvedSaveDate(for: day)
+                    targetDate = saveDate
+                    BoardScanLog.info("Review Al día weekday=\(day) date=\(saveDate)")
                     _ = store.saveBoardToDay(
                         weekday: day,
                         lines: lines,
                         ocrText: ocrText.isEmpty ? nil : ocrText,
-                        blocks: blocks.isEmpty ? nil : blocks
+                        blocks: blocks.isEmpty ? nil : blocks,
+                        onDate: saveDate
                     )
                     if embedsNavigationStack { dismiss() }
                     onDone(false)
@@ -349,8 +369,16 @@ struct BoardImportReviewView: View {
             }
         }
         .onAppear {
-            if !didApplyPreferredDay, let preferredWeekday, (1...7).contains(preferredWeekday) {
-                targetWeekday = preferredWeekday
+            if !didApplyPreferredDay {
+                if let preferredDate {
+                    targetDate = Calendar.current.startOfDay(for: preferredDate)
+                    targetWeekday = CalendarHelpers.isoWeekday(for: targetDate)
+                } else if let preferredWeekday, (1...7).contains(preferredWeekday) {
+                    targetWeekday = preferredWeekday
+                    targetDate = resolvedSaveDate(for: preferredWeekday)
+                } else {
+                    targetDate = resolvedSaveDate(for: targetWeekday)
+                }
                 didApplyPreferredDay = true
             }
             if !detectedBlocks.isEmpty {
@@ -367,6 +395,19 @@ struct BoardImportReviewView: View {
                     + "weekday=\(targetWeekday)"
             )
         }
+    }
+
+    /// Fecha del día elegido: respeta el día de Inicio si coincide; si no, el próximo ese weekday.
+    private func resolvedSaveDate(for isoWeekday: Int) -> Date {
+        let calendar = Calendar.current
+        if let preferredDate {
+            let preferred = calendar.startOfDay(for: preferredDate)
+            if CalendarHelpers.isoWeekday(for: preferred) == isoWeekday {
+                return preferred
+            }
+            return CalendarHelpers.nextDate(forISOWeekday: isoWeekday, from: preferred)
+        }
+        return CalendarHelpers.nextDate(forISOWeekday: isoWeekday)
     }
 
     private var canConfirm: Bool {

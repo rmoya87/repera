@@ -36,7 +36,13 @@ struct LibraryView: View {
     @State private var name = ""
     @State private var muscle = "Pecho"
     @State private var equipment = ""
+    @State private var targetMuscle = ""
+    @State private var bodyPart = ""
+    @State private var secondaryText = ""
+    @State private var detailDescription = ""
+    @State private var instructionsText = ""
     @State private var browseMode: ExerciseBrowseMode = .alphabetical
+    @State private var planFlashId: UUID?
 
     private let muscles = [
         "Pecho", "Espalda", "Piernas", "Isquios", "Hombros", "Bíceps", "Tríceps",
@@ -63,56 +69,104 @@ struct LibraryView: View {
             .ogListChrome()
             .searchable(text: $query, prompt: "Nombre, músculo o equipo")
             .navigationTitle("Ejercicios")
-            .toolbarBackground(OG.bg, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.large)
+            .ogTransparentNav()
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
+                    OGToolbarGlassButton(
+                        systemName: "line.3.horizontal.decrease",
+                        accessibilityLabel: "Filtrar y ordenar"
+                    ) {
                         showFilter = true
-                    } label: {
-                        Image(systemName: "line.3.horizontal.decrease.circle")
                     }
-                    .accessibilityLabel("Filtrar y ordenar")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showingAdd = true } label: { Image(systemName: "plus") }
+                    OGToolbarGlassButton(
+                        systemName: "plus",
+                        accessibilityLabel: "Nuevo ejercicio"
+                    ) {
+                        showingAdd = true
+                    }
                 }
             }
             .sheet(isPresented: $showFilter) {
                 filterSheet
             }
             .sheet(isPresented: $showingAdd) {
-                NavigationStack {
-                    Form {
-                        TextField("Nombre", text: $name)
-                        Picker("Músculo", selection: $muscle) {
-                            ForEach(muscles, id: \.self) { Text($0).tag($0) }
-                        }
-                        TextField("Equipamiento", text: $equipment)
-                    }
-                    .navigationTitle("Nuevo ejercicio")
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Cancelar") { showingAdd = false }
-                        }
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Añadir") {
-                                store.addCustomExercise(
-                                    name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-                                    muscleGroup: muscle,
-                                    equipment: equipment.isEmpty ? nil : equipment
-                                )
-                                name = ""
-                                equipment = ""
-                                showingAdd = false
-                            }
-                            .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        }
-                    }
-                }
-                .preferredColorScheme(.dark)
+                addExerciseSheet
             }
         }
+    }
+
+    private var addExerciseSheet: some View {
+        NavigationStack {
+            Form {
+                Section("Básico") {
+                    TextField("Nombre", text: $name)
+                    Picker("Grupo muscular", selection: $muscle) {
+                        ForEach(muscles, id: \.self) { Text($0).tag($0) }
+                    }
+                    TextField("Equipamiento (barra, mancuernas…)", text: $equipment)
+                }
+                Section("Detalle") {
+                    TextField("Músculo objetivo", text: $targetMuscle)
+                    TextField("Parte del cuerpo", text: $bodyPart)
+                    TextField("Secundarios (separados por coma)", text: $secondaryText)
+                    TextField("Descripción", text: $detailDescription, axis: .vertical)
+                        .lineLimit(3...6)
+                }
+                Section("Instrucciones") {
+                    TextField("Un paso por línea", text: $instructionsText, axis: .vertical)
+                        .lineLimit(4...10)
+                }
+            }
+            .ogListChrome()
+            .navigationTitle("Nuevo ejercicio")
+            .navigationBarTitleDisplayMode(.inline)
+            .ogTransparentNav()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancelar") { showingAdd = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Añadir") {
+                        let secondary = secondaryText
+                            .split(separator: ",")
+                            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                            .filter { !$0.isEmpty }
+                        let instructions = instructionsText
+                            .split(whereSeparator: \.isNewline)
+                            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                            .filter { !$0.isEmpty }
+                        store.addCustomExercise(
+                            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+                            muscleGroup: muscle,
+                            equipment: equipment.isEmpty ? nil : equipment,
+                            targetMuscle: targetMuscle.isEmpty ? nil : targetMuscle,
+                            secondaryMuscles: secondary,
+                            bodyPart: bodyPart.isEmpty ? nil : bodyPart,
+                            detailDescription: detailDescription.isEmpty ? nil : detailDescription,
+                            instructions: instructions
+                        )
+                        resetAddForm()
+                        showingAdd = false
+                    }
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private func resetAddForm() {
+        name = ""
+        equipment = ""
+        targetMuscle = ""
+        bodyPart = ""
+        secondaryText = ""
+        detailDescription = ""
+        instructionsText = ""
+        muscle = "Pecho"
     }
 
     private var filterSheet: some View {
@@ -144,6 +198,7 @@ struct LibraryView: View {
             .ogListChrome()
             .navigationTitle("Filtro")
             .navigationBarTitleDisplayMode(.inline)
+            .ogTransparentNav()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     CloseToolbarButton { showFilter = false }
@@ -157,40 +212,47 @@ struct LibraryView: View {
     @ViewBuilder
     private func exerciseRows(_ items: [Exercise]) -> some View {
         ForEach(items) { exercise in
-            NavigationLink {
-                ExerciseDetailView(exerciseId: exercise.id)
-            } label: {
-                HStack(spacing: 12) {
-                    ExerciseThumb(exercise: exercise)
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 6) {
-                            Text(exercise.name)
-                            if exercise.isFavorite {
-                                Image(systemName: "star.fill")
-                                    .font(.caption2)
-                                    .foregroundStyle(OG.yellow)
+            HStack(spacing: 12) {
+                NavigationLink {
+                    ExerciseDetailView(exerciseId: exercise.id)
+                } label: {
+                    HStack(spacing: 12) {
+                        ExerciseThumb(exercise: exercise)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Text(exercise.name)
+                                    .foregroundStyle(OG.label)
+                                if exercise.isFavorite {
+                                    Image(systemName: "star.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(OG.yellow)
+                                }
                             }
+                            Text(librarySubtitle(exercise))
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
                         }
-                        HStack {
-                            Text(exercise.muscleGroup)
-                            if let eq = exercise.equipment {
-                                Text("· \(eq)")
-                            }
-                            if let target = exercise.targetMuscle {
-                                Text("· \(LocalizedMuscle.es(target))")
-                            }
-                            if exercise.isCustom {
-                                Text("Propio")
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(OG.surface2, in: Capsule())
-                            }
-                        }
-                        .font(.caption)
-                        .foregroundStyle(OG.label2)
+                        Spacer(minLength: 0)
                     }
-                    Spacer()
                 }
+                .buttonStyle(.plain)
+
+                Button {
+                    store.addExerciseToTodayWorkout(exercise.id)
+                    planFlashId = exercise.id
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                        if planFlashId == exercise.id { planFlashId = nil }
+                    }
+                } label: {
+                    Text(planFlashId == exercise.id ? "OK" : "+ Plan")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(OG.accent)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Añadir al entreno del día")
             }
             .swipeActions {
                 Button {
@@ -208,6 +270,14 @@ struct LibraryView: View {
                 }
             }
         }
+    }
+
+    private func librarySubtitle(_ exercise: Exercise) -> String {
+        var parts: [String] = [exercise.muscleGroup]
+        if let eq = exercise.equipment, !eq.isEmpty {
+            parts.append(eq)
+        }
+        return parts.joined(separator: " · ")
     }
 
     private struct SectionModel: Identifiable {

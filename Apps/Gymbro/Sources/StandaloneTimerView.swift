@@ -224,33 +224,29 @@ struct StandaloneTimerView: View {
                         .background(OG.accent, in: Capsule())
                 }
                 .buttonStyle(.plain)
-
-                Button {
+            }
+            .padding(.horizontal, OG.pad)
+            .padding(.top, 8)
+            .padding(.bottom, 28)
+        }
+        .background(OG.bg)
+        .navigationTitle("Temporizador")
+        .navigationBarTitleDisplayMode(.large)
+        .ogTransparentNav()
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                OGToolbarGlassButton(
+                    systemName: editingFavoriteId == nil ? "star" : "star.fill",
+                    accessibilityLabel: editingFavoriteId == nil ? "Guardar en favoritos" : "Actualizar favorito",
+                    tint: OG.yellow
+                ) {
                     saveTitle = editingFavoriteId.flatMap { id in
                         store.state.favoriteTimers.first { $0.id == id }?.title
                     } ?? defaultFavoriteTitle
                     showSaveAlert = true
-                } label: {
-                    Label(
-                        editingFavoriteId == nil ? "Guardar en favoritos" : "Actualizar favorito",
-                        systemImage: "star"
-                    )
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(OG.yellow)
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 48)
-                    .background(OG.surface, in: Capsule())
                 }
-                .buttonStyle(.plain)
             }
-            .padding(.horizontal, OG.pad)
-            .padding(.vertical, 16)
         }
-        .background(OG.bg)
-        .navigationTitle("Temporizador")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(OG.bg, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
     }
 
     private var defaultFavoriteTitle: String {

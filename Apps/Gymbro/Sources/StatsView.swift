@@ -4,7 +4,6 @@ import SwiftUI
 
 struct StatsView: View {
     @Environment(GymbroStore.self) private var store
-    @State private var chartExerciseId: UUID?
 
     private var records: [PersonalRecord] {
         StatsEngine.personalRecords(from: store.state.workouts)
@@ -19,6 +18,7 @@ struct StatsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
+                    OGPageHeader(title: "Progreso")
                     metricsRow
                     volumeTrendCard
                     sessionsTrendCard
@@ -44,12 +44,12 @@ struct StatsView: View {
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal, OG.pad)
-                .padding(.vertical, 12)
+                .padding(.top, 8)
+                .padding(.bottom, 28)
             }
             .background(OG.bg)
-            .navigationTitle("Estadísticas")
-            .toolbarBackground(OG.bg, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
+            .ogContentTitleNav()
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
 
@@ -155,55 +155,32 @@ struct StatsView: View {
                     Text("Cuando entrenes, aquí verás la curva de peso.")
                         .foregroundStyle(OG.label2)
                 } else {
-                    Picker("Ejercicio", selection: Binding(
-                        get: { chartExerciseId ?? chartExercises.first?.id },
-                        set: { chartExerciseId = $0 }
-                    )) {
-                        ForEach(chartExercises) { ex in
-                            Text(ex.name).tag(Optional(ex.id))
+                    ForEach(chartExercises.prefix(8)) { ex in
+                        NavigationLink {
+                            ExerciseProgressView(exerciseId: ex.id)
+                        } label: {
+                            HStack {
+                                Text(ex.name)
+                                    .foregroundStyle(OG.label)
+                                Spacer()
+                                let h = StatsEngine.history(for: ex.id, workouts: store.state.workouts)
+                                if let maxW = h.maxWeightKg {
+                                    Text("\(maxW.formatted(.number.precision(.fractionLength(0...1)))) kg")
+                                        .font(.system(size: 13).monospacedDigit())
+                                        .foregroundStyle(OG.label2)
+                                }
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(OG.label3)
+                            }
                         }
-                    }
-                    .pickerStyle(.menu)
-                    .tint(OG.accent)
-
-                    let points = weightSeries(for: chartExerciseId ?? chartExercises.first?.id)
-                    if points.count >= 2 {
-                        Chart(points) { pt in
-                            LineMark(x: .value("Fecha", pt.date), y: .value("kg", pt.kg))
-                                .foregroundStyle(OG.accent)
-                            PointMark(x: .value("Fecha", pt.date), y: .value("kg", pt.kg))
-                                .foregroundStyle(OG.accent)
+                        if ex.id != chartExercises.prefix(8).last?.id {
+                            Divider().overlay(Color.white.opacity(0.08))
                         }
-                        .frame(height: 140)
-                    } else {
-                        Text("Haz al menos 2 sesiones de este ejercicio.")
-                            .font(.caption)
-                            .foregroundStyle(OG.label3)
                     }
                 }
             }
         }
-    }
-
-    private struct WeightPoint: Identifiable {
-        var id: Date { date }
-        var date: Date
-        var kg: Double
-    }
-
-    private func weightSeries(for exerciseId: UUID?) -> [WeightPoint] {
-        guard let exerciseId else { return [] }
-        var points: [WeightPoint] = []
-        for session in store.state.workouts.reversed() {
-            guard let ex = session.exercises.first(where: { $0.exercise.id == exerciseId }) else { continue }
-            let work = ex.loggedSets.filter { !$0.isWarmup && ($0.weightKg ?? 0) > 0 }
-            guard let best = work.max(by: { ($0.weightKg ?? 0) < ($1.weightKg ?? 0) }),
-                  let kg = best.weightKg,
-                  let date = session.finishedAt ?? session.startedAt
-            else { continue }
-            points.append(WeightPoint(date: date, kg: kg))
-        }
-        return points.suffix(30).map { $0 }
     }
 
     private var muscleMap: some View {

@@ -154,17 +154,24 @@ struct BlockTimerScreen: View {
 
     private var isLandscape: Bool { verticalSizeClass == .compact }
 
+    /// Arriba/abajo sin ejercicio: reloj y Comenzar/Parar centrados (sobre todo en horizontal).
+    private var centersChrome: Bool { exercise == nil }
+
     var body: some View {
         GeometryReader { geo in
             let digitH: CGFloat = isLandscape
-                ? min(120, geo.size.height * 0.42)
-                : min(88, geo.size.width * 0.18)
+                ? min(centersChrome ? 140 : 120, geo.size.height * (centersChrome ? 0.38 : 0.42))
+                : min(centersChrome ? 100 : 88, geo.size.width * 0.2)
 
             ZStack {
                 Color.black.ignoresSafeArea()
 
                 if isLandscape {
-                    landscapeLayout(digitHeight: digitH, size: geo.size)
+                    if centersChrome {
+                        centeredLandscapeLayout(digitHeight: digitH)
+                    } else {
+                        landscapeWithExercise(digitHeight: digitH, size: geo.size)
+                    }
                 } else {
                     portraitLayout(digitHeight: digitH)
                 }
@@ -172,94 +179,128 @@ struct BlockTimerScreen: View {
         }
     }
 
-    private func portraitLayout(digitHeight: CGFloat) -> some View {
-        VStack(spacing: 20) {
-            HStack {
-                CloseToolbarButton(action: onClose)
-                Spacer()
-                if let totalRounds, let roundNumber {
-                    Text("\(roundNumber)/\(totalRounds)")
-                        .font(.system(size: 15, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(OG.label3)
-                }
+    /// Top bar: X liquid glass alineada con el título grande.
+    private var topBar: some View {
+        HStack(alignment: .center, spacing: 12) {
+            CloseToolbarButton(action: onClose)
+            if !title.isEmpty {
+                Text(title)
+                    .font(.system(size: isLandscape ? 26 : 28, weight: .bold))
+                    .foregroundStyle(.white)
+                    .tracking(-0.4)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
+            Spacer(minLength: 8)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+    }
+
+    private func portraitLayout(digitHeight: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            topBar
 
             if let exercise {
-                ExerciseThumb(exercise: exercise, size: 72)
-                Text(exercise.name)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-            } else if !title.isEmpty {
-                Text(title)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-            }
-
-            Spacer(minLength: 8)
-
-            VStack(spacing: 10) {
-                DigitalClockDisplay(
-                    roundNumber: roundNumber,
-                    totalSeconds: displaySeconds,
-                    digitHeight: digitHeight
-                )
-                .padding(.horizontal, 12)
-
-                if !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(OG.accent)
+                VStack(spacing: 10) {
+                    ExerciseThumb(exercise: exercise, size: 72)
+                    Text(exercise.name)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
                 }
+                .padding(.top, 16)
             }
 
             Spacer(minLength: 8)
 
+            clockBlock(digitHeight: digitHeight)
+
+            if centersChrome {
+                controls
+                    .frame(maxWidth: 360)
+                    .padding(.top, 28)
+                    .padding(.horizontal, 24)
+                Spacer(minLength: 8)
+            } else {
+                Spacer(minLength: 8)
+                controls
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 28)
+            }
+        }
+        .padding(.bottom, centersChrome ? 28 : 0)
+    }
+
+    private func centeredLandscapeLayout(digitHeight: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            topBar
+            Spacer(minLength: 4)
+            clockBlock(digitHeight: digitHeight)
             controls
+                .frame(maxWidth: 320)
+                .padding(.top, 20)
                 .padding(.horizontal, 24)
-                .padding(.bottom, 28)
+            Spacer(minLength: 4)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.bottom, 12)
+    }
+
+    private func landscapeWithExercise(digitHeight: CGFloat, size: CGSize) -> some View {
+        VStack(spacing: 0) {
+            topBar
+            HStack(spacing: 20) {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let exercise {
+                        ExerciseThumb(exercise: exercise, size: 64)
+                        Text(exercise.name)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(3)
+                    }
+                    Spacer(minLength: 0)
+                    controls
+                }
+                .frame(width: min(220, size.width * 0.28), alignment: .leading)
+                .padding(.leading, 20)
+                .padding(.vertical, 12)
+
+                VStack(spacing: 10) {
+                    Spacer()
+                    clockBlock(digitHeight: digitHeight)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.trailing, 16)
+            }
         }
     }
 
-    private func landscapeLayout(digitHeight: CGFloat, size: CGSize) -> some View {
-        HStack(spacing: 20) {
-            VStack(alignment: .leading, spacing: 12) {
-                CloseToolbarButton(action: onClose)
-                if let exercise {
-                    ExerciseThumb(exercise: exercise, size: 64)
-                    Text(exercise.name)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(3)
-                }
-                Spacer(minLength: 0)
-                controls
-            }
-            .frame(width: min(220, size.width * 0.28), alignment: .leading)
-            .padding(.leading, 20)
-            .padding(.vertical, 16)
+    private func clockBlock(digitHeight: CGFloat) -> some View {
+        VStack(spacing: 10) {
+            DigitalClockDisplay(
+                roundNumber: roundNumber,
+                totalSeconds: displaySeconds,
+                digitHeight: digitHeight
+            )
+            .padding(.horizontal, 12)
 
-            VStack(spacing: 10) {
-                Spacer()
-                DigitalClockDisplay(
-                    roundNumber: roundNumber,
-                    totalSeconds: displaySeconds,
-                    digitHeight: digitHeight
-                )
-                if !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(OG.accent)
+            if !subtitle.isEmpty || (totalRounds != nil && roundNumber != nil) {
+                HStack(spacing: 8) {
+                    if let totalRounds, let roundNumber {
+                        Text("\(roundNumber)/\(totalRounds)")
+                            .font(.system(size: isLandscape ? 14 : 15, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(OG.label2)
+                    }
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.system(size: isLandscape ? 14 : 15, weight: .semibold))
+                            .foregroundStyle(OG.accent)
+                    }
                 }
-                Spacer()
             }
-            .frame(maxWidth: .infinity)
-            .padding(.trailing, 16)
         }
     }
 

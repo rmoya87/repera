@@ -7,6 +7,8 @@ struct HomeView: View {
     @Environment(HealthKitStore.self) private var health
     var onOpenWorkout: () -> Void
     var onStart: () -> Void
+    /// Abre el preview / inicio de un entreno concreto (p. ej. suelto del viernes).
+    var onStartRoutine: (Routine) -> Void = { _ in }
     var onGoPlan: () -> Void
     var onOpenStartHub: () -> Void
 
@@ -45,7 +47,7 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showCreatePlanForDay) {
                 DayPlusSheet(
-                    targetWeekday: selectedISOWeekday,
+                    targetDate: selectedDay,
                     onGoPlan: {
                         showCreatePlanForDay = false
                         onGoPlan()
@@ -172,9 +174,9 @@ struct HomeView: View {
 
                 Divider().overlay(OG.surface3)
 
-                // Entreno del día (suelto o del plan semanal); no confundir con «crear plan».
+                // Historial = solo sesiones ya terminadas (no el plan / suelto del día).
                 HStack {
-                    Text("Entreno del día")
+                    Text(workouts.isEmpty ? "Sin registros este día" : "Registros del día")
                         .font(.system(size: 13))
                         .foregroundStyle(OG.label2)
                     Spacer()
@@ -185,70 +187,10 @@ struct HomeView: View {
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(OG.accent)
                     }
-                }
-
-                if let planned = plannedRoutineForSelectedDay {
-                    Button {
-                        startPlannedDayIfPossible()
-                    } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: calendar.isDateInToday(selectedDay) ? "play.fill" : "list.bullet.rectangle")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(OG.onAccent)
-                                .frame(width: 32, height: 32)
-                                .background(OG.accent, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(planned.title)
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundStyle(OG.label)
-                                    .multilineTextAlignment(.leading)
-                                Text(calendar.isDateInToday(selectedDay)
-                                     ? "Toca para empezar"
-                                     : "Para \(CalendarHelpers.weekdayName(selectedISOWeekday))")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(OG.label2)
-                            }
-                            Spacer(minLength: 8)
-                            if calendar.isDateInToday(selectedDay) {
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(OG.label3)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                    .buttonStyle(.plain)
-                } else {
-                    Button {
-                        showCreatePlanForDay = true
-                    } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(OG.accent)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Añadir entreno")
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundStyle(OG.label)
-                                Text("Para \(CalendarHelpers.weekdayName(selectedISOWeekday))")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(OG.label2)
-                            }
-                            Spacer(minLength: 8)
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(OG.label3)
-                        }
-                        .padding(.vertical, 4)
-                    }
-                    .buttonStyle(.plain)
+                    .accessibilityHint("Sesiones terminadas")
                 }
 
                 if !workouts.isEmpty {
-                    Text("Registros")
-                        .font(.system(size: 13))
-                        .foregroundStyle(OG.label2)
-                        .padding(.top, 8)
                     ForEach(workouts) { session in
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
@@ -261,6 +203,12 @@ struct HomeView: View {
                                       : "—")
                                     .font(.system(size: 13))
                                     .foregroundStyle(OG.label3)
+                            }
+                            if let notes = session.notes?.trimmingCharacters(in: .whitespacesAndNewlines), !notes.isEmpty {
+                                Text(notes)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(OG.label2)
+                                    .lineLimit(3)
                             }
                             ForEach(session.exercises.filter { !$0.loggedSets.isEmpty }) { ex in
                                 VStack(alignment: .leading, spacing: 2) {
@@ -286,16 +234,15 @@ struct HomeView: View {
     }
 
     private func startPlannedDayIfPossible() {
-        let isToday = calendar.isDateInToday(selectedDay)
-        if isToday {
-            if store.state.activeSession != nil || plannedRoutineForSelectedDay != nil {
-                onStart()
-            } else {
-                showCreatePlanForDay = true
-            }
-        } else if plannedRoutineForSelectedDay == nil {
-            showCreatePlanForDay = true
+        if calendar.isDateInToday(selectedDay), store.state.activeSession != nil {
+            onStart()
+            return
         }
+        if let planned = plannedRoutineForSelectedDay {
+            onStartRoutine(planned)
+            return
+        }
+        showCreatePlanForDay = true
     }
 
     private var displayedWeightKg: Double? {
@@ -332,16 +279,13 @@ struct HomeView: View {
 
     private var dayActionRow: some View {
         let isToday = calendar.isDateInToday(selectedDay)
-        let hasPlan = plannedRoutineForSelectedDay != nil
-        let canAct = isToday || !hasPlan
+        let planned = plannedRoutineForSelectedDay
         return Button {
-            if isToday {
-                if store.state.activeSession != nil || hasPlan {
-                    onStart()
-                } else {
-                    showCreatePlanForDay = true
-                }
-            } else if !hasPlan {
+            if isToday, store.state.activeSession != nil {
+                onStart()
+            } else if let planned {
+                onStartRoutine(planned)
+            } else {
                 showCreatePlanForDay = true
             }
         } label: {
@@ -364,21 +308,26 @@ struct HomeView: View {
                         .foregroundStyle(OG.label)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
+                    if planned != nil, store.state.activeSession == nil || !isToday {
+                        Text("Toca para abrir y empezar")
+                            .font(.system(size: 12))
+                            .foregroundStyle(OG.label2)
+                    } else if planned == nil {
+                        Text("Toca para añadir un entreno")
+                            .font(.system(size: 12))
+                            .foregroundStyle(OG.label2)
+                    }
                 }
                 Spacer(minLength: 8)
-                if canAct {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(OG.label3)
-                }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(OG.label3)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
-        .disabled(!canAct)
-        .opacity(canAct ? 1 : 0.85)
     }
 
     private func metricTile(title: String, value: String, icon: String, tint: Color) -> some View {
@@ -439,17 +388,17 @@ struct HomeView: View {
 
     // MARK: - Derived
 
+    /// Solo entrenos ya terminados ese día (no borradores ni sesiones a medias).
     private var workoutsOnSelectedDay: [WorkoutSession] {
         store.state.workouts.filter { w in
-            guard let d = w.finishedAt ?? w.startedAt else { return false }
+            guard let d = w.finishedAt else { return false }
             return calendar.isDate(d, inSameDayAs: selectedDay)
         }
-        .sorted { ($0.finishedAt ?? $0.startedAt ?? .distantPast) > ($1.finishedAt ?? $1.startedAt ?? .distantPast) }
+        .sorted { ($0.finishedAt ?? .distantPast) > ($1.finishedAt ?? .distantPast) }
     }
 
     private var plannedRoutineForSelectedDay: Routine? {
-        let iso = CalendarHelpers.isoWeekday(for: selectedDay)
-        return store.state.routines.first { $0.weekday == iso }
+        store.routineForDay(selectedDay)
     }
 
     private var plannedTitleForSelectedDay: String? {
@@ -564,21 +513,21 @@ struct HomeView: View {
 
         let workoutDays: Set<String> = Set(
             store.state.workouts.compactMap { w -> String? in
-                guard let d = w.finishedAt ?? w.startedAt else { return nil }
+                guard let d = w.finishedAt else { return nil }
                 return dayKey(d)
             }
         )
 
         return (0..<7).compactMap { i in
             guard let d = calendar.date(byAdding: .day, value: i, to: start) else { return nil }
-            let isoWeekday = CalendarHelpers.isoWeekday(for: d)
+            let dayStart = calendar.startOfDay(for: d)
             return DayCell(
                 iso: dayKey(d),
-                date: calendar.startOfDay(for: d),
+                date: dayStart,
                 lbl: labels[i],
                 num: calendar.component(.day, from: d),
                 hasWorkout: workoutDays.contains(dayKey(d)),
-                hasPlan: store.state.routines.contains { $0.weekday == isoWeekday }
+                hasPlan: store.routineForDay(dayStart) != nil
             )
         }
     }

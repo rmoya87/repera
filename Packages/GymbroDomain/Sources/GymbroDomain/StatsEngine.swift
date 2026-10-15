@@ -195,6 +195,216 @@ public struct ExerciseHistorySummary: Sendable, Equatable {
     public var hasData: Bool { timesPerformed > 0 }
 }
 
+// MARK: - Progreso por ejercicio (estilo openGym)
+
+public enum ExerciseProgressMetric: String, CaseIterable, Sendable, Identifiable {
+    case topSet
+    case estimatedOneRM
+    case effort
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .topSet: return "Top set"
+        case .estimatedOneRM: return "1RM est."
+        case .effort: return "Esfuerzo"
+        }
+    }
+}
+
+public enum ProgressRange: String, CaseIterable, Sendable, Identifiable {
+    case oneMonth
+    case threeMonths
+    case oneYear
+    case all
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .oneMonth: return "1M"
+        case .threeMonths: return "3M"
+        case .oneYear: return "1A"
+        case .all: return "Todo"
+        }
+    }
+
+    public func startDate(from now: Date = Date(), calendar: Calendar = .current) -> Date? {
+        switch self {
+        case .oneMonth: return calendar.date(byAdding: .month, value: -1, to: now)
+        case .threeMonths: return calendar.date(byAdding: .month, value: -3, to: now)
+        case .oneYear: return calendar.date(byAdding: .year, value: -1, to: now)
+        case .all: return nil
+        }
+    }
+}
+
+public struct ExerciseProgressPoint: Identifiable, Sendable, Equatable {
+    public var id: Date { date }
+    public var date: Date
+    public var value: Double
+    public var weightKg: Double?
+    public var reps: Int?
+    public var rir: Double?
+
+    public init(date: Date, value: Double, weightKg: Double? = nil, reps: Int? = nil, rir: Double? = nil) {
+        self.date = date
+        self.value = value
+        self.weightKg = weightKg
+        self.reps = reps
+        self.rir = rir
+    }
+}
+
+public struct ExerciseSessionSnapshot: Identifiable, Sendable, Equatable {
+    public var id: UUID
+    public var date: Date
+    public var setLines: [String]
+    public var topWeightKg: Double?
+
+    public init(id: UUID, date: Date, setLines: [String], topWeightKg: Double?) {
+        self.id = id
+        self.date = date
+        self.setLines = setLines
+        self.topWeightKg = topWeightKg
+    }
+}
+
+extension StatsEngine {
+    /// Serie temporal para la ficha de progreso de un ejercicio.
+    public static func exerciseProgressSeries(
+        exerciseId: UUID,
+        metric: ExerciseProgressMetric,
+        range: ProgressRange,
+        workouts: [WorkoutSession],
+        now: Date = Date()
+    ) -> [ExerciseProgressPoint] {
+        let start = range.startDate(from: now)
+        var points: [ExerciseProgressPoint] = []
+
+        for workout in workouts.sorted(by: {
+            ($0.finishedAt ?? $0.startedAt ?? .distantPast) < ($1.finishedAt ?? $1.startedAt ?? .distantPast)
+        }) {
+            guard workout.finishedAt != nil || workout.phase == .finished else { continue }
+            guard let date = workout.finishedAt ?? workout.startedAt else { continue }
+            if let start, date < start { continue }
+            guard let ex = workout.exercises.first(where: { $0.exercise.id == exerciseId }) else { continue }
+            let work = ex.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
+            guard !work.isEmpty else { continue }
+
+            switch metric {
+            case .topSet:
+                guard let best = work.max(by: { ($0.weightKg ?? 0) < ($1.weightKg ?? 0) }),
+                      let kg = best.weightKg, kg > 0
+                else { continue }
+                points.append(
+                    ExerciseProgressPoint(date: date, value: kg, weightKg: kg, reps: best.reps, rir: best.rir)
+                )
+            case .estimatedOneRM:
+                var bestE1: Double = 0
+                var bestSet: LoggedSet?
+                for set in work {
+                    guard let w = set.weightKg, w > 0 else { continue }
+                    let e1 = w * (1 + Double(set.reps) / 30.0)
+                    if e1 > bestE1 {
+                        bestE1 = e1
+                        bestSet = set
+                    }
+                }
+                guard bestE1 > 0, let bestSet else { continue }
+                points.append(
+                    ExerciseProgressPoint(
+                        date: date,
+                        value: bestE1,
+                        weightKg: bestSet.weightKg,
+                        reps: bestSet.reps,
+                        rir: bestSet.rir
+                    )
+                )
+            case .effort:
+                let withRir = work.compactMap(\.rir)
+                guard let avg = withRir.isEmpty ? nil : withRir.reduce(0, +) / Double(withRir.count) else { continue }
+                let top = work.compactMap(\.weightKg).max()
+                points.append(
+                    ExerciseProgressPoint(date: date, value: avg, weightKg: top, reps: nil, rir: avg)
+                )
+            }
+        }
+        return points
+    }
+
+    /// Sesiones de un ejercicio con desglose serie a serie (para la lista bajo el gráfico).
+    public static func exerciseSessionSnapshots(
+        exerciseId: UUID,
+        workouts: [WorkoutSession],
+        range: ProgressRange = .all,
+        now: Date = Date()
+    ) -> [ExerciseSessionSnapshot] {
+        let start = range.startDate(from: now)
+        var rows: [ExerciseSessionSnapshot] = []
+
+        for workout in workouts.sorted(by: {
+            ($0.finishedAt ?? $0.startedAt ?? .distantPast) > ($1.finishedAt ?? $1.startedAt ?? .distantPast)
+        }) {
+            guard workout.finishedAt != nil || workout.phase == .finished else { continue }
+            guard let date = workout.finishedAt ?? workout.startedAt else { continue }
+            if let start, date < start { continue }
+            guard let ex = workout.exercises.first(where: { $0.exercise.id == exerciseId }) else { continue }
+            let work = ex.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
+            guard !work.isEmpty else { continue }
+
+            let lines = work.map { set -> String in
+                let w = set.weightKg.map { String(format: "%g", $0) } ?? "—"
+                var line = "\(w)×\(set.reps)"
+                if let rir = set.rir {
+                    line += " (RIR \(String(format: "%g", rir)))"
+                }
+                return line
+            }
+            rows.append(
+                ExerciseSessionSnapshot(
+                    id: workout.id,
+                    date: date,
+                    setLines: lines,
+                    topWeightKg: work.compactMap(\.weightKg).max()
+                )
+            )
+        }
+        return rows
+    }
+
+    /// Nº de PRs (mejor e1RM hasta esa fecha) logrados en una sesión.
+    public static func personalRecordCount(in session: WorkoutSession, allWorkouts: [WorkoutSession]) -> Int {
+        guard let sessionDate = session.finishedAt ?? session.startedAt else { return 0 }
+        var count = 0
+        for exercise in session.exercises {
+            let work = exercise.loggedSets.filter { !$0.isWarmup && $0.reps > 0 && ($0.weightKg ?? 0) > 0 }
+            guard !work.isEmpty else { continue }
+            let sessionBest = work.map { $0.weightKg! * (1 + Double($0.reps) / 30.0) }.max() ?? 0
+            guard sessionBest > 0 else { continue }
+
+            var priorBest: Double = 0
+            for other in allWorkouts {
+                guard let d = other.finishedAt ?? other.startedAt, d < sessionDate else { continue }
+                guard let ex = other.exercises.first(where: { $0.exercise.id == exercise.exercise.id }) else { continue }
+                for set in ex.loggedSets where !set.isWarmup && set.reps > 0 {
+                    guard let w = set.weightKg, w > 0 else { continue }
+                    priorBest = max(priorBest, w * (1 + Double(set.reps) / 30.0))
+                }
+            }
+            if sessionBest > priorBest + 0.05 {
+                count += 1
+            }
+        }
+        return count
+    }
+
+    public static func totalSets(in session: WorkoutSession) -> Int {
+        session.exercises.reduce(0) { $0 + $1.loggedSets.filter { !$0.isWarmup }.count }
+    }
+}
+
 public enum CalendarHelpers {
     /// ISO weekday: 1 Mon … 7 Sun
     public static func isoWeekday(for date: Date = Date(), calendar: Calendar = .current) -> Int {
@@ -213,5 +423,15 @@ public enum CalendarHelpers {
         case 7: "Domingo"
         default: "Día \(iso)"
         }
+    }
+
+    /// Próxima fecha (incluido `from`) con ese weekday ISO.
+    public static func nextDate(forISOWeekday iso: Int, from: Date = Date(), calendar: Calendar = .current) -> Date {
+        let start = calendar.startOfDay(for: from)
+        for offset in 0..<7 {
+            guard let d = calendar.date(byAdding: .day, value: offset, to: start) else { continue }
+            if isoWeekday(for: d, calendar: calendar) == iso { return d }
+        }
+        return start
     }
 }

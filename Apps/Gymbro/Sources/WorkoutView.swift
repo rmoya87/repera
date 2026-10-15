@@ -33,6 +33,18 @@ struct WorkoutView: View {
     @State private var wodSubtitle = ""
     @State private var wodClockTimer: Timer?
     @State private var clockExercise: Exercise?
+    @State private var showNotes = false
+    @State private var notesDraft = ""
+    /// Filas editables del ejercicio actual (objetivo por serie + check para registrar).
+    @State private var liveSets: [LiveSetRow] = []
+
+    private struct LiveSetRow: Identifiable, Equatable {
+        let id: UUID
+        var weightKg: Double?
+        var reps: Int
+        var rir: Double?
+        var completed: Bool
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -58,10 +70,7 @@ struct WorkoutView: View {
         .animation(.easeOut(duration: 0.2), value: restRemaining)
         .animation(.easeOut(duration: 0.25), value: showWODClock)
         .background(OG.bg)
-        .navigationTitle(store.state.activeSession?.title ?? "Sesión")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(OG.bg, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
+        .ogContentTitleNav()
         .toolbar(showWODClock ? .hidden : .automatic, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -69,13 +78,23 @@ struct WorkoutView: View {
                     .foregroundStyle(OG.label2)
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    _ = store.saveActiveSessionAsFavorite()
-                } label: {
-                    Image(systemName: activeIsFavorite ? "star.fill" : "star")
-                        .foregroundStyle(activeIsFavorite ? OG.yellow : OG.label2)
+                OGToolbarGlassButton(
+                    systemName: hasSessionNotes ? "note.text" : "square.and.pencil",
+                    accessibilityLabel: "Notas del entreno",
+                    tint: hasSessionNotes ? OG.accent : OG.label
+                ) {
+                    notesDraft = store.state.activeSession?.notes ?? ""
+                    showNotes = true
                 }
-                .accessibilityLabel("Guardar en favoritos")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                OGToolbarGlassButton(
+                    systemName: activeIsFavorite ? "star.fill" : "star",
+                    accessibilityLabel: "Guardar en favoritos",
+                    tint: activeIsFavorite ? OG.yellow : OG.label
+                ) {
+                    _ = store.saveActiveSessionAsFavorite()
+                }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 if hasMoreExercises {
@@ -100,6 +119,9 @@ struct WorkoutView: View {
                 }
             }
         }
+        .sheet(isPresented: $showNotes) {
+            workoutNotesSheet
+        }
         .onAppear { prefill() }
         .onChange(of: store.state.activeSession?.currentIndex) { _, _ in
             prefill()
@@ -109,6 +131,46 @@ struct WorkoutView: View {
             stopRest()
             stopWODClock()
         }
+    }
+
+    private var hasSessionNotes: Bool {
+        !(store.state.activeSession?.notes?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+    }
+
+    private var workoutNotesSheet: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Cómo te sentiste, sueño, molestias, PRs…")
+                    .font(.system(size: 14))
+                    .foregroundStyle(OG.label2)
+                TextEditor(text: $notesDraft)
+                    .scrollContentBackground(.hidden)
+                    .padding(12)
+                    .frame(minHeight: 180)
+                    .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                    .foregroundStyle(OG.label)
+                Spacer(minLength: 0)
+            }
+            .padding(OG.pad)
+            .background(OG.bg)
+            .navigationTitle("Notas del entreno")
+            .navigationBarTitleDisplayMode(.inline)
+            .ogTransparentNav()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancelar") { showNotes = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Guardar") {
+                        store.updateActiveSessionNotes(notesDraft)
+                        showNotes = false
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+        .presentationDetents([.medium, .large])
     }
 
     private var hasMoreExercises: Bool {
@@ -124,16 +186,23 @@ struct WorkoutView: View {
     private func content(_ session: WorkoutSession) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                OGPageHeader(title: session.title)
                 if let current = session.currentExercise {
                     currentCard(current, session: session)
-                    logForm(current)
-                    loggedList(current)
+                    setsBoard(current)
+                    workoutOptionsCard
+                    DisclosureGroup("Opciones avanzadas de serie") {
+                        logForm(current)
+                            .padding(.top, 8)
+                    }
+                    .tint(OG.label2)
+                    .font(.system(size: 14, weight: .semibold))
                 }
                 exerciseQueue(session)
             }
             .padding(.horizontal, OG.pad)
-            .padding(.vertical, 12)
-            .padding(.bottom, restRemaining > 0 ? 88 : 24)
+            .padding(.top, 8)
+            .padding(.bottom, restRemaining > 0 ? 88 : 28)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .task(id: session.id) {
@@ -141,6 +210,285 @@ struct WorkoutView: View {
                 await HealthKitStore.shared.refreshLiveMetrics()
                 try? await Task.sleep(for: .seconds(15))
             }
+        }
+    }
+
+    /// Notas y ajustes del entreno (visibles en la sesión, no solo en el toolbar).
+    private var workoutOptionsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Opciones del entreno")
+                .font(.headline)
+            Button {
+                notesDraft = store.state.activeSession?.notes ?? ""
+                showNotes = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: hasSessionNotes ? "note.text" : "square.and.pencil")
+                        .foregroundStyle(hasSessionNotes ? OG.accent : OG.label2)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(hasSessionNotes ? "Editar notas" : "Añadir notas")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                        Text(hasSessionNotes
+                             ? (store.state.activeSession?.notes ?? "")
+                             : "Cómo te sentiste, sueño, molestias…")
+                            .font(.system(size: 12))
+                            .foregroundStyle(OG.label2)
+                            .lineLimit(2)
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(OG.label3)
+                }
+                .padding(12)
+                .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(OG.pad)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+    }
+
+    private func setsBoard(_ current: SessionExercise) -> some View {
+        let step = store.state.settings.weightIncrementKg
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("Series")
+                .font(.headline)
+
+            HStack(spacing: 8) {
+                Text("#").frame(width: 28)
+                Text("PESO (KG)").frame(maxWidth: .infinity)
+                Text("REPS").frame(width: 84)
+                Text("RIR").frame(width: 48)
+                Color.clear.frame(width: 36)
+            }
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(OG.label3)
+
+            ForEach(Array(liveSets.enumerated()), id: \.element.id) { index, row in
+                liveSetRow(index: index, row: row, step: step, current: current)
+            }
+
+            Button {
+                addLiveSet(from: current)
+            } label: {
+                Label("Añadir serie", systemImage: "plus")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(OG.accent)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+        }
+        .padding(OG.pad)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+    }
+
+    private func liveSetRow(index: Int, row: LiveSetRow, step: Double, current: SessionExercise) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text("\(index + 1)")
+                    .font(.system(size: 13, weight: .bold).monospacedDigit())
+                    .foregroundStyle(OG.label)
+                    .frame(width: 28, height: 28)
+                    .background(OG.surface2, in: Circle())
+
+                liveStepper(
+                    label: row.weightKg.map { String(format: "%g", $0) } ?? "—",
+                    enabled: !row.completed,
+                    onMinus: { bumpLiveWeight(at: index, delta: -step) },
+                    onPlus: { bumpLiveWeight(at: index, delta: step) }
+                )
+                .frame(maxWidth: .infinity)
+
+                liveStepper(
+                    label: "\(row.reps)",
+                    enabled: !row.completed,
+                    onMinus: { bumpLiveReps(at: index, delta: -1) },
+                    onPlus: { bumpLiveReps(at: index, delta: 1) }
+                )
+                .frame(width: 84)
+
+                Menu {
+                    Button("Sin RIR") { setLiveRir(at: index, rir: nil) }
+                    ForEach(0...5, id: \.self) { value in
+                        Button("\(value)") { setLiveRir(at: index, rir: Double(value)) }
+                    }
+                } label: {
+                    Text(row.rir.map { String(format: "%g", $0) } ?? "RIR")
+                        .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(row.rir == nil ? OG.label3 : OG.label)
+                        .frame(width: 48, height: 36)
+                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .disabled(row.completed)
+
+                Button {
+                    if row.completed {
+                        if index == liveSets.count - 1 || index == current.loggedSets.count - 1 {
+                            store.removeLastSet()
+                            rebuildLiveSets(from: store.state.activeSession?.currentExercise ?? current)
+                        }
+                    } else {
+                        completeLiveSet(at: index, current: current)
+                    }
+                } label: {
+                    Image(systemName: row.completed ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 28))
+                        .foregroundStyle(row.completed ? OG.accent : OG.label3)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(row.completed ? "Serie hecha" : "Registrar serie")
+            }
+
+            if !row.completed, let weight = row.weightKg, weight > 0,
+               let compact = store.plateCompactLine(exerciseId: current.exercise.id, targetKg: weight) {
+                HStack(spacing: 4) {
+                    Image(systemName: "circle.grid.cross").font(.system(size: 10))
+                    Text(compact).font(.system(size: 11))
+                }
+                .foregroundStyle(OG.label3)
+                .padding(.leading, 36)
+            }
+        }
+    }
+
+    private func liveStepper(
+        label: String,
+        enabled: Bool,
+        onMinus: @escaping () -> Void,
+        onPlus: @escaping () -> Void
+    ) -> some View {
+        HStack(spacing: 0) {
+            Button(action: onMinus) {
+                Image(systemName: "minus")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(enabled ? OG.label2 : OG.label3)
+                    .frame(width: 28, height: 36)
+            }
+            .buttonStyle(.plain)
+            .disabled(!enabled)
+
+            Text(label)
+                .font(.system(size: 15, weight: .semibold).monospacedDigit())
+                .foregroundStyle(enabled ? OG.label : OG.label2)
+                .frame(maxWidth: .infinity)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            Button(action: onPlus) {
+                Image(systemName: "plus")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(enabled ? OG.label2 : OG.label3)
+                    .frame(width: 28, height: 36)
+            }
+            .buttonStyle(.plain)
+            .disabled(!enabled)
+        }
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .opacity(enabled ? 1 : 0.75)
+    }
+
+    private func rebuildLiveSets(from current: SessionExercise) {
+        var rows: [LiveSetRow] = []
+        let planned = current.plannedSets
+        let logged = current.loggedSets
+        let total = max(planned.count, logged.count)
+
+        if total == 0 {
+            liveSets = [LiveSetRow(id: UUID(), weightKg: nil, reps: 8, rir: nil, completed: false)]
+            return
+        }
+
+        for i in 0..<total {
+            if i < logged.count {
+                let s = logged[i]
+                rows.append(
+                    LiveSetRow(
+                        id: s.id,
+                        weightKg: s.weightKg,
+                        reps: s.reps,
+                        rir: s.rir,
+                        completed: true
+                    )
+                )
+            } else {
+                let p = planned[i]
+                rows.append(
+                    LiveSetRow(
+                        id: p.id,
+                        weightKg: p.targetWeightKg,
+                        reps: max(1, p.targetReps),
+                        rir: p.targetRir,
+                        completed: false
+                    )
+                )
+            }
+        }
+        liveSets = rows
+    }
+
+    private func addLiveSet(from current: SessionExercise) {
+        let last = liveSets.last
+        liveSets.append(
+            LiveSetRow(
+                id: UUID(),
+                weightKg: last?.weightKg ?? current.plannedSets.last?.targetWeightKg,
+                reps: last?.reps ?? current.plannedSets.last?.targetReps ?? 8,
+                rir: last?.rir ?? current.plannedSets.last?.targetRir,
+                completed: false
+            )
+        )
+    }
+
+    private func bumpLiveWeight(at index: Int, delta: Double) {
+        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        let current = liveSets[index].weightKg ?? 0
+        let next = max(0, ((current + delta) * 10).rounded() / 10)
+        liveSets[index].weightKg = next > 0 ? next : nil
+    }
+
+    private func bumpLiveReps(at index: Int, delta: Int) {
+        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        liveSets[index].reps = min(50, max(1, liveSets[index].reps + delta))
+    }
+
+    private func setLiveRir(at index: Int, rir: Double?) {
+        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        liveSets[index].rir = rir
+    }
+
+    private func completeLiveSet(at index: Int, current: SessionExercise) {
+        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        // Solo se puede completar en orden (siguiente pendiente).
+        let nextPending = liveSets.firstIndex(where: { !$0.completed })
+        guard nextPending == index else { return }
+        let row = liveSets[index]
+        guard row.reps > 0 else { return }
+        store.logSet(
+            reps: row.reps,
+            weightKg: row.weightKg,
+            phase: .work,
+            kind: .straight,
+            rir: row.rir,
+            toFailure: row.rir == 0,
+            drops: [],
+            clusters: []
+        )
+        let rest: Int = {
+            if current.supersetGroup != nil {
+                return max(30, store.state.settings.defaultRestSeconds / 3)
+            }
+            return store.state.settings.defaultRestSeconds
+        }()
+        startRest(rest)
+        if let updated = store.state.activeSession?.currentExercise {
+            rebuildLiveSets(from: updated)
+            weightText = updated.loggedSets.last?.weightKg.map { String(format: "%g", $0) } ?? weightText
+            repsText = "\(updated.loggedSets.last?.reps ?? row.reps)"
         }
     }
 
@@ -215,13 +563,9 @@ struct WorkoutView: View {
                     .foregroundStyle(OG.label2)
             }
             if let weight = target?.targetWeightKg ?? Double(weightText.replacingOccurrences(of: ",", with: ".")),
-               weight > 0 {
-                let solution = PlateMath.solve(
-                    targetKg: weight,
-                    barKg: store.state.settings.barbellKg,
-                    availablePlatesKg: store.state.settings.ownedPlatesKg
-                )
-                Label(solution.summary, systemImage: "circle.grid.cross")
+               weight > 0,
+               let plateLine = store.plateSummaryLine(exerciseId: current.exercise.id, targetKg: weight) {
+                Label(plateLine, systemImage: "circle.grid.cross")
                     .font(.caption)
                     .foregroundStyle(OG.label2)
             }
@@ -522,8 +866,9 @@ struct WorkoutView: View {
     private func logForm(_ current: SessionExercise) -> some View {
         let unit = store.state.settings.effortUnit
         return VStack(alignment: .leading, spacing: 18) {
-            Text("Registrar serie")
-                .font(.headline)
+            Text("Calentamiento, drops, rest-pause…")
+                .font(.caption)
+                .foregroundStyle(OG.label2)
 
             Picker("Fase", selection: $setPhase) {
                 ForEach(SetPhase.allCases, id: \.self) { Text($0.displayName).tag($0) }
@@ -800,6 +1145,9 @@ struct WorkoutView: View {
             setPhase = .work
         }
         bumpWeightSuggestion(current)
+        if let updated = store.state.activeSession?.currentExercise {
+            rebuildLiveSets(from: updated)
+        }
     }
 
     private struct QueueBlockSection: Identifiable {
@@ -955,12 +1303,22 @@ struct WorkoutView: View {
     }
 
     private func prefill() {
-        guard let current = store.state.activeSession?.currentExercise else { return }
+        guard let current = store.state.activeSession?.currentExercise else {
+            liveSets = []
+            return
+        }
         let suggested = current.lastLoggedWeight
             ?? StatsEngine.lastWorkingWeight(exerciseId: current.exercise.id, workouts: store.state.workouts)
             ?? current.plannedSets.first?.targetWeightKg
         weightText = suggested.map { String(format: "%g", $0) } ?? ""
         repsText = "\(current.plannedSets.first?.targetReps ?? 8)"
+        rebuildLiveSets(from: current)
+        // Si hay peso sugerido y la primera serie pendiente no tiene peso, rellenarla.
+        if let suggested,
+           let idx = liveSets.firstIndex(where: { !$0.completed }),
+           liveSets[idx].weightKg == nil {
+            liveSets[idx].weightKg = suggested
+        }
     }
 
     private func bumpWeightSuggestion(_ current: SessionExercise) {

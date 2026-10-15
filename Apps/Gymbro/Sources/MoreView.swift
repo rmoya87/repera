@@ -7,6 +7,10 @@ struct BodyWeightListView: View {
     var body: some View {
         List {
             Section {
+                OGPageHeader(title: "Peso corporal")
+                    .ogListPageHeaderRow()
+            }
+            Section {
                 HStack {
                     TextField("kg", text: $kgText)
                         .keyboardType(.decimalPad)
@@ -40,8 +44,6 @@ struct BodyWeightListView: View {
             }
         }
         .ogListChrome()
-        .navigationTitle("Peso corporal")
-        .toolbarBackground(OG.bg, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
+        .ogContentTitleNav()
     }
 }

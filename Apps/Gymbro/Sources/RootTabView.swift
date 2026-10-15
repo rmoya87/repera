@@ -7,6 +7,7 @@ struct RootTabView: View {
     @State private var tab: AppTab = .home
     @State private var goWorkout = false
     @State private var showSessionPreview = false
+    @State private var previewRoutine: Routine?
 
     enum AppTab: Hashable {
         case home, plan, create, stats, exercises
@@ -18,6 +19,7 @@ struct RootTabView: View {
                 HomeView(
                     onOpenWorkout: { goWorkout = true },
                     onStart: openTodayPreview,
+                    onStartRoutine: openRoutinePreview,
                     onGoPlan: { tab = .plan },
                     onOpenStartHub: { tab = .create }
                 )
@@ -30,8 +32,7 @@ struct RootTabView: View {
             SwiftUI.Tab("Crear", systemImage: "plus", value: AppTab.create) {
                 StartHubSheet(
                     onGoPlan: { tab = .plan },
-                    onOpenedWorkout: { goWorkout = true },
-                    onClose: { tab = .home }
+                    onOpenedWorkout: { goWorkout = true }
                 )
             }
 
@@ -46,11 +47,14 @@ struct RootTabView: View {
         .tabBarMinimizeBehavior(.onScrollDown)
         .modifier(ContinueAccessoryModifier(
             session: store.state.activeSession,
-            onContinue: { showSessionPreview = true }
+            onContinue: {
+                previewRoutine = nil
+                showSessionPreview = true
+            }
         ))
-        .sheet(isPresented: $showSessionPreview) {
+        .sheet(isPresented: $showSessionPreview, onDismiss: { previewRoutine = nil }) {
             SessionPreviewView(
-                routine: store.state.activeSession == nil ? store.routineForToday() : store.routineForToday(),
+                routine: previewRoutine ?? store.routineForToday(),
                 onStart: { goWorkout = true },
                 onContinue: { goWorkout = true }
             )
@@ -68,13 +72,19 @@ struct RootTabView: View {
 
     private func openTodayPreview() {
         if store.state.activeSession != nil {
+            previewRoutine = nil
             showSessionPreview = true
             return
         }
-        guard store.routineForToday() != nil else {
+        guard let today = store.routineForToday() else {
             tab = .create
             return
         }
+        openRoutinePreview(today)
+    }
+
+    private func openRoutinePreview(_ routine: Routine) {
+        previewRoutine = routine
         showSessionPreview = true
     }
 }
@@ -116,7 +126,8 @@ private struct ContinueAccessoryModifier: ViewModifier {
                             .font(.system(size: 13, weight: .semibold).monospacedDigit())
                             .foregroundStyle(OG.accent)
                     }
-                    .padding(.horizontal, 4)
+                    .padding(.leading, OG.pad)
+                    .padding(.trailing, OG.pad)
                     .padding(.vertical, 2)
                     .contentShape(Rectangle())
                 }

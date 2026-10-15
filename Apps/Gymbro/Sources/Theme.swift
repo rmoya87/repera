@@ -66,6 +66,45 @@ struct OGPrimaryButton: View {
     }
 }
 
+/// Cabecera de página estilo Inicio: título grande en el scroll (no en la top bar opaca).
+struct OGPageHeader<Trailing: View>: View {
+    var title: String
+    var subtitle: String? = nil
+    @ViewBuilder var trailing: () -> Trailing
+
+    init(title: String, subtitle: String? = nil, @ViewBuilder trailing: @escaping () -> Trailing) {
+        self.title = title
+        self.subtitle = subtitle
+        self.trailing = trailing
+    }
+
+    var body: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(OG.label)
+                    .tracking(-0.4)
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(OG.label2)
+                }
+            }
+            Spacer(minLength: 8)
+            trailing()
+        }
+        .padding(.top, 4)
+        .padding(.bottom, 4)
+    }
+}
+
+extension OGPageHeader where Trailing == EmptyView {
+    init(title: String, subtitle: String? = nil) {
+        self.init(title: title, subtitle: subtitle) { EmptyView() }
+    }
+}
+
 extension View {
     /// Lista agrupada estilo openGym (superficie #1c1c1e sobre negro).
     func ogListChrome() -> some View {
@@ -75,22 +114,73 @@ extension View {
             .listRowBackground(OG.surface)
             .tint(OG.accent)
     }
+
+    /// Top bar transparente: sin fondo sólido al hacer scroll.
+    func ogTransparentNav() -> some View {
+        self
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+    }
+
+    /// Título en el contenido (`OGPageHeader`); barra vacía y transparente.
+    func ogContentTitleNav() -> some View {
+        self
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .ogTransparentNav()
+    }
+
+    /// Cabecera de página dentro de `List` (misma tipografía que Inicio).
+    func ogListPageHeaderRow() -> some View {
+        self
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 4, leading: OG.pad, bottom: 8, trailing: OG.pad))
+            .listRowSeparator(.hidden)
+    }
 }
 
-/// Botón de cierre unificado: X roja (no hereda el tint verde del list chrome).
-struct CloseToolbarButton: View {
+/// Botón de icono en top bar con liquid glass (fondo transparente del nav).
+/// Usar SF Symbols *sin* `.circle` embebido: el glass ya aporta el círculo.
+struct OGToolbarGlassButton: View {
+    var systemName: String
+    var accessibilityLabel: String
+    var tint: Color = OG.label
+    /// Tamaño del glifo.
+    var iconSize: CGFloat = 17
+    /// Diámetro del hit target / glass.
+    var hitSize: CGFloat = 36
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "xmark")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(OG.red)
+            Image(systemName: systemName)
+                .font(.system(size: iconSize, weight: .semibold))
+                .foregroundStyle(tint)
                 .symbolRenderingMode(.monochrome)
+                .frame(width: hitSize, height: hitSize)
+                .contentShape(Circle())
+                .glassEffect(.regular.interactive(), in: .circle)
         }
-        .buttonStyle(.borderless)
-        .tint(OG.red)
-        .accessibilityLabel("Cerrar")
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+    }
+}
+
+/// Botón de cierre unificado: X roja con liquid glass.
+struct CloseToolbarButton: View {
+    var action: () -> Void
+    /// Variante más grande (sheets de plan / entreno).
+    var large: Bool = false
+
+    var body: some View {
+        OGToolbarGlassButton(
+            systemName: "xmark",
+            accessibilityLabel: "Cerrar",
+            tint: OG.red,
+            iconSize: large ? 20 : 17,
+            hitSize: large ? 44 : 36,
+            action: action
+        )
     }
 }
 

@@ -1,13 +1,25 @@
 import GymbroDomain
 import SwiftUI
 
-/// Ficha de ejercicio: arte → técnica → impacto → historial.
+/// Ficha de ejercicio: tags, descripción, añadir al día, placas, 1RM, progreso e historial.
 struct ExerciseDetailView: View {
     @Environment(GymbroStore.self) private var store
     let exerciseId: UUID
 
+    @State private var estimateWeight: Double = 20
+    @State private var estimateReps: Int = 5
+    @State private var addedFlash = false
+
     private var exercise: Exercise? {
         store.state.exercises.first { $0.id == exerciseId }
+    }
+
+    private var loadPref: ExerciseLoadPreference {
+        store.loadPreference(for: exerciseId)
+    }
+
+    private var estimateOneRM: Double {
+        PlateMath.epleyOneRM(weightKg: estimateWeight, reps: estimateReps)
     }
 
     var body: some View {
@@ -15,41 +27,339 @@ struct ExerciseDetailView: View {
             if let exercise {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
+                        OGPageHeader(title: exercise.name)
+
                         ExerciseArtView(exercise: exercise, showStepCaptions: true)
 
-                        muscleSection(exercise)
+                        tagChips(exercise)
 
-                        if let eq = exercise.equipment {
-                            metaChips(equipment: eq, bodyPart: exercise.bodyPart)
-                        } else if exercise.bodyPart != nil {
-                            metaChips(equipment: nil, bodyPart: exercise.bodyPart)
+                        if let desc = ExerciseCopy.description(for: exercise)?
+                            .trimmingCharacters(in: .whitespacesAndNewlines),
+                           !desc.isEmpty {
+                            Text(desc)
+                                .font(.system(size: 15))
+                                .foregroundStyle(OG.label)
+                                .padding(14)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
                         }
+
+                        Button {
+                            let ok = store.addExerciseToTodayWorkout(exercise.id)
+                            if ok {
+                                withAnimation(.easeOut(duration: 0.2)) { addedFlash = true }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+                                    withAnimation { addedFlash = false }
+                                }
+                            }
+                        } label: {
+                            Text(addedFlash ? "Añadido al entreno del día" : "+ Añadir al entreno del día")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(OG.onAccent)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(addedFlash ? OG.surface2 : OG.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(addedFlash)
+
+                        plateLoadingSection
+
+                        estimatedOneRMSection
+
+                        let steps = ExerciseCopy.instructions(for: exercise)
+                        if !steps.isEmpty {
+                            OGCard {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Técnica")
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(OG.label2)
+                                    ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                                        HStack(alignment: .top, spacing: 8) {
+                                            Text("\(index + 1).")
+                                                .font(.system(size: 13, weight: .semibold))
+                                                .foregroundStyle(OG.accent)
+                                            Text(step)
+                                                .font(.system(size: 14))
+                                                .foregroundStyle(OG.label)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        NavigationLink {
+                            ExerciseProgressView(exerciseId: exercise.id)
+                        } label: {
+                            OGCard {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Progreso del ejercicio")
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .foregroundStyle(OG.label)
+                                        Text("Top set · 1RM · esfuerzo · sesiones")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(OG.label2)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chart.xyaxis.line")
+                                        .foregroundStyle(OG.blue)
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(OG.label3)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
 
                         historySection(exercise)
                     }
                     .padding(.horizontal, OG.pad)
-                    .padding(.vertical, 12)
+                    .padding(.top, 8)
+                    .padding(.bottom, 28)
                 }
                 .background(OG.bg)
-                .navigationTitle(exercise.name)
-                .navigationBarTitleDisplayMode(.inline)
+                .ogContentTitleNav()
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button {
+                        OGToolbarGlassButton(
+                            systemName: exercise.isFavorite ? "star.fill" : "star",
+                            accessibilityLabel: exercise.isFavorite ? "Quitar de favoritos" : "Favorito",
+                            tint: exercise.isFavorite ? OG.yellow : OG.label
+                        ) {
                             store.toggleFavorite(exerciseId)
-                        } label: {
-                            Image(systemName: exercise.isFavorite ? "star.fill" : "star")
-                                .foregroundStyle(exercise.isFavorite ? OG.yellow : OG.label2)
                         }
                     }
+                }
+                .onAppear {
+                    seedEstimateFromHistory(exercise)
                 }
             } else {
                 ContentUnavailableView("Ejercicio no encontrado", systemImage: "questionmark")
             }
         }
-        .toolbarBackground(OG.bg, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
     }
+
+    // MARK: - Tags
+
+    @ViewBuilder
+    private func tagChips(_ exercise: Exercise) -> some View {
+        let tags = detailTags(exercise)
+        if !tags.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(tags.enumerated()), id: \.offset) { index, tag in
+                        HStack(spacing: 5) {
+                            if let icon = tag.icon {
+                                Image(systemName: icon)
+                                    .font(.system(size: 11, weight: .semibold))
+                            }
+                            Text(tag.label)
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        .foregroundStyle(index == 0 ? OG.onAccent : OG.label)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(index == 0 ? OG.accent : OG.surface2, in: Capsule())
+                    }
+                }
+            }
+        }
+    }
+
+    private struct DetailTag {
+        var label: String
+        var icon: String?
+    }
+
+    private func detailTags(_ exercise: Exercise) -> [DetailTag] {
+        var tags: [DetailTag] = []
+        var seen = Set<String>()
+        func add(_ raw: String?, icon: String? = nil) {
+            guard let raw, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            let label = LocalizedMuscle.es(raw)
+            let key = label.lowercased()
+            guard !seen.contains(key) else { return }
+            seen.insert(key)
+            tags.append(DetailTag(label: label, icon: icon))
+        }
+        add(exercise.bodyPart)
+        add(exercise.targetMuscle ?? exercise.muscleGroup, icon: "figure.strengthtraining.traditional")
+        if let eq = exercise.equipment, !eq.isEmpty {
+            add(eq, icon: "dumbbell.fill")
+        }
+        for secondary in exercise.secondaryMuscles {
+            add(secondary)
+        }
+        return tags
+    }
+
+    // MARK: - Plate loading
+
+    private var plateLoadingSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Carga de discos")
+                .font(.system(size: 13))
+                .foregroundStyle(OG.label2)
+
+            Picker("Modo", selection: Binding(
+                get: { loadPref.mode },
+                set: { newMode in
+                    var pref = loadPref
+                    pref.mode = newMode
+                    store.setLoadPreference(pref, for: exerciseId)
+                }
+            )) {
+                ForEach(PlateLoadMode.allCases, id: \.self) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Text(plateModeCaption(loadPref.mode))
+                .font(.system(size: 12))
+                .foregroundStyle(OG.label3)
+
+            if loadPref.mode != .off {
+                Text("Peso base (kg)")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(OG.label2)
+                    .frame(maxWidth: .infinity)
+
+                detailStepper(
+                    valueLabel: String(format: "%g", loadPref.baseWeightKg),
+                    onMinus: {
+                        var pref = loadPref
+                        pref.baseWeightKg = max(0, ((pref.baseWeightKg - 1.25) * 100).rounded() / 100)
+                        store.setLoadPreference(pref, for: exerciseId)
+                    },
+                    onPlus: {
+                        var pref = loadPref
+                        pref.baseWeightKg = ((pref.baseWeightKg + 1.25) * 100).rounded() / 100
+                        store.setLoadPreference(pref, for: exerciseId)
+                    }
+                )
+
+                Text(plateBaseFooter(loadPref.mode))
+                    .font(.system(size: 12))
+                    .foregroundStyle(OG.label3)
+            }
+        }
+    }
+
+    private func plateModeCaption(_ mode: PlateLoadMode) -> String {
+        switch mode {
+        case .perSide:
+            return "Barra olímpica u otra carga simétrica: mismos discos a cada lado."
+        case .singleStack:
+            return "Una pila: cinturón, landmine, máquina de discos o trineo."
+        case .off:
+            return "Sin línea de discos bajo cada serie."
+        }
+    }
+
+    private func plateBaseFooter(_ mode: PlateLoadMode) -> String {
+        switch mode {
+        case .perSide:
+            return "Peso de la barra antes de los discos. Sigues registrando el total; esto solo alimenta la línea de discos."
+        case .singleStack:
+            return "La máquina o el trineo, antes de poner discos. 0 si es todo discos. Sigues registrando el total."
+        case .off:
+            return ""
+        }
+    }
+
+    // MARK: - 1RM
+
+    private var estimatedOneRMSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("1RM estimado")
+                .font(.system(size: 13))
+                .foregroundStyle(OG.label2)
+
+            HStack(spacing: 12) {
+                VStack(spacing: 6) {
+                    Text("Peso (kg)")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(OG.label2)
+                    detailStepper(
+                        valueLabel: String(format: "%g", estimateWeight),
+                        onMinus: { estimateWeight = max(0, ((estimateWeight - store.state.settings.weightIncrementKg) * 10).rounded() / 10) },
+                        onPlus: { estimateWeight = ((estimateWeight + store.state.settings.weightIncrementKg) * 10).rounded() / 10 }
+                    )
+                }
+                VStack(spacing: 6) {
+                    Text("Reps")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(OG.label2)
+                    detailStepper(
+                        valueLabel: "\(estimateReps)",
+                        onMinus: { estimateReps = max(1, estimateReps - 1) },
+                        onPlus: { estimateReps = min(30, estimateReps + 1) }
+                    )
+                }
+            }
+
+            HStack {
+                Text("Estimación")
+                    .font(.system(size: 15))
+                    .foregroundStyle(OG.label2)
+                Spacer()
+                Text("\(estimateOneRM.formatted(.number.precision(.fractionLength(0...1)))) kg")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(OG.accent)
+            }
+            .padding(.top, 4)
+
+            Text("Fórmula de Epley: calculado a partir de una serie, no un máximo testado.")
+                .font(.system(size: 12))
+                .foregroundStyle(OG.label3)
+        }
+    }
+
+    private func detailStepper(
+        valueLabel: String,
+        onMinus: @escaping () -> Void,
+        onPlus: @escaping () -> Void
+    ) -> some View {
+        HStack(spacing: 0) {
+            Button(action: onMinus) {
+                Image(systemName: "minus")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(OG.label2)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+
+            Text(valueLabel)
+                .font(.system(size: 18, weight: .semibold).monospacedDigit())
+                .foregroundStyle(OG.label)
+                .frame(maxWidth: .infinity)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            Button(action: onPlus) {
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(OG.label2)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+        }
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func seedEstimateFromHistory(_ exercise: Exercise) {
+        let h = StatsEngine.history(for: exercise.id, workouts: store.state.workouts)
+        if let w = h.lastWeightKg ?? h.maxWeightKg {
+            estimateWeight = w
+        }
+        if let r = h.lastReps ?? h.repsAtMaxWeight {
+            estimateReps = max(1, r)
+        }
+    }
+
+    // MARK: - History
 
     private func historySection(_ exercise: Exercise) -> some View {
         let h = StatsEngine.history(for: exercise.id, workouts: store.state.workouts)
@@ -100,39 +410,6 @@ struct ExerciseDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
         .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-    }
-
-    private func muscleSection(_ exercise: Exercise) -> some View {
-        OGCard {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Impacto muscular")
-                    .font(.system(size: 13))
-                    .foregroundStyle(OG.label2)
-                if let target = exercise.targetMuscle {
-                    labeled("Principal", LocalizedMuscle.es(target), tint: OG.accent)
-                } else {
-                    labeled("Grupo", exercise.muscleGroup, tint: OG.accent)
-                }
-                let secs = exercise.secondaryMuscles.map(LocalizedMuscle.es)
-                if !secs.isEmpty {
-                    labeled("Secundarios", secs.joined(separator: " · "), tint: OG.orange)
-                }
-                FlowChips(items: ([exercise.muscleGroup] + exercise.secondaryMuscles.map(LocalizedMuscle.es)))
-            }
-        }
-    }
-
-    private func metaChips(equipment: String?, bodyPart: String?) -> some View {
-        OGCard {
-            VStack(alignment: .leading, spacing: 8) {
-                if let eq = equipment {
-                    labeled("Equipo", eq, tint: OG.blue)
-                }
-                if let bp = bodyPart {
-                    labeled("Zona", LocalizedMuscle.es(bp), tint: OG.label2)
-                }
-            }
-        }
     }
 
     private func labeled(_ title: String, _ value: String, tint: Color) -> some View {
@@ -202,57 +479,28 @@ struct MuscleImpactDiagram: View {
                 Capsule()
                     .fill(zoneColor("arms").opacity(0.5))
                     .frame(width: w * 0.10, height: h * 0.34)
-                    .position(x: w * 0.22, y: h * 0.40)
+                    .position(x: w * 0.22, y: h * 0.42)
                 Capsule()
                     .fill(zoneColor("arms").opacity(0.5))
                     .frame(width: w * 0.10, height: h * 0.34)
-                    .position(x: w * 0.78, y: h * 0.40)
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(zoneColor("core").opacity(0.45))
-                    .frame(width: w * 0.28, height: h * 0.14)
+                    .position(x: w * 0.78, y: h * 0.42)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(zoneColor("core").opacity(0.4))
+                    .frame(width: w * 0.28, height: h * 0.16)
                     .position(x: w * 0.5, y: h * 0.58)
-                Capsule()
-                    .fill(zoneColor("legs").opacity(0.5))
-                    .frame(width: w * 0.14, height: h * 0.32)
-                    .position(x: w * 0.40, y: h * 0.82)
-                Capsule()
-                    .fill(zoneColor("legs").opacity(0.5))
-                    .frame(width: w * 0.14, height: h * 0.32)
-                    .position(x: w * 0.60, y: h * 0.82)
-
-                Image(systemName: "figure.strengthtraining.traditional")
-                    .font(.system(size: 36, weight: .light))
-                    .foregroundStyle(OG.label.opacity(0.85))
-                    .position(x: w * 0.5, y: h * 0.36)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(zoneColor("legs").opacity(0.45))
+                    .frame(width: w * 0.38, height: h * 0.28)
+                    .position(x: w * 0.5, y: h * 0.78)
             }
         }
     }
 
     private func zoneColor(_ zone: String) -> Color {
         let keys = (primaries + secondaries).map { $0.lowercased() }
-        let hitPrimary = keys.contains { matches($0, zone: zone) && primaries.map { $0.lowercased() }.contains($0) }
-        let hitSecondary = keys.contains { matches($0, zone: zone) }
-        if hitPrimary { return OG.accent }
-        if hitSecondary { return OG.orange }
-        return OG.surface3
-    }
-
-    private func matches(_ token: String, zone: String) -> Bool {
-        switch zone {
-        case "chest":
-            return ["chest", "pectorals", "pecho", "upper chest"].contains(where: { token.contains($0) })
-        case "shoulders":
-            return ["shoulder", "delt", "hombro"].contains(where: { token.contains($0) })
-        case "arms":
-            return ["bicep", "tricep", "forearm", "arm", "bíceps", "tríceps"].contains(where: { token.contains($0) })
-        case "core":
-            return ["core", "abs", "oblique", "abdominal"].contains(where: { token.contains($0) })
-        case "legs":
-            return ["quad", "glute", "hamstring", "calf", "leg", "pierna", "isquio", "glút"].contains(where: { token.contains($0) })
-                || token.contains("back") && token.contains("lower")
-        default:
-            return false
-        }
+        let hit = keys.contains { $0.contains(zone) || zone.contains($0) }
+            || keys.contains { LocalizedMuscle.es($0).lowercased().contains(zone) }
+        return hit ? OG.accent : OG.surface3
     }
 }
 
@@ -261,29 +509,27 @@ enum LocalizedMuscle {
         let map: [String: String] = [
             "pectorals": "Pectorales",
             "chest": "Pecho",
-            "triceps": "Tríceps",
-            "biceps": "Bíceps",
-            "shoulders": "Hombros",
-            "delts": "Deltoides",
-            "deltoids": "Deltoides",
+            "full body": "Full body",
             "lats": "Dorsales",
             "upper back": "Espalda alta",
-            "lower back": "Zona lumbar",
-            "back": "Espalda",
-            "quads": "Cuádriceps",
-            "quadriceps": "Cuádriceps",
-            "hamstrings": "Isquiotibiales",
-            "glutes": "Glúteos",
-            "gluteal": "Glúteos",
-            "calves": "Gemelos",
+            "traps": "Trapecios",
+            "delts": "Deltoides",
+            "shoulders": "Hombros",
+            "biceps": "Bíceps",
+            "triceps": "Tríceps",
             "forearms": "Antebrazos",
             "abs": "Abdominales",
             "core": "Core",
-            "trapezius": "Trapecio",
-            "cardio": "Cardio",
-            "upper legs": "Piernas",
-            "upper arms": "Brazos",
-            "waist": "Cintura",
+            "quads": "Cuádriceps",
+            "hamstrings": "Isquios",
+            "glutes": "Glúteos",
+            "calves": "Gemelos",
+            "adductors": "Aductores",
+            "abductors": "Abductores",
+            "lower back": "Lumbar",
+            "cardiovascular system": "Cardio",
+            "body weight": "Peso corporal",
+            "bodyweight": "Peso corporal",
         ]
         let key = raw.lowercased()
         return map[key] ?? raw.capitalized

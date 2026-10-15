@@ -15,7 +15,6 @@ struct StartHubSheet: View {
 
     var onGoPlan: () -> Void
     var onOpenedWorkout: () -> Void
-    var onClose: (() -> Void)? = nil
 
     @State private var path = NavigationPath()
     @State private var showCameraPicker = false
@@ -30,6 +29,11 @@ struct StartHubSheet: View {
     var body: some View {
         NavigationStack(path: $path) {
             List {
+                Section {
+                    OGPageHeader(title: "Crear")
+                        .ogListPageHeaderRow()
+                }
+
                 if let session = store.state.activeSession {
                     Section {
                         Button {
@@ -207,15 +211,8 @@ struct StartHubSheet: View {
                 }
             }
             .ogListChrome()
-            .navigationTitle("Empezar")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                if let onClose {
-                    ToolbarItem(placement: .cancellationAction) {
-                        CloseToolbarButton { onClose() }
-                    }
-                }
-            }
+            .ogContentTitleNav()
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: StartHubRoute.self) { route in
                 switch route {
                 case .createWorkout:
