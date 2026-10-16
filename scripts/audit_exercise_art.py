@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ART = ROOT / "Apps/Gymbro/Resources/ExerciseArt"
 SWIFT = ROOT / "Apps/Gymbro/Sources/ExerciseArt.swift"
 CATALOG = ROOT / "Packages/GymbroDomain/Sources/GymbroDomain/CatalogSpanish.swift"
-HERO_RE = re.compile(r'^"([^"]+)": "(art_[^"]+)"', re.MULTILINE)
+HERO_RE = re.compile(r'^\s*"([^"]+)": "(art_[^"]+)"', re.MULTILINE)
 
 # Inspeccionadas visualmente y pendientes de redibujar / reexportar.
 KNOWN_ISSUES = {
