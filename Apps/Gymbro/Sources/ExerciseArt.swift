@@ -10,8 +10,8 @@ enum ExerciseArt {
     }
 
     static func imageName(forExerciseName name: String, muscleGroup: String) -> String? {
-        if let exact = nameMap[name] { return exact }
-        return muscleFallback[muscleGroup]
+        // Nunca asociar a un ejercicio desconocido la imagen de otro solo por compartir músculo.
+        nameMap[name]
     }
 
     /// Solo cache hit (nunca decodifica). Usar en `body` para no bloquear el buscador.
@@ -102,15 +102,20 @@ enum ExerciseArt {
             return []
         }
         var numbered: [String] = []
-        for i in 1...8 {
-            let step = "\(base)_\(i)"
-            guard uiImage(named: step) != nil else { break }
-            numbered.append(step)
+        if !staticHoldExercises.contains(exercise.name),
+           !quarantinedSequences.contains(base) {
+            for i in 1...8 {
+                let step = "\(base)_\(i)"
+                guard uiImage(named: step) != nil else { break }
+                numbered.append(step)
+            }
         }
-        let resolved: [String]
+        var resolved: [String]
         if numbered.count >= 2 {
             resolved = numbered
-        } else if let frames = movementFrames[exercise.name] {
+        } else if !staticHoldExercises.contains(exercise.name),
+                  verifiedMovementFrameExercises.contains(exercise.name),
+                  let frames = movementFrames[exercise.name] {
             var seen = Set<String>()
             let unique = frames.filter { name in
                 guard uiImage(named: name) != nil else { return false }
@@ -131,6 +136,12 @@ enum ExerciseArt {
             resolved = [first]
         } else {
             resolved = []
+        }
+        // Impedir subtítulos desplazados o repetidos si un seed cambia sus instrucciones.
+        let captions = CatalogSpanish.instructions(forName: exercise.name) ?? exercise.instructions
+        let captionCount = captions.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count
+        if resolved.count >= 2 && captionCount != resolved.count {
+            resolved = uiImage(named: base) == nil ? [] : [base]
         }
         lookup.setNames(resolved, for: cacheKey)
         return resolved
@@ -161,6 +172,32 @@ enum ExerciseArt {
             image.draw(in: CGRect(origin: .zero, size: size))
         }
     }
+
+    /// Holds no dinámicos: una sola ilustración, aunque aparezcan pasos por error.
+    private static let staticHoldExercises: Set<String> = [
+        "Hollow hold", "Arch hold", "Handstand hold", "L-sit", "V-sit",
+        "Front lever tuck", "Back lever tuck", "Planche tuck",
+        "False grip hang", "German hang", "Soporte en anillas",
+    ]
+
+    /// Secuencias que se han revisado visualmente y fallan el criterio de producto.
+    /// Se mantiene el hero hasta regenerar y exportar TODOS sus frames defectuosos.
+    private static let quarantinedSequences: Set<String> = [
+        "art_cf_thruster",     // Paso 3: mancuernas en lugar de barra.
+        "art_cf_tgu",          // Paso 1: mancuerna; los siguientes usan kettlebell.
+        "art_cf_hang_clean",   // Camiseta en todos los frames; sombra en fase aérea.
+        "art_cf_mu_rings",    // Sombra de suelo mientras cuelga de las anillas.
+        "art_cf_ghd",         // Camiseta y fases poco diferenciadas.
+        "art_rdl",            // Distinto ángulo de cámara entre las dos fases.
+        "art_gy_pb_dip",      // Cambio de cámara/equipo entre fases.
+        "art_cf_mu_bar",      // Cambio brusco de ángulo en la transición.
+        "art_cf_wall_ball",   // Paso 3 y caption no representan la misma recepción.
+    ]
+
+    /// Candidatos movementFrames siguen documentados abajo, pero ninguno ha
+    /// superado todavía la auditoría de continuidad de equipo/persona/cámara.
+    /// Añadir aquí SOLO ejercicios validados visualmente, nunca por nombre.
+    private static let verifiedMovementFrameExercises: Set<String> = []
 
     /// Secuencias de fotogramas distintos (mismo estilo) cuando no hay `base_1/_2/_3`.
     /// Holds estáticos no van aquí. Preferir pasos propios `_1…N` cuando existan.
@@ -588,22 +625,6 @@ enum ExerciseArt {
         "Farmer carry": "art_cf_farmer_carry",
     ]
 
-    private static let muscleFallback: [String: String] = [
-        "Pecho": "art_press_banca",
-        "Espalda": "art_remo_barra",
-        "Piernas": "art_sentadilla",
-        "Isquios": "art_rdl",
-        "Hombros": "art_press_militar",
-        "Bíceps": "art_curl_barra",
-        "Tríceps": "art_triceps_polea",
-        "Core": "art_plancha",
-        "Glúteos": "art_hip_thrust",
-        "Gemelos": "art_gemelos",
-        "Cardio": "art_cardio",
-        "CrossFit": "art_cf_thruster",
-        "Halterofilia": "art_cf_cargada",
-        "Gimnasia": "art_cf_mu_bar",
-    ]
 }
 
 /// Miniatura reutilizable (lista, picker, plan). Prioriza cache síncrona (sin Task) para no trabar el teclado.
