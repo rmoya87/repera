@@ -13,7 +13,7 @@ Repositorio: `rmoya87/gymbro` · Referencia: `art_ab_wheel.jpg`
 
 ## Estado visual (JPG originales examinados)
 
-El fichero `docs/EXERCISE_ART_AUDIT.csv` incluye **los 291 stems** y su estado. No se han dado por OK los 272 stems que aún carecen de una validación visual individual documentada.
+El fichero `docs/EXERCISE_ART_AUDIT.csv` incluye **los 291 stems** y su estado. No se han dado por OK los 259 stems que aún carecen de una validación visual individual documentada.
 
 | Ejercicio | Stem afectado | Dictamen | Problema | Acción necesaria |
 | --- | --- | --- | --- | --- |
@@ -28,14 +28,31 @@ El fichero `docs/EXERCISE_ART_AUDIT.csv` incluye **los 291 stems** y su estado. 
 | Wall ball | `art_cf_wall_ball_3` | WARN | Recepción inconsistente y cambio de plano | Revisar tercer frame y diana |
 | Box jump over | `art_cf_bjo_1…3` | Sin incidencia evidente en inspección de esta secuencia | Salto sin sombra de suelo, aterrizaje al otro lado | Pendiente de verificación comparativa con hero y escala |
 
-**Total del CSV:** 13 stems FAIL, 6 WARN, 272 PENDING_VISUAL_QA. Un stem WARN no equivale a un ejercicio aprobado.
+**Total del CSV:** 24 stems FAIL, 8 WARN, 259 PENDING_VISUAL_QA. Un stem WARN no equivale a un ejercicio aprobado.
+
+### Otros héroes que requieren regeneración
+
+La inspección adicional ha identificado **11 héroes FAIL** y **2 WARN** (además de las incidencias de los carruseles). Los once FAIL se ocultan provisionalmente para no enseñar una posición de levantamiento errónea.
+
+| Stem | Veredicto | Motivo |
+| --- | --- | --- |
+| `art_cf_hang_clean`, `art_cf_ghd` | FAIL | Torso vestido |
+| `art_cf_mu_rings` | FAIL | Anillas beige ajenas a la paleta |
+| `art_hl_block_clean`, `art_hl_block_snatch` | FAIL | Deportista sobre los bloques, no barra arrancando desde ellos |
+| `art_hl_clean_pull`, `art_hl_snatch_pull` | FAIL | Barra detrás del cuello en vez de tirón |
+| `art_hl_pause_fs` | FAIL | Back squat presentado como front squat |
+| `art_hl_pause_clean` | FAIL | Barra overhead presentada como cargada con pausa |
+| `art_hl_hang_sq_clean` | FAIL | Rack de la barra incorrecto |
+| `art_hl_tall_clean` | FAIL | Torso vestido |
+| `art_cf_wall_ball` | WARN | Hero sin pared ni diana |
+| `art_hl_snatch_bal` | WARN | Cinturón ajeno a la vestimenta canónica |
 
 ## Correcciones implementadas y pendientes
 
 - `ExerciseArt.swift`: no reutiliza un hero por músculo cuando un ejercicio no está en `nameMap`.
-- `ExerciseArt.swift`: se bloquean nueve carruseles con fallos documentados; se conserva el hero como salida segura.
+- `ExerciseArt.swift`: se bloquean nueve carruseles con fallos documentados y se conserva el hero únicamente cuando cumple los criterios visuales mínimos.
 - `ExerciseArt.swift`: se conserva el diccionario candidato `movementFrames`, pero se exige aprobación visual explícita antes de activar cada reutilización. Ningún candidato está aprobado en esta revisión.
-- `ExerciseArt.swift`: estáticos siempre en hero y fallback a hero si faltan captions.
+- `ExerciseArt.swift`: once héroes incorrectos quedan ocultos y se muestra el diagrama muscular como alternativa temporal. Los holds estáticos y los carruseles sin captions alineados se muestran sin carrusel.
 - `CatalogSpanish.swift`: se retiraron 233 anotaciones internas `(imagen: …)` y se revisaron ocho bloques de pasos: `Peso muerto rumano`, `Fondos en paralelas`, `Thruster`, `Turkish get-up`, `Wall ball`, `Muscle-up barra`, `Muscle-up anillas`, `GHD sit-up`.
 - `ExerciseArtCaptionTests.swift`: asegura el número de frases para los 38 carruseles propios.
 - `scripts/audit_exercise_art.py`: valida full 1024, thumb 192, integridad JPEG, naming y N↔N de instrucciones.
