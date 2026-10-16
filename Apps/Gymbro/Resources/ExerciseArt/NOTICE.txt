@@ -1,5 +1,25 @@
 Gymbro exercise illustrations in this folder are original assets created for Gymbro.
 They are not copies of Gym visual / openGym catalogue media.
-Style: instructional flat anatomical vector — medium-light grey figure, neon lime
-muscle highlights, solid charcoal background. Full 1024px; thumbs/ at 192px.
-Airborne poses (hang, bar/rings support, mid-jump): no floor oval/shadow.
+
+Última actualización: 2026-10-17
+
+Canonical image: art_ab_wheel.jpg.
+Style: flat anatomical vector; near-black charcoal background; medium-grey
+athletic man with no visible facial features and short charcoal hair.
+Torso ALWAYS shirtless. Dark charcoal athletic shorts and grey sneakers.
+Neon lime is restricted to muscles active in the depicted phase.
+No text, logos or gym clutter. Keep camera, anatomy, equipment and body
+orientation identical across hero and numbered frames.
+Ground oval only when supported. NEVER draw a floor shadow when suspended,
+jumping or supported on bar/rings without touching the ground.
+
+Exported assets:
+- ExerciseArt/<stem>.jpg: 1024 x 1024 JPEG.
+- ExerciseArt/thumbs/<stem>.jpg: 192 x 192 JPEG.
+- Export new gens with scripts/export_generated_art.py; avoid homogenizing them.
+- Full plus matching thumb are required for every stem.
+
+WARNING: Some existing images are in visual QA quarantine. Presence in this
+folder does NOT imply the art is approved. See docs/EXERCISE_ART_AUDIT.csv and
+scripts/audit_exercise_art.py. Regenerate, export, inspect and then remove
+the corresponding quarantinedSequences entry in ExerciseArt.swift.
