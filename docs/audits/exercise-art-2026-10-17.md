@@ -84,14 +84,14 @@
 | Salto al cajón | `art_cf_box_jump` | WARN | Carrusel 3 pasos: sin QA visual completa | Inspeccionar hero, fases, sombras y cámara |
 | Step-up al cajón | `art_cf_step_up` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
 | Muscle-up barra | `art_cf_mu_bar` | FAIL | `_3`: soporte sobre barra no representado | Regenerar `art_cf_mu_bar_3` sin sombra |
-| Muscle-up anillas | `art_cf_mu_rings` | FAIL | `_1` y `_3` con sombra en suspensión; `_2` con pies al suelo | Regenerar las tres fases de anillas; sin sombra aérea |
+| Muscle-up anillas | `art_cf_mu_rings` | FAIL | `_1` ya sustituido por hero sin sombra; `_2` con pies al suelo; `_3` con sombra | Regenerar `_2`/`_3` y revisar continuidad |
 | Toes to bar | `art_cf_ttb` | WARN | Carrusel 3 pasos: sin QA visual completa | Inspeccionar hero, fases, sombras y cámara |
 | Knees to elbows | `art_cf_kte` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
 | Chest to bar | `art_cf_ctb` | WARN | Carrusel 3 pasos: sin QA visual completa | Inspeccionar hero, fases, sombras y cámara |
 | HSPU | `art_cf_hspu` | WARN | Carrusel 3 pasos: sin QA visual completa | Inspeccionar hero, fases, sombras y cámara |
 | Handstand walk | `art_cf_hsw` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
 | Wall walk | `art_cf_wall_walk` | WARN | Carrusel 3 pasos: sin QA visual completa | Inspeccionar hero, fases, sombras y cámara |
-| Fondos en anillas | `art_cf_ring_dip` | FAIL | Los pasos `_1` y `_3` son binariamente idénticos | Regenerar paso `_3` como fase final diferenciada y reactivar carrusel |
+| Fondos en anillas | `art_cf_ring_dip` | FAIL | Hero y `_1…3` con camiseta y sombra aérea; `_1` y `_3` son idénticos | Regenerar hero y tres fases sin camiseta/sombra |
 | Pistol squat | `art_cf_pistol` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
 | Rope climb | `art_cf_rope` | WARN | Carrusel 3 pasos: sin QA visual completa | Inspeccionar hero, fases, sombras y cámara |
 | Hollow rock | `art_cf_hollow` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
@@ -207,9 +207,10 @@
 
 - `art_cf_thruster_3`: **corregido**: ahora full y thumb reutilizan el hero original con barra olímpica overhead; pendiente QA de continuidad.
 - `art_cf_mu_bar_3`: soporte sobre la misma barra, pies suspendidos, sin sombra.
-- `art_cf_mu_rings_1`, `_2`, `_3`: quitar sombras y corregir la transición.
+- `art_cf_mu_rings_1`: **corregido**: reutilizado hero sin sombra (full 1024 y thumb 192).
+- `art_cf_mu_rings_2`, `_3`: quitar sombra y corregir la transición.
 - `art_gy_ring_sup`, `art_gy_strict_pu`: regenerar hero por sombra aérea.
-- `art_cf_ring_dip_2`: eliminar camiseta y sombra.
+- `art_cf_ring_dip` (hero), `_1`, `_2`, `_3`: eliminar camiseta y sombras; asegurar tres fases distintas.
 - `art_cf_ring_dip_3`: paso final distinto del `_1` (actualmente son exactamente el mismo JPG).
 - `art_cf_hang_clean`, `art_cf_hang_clean_1`, `_2`, `_3`: eliminar camiseta y shadow de `_2`.
 
