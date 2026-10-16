@@ -10,8 +10,9 @@ enum ExerciseArt {
     }
 
     static func imageName(forExerciseName name: String, muscleGroup: String) -> String? {
-        // Nunca asociar a un ejercicio desconocido la imagen de otro solo por compartir músculo.
-        nameMap[name]
+        // No reutilizar por músculo ni mostrar héroes visualmente incorrectos.
+        guard let base = nameMap[name], !quarantinedHeroes.contains(base) else { return nil }
+        return base
     }
 
     /// Solo cache hit (nunca decodifica). Usar en `body` para no bloquear el buscador.
@@ -172,6 +173,16 @@ enum ExerciseArt {
             image.draw(in: CGRect(origin: .zero, size: size))
         }
     }
+
+    /// Estos héroes incumplen el movimiento/equipo/estilo; mostrar MuscleImpactDiagram.
+    /// Solo retirarlos tras regenerar full y thumb con verificación visual.
+    private static let quarantinedHeroes: Set<String> = [
+        "art_cf_hang_clean", "art_cf_ghd", "art_cf_mu_rings",
+        "art_hl_block_clean", "art_hl_block_snatch",
+        "art_hl_clean_pull", "art_hl_snatch_pull",
+        "art_hl_pause_fs", "art_hl_pause_clean",
+        "art_hl_hang_sq_clean", "art_hl_tall_clean",
+    ]
 
     /// Holds no dinámicos: una sola ilustración, aunque aparezcan pasos por error.
     private static let staticHoldExercises: Set<String> = [
