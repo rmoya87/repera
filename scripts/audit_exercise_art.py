@@ -47,6 +47,19 @@ VISUAL_FINDINGS = {
     "art_cf_mu_bar_2": ("ba2323dbdaf69af34d1c3c84dc4a005e4eba013b", "WARN", "La cámara cambia durante la transición"),
     "art_cf_mu_bar_3": ("90951f4b1bdb42950b7ebc186c28805705c55636", "WARN", "Soporte final desde otro ángulo"),
     "art_cf_wall_ball_3": ("530a67d89a230dc1799ab3f9a7a1bcff8d380054", "WARN", "Cambio de plano y balón alto; revisar fase de recepción"),
+    "art_cf_hang_clean": ("c9a687633e9c1eef0e00db0fe373a6ee04424666", "FAIL", "Hero con camiseta"),
+    "art_cf_ghd": ("792369a58fdc93100e136e65d5913e49761e0271", "FAIL", "Hero con camiseta"),
+    "art_cf_mu_rings": ("cdbc24c344d1aae2fc1d911e95378cb6177f0664", "FAIL", "Anillas beige en vez de grises"),
+    "art_cf_wall_ball": ("5fb0584f0b017cc5a8729c4928e41cee612814f7", "WARN", "Falta muro y diana en el hero"),
+    "art_hl_block_clean": ("81bc461bb4024bf4fb5b81fb27b81435a9ff8272", "FAIL", "El atleta sube a los bloques en lugar de empezar con la barra sobre ellos"),
+    "art_hl_block_snatch": ("7b3e322e775b84d4530909e8e591dacabe34a286", "FAIL", "El atleta está sobre los bloques y no representa la salida"),
+    "art_hl_clean_pull": ("5eec11a81811ca2199a574f60d50c2adf919e47d", "FAIL", "Barra detrás del cuello en vez de tirón de cargada"),
+    "art_hl_snatch_pull": ("fcc6f62f5f8f88289706be1508174827c86380e5", "FAIL", "Barra detrás del cuello en vez de tirón de arrancada"),
+    "art_hl_pause_fs": ("e779790f26164bfd93e57f42bb1b040dbfd7b9dd", "FAIL", "Barra sobre la espalda en vez de rack frontal"),
+    "art_hl_pause_clean": ("074f4d3e222ec1142e04a1b1f1435dce20963609", "FAIL", "Barra overhead en vez de cargada con pausa"),
+    "art_hl_hang_sq_clean": ("c78d6861117dbe689fe3b4800a92f1057cdb4a94", "FAIL", "Barra detrás del cuello en vez de rack frontal"),
+    "art_hl_tall_clean": ("c32ad2ab1669669a37bf2fdc23e17926ad0a7018", "FAIL", "Torso vestido"),
+    "art_hl_snatch_bal": ("b8d295d153737586ebe67152626e05af120e374f", "WARN", "Cinturón extra distinto del outfit canónico"),
 }
 
 
