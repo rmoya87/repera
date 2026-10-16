@@ -1,0 +1,33 @@
+name: Gymbro exercise art audit
+
+on:
+  pull_request:
+    paths:
+      - 'Apps/Gymbro/Resources/ExerciseArt/**'
+      - 'Apps/Gymbro/Sources/ExerciseArt.swift'
+      - 'Packages/GymbroDomain/Sources/GymbroDomain/CatalogSpanish.swift'
+      - 'scripts/audit_exercise_art.py'
+      - '.github/workflows/exercise-art-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install image checker
+        run: python -m pip install 'Pillow>=10,<13'
+      - name: Validate all JPG pairs and caption counts
+        run: python scripts/audit_exercise_art.py --contact-sheets
+      - name: Upload review report and contact sheets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gymbro-art-audit
+          path: art-audit/
+          if-no-files-found: warn
