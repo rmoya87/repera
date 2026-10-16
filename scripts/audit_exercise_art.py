@@ -28,6 +28,7 @@ HERO_RE = re.compile(r'^\s*"([^"]+)": "(art_[^"]+)"', re.MULTILINE)
 KNOWN_ISSUES = {
     "art_cf_thruster_3": ("FAIL", "Mancuernas en vez de barra", "Regenerar _3 con barra y exportar ambos JPG"),
     "art_cf_mu_bar_3": ("FAIL", "No muestra soporte sobre barra; fase aérea incorrecta", "Regenerar soporte bloqueado, sin sombra"),
+    "art_cf_ring_dip_3": ("FAIL", "Mismo contenido binario que el paso _1", "Regenerar fase final distinta del soporte inicial"),
     "art_cf_hang_clean": ("FAIL", "Torso vestido", "Regenerar hero con torso descubierto"),
     "art_cf_hang_clean_1": ("FAIL", "Torso vestido", "Regenerar setup desde hang"),
     "art_cf_hang_clean_2": ("FAIL", "Torso vestido y sombra bajo fase aérea", "Regenerar extensión sin sombra"),
