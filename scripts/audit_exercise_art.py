@@ -26,13 +26,19 @@ HERO_RE = re.compile(r'^\s*"([^"]+)": "(art_[^"]+)"', re.MULTILINE)
 
 # Inspeccionadas visualmente y pendientes de redibujar / reexportar.
 KNOWN_ISSUES = {
-    "art_cf_thruster_3": ("FAIL", "Mancuernas en vez de barra", "Regenerar _3 con barra y exportar ambos JPG"),
+    "art_cf_thruster_3": ("WARN", "Sustituido por el hero con barra overhead; comprobar uniformidad de cámara", "Revisión final de la pose reutilizada"),
     "art_cf_mu_bar_3": ("FAIL", "No muestra soporte sobre barra; fase aérea incorrecta", "Regenerar soporte bloqueado, sin sombra"),
     "art_cf_ring_dip_3": ("FAIL", "Mismo contenido binario que el paso _1", "Regenerar fase final distinta del soporte inicial"),
     "art_cf_hang_clean": ("FAIL", "Torso vestido", "Regenerar hero con torso descubierto"),
     "art_cf_hang_clean_1": ("FAIL", "Torso vestido", "Regenerar setup desde hang"),
     "art_cf_hang_clean_2": ("FAIL", "Torso vestido y sombra bajo fase aérea", "Regenerar extensión sin sombra"),
     "art_cf_hang_clean_3": ("FAIL", "Torso vestido", "Regenerar catch en rack frontal"),
+    "art_cf_mu_rings_1": ("FAIL", "Sombra de suelo bajo atleta suspendido", "Regenerar hang sin sombra"),
+    "art_cf_mu_rings_2": ("FAIL", "Pies al nivel del suelo; transición de MU incoherente", "Regenerar transición aérea"),
+    "art_cf_mu_rings_3": ("FAIL", "Óvalo/sombra en soporte sobre anillas", "Regenerar soporte sin sombra"),
+    "art_cf_ring_dip_2": ("FAIL", "Camiseta y sombra bajo el atleta suspendido", "Regenerar sin camiseta ni sombra"),
+    "art_gy_ring_sup": ("FAIL", "Óvalo de suelo en soporte sobre anillas", "Regenerar hero sin sombra"),
+    "art_gy_strict_pu": ("FAIL", "Sombra de suelo en dominada suspendida", "Regenerar hero sin sombra"),
     "art_cf_ghd": ("WARN", "Parece llevar prenda de tirantes", "Verificar torso y regenerar si se confirma"),
     "art_gy_pb_dip_2": ("WARN", "Cambia el ángulo respecto a _1", "Unificar la cámara al regenerar"),
     "art_rdl_2": ("WARN", "Cámara distinta respecto a _1", "Alinear vista lateral o 3/4"),
