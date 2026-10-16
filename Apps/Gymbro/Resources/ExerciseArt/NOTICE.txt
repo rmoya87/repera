@@ -3,3 +3,14 @@ They are not copies of Gym visual / openGym catalogue media.
 Style: instructional flat anatomical vector — medium-light grey figure, neon lime
 muscle highlights, solid charcoal background. Full 1024px; thumbs/ at 192px.
 Airborne poses (hang, bar/rings support, mid-jump): no floor oval/shadow.
+Last updated: 2026-10-17
+Canonical reference: art_ab_wheel.jpg.
+Figure: one athletic faceless man, short charcoal hair, SHIRTLESS torso,
+dark charcoal athletic shorts and grey sneakers. Same proportions in every frame.
+One fixed equipment type and stable camera angle for all frames in a sequence.
+Lime highlight only on the working muscles for that pose. No text or logos.
+Holds: hero only. A carousel must have one matching imperative Spanish caption per frame.
+Known pending replacements: art_cf_thruster_3 (dumbbells vs barbell),
+art_cf_mu_bar_3 (support pose incorrect), art_cf_hang_clean_1…3
+(shirt instead of exposed torso), art_cf_hang_clean hero (shirt).
+Do not re-enable these carousels until the full 1024 and thumb 192 have been exported.
