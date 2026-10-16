@@ -13,4 +13,5 @@ Holds: hero only. A carousel must have one matching imperative Spanish caption p
 Known pending replacements: art_cf_thruster_3 (dumbbells vs barbell),
 art_cf_mu_bar_3 (support pose incorrect), art_cf_hang_clean_1…3
 (shirt instead of exposed torso), art_cf_hang_clean hero (shirt).
+art_cf_ring_dip_1 and art_cf_ring_dip_3 are identical; redraw the final phase.
 Do not re-enable these carousels until the full 1024 and thumb 192 have been exported.
