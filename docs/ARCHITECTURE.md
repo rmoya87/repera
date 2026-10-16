@@ -1,6 +1,6 @@
 # Arquitectura Gymbro
 
-Última actualización: 2026-10-16 (Lote 3 pasos gym; fallback movementFrames)
+Última actualización: 2026-10-17 (auditoría y guardas para carruseles)
 
 ## Visión
 
@@ -112,7 +112,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 | `BodyMapView` + `BodyPaths.json` | Mapa muscular SVG |
 | `ProgressTrendCards` | Cardio, kcal, peso vs objetivo |
 | `QuickLogSheet` / `QuickLogPickerView` | Apuntar series |
-| `ExerciseArt` / `ExerciseThumb` | Hero 1024px anatómico (gris+lime/charcoal); carrusel = `base_1…N` o `movementFrames` (reuso de héroes); caption = instructions[i]; holds estáticos sin carrusel; poses en aire sin sombra de suelo; listas usan `thumbs/` 192px; prefetch paralelo |
+| `ExerciseArt` / `ExerciseThumb` | Arte anatómico gris+lime sobre charcoal, torso descubierto. Prioridad `base_1…N` → `movementFrames` verificados (vacío temporalmente) → hero. Holds: hero; secuencias defectuosas: cuarentena. Captions de `CatalogSpanish`; thumbs 192px bajo `ExerciseArt/thumbs/`; auditoría con `scripts/audit_exercise_art.py` |
 | `ExerciseSearch` | `Document` index + `score`/`ranked` (filtro sync en LibraryView) |
 | `LibrarySearchLog` | Timing DEBUG rebuild/`rank top` del buscador |
 | `PhoneConnectivity` / Watch | Sesión + acciones `quickLog` / `logSet` |
