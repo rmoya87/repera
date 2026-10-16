@@ -1,6 +1,6 @@
 # Arquitectura Gymbro
 
-Última actualización: 2026-10-16 (Lote 3 pasos gym; fallback movementFrames)
+Última actualización: 2026-10-17 (controles de recursos artísticos y pies de foto)
 
 ## Visión
 
@@ -132,3 +132,14 @@ Guía manual: [TESTING_GUIDE.md](TESTING_GUIDE.md).
 - Backend / auth multi-usuario
 - Android
 - Coach / LLM en la nube (Foundation Models solo pizarra on-device)
+
+## Auditoría de ilustraciones de ejercicios (2026-10-17)
+
+- `ExerciseArt.imageName(forExerciseName:muscleGroup:)` solo devuelve un hero cuando hay asignación exacta en `nameMap`: nunca emplea una foto ajena como fallback por músculo.
+- `imageNames(for:)` prioriza pasos propios `_1…_8`, después `movementFrames` verificados y por último un hero. La lista de candidaturas no habilita por sí misma un fallback.
+- El conjunto `quarantinedSequences` bloquea carruseles con fallos comprobados visualmente: la ficha conserva el hero y el texto técnico mientras se regenera el material, aunque el hero también requiere QA independiente.
+- Los holds estáticos se fuerzan a un único hero; si el número de instrucciones no coincide con el del carrusel, se retira la secuencia y se muestra solo hero.
+- `scripts/export_generated_art.py` escribe full JPEG 1024×1024 y thumb JPEG 192×192 bajo `Apps/Gymbro/Resources/ExerciseArt/`; no hace falta registrar cada recurso por separado en `project.yml`.
+- `scripts/audit_exercise_art.py` con Pillow valida JPEG, medidas, pares full/thumb, referencia desde `nameMap` y N captions. `docs/EXERCISE_ART_AUDIT.csv` recopila por stem los defectos confirmados y lo que continúa pendiente de inspección visual.
+
+El auditor estructural **no puede aprobar** similitud del personaje, ejecución anatómica, lateralidad, sombra, equipo y activación muscular sin revisión visual. No publicar una secuencia en cuarentena hasta generar y exportar todos sus frames y miniaturas, comprobarlos visualmente y retirar su entrada de cuarentena.
