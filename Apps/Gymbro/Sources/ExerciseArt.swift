@@ -186,8 +186,8 @@ enum ExerciseArt {
     /// Requieren nueva generación + export (1024 y 192) antes de reactivar pasos.
     /// Hero + bloque de técnica es preferible a enseñar una fase falsa.
     private static let quarantinedSequences: Set<String> = [
-        "Thruster",          // _3 cambia la barra por mancuernas
         "Muscle-up barra",   // _3 no es soporte real sobre la barra
+        "Muscle-up anillas", // _3 muestra sombra de suelo estando suspendido
         "Cargada colgante", // _1…3 llevan camiseta (incumple el estilo)
         "Fondos en anillas",  // _1 y _3 son el mismo JPG: no hay progresión
     ]
