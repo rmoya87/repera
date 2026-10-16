@@ -24,13 +24,40 @@ struct PlanView: View {
     @State private var confirmClearSchedule = false
     @State private var assigningDay: Int?
     @State private var dayActionRoutine: Routine?
+    @State private var copyWeekFlash: Int?
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    OGPageHeader(title: "Diario")
-                        .ogListPageHeaderRow()
+                    OGPageHeader(title: "Diario") {
+                        if section == .schedule {
+                            Menu {
+                                Button {
+                                    let n = store.copyPreviousWeekSchedule()
+                                    copyWeekFlash = n
+                                } label: {
+                                    Label("Copiar semana pasada", systemImage: "calendar.badge.clock")
+                                }
+                                if !store.plannedRoutines.isEmpty {
+                                    Button(role: .destructive) {
+                                        confirmClearSchedule = true
+                                    } label: {
+                                        Label("Vaciar programación", systemImage: "calendar.badge.minus")
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis")
+                                    .font(.system(size: OG.toolbarGlassIcon, weight: .semibold))
+                                    .foregroundStyle(OG.label)
+                                    .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
+                                    .contentShape(Circle())
+                                    .glassEffect(.regular.interactive(), in: .circle)
+                            }
+                            .accessibilityLabel("Más opciones")
+                        }
+                    }
+                    .ogListPageHeaderRow()
                 }
 
                 Section {
@@ -40,8 +67,7 @@ struct PlanView: View {
                         }
                     }
                     .pickerStyle(.segmented)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 4, leading: OG.pad, bottom: 4, trailing: OG.pad))
+                    .ogSegmentedListRow()
                 }
 
                 switch section {
@@ -56,6 +82,7 @@ struct PlanView: View {
             .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $editing) { routine in
                 DayEditorView(routine: routine, mode: .plan(isNew: isCreating))
+                    .ogSheetCorners()
                     .onDisappear { isCreating = false }
             }
             .sheet(item: Binding(
@@ -103,18 +130,37 @@ struct PlanView: View {
                     }
                 }
             }
-            .alert("Vaciar programación", isPresented: $confirmClearSchedule) {
-                Button("Vaciar", role: .destructive) {
-                    store.clearWeeklySchedule()
-                }
-                Button("Cancelar", role: .cancel) {}
+            .sheet(isPresented: $confirmClearSchedule) {
+                OGConfirmSheet(
+                    systemImage: "calendar.badge.minus",
+                    title: "¿Vaciar programación?",
+                    message: "Se quitan las rutinas de todos los días. Las plantillas en Rutinas se conservan. Los entrenos ya registrados se mantienen.",
+                    confirmTitle: "Vaciar",
+                    onConfirm: {
+                        store.clearWeeklySchedule()
+                        confirmClearSchedule = false
+                    },
+                    onCancel: { confirmClearSchedule = false }
+                )
+            }
+            .alert(
+                "Semana copiada",
+                isPresented: Binding(
+                    get: { copyWeekFlash != nil },
+                    set: { if !$0 { copyWeekFlash = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) { copyWeekFlash = nil }
             } message: {
-                Text("Se quitan las rutinas de todos los días. Las plantillas en Rutinas se conservan. Los entrenos ya registrados se mantienen.")
+                let n = copyWeekFlash ?? 0
+                Text(n == 0
+                     ? "No había entrenos sueltos en la semana ISO anterior."
+                     : "Se añadieron \(n) entreno\(n == 1 ? "" : "s") a esta semana.")
             }
         }
     }
 
-    // MARK: - Programado
+    // MARK: - Programado (solo asignación Lu–Do)
 
     @ViewBuilder
     private var scheduleContent: some View {
@@ -124,37 +170,51 @@ struct PlanView: View {
                 Button {
                     if let routine {
                         dayActionRoutine = routine
-                    } else if store.libraryRoutines.isEmpty {
-                        isCreating = true
-                        editing = Routine(
-                            title: CalendarHelpers.weekdayName(day),
-                            weekday: day,
-                            scheduledDate: nil,
-                            blocks: [.strength()]
-                        )
                     } else {
                         assigningDay = day
                     }
                 } label: {
-                    HStack(spacing: 12) {
+                    HStack(alignment: .top, spacing: 14) {
                         Text(String(CalendarHelpers.weekdayName(day).prefix(2)).uppercased())
                             .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(OG.onAccent)
-                            .frame(width: 36, height: 36)
-                            .background(routine == nil ? OG.surface3 : OG.accent, in: Circle())
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(CalendarHelpers.weekdayName(day)).foregroundStyle(OG.label)
-                            Text(routine.map { "\($0.title) · \(routineSubtitle($0))" }
-                                  ?? "Sin rutina · toca para asignar")
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
-                                .lineLimit(1)
+                            .foregroundStyle(routine == nil ? OG.label3 : OG.onAccent)
+                            .frame(width: 44, height: 44)
+                            .background(
+                                routine == nil ? OG.surface3 : OG.accent,
+                                in: Circle()
+                            )
+                            .overlay {
+                                if routine != nil {
+                                    Circle()
+                                        .strokeBorder(OG.accent.opacity(0.35), lineWidth: 3)
+                                        .padding(-3)
+                                }
+                            }
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(CalendarHelpers.weekdayName(day))
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(OG.label)
+
+                            if let routine {
+                                Text(routine.title)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(OG.label2)
+                                    .lineLimit(1)
+                                scheduleChips(for: routine)
+                            } else {
+                                Text("Día libre · toca para asignar")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(OG.label3)
+                            }
                         }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(OG.label3)
+                        Spacer(minLength: 8)
+                        Image(systemName: routine == nil ? "moon.fill" : "chevron.right")
+                            .font(.system(size: routine == nil ? 14 : 13, weight: .semibold))
+                            .foregroundStyle(routine == nil ? OG.label3.opacity(0.7) : OG.label3)
+                            .padding(.top, 12)
                     }
+                    .padding(.vertical, 6)
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     if let routine {
@@ -167,42 +227,39 @@ struct PlanView: View {
                     }
                 }
             }
-        } footer: {
-            Text("Los días solo asignan rutinas. Crea y edita el contenido en Rutinas.")
         }
+    }
 
-        if store.plannedRoutines.isEmpty && store.libraryRoutines.isEmpty {
-            Section {
-                VStack(spacing: 12) {
-                    Text("Empieza creando una rutina reutilizable y asígnala a los días que entrenas.")
-                        .font(.system(size: 14))
-                        .foregroundStyle(OG.label2)
-                        .multilineTextAlignment(.center)
-                    Button {
-                        section = .routines
-                        createNewRoutine()
-                    } label: {
-                        Text("Crear primera rutina")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(OG.onAccent)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(OG.accent, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
+    @ViewBuilder
+    private func scheduleChips(for routine: Routine) -> some View {
+        let strength = routine.blocks.filter { $0.kind == .strength }.flatMap(\.exercises).count
+        let wods = routine.blocks.filter { $0.kind == .wod }.count
+        let time = routine.normalizedScheduledTimeMinutes.map { SpanishDate.time(minutesFromMidnight: $0) }
+
+        if strength == 0, wods == 0, time == nil {
+            scheduleChip("Vacía", tint: OG.label3)
+        } else {
+            HStack(spacing: 6) {
+                if let time {
+                    scheduleChip(time, tint: OG.blue)
                 }
-                .padding(.vertical, 8)
-                .listRowBackground(Color.clear)
-            }
-        }
-
-        if !store.plannedRoutines.isEmpty {
-            Section {
-                Button("Vaciar programación", role: .destructive) {
-                    confirmClearSchedule = true
+                if strength > 0 {
+                    scheduleChip("\(strength) ej.", tint: OG.accent)
+                }
+                if wods > 0 {
+                    scheduleChip("\(wods) WOD", tint: OG.orange)
                 }
             }
         }
+    }
+
+    private func scheduleChip(_ text: String, tint: Color) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(OG.surface2, in: Capsule())
     }
 
     // MARK: - Rutinas
@@ -222,16 +279,8 @@ struct PlanView: View {
                         .font(.system(size: 14))
                         .foregroundStyle(OG.label2)
                         .multilineTextAlignment(.center)
-                    Button(action: createNewRoutine) {
-                        Text("Nueva rutina")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(OG.onAccent)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(OG.accent, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.top, 4)
+                    newRoutineGreenButton
+                        .padding(.top, 4)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 24)
@@ -244,23 +293,26 @@ struct PlanView: View {
                         isCreating = false
                         editing = routine
                     } label: {
-                        HStack(spacing: 12) {
+                        HStack(spacing: 14) {
                             Image(systemName: routine.isFavorite ? "star.fill" : "figure.strengthtraining.traditional")
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(routine.isFavorite ? OG.yellow : OG.accent)
-                                .frame(width: 36, height: 36)
+                                .frame(width: 40, height: 40)
                                 .background(OG.surface2, in: Circle())
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(routine.title).foregroundStyle(OG.label)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(routine.title)
+                                    .font(.system(size: 17, weight: .medium))
+                                    .foregroundStyle(OG.label)
                                 Text(librarySubtitle(routine))
-                                    .font(.caption)
+                                    .font(.system(size: 13))
                                     .foregroundStyle(OG.label2)
                             }
-                            Spacer()
+                            Spacer(minLength: 8)
                             Image(systemName: "chevron.right")
-                                .font(.caption.weight(.semibold))
+                                .font(.system(size: 13, weight: .semibold))
                                 .foregroundStyle(OG.label3)
                         }
+                        .padding(.vertical, 4)
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) {
@@ -290,16 +342,27 @@ struct PlanView: View {
                         .tint(OG.yellow)
                     }
                 }
-            } footer: {
-                Text("Edita aquí el contenido. En Programado solo eliges qué rutina va cada día.")
             }
-        }
 
-        Section {
-            Button(action: createNewRoutine) {
-                Label("Nueva rutina", systemImage: "plus")
+            Section {
+                newRoutineGreenButton
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                    .listRowSeparator(.hidden)
             }
         }
+    }
+
+    private var newRoutineGreenButton: some View {
+        Button(action: createNewRoutine) {
+            Text("Nueva rutina")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(OG.onAccent)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(OG.accent, in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     private func createNewRoutine() {
@@ -321,6 +384,9 @@ struct PlanView: View {
         let strength = routine.blocks.filter { $0.kind == .strength }.flatMap(\.exercises).count
         let wods = routine.blocks.filter { $0.kind == .wod }.count
         var parts: [String] = []
+        if let minutes = routine.normalizedScheduledTimeMinutes {
+            parts.append(SpanishDate.time(minutesFromMidnight: minutes))
+        }
         if strength > 0 { parts.append("\(strength) ej.") }
         if wods > 0 { parts.append("\(wods) WOD") }
         if parts.isEmpty { parts.append("Vacía") }
@@ -349,11 +415,14 @@ struct DayEditorView: View {
     @State var routine: Routine
     var mode: DayEditorMode
     var onSessionStarted: (() -> Void)? = nil
+    /// Cierre explícito cuando se presenta como página (push), no modal.
+    var onClose: (() -> Void)? = nil
     var embedsNavigationStack: Bool = true
+    /// Cabecera con X arriba y título debajo (flujo Entreno → Editar).
+    var usesPageCloseHeader: Bool = false
     @State private var pickExerciseForBlock: UUID?
     @State private var pickMovementForBlock: UUID?
-    /// En modo sesión: día ISO opcional para guardar en el plan (0 = no guardar día).
-    @State private var saveToWeekday: Int = 0
+    @State private var showRoutinePicker = false
     @State private var saveAsFavorite = false
 
     var body: some View {
@@ -363,6 +432,7 @@ struct DayEditorView: View {
                     .preferredColorScheme(.dark)
             } else {
                 editorForm
+                    .preferredColorScheme(.dark)
             }
         }
     }
@@ -370,8 +440,21 @@ struct DayEditorView: View {
     private var editorForm: some View {
         Form {
             Section {
-                OGPageHeader(title: navTitle)
+                if usesPageCloseHeader {
+                    OGPageHeader(title: navTitle) {
+                        CloseToolbarButton(action: closeEditor, large: true)
+                    } trailing: {
+                        Button(confirmTitle) { confirm() }
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(canConfirm ? OG.accent : OG.label3)
+                            .disabled(!canConfirm)
+                            .frame(height: 36)
+                    }
                     .ogListPageHeaderRow()
+                } else {
+                    OGPageHeader(title: navTitle)
+                        .ogListPageHeaderRow()
+                }
             }
 
             Section {
@@ -387,6 +470,7 @@ struct DayEditorView: View {
                             Text(CalendarHelpers.weekdayName(day)).tag(day)
                         }
                     }
+                    scheduledTimeControls
                     Picker("Progresión (fuerza)", selection: $routine.progression) {
                         ForEach(ProgressionPolicy.allCases, id: \.self) { Text($0.displayName).tag($0) }
                     }
@@ -396,6 +480,7 @@ struct DayEditorView: View {
                         Text(SpanishDate.long(date))
                             .foregroundStyle(OG.label2)
                     }
+                    scheduledTimeControls
                     Toggle("También en favoritos", isOn: $routine.isFavorite)
                 case .favorite:
                     Toggle("Favorito", isOn: $routine.isFavorite)
@@ -409,19 +494,14 @@ struct DayEditorView: View {
                             Text(CalendarHelpers.weekdayName(day)).tag(day)
                         }
                     }
+                    scheduledTimeControls
                 case .session:
-                    Picker("Guardar en día del plan", selection: $saveToWeekday) {
-                        Text("No guardar en plan").tag(0)
-                        ForEach(1...7, id: \.self) { day in
-                            Text(CalendarHelpers.weekdayName(day)).tag(day)
-                        }
-                    }
                     Toggle("Guardar en favoritos", isOn: $saveAsFavorite)
                 }
             } footer: {
                 switch mode {
                 case .session:
-                    Text("Si eliges un día, se asigna en Diario → Programado.")
+                    Text("Solo empieza la sesión. El plan semanal se gestiona en Diario.")
                 case .favorite:
                     Text("Los favoritos se reutilizan desde Crear. Opcionalmente puedes asignarlos a un día en Programado.")
                 case .oneOff:
@@ -466,29 +546,40 @@ struct DayEditorView: View {
                 } label: {
                     Label("Añadir WOD", systemImage: "timer")
                 }
+                if !importableRoutines.isEmpty {
+                    Button {
+                        showRoutinePicker = true
+                    } label: {
+                        Label("Añadir rutina", systemImage: "list.bullet.rectangle")
+                    }
+                }
             } footer: {
                 switch mode {
                 case .session:
-                    Text("Bloques de fuerza (series/reps) y WODs (AMRAP, EMOM, RFT, Tabata…).")
+                    Text("Bloques de fuerza (series/reps) y WODs (AMRAP, EMOM, RFT, Tabata…). También puedes pegar una rutina existente.")
                 case .oneOff, .plan, .favorite:
-                    Text("AMRAP: tiempo + lista. EMOM / EVERY 2′×N: intervalo por tiempo. RFT: rondas + time cap.")
+                    Text("Añadir rutina copia los bloques de una plantilla. AMRAP / EMOM / RFT / Tabata se configuran en cada WOD.")
                 }
             }
         }
         .ogListChrome()
         .ogContentTitleNav()
+        .toolbar(usesPageCloseHeader ? .hidden : .automatic, for: .navigationBar)
         .toolbar {
-            if embedsNavigationStack {
-                ToolbarItem(placement: .cancellationAction) {
-                    CloseToolbarButton { dismiss() }
+            if !usesPageCloseHeader {
+                if embedsNavigationStack {
+                    ToolbarItem(placement: .cancellationAction) {
+                        CloseToolbarButton(action: { closeEditor() }, large: false)
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(confirmTitle) { confirm() }
+                        .fontWeight(.semibold)
+                        .disabled(!canConfirm)
                 }
             }
-            ToolbarItem(placement: .confirmationAction) {
-                Button(confirmTitle) { confirm() }
-                    .fontWeight(.semibold)
-                    .disabled(!canConfirm)
-            }
         }
+        .navigationBarBackButtonHidden(usesPageCloseHeader)
         .sheet(item: Binding(
             get: { pickExerciseForBlock.map { IDBox(id: $0) } },
             set: { pickExerciseForBlock = $0?.id }
@@ -515,6 +606,63 @@ struct DayEditorView: View {
                 }
                 pickMovementForBlock = nil
             }
+        }
+        .sheet(isPresented: $showRoutinePicker) {
+            RoutineImportPickerSheet(
+                routines: importableRoutines,
+                onPick: { source in
+                    routine.blocks.append(contentsOf: source.blocks.map { $0.duplicatingContent() })
+                    showRoutinePicker = false
+                },
+                onCancel: { showRoutinePicker = false }
+            )
+        }
+    }
+
+    private var importableRoutines: [Routine] {
+        store.libraryRoutines.filter { $0.id != routine.id && !$0.blocks.isEmpty }
+    }
+
+    private func closeEditor() {
+        if let onClose {
+            onClose()
+        } else {
+            dismiss()
+        }
+    }
+
+    @ViewBuilder
+    private var scheduledTimeControls: some View {
+        Toggle("Hora programada", isOn: Binding(
+            get: { routine.scheduledTimeMinutes != nil },
+            set: { enabled in
+                if enabled {
+                    if routine.scheduledTimeMinutes == nil {
+                        routine.scheduledTimeMinutes = 18 * 60
+                    }
+                } else {
+                    routine.scheduledTimeMinutes = nil
+                }
+            }
+        ))
+        if routine.scheduledTimeMinutes != nil {
+            DatePicker(
+                "Hora",
+                selection: Binding(
+                    get: {
+                        routine.scheduledDateTime(on: routine.scheduledDate ?? Date())
+                            ?? Calendar.current.date(
+                                bySettingHour: 18,
+                                minute: 0,
+                                second: 0,
+                                of: Date()
+                            )
+                            ?? Date()
+                    },
+                    set: { routine.setScheduledTime(from: $0) }
+                ),
+                displayedComponents: .hourAndMinute
+            )
         }
     }
 
@@ -565,7 +713,7 @@ struct DayEditorView: View {
                 draft.title = "Rutina"
             }
             store.saveRoutine(draft)
-            dismiss()
+            closeEditor()
         case .oneOff:
             var draft = routine
             draft.weekday = nil
@@ -577,7 +725,7 @@ struct DayEditorView: View {
                 draft.title = "Entreno"
             }
             store.saveRoutine(draft)
-            dismiss()
+            closeEditor()
         case .favorite:
             var draft = routine
             draft.isFavorite = true
@@ -585,24 +733,21 @@ struct DayEditorView: View {
                 draft.title = "Favorito"
             }
             store.saveRoutine(draft)
-            dismiss()
+            closeEditor()
         case .session:
             var draft = routine
             draft.progression = .off
             draft.scheduledDate = nil
+            draft.weekday = nil
             if draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 draft.title = "Mi entreno"
             }
-            let planDay = saveToWeekday == 0 ? nil : saveToWeekday
-            draft.weekday = planDay
             draft.isFavorite = saveAsFavorite
-            if planDay != nil || saveAsFavorite {
+            if saveAsFavorite {
                 store.saveRoutine(draft)
             }
-            var sessionDraft = draft
-            sessionDraft.weekday = nil
-            store.startSession(from: sessionDraft)
-            dismiss()
+            store.startSession(from: draft)
+            closeEditor()
             onSessionStarted?()
         }
     }
@@ -748,8 +893,29 @@ struct DayEditorView: View {
                     set: { routine.blocks[index].movements[mIndex] = $0 }
                 ))
             } label: {
-                Text(move.summaryLine)
-                    .font(.system(size: 14, weight: .medium))
+                HStack(spacing: 12) {
+                    if move.isRest {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(OG.surface2)
+                            Image(systemName: "pause.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(OG.label3)
+                        }
+                        .frame(width: 40, height: 40)
+                    } else {
+                        ExerciseThumb(exercise: resolvedExercise(for: move), size: 40)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(move.isRest ? "Descanso" : (resolvedExercise(for: move).name))
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(OG.label)
+                        Text(move.summaryLine)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                }
             }
             .swipeActions {
                 Button(role: .destructive) {
@@ -782,6 +948,19 @@ struct DayEditorView: View {
         let reps = item.plannedSets.first?.targetReps ?? 8
         let weight = item.plannedSets.first?.targetWeightKg.map { String(format: "%g kg", $0) } ?? "—"
         return "\(sets)×\(reps) · \(weight)"
+    }
+
+    /// Resuelve el ejercicio del catálogo para miniaturas en bloques WOD (EMOM, AMRAP…).
+    private func resolvedExercise(for move: WODMovement) -> Exercise {
+        if let id = move.exerciseId, let ex = store.state.exercises.first(where: { $0.id == id }) {
+            return ex
+        }
+        if let match = store.state.exercises.first(where: {
+            $0.name.localizedCaseInsensitiveCompare(move.name) == .orderedSame
+        }) {
+            return match
+        }
+        return Exercise(name: move.name, muscleGroup: "WOD", isCustom: true)
     }
 }
 
@@ -842,7 +1021,6 @@ struct WODMovementEditor: View {
         .safeAreaInset(edge: .top, spacing: 0) {
             OGPageHeader(title: "Movimiento WOD")
                 .padding(.horizontal, OG.pad)
-                .padding(.top, 8)
                 .background(OG.bg)
         }
         .ogContentTitleNav()
@@ -871,7 +1049,7 @@ struct RoutineExerciseEditor: View {
             }
             if let exercise {
                 Section {
-                    ExerciseArtView(exercise: exercise, height: 140, showBadge: false, showStepCaptions: false)
+                    ExerciseArtView(exercise: exercise, showBadge: false, showStepCaptions: false)
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
                 }
@@ -995,19 +1173,34 @@ private struct PlannedSetConfigRow: View {
                     .frame(width: 28, height: 28)
                     .background(OG.surface2, in: Circle())
 
-                compactStepper(
-                    valueLabel: set.targetWeightKg.map { String(format: "%g", $0) } ?? "—",
+                OGRepeatStepper(
+                    display: set.targetWeightKg.map { String(format: "%g", $0) } ?? "—",
+                    keyboard: .decimalPad,
                     onMinus: { bumpWeight(-weightStep) },
-                    onPlus: { bumpWeight(weightStep) }
+                    onPlus: { bumpWeight(weightStep) },
+                    onCommitText: { text in
+                        let normalized = text.replacingOccurrences(of: ",", with: ".")
+                        if normalized.isEmpty || normalized == "—" {
+                            set.targetWeightKg = nil
+                        } else if let value = Double(normalized) {
+                            set.targetWeightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
+                        }
+                    }
                 )
                 .frame(maxWidth: .infinity)
 
-                compactStepper(
-                    valueLabel: "\(set.targetReps)",
+                OGRepeatStepper(
+                    display: "\(set.targetReps)",
+                    keyboard: .numberPad,
                     onMinus: { set.targetReps = max(1, set.targetReps - 1) },
-                    onPlus: { set.targetReps = min(50, set.targetReps + 1) }
+                    onPlus: { set.targetReps = min(50, set.targetReps + 1) },
+                    onCommitText: { text in
+                        if let value = Int(text), value > 0 {
+                            set.targetReps = min(50, value)
+                        }
+                    }
                 )
-                .frame(width: 88)
+                .frame(width: 96)
 
                 Menu {
                     Button("Sin RIR") { set.targetRir = nil }
@@ -1049,38 +1242,6 @@ private struct PlannedSetConfigRow: View {
         let next = max(0, ((current + delta) * 10).rounded() / 10)
         set.targetWeightKg = next > 0 ? next : nil
     }
-
-    private func compactStepper(
-        valueLabel: String,
-        onMinus: @escaping () -> Void,
-        onPlus: @escaping () -> Void
-    ) -> some View {
-        HStack(spacing: 0) {
-            Button(action: onMinus) {
-                Image(systemName: "minus")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(OG.label2)
-                    .frame(width: 28, height: 36)
-            }
-            .buttonStyle(.plain)
-
-            Text(valueLabel)
-                .font(.system(size: 15, weight: .semibold).monospacedDigit())
-                .foregroundStyle(OG.label)
-                .frame(maxWidth: .infinity)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-
-            Button(action: onPlus) {
-                Image(systemName: "plus")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(OG.label2)
-                    .frame(width: 28, height: 36)
-            }
-            .buttonStyle(.plain)
-        }
-        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-    }
 }
 
 struct ExercisePickerView: View {
@@ -1094,7 +1255,7 @@ struct ExercisePickerView: View {
             List {
                 Section {
                     OGPageHeader(title: "Ejercicio") {
-                        CloseToolbarButton { dismiss() }
+                        CloseToolbarButton(action: { dismiss() }, large: true)
                     }
                     .ogListPageHeaderRow()
                 }
@@ -1137,5 +1298,72 @@ struct ExercisePickerView: View {
         return store.state.exercises.filter {
             $0.name.lowercased().contains(q) || $0.muscleGroup.lowercased().contains(q)
         }
+    }
+}
+
+// MARK: - Importar bloques de otra rutina
+
+private struct RoutineImportPickerSheet: View {
+    var routines: [Routine]
+    var onPick: (Routine) -> Void
+    var onCancel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            OGPageHeader(title: "Añadir rutina") {
+                CloseToolbarButton(action: onCancel, large: true)
+            }
+            .padding(.top, 4)
+
+            Text("Se copian los bloques; el título y el día de esta rutina no cambian.")
+                .font(.footnote)
+                .foregroundStyle(OG.label2)
+                .padding(.horizontal, 4)
+
+            VStack(spacing: 0) {
+                ForEach(Array(routines.enumerated()), id: \.element.id) { index, source in
+                    if index > 0 {
+                        Divider().opacity(0.35).padding(.leading, 14)
+                    }
+                    Button {
+                        onPick(source)
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(source.title)
+                                    .foregroundStyle(OG.label)
+                                Text(importSubtitle(source))
+                                    .font(.caption)
+                                    .foregroundStyle(OG.label2)
+                            }
+                            Spacer()
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundStyle(OG.accent)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .contentShape(Rectangle())
+                    }
+                }
+            }
+            .background(OG.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+        }
+        .padding(.horizontal, OG.pad)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+        .ogFittedHeight()
+        .preferredColorScheme(.dark)
+        .ogFittedSheet()
+    }
+
+    private func importSubtitle(_ routine: Routine) -> String {
+        let strength = routine.blocks.filter { $0.kind == .strength }.flatMap(\.exercises).count
+        let wods = routine.blocks.filter { $0.kind == .wod }.count
+        var parts: [String] = []
+        if strength > 0 { parts.append("\(strength) ej.") }
+        if wods > 0 { parts.append("\(wods) WOD") }
+        if parts.isEmpty { parts.append("\(routine.blocks.count) bloque\(routine.blocks.count == 1 ? "" : "s")") }
+        return parts.joined(separator: " · ")
     }
 }

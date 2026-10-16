@@ -25,6 +25,7 @@ targets:
     platform: iOS
     sources:
       - path: Apps/Gymbro/Sources
+      - path: Apps/Shared/RestActivityAttributes.swift
       # XcodeGen 2.46 + objectVersion 77 omite `resources:`; hay que declarar assets a mano.
       - path: Apps/Gymbro/Resources/Assets.xcassets
         buildPhase: resources
@@ -32,6 +33,8 @@ targets:
         buildPhase: resources
         type: folder
       - path: Apps/Gymbro/Resources/LaunchScreen.storyboard
+        buildPhase: resources
+      - path: Apps/Gymbro/Resources/BodyPaths.json
         buildPhase: resources
     resources: []
     settings:
@@ -61,7 +64,11 @@ targets:
       - package: GymbroDomain
       - target: GymbroWatch
         embed: true
+      - target: GymbroRestWidget
+        embed: true
       - sdk: HealthKit.framework
+      - sdk: FoundationModels.framework
+      - sdk: ActivityKit.framework
     info:
       path: Apps/Gymbro/Resources/Info.plist
       properties:
@@ -71,7 +78,7 @@ targets:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        NSSupportsLiveActivities: false
+        NSSupportsLiveActivities: true
         UIFileSharingEnabled: false
         LSSupportsOpeningDocumentsInPlace: false
         NSCameraUsageDescription: Gymbro usa la cámara para leer ejercicios de una pizarra o TV y montar la sesión.
@@ -83,6 +90,33 @@ targets:
             NSUbiquitousContainerIsDocumentScopePublic: false
             NSUbiquitousContainerName: Gymbro
             NSUbiquitousContainerSupportedFolderLevels: Any
+
+  GymbroRestWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Apps/GymbroRestWidget
+      - path: Apps/Shared/RestActivityAttributes.swift
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: app.gymbroapp.ios.GymbroRestWidget
+      INFOPLIST_FILE: Apps/GymbroRestWidget/Info.plist
+      GENERATE_INFOPLIST_FILE: false
+      CURRENT_PROJECT_VERSION: 2
+      MARKETING_VERSION: "1.0.0"
+      TARGETED_DEVICE_FAMILY: "1"
+      CODE_SIGN_STYLE: Automatic
+      DEVELOPMENT_TEAM: 9DTDGQ8UUQ
+      LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
+    dependencies:
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+      - sdk: ActivityKit.framework
+    info:
+      path: Apps/GymbroRestWidget/Info.plist
+      properties:
+        CFBundleDisplayName: Gymbro Rest
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
 
   GymbroWatch:
     type: application
@@ -119,6 +153,7 @@ schemes:
       targets:
         Gymbro: all
         GymbroWatch: all
+        GymbroRestWidget: all
     run:
       config: Debug
       executable: Gymbro

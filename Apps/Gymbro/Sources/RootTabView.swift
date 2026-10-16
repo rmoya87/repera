@@ -1,79 +1,172 @@
 import GymbroDomain
 import SwiftUI
 
+enum WorkoutFlowRoute: Hashable {
+    case sessionPreview(routineId: UUID?)
+    case logFinalResults(routineId: UUID)
+    case editWorkout(routineId: UUID)
+    case workout
+}
+
 /// Menú principal: Inicio · Diario · + · Progreso · Ejercicios
 struct RootTabView: View {
     @Environment(GymbroStore.self) private var store
     @State private var tab: AppTab = .home
-    @State private var goWorkout = false
-    @State private var showSessionPreview = false
+    @State private var flowPath: [WorkoutFlowRoute] = []
     @State private var previewRoutine: Routine?
 
     enum AppTab: Hashable {
         case home, plan, create, stats, exercises
     }
 
+    private var hasActiveWorkout: Bool {
+        store.state.activeSession != nil
+    }
+
     var body: some View {
-        TabView(selection: $tab) {
-            SwiftUI.Tab("Inicio", systemImage: "house", value: AppTab.home) {
-                HomeView(
-                    onOpenWorkout: { goWorkout = true },
-                    onStart: openTodayPreview,
-                    onStartRoutine: openRoutinePreview,
-                    onGoPlan: { tab = .plan },
-                    onOpenStartHub: { tab = .create }
-                )
-            }
+        ZStack {
+            TabView(selection: $tab) {
+                SwiftUI.Tab("Inicio", systemImage: "house", value: AppTab.home) {
+                    HomeView(
+                        onOpenWorkout: openWorkout,
+                        onStart: openTodayPreview,
+                        onStartRoutine: openRoutinePreview,
+                        onGoPlan: { tab = .plan },
+                        onOpenStartHub: { tab = .create }
+                    )
+                }
 
-            SwiftUI.Tab("Diario", systemImage: "calendar", value: AppTab.plan) {
-                PlanView()
-            }
+                SwiftUI.Tab("Diario", systemImage: "calendar", value: AppTab.plan) {
+                    PlanView()
+                }
 
-            SwiftUI.Tab("Crear", systemImage: "plus", value: AppTab.create) {
-                StartHubSheet(
-                    onGoPlan: { tab = .plan },
-                    onOpenedWorkout: { goWorkout = true }
-                )
-            }
+                SwiftUI.Tab("Crear", systemImage: "plus", value: AppTab.create) {
+                    StartHubSheet(
+                        onGoPlan: { tab = .plan },
+                        onOpenedWorkout: openWorkout
+                    )
+                }
 
-            SwiftUI.Tab("Progreso", systemImage: "chart.bar", value: AppTab.stats) {
-                StatsView()
-            }
+                SwiftUI.Tab("Progreso", systemImage: "chart.bar", value: AppTab.stats) {
+                    StatsView()
+                }
 
-            SwiftUI.Tab("Ejercicios", systemImage: "dumbbell", value: AppTab.exercises) {
-                LibraryView()
+                SwiftUI.Tab("Ejercicios", systemImage: "dumbbell", value: AppTab.exercises) {
+                    LibraryView(onOpenedWorkout: openWorkout)
+                }
+            }
+            .tabBarMinimizeBehavior(hasActiveWorkout ? .onScrollDown : .never)
+            .modifier(ContinueAccessoryModifier(
+                session: store.state.activeSession,
+                onContinue: {
+                    previewRoutine = nil
+                    flowPath = [.sessionPreview(routineId: nil)]
+                }
+            ))
+
+            if let root = flowPath.first {
+                NavigationStack(path: flowTailBinding) {
+                    flowDestination(root)
+                        .navigationDestination(for: WorkoutFlowRoute.self) { route in
+                            flowDestination(route)
+                        }
+                }
+                .id(root)
+                .transition(.move(edge: .trailing))
+                .zIndex(1)
             }
         }
-        .tabBarMinimizeBehavior(.onScrollDown)
-        .modifier(ContinueAccessoryModifier(
-            session: store.state.activeSession,
-            onContinue: {
-                previewRoutine = nil
-                showSessionPreview = true
-            }
-        ))
-        .sheet(isPresented: $showSessionPreview, onDismiss: { previewRoutine = nil }) {
-            SessionPreviewView(
-                routine: previewRoutine ?? store.routineForToday(),
-                onStart: { goWorkout = true },
-                onContinue: { goWorkout = true }
-            )
-            .presentationDetents([.large])
-        }
-        .fullScreenCover(isPresented: $goWorkout) {
-            NavigationStack {
-                WorkoutView()
-            }
-            .preferredColorScheme(.dark)
-        }
+        .animation(.easeInOut(duration: 0.32), value: flowPath.isEmpty)
         .preferredColorScheme(.dark)
         .tint(OG.accent)
+    }
+
+    private var flowTailBinding: Binding<[WorkoutFlowRoute]> {
+        Binding(
+            get: { Array(flowPath.dropFirst()) },
+            set: { tail in
+                guard let root = flowPath.first else {
+                    flowPath = tail
+                    return
+                }
+                flowPath = [root] + tail
+            }
+        )
+    }
+
+    @ViewBuilder
+    private func flowDestination(_ route: WorkoutFlowRoute) -> some View {
+        switch route {
+        case .sessionPreview(let routineId):
+            SessionPreviewView(
+                routine: resolvePreviewRoutine(id: routineId),
+                onClose: { flowPath = [] },
+                onStart: openWorkout,
+                onContinue: openWorkout,
+                onLogResults: { routine in
+                    previewRoutine = routine
+                    flowPath.append(.logFinalResults(routineId: routine.id))
+                },
+                onEdit: { routine in
+                    previewRoutine = routine
+                    flowPath.append(.editWorkout(routineId: routine.id))
+                }
+            )
+            .navigationBarBackButtonHidden(true)
+
+        case .logFinalResults(let routineId):
+            if let routine = resolvePreviewRoutine(id: routineId) {
+                LogFinalResultsView(routine: routine, onSaved: { flowPath = [] })
+                    .navigationBarBackButtonHidden(true)
+            } else {
+                Color.clear
+                    .onAppear {
+                        if !flowPath.isEmpty { flowPath.removeLast() }
+                    }
+            }
+
+        case .editWorkout(let routineId):
+            if let routine = resolvePreviewRoutine(id: routineId) {
+                DayEditorView(
+                    routine: routine,
+                    mode: routine.isOneOff ? .oneOff(isNew: false) : .plan(isNew: false),
+                    onClose: {
+                        if !flowPath.isEmpty { flowPath.removeLast() }
+                    },
+                    embedsNavigationStack: false,
+                    usesPageCloseHeader: true
+                )
+                .navigationBarBackButtonHidden(true)
+            } else {
+                Color.clear
+                    .onAppear {
+                        if !flowPath.isEmpty { flowPath.removeLast() }
+                    }
+            }
+
+        case .workout:
+            WorkoutView(onClose: { flowPath = [] })
+                .navigationBarBackButtonHidden(true)
+        }
+    }
+
+    private func resolvePreviewRoutine(id: UUID?) -> Routine? {
+        if let id,
+           let live = store.state.routines.first(where: { $0.id == id }) {
+            return live
+        }
+        if let previewRoutine { return previewRoutine }
+        return store.routineForToday()
+    }
+
+    private func openWorkout() {
+        flowPath = [.workout]
     }
 
     private func openTodayPreview() {
         if store.state.activeSession != nil {
             previewRoutine = nil
-            showSessionPreview = true
+            flowPath = [.sessionPreview(routineId: nil)]
             return
         }
         guard let today = store.routineForToday() else {
@@ -85,7 +178,7 @@ struct RootTabView: View {
 
     private func openRoutinePreview(_ routine: Routine) {
         previewRoutine = routine
-        showSessionPreview = true
+        flowPath = [.sessionPreview(routineId: routine.id)]
     }
 }
 
@@ -126,8 +219,7 @@ private struct ContinueAccessoryModifier: ViewModifier {
                             .font(.system(size: 13, weight: .semibold).monospacedDigit())
                             .foregroundStyle(OG.accent)
                     }
-                    .padding(.leading, OG.pad)
-                    .padding(.trailing, OG.pad)
+                    .padding(.horizontal, OG.pad)
                     .padding(.vertical, 2)
                     .contentShape(Rectangle())
                 }

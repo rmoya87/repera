@@ -1,31 +1,23 @@
-# Gymbro — Design (v1.0 local)
+# [HISTÓRICO] Gymbro — Design (v1.0 local)
+
+> **Obsoleto como fuente de verdad** (2026-10-16). Conservado solo como archivo de arranque.
+> Ver documentación viva: [README](../../../README.md), [ARCHITECTURE](../../ARCHITECTURE.md), [FEATURES](../../FEATURES.md).
 
 **Date:** 2026-10-15  
-**Status:** Implemented — local product closed
+**Status:** Superseded
 
-## Product
+## Product (snapshot 2026-10-15)
 
 Native iPhone + Apple Watch training app. openGym is a **domain/product reference** only.
 
 | Layer | Choice |
 |-------|--------|
 | UI | SwiftUI Liquid Glass (iOS 26+) |
-| Watch | Session companion (confirm → count → next) |
+| Watch | Session companion |
 | Data | On-device JSON + iCloud Documents |
-| Coach | Local rule engine (no LLM/network) |
-| Backend cloud | Deferred (Supabase/Android later) |
+| Coach | ~~Local rule engine~~ (eliminado del producto; ver docs vivas) |
+| Backend cloud | Deferred |
 
-## Feature set (v1.0)
+## Notas
 
-- Weekly plan, library, workout logging
-- Progression: off / linear / double / Greyskull / triple
-- Supersets, plate math, warm-up / drop / rest-pause, RIR/RPE
-- Stats, muscle fatigue map, body weight, history
-- Import Strong/Hevy CSV, export/import JSON
-- iCloud restore after reinstall
-
-## Explicit non-goals (v1.0)
-
-- Android client
-- Supabase / social multi-user backend
-- LLM AI coach
+Muchas features posteriores (Progreso + Salud, FC cardio, escáner con Foundation Models, etc.) **no** están descritas aquí. No actualizar este archivo; actualizar la doc viva.

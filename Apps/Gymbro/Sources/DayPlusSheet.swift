@@ -2,6 +2,11 @@ import GymbroDomain
 import SwiftUI
 import UIKit
 
+private enum DayPlusRoute: Hashable {
+    case favorites
+    case timer
+}
+
 /// Menú para dar de alta un entreno de un día concreto (no el plan semanal).
 struct DayPlusSheet: View {
     @Environment(GymbroStore.self) private var store
@@ -9,7 +14,7 @@ struct DayPlusSheet: View {
 
     /// Día del calendario al que se asigna el entreno suelto.
     var targetDate: Date = Calendar.current.startOfDay(for: Date())
-    var onGoPlan: () -> Void
+    var onGoPlan: () -> Void = {}
     var onStartedWorkout: () -> Void
 
     @State private var showImageSourceDialog = false
@@ -19,162 +24,210 @@ struct DayPlusSheet: View {
     @State private var reviewLines: [BoardImportLine] = []
     @State private var reviewOCR = ""
     @State private var reviewBlocks: [RoutineBlock] = []
+    @State private var reviewSource: BoardImportPipeline.Source = .localRules
     @State private var showReview = false
     @State private var isReading = false
     @State private var errorMessage: String?
     @State private var showDayEditor = false
+    @State private var path = NavigationPath()
 
     private var targetWeekday: Int { CalendarHelpers.isoWeekday(for: targetDate) }
     private var dayName: String { CalendarHelpers.weekdayName(targetWeekday) }
     private var dayStart: Date { Calendar.current.startOfDay(for: targetDate) }
 
+    private var favoritesSubtitle: String {
+        let workouts = store.favoriteRoutines.count
+        let timers = store.state.favoriteTimers.count
+        let total = workouts + timers
+        if total == 0 { return "Entrenos y temporizadores habituales" }
+        var parts: [String] = []
+        if workouts > 0 { parts.append("\(workouts) entreno\(workouts == 1 ? "" : "s")") }
+        if timers > 0 { parts.append("\(timers) tempo") }
+        return parts.joined(separator: " · ")
+    }
+
+    private var isPushed: Bool { !path.isEmpty }
+
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    OGPageHeader(title: "Añadir entreno") {
-                        CloseToolbarButton { dismiss() }
+        NavigationStack(path: $path) {
+            menuContent
+                .tint(OG.accent)
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(for: DayPlusRoute.self) { route in
+                    switch route {
+                    case .favorites:
+                        FavoritesHubView(onOpenedWorkout: {
+                            dismiss()
+                            onStartedWorkout()
+                        })
+                    case .timer:
+                        StandaloneTimerView(embedsNavigation: false)
                     }
-                    .ogListPageHeaderRow()
                 }
-
-                Section {
-                    Button {
-                        showDayEditor = true
-                    } label: {
-                        Label {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Crear entreno")
-                                    .foregroundStyle(OG.label)
-                                Text("Bloques de fuerza y WODs · \(dayName)")
-                                    .font(.caption)
-                                    .foregroundStyle(OG.label2)
-                            }
-                        } icon: {
-                            Image(systemName: "plus.circle.fill")
-                                .foregroundStyle(OG.accent)
-                        }
+                .confirmationDialog("Escanear pizarra", isPresented: $showImageSourceDialog, titleVisibility: .visible) {
+                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                        Button("Tomar foto") { showCameraPicker = true }
                     }
-
-                    Button {
-                        showImageSourceDialog = true
-                    } label: {
-                        Label {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Escanear pizarra o TV")
-                                    .foregroundStyle(OG.label)
-                                Text("Entreno suelto para \(dayName)")
-                                    .font(.caption)
-                                    .foregroundStyle(OG.label2)
-                            }
-                        } icon: {
-                            Image(systemName: "camera.viewfinder")
-                                .foregroundStyle(OG.blue)
-                        }
-                    }
-                    .disabled(isReading)
-                } header: {
-                    Text("Entreno · \(dayName)")
-                } footer: {
-                    Text("Esto es un entreno para este día, no tu plan semanal. El plan se gestiona en Diario.")
+                    Button("Elegir de la galería") { showLibraryPicker = true }
+                    Button("Cancelar", role: .cancel) {}
                 }
-
-                Section {
-                    Button {
-                        dismiss()
-                        onGoPlan()
-                    } label: {
-                        Label {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Ir al plan de entreno")
-                                    .foregroundStyle(OG.label)
-                                Text("Plan semanal en Diario · días fijos")
-                                    .font(.caption)
-                                    .foregroundStyle(OG.label2)
-                            }
-                        } icon: {
-                            Image(systemName: "calendar")
-                                .foregroundStyle(OG.orange)
-                        }
-                    }
-                } header: {
-                    Text("Plan de entreno")
+                .fullScreenCover(isPresented: $showCameraPicker, onDismiss: {
+                    processCapturedImageIfNeeded()
+                }) {
+                    CameraPicker(image: $captured).ignoresSafeArea()
                 }
-
-                if isReading {
-                    Section {
-                        HStack {
-                            ProgressView()
-                            Text("Leyendo ejercicios…")
-                                .foregroundStyle(OG.label2)
+                .sheet(isPresented: $showLibraryPicker, onDismiss: {
+                    processCapturedImageIfNeeded()
+                }) {
+                    PhotoLibraryPicker(image: $captured)
+                        .ignoresSafeArea()
+                }
+                .sheet(isPresented: $showReview) {
+                    BoardImportReviewView(
+                        lines: reviewLines,
+                        ocrText: reviewOCR,
+                        detectedBlocks: reviewBlocks,
+                        interpretSource: reviewSource,
+                        preferredWeekday: targetWeekday,
+                        preferredDate: dayStart
+                    ) { started in
+                        showReview = false
+                        if started {
+                            dismiss()
+                            onStartedWorkout()
+                        } else {
+                            dismiss()
                         }
                     }
                 }
-
-                if let errorMessage {
-                    Section {
-                        Text(errorMessage)
-                            .foregroundStyle(OG.red)
+                .sheet(isPresented: $showDayEditor) {
+                    DayEditorView(
+                        routine: Routine(
+                            title: "Entreno · \(dayName)",
+                            weekday: nil,
+                            scheduledDate: dayStart,
+                            blocks: [.strength(title: "Bloque")],
+                            progression: .off
+                        ),
+                        mode: .oneOff(isNew: true)
+                    )
+                    .onDisappear {
+                        if store.routineForDay(dayStart)?.isOneOff == true {
+                            dismiss()
+                        }
                     }
                 }
-            }
-            .ogListChrome()
-            .ogContentTitleNav()
-            .toolbar(.hidden, for: .navigationBar)
-            .confirmationDialog("Escanear pizarra", isPresented: $showImageSourceDialog, titleVisibility: .visible) {
-                if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                    Button("Tomar foto") { showCameraPicker = true }
-                }
-                Button("Elegir de la galería") { showLibraryPicker = true }
-                Button("Cancelar", role: .cancel) {}
-            }
-            .fullScreenCover(isPresented: $showCameraPicker, onDismiss: {
-                processCapturedImageIfNeeded()
-            }) {
-                CameraPicker(image: $captured).ignoresSafeArea()
-            }
-            .sheet(isPresented: $showLibraryPicker, onDismiss: {
-                processCapturedImageIfNeeded()
-            }) {
-                PhotoLibraryPicker(image: $captured)
-                    .ignoresSafeArea()
-            }
-            .sheet(isPresented: $showReview) {
-                BoardImportReviewView(
-                    lines: reviewLines,
-                    ocrText: reviewOCR,
-                    detectedBlocks: reviewBlocks,
-                    preferredWeekday: targetWeekday,
-                    preferredDate: dayStart
-                ) { started in
-                    showReview = false
-                    if started {
-                        dismiss()
-                        onStartedWorkout()
-                    } else {
-                        dismiss()
-                    }
-                }
-            }
-            .sheet(isPresented: $showDayEditor) {
-                DayEditorView(
-                    routine: Routine(
-                        title: "Entreno · \(dayName)",
-                        weekday: nil,
-                        scheduledDate: dayStart,
-                        blocks: [.strength(title: "Bloque")],
-                        progression: .off
-                    ),
-                    mode: .oneOff(isNew: true)
-                )
-                .onDisappear {
-                    if store.routineForDay(dayStart)?.isOneOff == true {
-                        dismiss()
-                    }
-                }
-            }
         }
         .preferredColorScheme(.dark)
+        .ogFittedSheet(expanded: isPushed)
+    }
+
+    /// Menú con tamaño intrínseco (sin List) para que el sheet ajuste el alto.
+    private var menuContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            OGPageHeader(title: "Añadir entreno", subtitle: dayName) {
+                CloseToolbarButton(action: { dismiss() }, large: true)
+            }
+            .padding(.top, 4)
+
+            Text("Entreno")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(OG.label2)
+                .textCase(.uppercase)
+                .padding(.horizontal, 4)
+
+            VStack(spacing: 0) {
+                Button { showDayEditor = true } label: {
+                    menuLabel(
+                        title: "Crear entreno",
+                        subtitle: "Bloques de fuerza y WODs",
+                        systemName: "plus.circle.fill",
+                        tint: OG.accent
+                    )
+                }
+                menuDivider
+                NavigationLink(value: DayPlusRoute.favorites) {
+                    menuLabel(
+                        title: "Favoritos",
+                        subtitle: favoritesSubtitle,
+                        systemName: "star.fill",
+                        tint: OG.yellow
+                    )
+                }
+                menuDivider
+                NavigationLink(value: DayPlusRoute.timer) {
+                    menuLabel(
+                        title: "Temporizador",
+                        subtitle: "Arriba, abajo o intervalos · reloj digital",
+                        systemName: "timer",
+                        tint: OG.orange
+                    )
+                }
+                menuDivider
+                Button { showImageSourceDialog = true } label: {
+                    menuLabel(
+                        title: "Escanear pizarra o TV",
+                        subtitle: "Cámara o galería",
+                        systemName: "camera.viewfinder",
+                        tint: OG.blue
+                    )
+                }
+                .disabled(isReading)
+            }
+            .background(OG.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+
+            if isReading {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Leyendo ejercicios…")
+                        .foregroundStyle(OG.label2)
+                }
+                .padding(.horizontal, 4)
+            }
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.footnote)
+                    .foregroundStyle(OG.red)
+                    .padding(.horizontal, 4)
+            }
+        }
+        .padding(.horizontal, OG.pad)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+        .ogFittedHeight()
+    }
+
+    private var menuDivider: some View {
+        Divider().opacity(0.35).padding(.leading, 52)
+    }
+
+    private func menuLabel(
+        title: String,
+        subtitle: String,
+        systemName: String,
+        tint: Color
+    ) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: systemName)
+                .font(.system(size: 20))
+                .foregroundStyle(tint)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.body)
+                    .foregroundStyle(OG.label)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(OG.label2)
+                    .multilineTextAlignment(.leading)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
     }
 
     private func processCapturedImageIfNeeded() {
@@ -197,24 +250,18 @@ struct DayPlusSheet: View {
         do {
             let text = try await BoardTextRecognizer.recognize(in: image)
             BoardScanLog.ocr(text)
-            let catalog = store.state.exercises
-            let blocks = BoardImportParser.parseBlocks(ocrText: text, catalog: catalog)
-            var lines = BoardImportParser.parse(ocrText: text, catalog: catalog)
-            let movements = blocks.reduce(0) { $0 + $1.movements.filter { !$0.isRest }.count }
-            BoardScanLog.parse(blocks: blocks.count, lines: lines.count, movements: movements)
-
-            if lines.isEmpty, !blocks.isEmpty {
-                lines = blocks.flatMap(\.movements).filter { !$0.isRest }.map {
-                    BoardImportLine(raw: $0.summaryLine, matchedName: $0.name, sets: 1, reps: $0.reps ?? 1)
-                }
-            }
-            if blocks.isEmpty && lines.isEmpty {
+            let result = await BoardImportPipeline.interpret(
+                ocrText: text,
+                catalog: store.state.exercises
+            )
+            if result.blocks.isEmpty && result.lines.isEmpty {
                 errorMessage = "No encontré texto útil. Prueba más cerca, más luz o otra foto."
                 return
             }
-            reviewOCR = text
-            reviewBlocks = blocks
-            reviewLines = lines
+            reviewOCR = result.ocrText
+            reviewBlocks = result.blocks
+            reviewLines = result.lines
+            reviewSource = result.source
             showReview = true
         } catch {
             BoardScanLog.error("DayPlus.runOCR: \(error.localizedDescription)")
@@ -229,10 +276,13 @@ struct BoardImportReviewView: View {
     @State var lines: [BoardImportLine]
     var ocrText: String
     var detectedBlocks: [RoutineBlock] = []
+    var interpretSource: BoardImportPipeline.Source = .localRules
     /// Día ISO preferido al abrir (p. ej. viernes seleccionado). Si nil, hoy.
     var preferredWeekday: Int? = nil
     /// Fecha concreta para entreno suelto (Inicio).
     var preferredDate: Date? = nil
+    /// Desde Diario / Inicio se puede guardar al día; desde Crear solo Empezar.
+    var allowsSaveToDay: Bool = true
     var embedsNavigationStack: Bool = true
     var onDone: (_ started: Bool) -> Void
 
@@ -255,12 +305,19 @@ struct BoardImportReviewView: View {
     private var reviewContent: some View {
         List {
             Section {
-                Text(blocks.isEmpty
-                     ? "Revisa ejercicios detectados. Puedes quitar líneas o ajustar series/reps."
-                     : "Se detectaron \(blocks.count) bloque(s). Revisa formato y movimientos (DU→dobles, OHSQ→overhead squat…).")
-                    .font(.footnote)
-                    .foregroundStyle(OG.label2)
-                    .listRowBackground(Color.clear)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(blocks.isEmpty
+                         ? "Revisa ejercicios detectados. Puedes quitar líneas o ajustar series/reps."
+                         : "Se detectaron \(blocks.count) bloque(s). Revisa formato y movimientos.")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                    Text(interpretSource == .appleIntelligence
+                         ? "Interpretado con Apple Intelligence (en el dispositivo)."
+                         : "Interpretado con análisis local (gratis · sin Apple Intelligence).")
+                        .font(.caption2)
+                        .foregroundStyle(OG.label3)
+                }
+                .listRowBackground(Color.clear)
             }
 
             if !blocks.isEmpty {
@@ -304,20 +361,22 @@ struct BoardImportReviewView: View {
                 }
             }
 
-            Section {
-                Picker("Día", selection: $targetWeekday) {
-                    ForEach(1...7, id: \.self) { day in
-                        Text(CalendarHelpers.weekdayName(day)).tag(day)
+            if allowsSaveToDay {
+                Section {
+                    Picker("Día", selection: $targetWeekday) {
+                        ForEach(1...7, id: \.self) { day in
+                            Text(CalendarHelpers.weekdayName(day)).tag(day)
+                        }
                     }
+                    .pickerStyle(.menu)
+                    .onChange(of: targetWeekday) { _, day in
+                        targetDate = resolvedSaveDate(for: day)
+                    }
+                } header: {
+                    Text("Guardar entreno")
+                } footer: {
+                    Text("Se guarda como entreno suelto de \(CalendarHelpers.weekdayName(targetWeekday)) (aparece en Inicio · Entreno del día). No forma parte del plan semanal de Diario ni del historial hasta que lo termines.")
                 }
-                .pickerStyle(.menu)
-                .onChange(of: targetWeekday) { _, day in
-                    targetDate = resolvedSaveDate(for: day)
-                }
-            } header: {
-                Text("Guardar entreno")
-            } footer: {
-                Text("Se guarda como entreno suelto de \(CalendarHelpers.weekdayName(targetWeekday)) (aparece en Inicio · Entreno del día). No forma parte del plan semanal de Diario ni del historial hasta que lo termines.")
             }
         }
         .ogListChrome()
@@ -338,22 +397,24 @@ struct BoardImportReviewView: View {
                 }
             }
             ToolbarItemGroup(placement: .confirmationAction) {
-                Button("Al \(CalendarHelpers.weekdayName(targetWeekday).prefix(3).lowercased())") {
-                    let day = targetWeekday
-                    let saveDate = resolvedSaveDate(for: day)
-                    targetDate = saveDate
-                    BoardScanLog.info("Review Al día weekday=\(day) date=\(saveDate)")
-                    _ = store.saveBoardToDay(
-                        weekday: day,
-                        lines: lines,
-                        ocrText: ocrText.isEmpty ? nil : ocrText,
-                        blocks: blocks.isEmpty ? nil : blocks,
-                        onDate: saveDate
-                    )
-                    if embedsNavigationStack { dismiss() }
-                    onDone(false)
+                if allowsSaveToDay {
+                    Button("Al \(CalendarHelpers.weekdayName(targetWeekday).prefix(3).lowercased())") {
+                        let day = targetWeekday
+                        let saveDate = resolvedSaveDate(for: day)
+                        targetDate = saveDate
+                        BoardScanLog.info("Review Al día weekday=\(day) date=\(saveDate)")
+                        _ = store.saveBoardToDay(
+                            weekday: day,
+                            lines: lines,
+                            ocrText: ocrText.isEmpty ? nil : ocrText,
+                            blocks: blocks.isEmpty ? nil : blocks,
+                            onDate: saveDate
+                        )
+                        if embedsNavigationStack { dismiss() }
+                        onDone(false)
+                    }
+                    .disabled(!canConfirm)
                 }
-                .disabled(!canConfirm)
                 Button("Empezar") {
                     let ok = store.startSessionFromBoard(
                         lines: lines,
@@ -389,6 +450,12 @@ struct BoardImportReviewView: View {
                     catalog: store.state.exercises
                 )
             }
+            blocks = LoadSuggestion.applyPercentLoads(
+                to: blocks,
+                workouts: store.state.workouts,
+                catalog: store.state.exercises,
+                incrementKg: store.state.settings.weightIncrementKg
+            )
             BoardScanLog.info(
                 "Review onAppear: detectedBlocks=\(detectedBlocks.count) "
                     + "blocks=\(blocks.count) lines=\(lines.count) ocr=\(ocrText.count)c "

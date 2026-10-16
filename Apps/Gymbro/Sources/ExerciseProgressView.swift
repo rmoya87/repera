@@ -5,6 +5,7 @@ import SwiftUI
 /// Ficha de progreso de un ejercicio (métricas tipo openGym).
 struct ExerciseProgressView: View {
     @Environment(GymbroStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
     let exerciseId: UUID
 
     @State private var metric: ExerciseProgressMetric = .topSet
@@ -48,9 +49,10 @@ struct ExerciseProgressView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                OGPageHeader(
+                OGBackPageHeader(
                     title: exercise?.name ?? "Ejercicio",
-                    subtitle: headerSubtitle
+                    subtitle: headerSubtitle,
+                    onBack: { dismiss() }
                 )
 
                 Picker("Métrica", selection: $metric) {
@@ -71,9 +73,7 @@ struct ExerciseProgressView: View {
 
                 if !sessions.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Sesiones")
-                            .font(.system(size: 13))
-                            .foregroundStyle(OG.label2)
+                        OGCardSectionTitle(title: "Sesiones")
                         ForEach(sessions) { row in
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(SpanishDate.short(row.date))
@@ -99,11 +99,12 @@ struct ExerciseProgressView: View {
                     .foregroundStyle(OG.label3)
             }
             .padding(.horizontal, OG.pad)
-            .padding(.top, 8)
+            .padding(.top, 0)
             .padding(.bottom, 28)
         }
         .background(OG.bg)
         .ogContentTitleNav()
+        .navigationBarBackButtonHidden(true)
     }
 
     private var headerSubtitle: String? {

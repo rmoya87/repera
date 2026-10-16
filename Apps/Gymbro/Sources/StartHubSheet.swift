@@ -4,6 +4,7 @@ import UIKit
 
 private enum StartHubRoute: Hashable {
     case createWorkout
+    case quickLog
     case favorites
     case timer
     case boardReview
@@ -23,6 +24,7 @@ struct StartHubSheet: View {
     @State private var reviewLines: [BoardImportLine] = []
     @State private var reviewOCR = ""
     @State private var reviewBlocks: [RoutineBlock] = []
+    @State private var reviewSource: BoardImportPipeline.Source = .localRules
     @State private var isReading = false
     @State private var errorMessage: String?
 
@@ -56,12 +58,12 @@ struct StartHubSheet: View {
                             Button(role: .destructive) {
                                 store.endActiveSession(save: false)
                             } label: {
-                                Label("Cancelar", systemImage: "xmark")
+                                Label("Eliminar", systemImage: "trash")
                             }
                             .tint(OG.red)
                         }
                     } footer: {
-                        Text("Toca para continuar · desliza para cancelar")
+                        Text("Toca para continuar · desliza para eliminar (no se guarda)")
                     }
                 }
 
@@ -78,6 +80,21 @@ struct StartHubSheet: View {
                         } icon: {
                             Image(systemName: "plus.circle.fill")
                                 .foregroundStyle(OG.accent)
+                        }
+                    }
+
+                    NavigationLink(value: StartHubRoute.quickLog) {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Apuntar series")
+                                    .foregroundStyle(OG.label)
+                                Text("Un ejercicio, sin montar rutina")
+                                    .font(.caption)
+                                    .foregroundStyle(OG.label2)
+                            }
+                        } icon: {
+                                Image(systemName: "list.number")
+                                .foregroundStyle(OG.yellow)
                         }
                     }
 
@@ -227,6 +244,8 @@ struct StartHubSheet: View {
                         onSessionStarted: onOpenedWorkout,
                         embedsNavigationStack: false
                     )
+                case .quickLog:
+                    QuickLogPickerView(onOpenedWorkout: onOpenedWorkout)
                 case .favorites:
                     FavoritesHubView(onOpenedWorkout: onOpenedWorkout)
                 case .timer:
@@ -236,6 +255,8 @@ struct StartHubSheet: View {
                         lines: reviewLines,
                         ocrText: reviewOCR,
                         detectedBlocks: reviewBlocks,
+                        interpretSource: reviewSource,
+                        allowsSaveToDay: false,
                         embedsNavigationStack: false
                     ) { started in
                         if started {
@@ -296,26 +317,20 @@ struct StartHubSheet: View {
         do {
             let text = try await BoardTextRecognizer.recognize(in: image)
             BoardScanLog.ocr(text)
-            let catalog = store.state.exercises
-            let blocks = BoardImportParser.parseBlocks(ocrText: text, catalog: catalog)
-            var lines = BoardImportParser.parse(ocrText: text, catalog: catalog)
-            let movements = blocks.reduce(0) { $0 + $1.movements.filter { !$0.isRest }.count }
-            BoardScanLog.parse(blocks: blocks.count, lines: lines.count, movements: movements)
-
-            if lines.isEmpty, !blocks.isEmpty {
-                lines = blocks.flatMap(\.movements).filter { !$0.isRest }.map {
-                    BoardImportLine(raw: $0.summaryLine, matchedName: $0.name, sets: 1, reps: $0.reps ?? 1)
-                }
-            }
-            if blocks.isEmpty && lines.isEmpty {
-                BoardScanLog.error("OCR/parser vacío tras leer \(text.count) chars")
+            let result = await BoardImportPipeline.interpret(
+                ocrText: text,
+                catalog: store.state.exercises
+            )
+            if result.blocks.isEmpty && result.lines.isEmpty {
+                BoardScanLog.error("OCR/pipeline vacío tras leer \(text.count) chars")
                 errorMessage = "No encontré texto útil. Prueba más cerca, más luz o otra foto."
                 return
             }
-            reviewOCR = text
-            reviewBlocks = blocks
-            reviewLines = lines
-            BoardScanLog.info("Navegando a revisión")
+            reviewOCR = result.ocrText
+            reviewBlocks = result.blocks
+            reviewLines = result.lines
+            reviewSource = result.source
+            BoardScanLog.info("Navegando a revisión (\(result.source.rawValue))")
             path.append(StartHubRoute.boardReview)
         } catch {
             BoardScanLog.error("runOCR: \(error.localizedDescription)")

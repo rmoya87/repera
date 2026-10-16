@@ -2,40 +2,61 @@
 
 App nativa de entrenamiento (**iPhone + Apple Watch**), **local-first + iCloud**, UI **SwiftUI Liquid Glass** (iOS 26+).
 
-Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (clone en `reference/openGym`).
+Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (solo dominio/UX; no se copia código).
 
-## Estado: v1.0 local cerrado
+## Documentación
+
+| Documento | Contenido |
+|-----------|-----------|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Capas, targets, paquetes, datos |
+| [docs/FEATURES.md](docs/FEATURES.md) | Funcionalidad por pestaña / flujo |
+| [docs/BOARD_SCAN.md](docs/BOARD_SCAN.md) | Escáner de pizarra (OCR + IA + parser) |
+| [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md) | Checklist manual por feature |
+| [docs/MAINTENANCE.md](docs/MAINTENANCE.md) | Cómo mantener docs al día |
+| [AGENTS.md](AGENTS.md) | Instrucciones para agentes Cursor |
+
+> **Obligatorio:** cualquier cambio de comportamiento debe actualizar estos docs (ver `MAINTENANCE.md` y la regla Cursor `update-docs-on-change`).
+
+## Estado actual (oct 2026)
 
 | Área | Incluye |
 |------|---------|
-| Inicio | Día de hoy, peso, racha; + para planificar o foto pizarra/TV |
-| Plan | Rutinas que tú creas (sin plan demo) |
-| Biblioteca | ~190 ejercicios seed (gym + CrossFit + halterofilia + gimnasia) + custom |
-| Sesión | Series normales, WU, drop, rest-pause, RIR/RPE, discos, Watch |
-| Progresión | Off / lineal / doble / Greyskull / triple |
-| Stats | Volumen, PRs, mapa muscular, peso |
-| Coach | Insights locales por reglas (sin API) |
-| Datos | JSON local + iCloud Documents; export/import; CSV Strong/Hevy |
-| Watch | Confirmar ejercicio → conteo auto/manual → siguiente |
+| **Inicio** | Semana/día, métricas Salud, entrenos + externos, avatar→Ajustes, planificar / pizarra |
+| **Diario** | Plan semanal, rutinas, WOD, favoritos, **copiar semana pasada** |
+| **Crear** | Entreno libre, **Apuntar series**, favoritos, timer, foto pizarra/TV |
+| **Progreso** | Periodo, deltas vs anterior, cardio/kcal/peso vs objetivo, heatmap, equilibrio |
+| **Ejercicios** | Biblioteca + ficha (modal series, %→kg, discos, arte full-bleed) |
+| **Sesión** | Series, WU/drop/rest-pause, RIR/RPE, discos, menú ⋯, Live Activity descanso |
+| **Pizarra** | OCR + parser local (skip IA si ≥2 bloques) + Apple Intelligence fallback + %→kg |
+| **Ajustes** | iCloud, Salud, historial, peso+objetivo, barra/discos, export/import |
+| **Datos** | JSON local + iCloud Documents; CSV Strong/Hevy |
+| **Watch** | Confirmar → conteo → **+1 serie** / log rápido |
 
 ## Arranque
 
 ```bash
 xcodegen generate
 open Gymbro.xcodeproj
+# Tests dominio
 cd Packages/GymbroDomain && swift test
 ```
 
-## iCloud
+Requisitos: **Xcode con SDK iOS 26**, dispositivo/simulador compatible. Apple Intelligence es opcional (fallback local en pizarra).
 
-Contenedor `iCloud.app.gymbroapp.ios`. Misma Apple ID → recuperación tras reinstalar. Sync al abrir/foreground. Bundle id: `app.gymbroapp.ios`.
+## Identificadores
 
-## Fuera de v1.0 (siguiente producto)
+| Qué | Valor |
+|-----|--------|
+| Bundle iOS | `app.gymbroapp.ios` |
+| iCloud | `iCloud.app.gymbroapp.ios` |
+| Team | ver `project.yml` |
 
-- **Android** (otro cliente; mismo diseño de datos cuando haya backend)
-- **Backend social / Supabase** (cuando haya org Free o presupuesto Pro)
-- **AI coach con LLM** (el coach actual es reglas locales)
+## Fuera de alcance (por ahora)
+
+- Cliente Android
+- Backend social / multi-usuario
+- Coach / tips con IA (sí hay Foundation Models on-device para pizarra)
 
 ## Licencia
 
-Reimplementación Swift; openGym es AGPL — no se copia su código al binario.
+Reimplementación Swift propia. openGym es AGPL — no se incorpora su código al binario.

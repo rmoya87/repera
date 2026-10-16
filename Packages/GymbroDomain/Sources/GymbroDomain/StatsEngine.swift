@@ -403,6 +403,388 @@ extension StatsEngine {
     public static func totalSets(in session: WorkoutSession) -> Int {
         session.exercises.reduce(0) { $0 + $1.loggedSets.filter { !$0.isWarmup }.count }
     }
+
+    /// Actividad diaria (Gymbro + externas) para el heatmap de 12 meses.
+    public static func dailyActivity(
+        workouts: [WorkoutSession],
+        external: [ExternalDaySample] = [],
+        calendar: Calendar = .current
+    ) -> [String: DayActivityContribution] {
+        var agg: [String: DayActivityContribution] = [:]
+        let df = Self.dayKeyFormatter(calendar: calendar)
+
+        for workout in workouts {
+            guard let date = workout.finishedAt ?? workout.startedAt else { continue }
+            let day = calendar.startOfDay(for: date)
+            let key = df.string(from: day)
+            var row = agg[key] ?? DayActivityContribution(
+                dayKey: key, date: day, minutes: 0, volumeKg: 0, sessionCount: 0
+            )
+            row.sessionCount += 1
+            row.minutes += max(0, workout.durationMinutes)
+            row.volumeKg += max(0, workout.totalVolumeKg)
+            agg[key] = row
+        }
+
+        for sample in external {
+            let day = calendar.startOfDay(for: sample.date)
+            let key = df.string(from: day)
+            var row = agg[key] ?? DayActivityContribution(
+                dayKey: key, date: day, minutes: 0, volumeKg: 0, sessionCount: 0
+            )
+            row.sessionCount += 1
+            row.minutes += max(0, sample.minutes)
+            row.volumeKg += max(0, sample.volumeKg)
+            agg[key] = row
+        }
+        return agg
+    }
+
+    /// Nivel 0…4 por cuartiles del valor (tiempo o volumen), como openGym Heatmap.
+    public static func heatmapLevel(
+        value: Double,
+        hasActivity: Bool,
+        thresholds: (t1: Double, t2: Double, t3: Double)
+    ) -> Int {
+        guard hasActivity else { return 0 }
+        if value <= 0 { return 1 }
+        if value >= thresholds.t3 { return 4 }
+        if value >= thresholds.t2 { return 3 }
+        if value >= thresholds.t1 { return 2 }
+        return 1
+    }
+
+    public static func heatmapThresholds(values: [Double]) -> (t1: Double, t2: Double, t3: Double) {
+        let sorted = values.filter { $0 > 0 }.sorted()
+        guard !sorted.isEmpty else { return (0, 0, 0) }
+        func q(_ p: Double) -> Double {
+            sorted[min(sorted.count - 1, Int(floor(p * Double(sorted.count))))]
+        }
+        return (q(0.25), q(0.5), q(0.75))
+    }
+
+    /// Semanas consecutivas con ≥1 sesión (Gymbro o externa).
+    public static func consecutiveWeekStreak(
+        workoutDates: [Date],
+        externalDates: [Date] = [],
+        weekStartsOnMonday: Bool = true,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Int {
+        var cal = calendar
+        cal.firstWeekday = weekStartsOnMonday ? 2 : 1
+        var active = Set<String>()
+        for date in workoutDates + externalDates {
+            active.insert(weekKey(date, calendar: cal))
+        }
+        guard !active.isEmpty else { return 0 }
+
+        var streak = 0
+        var cursor = now
+        for i in 0..<520 {
+            let key = weekKey(cursor, calendar: cal)
+            if active.contains(key) {
+                streak += 1
+            } else if i > 0 {
+                break
+            }
+            guard let prev = cal.date(byAdding: .day, value: -7, to: cursor) else { break }
+            cursor = prev
+        }
+        return streak
+    }
+
+    public static func workoutsThisMonth(
+        from workouts: [WorkoutSession],
+        externalDates: [Date] = [],
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Int {
+        let comps = calendar.dateComponents([.year, .month], from: now)
+        guard let start = calendar.date(from: comps),
+              let end = calendar.date(byAdding: .month, value: 1, to: start)
+        else { return 0 }
+        let gym = workouts.filter {
+            let d = $0.finishedAt ?? $0.startedAt ?? .distantPast
+            return d >= start && d < end
+        }.count
+        let ext = externalDates.filter { $0 >= start && $0 < end }.count
+        return gym + ext
+    }
+
+    /// Δ peso corporal últimos ~30 días (último − más cercano a hace 30d).
+    public static func bodyWeightDelta30d(
+        entries: [(date: Date, weightKg: Double)],
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Double? {
+        guard let latest = entries.max(by: { $0.date < $1.date }) else { return nil }
+        let cutoff = calendar.date(byAdding: .day, value: -30, to: now) ?? now
+        let older = entries
+            .filter { $0.date <= cutoff }
+            .max(by: { $0.date < $1.date })
+        guard let older else { return nil }
+        return latest.weightKg - older.weightKg
+    }
+
+    private static func weekKey(_ date: Date, calendar: Calendar) -> String {
+        let week = calendar.component(.weekOfYear, from: date)
+        let year = calendar.component(.yearForWeekOfYear, from: date)
+        return "\(year)-\(week)"
+    }
+
+    private static func dayKeyFormatter(calendar: Calendar) -> DateFormatter {
+        let df = DateFormatter()
+        df.calendar = calendar
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.timeZone = calendar.timeZone
+        df.dateFormat = "yyyy-MM-dd"
+        return df
+    }
+}
+
+/// Muestra diaria externa (p. ej. Salud) para el heatmap y métricas.
+public struct ExternalDaySample: Sendable, Equatable {
+    public var date: Date
+    public var minutes: Double
+    public var volumeKg: Double
+    public var activeEnergyKcal: Double
+    /// Minutos de actividad cardio / no fuerza (carrera, bici…).
+    public var cardioMinutes: Double
+
+    public init(
+        date: Date,
+        minutes: Double,
+        volumeKg: Double = 0,
+        activeEnergyKcal: Double = 0,
+        cardioMinutes: Double = 0
+    ) {
+        self.date = date
+        self.minutes = minutes
+        self.volumeKg = volumeKg
+        self.activeEnergyKcal = activeEnergyKcal
+        self.cardioMinutes = cardioMinutes
+    }
+}
+
+/// Resumen 30 días para tiles de Progreso (Gymbro + Salud).
+public enum ProgressTrendMetric: String, Sendable {
+    case cardioMinutes
+    case activeEnergyKcal
+}
+
+public struct ProgressHealthSummary: Sendable, Equatable {
+    public var averageMinutes: Double?
+    public var totalKcal: Double
+    public var cardioMinutes: Double
+    public var volumeKg: Double
+    public var sessionCount: Int
+
+    public init(
+        averageMinutes: Double?,
+        totalKcal: Double,
+        cardioMinutes: Double,
+        volumeKg: Double,
+        sessionCount: Int
+    ) {
+        self.averageMinutes = averageMinutes
+        self.totalKcal = totalKcal
+        self.cardioMinutes = cardioMinutes
+        self.volumeKg = volumeKg
+        self.sessionCount = sessionCount
+    }
+}
+
+public struct ProgressDayPoint: Identifiable, Sendable, Equatable {
+    public var id: String { dayKey }
+    public var dayKey: String
+    public var date: Date
+    public var value: Double
+
+    public init(dayKey: String, date: Date, value: Double) {
+        self.dayKey = dayKey
+        self.date = date
+        self.value = value
+    }
+}
+
+extension StatsEngine {
+    public static func filterWorkouts(
+        _ workouts: [WorkoutSession],
+        range: ProgressTimeRange,
+        weekStartsOnMonday: Bool = true,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> [WorkoutSession] {
+        workouts.filter { workout in
+            guard let day = workout.finishedAt ?? workout.startedAt else { return false }
+            return range.contains(day, now: now, calendar: calendar, weekStartsOnMonday: weekStartsOnMonday)
+        }
+    }
+
+    public static func filterWorkoutsInPreviousPeriod(
+        _ workouts: [WorkoutSession],
+        range: ProgressTimeRange,
+        weekStartsOnMonday: Bool = true,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> [WorkoutSession] {
+        workouts.filter { workout in
+            guard let day = workout.finishedAt ?? workout.startedAt else { return false }
+            return range.containsInPreviousPeriod(
+                day, now: now, calendar: calendar, weekStartsOnMonday: weekStartsOnMonday
+            )
+        }
+    }
+
+    public static func filterExternal(
+        _ samples: [ExternalDaySample],
+        range: ProgressTimeRange,
+        weekStartsOnMonday: Bool = true,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> [ExternalDaySample] {
+        samples.filter {
+            range.contains($0.date, now: now, calendar: calendar, weekStartsOnMonday: weekStartsOnMonday)
+        }
+    }
+
+    public static func filterStimuli(
+        _ stimuli: [ExternalMuscleStimulus],
+        range: ProgressTimeRange,
+        weekStartsOnMonday: Bool = true,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> [ExternalMuscleStimulus] {
+        stimuli.filter {
+            range.contains($0.date, now: now, calendar: calendar, weekStartsOnMonday: weekStartsOnMonday)
+        }
+    }
+
+    /// Serie diaria de cardio (min) o kcal para gráficas de Progreso.
+    public static func dailyMetricSeries(
+        workouts: [WorkoutSession],
+        external: [ExternalDaySample] = [],
+        metric: ProgressTrendMetric,
+        range: ProgressTimeRange = .week,
+        weekStartsOnMonday: Bool = true,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> [ProgressDayPoint] {
+        let days = range.chartDayCount
+        let today = calendar.startOfDay(for: now)
+        let start: Date = {
+            if let s = range.startDate(now: now, calendar: calendar, weekStartsOnMonday: weekStartsOnMonday) {
+                return s
+            }
+            return calendar.date(byAdding: .day, value: -(days - 1), to: today) ?? today
+        }()
+        let df = dayKeyFormatter(calendar: calendar)
+        var buckets: [String: (date: Date, value: Double)] = [:]
+
+        var cursor = start
+        while cursor <= today {
+            let key = df.string(from: cursor)
+            buckets[key] = (cursor, 0)
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = next
+            if buckets.count > 400 { break }
+        }
+
+        for workout in workouts {
+            guard let raw = workout.finishedAt ?? workout.startedAt else { continue }
+            let day = calendar.startOfDay(for: raw)
+            guard day >= start, day <= today else { continue }
+            let key = df.string(from: day)
+            let add: Double
+            switch metric {
+            case .cardioMinutes:
+                // Sesiones Gymbro de Cardio / sin volumen cuentan en la curva.
+                let isCardioSession = workout.exercises.contains {
+                    $0.exercise.muscleGroup == "Cardio"
+                } || workout.totalVolumeKg <= 0
+                add = isCardioSession ? max(0, workout.durationMinutes) : 0
+            case .activeEnergyKcal:
+                add = max(0, workout.appleActiveEnergyKcal ?? 0)
+            }
+            var row = buckets[key] ?? (day, 0)
+            row.value += add
+            buckets[key] = row
+        }
+
+        for sample in external {
+            let day = calendar.startOfDay(for: sample.date)
+            guard day >= start, day <= today else { continue }
+            let key = df.string(from: day)
+            let add: Double
+            switch metric {
+            case .cardioMinutes:
+                // Preferir cardioMinutes; si viene 0, usar minutos totales de Salud.
+                add = sample.cardioMinutes > 0 ? sample.cardioMinutes : max(0, sample.minutes)
+            case .activeEnergyKcal:
+                add = max(0, sample.activeEnergyKcal)
+            }
+            var row = buckets[key] ?? (day, 0)
+            row.value += add
+            buckets[key] = row
+        }
+
+        return buckets.values
+            .map { ProgressDayPoint(dayKey: df.string(from: $0.date), date: $0.date, value: $0.value) }
+            .sorted { $0.date < $1.date }
+    }
+
+    public static func progressHealthSummary(
+        workouts: [WorkoutSession],
+        external: [ExternalDaySample] = [],
+        range: ProgressTimeRange = .week,
+        weekStartsOnMonday: Bool = true,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> ProgressHealthSummary {
+        let filteredW = filterWorkouts(
+            workouts, range: range, weekStartsOnMonday: weekStartsOnMonday, now: now, calendar: calendar
+        )
+        let filteredE = filterExternal(
+            external, range: range, weekStartsOnMonday: weekStartsOnMonday, now: now, calendar: calendar
+        )
+
+        var minutes: [Double] = []
+        var kcal: Double = 0
+        var cardio: Double = 0
+        var volume: Double = 0
+
+        for workout in filteredW {
+            let m = workout.durationMinutes
+            if m > 0 { minutes.append(m) }
+            volume += max(0, workout.totalVolumeKg)
+            if let k = workout.appleActiveEnergyKcal, k > 0 {
+                kcal += k
+            }
+            let isCardioSession = workout.exercises.contains {
+                $0.exercise.muscleGroup == "Cardio"
+            } || workout.totalVolumeKg <= 0
+            if isCardioSession {
+                cardio += max(0, m)
+            }
+        }
+
+        for sample in filteredE {
+            if sample.minutes > 0 { minutes.append(sample.minutes) }
+            volume += max(0, sample.volumeKg)
+            kcal += max(0, sample.activeEnergyKcal)
+            cardio += sample.cardioMinutes > 0 ? sample.cardioMinutes : max(0, sample.minutes)
+        }
+
+        let avg: Double? = minutes.isEmpty ? nil : minutes.reduce(0, +) / Double(minutes.count)
+        return ProgressHealthSummary(
+            averageMinutes: avg,
+            totalKcal: kcal,
+            cardioMinutes: cardio,
+            volumeKg: volume,
+            sessionCount: filteredW.count + filteredE.count
+        )
+    }
 }
 
 public enum CalendarHelpers {

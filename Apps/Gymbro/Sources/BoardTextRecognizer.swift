@@ -79,9 +79,11 @@ enum BoardTextRecognizer {
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
         format.opaque = true
+        // Pizarra/TV oscura (texto blanco) no puede ir sobre lienzo blanco: Vision no ve nada.
+        let fill = dominantFillColor(for: image) ? UIColor.black : UIColor.white
         let renderer = UIGraphicsImageRenderer(size: canvas, format: format)
         let rendered = renderer.image { ctx in
-            UIColor.white.setFill()
+            fill.setFill()
             ctx.fill(CGRect(origin: .zero, size: canvas))
             image.draw(in: CGRect(origin: .zero, size: canvas))
         }
@@ -90,5 +92,33 @@ enum BoardTextRecognizer {
             return cg
         }
         throw RecognizerError.invalidImage
+    }
+
+    /// `true` → relleno negro (texto claro sobre fondo oscuro).
+    private static func dominantFillColor(for image: UIImage) -> Bool {
+        let sample = CGSize(width: 32, height: 32)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: sample, format: format)
+        let tiny = renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: sample))
+        }
+        guard let cg = tiny.cgImage,
+              let data = cg.dataProvider?.data,
+              let ptr = CFDataGetBytePtr(data)
+        else { return false }
+        let bytesPerPixel = max(cg.bitsPerPixel / 8, 1)
+        let total = cg.width * cg.height
+        guard total > 0 else { return false }
+        var sum: Double = 0
+        for i in 0..<total {
+            let o = i * bytesPerPixel
+            let r = Double(ptr[o])
+            let g = Double(ptr[min(o + 1, CFDataGetLength(data) - 1)])
+            let b = Double(ptr[min(o + 2, CFDataGetLength(data) - 1)])
+            sum += (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
+        }
+        return (sum / Double(total)) < 0.45
     }
 }

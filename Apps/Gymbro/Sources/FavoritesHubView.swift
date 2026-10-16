@@ -132,6 +132,7 @@ struct FavoritesHubView: View {
                 mode: .favorite(isNew: isCreating),
                 embedsNavigationStack: true
             )
+            .ogSheetCorners()
             .onDisappear { isCreating = false }
         }
         .navigationDestination(item: $openTimer) { timer in

@@ -9,13 +9,44 @@ struct WatchSessionView: View {
             if let session = hub.controller?.session {
                 activeView(session)
             } else {
-                ContentUnavailableView(
-                    "Sin sesión",
-                    systemImage: "iphone.and.arrow.forward",
-                    description: Text("Inicia la sesión en el iPhone.")
-                )
+                idleQuickLogView
             }
         }
+    }
+
+    private var idleQuickLogView: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "list.number")
+                .font(.title2)
+            Text("Apuntar serie")
+                .font(.headline)
+            if let name = hub.quickLogName {
+                Text(name)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            } else {
+                Text("Usa el último ejercicio del iPhone")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            Button {
+                hub.startQuickLog()
+            } label: {
+                Text("Iniciar en iPhone")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            Button {
+                hub.logQuickSet()
+            } label: {
+                Text("+1 serie")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding()
     }
 
     @ViewBuilder
@@ -55,6 +86,14 @@ struct WatchSessionView: View {
             }
             .buttonStyle(.borderedProminent)
             .padding(.top, 4)
+
+            Button {
+                hub.logQuickSet()
+            } label: {
+                Text("+1 serie")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
         }
         .padding()
     }
@@ -80,6 +119,14 @@ struct WatchSessionView: View {
                 }
             }
             .font(.title2)
+
+            Button {
+                hub.logQuickSet()
+            } label: {
+                Text("+1 serie")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
 
             Button {
                 hub.finishCurrent()

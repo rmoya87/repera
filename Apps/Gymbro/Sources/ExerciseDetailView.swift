@@ -4,11 +4,15 @@ import SwiftUI
 /// Ficha de ejercicio: tags, descripción, añadir al día, placas, 1RM, progreso e historial.
 struct ExerciseDetailView: View {
     @Environment(GymbroStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
     let exerciseId: UUID
+
+    var onOpenedWorkout: (() -> Void)? = nil
 
     @State private var estimateWeight: Double = 20
     @State private var estimateReps: Int = 5
-    @State private var addedFlash = false
+    @State private var showQuickLog = false
+    @State private var suggestPercent: Double = 70
 
     private var exercise: Exercise? {
         store.state.exercises.first { $0.id == exerciseId }
@@ -27,115 +31,130 @@ struct ExerciseDetailView: View {
             if let exercise {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        OGPageHeader(title: exercise.name)
+                        OGBackPageHeader(title: exercise.name, onBack: { dismiss() }) {
+                            HStack(spacing: 8) {
+                                OGToolbarGlassButton(
+                                    systemName: exercise.isFavorite ? "star.fill" : "star",
+                                    accessibilityLabel: exercise.isFavorite ? "Quitar de favoritos" : "Favorito",
+                                    tint: exercise.isFavorite ? OG.yellow : OG.label,
+                                    appliesGlass: true
+                                ) {
+                                    store.toggleFavorite(exerciseId)
+                                }
+                                OGToolbarGlassButton(
+                                    systemName: "plus",
+                                    accessibilityLabel: "Apuntar series",
+                                    tint: .white,
+                                    appliesGlass: true,
+                                    glassTint: OG.accent
+                                ) {
+                                    showQuickLog = true
+                                }
+                            }
+                        }
+                        .padding(.horizontal, OG.pad)
 
+                        // Imagen edge-to-edge; técnica solo aquí (no repetir abajo).
                         ExerciseArtView(exercise: exercise, showStepCaptions: true)
 
-                        tagChips(exercise)
+                        VStack(alignment: .leading, spacing: 12) {
+                            tagChips(exercise)
 
-                        if let desc = ExerciseCopy.description(for: exercise)?
-                            .trimmingCharacters(in: .whitespacesAndNewlines),
-                           !desc.isEmpty {
-                            Text(desc)
-                                .font(.system(size: 15))
-                                .foregroundStyle(OG.label)
-                                .padding(14)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
-                        }
+                            OGCard { suggestedLoadSection(exercise) }
 
-                        Button {
-                            let ok = store.addExerciseToTodayWorkout(exercise.id)
-                            if ok {
-                                withAnimation(.easeOut(duration: 0.2)) { addedFlash = true }
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
-                                    withAnimation { addedFlash = false }
-                                }
-                            }
-                        } label: {
-                            Text(addedFlash ? "Añadido al entreno del día" : "+ Añadir al entreno del día")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(OG.onAccent)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(addedFlash ? OG.surface2 : OG.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(addedFlash)
+                            OGCard { plateLoadingSection }
 
-                        plateLoadingSection
+                            OGCard { estimatedOneRMSection }
 
-                        estimatedOneRMSection
-
-                        let steps = ExerciseCopy.instructions(for: exercise)
-                        if !steps.isEmpty {
-                            OGCard {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Técnica")
-                                        .font(.system(size: 13))
-                                        .foregroundStyle(OG.label2)
-                                    ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
-                                        HStack(alignment: .top, spacing: 8) {
-                                            Text("\(index + 1).")
-                                                .font(.system(size: 13, weight: .semibold))
-                                                .foregroundStyle(OG.accent)
-                                            Text(step)
-                                                .font(.system(size: 14))
+                            NavigationLink {
+                                ExerciseProgressView(exerciseId: exercise.id)
+                            } label: {
+                                OGCard {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("Progreso del ejercicio")
+                                                .font(.system(size: 15, weight: .semibold))
                                                 .foregroundStyle(OG.label)
+                                            Text("Top set · 1RM · esfuerzo · sesiones")
+                                                .font(.system(size: 12))
+                                                .foregroundStyle(OG.label2)
                                         }
+                                        Spacer()
+                                        Image(systemName: "chart.xyaxis.line")
+                                            .foregroundStyle(OG.blue)
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(OG.label3)
                                     }
                                 }
                             }
-                        }
+                            .buttonStyle(.plain)
 
-                        NavigationLink {
-                            ExerciseProgressView(exerciseId: exercise.id)
-                        } label: {
-                            OGCard {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("Progreso del ejercicio")
-                                            .font(.system(size: 15, weight: .semibold))
-                                            .foregroundStyle(OG.label)
-                                        Text("Top set · 1RM · esfuerzo · sesiones")
-                                            .font(.system(size: 12))
-                                            .foregroundStyle(OG.label2)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "chart.xyaxis.line")
-                                        .foregroundStyle(OG.blue)
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(OG.label3)
-                                }
-                            }
+                            historySection(exercise)
                         }
-                        .buttonStyle(.plain)
-
-                        historySection(exercise)
+                        .padding(.horizontal, OG.pad)
                     }
-                    .padding(.horizontal, OG.pad)
-                    .padding(.top, 8)
+                    .padding(.top, 0)
                     .padding(.bottom, 28)
                 }
                 .background(OG.bg)
                 .ogContentTitleNav()
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        OGToolbarGlassButton(
-                            systemName: exercise.isFavorite ? "star.fill" : "star",
-                            accessibilityLabel: exercise.isFavorite ? "Quitar de favoritos" : "Favorito",
-                            tint: exercise.isFavorite ? OG.yellow : OG.label
-                        ) {
-                            store.toggleFavorite(exerciseId)
-                        }
-                    }
-                }
+                .navigationBarBackButtonHidden(true)
                 .onAppear {
                     seedEstimateFromHistory(exercise)
                 }
+                .sheet(isPresented: $showQuickLog) {
+                    QuickLogSheet(exercise: exercise)
+                }
             } else {
                 ContentUnavailableView("Ejercicio no encontrado", systemImage: "questionmark")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func suggestedLoadSection(_ exercise: Exercise) -> some View {
+        let hist = StatsEngine.history(for: exercise.id, workouts: store.state.workouts)
+        let oneRM = hist.estimatedOneRM
+        VStack(alignment: .leading, spacing: 10) {
+            OGCardSectionTitle(title: "Carga sugerida (% → kg)")
+            if let oneRM, oneRM > 0 {
+                let increment = store.state.settings.weightIncrementKg
+                let kg = LoadSuggestion.weightKg(
+                    oneRM: oneRM,
+                    percent: suggestPercent,
+                    roundTo: increment
+                )
+                HStack {
+                    Text("\(Int(suggestPercent))% e1RM")
+                        .foregroundStyle(OG.label2)
+                    Spacer()
+                    Text("\(kg.formatted(.number.precision(.fractionLength(0...1)))) kg")
+                        .font(.system(size: 20, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(OG.label)
+                }
+                Slider(value: $suggestPercent, in: 50...95, step: 5)
+                    .tint(OG.accent)
+                Text("e1RM ≈ \(oneRM.formatted(.number.precision(.fractionLength(0...1)))) kg")
+                    .font(.caption)
+                    .foregroundStyle(OG.label3)
+                if loadPref.mode != .off {
+                    let solution = PlateMath.solve(
+                        targetKg: kg,
+                        baseKg: loadPref.baseWeightKg,
+                        mode: loadPref.mode,
+                        availablePlatesKg: store.state.settings.ownedPlatesKg
+                    )
+                    if let compact = solution.perSideCompact {
+                        Text(compact)
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(OG.label2)
+                    }
+                }
+            } else {
+                Text("Sin historial de peso aún. Apunta series para estimar 1RM.")
+                    .font(.footnote)
+                    .foregroundStyle(OG.label2)
             }
         }
     }
@@ -146,21 +165,26 @@ struct ExerciseDetailView: View {
     private func tagChips(_ exercise: Exercise) -> some View {
         let tags = detailTags(exercise)
         if !tags.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(Array(tags.enumerated()), id: \.offset) { index, tag in
-                        HStack(spacing: 5) {
-                            if let icon = tag.icon {
-                                Image(systemName: icon)
-                                    .font(.system(size: 11, weight: .semibold))
+            OGCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    OGCardSectionTitle(title: "Músculos y equipo")
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(Array(tags.enumerated()), id: \.offset) { index, tag in
+                                HStack(spacing: 5) {
+                                    if let icon = tag.icon {
+                                        Image(systemName: icon)
+                                            .font(.system(size: 11, weight: .semibold))
+                                    }
+                                    Text(tag.label)
+                                        .font(.system(size: 13, weight: .semibold))
+                                }
+                                .foregroundStyle(index == 0 ? OG.onAccent : OG.label)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                                .background(index == 0 ? OG.accent : OG.surface2, in: Capsule())
                             }
-                            Text(tag.label)
-                                .font(.system(size: 13, weight: .semibold))
                         }
-                        .foregroundStyle(index == 0 ? OG.onAccent : OG.label)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(index == 0 ? OG.accent : OG.surface2, in: Capsule())
                     }
                 }
             }
@@ -198,9 +222,7 @@ struct ExerciseDetailView: View {
 
     private var plateLoadingSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Carga de discos")
-                .font(.system(size: 13))
-                .foregroundStyle(OG.label2)
+            OGCardSectionTitle(title: "Carga de discos")
 
             Picker("Modo", selection: Binding(
                 get: { loadPref.mode },
@@ -273,9 +295,7 @@ struct ExerciseDetailView: View {
 
     private var estimatedOneRMSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("1RM estimado")
-                .font(.system(size: 13))
-                .foregroundStyle(OG.label2)
+            OGCardSectionTitle(title: "1RM estimado")
 
             HStack(spacing: 12) {
                 VStack(spacing: 6) {
@@ -365,9 +385,7 @@ struct ExerciseDetailView: View {
         let h = StatsEngine.history(for: exercise.id, workouts: store.state.workouts)
         return OGCard {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Tu historial")
-                    .font(.system(size: 13))
-                    .foregroundStyle(OG.label2)
+                OGCardSectionTitle(title: "Tu historial")
                 if !h.hasData {
                     Text("Cuando lo entrenes, verás máximos y la última sesión aquí.")
                         .font(.system(size: 14))
@@ -509,29 +527,46 @@ enum LocalizedMuscle {
         let map: [String: String] = [
             "pectorals": "Pectorales",
             "chest": "Pecho",
-            "full body": "Full body",
+            "full body": "Cuerpo completo",
             "lats": "Dorsales",
             "upper back": "Espalda alta",
             "traps": "Trapecios",
             "delts": "Deltoides",
+            "deltoids": "Deltoides",
             "shoulders": "Hombros",
             "biceps": "Bíceps",
             "triceps": "Tríceps",
             "forearms": "Antebrazos",
+            "forearm": "Antebrazos",
             "abs": "Abdominales",
             "core": "Core",
+            "waist": "Cintura",
+            "obliques": "Oblicuos",
             "quads": "Cuádriceps",
+            "quadriceps": "Cuádriceps",
             "hamstrings": "Isquios",
+            "hamstring": "Isquios",
             "glutes": "Glúteos",
+            "gluteal": "Glúteos",
             "calves": "Gemelos",
             "adductors": "Aductores",
             "abductors": "Abductores",
+            "hip flexors": "Flexores de cadera",
+            "hip-flexors": "Flexores de cadera",
             "lower back": "Lumbar",
+            "grip": "Agarre",
             "cardiovascular system": "Cardio",
+            "cardio": "Cardio",
             "body weight": "Peso corporal",
             "bodyweight": "Peso corporal",
+            "barbell": "Barra",
+            "dumbbell": "Mancuernas",
+            "cable": "Polea",
+            "machine": "Máquina",
+            "body only": "Peso corporal",
+            "assisted": "Asistido",
         ]
-        let key = raw.lowercased()
+        let key = raw.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         return map[key] ?? raw.capitalized
     }
 }

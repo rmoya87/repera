@@ -75,7 +75,8 @@ public enum PlateLoadMode: String, Codable, Sendable, CaseIterable, Equatable {
         switch self {
         case .perSide: return "Por lado"
         case .singleStack: return "Una pila"
-        case .off: return "Off"
+        /// Sin línea de discos (peso corporal, máquinas sin discos, etc.).
+        case .off: return "Sin discos"
         }
     }
 }

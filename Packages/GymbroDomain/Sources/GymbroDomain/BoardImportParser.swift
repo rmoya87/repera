@@ -102,51 +102,140 @@ public enum BoardImportParser {
         var index = 0
         while index < lines.count {
             let line = lines[index]
-            guard let header = detectHeader(line) else {
+
+            // Etiqueta de sección (Weightlifting / Metcon…): título + formato de la línea siguiente.
+            if let sectionTitle = sectionLabelTitle(line) {
+                index += 1
+                if index < lines.count, let header = detectFormatHeader(lines[index]) {
+                    index += 1
+                    let merged = mergeSection(sectionTitle, into: header)
+                    let (block, consumed) = buildBlock(
+                        header: merged,
+                        lines: lines,
+                        start: index,
+                        catalog: catalog
+                    )
+                    blocks.append(block)
+                    index = consumed
+                } else {
+                    // Sección sin cabecera de formato → fuerza o metcon genérico.
+                    let upper = line.uppercased()
+                    let format: WODFormat =
+                        (upper.contains("METCON") || upper.contains("CONDITION")) ? .forTime : .strength
+                    let header = HeaderInfo(raw: line, format: format, title: sectionTitle)
+                    let (block, consumed) = buildBlock(
+                        header: header,
+                        lines: lines,
+                        start: index,
+                        catalog: catalog
+                    )
+                    blocks.append(block)
+                    index = consumed
+                }
+                continue
+            }
+
+            guard let header = detectFormatHeader(line) else {
                 index += 1
                 continue
             }
             index += 1
-            var movementLines: [String] = []
-            while index < lines.count, detectHeader(lines[index]) == nil {
-                let body = lines[index]
-                if !isNoise(body) {
-                    movementLines.append(body)
-                }
-                index += 1
-            }
-            var block = RoutineBlock.wod(format: header.format, title: header.title)
-            block.timeCapMinutes = header.timeCapMinutes
-            block.rounds = header.rounds ?? block.rounds
-            block.emomIntervalSeconds = header.intervalSeconds ?? block.emomIntervalSeconds
-            block.restBetweenRoundsSeconds = header.restBetween
-            block.movements = movementLines.flatMap { parseWODMovementLine($0, catalog: catalog) }
-            // Si el OCR trajo líneas pero el tipado falló, conserva el texto como movimientos.
-            if block.movements.filter({ !$0.isRest }).isEmpty, !movementLines.isEmpty {
-                block.movements = movementLines.map {
-                    WODMovement(name: CrossFitGlossary.expand($0), reps: firstInt(in: $0) ?? 10)
-                }
-            }
-            block.wodNotes = ([header.raw] + movementLines).joined(separator: "\n")
+            let (block, consumed) = buildBlock(
+                header: header,
+                lines: lines,
+                start: index,
+                catalog: catalog
+            )
             blocks.append(block)
+            index = consumed
         }
 
         // Sin cabeceras tipadas: un bloque con todas las líneas legibles (no descartar el OCR).
         if blocks.isEmpty {
-            let body = lines.filter { !isNoise($0) }
+            let body = lines.filter { !isNoise($0) && sectionLabelTitle($0) == nil }
             if !body.isEmpty {
                 var block = RoutineBlock.wod(format: .chipper, title: "Desde pizarra")
-                block.movements = body.flatMap { parseWODMovementLine($0, catalog: catalog) }
-                if block.movements.filter({ !$0.isRest }).isEmpty {
-                    block.movements = body.map {
-                        WODMovement(name: CrossFitGlossary.expand($0), reps: firstInt(in: $0) ?? 10)
-                    }
-                }
+                block.movements = flattenMovements(body, catalog: catalog)
                 block.wodNotes = body.joined(separator: "\n")
                 blocks.append(block)
             }
         }
         return blocks
+    }
+
+    private static func mergeSection(_ section: String?, into header: HeaderInfo) -> HeaderInfo {
+        guard let section, !section.isEmpty else { return header }
+        var h = header
+        // Preferir el nombre de la sección ("Squat Clean Work") sobre el formato crudo.
+        if section.count >= 3 {
+            h.title = section
+        }
+        return h
+    }
+
+    private static func buildBlock(
+        header: HeaderInfo,
+        lines: [String],
+        start: Int,
+        catalog: [Exercise]
+    ) -> (RoutineBlock, Int) {
+        var index = start
+        var movementLines: [String] = []
+        var footnotes: [String] = []
+        while index < lines.count {
+            let body = lines[index]
+            // Nueva sección o nuevo formato → fin de bloque.
+            if sectionLabelTitle(body) != nil || detectFormatHeader(body) != nil {
+                break
+            }
+            if isFootnote(body) {
+                footnotes.append(body.trimmingCharacters(in: CharacterSet(charactersIn: "*• ")))
+            } else if !isNoise(body) {
+                movementLines.append(body)
+            }
+            index += 1
+        }
+
+        var block = RoutineBlock.wod(format: header.format, title: header.title)
+        block.timeCapMinutes = header.timeCapMinutes
+        block.rounds = header.rounds ?? block.rounds
+        block.emomIntervalSeconds = header.intervalSeconds ?? block.emomIntervalSeconds
+        block.restBetweenRoundsSeconds = header.restBetween
+        block.movements = flattenMovements(movementLines, catalog: catalog)
+        var notesParts = [header.raw] + movementLines
+        if !footnotes.isEmpty {
+            notesParts.append(contentsOf: footnotes)
+        }
+        block.wodNotes = notesParts.joined(separator: "\n")
+        return (block, index)
+    }
+
+    private static func flattenMovements(_ lines: [String], catalog: [Exercise]) -> [WODMovement] {
+        var roundPrefix: String?
+        var out: [WODMovement] = []
+        for line in lines {
+            if let round = roundMarker(line) {
+                roundPrefix = "Ronda \(round)"
+                continue
+            }
+            var moves = parseWODMovementLine(line, catalog: catalog)
+            if let roundPrefix {
+                moves = moves.map { mov in
+                    var m = mov
+                    let note = [roundPrefix, m.notes].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+                    m.notes = note.isEmpty ? nil : note
+                    return m
+                }
+            }
+            out.append(contentsOf: moves)
+        }
+        if out.filter({ !$0.isRest }).isEmpty, !lines.isEmpty {
+            out = lines.compactMap { line -> WODMovement? in
+                if roundMarker(line) != nil { return nil }
+                return WODMovement(name: CrossFitGlossary.expand(line), reps: firstInt(in: line) ?? 10)
+            }
+        }
+        return out
     }
 
     /// Un solo bloque (compatibilidad).
@@ -167,13 +256,111 @@ public enum BoardImportParser {
     }
 
     private static func isBlockHeader(_ line: String) -> Bool {
-        detectHeader(line) != nil
+        detectFormatHeader(line) != nil || sectionLabelTitle(line) != nil
     }
 
+    /// Solo el formato del WOD (EMOM, For Time…). No incluye etiquetas Weightlifting/Metcon.
     private static func detectHeader(_ line: String) -> HeaderInfo? {
+        detectFormatHeader(line)
+    }
+
+    /// Título de sección tipo `Weightlifting "Squat Clean Work"` / `Metcon`.
+    private static func sectionLabelTitle(_ line: String) -> String? {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        let upper = trimmed.uppercased()
+        let labels = [
+            "WEIGHTLIFTING", "WEIGHT LIFTING", "HALTERO", "HALTEROFILIA",
+            "METCON", "MET CON", "CONDITIONING", "CONDICIONAMIENTO",
+            "GYMNASTICS", "GIMNASIA", "STRENGTH", "FUERZA", "SKILL", "TECH",
+            "WOD", "WORKOUT",
+        ]
+        guard labels.contains(where: {
+            upper == $0
+                || upper.hasPrefix($0 + " ")
+                || upper.hasPrefix($0 + ":")
+                || upper.hasPrefix($0 + "\"")
+                || upper.hasPrefix($0 + "“")
+                || upper.hasPrefix($0 + "«")
+        }) else { return nil }
+
+        if let q = trimmed.range(of: #"[\"“«](.+?)[\"”»]"#, options: .regularExpression) {
+            let raw = String(trimmed[q])
+                .trimmingCharacters(in: CharacterSet(charactersIn: "\"“”«»"))
+            if !raw.isEmpty { return raw }
+        }
+        // "Weightlifting Squat Clean Work" sin comillas → quitar etiqueta.
+        for label in labels.sorted(by: { $0.count > $1.count }) {
+            if upper.hasPrefix(label) {
+                let rest = trimmed.dropFirst(label.count)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: ":-\""))
+                return rest.isEmpty ? trimmed : String(rest)
+            }
+        }
+        return trimmed
+    }
+
+    private static func roundMarker(_ line: String) -> Int? {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let r = trimmed.range(
+            of: #"^ROUNDS?\s*(\d+)\s*:?\s*$"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) else { return nil }
+        return firstInt(in: String(trimmed[r]))
+    }
+
+    private static func isFootnote(_ line: String) -> Bool {
+        let t = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.hasPrefix("*") || t.hasPrefix("•")
+    }
+
+    private static func detectFormatHeader(_ line: String) -> HeaderInfo? {
         let upper = line.uppercased()
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
+
+        // EVERY 90S FOR 12MIN (8 SERIES)  /  CADA 90\" PARA 12'
+        if let everyFor = trimmed.range(
+            of: #"(?:EVERY|CADA)\s+(\d+)\s*(S|SEC|SECS|SECONDS|["″']|MIN|MINS|MINUTES|M)?\s*(?:FOR|PARA)\s+(\d+)\s*(MIN|MINS|MINUTES|["′'])?"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) {
+            let token = String(trimmed[everyFor])
+            let nums = token.split { !$0.isNumber }.compactMap { Int($0) }
+            let first = nums.first ?? 90
+            let durationMin = nums.count > 1 ? nums[1] : 12
+            // Unidad del intervalo (justo tras el 1.er número), no la de la duración (…12min).
+            let intervalSeconds: Int = {
+                if token.range(
+                    of: #"(?:EVERY|CADA)\s+\d+\s*(?:S(?:EC(?:OND)?S?)?\b|["″])"#,
+                    options: [.regularExpression, .caseInsensitive]
+                ) != nil {
+                    return first
+                }
+                if token.range(
+                    of: #"(?:EVERY|CADA)\s+\d+\s*(?:MIN(?:UTE)?S?\b|['′]|M\b)"#,
+                    options: [.regularExpression, .caseInsensitive]
+                ) != nil {
+                    return first * 60
+                }
+                // Sin unidad: ≥30 → segundos (90); si no → minutos.
+                return first >= 30 ? first : first * 60
+            }()
+            var rounds: Int? = durationMin * 60 / max(intervalSeconds, 1)
+            if let series = trimmed.range(
+                of: #"\((\d+)\s*(?:SERIES|SETS|SETS?|RONDS?|ROUNDS?)?\)"#,
+                options: [.regularExpression, .caseInsensitive]
+            ) {
+                rounds = firstInt(in: String(trimmed[series])) ?? rounds
+            }
+            return HeaderInfo(
+                raw: trimmed,
+                format: .emom,
+                title: "Every \(intervalSeconds)s · \(durationMin)'",
+                timeCapMinutes: durationMin,
+                rounds: rounds,
+                intervalSeconds: intervalSeconds
+            )
+        }
 
         // EVERY 2' X 4  /  CADA 2' x 4
         if let every = trimmed.range(
@@ -291,13 +478,31 @@ public enum BoardImportParser {
             var timeCap = 12
             if let tc = trimmed.range(of: #"TC\s*(\d+)"#, options: [.regularExpression, .caseInsensitive]) {
                 timeCap = firstInt(in: String(trimmed[tc])) ?? 12
+            } else if let cap = trimmed.range(
+                of: #"(\d+)\s*(?:MIN|MINS|MINUTES|')?\s*CAP"#,
+                options: [.regularExpression, .caseInsensitive]
+            ) {
+                timeCap = firstInt(in: String(trimmed[cap])) ?? 12
+            } else if let paren = trimmed.range(
+                of: #"\(\s*(\d+)\s*(?:MIN|MINS|MINUTES|')?"#,
+                options: [.regularExpression, .caseInsensitive]
+            ) {
+                timeCap = firstInt(in: String(trimmed[paren])) ?? 12
             }
+            // "3 RFT" → rounds; "For Time: (20min Cap)" sin N delante → nil
+            let rounds: Int? = {
+                if upper.contains("RFT") { return firstInt(in: trimmed) }
+                if trimmed.range(of: #"^\s*\d+\s+ROUNDS?\b"#, options: [.regularExpression, .caseInsensitive]) != nil {
+                    return firstInt(in: trimmed)
+                }
+                return nil
+            }()
             return HeaderInfo(
                 raw: trimmed,
                 format: .forTime,
                 title: trimmed,
                 timeCapMinutes: timeCap,
-                rounds: firstInt(in: trimmed)
+                rounds: rounds
             )
         }
 
@@ -325,10 +530,10 @@ public enum BoardImportParser {
             return HeaderInfo(raw: trimmed, format: .deathBy, title: "Muerte por")
         }
 
-        // Fuerza / skill / técnica — solo etiquetas de sección, no líneas "3x 1 PUSH PRESS…".
+        // Cabeceras de formato fuerza (no Weightlifting/Metcon: van como sectionLabelTitle).
         let strengthTokens = [
-            "STRENGTH", "FUERZA", "SKILL", "TECH", "TECHNIQUE", "TÉCNICA", "TECNICA",
-            "WEIGHTLIFTING", "HALTERO", "S&C", "SUPERSET", "GIANT SET", "WARM-UP",
+            "TECHNIQUE", "TÉCNICA", "TECNICA",
+            "S&C", "SUPERSET", "GIANT SET", "WARM-UP",
             "WARM UP", "CALENTAMIENTO", "COOL DOWN", "COOLDOWN",
         ]
         if strengthTokens.contains(where: { upper == $0 || upper.hasPrefix($0 + " ") || upper.hasPrefix($0 + ":") }) {
@@ -346,6 +551,29 @@ public enum BoardImportParser {
         var scale: String?
         var notes: [String] = []
 
+        // Sets 1-2: 3 Squat Clean #70%  /  Sets 5-8: 1 Squat Clean #>80%
+        if let setsRange = working.range(
+            of: #"^SETS?\s+(\d+)\s*[-–]\s*(\d+)\s*:\s*"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) {
+            let token = String(working[setsRange])
+            let nums = token.split { !$0.isNumber }.compactMap { Int($0) }
+            if nums.count >= 2 {
+                notes.append("Series \(nums[0])-\(nums[1])")
+            }
+            working.removeSubrange(setsRange)
+        }
+
+        // % de 1RM: #70% / #>80% / @70%
+        if let pct = working.range(
+            of: #"[#@]\s*(>?)(\d+)\s*%"#,
+            options: .regularExpression
+        ) {
+            let token = String(working[pct]).trimmingCharacters(in: CharacterSet(charactersIn: "#@ "))
+            notes.append(token.hasPrefix(">") ? ">\(token.filter(\.isNumber))%" : "\(token.filter(\.isNumber))%")
+            working.removeSubrange(pct)
+        }
+
         // RPE / intensidad @6-8
         if let rpe = working.range(of: #"@\s*(\d+)\s*[-–]\s*(\d+)"#, options: .regularExpression) {
             notes.append("RPE \(String(working[rpe]).replacingOccurrences(of: "@", with: "").trimmingCharacters(in: .whitespaces))")
@@ -357,7 +585,7 @@ public enum BoardImportParser {
 
         // Escala "50 DU / 100 SU" (con espacios alrededor de /)
         let hasScaleAlternative = working.range(of: #"\s+/\s+"#, options: .regularExpression) != nil
-            && working.range(of: #"(\d+(?:[.,]\d+)?)\s*/\s*(\d+(?:[.,]\d+)?)\s*$"#, options: .regularExpression) == nil
+            && working.range(of: #"#?\s*(\d+(?:[.,]\d+)?)\s*/\s*(\d+(?:[.,]\d+)?)\s*(?:kg|lb)?\s*$"#, options: .regularExpression) == nil
         if hasScaleAlternative {
             let parts = working.components(separatedBy: "/")
             if parts.count >= 2 {
@@ -368,10 +596,20 @@ public enum BoardImportParser {
 
         var male: Double?
         var female: Double?
-        if let wr = working.range(of: #"(\d+(?:[.,]\d+)?)\s*/\s*(\d+(?:[.,]\d+)?)"#, options: .regularExpression) {
+        // #40/25kg o 40/25
+        if let wr = working.range(
+            of: #"#?\s*(\d+(?:[.,]\d+)?)\s*/\s*(\d+(?:[.,]\d+)?)\s*(?:kg|lb)?"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) {
             let token = String(working[wr])
             let nums = token.split(separator: "/").compactMap {
-                Double($0.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: "."))
+                Double(
+                    $0.trimmingCharacters(in: .whitespaces)
+                        .replacingOccurrences(of: "#", with: "")
+                        .replacingOccurrences(of: "kg", with: "", options: .caseInsensitive)
+                        .replacingOccurrences(of: "lb", with: "", options: .caseInsensitive)
+                        .replacingOccurrences(of: ",", with: ".")
+                )
             }
             if nums.count == 2 {
                 male = nums[0]
@@ -532,6 +770,8 @@ public enum BoardImportParser {
         let skip = ["sets", "reps", "warmup", "calentamiento", "circuito", "circuit"]
         if skip.contains(where: { lower == $0 }) { return true }
         if line.allSatisfy({ $0.isNumber || $0 == "." || $0 == "," }) { return true }
+        // Reloj en esquina de captura (22:02).
+        if line.range(of: #"^\d{1,2}:\d{2}$"#, options: .regularExpression) != nil { return true }
         return false
     }
 
@@ -644,8 +884,14 @@ public enum CrossFitGlossary {
         "strict press": "Strict press",
         "sp": "Strict press",
         "push jerk": "Push jerk",
+        "push jek": "Push jerk",
+        "push jer": "Push jerk",
         "pj": "Push jerk",
         "split jerk": "Split jerk",
+        "burpee over the bar": "Bar facing burpee",
+        "burpees over the bar": "Bar facing burpee",
+        "burpee over bar": "Bar facing burpee",
+        "bob": "Bar facing burpee",
 
         // Condicionamiento
         "wb": "Wall ball",

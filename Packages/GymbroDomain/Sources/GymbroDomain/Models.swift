@@ -190,6 +190,11 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
         targetRir = try c.decodeIfPresent(Double.self, forKey: .targetRir)
     }
 
+    /// Copia con nuevo `id` (para insertar en otra rutina).
+    public func duplicatingContent() -> PlannedSet {
+        PlannedSet(targetReps: targetReps, targetWeightKg: targetWeightKg, targetRir: targetRir)
+    }
+
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(id, forKey: .id)
@@ -316,6 +321,16 @@ public struct RoutineExercise: Identifiable, Codable, Sendable, Hashable {
         plannedSets = try c.decodeIfPresent([PlannedSet].self, forKey: .plannedSets) ?? []
         restSeconds = try c.decodeIfPresent(Int.self, forKey: .restSeconds)
         supersetGroup = try c.decodeIfPresent(Int.self, forKey: .supersetGroup)
+    }
+
+    /// Copia con nuevos IDs de ejercicio y series.
+    public func duplicatingContent() -> RoutineExercise {
+        RoutineExercise(
+            exerciseId: exerciseId,
+            plannedSets: plannedSets.map { $0.duplicatingContent() },
+            restSeconds: restSeconds,
+            supersetGroup: supersetGroup
+        )
     }
 }
 
@@ -489,6 +504,24 @@ public struct WODMovement: Identifiable, Codable, Sendable, Hashable {
         let r = reps ?? (distanceMeters.map { max(1, $0 / 10) } ?? 10)
         return [PlannedSet(targetReps: max(1, r), targetWeightKg: weight)]
     }
+
+    /// Copia con nuevo `id`.
+    public func duplicatingContent() -> WODMovement {
+        WODMovement(
+            exerciseId: exerciseId,
+            name: name,
+            reps: reps,
+            repScheme: repScheme,
+            distanceMeters: distanceMeters,
+            calories: calories,
+            weightMaleKg: weightMaleKg,
+            weightFemaleKg: weightFemaleKg,
+            isRest: isRest,
+            restSeconds: restSeconds,
+            scaleAlternative: scaleAlternative,
+            notes: notes
+        )
+    }
 }
 
 public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
@@ -567,6 +600,24 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
         RoutineBlock(title: title, kind: .strength, exercises: exercises)
     }
 
+    /// Copia profunda con IDs nuevos (bloque, ejercicios, movimientos y series).
+    public func duplicatingContent() -> RoutineBlock {
+        RoutineBlock(
+            title: title,
+            kind: kind,
+            exercises: exercises.map { $0.duplicatingContent() },
+            movements: movements.map { $0.duplicatingContent() },
+            wodFormat: wodFormat,
+            timeCapMinutes: timeCapMinutes,
+            emomIntervalSeconds: emomIntervalSeconds,
+            rounds: rounds,
+            workSeconds: workSeconds,
+            restSeconds: restSeconds,
+            restBetweenRoundsSeconds: restBetweenRoundsSeconds,
+            wodNotes: wodNotes
+        )
+    }
+
     public static func wod(format: WODFormat, title: String? = nil) -> RoutineBlock {
         let isTabata = format == .tabata
         return RoutineBlock(
@@ -632,6 +683,8 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
     public var weekday: Int?
     /// Día concreto (inicio del día). Si no es nil → entreno suelto de ese día (no es plan semanal).
     public var scheduledDate: Date?
+    /// Hora del día en minutos desde medianoche (0…1439). Opcional.
+    public var scheduledTimeMinutes: Int?
     /// Plantilla habitual reutilizable desde Crear → Favoritos.
     public var isFavorite: Bool
     /// Bloques del entreno (fuerza y/o WOD). Fuente de verdad.
@@ -646,6 +699,12 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
 
     /// Entreno suelto ligado a un día del calendario.
     public var isOneOff: Bool { scheduledDate != nil }
+
+    /// Hora programada válida (minutos 0…1439).
+    public var normalizedScheduledTimeMinutes: Int? {
+        guard let m = scheduledTimeMinutes, (0..<24 * 60).contains(m) else { return nil }
+        return m
+    }
 
     /// Ejercicios de fuerza aplanados (compat sesión / import).
     public var exercises: [RoutineExercise] {
@@ -664,6 +723,7 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
         title: String,
         weekday: Int? = nil,
         scheduledDate: Date? = nil,
+        scheduledTimeMinutes: Int? = nil,
         exercises: [RoutineExercise] = [],
         blocks: [RoutineBlock]? = nil,
         progression: ProgressionPolicy = .linear,
@@ -673,6 +733,11 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
         self.title = title
         self.weekday = weekday
         self.scheduledDate = scheduledDate.map { Calendar.current.startOfDay(for: $0) }
+        if let scheduledTimeMinutes, (0..<24 * 60).contains(scheduledTimeMinutes) {
+            self.scheduledTimeMinutes = scheduledTimeMinutes
+        } else {
+            self.scheduledTimeMinutes = nil
+        }
         self.isFavorite = isFavorite
         if let blocks, !blocks.isEmpty {
             self.blocks = blocks
@@ -684,8 +749,20 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
         self.progression = progression
     }
 
+    /// Fecha+hora del entreno ese día (si hay hora programada).
+    public func scheduledDateTime(on day: Date = Date(), calendar: Calendar = .current) -> Date? {
+        guard let minutes = normalizedScheduledTimeMinutes else { return nil }
+        let start = calendar.startOfDay(for: day)
+        return calendar.date(byAdding: .minute, value: minutes, to: start)
+    }
+
+    public mutating func setScheduledTime(from date: Date, calendar: Calendar = .current) {
+        let comps = calendar.dateComponents([.hour, .minute], from: date)
+        scheduledTimeMinutes = (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
+    }
+
     enum CodingKeys: String, CodingKey {
-        case id, title, weekday, scheduledDate, exercises, blocks, progression, isFavorite
+        case id, title, weekday, scheduledDate, scheduledTimeMinutes, exercises, blocks, progression, isFavorite
     }
 
     public init(from decoder: Decoder) throws {
@@ -697,6 +774,12 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
             scheduledDate = Calendar.current.startOfDay(for: raw)
         } else {
             scheduledDate = nil
+        }
+        if let minutes = try c.decodeIfPresent(Int.self, forKey: .scheduledTimeMinutes),
+           (0..<24 * 60).contains(minutes) {
+            scheduledTimeMinutes = minutes
+        } else {
+            scheduledTimeMinutes = nil
         }
         isFavorite = try c.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
         progression = try c.decodeIfPresent(ProgressionPolicy.self, forKey: .progression) ?? .linear
@@ -717,6 +800,7 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
         try c.encode(title, forKey: .title)
         try c.encodeIfPresent(weekday, forKey: .weekday)
         try c.encodeIfPresent(scheduledDate, forKey: .scheduledDate)
+        try c.encodeIfPresent(normalizedScheduledTimeMinutes, forKey: .scheduledTimeMinutes)
         try c.encode(isFavorite, forKey: .isFavorite)
         try c.encode(blocks, forKey: .blocks)
         try c.encode(exercises, forKey: .exercises)

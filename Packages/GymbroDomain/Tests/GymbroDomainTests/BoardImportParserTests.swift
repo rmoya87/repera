@@ -163,4 +163,62 @@ struct BoardImportParserTests {
             #expect(e2.timeCapMinutes == 10)
         }
     }
+
+    @Test func parsesWeightliftingAndMetconBoard() {
+        let catalog = Catalog.seed()
+        let text = """
+        Weightlifting "Squat Clean Work"
+        Every 90s For 12min (8 Series)
+        Sets 1-2: 3 Squat Clean #70%
+        Sets 3-4: 2 Squat Clean #75%
+        Sets 5-8: 1 Squat Clean #>80%
+        *NO Touch & Go. Trabaja a singles
+        22:02
+
+        Metcon
+        For Time: (20min Cap)
+        Round 1
+        750m Run
+        15 Overhead squat #40/25kg
+        15 Push Jek #40/25kg
+        15 Burpee Over the Bar
+        Round 2
+        500m Run
+        12 Overhead squat #50/35kg
+        12 Push Jerk #50/35kg
+        12 Burpee Over the Bar
+        Round 3
+        250m Run
+        9 Overhead squat #60/40kg
+        9 Push Jerk #60/40kg
+        9 Burpee Over the Bar
+        """
+        let blocks = BoardImportParser.parseBlocks(ocrText: text, catalog: catalog)
+        #expect(blocks.count == 2)
+
+        let lift = blocks[0]
+        #expect(lift.wodFormat == .emom)
+        #expect(lift.title.localizedCaseInsensitiveContains("Squat Clean"))
+        #expect(lift.emomIntervalSeconds == 90)
+        #expect(lift.timeCapMinutes == 12)
+        #expect(lift.rounds == 8)
+        #expect(lift.movements.filter { !$0.isRest }.count == 3)
+        #expect(lift.movements.contains { ($0.notes ?? "").contains("70%") })
+        #expect(lift.wodNotes?.localizedCaseInsensitiveContains("Touch") == true)
+
+        let metcon = blocks[1]
+        #expect(metcon.wodFormat == .forTime)
+        #expect(metcon.title.localizedCaseInsensitiveContains("Metcon") || metcon.title == "Metcon")
+        #expect(metcon.timeCapMinutes == 20)
+        let work = metcon.movements.filter { !$0.isRest }
+        #expect(work.count == 12)
+        #expect(work.contains { $0.distanceMeters == 750 })
+        #expect(work.contains { $0.distanceMeters == 250 })
+        let ohs = work.first { $0.name.localizedCaseInsensitiveContains("Overhead") }
+        #expect(ohs?.weightMaleKg == 40)
+        #expect(ohs?.weightFemaleKg == 25)
+        #expect(work.contains { $0.name.localizedCaseInsensitiveContains("jerk") || $0.name.localizedCaseInsensitiveContains("Jerk") })
+        #expect(work.contains { ($0.notes ?? "").localizedCaseInsensitiveContains("Ronda 1") })
+        #expect(work.contains { ($0.notes ?? "").localizedCaseInsensitiveContains("Ronda 3") })
+    }
 }

@@ -154,9 +154,7 @@ struct StandaloneTimerView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Tipo de temporizador")
-                        .font(.system(size: 13))
-                        .foregroundStyle(OG.label2)
+                    OGCardSectionTitle(title: "Tipo de temporizador")
                     Picker("Tipo", selection: $config.mode) {
                         ForEach(StandaloneTimerMode.allCases) { mode in
                             Text(mode.title).tag(mode)
@@ -166,9 +164,7 @@ struct StandaloneTimerView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Configuración")
-                        .font(.system(size: 13))
-                        .foregroundStyle(OG.label2)
+                    OGCardSectionTitle(title: "Configuración")
                         .padding(.bottom, 10)
 
                     switch config.mode {

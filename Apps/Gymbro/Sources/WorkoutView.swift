@@ -4,6 +4,8 @@ import SwiftUI
 struct WorkoutView: View {
     @Environment(GymbroStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    /// Si se presenta fuera de un sheet, cierra el flujo de navegación raíz.
+    var onClose: (() -> Void)? = nil
     @State private var repsText = ""
     @State private var weightText = ""
     @State private var setPhase: SetPhase = .work
@@ -74,27 +76,45 @@ struct WorkoutView: View {
         .toolbar(showWODClock ? .hidden : .automatic, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                CloseToolbarButton { dismiss() }
+                CloseToolbarButton(action: { closeFlow() }, large: false)
                     .foregroundStyle(OG.label2)
             }
             ToolbarItem(placement: .topBarTrailing) {
-                OGToolbarGlassButton(
-                    systemName: hasSessionNotes ? "note.text" : "square.and.pencil",
-                    accessibilityLabel: "Notas del entreno",
-                    tint: hasSessionNotes ? OG.accent : OG.label
-                ) {
-                    notesDraft = store.state.activeSession?.notes ?? ""
-                    showNotes = true
+                Menu {
+                    Button {
+                        _ = store.saveActiveSessionAsFavorite()
+                    } label: {
+                        Label(
+                            activeIsFavorite ? "En favoritos" : "Favorito",
+                            systemImage: activeIsFavorite ? "star.fill" : "star"
+                        )
+                    }
+                    Button {
+                        notesDraft = store.state.activeSession?.notes ?? ""
+                        showNotes = true
+                    } label: {
+                        Label(
+                            hasSessionNotes ? "Editar nota" : "Añadir nota",
+                            systemImage: hasSessionNotes ? "note.text" : "square.and.pencil"
+                        )
+                    }
+                    Divider()
+                    Button(role: .destructive) {
+                        stopWODClock()
+                        stopRest(announce: false)
+                        store.endActiveSession(save: false)
+                        closeFlow()
+                    } label: {
+                        Label("Eliminar entreno", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(OG.label)
+                        .frame(width: 36, height: 36)
+                        .contentShape(Circle())
                 }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                OGToolbarGlassButton(
-                    systemName: activeIsFavorite ? "star.fill" : "star",
-                    accessibilityLabel: "Guardar en favoritos",
-                    tint: activeIsFavorite ? OG.yellow : OG.label
-                ) {
-                    _ = store.saveActiveSessionAsFavorite()
-                }
+                .accessibilityLabel("Más opciones")
             }
             ToolbarItem(placement: .topBarTrailing) {
                 if hasMoreExercises {
@@ -103,26 +123,34 @@ struct WorkoutView: View {
                         stopRest()
                         stopWODClock()
                         if store.state.activeSession == nil {
-                            dismiss()
+                            closeFlow()
                         }
                     }
                     .fontWeight(.semibold)
                     .foregroundStyle(OG.accent)
                 } else {
-                    Button("Terminar") {
+                    // Terminar: círculo verde + check blanco.
+                    OGToolbarGlassButton(
+                        systemName: "checkmark",
+                        accessibilityLabel: "Terminar",
+                        tint: .white,
+                        appliesGlass: true,
+                        glassTint: OG.accent
+                    ) {
                         stopWODClock()
                         store.endActiveSession(save: true)
-                        dismiss()
+                        closeFlow()
                     }
-                    .fontWeight(.semibold)
-                    .foregroundStyle(OG.accent)
                 }
             }
         }
         .sheet(isPresented: $showNotes) {
             workoutNotesSheet
         }
-        .onAppear { prefill() }
+        .onAppear {
+            prefill()
+            bootstrapQuickLogIfNeeded()
+        }
         .onChange(of: store.state.activeSession?.currentIndex) { _, _ in
             prefill()
             stopWODClock()
@@ -133,44 +161,54 @@ struct WorkoutView: View {
         }
     }
 
+    private func closeFlow() {
+        if let onClose {
+            onClose()
+        } else {
+            dismiss()
+        }
+    }
+
     private var hasSessionNotes: Bool {
         !(store.state.activeSession?.notes?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
     }
 
     private var workoutNotesSheet: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Cómo te sentiste, sueño, molestias, PRs…")
-                    .font(.system(size: 14))
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Button("Cancelar") { showNotes = false }
                     .foregroundStyle(OG.label2)
-                TextEditor(text: $notesDraft)
-                    .scrollContentBackground(.hidden)
-                    .padding(12)
-                    .frame(minHeight: 180)
-                    .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                Spacer()
+                Text("Notas del entreno")
+                    .font(.headline)
                     .foregroundStyle(OG.label)
-                Spacer(minLength: 0)
-            }
-            .padding(OG.pad)
-            .background(OG.bg)
-            .navigationTitle("Notas del entreno")
-            .navigationBarTitleDisplayMode(.inline)
-            .ogTransparentNav()
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { showNotes = false }
+                Spacer()
+                Button("Guardar") {
+                    store.updateActiveSessionNotes(notesDraft)
+                    showNotes = false
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Guardar") {
-                        store.updateActiveSessionNotes(notesDraft)
-                        showNotes = false
-                    }
-                    .fontWeight(.semibold)
-                }
+                .fontWeight(.semibold)
+                .foregroundStyle(OG.accent)
             }
+            .padding(.top, 4)
+
+            Text("Cómo te sentiste, sueño, molestias, PRs…")
+                .font(.system(size: 14))
+                .foregroundStyle(OG.label2)
+            TextEditor(text: $notesDraft)
+                .scrollContentBackground(.hidden)
+                .padding(12)
+                .frame(height: 180)
+                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                .foregroundStyle(OG.label)
         }
+        .padding(.horizontal, OG.pad)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+        .ogFittedHeight()
         .preferredColorScheme(.dark)
-        .presentationDetents([.medium, .large])
+        .ogFittedSheet()
     }
 
     private var hasMoreExercises: Bool {
@@ -183,6 +221,18 @@ struct WorkoutView: View {
         return store.state.routines.first(where: { $0.id == rid })?.isFavorite == true
     }
 
+    /// Log rápido («Apuntar · …»): UI plana por secciones, sin card envolvente ni Comenzar.
+    private var isQuickLogSession: Bool {
+        store.state.activeSession?.title.hasPrefix("Apuntar") == true
+    }
+
+    private func bootstrapQuickLogIfNeeded() {
+        guard isQuickLogSession,
+              store.state.activeSession?.phase == .ready
+        else { return }
+        store.confirmCurrentOnWatchStyle()
+    }
+
     private func content(_ session: WorkoutSession) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
@@ -190,18 +240,22 @@ struct WorkoutView: View {
                 if let current = session.currentExercise {
                     currentCard(current, session: session)
                     setsBoard(current)
-                    workoutOptionsCard
-                    DisclosureGroup("Opciones avanzadas de serie") {
-                        logForm(current)
-                            .padding(.top, 8)
+                    if !isQuickLogSession {
+                        workoutOptionsCard
+                        DisclosureGroup("Opciones avanzadas de serie") {
+                            logForm(current)
+                                .padding(.top, 8)
+                        }
+                        .tint(OG.label2)
+                        .font(.system(size: 14, weight: .semibold))
                     }
-                    .tint(OG.label2)
-                    .font(.system(size: 14, weight: .semibold))
                 }
-                exerciseQueue(session)
+                if !isQuickLogSession {
+                    exerciseQueue(session)
+                }
             }
             .padding(.horizontal, OG.pad)
-            .padding(.top, 8)
+            .padding(.top, 0)
             .padding(.bottom, restRemaining > 0 ? 88 : 28)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -296,21 +350,31 @@ struct WorkoutView: View {
                     .frame(width: 28, height: 28)
                     .background(OG.surface2, in: Circle())
 
-                liveStepper(
-                    label: row.weightKg.map { String(format: "%g", $0) } ?? "—",
+                OGRepeatStepper(
+                    display: row.weightKg.map { String(format: "%g", $0) } ?? "—",
                     enabled: !row.completed,
+                    keyboard: .decimalPad,
                     onMinus: { bumpLiveWeight(at: index, delta: -step) },
-                    onPlus: { bumpLiveWeight(at: index, delta: step) }
+                    onPlus: { bumpLiveWeight(at: index, delta: step) },
+                    onCommitText: { text in
+                        commitLiveWeightText(at: index, text: text)
+                    }
                 )
                 .frame(maxWidth: .infinity)
 
-                liveStepper(
-                    label: "\(row.reps)",
+                OGRepeatStepper(
+                    display: "\(row.reps)",
                     enabled: !row.completed,
+                    keyboard: .numberPad,
                     onMinus: { bumpLiveReps(at: index, delta: -1) },
-                    onPlus: { bumpLiveReps(at: index, delta: 1) }
+                    onPlus: { bumpLiveReps(at: index, delta: 1) },
+                    onCommitText: { text in
+                        if let value = Int(text), value > 0 {
+                            setLiveReps(at: index, reps: min(50, value))
+                        }
+                    }
                 )
-                .frame(width: 84)
+                .frame(width: 96)
 
                 Menu {
                     Button("Sin RIR") { setLiveRir(at: index, rir: nil) }
@@ -356,41 +420,6 @@ struct WorkoutView: View {
         }
     }
 
-    private func liveStepper(
-        label: String,
-        enabled: Bool,
-        onMinus: @escaping () -> Void,
-        onPlus: @escaping () -> Void
-    ) -> some View {
-        HStack(spacing: 0) {
-            Button(action: onMinus) {
-                Image(systemName: "minus")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(enabled ? OG.label2 : OG.label3)
-                    .frame(width: 28, height: 36)
-            }
-            .buttonStyle(.plain)
-            .disabled(!enabled)
-
-            Text(label)
-                .font(.system(size: 15, weight: .semibold).monospacedDigit())
-                .foregroundStyle(enabled ? OG.label : OG.label2)
-                .frame(maxWidth: .infinity)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-
-            Button(action: onPlus) {
-                Image(systemName: "plus")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(enabled ? OG.label2 : OG.label3)
-                    .frame(width: 28, height: 36)
-            }
-            .buttonStyle(.plain)
-            .disabled(!enabled)
-        }
-        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .opacity(enabled ? 1 : 0.75)
-    }
 
     private func rebuildLiveSets(from current: SessionExercise) {
         var rows: [LiveSetRow] = []
@@ -451,9 +480,25 @@ struct WorkoutView: View {
         liveSets[index].weightKg = next > 0 ? next : nil
     }
 
+    private func commitLiveWeightText(at index: Int, text: String) {
+        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        let normalized = text.replacingOccurrences(of: ",", with: ".")
+        if normalized.isEmpty || normalized == "—" {
+            liveSets[index].weightKg = nil
+            return
+        }
+        guard let value = Double(normalized) else { return }
+        liveSets[index].weightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
+    }
+
     private func bumpLiveReps(at index: Int, delta: Int) {
         guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
         liveSets[index].reps = min(50, max(1, liveSets[index].reps + delta))
+    }
+
+    private func setLiveReps(at index: Int, reps: Int) {
+        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        liveSets[index].reps = min(50, max(1, reps))
     }
 
     private func setLiveRir(at index: Int, rir: Double?) {
@@ -569,35 +614,42 @@ struct WorkoutView: View {
                     .font(.caption)
                     .foregroundStyle(OG.label2)
             }
-            if session.phase == .ready {
-                Button {
-                    store.confirmCurrentOnWatchStyle()
-                    startBlockClock(for: current)
-                } label: {
-                    Text("Comenzar")
-                        .font(.system(size: 18, weight: .bold))
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 64)
+            if !isQuickLogSession {
+                if session.phase == .ready {
+                    Button {
+                        store.confirmCurrentOnWatchStyle()
+                        startBlockClock(for: current)
+                    } label: {
+                        Text("Comenzar")
+                            .font(.system(size: 18, weight: .bold))
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: 64)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(OG.accent)
+                    .controlSize(.large)
+                } else if !showWODClock {
+                    Button {
+                        startBlockClock(for: current)
+                    } label: {
+                        Label("Abrir reloj", systemImage: "timer")
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: 52)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(OG.accent)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(OG.accent)
-                .controlSize(.large)
-            } else if !showWODClock {
-                Button {
-                    startBlockClock(for: current)
-                } label: {
-                    Label("Abrir reloj", systemImage: "timer")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 52)
-                }
-                .buttonStyle(.bordered)
-                .tint(OG.accent)
             }
         }
-        .padding(OG.pad)
+        .padding(isQuickLogSession ? 0 : OG.pad)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+        .background {
+            if !isQuickLogSession {
+                RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous)
+                    .fill(OG.surface)
+            }
+        }
     }
 
     private func exerciseMetaLine(_ current: SessionExercise, target: PlannedSet?) -> String {
@@ -883,53 +935,32 @@ struct WorkoutView: View {
             HStack(alignment: .bottom, spacing: 14) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Peso (kg)").font(.caption).foregroundStyle(OG.label2)
-                    HStack(spacing: 8) {
-                        Button {
-                            bumpWeight(-store.state.settings.weightIncrementKg)
-                        } label: {
-                            Image(systemName: "minus")
-                                .frame(width: 40, height: 40)
-                                .background(OG.surface2, in: Circle())
+                    OGRepeatStepper(
+                        display: weightText.isEmpty ? "—" : weightText,
+                        keyboard: .decimalPad,
+                        onMinus: { bumpWeight(-store.state.settings.weightIncrementKg) },
+                        onPlus: { bumpWeight(store.state.settings.weightIncrementKg) },
+                        onCommitText: { text in
+                            let normalized = text.replacingOccurrences(of: ",", with: ".")
+                            weightText = normalized
                         }
-                        TextField("0", text: $weightText)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.center)
-                            .font(.title3.monospacedDigit())
-                            .frame(minWidth: 48)
-                        Button {
-                            bumpWeight(store.state.settings.weightIncrementKg)
-                        } label: {
-                            Image(systemName: "plus")
-                                .frame(width: 40, height: 40)
-                                .background(OG.surface2, in: Circle())
-                        }
-                    }
+                    )
                 }
                 .frame(maxWidth: .infinity)
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Reps").font(.caption).foregroundStyle(OG.label2)
-                    HStack(spacing: 8) {
-                        Button {
-                            bumpReps(-1)
-                        } label: {
-                            Image(systemName: "minus")
-                                .frame(width: 40, height: 40)
-                                .background(OG.surface2, in: Circle())
+                    OGRepeatStepper(
+                        display: repsText.isEmpty ? "0" : repsText,
+                        keyboard: .numberPad,
+                        onMinus: { bumpReps(-1) },
+                        onPlus: { bumpReps(1) },
+                        onCommitText: { text in
+                            if let value = Int(text), value >= 0 {
+                                repsText = "\(value)"
+                            }
                         }
-                        TextField("0", text: $repsText)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.center)
-                            .font(.title3.monospacedDigit())
-                            .frame(minWidth: 36)
-                        Button {
-                            bumpReps(1)
-                        } label: {
-                            Image(systemName: "plus")
-                                .frame(width: 40, height: 40)
-                                .background(OG.surface2, in: Circle())
-                        }
-                    }
+                    )
                 }
                 .frame(maxWidth: .infinity)
 
@@ -1341,12 +1372,15 @@ struct WorkoutView: View {
     private func startRest(_ seconds: Int) {
         stopRest(announce: false)
         restRemaining = seconds
+        let exerciseName = store.state.activeSession?.currentExercise?.exercise.name
+        RestLiveActivity.start(totalSeconds: seconds, exerciseName: exerciseName)
         restTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             Task { @MainActor in
                 if restRemaining <= 1 {
-                    stopRest(announce: true)
+                    await stopRestAsync(announce: true)
                 } else {
                     restRemaining -= 1
+                    await RestLiveActivity.update(remaining: restRemaining)
                     RestFeedback.tick(
                         remaining: restRemaining,
                         sound: store.state.settings.restSoundEnabled,
@@ -1360,6 +1394,20 @@ struct WorkoutView: View {
     private func stopRest(announce: Bool = false) {
         restTimer?.invalidate()
         restTimer = nil
+        RestLiveActivity.endDetached()
+        if announce && restRemaining <= 1 {
+            RestFeedback.restComplete(
+                sound: store.state.settings.restSoundEnabled,
+                haptic: store.state.settings.restHapticEnabled
+            )
+        }
+        restRemaining = 0
+    }
+
+    private func stopRestAsync(announce: Bool) async {
+        restTimer?.invalidate()
+        restTimer = nil
+        await RestLiveActivity.end()
         if announce && restRemaining <= 1 {
             RestFeedback.restComplete(
                 sound: store.state.settings.restSoundEnabled,

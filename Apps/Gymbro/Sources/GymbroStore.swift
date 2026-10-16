@@ -40,6 +40,7 @@ final class GymbroStore: NSObject {
         stripSeededDemoPlanIfNeeded()
         enrichCatalogMetadata()
         mergeMissingSeedExercises()
+        dedupeBodyWeightsByDay()
         persist()
         Task { await refreshFromiCloud() }
     }
@@ -333,20 +334,27 @@ final class GymbroStore: NSObject {
         let end = session.finishedAt ?? Date()
         state.activeSession = nil
         persist()
-        connectivity.send(session: nil)
+        pushActiveToWatch()
 
         if save {
+            let volume = session.totalVolumeKg
+            let fallbackKcal = HealthKitStore.estimateActiveEnergyKcal(
+                durationMinutes: max(1, end.timeIntervalSince(start) / 60),
+                volumeKg: volume
+            )
             Task {
                 let apple = await HealthKitStore.shared.finishWorkout(
                     sessionId: session.id,
                     title: session.title,
                     start: start,
-                    end: end
+                    end: end,
+                    fallbackKcal: fallbackKcal
                 )
+                session.startedAt = apple.startedAt
+                session.finishedAt = apple.finishedAt
                 session.appleActiveEnergyKcal = apple.kcal
                 session.appleDurationSeconds = apple.durationSeconds
                 session.healthKitWorkoutUUID = apple.workoutUUID
-                session.finishedAt = end
                 upsertWorkout(session)
                 advanceRotationIfNeeded(finishedRoutineId: finishedRoutineId)
                 persist()
@@ -377,13 +385,41 @@ final class GymbroStore: NSObject {
             session.exercises[i].isCompleted = !draft.loggedSets.isEmpty
         }
         session.phase = .finished
-        session.startedAt = startedAt
-        session.finishedAt = finishedAt
+        let safeStart = startedAt
+        let safeEnd = max(finishedAt, startedAt.addingTimeInterval(60))
+        session.startedAt = safeStart
+        session.finishedAt = safeEnd
         let trimmed = notes?.trimmingCharacters(in: .whitespacesAndNewlines)
         session.notes = (trimmed?.isEmpty == false) ? trimmed : nil
         upsertWorkout(session)
         advanceRotationIfNeeded(finishedRoutineId: routine.id)
         persist()
+
+        let volume = session.totalVolumeKg
+        let fallbackKcal = HealthKitStore.estimateActiveEnergyKcal(
+            durationMinutes: max(1, safeEnd.timeIntervalSince(safeStart) / 60),
+            volumeKg: volume
+        )
+        let sessionId = session.id
+        let title = session.title
+        Task {
+            let apple = await HealthKitStore.shared.finishWorkout(
+                sessionId: sessionId,
+                title: title,
+                start: safeStart,
+                end: safeEnd,
+                fallbackKcal: fallbackKcal
+            )
+            if var updated = state.workouts.first(where: { $0.id == sessionId }) {
+                updated.startedAt = apple.startedAt
+                updated.finishedAt = apple.finishedAt
+                updated.appleActiveEnergyKcal = apple.kcal
+                updated.appleDurationSeconds = apple.durationSeconds
+                updated.healthKitWorkoutUUID = apple.workoutUUID
+                upsertWorkout(updated)
+                persist()
+            }
+        }
         return session
     }
 
@@ -467,12 +503,88 @@ final class GymbroStore: NSObject {
     }
 
     func deleteWorkout(_ id: UUID) {
+        let hkUUID = state.workouts.first(where: { $0.id == id })?.healthKitWorkoutUUID
         state.workouts.removeAll { $0.id == id }
         persist()
+        // También quitar de Salud: si no, reaparece como actividad externa «propia».
+        if let hkUUID {
+            Task { await HealthKitStore.shared.deleteExternalWorkout(id: hkUUID) }
+        }
     }
 
-    var coachInsights: [CoachInsight] {
-        CoachEngine.insights(state: state)
+    /// Apunte rápido desde ficha: guarda series terminadas sin abrir WorkoutView.
+    @discardableResult
+    func logQuickSets(
+        exerciseId: UUID,
+        sets: [LoggedSet],
+        notes: String? = nil
+    ) -> WorkoutSession? {
+        guard let exercise = state.exercises.first(where: { $0.id == exerciseId }),
+              !sets.isEmpty
+        else { return nil }
+
+        let entry = SessionExercise(
+            exercise: exercise,
+            plannedSets: sets.map {
+                PlannedSet(targetReps: $0.reps, targetWeightKg: $0.weightKg)
+            },
+            loggedSets: sets,
+            completedReps: sets.filter { !$0.isWarmup }.reduce(0) { $0 + $1.reps },
+            isCompleted: true
+        )
+        let now = Date()
+        let start = now.addingTimeInterval(-max(60, Double(sets.count) * 90))
+        var session = WorkoutSession(
+            title: "Apuntar · \(exercise.name)",
+            exercises: [entry],
+            currentIndex: 0,
+            phase: .finished,
+            startedAt: start,
+            finishedAt: now,
+            notes: {
+                let t = notes?.trimmingCharacters(in: .whitespacesAndNewlines)
+                return (t?.isEmpty == false) ? t : nil
+            }()
+        )
+        upsertWorkout(session)
+        persist()
+
+        let volume = session.totalVolumeKg
+        let fallbackKcal = HealthKitStore.estimateActiveEnergyKcal(
+            durationMinutes: max(1, now.timeIntervalSince(start) / 60),
+            volumeKg: volume
+        )
+        let sessionId = session.id
+        let title = session.title
+        Task {
+            let apple = await HealthKitStore.shared.finishWorkout(
+                sessionId: sessionId,
+                title: title,
+                start: start,
+                end: now,
+                fallbackKcal: fallbackKcal
+            )
+            if var updated = state.workouts.first(where: { $0.id == sessionId }) {
+                updated.startedAt = apple.startedAt
+                updated.finishedAt = apple.finishedAt
+                updated.appleActiveEnergyKcal = apple.kcal
+                updated.appleDurationSeconds = apple.durationSeconds
+                updated.healthKitWorkoutUUID = apple.workoutUUID
+                upsertWorkout(updated)
+                persist()
+            }
+        }
+        return session
+    }
+
+    /// Actualiza un entreno ya terminado (detalle / edición desde Inicio).
+    func saveWorkout(_ session: WorkoutSession) {
+        var draft = session
+        if let start = draft.startedAt, let end = draft.finishedAt, end < start {
+            draft.finishedAt = start.addingTimeInterval(60)
+        }
+        upsertWorkout(draft)
+        persist()
     }
 
     func removeLastSet() {
@@ -510,7 +622,48 @@ final class GymbroStore: NSObject {
     }
 
     private func pushActiveToWatch() {
-        connectivity.send(session: state.activeSession)
+        connectivity.send(session: state.activeSession, quickLogHint: quickLogHintPayload())
+    }
+
+    private func quickLogHintPayload() -> (id: UUID, name: String)? {
+        if let current = state.activeSession?.currentExercise {
+            return (current.exercise.id, current.exercise.name)
+        }
+        // Último ejercicio con series en el historial reciente.
+        for workout in state.workouts.prefix(20) {
+            for entry in workout.exercises.reversed() {
+                if entry.loggedSets.contains(where: { !$0.isWarmup && $0.reps > 0 }) {
+                    return (entry.exercise.id, entry.exercise.name)
+                }
+            }
+        }
+        return state.exercises.first.map { ($0.id, $0.name) }
+    }
+
+    /// Watch: inicia log rápido del ejercicio indicado o del hint.
+    func handleWatchQuickLogRequest(exerciseId: UUID?) {
+        let id = exerciseId
+            ?? quickLogHintPayload()?.id
+            ?? state.exercises.first?.id
+        guard let id else { return }
+        if state.activeSession == nil {
+            startQuickLog(exerciseId: id, sets: 5, reps: 8)
+        }
+        pushActiveToWatch()
+    }
+
+    /// Watch: registra una serie en la sesión activa (o arranca log rápido).
+    func handleWatchLogSet(reps: Int, weightKg: Double?) {
+        if state.activeSession == nil {
+            handleWatchQuickLogRequest(exerciseId: nil)
+        }
+        guard state.activeSession != nil else { return }
+        let weight = weightKg
+            ?? state.activeSession?.currentExercise?.lastLoggedWeight
+            ?? state.activeSession?.currentExercise?.plannedSets.first?.targetWeightKg
+        mutateActive {
+            $0.logSet(reps: max(1, reps), weightKg: weight)
+        }
     }
 
     // MARK: - Routines
@@ -892,6 +1045,88 @@ final class GymbroStore: NSObject {
         startSession(from: routine)
     }
 
+    /// Log rápido: 1 ejercicio → series → terminar (sin montar rutina completa).
+    func startQuickLog(exerciseId: UUID, sets: Int = 3, reps: Int = 8) {
+        guard let exercise = state.exercises.first(where: { $0.id == exerciseId }) else { return }
+        let hist = StatsEngine.history(for: exerciseId, workouts: state.workouts)
+        let weight = hist.lastWeightKg
+        let targetReps = hist.lastReps ?? reps
+        let items = [
+            RoutineExercise(
+                exerciseId: exerciseId,
+                plannedSets: (0..<sets).map { _ in
+                    PlannedSet(targetReps: targetReps, targetWeightKg: weight)
+                }
+            )
+        ]
+        let routine = Routine(
+            title: "Apuntar · \(exercise.name)",
+            weekday: nil,
+            exercises: items,
+            progression: .off
+        )
+        startSession(from: routine)
+    }
+
+    /// Sustituye el ejercicio actual (o el indicado) por otro del catálogo, conservando series planificadas.
+    @discardableResult
+    func replaceActiveExercise(at index: Int? = nil, with newExerciseId: UUID) -> Bool {
+        guard var session = state.activeSession else { return false }
+        guard state.exercises.contains(where: { $0.id == newExerciseId }) else { return false }
+        let idx = index ?? session.currentIndex
+        guard session.exercises.indices.contains(idx) else { return false }
+        guard let catalog = state.exercises.first(where: { $0.id == newExerciseId }) else { return false }
+        var entry = session.exercises[idx]
+        entry.exercise = catalog
+        session.exercises[idx] = entry
+        state.activeSession = session
+        pushActiveToWatch()
+        return true
+    }
+
+    /// Copia entrenos sueltos de la semana ISO anterior a la actual (nuevos IDs).
+    @discardableResult
+    func copyPreviousWeekSchedule() -> Int {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        guard let thisWeekStart = ProgressTimeRange.week.startDate(now: today, weekStartsOnMonday: true),
+              let prevWeekStart = cal.date(byAdding: .day, value: -7, to: thisWeekStart),
+              let thisWeekEnd = cal.date(byAdding: .day, value: 7, to: thisWeekStart)
+        else { return 0 }
+
+        let sources = state.routines.filter { routine in
+            guard let scheduled = routine.scheduledDate else { return false }
+            let day = cal.startOfDay(for: scheduled)
+            return day >= prevWeekStart && day < thisWeekStart
+        }
+
+        var created = 0
+        for source in sources {
+            guard let scheduled = source.scheduledDate,
+                  let newDate = cal.date(byAdding: .day, value: 7, to: cal.startOfDay(for: scheduled))
+            else { continue }
+            let day = cal.startOfDay(for: newDate)
+            guard day >= thisWeekStart && day < thisWeekEnd else { continue }
+            if state.routines.contains(where: {
+                guard let s = $0.scheduledDate else { return false }
+                return cal.isDate(s, inSameDayAs: day)
+            }) { continue }
+
+            let copy = Routine(
+                title: source.title,
+                weekday: nil,
+                scheduledDate: day,
+                scheduledTimeMinutes: source.scheduledTimeMinutes,
+                blocks: source.blocks.map { $0.duplicatingContent() },
+                progression: source.progression,
+                isFavorite: false
+            )
+            saveRoutine(copy)
+            created += 1
+        }
+        return created
+    }
+
     /// Asigna una plantilla a un día del plan (o la desasigna). Un día solo puede tener una rutina.
     func assignRoutine(_ routineId: UUID, toWeekday day: Int?) {
         guard let i = state.routines.firstIndex(where: { $0.id == routineId }) else { return }
@@ -915,8 +1150,15 @@ final class GymbroStore: NSObject {
 
     // MARK: - Body weight
 
+    /// Un pesaje por día calendario: si ya hay uno ese día, lo actualiza.
     func addBodyWeight(_ kg: Double, date: Date = Date(), syncToHealth: Bool = true) {
-        state.bodyWeights.insert(BodyWeightEntry(date: date, weightKg: kg), at: 0)
+        let cal = Calendar.current
+        if let idx = state.bodyWeights.firstIndex(where: { cal.isDate($0.date, inSameDayAs: date) }) {
+            state.bodyWeights[idx].date = date
+            state.bodyWeights[idx].weightKg = kg
+        } else {
+            state.bodyWeights.insert(BodyWeightEntry(date: date, weightKg: kg), at: 0)
+        }
         state.bodyWeights.sort { $0.date > $1.date }
         persist()
         if syncToHealth {
@@ -929,23 +1171,78 @@ final class GymbroStore: NSObject {
         persist()
     }
 
-    /// Si no hay peso en la app, usa Salud; si ambos existen, gana el más reciente y se refleja en el otro.
+    /// Colapsa varios pesajes del mismo día dejando el más reciente.
+    private func dedupeBodyWeightsByDay() {
+        let cal = Calendar.current
+        var bestByDay: [Date: BodyWeightEntry] = [:]
+        for entry in state.bodyWeights {
+            let day = cal.startOfDay(for: entry.date)
+            if let existing = bestByDay[day] {
+                if entry.date > existing.date {
+                    bestByDay[day] = entry
+                }
+            } else {
+                bestByDay[day] = entry
+            }
+        }
+        state.bodyWeights = bestByDay.values.sorted { $0.date > $1.date }
+    }
+
+    /// Importa pesos de Salud (1 por día) y sube a Salud los días que solo están en la app.
     func syncBodyWeightWithHealth() async {
         let health = HealthKitStore.shared
+        let cal = Calendar.current
         await health.refreshToday()
-        let appLatest = state.bodyWeights.max(by: { $0.date < $1.date })
-        let hkKg = health.latestWeightKg
-        let hkDate = health.latestWeightDate
+        let samples = await health.fetchAllBodyMassSamples()
 
-        switch (appLatest, hkKg, hkDate) {
-        case (nil, let kg?, let date?):
-            addBodyWeight(kg, date: date, syncToHealth: false)
-        case (let app?, let kg?, let date?) where date > app.date:
-            addBodyWeight(kg, date: date, syncToHealth: false)
-        case (let app?, _, _):
-            await health.saveBodyMass(kg: app.weightKg, date: app.date)
-        default:
-            break
+        if let newest = samples.first {
+            health.latestWeightKg = newest.kg
+            health.latestWeightDate = newest.date
+        }
+
+        // Salud puede tener varias muestras el mismo día (báscula, Watch…): una por día.
+        var healthByDay: [Date: HealthKitStore.BodyMassSample] = [:]
+        for sample in samples {
+            let day = cal.startOfDay(for: sample.date)
+            if let existing = healthByDay[day] {
+                if sample.date > existing.date { healthByDay[day] = sample }
+            } else {
+                healthByDay[day] = sample
+            }
+        }
+
+        dedupeBodyWeightsByDay()
+
+        var changed = false
+        for sample in healthByDay.values {
+            if let idx = state.bodyWeights.firstIndex(where: { cal.isDate($0.date, inSameDayAs: sample.date) }) {
+                let entry = state.bodyWeights[idx]
+                // Si Salud es más reciente (o mismo instante con kg distinto), actualiza local.
+                if sample.date > entry.date
+                    || (abs(sample.date.timeIntervalSince(entry.date)) < 1
+                        && abs(sample.kg - entry.weightKg) >= 0.05)
+                {
+                    state.bodyWeights[idx].date = sample.date
+                    state.bodyWeights[idx].weightKg = sample.kg
+                    changed = true
+                }
+            } else {
+                state.bodyWeights.insert(BodyWeightEntry(date: sample.date, weightKg: sample.kg), at: 0)
+                changed = true
+            }
+        }
+
+        if changed {
+            state.bodyWeights.sort { $0.date > $1.date }
+            persist()
+        }
+
+        // Días solo en Gymbro → Salud.
+        for entry in state.bodyWeights {
+            let day = cal.startOfDay(for: entry.date)
+            if healthByDay[day] == nil {
+                await health.saveBodyMass(kg: entry.weightKg, date: entry.date)
+            }
         }
     }
 
@@ -967,6 +1264,18 @@ extension GymbroStore: PhoneConnectivityDelegate {
     nonisolated func phoneConnectivityDidReceive(session: WorkoutSession) {
         Task { @MainActor in
             self.applyWatchSession(session)
+        }
+    }
+
+    nonisolated func phoneConnectivityDidReceiveQuickLogRequest(exerciseId: UUID?) {
+        Task { @MainActor in
+            self.handleWatchQuickLogRequest(exerciseId: exerciseId)
+        }
+    }
+
+    nonisolated func phoneConnectivityDidReceiveLogSet(reps: Int, weightKg: Double?) {
+        Task { @MainActor in
+            self.handleWatchLogSet(reps: reps, weightKg: weightKg)
         }
     }
 }

@@ -8,6 +8,8 @@ import WatchConnectivity
 @MainActor
 final class WatchSessionHub: NSObject {
     private(set) var controller: SessionController?
+    private(set) var quickLogName: String?
+    private(set) var quickLogExerciseId: UUID?
     private let connectivity = WatchConnectivityClient()
     private let motion = CMMotionManager()
     private var repCounter = MotionRepCounter()
@@ -16,6 +18,27 @@ final class WatchSessionHub: NSObject {
     func activate() {
         connectivity.delegate = self
         connectivity.activate()
+    }
+
+    func startQuickLog() {
+        connectivity.requestQuickLog(exerciseId: quickLogExerciseId)
+    }
+
+    func logQuickSet() {
+        if controller == nil {
+            connectivity.requestQuickLog(exerciseId: quickLogExerciseId)
+        }
+        let reps = max(1, repCounter.count > 0 ? repCounter.count : 8)
+        let weight = controller?.session.currentExercise?.lastLoggedWeight
+            ?? controller?.session.currentExercise?.plannedSets.first?.targetWeightKg
+        connectivity.requestLogSet(reps: reps, weightKg: weight)
+        // También aplica en local si ya hay sesión.
+        if var controller {
+            controller.logSet(reps: reps, weightKg: weight)
+            self.controller = controller
+            pushToPhone()
+        }
+        repCounter.reset()
     }
 
     func confirmCurrent() {
@@ -100,6 +123,13 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
                 self.stopMotion()
                 self.controller = nil
             }
+        }
+    }
+
+    nonisolated func watchConnectivityDidReceiveQuickLogHint(id: UUID?, name: String?) {
+        Task { @MainActor in
+            self.quickLogExerciseId = id
+            self.quickLogName = name
         }
     }
 }

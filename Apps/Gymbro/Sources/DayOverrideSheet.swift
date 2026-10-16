@@ -10,65 +10,104 @@ struct DayOverrideSheet: View {
     /// Crear plantilla nueva ya asignada a este día.
     var onCreateNew: (() -> Void)?
 
+    private var routines: [Routine] { store.libraryRoutines }
+
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    OGPageHeader(title: dayLabel) {
-                        CloseToolbarButton { dismiss() }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                OGPageHeader(title: dayLabel) {
+                    HStack(spacing: 8) {
+                        if let onCreateNew {
+                            OGToolbarGlassButton(
+                                systemName: "plus",
+                                accessibilityLabel: "Nueva rutina",
+                                tint: OG.accent,
+                                appliesGlass: true,
+                                glassTint: OG.accent
+                            ) {
+                                dismiss()
+                                onCreateNew()
+                            }
+                        }
+                        CloseToolbarButton(action: { dismiss() }, large: true)
                     }
-                    .ogListPageHeaderRow()
                 }
-                Section("Rutina para \(CalendarHelpers.weekdayName(isoWeekday))") {
-                    Button("Día libre (sin rutina)") {
+                .padding(.top, 4)
+
+                if routines.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Sin rutinas guardadas")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                        Text("Pulsa + para crear una rutina para este día, o créala en Diario → Rutinas.")
+                            .font(.footnote)
+                            .foregroundStyle(OG.label2)
+                    }
+                    .padding(.horizontal, 4)
+                } else {
+                    Text("Rutinas")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(OG.label2)
+                        .textCase(.uppercase)
+                        .padding(.horizontal, 4)
+
+                    VStack(spacing: 0) {
+                        ForEach(Array(routines.enumerated()), id: \.element.id) { index, routine in
+                            if index > 0 {
+                                Divider().opacity(0.35).padding(.leading, 14)
+                            }
+                            Button {
+                                store.assignRoutine(routine.id, toWeekday: isoWeekday)
+                                dismiss()
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(routine.title)
+                                            .foregroundStyle(OG.label)
+                                        Text(routineSummary(routine))
+                                            .font(.caption)
+                                            .foregroundStyle(OG.label2)
+                                    }
+                                    Spacer()
+                                    if routine.weekday == isoWeekday {
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(OG.accent)
+                                    }
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+                                .contentShape(Rectangle())
+                            }
+                        }
+                    }
+                    .background(OG.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                }
+
+                VStack(spacing: 0) {
+                    Button {
                         if let current = store.routine(forWeekday: isoWeekday) {
                             store.assignRoutine(current.id, toWeekday: nil)
                         }
                         dismiss()
-                    }
-                    if let onCreateNew {
-                        Button {
-                            dismiss()
-                            onCreateNew()
-                        } label: {
-                            Label("Nueva rutina para este día", systemImage: "plus")
-                        }
-                    }
-                    ForEach(store.libraryRoutines) { routine in
-                        Button {
-                            store.assignRoutine(routine.id, toWeekday: isoWeekday)
-                            dismiss()
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(routine.title)
-                                    Text(routineSummary(routine))
-                                        .font(.caption)
-                                        .foregroundStyle(OG.label2)
-                                }
-                                Spacer()
-                                if routine.weekday == isoWeekday {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(OG.accent)
-                                }
-                            }
-                        }
-                    }
-                }
-                if store.libraryRoutines.isEmpty {
-                    Section {
-                        Text("Crea rutinas en la pestaña Rutinas y asígnalas aquí a cada día.")
-                            .font(.footnote)
+                    } label: {
+                        Label("Día libre (sin rutina)", systemImage: "moon.fill")
                             .foregroundStyle(OG.label2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .contentShape(Rectangle())
                     }
                 }
+                .background(OG.surface.opacity(0.4), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
             }
-            .ogListChrome()
-            .ogContentTitleNav()
-            .toolbar(.hidden, for: .navigationBar)
+            .padding(.horizontal, OG.pad)
+            .padding(.bottom, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .ogFittedHeight()
         }
         .preferredColorScheme(.dark)
-        .presentationDetents([.medium, .large])
+        .ogFittedSheet()
     }
 
     private func routineSummary(_ routine: Routine) -> String {

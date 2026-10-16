@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @Environment(GymbroStore.self) private var store
     @Environment(HealthKitStore.self) private var health
+    @Environment(\.dismiss) private var dismiss
     @State private var goalText = ""
     @State private var exportURL: URL?
     @State private var showingImporter = false
@@ -21,7 +22,7 @@ struct SettingsView: View {
         @Bindable var store = store
         Form {
             Section {
-                OGPageHeader(title: "Ajustes")
+                OGBackPageHeader(title: "Ajustes", onBack: { dismiss() })
                     .ogListPageHeaderRow()
             }
 
@@ -134,7 +135,7 @@ struct SettingsView: View {
             } header: {
                 Text("Apple Salud")
             } footer: {
-                Text("Calorías y tiempo del día (y de días anteriores en Inicio) salen de Salud/Watch. El peso se sincroniza en ambos sentidos: si no hay dato en Gymbro se usa el de Salud; la última modificación actualiza al otro.")
+                Text("Calorías y tiempo del día (y de días anteriores en Inicio) salen de Salud/Watch. El peso: un valor por día; si Salud tiene varias muestras, se queda la más reciente.")
             }
 
             Section {
@@ -143,15 +144,61 @@ struct SettingsView: View {
                 } label: {
                     Label("Historial", systemImage: "clock")
                 }
+            }
+
+            Section {
                 NavigationLink {
                     BodyWeightListView()
                 } label: {
-                    Label("Peso corporal", systemImage: "scalemass")
+                    HStack {
+                        Label("Pesajes", systemImage: "scalemass")
+                        Spacer()
+                        if let latest = store.state.bodyWeights.first {
+                            Text("\(latest.weightKg.formatted(.number.precision(.fractionLength(1)))) kg")
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                    }
                 }
-                NavigationLink {
-                    CoachView()
-                } label: {
-                    Label("Coach", systemImage: "lightbulb")
+                HStack {
+                    Text("Objetivo")
+                    Spacer()
+                    TextField("kg", text: $goalText)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 100)
+                    Button("Guardar") {
+                        var s = store.state.settings
+                        let trimmed = goalText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        s.bodyWeightGoalKg = trimmed.isEmpty
+                            ? nil
+                            : Double(trimmed.replacingOccurrences(of: ",", with: "."))
+                        store.updateSettings(s)
+                    }
+                    .fontWeight(.semibold)
+                }
+                if let goal = store.state.settings.bodyWeightGoalKg,
+                   let latest = store.state.bodyWeights.first {
+                    let delta = latest.weightKg - goal
+                    if abs(delta) < 0.3 {
+                        Text("Estás en el objetivo.")
+                            .font(.footnote)
+                            .foregroundStyle(OG.accent)
+                    } else {
+                        let sign = delta > 0 ? "+" : ""
+                        Text("\(sign)\(delta.formatted(.number.precision(.fractionLength(1)))) kg respecto al objetivo")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text("Peso corporal")
+            } footer: {
+                Text("Un pesaje por día. El objetivo se muestra en Progreso como línea de meta.")
+            }
+            .onAppear {
+                if let g = store.state.settings.bodyWeightGoalKg {
+                    goalText = String(format: "%g", g)
                 }
             }
 
@@ -310,28 +357,6 @@ struct SettingsView: View {
                 Text("Marca los discos que tienes. Durante el entreno se calcula la carga (por lado o una pila, según el ejercicio).")
             }
 
-            Section("Objetivo de peso") {
-                HStack {
-                    TextField("kg", text: $goalText)
-                        .keyboardType(.decimalPad)
-                    Button("Guardar") {
-                        var s = store.state.settings
-                        s.bodyWeightGoalKg = Double(goalText.replacingOccurrences(of: ",", with: "."))
-                        store.updateSettings(s)
-                    }
-                }
-                if let goal = store.state.settings.bodyWeightGoalKg {
-                    Text("Actual: \(goal.formatted(.number.precision(.fractionLength(1)))) kg")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .onAppear {
-                if let g = store.state.settings.bodyWeightGoalKg {
-                    goalText = String(format: "%g", g)
-                }
-            }
-
             Section("Datos") {
                 LabeledContent("Entrenamientos", value: "\(store.state.workouts.count)")
                 LabeledContent("Ejercicios", value: "\(store.state.exercises.count)")
@@ -351,15 +376,25 @@ struct SettingsView: View {
         }
         .ogListChrome()
         .ogContentTitleNav()
+        .navigationBarBackButtonHidden(true)
         .task {
             health.refreshAuthorizationStatus()
             if health.isAuthorized {
                 await health.refreshToday()
             }
         }
-        .confirmationDialog("¿Borrar rutinas, entrenos y pesajes? El catálogo de ejercicios se mantiene.", isPresented: $confirmReset) {
-            Button("Borrar todo", role: .destructive) { store.resetUserData() }
-            Button("Cancelar", role: .cancel) {}
+        .sheet(isPresented: $confirmReset) {
+            OGConfirmSheet(
+                systemImage: "trash.circle.fill",
+                title: "¿Borrar datos?",
+                message: "Se borran rutinas, entrenos y pesajes. El catálogo de ejercicios se mantiene.",
+                confirmTitle: "Borrar todo",
+                onConfirm: {
+                    store.resetUserData()
+                    confirmReset = false
+                },
+                onCancel: { confirmReset = false }
+            )
         }
         .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.json]) { result in
             if case .success(let url) = result,
@@ -445,6 +480,7 @@ struct SettingsView: View {
 /// Orden de plantillas cuando el plan está en modo rotación (no por día de la semana).
 struct RotationPlanEditor: View {
     @Environment(GymbroStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
 
     private var library: [Routine] {
         store.libraryRoutines
@@ -457,9 +493,10 @@ struct RotationPlanEditor: View {
     var body: some View {
         List {
             Section {
-                OGPageHeader(
+                OGBackPageHeader(
                     title: "Rotación",
-                    subtitle: "El siguiente entreno del día sigue este orden, no el día de la semana."
+                    subtitle: "El siguiente entreno del día sigue este orden, no el día de la semana.",
+                    onBack: { dismiss() }
                 )
                 .ogListPageHeaderRow()
             }
@@ -505,6 +542,7 @@ struct RotationPlanEditor: View {
         }
         .ogListChrome()
         .ogContentTitleNav()
+        .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 EditButton()

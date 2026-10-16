@@ -30,6 +30,7 @@ private enum ExerciseBrowseMode: String, CaseIterable, Identifiable {
 
 struct LibraryView: View {
     @Environment(GymbroStore.self) private var store
+    var onOpenedWorkout: (() -> Void)? = nil
     @State private var query = ""
     @State private var showingAdd = false
     @State private var showFilter = false
@@ -42,7 +43,6 @@ struct LibraryView: View {
     @State private var detailDescription = ""
     @State private var instructionsText = ""
     @State private var browseMode: ExerciseBrowseMode = .alphabetical
-    @State private var planFlashId: UUID?
 
     private let muscles = [
         "Pecho", "Espalda", "Piernas", "Isquios", "Hombros", "Bíceps", "Tríceps",
@@ -67,7 +67,11 @@ struct LibraryView: View {
                 }
             }
             .ogListChrome()
-            .searchable(text: $query, prompt: "Nombre, músculo o equipo")
+            .searchable(
+                text: $query,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Nombre, músculo o equipo"
+            )
             .navigationTitle("Ejercicios")
             .navigationBarTitleDisplayMode(.large)
             .ogTransparentNav()
@@ -94,6 +98,7 @@ struct LibraryView: View {
             }
             .sheet(isPresented: $showingAdd) {
                 addExerciseSheet
+                    .ogSheetCorners()
             }
         }
     }
@@ -170,89 +175,81 @@ struct LibraryView: View {
     }
 
     private var filterSheet: some View {
-        NavigationStack {
-            List {
-                Section("Ordenar / filtrar") {
-                    ForEach(ExerciseBrowseMode.allCases) { mode in
-                        Button {
-                            browseMode = mode
-                            showFilter = false
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: mode.icon)
-                                    .foregroundStyle(browseMode == mode ? OG.accent : OG.label2)
-                                    .frame(width: 24)
-                                Text(mode.title)
-                                    .foregroundStyle(OG.label)
-                                Spacer()
-                                if browseMode == mode {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(OG.accent)
-                                        .fontWeight(.semibold)
-                                }
+        VStack(alignment: .leading, spacing: 14) {
+            OGPageHeader(title: "Filtro") {
+                CloseToolbarButton { showFilter = false }
+            }
+            .padding(.top, 4)
+
+            Text("Ordenar / filtrar")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(OG.label2)
+                .textCase(.uppercase)
+                .padding(.horizontal, 4)
+
+            VStack(spacing: 0) {
+                ForEach(Array(ExerciseBrowseMode.allCases.enumerated()), id: \.element.id) { index, mode in
+                    if index > 0 {
+                        Divider().opacity(0.35).padding(.leading, 50)
+                    }
+                    Button {
+                        browseMode = mode
+                        showFilter = false
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: mode.icon)
+                                .foregroundStyle(browseMode == mode ? OG.accent : OG.label2)
+                                .frame(width: 24)
+                            Text(mode.title)
+                                .foregroundStyle(OG.label)
+                            Spacer()
+                            if browseMode == mode {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(OG.accent)
+                                    .fontWeight(.semibold)
                             }
                         }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .contentShape(Rectangle())
                     }
                 }
             }
-            .ogListChrome()
-            .navigationTitle("Filtro")
-            .navigationBarTitleDisplayMode(.inline)
-            .ogTransparentNav()
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    CloseToolbarButton { showFilter = false }
-                }
-            }
+            .background(OG.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
         }
+        .padding(.horizontal, OG.pad)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+        .ogFittedHeight()
         .preferredColorScheme(.dark)
-        .presentationDetents([.medium])
+        .ogFittedSheet()
     }
 
     @ViewBuilder
     private func exerciseRows(_ items: [Exercise]) -> some View {
         ForEach(items) { exercise in
-            HStack(spacing: 12) {
-                NavigationLink {
-                    ExerciseDetailView(exerciseId: exercise.id)
-                } label: {
-                    HStack(spacing: 12) {
-                        ExerciseThumb(exercise: exercise)
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 6) {
-                                Text(exercise.name)
-                                    .foregroundStyle(OG.label)
-                                if exercise.isFavorite {
-                                    Image(systemName: "star.fill")
-                                        .font(.caption2)
-                                        .foregroundStyle(OG.yellow)
-                                }
+            NavigationLink {
+                ExerciseDetailView(exerciseId: exercise.id, onOpenedWorkout: onOpenedWorkout)
+            } label: {
+                HStack(spacing: 12) {
+                    ExerciseThumb(exercise: exercise)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text(exercise.name)
+                                .foregroundStyle(OG.label)
+                            if exercise.isFavorite {
+                                Image(systemName: "star.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(OG.yellow)
                             }
-                            Text(librarySubtitle(exercise))
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
                         }
-                        Spacer(minLength: 0)
+                        Text(librarySubtitle(exercise))
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
                     }
+                    Spacer(minLength: 0)
                 }
-                .buttonStyle(.plain)
-
-                Button {
-                    store.addExerciseToTodayWorkout(exercise.id)
-                    planFlashId = exercise.id
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                        if planFlashId == exercise.id { planFlashId = nil }
-                    }
-                } label: {
-                    Text(planFlashId == exercise.id ? "OK" : "+ Plan")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(OG.accent)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Añadir al entreno del día")
             }
             .swipeActions {
                 Button {
@@ -292,18 +289,15 @@ struct LibraryView: View {
         if browseMode == .favorites {
             list = list.filter(\.isFavorite)
         }
-        let q = query.lowercased()
-        if !q.isEmpty {
-            list = list.filter {
-                $0.name.lowercased().contains(q)
-                    || $0.muscleGroup.lowercased().contains(q)
-                    || ($0.equipment?.lowercased().contains(q) ?? false)
-                    || ($0.targetMuscle?.lowercased().contains(q) ?? false)
-                    || ($0.detailDescription?.lowercased().contains(q) ?? false)
-                    || $0.instructions.contains { $0.lowercased().contains(q) }
-            }
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return list }
+        // Solo campos indexados “baratos” (sin descripción/instrucciones) para no frenar el teclado.
+        return list.filter {
+            $0.name.lowercased().contains(q)
+                || $0.muscleGroup.lowercased().contains(q)
+                || ($0.equipment?.lowercased().contains(q) ?? false)
+                || ($0.targetMuscle?.lowercased().contains(q) ?? false)
         }
-        return list
     }
 
     private var sections: [SectionModel] {

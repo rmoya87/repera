@@ -1,0 +1,15 @@
+---
+description: Mantener documentación del proyecto al día tras cada cambio de producto/código
+alwaysApply: true
+---
+
+# Documentación viva
+
+Tras modificar comportamiento, arquitectura, flujos UI o el escáner de pizarra:
+
+1. Actualizar los archivos relevantes en `README.md` y/o `docs/` (`ARCHITECTURE`, `FEATURES`, `BOARD_SCAN`, `MAINTENANCE`).
+2. Eliminar menciones obsoletas o incorrectas (no dejar docs contradictorios).
+3. Seguir `docs/MAINTENANCE.md` y `AGENTS.md`.
+4. Poner fecha «Última actualización» en los docs tocados.
+
+Fuente de verdad: docs actuales en `docs/*.md` (excepto `docs/superpowers/`, histórico). No usar specs antiguas de superpowers como verdad de producto.

@@ -1,4 +1,6 @@
+import CoreLocation
 import Foundation
+import GymbroDomain
 import HealthKit
 import Observation
 
@@ -26,6 +28,126 @@ final class HealthKitStore {
         var workoutMinutes: Double?
     }
 
+    /// Actividad de Apple Salud (Watch u otra app) para mostrar en Inicio.
+    struct ExternalActivity: Identifiable, Sendable, Equatable {
+        var id: UUID
+        var title: String
+        var start: Date
+        var end: Date
+        var durationMinutes: Double
+        var activeEnergyKcal: Double?
+        var distanceMeters: Double?
+        var sourceName: String?
+        var activityTypeRaw: UInt
+
+        var activityType: HKWorkoutActivityType {
+            HKWorkoutActivityType(rawValue: activityTypeRaw) ?? .other
+        }
+
+        var symbolName: String {
+            HealthActivityIcons.symbolName(for: activityType)
+        }
+
+        /// Carrera, bici, caminar… actividades al aire libre con posible ruta GPS.
+        var isOutdoorRouteActivity: Bool {
+            HealthActivityIcons.isOutdoor(activityType)
+        }
+    }
+
+    struct HeartRatePoint: Identifiable, Sendable, Equatable {
+        var id: Date { date }
+        var date: Date
+        var bpm: Double
+    }
+
+    /// Mín / media / máx de FC por día (Salud), para la gráfica de Cardio en Progreso.
+    struct DailyHeartRatePoint: Identifiable, Sendable, Equatable {
+        var id: Date { date }
+        var date: Date
+        var minBpm: Double
+        var avgBpm: Double
+        var maxBpm: Double
+    }
+
+    /// Energía activa acumulada por día (anillo de Movimiento / Salud).
+    struct DailyActiveEnergyPoint: Identifiable, Sendable, Equatable {
+        var id: Date { date }
+        var date: Date
+        var kcal: Double
+    }
+
+    struct RoutePoint: Identifiable, Sendable, Equatable {
+        var id: Int
+        var latitude: Double
+        var longitude: Double
+        var date: Date
+        /// m/s (≥ 0). Nil si no se pudo estimar.
+        var speedMps: Double?
+    }
+
+    /// Detalle ampliado (FC, ruta, etc.) al abrir un entreno de Salud.
+    struct ExternalActivityDetail: Sendable, Equatable {
+        var activity: ExternalActivity
+        var averageHeartRateBpm: Double?
+        var maxHeartRateBpm: Double?
+        var minHeartRateBpm: Double?
+        var heartRateSeries: [HeartRatePoint] = []
+        var routePoints: [RoutePoint] = []
+        var averageSpeedKmh: Double?
+        var maxSpeedKmh: Double?
+    }
+
+    /// Métricas de Salud asociadas a un entreno propio de Gymbro.
+    struct SessionHealthExtras: Sendable, Equatable {
+        var averageHeartRateBpm: Double?
+        var maxHeartRateBpm: Double?
+        var minHeartRateBpm: Double?
+        var heartRateSeries: [HeartRatePoint] = []
+        var routePoints: [RoutePoint] = []
+        var averageSpeedKmh: Double?
+        var maxSpeedKmh: Double?
+        var activeEnergyKcal: Double?
+        var sourceName: String?
+        var activityTypeRaw: UInt?
+        var resolvedWorkoutUUID: UUID?
+
+        var activityType: HKWorkoutActivityType {
+            guard let raw = activityTypeRaw else { return .other }
+            return HKWorkoutActivityType(rawValue: raw) ?? .other
+        }
+
+        var isOutdoorRouteActivity: Bool {
+            HealthActivityIcons.isOutdoor(activityType)
+        }
+
+        var showRouteMap: Bool {
+            routePoints.count >= 2
+        }
+
+        var hasVisualContent: Bool {
+            !heartRateSeries.isEmpty
+                || averageHeartRateBpm != nil
+                || showRouteMap
+                || (averageSpeedKmh ?? 0) > 0
+                || sourceName != nil
+                || (activeEnergyKcal ?? 0) > 0
+        }
+    }
+
+    /// Muestra de peso corporal leída de Salud.
+    struct BodyMassSample: Identifiable, Sendable, Equatable {
+        var id: UUID
+        var date: Date
+        var kg: Double
+    }
+
+    /// Actividades externas recientes (caché para Inicio / Progreso).
+    var recentExternalActivities: [ExternalActivity] = []
+    /// FC diaria (mín/media/máx) cacheada para Progreso.
+    var recentDailyHeartRate: [DailyHeartRatePoint] = []
+    /// kcal activas diarias cacheadas para Progreso.
+    var recentDailyActiveEnergy: [DailyActiveEnergyPoint] = []
+
     private var liveBuilder: HKWorkoutBuilder?
     private var trackedSessionId: UUID?
     private var trackedStart: Date?
@@ -38,12 +160,13 @@ final class HealthKitStore {
             isAuthorized = false
             return
         }
-        let read: Set<HKObjectType> = [
+        var read: Set<HKObjectType> = [
             HKObjectType.quantityType(forIdentifier: .bodyMass)!,
             HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
             HKObjectType.quantityType(forIdentifier: .heartRate)!,
             HKObjectType.workoutType(),
         ]
+        read.insert(HKSeriesType.workoutRoute())
         let share: Set<HKSampleType> = [
             HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
             HKObjectType.quantityType(forIdentifier: .bodyMass)!,
@@ -101,6 +224,581 @@ final class HealthKitStore {
         )
     }
 
+    /// Entrenamientos de Salud en un día, excluyendo UUIDs ya vinculados o solapes con sesiones Gymbro.
+    func externalActivities(
+        on day: Date,
+        excludingUUIDs: Set<UUID> = [],
+        overlappingSessions: [WorkoutSession] = []
+    ) async -> [ExternalActivity] {
+        let start = Calendar.current.startOfDay(for: day)
+        guard let end = Calendar.current.date(byAdding: .day, value: 1, to: start) else { return [] }
+        return await externalActivities(
+            from: start,
+            to: end,
+            excludingUUIDs: excludingUUIDs,
+            overlappingSessions: overlappingSessions
+        )
+    }
+
+    /// Entrenamientos de Salud en un rango (para semana, rachas y Progreso).
+    func externalActivities(
+        from start: Date,
+        to end: Date,
+        excludingUUIDs: Set<UUID> = [],
+        overlappingSessions: [WorkoutSession] = []
+    ) async -> [ExternalActivity] {
+        guard isAvailable else { return [] }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+        let workouts: [HKWorkout] = await withCheckedContinuation { cont in
+            let q = HKSampleQuery(
+                sampleType: .workoutType(),
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [sort]
+            ) { _, samples, _ in
+                cont.resume(returning: (samples as? [HKWorkout]) ?? [])
+            }
+            store.execute(q)
+        }
+        return workouts.compactMap { w in
+            mapExternalActivity(
+                w,
+                excludingUUIDs: excludingUUIDs,
+                overlappingSessions: overlappingSessions
+            )
+        }
+    }
+
+    /// Refresca la caché de actividades externas (por defecto ~6 meses; Progreso pide ~400d para el heatmap).
+    func refreshRecentExternalActivities(
+        excludingUUIDs: Set<UUID> = [],
+        overlappingSessions: [WorkoutSession] = [],
+        days: Int = 180
+    ) async {
+        let end = Date()
+        let start = Calendar.current.date(byAdding: .day, value: -days, to: end) ?? end
+        recentExternalActivities = await externalActivities(
+            from: start,
+            to: end,
+            excludingUUIDs: excludingUUIDs,
+            overlappingSessions: overlappingSessions
+        )
+        async let hr = dailyHeartRateStats(from: start, to: end)
+        async let energy = dailyActiveEnergyStats(from: start, to: end)
+        recentDailyHeartRate = await hr
+        recentDailyActiveEnergy = await energy
+    }
+
+    /// FC mín / media / máx por día desde Salud.
+    func dailyHeartRateStats(from start: Date, to end: Date) async -> [DailyHeartRatePoint] {
+        guard isAvailable,
+              let type = HKQuantityType.quantityType(forIdentifier: .heartRate)
+        else { return [] }
+        let cal = Calendar.current
+        let dayStart = cal.startOfDay(for: start)
+        let unit = HKUnit.count().unitDivided(by: .minute())
+        let predicate = HKQuery.predicateForSamples(withStart: dayStart, end: end)
+        return await withCheckedContinuation { cont in
+            let query = HKStatisticsCollectionQuery(
+                quantityType: type,
+                quantitySamplePredicate: predicate,
+                options: [.discreteMin, .discreteAverage, .discreteMax],
+                anchorDate: dayStart,
+                intervalComponents: DateComponents(day: 1)
+            )
+            query.initialResultsHandler = { _, collection, _ in
+                var points: [DailyHeartRatePoint] = []
+                collection?.enumerateStatistics(from: dayStart, to: end) { stats, _ in
+                    guard
+                        let minQ = stats.minimumQuantity()?.doubleValue(for: unit),
+                        let avgQ = stats.averageQuantity()?.doubleValue(for: unit),
+                        let maxQ = stats.maximumQuantity()?.doubleValue(for: unit),
+                        minQ > 0, avgQ > 0, maxQ > 0
+                    else { return }
+                    points.append(
+                        DailyHeartRatePoint(
+                            date: cal.startOfDay(for: stats.startDate),
+                            minBpm: minQ,
+                            avgBpm: avgQ,
+                            maxBpm: maxQ
+                        )
+                    )
+                }
+                cont.resume(returning: points.sorted { $0.date < $1.date })
+            }
+            store.execute(query)
+        }
+    }
+
+    /// kcal activas acumuladas por día desde Salud (anillo de Movimiento).
+    func dailyActiveEnergyStats(from start: Date, to end: Date) async -> [DailyActiveEnergyPoint] {
+        guard isAvailable,
+              let type = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)
+        else { return [] }
+        let cal = Calendar.current
+        let dayStart = cal.startOfDay(for: start)
+        let predicate = HKQuery.predicateForSamples(withStart: dayStart, end: end)
+        return await withCheckedContinuation { cont in
+            let query = HKStatisticsCollectionQuery(
+                quantityType: type,
+                quantitySamplePredicate: predicate,
+                options: .cumulativeSum,
+                anchorDate: dayStart,
+                intervalComponents: DateComponents(day: 1)
+            )
+            query.initialResultsHandler = { _, collection, _ in
+                var points: [DailyActiveEnergyPoint] = []
+                collection?.enumerateStatistics(from: dayStart, to: end) { stats, _ in
+                    let kcal = stats.sumQuantity()?.doubleValue(for: .kilocalorie()) ?? 0
+                    guard kcal > 0 else { return }
+                    points.append(
+                        DailyActiveEnergyPoint(
+                            date: cal.startOfDay(for: stats.startDate),
+                            kcal: kcal
+                        )
+                    )
+                }
+                cont.resume(returning: points.sorted { $0.date < $1.date })
+            }
+            store.execute(query)
+        }
+    }
+
+    /// Todos los registros de peso en Salud (más reciente primero), no solo el último.
+    func fetchAllBodyMassSamples() async -> [BodyMassSample] {
+        guard isAvailable,
+              let type = HKQuantityType.quantityType(forIdentifier: .bodyMass)
+        else { return [] }
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+        return await withCheckedContinuation { cont in
+            let q = HKSampleQuery(
+                sampleType: type,
+                predicate: nil,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [sort]
+            ) { _, samples, _ in
+                let mapped = (samples as? [HKQuantitySample] ?? []).map { sample in
+                    BodyMassSample(
+                        id: sample.uuid,
+                        date: sample.endDate,
+                        kg: sample.quantity.doubleValue(for: .gramUnit(with: .kilo))
+                    )
+                }
+                cont.resume(returning: mapped)
+            }
+            store.execute(q)
+        }
+    }
+
+    private func mapExternalActivity(
+        _ w: HKWorkout,
+        excludingUUIDs: Set<UUID>,
+        overlappingSessions: [WorkoutSession]
+    ) -> ExternalActivity? {
+        guard !excludingUUIDs.contains(w.uuid) else { return nil }
+        if Self.matchesGymbroSession(
+            healthStart: w.startDate,
+            healthEnd: w.endDate,
+            healthUUID: w.uuid,
+            sessions: overlappingSessions
+        ) {
+            return nil
+        }
+        let kcal: Double?
+        if let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
+           let burned = w.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie()) {
+            kcal = burned > 0 ? burned : nil
+        } else if let total = w.totalEnergyBurned?.doubleValue(for: .kilocalorie()), total > 0 {
+            kcal = total
+        } else {
+            kcal = nil
+        }
+        let distance = w.totalDistance?.doubleValue(for: .meter())
+        return ExternalActivity(
+            id: w.uuid,
+            title: Self.displayName(for: w.workoutActivityType),
+            start: w.startDate,
+            end: w.endDate,
+            durationMinutes: w.duration / 60.0,
+            activeEnergyKcal: kcal,
+            distanceMeters: (distance ?? 0) > 0 ? distance : nil,
+            sourceName: w.sourceRevision.source.name,
+            activityTypeRaw: w.workoutActivityType.rawValue
+        )
+    }
+
+    /// Carga métricas extra (FC serie + ruta GPS) para la ficha de un entreno de Salud.
+    func activityDetail(for activityId: UUID) async -> ExternalActivityDetail? {
+        await ensureWorkoutRouteAccess()
+        var activity = recentExternalActivities.first(where: { $0.id == activityId })
+        if activity == nil {
+            let start = Calendar.current.date(byAdding: .day, value: -180, to: Date()) ?? Date()
+            activity = await externalActivities(from: start, to: Date())
+                .first(where: { $0.id == activityId })
+        }
+        guard let activity else { return nil }
+
+        let extras = await loadHealthExtras(
+            workoutUUID: activity.id,
+            start: activity.start,
+            end: activity.end
+        )
+
+        return ExternalActivityDetail(
+            activity: activity,
+            averageHeartRateBpm: extras.averageHeartRateBpm,
+            maxHeartRateBpm: extras.maxHeartRateBpm,
+            minHeartRateBpm: extras.minHeartRateBpm,
+            heartRateSeries: extras.heartRateSeries,
+            routePoints: extras.routePoints,
+            averageSpeedKmh: extras.averageSpeedKmh,
+            maxSpeedKmh: extras.maxSpeedKmh
+        )
+    }
+
+    /// FC + ruta de Salud para un entreno propio (UUID vinculado o solape temporal).
+    func sessionHealthExtras(for session: WorkoutSession) async -> SessionHealthExtras? {
+        guard isAvailable else { return nil }
+        await ensureWorkoutRouteAccess()
+        guard isAuthorized else { return nil }
+        guard let start = session.startedAt else { return nil }
+        let end: Date = {
+            if let finished = session.finishedAt { return finished }
+            if let apple = session.appleDurationSeconds, apple > 0 {
+                return start.addingTimeInterval(apple)
+            }
+            return start.addingTimeInterval(max(60, session.durationMinutes * 60))
+        }()
+
+        var workoutUUID = session.healthKitWorkoutUUID
+        var workout: HKWorkout? = nil
+        if let uuid = workoutUUID {
+            workout = await fetchWorkout(uuid: uuid)
+        }
+        if workout == nil {
+            workout = await overlappingWorkout(from: start, to: end)
+            workoutUUID = workout?.uuid
+        }
+
+        let rangeStart = workout?.startDate ?? start
+        let rangeEnd = workout?.endDate ?? end
+        var extras = await loadHealthExtras(
+            workoutUUID: workoutUUID,
+            start: rangeStart,
+            end: rangeEnd
+        )
+
+        if extras.activeEnergyKcal == nil {
+            extras.activeEnergyKcal = session.appleActiveEnergyKcal
+        }
+        if extras.sourceName == nil, let workout {
+            extras.sourceName = workout.sourceRevision.source.name
+        }
+        if extras.activityTypeRaw == nil, let workout {
+            extras.activityTypeRaw = workout.workoutActivityType.rawValue
+        }
+        extras.resolvedWorkoutUUID = workoutUUID
+
+        return extras.hasVisualContent || extras.activeEnergyKcal != nil ? extras : nil
+    }
+
+    private func loadHealthExtras(
+        workoutUUID: UUID?,
+        start: Date,
+        end: Date
+    ) async -> SessionHealthExtras {
+        async let hrSeries = heartRateSeries(from: start, to: end)
+        async let route = fetchRoutePoints(workoutUUID: workoutUUID, start: start, end: end)
+        let (series, points) = await (hrSeries, route)
+
+        let bpmValues = series.map(\.bpm)
+        let speeds = points.compactMap(\.speedMps).filter { $0 >= 0 }
+        let avgSpeedKmh: Double? = speeds.isEmpty
+            ? nil
+            : (speeds.reduce(0, +) / Double(speeds.count)) * 3.6
+        let maxSpeedKmh: Double? = speeds.max().map { $0 * 3.6 }
+
+        var kcal: Double?
+        var source: String?
+        var typeRaw: UInt?
+        if let workoutUUID, let workout = await fetchWorkout(uuid: workoutUUID) {
+            source = workout.sourceRevision.source.name
+            typeRaw = workout.workoutActivityType.rawValue
+            if let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
+               let burned = workout.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie()),
+               burned > 0 {
+                kcal = burned
+            } else if let total = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()), total > 0 {
+                kcal = total
+            }
+        }
+
+        return SessionHealthExtras(
+            averageHeartRateBpm: bpmValues.isEmpty ? nil : bpmValues.reduce(0, +) / Double(bpmValues.count),
+            maxHeartRateBpm: bpmValues.max(),
+            minHeartRateBpm: bpmValues.min(),
+            heartRateSeries: downsample(series, maxCount: 120),
+            routePoints: downsampleRoute(points, maxCount: 400),
+            averageSpeedKmh: avgSpeedKmh,
+            maxSpeedKmh: maxSpeedKmh,
+            activeEnergyKcal: kcal,
+            sourceName: source,
+            activityTypeRaw: typeRaw,
+            resolvedWorkoutUUID: workoutUUID
+        )
+    }
+
+    private func heartRateSeries(from start: Date, to end: Date) async -> [HeartRatePoint] {
+        guard let type = HKQuantityType.quantityType(forIdentifier: .heartRate) else { return [] }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+        return await withCheckedContinuation { cont in
+            let q = HKSampleQuery(
+                sampleType: type,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [sort]
+            ) { _, samples, _ in
+                let unit = HKUnit.count().unitDivided(by: .minute())
+                let points = (samples as? [HKQuantitySample] ?? []).map { sample in
+                    HeartRatePoint(
+                        date: sample.startDate,
+                        bpm: sample.quantity.doubleValue(for: unit)
+                    )
+                }
+                cont.resume(returning: points)
+            }
+            store.execute(q)
+        }
+    }
+
+    /// Borra un entreno de Salud (si Gymbro tiene permiso de escritura).
+    @discardableResult
+    func deleteExternalWorkout(id: UUID) async -> Bool {
+        guard isAvailable else { return false }
+        guard let workout = await fetchWorkout(uuid: id) else {
+            recentExternalActivities.removeAll { $0.id == id }
+            return true
+        }
+        do {
+            try await store.delete(workout)
+            recentExternalActivities.removeAll { $0.id == id }
+            lastError = nil
+            return true
+        } catch {
+            lastError = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Vuelve a pedir lectura de rutas (tipos nuevos no se activan solos tras la 1.ª autorización).
+    func ensureWorkoutRouteAccess() async {
+        guard isAvailable else { return }
+        var read: Set<HKObjectType> = [
+            HKObjectType.quantityType(forIdentifier: .bodyMass)!,
+            HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
+            HKObjectType.quantityType(forIdentifier: .heartRate)!,
+            HKObjectType.workoutType(),
+            HKSeriesType.workoutRoute(),
+        ]
+        let share: Set<HKSampleType> = [
+            HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
+            HKObjectType.quantityType(forIdentifier: .bodyMass)!,
+            HKObjectType.workoutType(),
+        ]
+        do {
+            try await store.requestAuthorization(toShare: share, read: read)
+            refreshAuthorizationStatus()
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    private func fetchRoutePoints(workoutUUID: UUID?, start: Date, end: Date) async -> [RoutePoint] {
+        var routes: [HKWorkoutRoute] = []
+        if let workoutUUID, let workout = await fetchWorkout(uuid: workoutUUID) {
+            routes = await fetchRoutes(for: workout)
+        }
+        if routes.isEmpty {
+            routes = await fetchRoutes(overlappingStart: start, end: end)
+        }
+        var all: [CLLocation] = []
+        for route in routes {
+            let locs = await fetchLocations(in: route)
+            all.append(contentsOf: locs)
+        }
+        all.sort { $0.timestamp < $1.timestamp }
+        return mapLocationsToRoutePoints(all)
+    }
+
+    private func mapLocationsToRoutePoints(_ all: [CLLocation]) -> [RoutePoint] {
+        guard !all.isEmpty else { return [] }
+        return all.enumerated().map { idx, loc in
+            var speed: Double? = loc.speed >= 0 ? loc.speed : nil
+            if speed == nil, idx > 0 {
+                let prev = all[idx - 1]
+                let dt = loc.timestamp.timeIntervalSince(prev.timestamp)
+                if dt > 0.5 {
+                    speed = loc.distance(from: prev) / dt
+                }
+            }
+            return RoutePoint(
+                id: idx,
+                latitude: loc.coordinate.latitude,
+                longitude: loc.coordinate.longitude,
+                date: loc.timestamp,
+                speedMps: speed
+            )
+        }
+    }
+
+    private func fetchWorkout(uuid: UUID) async -> HKWorkout? {
+        let predicate = HKQuery.predicateForObject(with: uuid)
+        return await withCheckedContinuation { cont in
+            let q = HKSampleQuery(
+                sampleType: .workoutType(),
+                predicate: predicate,
+                limit: 1,
+                sortDescriptors: nil
+            ) { _, samples, _ in
+                cont.resume(returning: samples?.first as? HKWorkout)
+            }
+            store.execute(q)
+        }
+    }
+
+    private func fetchRoutes(for workout: HKWorkout) async -> [HKWorkoutRoute] {
+        let byWorkout = HKQuery.predicateForObjects(from: workout)
+        let byDate = HKQuery.predicateForSamples(
+            withStart: workout.startDate.addingTimeInterval(-120),
+            end: workout.endDate.addingTimeInterval(120)
+        )
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [byWorkout, byDate])
+        return await queryRoutes(predicate: predicate)
+    }
+
+    /// Fallback: rutas cuya ventana temporal solapa el entreno (apps de terceros).
+    private func fetchRoutes(overlappingStart start: Date, end: Date) async -> [HKWorkoutRoute] {
+        let predicate = HKQuery.predicateForSamples(
+            withStart: start.addingTimeInterval(-300),
+            end: end.addingTimeInterval(300)
+        )
+        return await queryRoutes(predicate: predicate)
+    }
+
+    private func queryRoutes(predicate: NSPredicate) async -> [HKWorkoutRoute] {
+        await withCheckedContinuation { cont in
+            let q = HKSampleQuery(
+                sampleType: HKSeriesType.workoutRoute(),
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: nil
+            ) { _, samples, _ in
+                cont.resume(returning: (samples as? [HKWorkoutRoute]) ?? [])
+            }
+            store.execute(q)
+        }
+    }
+
+    private func fetchLocations(in route: HKWorkoutRoute) async -> [CLLocation] {
+        await withCheckedContinuation { cont in
+            var collected: [CLLocation] = []
+            var finished = false
+            let q = HKWorkoutRouteQuery(route: route) { _, locations, done, error in
+                if let locations {
+                    collected.append(contentsOf: locations)
+                }
+                if (done || error != nil), !finished {
+                    finished = true
+                    cont.resume(returning: collected)
+                }
+            }
+            store.execute(q)
+        }
+    }
+
+    private func downsample(_ series: [HeartRatePoint], maxCount: Int) -> [HeartRatePoint] {
+        guard series.count > maxCount, maxCount > 2 else { return series }
+        let step = Double(series.count - 1) / Double(maxCount - 1)
+        return (0..<maxCount).map { i in
+            series[min(series.count - 1, Int((Double(i) * step).rounded()))]
+        }
+    }
+
+    private func downsampleRoute(_ points: [RoutePoint], maxCount: Int) -> [RoutePoint] {
+        guard points.count > maxCount, maxCount > 2 else { return points }
+        let step = Double(points.count - 1) / Double(maxCount - 1)
+        return (0..<maxCount).enumerated().map { outIdx, _ in
+            let src = points[min(points.count - 1, Int((Double(outIdx) * step).rounded()))]
+            return RoutePoint(
+                id: outIdx,
+                latitude: src.latitude,
+                longitude: src.longitude,
+                date: src.date,
+                speedMps: src.speedMps
+            )
+        }
+    }
+
+
+    /// Mismo entreno que Gymbro si coincide el UUID o hay solape temporal (p. ej. Apple Watch).
+    static func matchesGymbroSession(
+        healthStart: Date,
+        healthEnd: Date,
+        healthUUID: UUID,
+        sessions: [WorkoutSession],
+        slack: TimeInterval = 45 * 60
+    ) -> Bool {
+        for session in sessions {
+            if session.healthKitWorkoutUUID == healthUUID { return true }
+            guard let start = session.startedAt else { continue }
+            let duration: TimeInterval
+            if let apple = session.appleDurationSeconds, apple > 0 {
+                duration = apple
+            } else if let finished = session.finishedAt {
+                duration = max(60, finished.timeIntervalSince(start))
+            } else {
+                duration = max(60, session.durationMinutes * 60)
+            }
+            let end = session.finishedAt ?? start.addingTimeInterval(duration)
+            let looseStart = start.addingTimeInterval(-slack)
+            let looseEnd = end.addingTimeInterval(slack)
+            let overlapStart = max(healthStart, looseStart)
+            let overlapEnd = min(healthEnd, looseEnd)
+            if overlapEnd > overlapStart { return true }
+        }
+        return false
+    }
+
+    private static func displayName(for type: HKWorkoutActivityType) -> String {
+        switch type {
+        case .traditionalStrengthTraining: return "Fuerza"
+        case .functionalStrengthTraining: return "Fuerza funcional"
+        case .highIntensityIntervalTraining: return "HIIT"
+        case .running: return "Carrera"
+        case .walking: return "Caminar"
+        case .cycling: return "Ciclismo"
+        case .swimming: return "Natación"
+        case .yoga: return "Yoga"
+        case .pilates: return "Pilates"
+        case .coreTraining: return "Core"
+        case .flexibility: return "Movilidad"
+        case .cooldown: return "Enfriamiento"
+        case .elliptical: return "Elíptica"
+        case .rowing: return "Remo"
+        case .stairClimbing: return "Escaleras"
+        case .hiking: return "Senderismo"
+        case .dance: return "Baile"
+        case .martialArts: return "Artes marciales"
+        case .soccer, .basketball, .tennis, .golf: return "Deporte"
+        case .crossTraining: return "Cross-training"
+        case .mixedCardio: return "Cardio"
+        case .other: return "Actividad"
+        default: return "Actividad · Salud"
+        }
+    }
+
     /// Escribe peso en Salud (última modificación gana si luego se vuelve a leer).
     func saveBodyMass(kg: Double, date: Date = Date()) async {
         guard isAvailable,
@@ -155,30 +853,64 @@ final class HealthKitStore {
         }
     }
 
-    /// Cierra el entreno: toma calorías/tiempo de Apple y lo guarda en Salud.
+    /// Resultado de cerrar un entreno alineado con Apple Salud.
+    struct WorkoutSyncResult: Sendable {
+        var startedAt: Date
+        var finishedAt: Date
+        var kcal: Double
+        var durationSeconds: TimeInterval
+        var workoutUUID: UUID?
+    }
+
+    /// Cierra el entreno: si hay franja similar en Salud, manda Apple; si falta algo, lo complementamos y lo enviamos.
     func finishWorkout(
         sessionId: UUID,
         title: String,
         start: Date,
-        end: Date
-    ) async -> (kcal: Double, durationSeconds: TimeInterval, workoutUUID: UUID?) {
-        let apple = await resolveAppleMetrics(from: start, to: end)
-        let duration = apple.durationSeconds ?? max(1, end.timeIntervalSince(start))
-        let kcal = apple.kcal
+        end: Date,
+        fallbackKcal: Double? = nil
+    ) async -> WorkoutSyncResult {
+        let safeEnd = max(end, start.addingTimeInterval(60))
+        let apple = await resolveAppleMetrics(from: start, to: safeEnd)
 
+        var resolvedStart = start
+        var resolvedEnd = safeEnd
+        var duration = max(60, safeEnd.timeIntervalSince(start))
+        var kcal = apple.kcal
         var savedUUID = apple.existingWorkoutUUID
 
-        if savedUUID == nil {
+        if let existing = apple.existingWorkout {
+            // Misma franja que Watch/Salud → horarios y duración de Apple.
+            resolvedStart = existing.startDate
+            resolvedEnd = existing.endDate
+            duration = max(60, existing.duration)
+            if kcal <= 0 {
+                // Salud sin kcal: estimamos / usamos fallback y lo escribimos como samples.
+                let ours = fallbackKcal ?? Self.estimateActiveEnergyKcal(
+                    durationMinutes: duration / 60,
+                    volumeKg: 0
+                )
+                if ours > 0 {
+                    kcal = ours
+                    await saveActiveEnergySample(kcal: ours, start: resolvedStart, end: resolvedEnd)
+                }
+            }
+            await discardLocalBuilder()
+        } else {
+            // No hay entreno Apple en la franja → usamos nuestros tiempos y escribimos el workout.
+            if kcal <= 0 {
+                kcal = fallbackKcal ?? Self.estimateActiveEnergyKcal(
+                    durationMinutes: duration / 60,
+                    volumeKg: 0
+                )
+            }
             savedUUID = await saveStrengthWorkout(
                 title: title,
-                start: start,
-                end: start.addingTimeInterval(duration),
+                start: resolvedStart,
+                end: resolvedEnd,
                 activeEnergyKcal: kcal,
                 preferBuilder: liveBuilder
             )
-        } else {
-            // Ya hay un entreno del Watch/Salud: no duplicar; solo cerrar builder local si existía.
-            await discardLocalBuilder()
         }
 
         trackedSessionId = nil
@@ -187,7 +919,18 @@ final class HealthKitStore {
         liveActiveEnergyKcal = kcal
         liveDurationSeconds = duration
         await refreshToday()
-        return (kcal, duration, savedUUID)
+        return WorkoutSyncResult(
+            startedAt: resolvedStart,
+            finishedAt: resolvedEnd,
+            kcal: kcal,
+            durationSeconds: duration,
+            workoutUUID: savedUUID
+        )
+    }
+
+    /// Estimación local cuando Salud no aporta kcal (se envía a HealthKit como complemento).
+    static func estimateActiveEnergyKcal(durationMinutes: Double, volumeKg: Double) -> Double {
+        max(0, durationMinutes * 7.5 + volumeKg * 0.02)
     }
 
     func discardLiveTracking() async {
@@ -204,14 +947,16 @@ final class HealthKitStore {
         var kcal: Double
         var durationSeconds: TimeInterval?
         var existingWorkoutUUID: UUID?
+        var existingWorkout: HKWorkout?
     }
 
-    /// Prioriza un `HKWorkout` del Watch/Salud solapado; si no, suma energía activa del intervalo.
+    /// Prioriza un `HKWorkout` del Watch/Salud en franja similar; si no, suma energía activa del intervalo.
     private func resolveAppleMetrics(from start: Date, to end: Date) async -> AppleMetrics {
         if let workout = await overlappingWorkout(from: start, to: end) {
-            let kcal: Double
+            var kcal: Double = 0
             if let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
-               let burned = workout.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie()) {
+               let burned = workout.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie()),
+               burned > 0 {
                 kcal = burned
             } else {
                 kcal = await activeEnergy(from: workout.startDate, to: workout.endDate)
@@ -219,16 +964,24 @@ final class HealthKitStore {
             return AppleMetrics(
                 kcal: kcal,
                 durationSeconds: workout.duration,
-                existingWorkoutUUID: workout.uuid
+                existingWorkoutUUID: workout.uuid,
+                existingWorkout: workout
             )
         }
         let kcal = await activeEnergy(from: start, to: end)
-        return AppleMetrics(kcal: kcal, durationSeconds: end.timeIntervalSince(start), existingWorkoutUUID: nil)
+        return AppleMetrics(
+            kcal: kcal,
+            durationSeconds: end.timeIntervalSince(start),
+            existingWorkoutUUID: nil,
+            existingWorkout: nil
+        )
     }
 
+    /// Franja similar (~45 min de holgura) para emparejar Watch/Salud con Gymbro.
     private func overlappingWorkout(from start: Date, to end: Date) async -> HKWorkout? {
-        let expandedStart = start.addingTimeInterval(-120)
-        let expandedEnd = end.addingTimeInterval(120)
+        let slack: TimeInterval = 45 * 60
+        let expandedStart = start.addingTimeInterval(-slack)
+        let expandedEnd = end.addingTimeInterval(slack)
         let predicate = HKQuery.predicateForSamples(withStart: expandedStart, end: expandedEnd)
         let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
         return await withCheckedContinuation { (cont: CheckedContinuation<HKWorkout?, Never>) in
@@ -239,28 +992,54 @@ final class HealthKitStore {
                 sortDescriptors: [sort]
             ) { _, samples, _ in
                 let workouts = (samples as? [HKWorkout]) ?? []
-                // Preferir fuerza / tradicional y el de mayor solape.
+                let looseStart = start.addingTimeInterval(-slack)
+                let looseEnd = end.addingTimeInterval(slack)
                 let ranked = workouts
                     .map { w -> (HKWorkout, TimeInterval) in
-                        let overlapStart = max(w.startDate, start)
-                        let overlapEnd = min(w.endDate, end)
+                        let overlapStart = max(w.startDate, looseStart)
+                        let overlapEnd = min(w.endDate, looseEnd)
                         let overlap = max(0, overlapEnd.timeIntervalSince(overlapStart))
                         return (w, overlap)
                     }
-                    .filter { $0.1 > 30 }
+                    .filter { $0.1 > 60 }
                     .sorted { a, b in
-                        let aStrength = a.0.workoutActivityType == .traditionalStrengthTraining
-                            || a.0.workoutActivityType == .functionalStrengthTraining
-                            || a.0.workoutActivityType == .highIntensityIntervalTraining
-                        let bStrength = b.0.workoutActivityType == .traditionalStrengthTraining
-                            || b.0.workoutActivityType == .functionalStrengthTraining
-                            || b.0.workoutActivityType == .highIntensityIntervalTraining
+                        let aStrength = Self.isStrengthLike(a.0.workoutActivityType)
+                        let bStrength = Self.isStrengthLike(b.0.workoutActivityType)
                         if aStrength != bStrength { return aStrength && !bStrength }
                         return a.1 > b.1
                     }
                 cont.resume(returning: ranked.first?.0)
             }
             store.execute(q)
+        }
+    }
+
+    private static func isStrengthLike(_ type: HKWorkoutActivityType) -> Bool {
+        switch type {
+        case .traditionalStrengthTraining, .functionalStrengthTraining, .highIntensityIntervalTraining,
+             .crossTraining, .coreTraining:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Sample suelto de kcal cuando el workout de Salud existe pero no trae energía.
+    private func saveActiveEnergySample(kcal: Double, start: Date, end: Date) async {
+        guard kcal > 0,
+              let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)
+        else { return }
+        let quantity = HKQuantity(unit: .kilocalorie(), doubleValue: kcal)
+        let sample = HKCumulativeQuantitySample(
+            type: energyType,
+            quantity: quantity,
+            start: start,
+            end: max(end, start.addingTimeInterval(60))
+        )
+        do {
+            try await store.save(sample)
+        } catch {
+            lastError = error.localizedDescription
         }
     }
 
@@ -408,6 +1187,74 @@ final class HealthKitStore {
                 }
             }
             store.execute(q)
+        }
+    }
+}
+
+/// SF Symbols por tipo de actividad de Salud (fuera del MainActor).
+enum HealthActivityIcons {
+    static func isOutdoor(_ type: HKWorkoutActivityType) -> Bool {
+        switch type {
+        case .running, .cycling, .hiking, .walking,
+             .wheelchairRunPace, .handCycling,
+             .downhillSkiing, .snowboarding,
+             .paddleSports, .rowing, .skatingSports:
+            return true
+        default:
+            return false
+        }
+    }
+
+    static func symbolName(for type: HKWorkoutActivityType) -> String {
+        switch type {
+        case .traditionalStrengthTraining, .functionalStrengthTraining:
+            return "figure.strengthtraining.traditional"
+        case .highIntensityIntervalTraining:
+            return "figure.highintensity.intervaltraining"
+        case .running:
+            return "figure.run"
+        case .walking:
+            return "figure.walk"
+        case .cycling:
+            return "figure.outdoor.cycle"
+        case .swimming:
+            return "figure.pool.swim"
+        case .yoga:
+            return "figure.yoga"
+        case .pilates:
+            return "figure.pilates"
+        case .coreTraining:
+            return "figure.core.training"
+        case .flexibility:
+            return "figure.flexibility"
+        case .cooldown:
+            return "figure.cooldown"
+        case .elliptical:
+            return "figure.elliptical"
+        case .rowing:
+            return "figure.rower"
+        case .stairClimbing:
+            return "figure.stair.stepper"
+        case .hiking:
+            return "figure.hiking"
+        case .dance:
+            return "figure.dance"
+        case .martialArts:
+            return "figure.martial.arts"
+        case .soccer:
+            return "figure.soccer"
+        case .basketball:
+            return "figure.basketball"
+        case .tennis:
+            return "figure.tennis"
+        case .golf:
+            return "figure.golf"
+        case .crossTraining:
+            return "figure.cross.training"
+        case .mixedCardio, .other:
+            return "figure.mixed.cardio"
+        default:
+            return "figure.mixed.cardio"
         }
     }
 }

@@ -2,14 +2,17 @@ import SwiftUI
 
 struct BodyWeightListView: View {
     @Environment(GymbroStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
     @State private var kgText = ""
+    @State private var goalText = ""
 
     var body: some View {
         List {
             Section {
-                OGPageHeader(title: "Peso corporal")
+                OGBackPageHeader(title: "Peso corporal", onBack: { dismiss() })
                     .ogListPageHeaderRow()
             }
+
             Section {
                 HStack {
                     TextField("kg", text: $kgText)
@@ -24,7 +27,46 @@ struct BodyWeightListView: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(OG.accent)
                 }
+            } header: {
+                Text("Registrar")
+            } footer: {
+                Text("Un pesaje por día. Si ya hay uno hoy, se actualiza.")
             }
+
+            Section {
+                HStack {
+                    TextField("Objetivo kg", text: $goalText)
+                        .keyboardType(.decimalPad)
+                        .foregroundStyle(OG.label)
+                    Button("Guardar") {
+                        var s = store.state.settings
+                        let trimmed = goalText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        s.bodyWeightGoalKg = trimmed.isEmpty
+                            ? nil
+                            : Double(trimmed.replacingOccurrences(of: ",", with: "."))
+                        store.updateSettings(s)
+                    }
+                    .fontWeight(.semibold)
+                    .foregroundStyle(OG.accent)
+                }
+                if let goal = store.state.settings.bodyWeightGoalKg,
+                   let latest = store.state.bodyWeights.first {
+                    let delta = latest.weightKg - goal
+                    if abs(delta) < 0.3 {
+                        Text("En objetivo (\(goal.formatted(.number.precision(.fractionLength(1)))) kg)")
+                            .font(.footnote)
+                            .foregroundStyle(OG.accent)
+                    } else {
+                        let sign = delta > 0 ? "+" : ""
+                        Text("\(sign)\(delta.formatted(.number.precision(.fractionLength(1)))) kg vs objetivo")
+                            .font(.footnote)
+                            .foregroundStyle(OG.label2)
+                    }
+                }
+            } header: {
+                Text("Objetivo")
+            }
+
             Section {
                 ForEach(store.state.bodyWeights) { entry in
                     HStack {
@@ -41,9 +83,17 @@ struct BodyWeightListView: View {
                         store.deleteBodyWeight(store.state.bodyWeights[i].id)
                     }
                 }
+            } header: {
+                Text("Historial")
             }
         }
         .ogListChrome()
         .ogContentTitleNav()
+        .navigationBarBackButtonHidden(true)
+        .onAppear {
+            if let g = store.state.settings.bodyWeightGoalKg {
+                goalText = String(format: "%g", g)
+            }
+        }
     }
 }

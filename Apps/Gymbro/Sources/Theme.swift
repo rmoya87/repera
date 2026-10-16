@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Tokens alineados con openGym `index.css` (dark default).
 enum OG {
@@ -21,7 +22,24 @@ enum OG {
 
     static let radiusCard: CGFloat = 14
     static let radiusLG: CGFloat = 16
+    /// Esquinas de sheets (alineadas al radio continuo del iPhone).
+    static let sheetCornerRadius: CGFloat = 38
+    /// Diámetro liquid glass de botones en cabecera de contenido (= topbar del sistema).
+    static let toolbarGlassSize: CGFloat = 44
+    /// Glifo en esos botones glass.
+    static let toolbarGlassIcon: CGFloat = 18
     static let pad: CGFloat = 16
+}
+
+/// Título de sección dentro de una `OGCard` (blanco, destaca sobre la superficie).
+struct OGCardSectionTitle: View {
+    var title: String
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(OG.label)
+    }
 }
 
 struct OGCard<Content: View>: View {
@@ -66,25 +84,35 @@ struct OGPrimaryButton: View {
     }
 }
 
-/// Cabecera de página estilo Inicio: título grande en el scroll (no en la top bar opaca).
-struct OGPageHeader<Trailing: View>: View {
+/// Cabecera de página estilo Inicio / Progreso: título grande en el scroll.
+struct OGPageHeader<Leading: View, Trailing: View>: View {
     var title: String
     var subtitle: String? = nil
+    @ViewBuilder var leading: () -> Leading
     @ViewBuilder var trailing: () -> Trailing
 
-    init(title: String, subtitle: String? = nil, @ViewBuilder trailing: @escaping () -> Trailing) {
+    init(
+        title: String,
+        subtitle: String? = nil,
+        @ViewBuilder leading: @escaping () -> Leading,
+        @ViewBuilder trailing: @escaping () -> Trailing
+    ) {
         self.title = title
         self.subtitle = subtitle
+        self.leading = leading
         self.trailing = trailing
     }
 
     var body: some View {
-        HStack(alignment: .top) {
+        HStack(alignment: .top, spacing: 12) {
+            leading()
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.system(size: 28, weight: .bold))
                     .foregroundStyle(OG.label)
                     .tracking(-0.4)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
                         .font(.system(size: 15, weight: .regular))
@@ -94,25 +122,34 @@ struct OGPageHeader<Trailing: View>: View {
             Spacer(minLength: 8)
             trailing()
         }
-        .padding(.top, 4)
+        .padding(.top, 8)
         .padding(.bottom, 4)
     }
 }
 
-extension OGPageHeader where Trailing == EmptyView {
+extension OGPageHeader where Leading == EmptyView, Trailing == EmptyView {
     init(title: String, subtitle: String? = nil) {
-        self.init(title: title, subtitle: subtitle) { EmptyView() }
+        self.init(title: title, subtitle: subtitle, leading: { EmptyView() }, trailing: { EmptyView() })
+    }
+}
+
+extension OGPageHeader where Leading == EmptyView {
+    init(title: String, subtitle: String? = nil, @ViewBuilder trailing: @escaping () -> Trailing) {
+        self.init(title: title, subtitle: subtitle, leading: { EmptyView() }, trailing: trailing)
     }
 }
 
 extension View {
     /// Lista agrupada estilo openGym (superficie #1c1c1e sobre negro).
+    /// Márgenes horizontales = Inicio; sin margen top extra (lo pone `OGPageHeader`, como Progreso).
     func ogListChrome() -> some View {
         self
             .scrollContentBackground(.hidden)
             .background(OG.bg)
             .listRowBackground(OG.surface)
             .tint(OG.accent)
+            .contentMargins(.all, EdgeInsets(top: 0, leading: OG.pad, bottom: 0, trailing: OG.pad), for: .scrollContent)
+            .listSectionSpacing(12)
     }
 
     /// Top bar transparente: sin fondo sólido al hacer scroll.
@@ -122,65 +159,426 @@ extension View {
             .toolbarColorScheme(.dark, for: .navigationBar)
     }
 
-    /// Título en el contenido (`OGPageHeader`); barra vacía y transparente.
+    /// Título en el contenido (`OGPageHeader`); sin barra del sistema (mismo arranque que Progreso).
     func ogContentTitleNav() -> some View {
         self
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .ogTransparentNav()
+            .toolbar(.hidden, for: .navigationBar)
     }
 
-    /// Cabecera de página dentro de `List` (misma tipografía que Inicio).
+    /// Cabecera de página dentro de `List` (misma geometría que Inicio / Progreso).
     func ogListPageHeaderRow() -> some View {
         self
             .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 4, leading: OG.pad, bottom: 8, trailing: OG.pad))
+            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
             .listRowSeparator(.hidden)
+    }
+
+    /// Segmented control a ancho de contenido (sin doble padding respecto a `ogListChrome`).
+    func ogSegmentedListRow() -> some View {
+        self
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
+            .listRowSeparator(.hidden)
+    }
+
+    /// Card / fila custom a ancho de `ogListChrome` (leading 0: el margen ya lo pone el chrome).
+    func ogCardListRow(top: CGFloat = 4, bottom: CGFloat = 4) -> some View {
+        self
+            .listRowInsets(EdgeInsets(top: top, leading: 0, bottom: bottom, trailing: 0))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+    }
+
+    /// Sheet tipo menú: alto = contenido (no pantalla completa).
+    /// El contenido raíz debe tener tamaño intrínseco (VStack), no `List`/`NavigationStack` vacío.
+    /// `expanded: true` → pantalla casi completa (p. ej. push a Favoritos).
+    func ogFittedSheet(expanded: Bool = false) -> some View {
+        modifier(OGFittedSheetModifier(expanded: expanded))
+    }
+
+    /// Esquinas + fondo liquid glass en cualquier sheet (detent fijo o large).
+    func ogSheetCorners() -> some View {
+        self
+            .presentationCornerRadius(OG.sheetCornerRadius)
+            .presentationBackground {
+                Rectangle()
+                    .fill(.clear)
+                    .glassEffect(.regular, in: .rect(cornerRadius: OG.sheetCornerRadius))
+                    .ignoresSafeArea()
+            }
+    }
+
+    /// Confirmación corta (eliminar, vaciar…) con liquid glass vía `ogFittedSheet`.
+    func ogConfirmSheetChrome() -> some View {
+        preferredColorScheme(.dark)
+            .ogFittedSheet()
+    }
+
+    /// Mide la altura del contenido y la publica para `ogFittedSheet`.
+    func ogFittedHeight() -> some View {
+        background {
+            GeometryReader { proxy in
+                Color.clear.preference(key: OGFittedSheetHeightKey.self, value: proxy.size.height)
+            }
+        }
     }
 }
 
-/// Botón de icono en top bar con liquid glass (fondo transparente del nav).
-/// Usar SF Symbols *sin* `.circle` embebido: el glass ya aporta el círculo.
+private struct OGFittedSheetHeightKey: PreferenceKey {
+    nonisolated(unsafe) static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+private struct OGFittedSheetModifier: ViewModifier {
+    var expanded: Bool
+    @State private var contentHeight: CGFloat = 280
+
+    private var maxHeight: CGFloat {
+        (UIScreen.main.bounds.height * 0.9).rounded()
+    }
+
+    private var fittedDetent: PresentationDetent {
+        // Margen para el drag indicator / safe area inferior.
+        let h = min(max(contentHeight + 28, 160), maxHeight)
+        return .height(h)
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .onPreferenceChange(OGFittedSheetHeightKey.self) { height in
+                guard height > 1, abs(height - contentHeight) > 1 else { return }
+                contentHeight = height
+            }
+            .presentationDetents(expanded ? [.large] : [fittedDetent])
+            .presentationDragIndicator(.visible)
+            .ogSheetCorners()
+    }
+}
+
+/// Modal de confirmación (eliminar / vaciar…) con liquid glass.
+struct OGConfirmSheet: View {
+    var systemImage: String = "trash.circle.fill"
+    var iconTint: Color = OG.red
+    var title: String
+    var message: String
+    var confirmTitle: String = "Eliminar"
+    var confirmTint: Color = OG.red
+    var onConfirm: () -> Void
+    var onCancel: () -> Void
+
+    var body: some View {
+        VStack(spacing: 20) {
+            VStack(spacing: 10) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 44))
+                    .foregroundStyle(iconTint)
+                    .symbolRenderingMode(.hierarchical)
+                Text(title)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(OG.label)
+                    .multilineTextAlignment(.center)
+                Text(message)
+                    .font(.system(size: 14))
+                    .foregroundStyle(OG.label2)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 4)
+            }
+
+            VStack(spacing: 10) {
+                Button(action: onConfirm) {
+                    Text(confirmTitle)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 50)
+                        .glassEffect(.regular.tint(confirmTint).interactive(), in: .capsule)
+                }
+                .buttonStyle(.plain)
+
+                Button(action: onCancel) {
+                    Text("Cancelar")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(OG.label)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44)
+                        .glassEffect(.regular.interactive(), in: .capsule)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, OG.pad)
+        .padding(.top, 12)
+        .padding(.bottom, 16)
+        .frame(maxWidth: .infinity)
+        .ogFittedHeight()
+        .ogConfirmSheetChrome()
+    }
+}
+
+/// Botón de icono en top bar.
+/// En la barra del sistema no aplicar glass (iOS ya pone el círculo); en cabeceras
+/// custom del contenido usar `appliesGlass: true`. SF Symbols sin `.circle` embebido.
 struct OGToolbarGlassButton: View {
     var systemName: String
     var accessibilityLabel: String
     var tint: Color = OG.label
-    /// Tamaño del glifo.
-    var iconSize: CGFloat = 17
-    /// Diámetro del hit target / glass.
-    var hitSize: CGFloat = 36
+    /// Tamaño del glifo. `nil` → 18 con glass de contenido, 17 en toolbar del sistema.
+    var iconSize: CGFloat? = nil
+    /// Diámetro del hit / glass. `nil` → 44 con glass de contenido (igual que topbar iOS).
+    var hitSize: CGFloat? = nil
+    /// Solo en cabeceras dentro del contenido. En `.toolbar` dejar `false`.
+    var appliesGlass: Bool = false
+    /// Tinte del círculo glass (p. ej. verde acento en el + de añadir).
+    var glassTint: Color? = nil
     var action: () -> Void
+
+    private var resolvedIcon: CGFloat {
+        iconSize ?? (appliesGlass ? OG.toolbarGlassIcon : 17)
+    }
+
+    private var resolvedHit: CGFloat {
+        hitSize ?? (appliesGlass ? OG.toolbarGlassSize : 36)
+    }
 
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: iconSize, weight: .semibold))
+                .font(.system(size: resolvedIcon, weight: .semibold))
                 .foregroundStyle(tint)
                 .symbolRenderingMode(.monochrome)
-                .frame(width: hitSize, height: hitSize)
+                .frame(width: resolvedHit, height: resolvedHit)
                 .contentShape(Circle())
-                .glassEffect(.regular.interactive(), in: .circle)
+                .modifier(OGToolbarGlassModifier(enabled: appliesGlass, tint: glassTint))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
     }
 }
 
-/// Botón de cierre unificado: X roja con liquid glass.
+private struct OGToolbarGlassModifier: ViewModifier {
+    var enabled: Bool
+    var tint: Color?
+
+    func body(content: Content) -> some View {
+        if enabled {
+            if let tint {
+                content.glassEffect(.regular.tint(tint).interactive(), in: .circle)
+            } else {
+                content.glassEffect(.regular.interactive(), in: .circle)
+            }
+        } else {
+            content
+        }
+    }
+}
+
+/// Botón de cierre unificado: X roja (36pt, mismo hit que el avatar de Inicio).
+/// Por defecto con liquid glass (cabeceras de sheet / contenido). En `.toolbar` del sistema: `large: false`.
 struct CloseToolbarButton: View {
     var action: () -> Void
-    /// Variante más grande (sheets de plan / entreno).
-    var large: Bool = false
+    /// Cabecera de página en el contenido (aplica glass). Default `true`.
+    var large: Bool = true
 
     var body: some View {
         OGToolbarGlassButton(
             systemName: "xmark",
             accessibilityLabel: "Cerrar",
             tint: OG.red,
-            iconSize: large ? 20 : 17,
-            hitSize: large ? 44 : 36,
+            appliesGlass: large,
             action: action
         )
+    }
+}
+
+/// Botón volver (chevron) para subpáginas con nav oculta (`ogContentTitleNav`).
+struct BackToolbarButton: View {
+    var action: () -> Void
+    var large: Bool = true
+
+    var body: some View {
+        OGToolbarGlassButton(
+            systemName: "chevron.left",
+            accessibilityLabel: "Volver",
+            tint: OG.label,
+            appliesGlass: large,
+            action: action
+        )
+    }
+}
+
+/// Subpágina: topbar con volver (+ trailing opcional) y título grande debajo.
+struct OGBackPageHeader<Trailing: View>: View {
+    var title: String
+    var subtitle: String? = nil
+    var onBack: () -> Void
+    @ViewBuilder var trailing: () -> Trailing
+
+    init(
+        title: String,
+        subtitle: String? = nil,
+        onBack: @escaping () -> Void,
+        @ViewBuilder trailing: @escaping () -> Trailing
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.onBack = onBack
+        self.trailing = trailing
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                BackToolbarButton(action: onBack, large: true)
+                Spacer(minLength: 8)
+                trailing()
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(OG.label)
+                    .tracking(-0.4)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.75)
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(OG.label2)
+                }
+            }
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+    }
+}
+
+extension OGBackPageHeader where Trailing == EmptyView {
+    init(title: String, subtitle: String? = nil, onBack: @escaping () -> Void) {
+        self.init(title: title, subtitle: subtitle, onBack: onBack, trailing: { EmptyView() })
+    }
+}
+
+/// Stepper − / valor / +: respuesta inmediata, repetición al mantener, toque en el número → teclado.
+struct OGRepeatStepper: View {
+    var display: String
+    var enabled: Bool = true
+    var keyboard: UIKeyboardType = .decimalPad
+    var onMinus: () -> Void
+    var onPlus: () -> Void
+    /// Texto del centro al confirmar (vacío / "—" → nil o 0 según el caller).
+    var onCommitText: (String) -> Void
+
+    @State private var editing = false
+    @State private var draft = ""
+    @FocusState private var focused: Bool
+    @State private var holdTask: Task<Void, Never>?
+    @State private var holdingSide: HoldSide?
+
+    private enum HoldSide { case minus, plus }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            holdButton(systemName: "minus", side: .minus, action: onMinus)
+            centerValue
+            holdButton(systemName: "plus", side: .plus, action: onPlus)
+        }
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .opacity(enabled ? 1 : 0.45)
+        .disabled(!enabled)
+        .onDisappear { stopHold() }
+    }
+
+    @ViewBuilder
+    private var centerValue: some View {
+        if editing {
+            TextField("", text: $draft)
+                .keyboardType(keyboard)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .multilineTextAlignment(.center)
+                .font(.system(size: 15, weight: .semibold).monospacedDigit())
+                .foregroundStyle(OG.label)
+                .focused($focused)
+                .frame(maxWidth: .infinity)
+                .frame(height: 36)
+                .onAppear {
+                    focused = true
+                }
+                .onChange(of: focused) { _, isFocused in
+                    if !isFocused { commitEdit() }
+                }
+                .submitLabel(.done)
+                .onSubmit { commitEdit() }
+        } else {
+            Text(display)
+                .font(.system(size: 15, weight: .semibold).monospacedDigit())
+                .foregroundStyle(OG.label)
+                .frame(maxWidth: .infinity)
+                .frame(height: 36)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    guard enabled else { return }
+                    draft = (display == "—" || display.isEmpty) ? "" : display
+                    editing = true
+                }
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+    }
+
+    private func holdButton(systemName: String, side: HoldSide, action: @escaping () -> Void) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 12, weight: .bold))
+            .foregroundStyle(OG.label2)
+            .frame(width: 32, height: 36)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        guard enabled else { return }
+                        if holdingSide != side {
+                            startHold(side: side, action: action)
+                        }
+                    }
+                    .onEnded { _ in
+                        stopHold()
+                    }
+            )
+            .accessibilityLabel(side == .minus ? "Menos" : "Más")
+            .accessibilityAddTraits(.isButton)
+    }
+
+    private func startHold(side: HoldSide, action: @escaping () -> Void) {
+        stopHold()
+        holdingSide = side
+        action()
+        holdTask = Task { @MainActor in
+            // Pausa breve y luego repetición acelerada.
+            try? await Task.sleep(nanoseconds: 280_000_000)
+            var interval: UInt64 = 90_000_000
+            while !Task.isCancelled {
+                action()
+                try? await Task.sleep(nanoseconds: interval)
+                interval = max(28_000_000, interval * 82 / 100)
+            }
+        }
+    }
+
+    private func stopHold() {
+        holdTask?.cancel()
+        holdTask = nil
+        holdingSide = nil
+    }
+
+    private func commitEdit() {
+        guard editing else { return }
+        onCommitText(draft.trimmingCharacters(in: .whitespacesAndNewlines))
+        editing = false
+        focused = false
     }
 }
 
@@ -195,11 +593,66 @@ enum SpanishDate {
         return String(first).uppercased() + raw.dropFirst()
     }
 
+    /// Cabecera de semana en calendario: «Octubre», «Octubre – noviembre», o con año si no es el actual.
+    static func monthHeadline(from start: Date, to end: Date, calendar: Calendar = .current) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "es_ES")
+        f.dateFormat = "LLLL"
+
+        let startMonth = calendar.component(.month, from: start)
+        let endMonth = calendar.component(.month, from: end)
+        let startYear = calendar.component(.year, from: start)
+        let endYear = calendar.component(.year, from: end)
+        let currentYear = calendar.component(.year, from: Date())
+
+        func capitalizedMonth(_ date: Date) -> String {
+            let raw = f.string(from: date)
+            guard let first = raw.first else { return raw }
+            return String(first).uppercased() + raw.dropFirst()
+        }
+
+        if startYear == endYear, startMonth == endMonth {
+            let name = capitalizedMonth(start)
+            return startYear == currentYear ? name : "\(name) \(startYear)"
+        }
+        if startYear == endYear {
+            let title = "\(capitalizedMonth(start)) – \(f.string(from: end))"
+            return startYear == currentYear ? title : "\(title) \(startYear)"
+        }
+        return "\(capitalizedMonth(start)) \(startYear) – \(capitalizedMonth(end)) \(endYear)"
+    }
+
     static func short(_ date: Date) -> String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "es_ES")
         f.dateStyle = .medium
         f.timeStyle = .none
         return f.string(from: date)
+    }
+
+    /// Subtítulo de detalle: «Viernes 16 octubre · 7:03–8:00».
+    static func sessionSubtitle(start: Date, end: Date?) -> String {
+        var parts = [long(start)]
+        if let end {
+            parts.append("\(time(start))–\(time(end))")
+        } else {
+            parts.append(time(start))
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    static func time(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "es_ES")
+        f.dateStyle = .none
+        f.timeStyle = .short
+        return f.string(from: date)
+    }
+
+    /// Minutos desde medianoche → "18:30".
+    static func time(minutesFromMidnight: Int) -> String {
+        let start = Calendar.current.startOfDay(for: Date())
+        let date = Calendar.current.date(byAdding: .minute, value: minutesFromMidnight, to: start) ?? Date()
+        return time(date)
     }
 }

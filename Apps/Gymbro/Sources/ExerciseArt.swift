@@ -316,23 +316,30 @@ struct ExerciseThumb: View {
     }
 }
 
-/// Arte a ancho completo; carrusel por imágenes `_1`… o por pasos de técnica.
+/// Arte a ancho completo (edge-to-edge); alto según proporción de la imagen.
 struct ExerciseArtView: View {
     let exercise: Exercise
-    var height: CGFloat = 280
     var showBadge: Bool = false
     var showStepCaptions: Bool = true
+    /// Si false, el bloque de técnica no lleva padding horizontal (lo pone el padre).
+    var captionsHorizontalPadding: CGFloat = OG.pad
 
     @State private var page = 0
 
     private var names: [String] { ExerciseArt.imageNames(for: exercise) }
     private var steps: [String] { ExerciseCopy.techniqueSteps(for: exercise) }
 
-    /// Solo una página por imagen distinta (`_1`, `_2`…). Nunca repetir la misma foto por cada paso de texto.
-    private var pageCount: Int { max(names.count, 1) }
+    /// Ancho/alto de la imagen actual (o la primera); fallback 4:3.
+    private var artAspect: CGFloat {
+        let name = names.indices.contains(page) ? names[page] : names.first
+        if let name, let ui = ExerciseArt.uiImage(named: name), ui.size.height > 0 {
+            return ui.size.width / ui.size.height
+        }
+        return 4.0 / 3.0
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Group {
                 if names.isEmpty {
                     fallbackDiagram
@@ -349,46 +356,43 @@ struct ExerciseArtView: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .aspectRatio(1, contentMode: .fit)
-            .clipShape(RoundedRectangle(cornerRadius: OG.radiusLG, style: .continuous))
+            .aspectRatio(artAspect, contentMode: .fit)
             .clipped()
 
             if showStepCaptions, !steps.isEmpty {
-                if names.count > 1 {
-                    HStack(alignment: .top, spacing: 10) {
-                        Text("\(page + 1)/\(names.count)")
-                            .font(.system(size: 12, weight: .bold).monospacedDigit())
-                            .foregroundStyle(OG.onAccent)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(OG.accent, in: Capsule())
-                        Text(caption(for: page))
-                            .font(.system(size: 15))
-                            .foregroundStyle(OG.label)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .padding(.horizontal, 4)
-                } else {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Técnica")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(OG.onAccent)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(OG.accent, in: Capsule())
-                        ForEach(Array(steps.enumerated()), id: \.offset) { idx, step in
-                            HStack(alignment: .top, spacing: 8) {
-                                Text("\(idx + 1).")
-                                    .font(.system(size: 14, weight: .bold).monospacedDigit())
-                                    .foregroundStyle(OG.accent)
-                                Text(step)
+                OGCard {
+                    Group {
+                        if names.count > 1 {
+                            HStack(alignment: .top, spacing: 10) {
+                                Text("\(page + 1)/\(names.count)")
+                                    .font(.system(size: 12, weight: .bold).monospacedDigit())
+                                    .foregroundStyle(OG.onAccent)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(OG.accent, in: Capsule())
+                                Text(caption(for: page))
                                     .font(.system(size: 15))
                                     .foregroundStyle(OG.label)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        } else {
+                            VStack(alignment: .leading, spacing: 8) {
+                                OGCardSectionTitle(title: "Técnica")
+                                ForEach(Array(steps.enumerated()), id: \.offset) { idx, step in
+                                    HStack(alignment: .top, spacing: 8) {
+                                        Text("\(idx + 1).")
+                                            .font(.system(size: 14, weight: .bold).monospacedDigit())
+                                            .foregroundStyle(OG.accent)
+                                        Text(step)
+                                            .font(.system(size: 15))
+                                            .foregroundStyle(OG.label)
+                                    }
+                                }
                             }
                         }
                     }
-                    .padding(.horizontal, 4)
                 }
+                .padding(.horizontal, captionsHorizontalPadding)
             }
         }
     }
@@ -399,9 +403,8 @@ struct ExerciseArtView: View {
             if let ui = ExerciseArt.uiImage(named: name) {
                 Image(uiImage: ui)
                     .resizable()
-                    .scaledToFill()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipped()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity)
             }
         }
     }
