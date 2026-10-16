@@ -1,6 +1,6 @@
 # Funcionalidades Gymbro
 
-Última actualización: 2026-10-16 (QA carruseles + instrucciones PT con landmark `imagen:`)
+Última actualización: 2026-10-17 (auditoría de ExerciseArt y seguridad de carruseles)
 
 ## Tabs
 
@@ -52,14 +52,14 @@
 - Al foco: sin animaciones de List (`isSearching`), `NavigationLink(value:)` (sin destinos eager) y thumbs solo desde cache.
 - Búsqueda **semántica con pesos** (`ExerciseSearch.ranked` + índice); «press de banca» → Press banca y derivados.
 - Thumbs precargados + cache; trazas DEBUG `LibrarySearch` (`rebuild` / `rank top`).
-- Arte ejercicios: ilustraciones anatómicas generadas (gris + lime sobre charcoal); full **1024px**; `ExerciseArt/thumbs/` **192px** para listas. Export limpio: `scripts/export_generated_art.py` (thumbs: `scripts/homogenize_exercise_art.py`).
-- Carrusel de técnica (híbrido):
-  1. Pasos propios `base_1…N` si existen (≥2) — poses distintas del mismo movimiento (gimnasia Lote 1, HL Lote 2, gym clásico Lote 3, CF Lote 4). Lote 3: fondos, presses, RDL, zancadas, hip thrust, remos, jalón, sentadilla frontal/búlgara, curl barra; press francés sigue en `movementFrames` (gens no distinguían el bottom).
-  2. Si no, `movementFrames` en `ExerciseArt.swift` reutiliza héroes ya existentes con poses distintas (~109 ejercicios HL/CF/gimnasia dinámica/gym).
-  3. Si no, un solo hero.
-- Criterio visual: cada frame debe ser la fase del mismo ejercicio (**mismo equipo con el mismo diseño** entre pasos; misma silueta de persona: pelo, ropa, zapatillas); cambio articular evidente entre pasos. Ropa obligatoria: **tank + shorts + zapatillas** (nunca torso desnudo ni sin shorts). Si el atleta está **en el aire** (cuelgue, soporte sobre barra/anillas, salto a mitad), **sin** óvalo/sombra de suelo — solo fondo charcoal vacío. Al regenerar: anclar con `reference_image_paths` al frame `_1` del mismo ejercicio.
-- Holds estáticos (hollow hold, HS hold, L-sit, levers, planche tuck…) **sin** carrusel forzado.
-- Pie de foto: los N primeros textos de `CatalogSpanish.instructions` describen la pose del frame i con tono de entrenador y landmark visual (`imagen:…`) en `ExerciseArtView`. Preferir fondos/lockouts claros frente a mid-reps ambiguos si el arte no los distingue. Si un `_1…N` engaña, quitarlo y usar `movementFrames`/hero.
+- Arte de ejercicios: hero y pasos con figura atlética gris, **torso descubierto**, pelo corto charcoal, short charcoal, zapatillas grises y lime solo en los músculos activos de la fase; fondo charcoal sin texto ni logos. Referencia visual: `art_ab_wheel.jpg`.
+- Full `ExerciseArt/<stem>.jpg` a **1024×1024**, miniatura `ExerciseArt/thumbs/<stem>.jpg` a **192×192**. Exportar siempre con `scripts/export_generated_art.py` (sin homogenize para generaciones nuevas).
+- Carrusel técnico: 1) pasos propios `<base>_1…N` con ≥2 imágenes, **si no están en cuarentena visual**; 2) `movementFrames` solo de ejercicios verificados explícitamente; 3) hero. En caso de texto y número de frames distintos, se muestra hero para no desalinear pies de foto.
+- Los candidatos anteriores de `movementFrames` permanecen como referencia en el código, pero **no se habilitan sin QA visual**: distintos héroes no garantizan cámara, personaje ni equipamiento constantes.
+- Los holds estáticos (hollow hold, handstand hold, L-sit, levers, planche tuck, false grip hang…) muestran hero sin carrusel.
+- Cada frame debe mantener persona, proporciones, vestimenta, orientación, equipo y cámara. En suspensión (cuelgue, barra/anillas, salto) **no debe existir sombra/óvalo de suelo**. En apoyo sí puede aparecer uno suave.
+- Las instrucciones deben describir la **pose de su frame** en español claro (una acción por frase, preferiblemente 8–16 palabras). No mostrar notas editoriales entre paréntesis (`imagen:`) ni repetir la última instrucción cuando falte.
+- QA: inventario por stem en `docs/EXERCISE_ART_AUDIT.csv`; auditoría reproducible con `.venv-art/bin/python scripts/audit_exercise_art.py`. Estados: `FAIL` (defecto confirmado), `WARN` (revisar), `PENDING_VISUAL_QA` (sin aprobar visualmente). No confundir existencia en disco con veredicto OK.
 - Filtro / orden: alfabético, músculo, deporte, favoritos (modal).
 - **Músculo** = grupo anatómico (Pecho, Piernas…). CrossFit / Halterofilia / Gimnasia no son grupos musculares: van en **Deporte** (`sportTag`) y el ejercicio se asigna al músculo principal para métricas.
 - Alta de ejercicio custom.
