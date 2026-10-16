@@ -189,6 +189,7 @@ enum ExerciseArt {
         "Thruster",          // _3 cambia la barra por mancuernas
         "Muscle-up barra",   // _3 no es soporte real sobre la barra
         "Cargada colgante", // _1…3 llevan camiseta (incumple el estilo)
+        "Fondos en anillas",  // _1 y _3 son el mismo JPG: no hay progresión
     ]
 
     /// Cache thread-safe. Thumbs en `Dictionary` (no `NSCache`) para no perderlos al abrir el teclado.
