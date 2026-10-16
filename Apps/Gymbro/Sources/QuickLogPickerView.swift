@@ -5,18 +5,12 @@ import SwiftUI
 /// Mismo lenguaje de lista/sección que Crear / Favoritos (sin card envolvente).
 struct QuickLogPickerView: View {
     @Environment(GymbroStore.self) private var store
-    @Environment(\.dismiss) private var dismiss
     var onOpenedWorkout: () -> Void
 
     @State private var query = ""
 
     var body: some View {
         List {
-            Section {
-                OGBackPageHeader(title: "Apuntar series", onBack: { dismiss() })
-                    .ogListPageHeaderRow()
-            }
-
             Section {
                 ForEach(filtered) { exercise in
                     Button {
@@ -44,8 +38,7 @@ struct QuickLogPickerView: View {
         }
         .ogListChrome()
         .searchable(text: $query, prompt: "Buscar ejercicio")
-        .ogContentTitleNav()
-        .toolbar(.hidden, for: .navigationBar)
+        .ogPinnedTransparentNav("Apuntar series")
         .preferredColorScheme(.dark)
     }
 

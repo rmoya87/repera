@@ -1,3 +1,5 @@
 Gymbro exercise illustrations in this folder are original assets created for Gymbro.
 They are not copies of Gym visual / openGym catalogue media.
-Style: instructional flat vector on dark charcoal with lime accent.
+Style: instructional flat anatomical vector — medium-light grey figure, neon lime
+muscle highlights, solid charcoal background. Full 1024px; thumbs/ at 192px.
+Airborne poses (hang, bar/rings support, mid-jump): no floor oval/shadow.

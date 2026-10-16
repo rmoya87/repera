@@ -6,7 +6,8 @@ public enum ProgressTimeRange: String, CaseIterable, Identifiable, Sendable {
     case week
     case month
     case days90
-    case all
+    case days180
+    case days360
 
     public var id: String { rawValue }
 
@@ -16,7 +17,8 @@ public enum ProgressTimeRange: String, CaseIterable, Identifiable, Sendable {
         case .week: return "Esta semana"
         case .month: return "Este mes"
         case .days90: return "90 días"
-        case .all: return "Todo"
+        case .days180: return "180 días"
+        case .days360: return "360 días"
         }
     }
 
@@ -24,18 +26,19 @@ public enum ProgressTimeRange: String, CaseIterable, Identifiable, Sendable {
         title.lowercased()
     }
 
-    /// Días a pintar en gráficas / heatmap (cap en “Todo”).
+    /// Días a pintar en gráficas / heatmap.
     public var chartDayCount: Int {
         switch self {
         case .today: return 1
         case .week: return 7
         case .month: return 31
         case .days90: return 90
-        case .all: return 365
+        case .days180: return 180
+        case .days360: return 360
         }
     }
 
-    /// Inicio inclusivo del rango; `nil` = sin límite (Todo).
+    /// Inicio inclusivo del rango (siempre acotado).
     public func startDate(
         now: Date = Date(),
         calendar: Calendar = .current,
@@ -57,8 +60,10 @@ public enum ProgressTimeRange: String, CaseIterable, Identifiable, Sendable {
             return cal.date(from: comps)
         case .days90:
             return cal.date(byAdding: .day, value: -89, to: today)
-        case .all:
-            return nil
+        case .days180:
+            return cal.date(byAdding: .day, value: -179, to: today)
+        case .days360:
+            return cal.date(byAdding: .day, value: -359, to: today)
         }
     }
 
@@ -78,19 +83,19 @@ public enum ProgressTimeRange: String, CaseIterable, Identifiable, Sendable {
         return day >= start
     }
 
-    /// Días a pedir a Salud (mínimo 7; “Todo” acotado a 400).
+    /// Días a pedir a Salud (margen sobre el periodo visible).
     public var healthFetchDayCount: Int {
         switch self {
         case .today: return 7
         case .week: return 14
         case .month: return 45
         case .days90: return 100
-        case .all: return 400
+        case .days180: return 190
+        case .days360: return 370
         }
     }
 
     /// Ventana del periodo anterior (misma duración, desplazada hacia atrás).
-    /// `nil` si el rango es «Todo» (sin comparación).
     public func previousPeriodBounds(
         now: Date = Date(),
         calendar: Calendar = .current,
@@ -101,8 +106,6 @@ public enum ProgressTimeRange: String, CaseIterable, Identifiable, Sendable {
         let today = cal.startOfDay(for: now)
 
         switch self {
-        case .all:
-            return nil
         case .today:
             let start = cal.date(byAdding: .day, value: -1, to: today) ?? today
             return (start, today)
@@ -123,6 +126,18 @@ public enum ProgressTimeRange: String, CaseIterable, Identifiable, Sendable {
                 return nil
             }
             let prevStart = cal.date(byAdding: .day, value: -90, to: start) ?? start
+            return (prevStart, start)
+        case .days180:
+            guard let start = startDate(now: now, calendar: cal, weekStartsOnMonday: weekStartsOnMonday) else {
+                return nil
+            }
+            let prevStart = cal.date(byAdding: .day, value: -180, to: start) ?? start
+            return (prevStart, start)
+        case .days360:
+            guard let start = startDate(now: now, calendar: cal, weekStartsOnMonday: weekStartsOnMonday) else {
+                return nil
+            }
+            let prevStart = cal.date(byAdding: .day, value: -360, to: start) ?? start
             return (prevStart, start)
         }
     }

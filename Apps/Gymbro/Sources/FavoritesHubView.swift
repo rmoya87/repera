@@ -16,11 +16,6 @@ struct FavoritesHubView: View {
 
     var body: some View {
         List {
-            Section {
-                OGPageHeader(title: "Favoritos")
-                    .ogListPageHeaderRow()
-            }
-
             if !hasAnyFavorite {
                 Section {
                     ContentUnavailableView(
@@ -125,7 +120,7 @@ struct FavoritesHubView: View {
             }
         }
         .ogListChrome()
-        .ogContentTitleNav()
+        .ogPinnedTransparentNav("Favoritos")
         .sheet(item: $editing) { routine in
             DayEditorView(
                 routine: routine,

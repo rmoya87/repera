@@ -437,7 +437,7 @@ enum SVGPathParser {
 
         let startVec = CGPoint(x: (x1p - cxp) / rx2, y: (y1p - cyp) / ry2)
         let endVec = CGPoint(x: (-x1p - cxp) / rx2, y: (-y1p - cyp) / ry2)
-        var theta1 = angle(1, 0, startVec.x, startVec.y)
+        let theta1 = angle(1, 0, startVec.x, startVec.y)
         var dTheta = angle(startVec.x, startVec.y, endVec.x, endVec.y)
         if !sweep && dTheta > 0 { dTheta -= 2 * .pi }
         if sweep && dTheta < 0 { dTheta += 2 * .pi }

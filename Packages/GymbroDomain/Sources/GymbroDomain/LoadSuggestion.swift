@@ -27,12 +27,13 @@ public enum LoadSuggestion {
         return (raw / step).rounded() * step
     }
 
-    /// Rellena `weightMaleKg` en movimientos que solo traen % y tienen e1RM conocido.
+    /// Rellena `weightMaleKg` en movimientos que solo traen % y tienen 1RM conocido (tested o e1RM).
     public static func applyPercentLoads(
         to blocks: [RoutineBlock],
         workouts: [WorkoutSession],
         catalog: [Exercise],
-        incrementKg: Double = 2.5
+        incrementKg: Double = 2.5,
+        testedOneRMByExerciseId: [UUID: Double] = [:]
     ) -> [RoutineBlock] {
         blocks.map { block in
             var b = block
@@ -48,15 +49,17 @@ public enum LoadSuggestion {
                         CrossFitGlossary.normalize($0.name) == CrossFitGlossary.normalize(move.name)
                     }?.id
                 guard let exerciseId else { return move }
+                let tested = testedOneRMByExerciseId[exerciseId]
                 let hist = StatsEngine.history(for: exerciseId, workouts: workouts)
-                guard let oneRM = hist.estimatedOneRM, oneRM > 0 else { return move }
+                guard let oneRM = tested ?? hist.estimatedOneRM, oneRM > 0 else { return move }
+                let sourceLabel = tested != nil ? "1RM" : "e1RM"
 
                 var m = move
                 let kg = weightKg(oneRM: oneRM, percent: pct, roundTo: incrementKg)
                 m.weightMaleKg = kg
-                let note = "~\(Int(pct))% e1RM → \(kg.formatted(.number.precision(.fractionLength(0...1)))) kg"
+                let note = "~\(Int(pct))% \(sourceLabel) → \(kg.formatted(.number.precision(.fractionLength(0...1)))) kg"
                 if let existing = m.notes, !existing.isEmpty {
-                    if !existing.contains("% e1RM") {
+                    if !existing.contains("% e1RM"), !existing.contains("% 1RM") {
                         m.notes = existing + " · " + note
                     }
                 } else {

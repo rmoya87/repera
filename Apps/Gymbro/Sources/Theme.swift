@@ -31,14 +31,17 @@ enum OG {
     static let pad: CGFloat = 16
 }
 
-/// Título de sección dentro de una `OGCard` (blanco, destaca sobre la superficie).
+/// Título de sección **encima** de una `OGCard` (gris, estilo Ajustes / Form).
 struct OGCardSectionTitle: View {
     var title: String
 
     var body: some View {
         Text(title)
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(OG.label)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(OG.label2)
+            .textCase(.uppercase)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 4)
     }
 }
 
@@ -84,6 +87,41 @@ struct OGPrimaryButton: View {
     }
 }
 
+/// Barra fija superior: título (+ subtítulo) a la izquierda; acciones a la derecha en la misma fila.
+struct OGFixedTopBar<Trailing: View>: View {
+    var title: String
+    var subtitle: String? = nil
+    @ViewBuilder var trailing: () -> Trailing
+
+    var body: some View {
+        HStack(alignment: subtitle == nil ? .center : .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    // Mismo cuerpo que el large title del sistema (p. ej. Ejercicios).
+                    .font(.largeTitle.weight(.bold))
+                    .foregroundStyle(OG.label)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(OG.label2)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+            }
+            .layoutPriority(1)
+            Spacer(minLength: 8)
+            trailing()
+        }
+        .padding(.horizontal, OG.pad)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(OG.bg.opacity(0.001))
+    }
+}
+
 /// Cabecera de página estilo Inicio / Progreso: título grande en el scroll.
 struct OGPageHeader<Leading: View, Trailing: View>: View {
     var title: String
@@ -108,9 +146,8 @@ struct OGPageHeader<Leading: View, Trailing: View>: View {
             leading()
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.largeTitle.weight(.bold))
                     .foregroundStyle(OG.label)
-                    .tracking(-0.4)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
                 if let subtitle, !subtitle.isEmpty {
@@ -159,7 +196,34 @@ extension View {
             .toolbarColorScheme(.dark, for: .navigationBar)
     }
 
-    /// Título en el contenido (`OGPageHeader`); sin barra del sistema (mismo arranque que Progreso).
+    /// Topbar fijo como Ejercicios: título large que colapsa; botones del toolbar no se van con el scroll.
+    /// Usar cuando hay volver / acciones en la barra (el título queda debajo de esos botones).
+    func ogPinnedTransparentNav(_ title: String) -> some View {
+        self
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.large)
+            .ogTransparentNav()
+    }
+
+    /// Título arriba del todo (sin franja vacía). Acciones opcionales a la derecha, misma fila.
+    /// Para roots sin volver, o cuando no hay botones encima del título.
+    func ogFixedTopBar(
+        _ title: String,
+        subtitle: String? = nil,
+        @ViewBuilder trailing: @escaping () -> some View
+    ) -> some View {
+        self
+            .ogContentTitleNav()
+            .safeAreaInset(edge: .top, spacing: 0) {
+                OGFixedTopBar(title: title, subtitle: subtitle, trailing: trailing)
+            }
+    }
+
+    func ogFixedTopBar(_ title: String, subtitle: String? = nil) -> some View {
+        ogFixedTopBar(title, subtitle: subtitle) { EmptyView() }
+    }
+
+    /// Título en el contenido (`OGPageHeader`); sin barra del sistema.
     func ogContentTitleNav() -> some View {
         self
             .navigationTitle("")
@@ -239,7 +303,16 @@ private struct OGFittedSheetModifier: ViewModifier {
     @State private var contentHeight: CGFloat = 280
 
     private var maxHeight: CGFloat {
-        (UIScreen.main.bounds.height * 0.9).rounded()
+        let height = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first(where: { $0.activationState == .foregroundActive })?
+            .screen.bounds.height
+            ?? UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?
+            .screen.bounds.height
+            ?? 844
+        return (height * 0.9).rounded()
     }
 
     private var fittedDetent: PresentationDetent {
@@ -439,9 +512,8 @@ struct OGBackPageHeader<Trailing: View>: View {
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.largeTitle.weight(.bold))
                     .foregroundStyle(OG.label)
-                    .tracking(-0.4)
                     .lineLimit(2)
                     .minimumScaleFactor(0.75)
                 if let subtitle, !subtitle.isEmpty {
@@ -474,7 +546,6 @@ struct OGRepeatStepper: View {
 
     @State private var editing = false
     @State private var draft = ""
-    @FocusState private var focused: Bool
     @State private var holdTask: Task<Void, Never>?
     @State private var holdingSide: HoldSide?
 
@@ -495,24 +566,14 @@ struct OGRepeatStepper: View {
     @ViewBuilder
     private var centerValue: some View {
         if editing {
-            TextField("", text: $draft)
-                .keyboardType(keyboard)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .multilineTextAlignment(.center)
-                .font(.system(size: 15, weight: .semibold).monospacedDigit())
-                .foregroundStyle(OG.label)
-                .focused($focused)
-                .frame(maxWidth: .infinity)
-                .frame(height: 36)
-                .onAppear {
-                    focused = true
-                }
-                .onChange(of: focused) { _, isFocused in
-                    if !isFocused { commitEdit() }
-                }
-                .submitLabel(.done)
-                .onSubmit { commitEdit() }
+            OGNumericTextField(
+                text: $draft,
+                allowsDecimal: keyboard == .decimalPad || keyboard == .numbersAndPunctuation,
+                textAlignment: .center,
+                onCommit: { commitEdit() }
+            )
+            .frame(maxWidth: .infinity)
+            .frame(height: 36)
         } else {
             Text(display)
                 .font(.system(size: 15, weight: .semibold).monospacedDigit())
@@ -530,13 +591,14 @@ struct OGRepeatStepper: View {
         }
     }
 
+    /// Prioridad alta para ganar al ScrollView (el `.gesture` normal se lo come el scroll).
     private func holdButton(systemName: String, side: HoldSide, action: @escaping () -> Void) -> some View {
         Image(systemName: systemName)
             .font(.system(size: 12, weight: .bold))
             .foregroundStyle(OG.label2)
-            .frame(width: 32, height: 36)
+            .frame(width: 36, height: 36)
             .contentShape(Rectangle())
-            .gesture(
+            .highPriorityGesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in
                         guard enabled else { return }
@@ -557,7 +619,6 @@ struct OGRepeatStepper: View {
         holdingSide = side
         action()
         holdTask = Task { @MainActor in
-            // Pausa breve y luego repetición acelerada.
             try? await Task.sleep(nanoseconds: 280_000_000)
             var interval: UInt64 = 90_000_000
             while !Task.isCancelled {
@@ -578,7 +639,141 @@ struct OGRepeatStepper: View {
         guard editing else { return }
         onCommitText(draft.trimmingCharacters(in: .whitespacesAndNewlines))
         editing = false
-        focused = false
+    }
+}
+
+/// Campo numérico con tecla **intro** (UIKit).
+/// El `decimalPad` / `numberPad` de SwiftUI no tienen return; por eso no usamos `TextField`+`.keyboardType`.
+struct OGNumericTextField: UIViewRepresentable {
+    @Binding var text: String
+    var allowsDecimal: Bool = true
+    var textAlignment: NSTextAlignment = .center
+    var fontSize: CGFloat = 15
+    var textColor: UIColor = .white
+    var autoFocus: Bool = true
+    var onCommit: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(text: $text, allowsDecimal: allowsDecimal, onCommit: onCommit)
+    }
+
+    func makeUIView(context: Context) -> UITextField {
+        let field = UITextField()
+        field.delegate = context.coordinator
+        applyChrome(to: field)
+        field.text = text
+        if autoFocus {
+            DispatchQueue.main.async {
+                field.becomeFirstResponder()
+            }
+        }
+        return field
+    }
+
+    func updateUIView(_ field: UITextField, context: Context) {
+        context.coordinator.text = $text
+        context.coordinator.allowsDecimal = allowsDecimal
+        context.coordinator.onCommit = onCommit
+        applyChrome(to: field)
+        if field.text != text {
+            field.text = text
+        }
+    }
+
+    private func applyChrome(to field: UITextField) {
+        // numberPad/decimalPad no tienen intro; este teclado sí (en ES: «intro»).
+        field.keyboardType = .numbersAndPunctuation
+        field.returnKeyType = .default
+        field.enablesReturnKeyAutomatically = false
+        field.textAlignment = textAlignment
+        field.font = .monospacedDigitSystemFont(ofSize: fontSize, weight: .semibold)
+        field.textColor = textColor
+        field.tintColor = UIColor(OG.accent)
+        field.autocorrectionType = .no
+        field.autocapitalizationType = .none
+        field.smartQuotesType = .no
+        field.smartDashesType = .no
+        field.borderStyle = .none
+        field.backgroundColor = .clear
+        field.inputAccessoryView = nil
+    }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        var text: Binding<String>
+        var allowsDecimal: Bool
+        var onCommit: () -> Void
+
+        init(text: Binding<String>, allowsDecimal: Bool, onCommit: @escaping () -> Void) {
+            self.text = text
+            self.allowsDecimal = allowsDecimal
+            self.onCommit = onCommit
+        }
+
+        func textFieldDidChangeSelection(_ textField: UITextField) {
+            text.wrappedValue = textField.text ?? ""
+        }
+
+        func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+            textField.resignFirstResponder()
+            return true
+        }
+
+        func textFieldDidEndEditing(_ textField: UITextField) {
+            text.wrappedValue = textField.text ?? ""
+            onCommit()
+        }
+
+        func textField(
+            _ textField: UITextField,
+            shouldChangeCharactersIn range: NSRange,
+            replacementString string: String
+        ) -> Bool {
+            if string.isEmpty { return true }
+            let allowed = allowsDecimal
+                ? CharacterSet(charactersIn: "0123456789.,")
+                : CharacterSet.decimalDigits
+            guard string.unicodeScalars.allSatisfy({ allowed.contains($0) }) else { return false }
+            let current = textField.text ?? ""
+            guard let swiftRange = Range(range, in: current) else { return false }
+            let next = current.replacingCharacters(in: swiftRange, with: string)
+            if allowsDecimal {
+                let separators = next.filter { $0 == "." || $0 == "," }
+                if separators.count > 1 { return false }
+            }
+            return true
+        }
+    }
+}
+
+extension View {
+    /// Teclado con **intro** para `TextField` SwiftUI (sin barra «Listo»).
+    /// Ojo: no combines con `.keyboardType(.decimalPad)` — ese gana y pierdes el intro.
+    func ogNumericKeyboard(
+        allowsDecimal: Bool = true,
+        onSubmit: (() -> Void)? = nil
+    ) -> some View {
+        self
+            .keyboardType(.numbersAndPunctuation)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .submitLabel(.return)
+            .onSubmit {
+                onSubmit?()
+                UIApplication.shared.sendAction(
+                    #selector(UIResponder.resignFirstResponder),
+                    to: nil, from: nil, for: nil
+                )
+            }
+    }
+
+    /// Compat: antes era la barra «Listo»; ahora cierra con intro del teclado.
+    func ogKeyboardDone(action: @escaping () -> Void = {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil, from: nil, for: nil
+        )
+    }) -> some View {
+        ogNumericKeyboard(allowsDecimal: true, onSubmit: action)
     }
 }
 

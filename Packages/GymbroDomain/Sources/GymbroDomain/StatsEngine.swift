@@ -576,20 +576,21 @@ public enum ProgressTrendMetric: String, Sendable {
 public struct ProgressHealthSummary: Sendable, Equatable {
     public var averageMinutes: Double?
     public var totalKcal: Double
-    public var cardioMinutes: Double
+    /// Media de minutos de sesiones cardio (no suma del periodo).
+    public var averageCardioMinutes: Double?
     public var volumeKg: Double
     public var sessionCount: Int
 
     public init(
         averageMinutes: Double?,
         totalKcal: Double,
-        cardioMinutes: Double,
+        averageCardioMinutes: Double?,
         volumeKg: Double,
         sessionCount: Int
     ) {
         self.averageMinutes = averageMinutes
         self.totalKcal = totalKcal
-        self.cardioMinutes = cardioMinutes
+        self.averageCardioMinutes = averageCardioMinutes
         self.volumeKg = volumeKg
         self.sessionCount = sessionCount
     }
@@ -608,7 +609,87 @@ public struct ProgressDayPoint: Identifiable, Sendable, Equatable {
     }
 }
 
+/// Granularidad de series en Progreso: rangos largos se promedian para reducir ruido.
+public enum ProgressSeriesGranularity: String, Sendable, Equatable {
+    case day
+    case week
+    case month
+
+    /// Hoy/semana = día; mes/90/180 = semana; 360 = mes (Charts ≤ ~48 puntos).
+    public static func forChart(
+        range: ProgressTimeRange,
+        firstDate: Date? = nil,
+        lastDate: Date? = nil,
+        calendar: Calendar = .current
+    ) -> ProgressSeriesGranularity {
+        _ = firstDate
+        _ = lastDate
+        _ = calendar
+        switch range {
+        case .today, .week:
+            return .day
+        case .month, .days90, .days180:
+            return .week
+        case .days360:
+            return .month
+        }
+    }
+}
+
 extension StatsEngine {
+    /// Promedia puntos diarios por semana o mes (eje X = inicio del bucket).
+    public static func averagedSeries(
+        _ points: [ProgressDayPoint],
+        granularity: ProgressSeriesGranularity,
+        weekStartsOnMonday: Bool = true,
+        calendar: Calendar = .current
+    ) -> [ProgressDayPoint] {
+        guard granularity != .day, points.count > 1 else { return points }
+        var cal = calendar
+        cal.firstWeekday = weekStartsOnMonday ? 2 : 1
+        let df = dayKeyFormatter(calendar: cal)
+
+        struct Acc { var date: Date; var sum: Double; var count: Int }
+        var groups: [String: Acc] = [:]
+
+        for point in points {
+            let day = cal.startOfDay(for: point.date)
+            let key: String
+            let bucketStart: Date
+            switch granularity {
+            case .day:
+                key = df.string(from: day)
+                bucketStart = day
+            case .week:
+                key = weekKey(day, calendar: cal)
+                bucketStart = startOfWeek(containing: day, calendar: cal)
+            case .month:
+                let comps = cal.dateComponents([.year, .month], from: day)
+                key = String(format: "%04d-%02d", comps.year ?? 0, comps.month ?? 0)
+                bucketStart = cal.date(from: comps) ?? day
+            }
+            var acc = groups[key] ?? Acc(date: bucketStart, sum: 0, count: 0)
+            acc.sum += point.value
+            acc.count += 1
+            if bucketStart < acc.date { acc.date = bucketStart }
+            groups[key] = acc
+        }
+
+        return groups.values
+            .map { acc in
+                let avg = acc.count > 0 ? acc.sum / Double(acc.count) : 0
+                return ProgressDayPoint(dayKey: df.string(from: acc.date), date: acc.date, value: avg)
+            }
+            .sorted { $0.date < $1.date }
+    }
+
+    public static func startOfWeek(containing date: Date, calendar: Calendar) -> Date {
+        let day = calendar.startOfDay(for: date)
+        let weekday = calendar.component(.weekday, from: day)
+        let delta = (weekday - calendar.firstWeekday + 7) % 7
+        return calendar.date(byAdding: .day, value: -delta, to: day) ?? day
+    }
+
     public static func filterWorkouts(
         _ workouts: [WorkoutSession],
         range: ProgressTimeRange,
@@ -662,6 +743,7 @@ extension StatsEngine {
     }
 
     /// Serie diaria de cardio (min) o kcal para gráficas de Progreso.
+    /// En 90d/Todo no rellena ceros día a día (solo días con dato) para no bloquear la UI.
     public static func dailyMetricSeries(
         workouts: [WorkoutSession],
         external: [ExternalDaySample] = [],
@@ -681,14 +763,17 @@ extension StatsEngine {
         }()
         let df = dayKeyFormatter(calendar: calendar)
         var buckets: [String: (date: Date, value: Double)] = [:]
+        let fillZeros = ProgressSeriesGranularity.forChart(range: range) == .day
 
-        var cursor = start
-        while cursor <= today {
-            let key = df.string(from: cursor)
-            buckets[key] = (cursor, 0)
-            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
-            cursor = next
-            if buckets.count > 400 { break }
+        if fillZeros {
+            var cursor = start
+            while cursor <= today {
+                let key = df.string(from: cursor)
+                buckets[key] = (cursor, 0)
+                guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+                cursor = next
+                if buckets.count > 120 { break }
+            }
         }
 
         for workout in workouts {
@@ -699,10 +784,9 @@ extension StatsEngine {
             let add: Double
             switch metric {
             case .cardioMinutes:
-                // Sesiones Gymbro de Cardio / sin volumen cuentan en la curva.
                 let isCardioSession = workout.exercises.contains {
                     $0.exercise.muscleGroup == "Cardio"
-                } || workout.totalVolumeKg <= 0
+                }
                 add = isCardioSession ? max(0, workout.durationMinutes) : 0
             case .activeEnergyKcal:
                 add = max(0, workout.appleActiveEnergyKcal ?? 0)
@@ -719,8 +803,7 @@ extension StatsEngine {
             let add: Double
             switch metric {
             case .cardioMinutes:
-                // Preferir cardioMinutes; si viene 0, usar minutos totales de Salud.
-                add = sample.cardioMinutes > 0 ? sample.cardioMinutes : max(0, sample.minutes)
+                add = max(0, sample.cardioMinutes)
             case .activeEnergyKcal:
                 add = max(0, sample.activeEnergyKcal)
             }
@@ -740,18 +823,24 @@ extension StatsEngine {
         range: ProgressTimeRange = .week,
         weekStartsOnMonday: Bool = true,
         now: Date = Date(),
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        /// Si false, usa las listas tal cual (p. ej. ya filtradas al periodo anterior).
+        applyRangeFilter: Bool = true
     ) -> ProgressHealthSummary {
-        let filteredW = filterWorkouts(
-            workouts, range: range, weekStartsOnMonday: weekStartsOnMonday, now: now, calendar: calendar
-        )
-        let filteredE = filterExternal(
-            external, range: range, weekStartsOnMonday: weekStartsOnMonday, now: now, calendar: calendar
-        )
+        let filteredW = applyRangeFilter
+            ? filterWorkouts(
+                workouts, range: range, weekStartsOnMonday: weekStartsOnMonday, now: now, calendar: calendar
+            )
+            : workouts
+        let filteredE = applyRangeFilter
+            ? filterExternal(
+                external, range: range, weekStartsOnMonday: weekStartsOnMonday, now: now, calendar: calendar
+            )
+            : external
 
         var minutes: [Double] = []
+        var cardioMinutes: [Double] = []
         var kcal: Double = 0
-        var cardio: Double = 0
         var volume: Double = 0
 
         for workout in filteredW {
@@ -763,9 +852,9 @@ extension StatsEngine {
             }
             let isCardioSession = workout.exercises.contains {
                 $0.exercise.muscleGroup == "Cardio"
-            } || workout.totalVolumeKg <= 0
-            if isCardioSession {
-                cardio += max(0, m)
+            }
+            if isCardioSession, m > 0 {
+                cardioMinutes.append(m)
             }
         }
 
@@ -773,14 +862,19 @@ extension StatsEngine {
             if sample.minutes > 0 { minutes.append(sample.minutes) }
             volume += max(0, sample.volumeKg)
             kcal += max(0, sample.activeEnergyKcal)
-            cardio += sample.cardioMinutes > 0 ? sample.cardioMinutes : max(0, sample.minutes)
+            if sample.cardioMinutes > 0 {
+                cardioMinutes.append(sample.cardioMinutes)
+            }
         }
 
         let avg: Double? = minutes.isEmpty ? nil : minutes.reduce(0, +) / Double(minutes.count)
+        let avgCardio: Double? = cardioMinutes.isEmpty
+            ? nil
+            : cardioMinutes.reduce(0, +) / Double(cardioMinutes.count)
         return ProgressHealthSummary(
             averageMinutes: avg,
             totalKcal: kcal,
-            cardioMinutes: cardio,
+            averageCardioMinutes: avgCardio,
             volumeKg: volume,
             sessionCount: filteredW.count + filteredE.count
         )

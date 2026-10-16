@@ -2,21 +2,15 @@ import SwiftUI
 
 struct BodyWeightListView: View {
     @Environment(GymbroStore.self) private var store
-    @Environment(\.dismiss) private var dismiss
     @State private var kgText = ""
     @State private var goalText = ""
 
     var body: some View {
         List {
             Section {
-                OGBackPageHeader(title: "Peso corporal", onBack: { dismiss() })
-                    .ogListPageHeaderRow()
-            }
-
-            Section {
                 HStack {
                     TextField("kg", text: $kgText)
-                        .keyboardType(.decimalPad)
+                        .ogKeyboardDone()
                         .foregroundStyle(OG.label)
                     Button("Añadir") {
                         if let value = Double(kgText.replacingOccurrences(of: ",", with: ".")), value > 0 {
@@ -36,7 +30,7 @@ struct BodyWeightListView: View {
             Section {
                 HStack {
                     TextField("Objetivo kg", text: $goalText)
-                        .keyboardType(.decimalPad)
+                        .ogKeyboardDone()
                         .foregroundStyle(OG.label)
                     Button("Guardar") {
                         var s = store.state.settings
@@ -88,8 +82,7 @@ struct BodyWeightListView: View {
             }
         }
         .ogListChrome()
-        .ogContentTitleNav()
-        .navigationBarBackButtonHidden(true)
+        .ogPinnedTransparentNav("Peso corporal")
         .onAppear {
             if let g = store.state.settings.bodyWeightGoalKg {
                 goalText = String(format: "%g", g)

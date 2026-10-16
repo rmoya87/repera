@@ -44,3 +44,7 @@ reference/
 # Node (por si se abre el clone local)
 **/node_modules/
 **/dist/
+
+.venv/
+.venv-img/
+.venv-art/

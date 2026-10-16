@@ -2,7 +2,7 @@ import Foundation
 
 /// Habilidades gimnásticas usadas en CrossFit / calistenia de box.
 enum CatalogGimnasia {
-    private static let g = "Gimnasia"
+    private static let sport = "Gimnasia"
 
     static let rows: [EnrichedSeed] = [
         // MARK: Dominadas / tirón
@@ -29,7 +29,7 @@ enum CatalogGimnasia {
         gy("Chest to bar", equipment: "Peso corporal", target: "lats",
            secondary: ["biceps", "upper back", "core"], body: "back",
            description: "Dominada hasta contacto pecho-barra.",
-           instructions: ["Kipping o butterfly.", "Pecho toca la barra.", "Extiende abajo."],
+           instructions: ["Cuelga con brazos extendidos.", "Tira hasta la barbilla cerca de la barra.", "Pecho toca la barra; baja con control."],
            primaries: ["lats", "upper-back"], secondaries: ["biceps", "abs"]),
         gy("Dominadas en anillas", equipment: "Peso corporal", target: "lats",
            secondary: ["biceps", "core", "shoulders"], body: "back",
@@ -259,7 +259,7 @@ enum CatalogGimnasia {
         gy("GHD sit-up", equipment: "Máquina", target: "abs",
            secondary: ["hip flexors", "quads"], body: "waist",
            description: "Sit-up en GHD rango completo.",
-           instructions: ["Pies fijos en GHD.", "Baja torso detrás.", "Siéntate al estándar del WOD."],
+           instructions: ["Pies en rodillos, torso colgando atrás en el GHD.", "Flexiona el tronco hacia arriba.", "Siéntate al estándar y vuelve atrás con control."],
            primaries: ["abs"], secondaries: ["hip flexors", "quadriceps"]),
         gy("GHD back extension", equipment: "Máquina", target: "lower back",
            secondary: ["glutes", "hamstrings"], body: "back",
@@ -306,8 +306,8 @@ enum CatalogGimnasia {
         primaries: [String] = [],
         secondaries: [String] = []
     ) -> EnrichedSeed {
-        CatalogSeedBuilder.row(
-            name, group: g, equipment: equipment, target: target,
+        CatalogSeedBuilder.sportRow(
+            name, sport: sport, equipment: equipment, target: target,
             secondary: secondary, body: body, description: description,
             instructions: instructions, primaries: primaries, secondaries: secondaries
         )

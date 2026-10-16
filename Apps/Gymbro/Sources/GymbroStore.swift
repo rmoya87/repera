@@ -59,6 +59,7 @@ final class GymbroStore: NSObject {
                 || state.exercises[i].instructions != fresh.instructions
             let staleGroup = state.exercises[i].muscleGroup != fresh.muscleGroup
                 || state.exercises[i].equipment != fresh.equipment
+                || state.exercises[i].sportTag != fresh.sportTag
             guard staleMeta || staleGroup else { continue }
             let fav = state.exercises[i].isFavorite
             let id = state.exercises[i].id
@@ -76,7 +77,8 @@ final class GymbroStore: NSObject {
                 instructions: fresh.instructions,
                 primaryRegions: fresh.primaryRegions,
                 secondaryRegions: fresh.secondaryRegions,
-                isFavorite: fav
+                isFavorite: fav,
+                sportTag: fresh.sportTag
             )
             changed = true
         }
@@ -534,7 +536,7 @@ final class GymbroStore: NSObject {
         )
         let now = Date()
         let start = now.addingTimeInterval(-max(60, Double(sets.count) * 90))
-        var session = WorkoutSession(
+        let session = WorkoutSession(
             title: "Apuntar · \(exercise.name)",
             exercises: [entry],
             currentIndex: 0,
@@ -618,6 +620,19 @@ final class GymbroStore: NSObject {
         }
         state.workouts.sort {
             ($0.finishedAt ?? $0.startedAt ?? .distantPast) > ($1.finishedAt ?? $1.startedAt ?? .distantPast)
+        }
+        bumpTestedOneRMs(for: session.exercises.map(\.exercise.id))
+    }
+
+    /// Si el e1RM del historial supera el 1RM guardado, sube el tope automáticamente.
+    private func bumpTestedOneRMs(for exerciseIds: [UUID]) {
+        for id in Set(exerciseIds) {
+            var pref = loadPreference(for: id)
+            guard let tested = pref.testedOneRMKg, tested > 0 else { continue }
+            let hist = StatsEngine.history(for: id, workouts: state.workouts)
+            guard let e1 = hist.estimatedOneRM, e1 > tested + 0.049 else { continue }
+            pref.testedOneRMKg = (e1 * 10).rounded() / 10
+            state.exerciseLoadPrefs[id.uuidString] = pref
         }
     }
 
@@ -944,55 +959,6 @@ final class GymbroStore: NSObject {
     func setLoadPreference(_ pref: ExerciseLoadPreference, for exerciseId: UUID) {
         state.exerciseLoadPrefs[exerciseId.uuidString] = pref
         persist()
-    }
-
-    /// Línea de discos bajo una serie, respetando preferencias de la ficha del ejercicio.
-    func plateCompactLine(exerciseId: UUID, targetKg: Double) -> String? {
-        let pref = loadPreference(for: exerciseId)
-        guard pref.mode != .off else { return nil }
-        let base: Double = {
-            switch pref.mode {
-            case .perSide:
-                return pref.baseWeightKg > 0 ? pref.baseWeightKg : state.settings.barbellKg
-            case .singleStack:
-                return pref.baseWeightKg
-            case .off:
-                return 0
-            }
-        }()
-        let solution = PlateMath.solve(
-            targetKg: targetKg,
-            baseKg: base,
-            mode: pref.mode,
-            availablePlatesKg: state.settings.ownedPlatesKg
-        )
-        return solution.compactLabel(mode: pref.mode)
-    }
-
-    func plateSummaryLine(exerciseId: UUID, targetKg: Double) -> String? {
-        let pref = loadPreference(for: exerciseId)
-        guard pref.mode != .off else { return nil }
-        let base: Double = {
-            switch pref.mode {
-            case .perSide:
-                return pref.baseWeightKg > 0 ? pref.baseWeightKg : state.settings.barbellKg
-            case .singleStack:
-                return pref.baseWeightKg
-            case .off:
-                return 0
-            }
-        }()
-        let solution = PlateMath.solve(
-            targetKg: targetKg,
-            baseKg: base,
-            mode: pref.mode,
-            availablePlatesKg: state.settings.ownedPlatesKg
-        )
-        if pref.mode == .singleStack, !solution.perSide.isEmpty {
-            let parts = solution.perSide.map { "\($0.countPerSide)×\(String(format: "%g", $0.plateKg))" }.joined(separator: " + ")
-            return "Pila: \(parts) → \(String(format: "%g", solution.achievedKg)) kg"
-        }
-        return solution.summary
     }
 
     /// Añade el ejercicio al entreno suelto de hoy (Inicio · Entreno del día). No modifica rutinas del plan semanal.

@@ -6,52 +6,94 @@ import SwiftUI
 
 struct HistoryView: View {
     @Environment(GymbroStore.self) private var store
-    @Environment(\.dismiss) private var dismiss
+    @Environment(HealthKitStore.self) private var health
+
+    /// Entradas unificadas: Gymbro + Salud (misma fuente que alimenta la racha de Inicio).
+    private enum HistoryEntry: Identifiable {
+        case gymbro(WorkoutSession)
+        case health(HealthKitStore.ExternalActivity)
+
+        var id: String {
+            switch self {
+            case .gymbro(let s): return "g-\(s.id.uuidString)"
+            case .health(let a): return "h-\(a.id.uuidString)"
+            }
+        }
+
+        var sortDate: Date {
+            switch self {
+            case .gymbro(let s): return s.finishedAt ?? s.startedAt ?? .distantPast
+            case .health(let a): return a.start
+            }
+        }
+    }
+
+    private struct DaySection: Identifiable {
+        var id: Date
+        var title: String
+        var entries: [HistoryEntry]
+    }
 
     /// Solo sesiones terminadas (no planes guardados ni borradores).
     private var finishedWorkouts: [WorkoutSession] {
         store.state.workouts.filter { $0.finishedAt != nil && $0.phase == .finished }
     }
 
+    private var entries: [HistoryEntry] {
+        let gymbro = finishedWorkouts.map { HistoryEntry.gymbro($0) }
+        let healthOnes = health.recentExternalActivities.map { HistoryEntry.health($0) }
+        return (gymbro + healthOnes).sorted { $0.sortDate > $1.sortDate }
+    }
+
+    private var daySections: [DaySection] {
+        let cal = Calendar.current
+        let grouped = Dictionary(grouping: entries) { cal.startOfDay(for: $0.sortDate) }
+        return grouped.keys.sorted(by: >).map { day in
+            DaySection(
+                id: day,
+                title: sectionTitle(for: day),
+                entries: (grouped[day] ?? []).sorted { $0.sortDate > $1.sortDate }
+            )
+        }
+    }
+
     var body: some View {
         Group {
-            if finishedWorkouts.isEmpty {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        OGBackPageHeader(title: "Historial", onBack: { dismiss() })
-                        ContentUnavailableView(
-                            "Sin entrenos",
-                            systemImage: "tray",
-                            description: Text("Las sesiones terminadas aparecerán aquí.")
-                        )
-                        .foregroundStyle(OG.label2)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 40)
-                    }
-                    .padding(.horizontal, OG.pad)
-                    .padding(.top, 0)
-                }
+            if daySections.isEmpty {
+                ContentUnavailableView(
+                    "Sin entrenos",
+                    systemImage: "tray",
+                    description: Text("Las sesiones de Gymbro y de Apple Salud aparecerán aquí.")
+                )
+                .foregroundStyle(OG.label2)
             } else {
                 List {
-                    Section {
-                        OGBackPageHeader(title: "Historial", onBack: { dismiss() })
-                            .ogListPageHeaderRow()
-                    }
-                    ForEach(finishedWorkouts) { session in
-                        NavigationLink {
-                            WorkoutDetailView(sessionId: session.id)
-                        } label: {
-                            historyRow(session)
-                        }
-                    }
-                    .onDelete { indexSet in
-                        let doomed = indexSet.map { finishedWorkouts[$0] }
-                        for session in doomed {
-                            let hk = session.healthKitWorkoutUUID
-                            store.deleteWorkout(session.id)
-                            if let hk {
-                                Task { _ = await HealthKitStore.shared.deleteExternalWorkout(id: hk) }
+                    ForEach(daySections) { section in
+                        Section {
+                            ForEach(section.entries) { entry in
+                                switch entry {
+                                case .gymbro(let session):
+                                    NavigationLink {
+                                        WorkoutDetailView(sessionId: session.id)
+                                    } label: {
+                                        gymbroHistoryRow(session)
+                                    }
+                                case .health(let activity):
+                                    NavigationLink {
+                                        HealthActivityDetailView(activityId: activity.id)
+                                    } label: {
+                                        healthHistoryRow(activity)
+                                    }
+                                }
                             }
+                            .onDelete { indexSet in
+                                deleteEntries(in: section, at: indexSet)
+                            }
+                        } header: {
+                            Text(section.title)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(OG.label2)
+                                .textCase(nil)
                         }
                     }
                 }
@@ -59,60 +101,153 @@ struct HistoryView: View {
             }
         }
         .background(OG.bg)
-        .ogContentTitleNav()
-        .navigationBarBackButtonHidden(true)
+        .ogPinnedTransparentNav("Historial")
+        .task {
+            await refreshHealthEntries()
+        }
     }
 
-    private func dateLabel(_ session: WorkoutSession) -> String {
-        (session.finishedAt ?? session.startedAt)?.formatted(date: .abbreviated, time: .omitted) ?? "—"
+    private func sectionTitle(for day: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(day) { return "Hoy" }
+        if cal.isDateInYesterday(day) { return "Ayer" }
+        return SpanishDate.long(day)
     }
 
-    private func historyRow(_ session: WorkoutSession) -> some View {
-        let sets = StatsEngine.totalSets(in: session)
-        let mins = Int(session.durationMinutes.rounded())
-        let prs = StatsEngine.personalRecordCount(in: session, allWorkouts: store.state.workouts)
-        let duration = mins >= 60
-            ? "\(mins / 60)h \(mins % 60)m"
-            : (mins > 0 ? "\(mins) min" : "—")
+    private func refreshHealthEntries() async {
+        guard health.isAuthorized else { return }
+        let linked = Set(store.state.workouts.compactMap(\.healthKitWorkoutUUID))
+        // Mismo horizonte que Progreso/racha (360d) para que Historial cubra las semanas contadas.
+        await health.refreshRecentExternalActivities(
+            excludingUUIDs: linked,
+            overlappingSessions: store.state.workouts,
+            days: 360
+        )
+    }
 
-        return HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(OG.accent.opacity(0.2))
-                .frame(width: 40, height: 40)
-                .overlay {
-                    Image(systemName: "figure.strengthtraining.traditional")
-                        .foregroundStyle(OG.accent)
+    private func deleteEntries(in section: DaySection, at indexSet: IndexSet) {
+        let doomed = indexSet.map { section.entries[$0] }
+        for entry in doomed {
+            switch entry {
+            case .gymbro(let session):
+                let hk = session.healthKitWorkoutUUID
+                store.deleteWorkout(session.id)
+                if let hk {
+                    Task { _ = await HealthKitStore.shared.deleteExternalWorkout(id: hk) }
                 }
+            case .health(let activity):
+                Task {
+                    _ = await HealthKitStore.shared.deleteExternalWorkout(id: activity.id)
+                }
+            }
+        }
+    }
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(session.title)
-                        .font(.headline)
-                        .foregroundStyle(OG.label)
-                    if let notes = session.notes, !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Image(systemName: "note.text")
-                            .font(.caption)
-                            .foregroundStyle(OG.accent)
+    private func gymbroHistoryRow(_ session: WorkoutSession) -> some View {
+        let minutes = session.durationMinutes
+        let logged = session.exercises.filter { !$0.loggedSets.isEmpty }
+        let kcal = session.appleActiveEnergyKcal
+        let prs = StatsEngine.personalRecordCount(in: session, allWorkouts: store.state.workouts)
+        let start = session.startedAt ?? session.finishedAt
+
+        return HStack(alignment: .top, spacing: 12) {
+            ZStack {
+                Circle().fill(OG.accent.opacity(0.22))
+                Image(systemName: "checkmark")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(OG.accent)
+            }
+            .frame(width: 44, height: 44)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    HStack(spacing: 6) {
+                        Text(session.title)
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundStyle(OG.label)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                        if let notes = session.notes, !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Image(systemName: "note.text")
+                                .font(.caption)
+                                .foregroundStyle(OG.accent)
+                        }
+                    }
+                    Spacer(minLength: 4)
+                    if let start {
+                        Text(SpanishDate.time(start))
+                            .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(OG.label2)
                     }
                 }
-                Text("\(dateLabel(session)) · \(duration) · \(sets) series · \(Int(session.totalVolumeKg)) kg")
-                    .font(.caption)
-                    .foregroundStyle(OG.label2)
-                    .lineLimit(2)
-            }
 
-            Spacer(minLength: 8)
-
-            if prs > 0 {
-                Text("\(prs) PR")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.black)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(OG.yellow, in: Capsule())
+                HStack(spacing: 6) {
+                    if minutes > 0 {
+                        historyChip("\(Int(minutes.rounded())) min", icon: "timer")
+                    }
+                    if let kcal, kcal > 0 {
+                        historyChip("\(Int(kcal.rounded())) kcal", icon: "flame.fill")
+                    }
+                    if !logged.isEmpty {
+                        historyChip("\(logged.count) ej.", icon: "list.bullet")
+                    }
+                    if prs > 0 {
+                        historyChip("\(prs) PR", icon: "trophy.fill")
+                    }
+                }
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private func healthHistoryRow(_ activity: HealthKitStore.ExternalActivity) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            ZStack {
+                Circle().fill(OG.red.opacity(0.22))
+                Image(systemName: activity.symbolName)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(OG.red)
+            }
+            .frame(width: 44, height: 44)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(activity.title)
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(OG.label)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 4)
+                    Text(SpanishDate.time(activity.start))
+                        .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(OG.label2)
+                }
+
+                HStack(spacing: 6) {
+                    historyChip("Salud", icon: "heart.fill")
+                    if activity.durationMinutes > 0 {
+                        historyChip("\(Int(activity.durationMinutes.rounded())) min", icon: "timer")
+                    }
+                    if let kcal = activity.activeEnergyKcal, kcal > 0 {
+                        historyChip("\(Int(kcal.rounded())) kcal", icon: "flame.fill")
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func historyChip(_ text: String, icon: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+            Text(text)
+                .font(.system(size: 11, weight: .semibold))
+        }
+        .foregroundStyle(OG.label2)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(OG.surface3.opacity(0.65), in: Capsule())
     }
 }
 
@@ -180,52 +315,13 @@ struct WorkoutDetailView: View {
 
     private var detailList: some View {
         List {
-            Section {
-                OGBackPageHeader(
-                    title: "Entreno",
-                    subtitle: subtitle.isEmpty ? nil : subtitle,
-                    onBack: { dismiss() }
-                ) {
-                    HStack(spacing: 8) {
-                        Menu {
-                            if !isEditing {
-                                Button {
-                                    isEditing = true
-                                } label: {
-                                    Label("Editar", systemImage: "pencil")
-                                }
-                            }
-                            Button(role: .destructive) {
-                                showDeleteConfirm = true
-                            } label: {
-                                Label("Eliminar", systemImage: "trash")
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .font(.system(size: OG.toolbarGlassIcon, weight: .semibold))
-                                .foregroundStyle(OG.label)
-                                .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
-                                .contentShape(Circle())
-                                .glassEffect(.regular.interactive(), in: .circle)
-                        }
-                        .accessibilityLabel("Más opciones")
-
-                        if isEditing {
-                            OGToolbarGlassButton(
-                                systemName: "checkmark",
-                                accessibilityLabel: "Guardar",
-                                tint: OG.accent,
-                                appliesGlass: true
-                            ) {
-                                if let draft {
-                                    store.saveWorkout(draft)
-                                    isEditing = false
-                                }
-                            }
-                        }
-                    }
+            if !subtitle.isEmpty {
+                Section {
+                    Text(subtitle)
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(OG.label2)
+                        .ogListPageHeaderRow()
                 }
-                .ogListPageHeaderRow()
             }
 
             if let session = draft {
@@ -301,9 +397,46 @@ struct WorkoutDetailView: View {
         }
         .ogListChrome()
         .listSectionSpacing(18)
-        .ogContentTitleNav()
-        .toolbar(.hidden, for: .navigationBar)
-        .navigationBarBackButtonHidden(true)
+        .ogPinnedTransparentNav("Entreno")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    if !isEditing {
+                        Button {
+                            isEditing = true
+                        } label: {
+                            Label("Editar", systemImage: "pencil")
+                        }
+                    }
+                    Button(role: .destructive) {
+                        showDeleteConfirm = true
+                    } label: {
+                        Label("Eliminar", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(OG.label)
+                        .frame(width: 36, height: 36)
+                        .contentShape(Circle())
+                }
+                .accessibilityLabel("Más opciones")
+            }
+            if isEditing {
+                ToolbarItem(placement: .topBarTrailing) {
+                    OGToolbarGlassButton(
+                        systemName: "checkmark",
+                        accessibilityLabel: "Guardar",
+                        tint: OG.accent
+                    ) {
+                        if let draft {
+                            store.saveWorkout(draft)
+                            isEditing = false
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private func summaryCard(_ session: WorkoutSession) -> some View {
@@ -831,7 +964,6 @@ private struct HealthSpeedStatRow: View {
 /// Ficha de un entreno importado de Apple Salud (mismo lenguaje visual que Entreno).
 struct HealthActivityDetailView: View {
     @Environment(HealthKitStore.self) private var health
-    @Environment(\.dismiss) private var dismiss
 
     var activityId: UUID
 
@@ -864,13 +996,13 @@ struct HealthActivityDetailView: View {
         let showRouteMap = detail.routePoints.count >= 2
 
         return List {
-            Section {
-                OGBackPageHeader(
-                    title: "Entreno",
-                    subtitle: subtitle.isEmpty ? nil : subtitle,
-                    onBack: { dismiss() }
-                )
-                .ogListPageHeaderRow()
+            if !subtitle.isEmpty {
+                Section {
+                    Text(subtitle)
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(OG.label2)
+                        .ogListPageHeaderRow()
+                }
             }
 
             Section {
@@ -913,9 +1045,7 @@ struct HealthActivityDetailView: View {
         }
         .ogListChrome()
         .listSectionSpacing(18)
-        .ogContentTitleNav()
-        .toolbar(.hidden, for: .navigationBar)
-        .navigationBarBackButtonHidden(true)
+        .ogPinnedTransparentNav("Entreno")
     }
 
     private func sectionHeader(_ title: String) -> some View {

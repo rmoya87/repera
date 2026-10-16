@@ -290,7 +290,7 @@ struct HeatmapGrid: Sendable {
         switch range {
         case .today, .week:
             return buildStrip(agg: agg, metric: metric, range: range, calendar: calendar, now: now)
-        case .month, .days90, .all:
+        case .month, .days90, .days180, .days360:
             return buildWeekGrid(agg: agg, metric: metric, range: range, calendar: calendar, now: now)
         }
     }
@@ -372,8 +372,9 @@ struct HeatmapGrid: Sendable {
             switch range {
             case .today, .week: return 0
             case .month: return 4
-            case .days90: return 12
-            case .all: return 52
+            case .days90: return 13
+            case .days180: return 26
+            case .days360: return 52
             }
         }()
 

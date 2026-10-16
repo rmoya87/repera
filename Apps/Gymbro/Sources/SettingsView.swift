@@ -6,7 +6,6 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @Environment(GymbroStore.self) private var store
     @Environment(HealthKitStore.self) private var health
-    @Environment(\.dismiss) private var dismiss
     @State private var goalText = ""
     @State private var exportURL: URL?
     @State private var showingImporter = false
@@ -15,17 +14,9 @@ struct SettingsView: View {
     @State private var healthBusy = false
     @State private var photoItem: PhotosPickerItem?
 
-    /// Catálogo de discos editables (incluye los estándar + fracciones comunes).
-    private static let plateCatalog: [Double] = [25, 20, 15, 10, 5, 2.5, 1.25, 1, 0.5]
-
     var body: some View {
         @Bindable var store = store
         Form {
-            Section {
-                OGBackPageHeader(title: "Ajustes", onBack: { dismiss() })
-                    .ogListPageHeaderRow()
-            }
-
             Section {
                 HStack(spacing: 14) {
                     iCloudAvatarBadge
@@ -164,7 +155,7 @@ struct SettingsView: View {
                     Text("Objetivo")
                     Spacer()
                     TextField("kg", text: $goalText)
-                        .keyboardType(.decimalPad)
+                        .ogKeyboardDone()
                         .multilineTextAlignment(.trailing)
                         .frame(maxWidth: 100)
                     Button("Guardar") {
@@ -311,52 +302,6 @@ struct SettingsView: View {
                 )
             }
 
-            Section {
-                Stepper(
-                    "Barra: \(store.state.settings.barbellKg.formatted(.number.precision(.fractionLength(0)))) kg",
-                    value: Binding(
-                        get: { store.state.settings.barbellKg },
-                        set: {
-                            var s = store.state.settings
-                            s.barbellKg = $0
-                            store.updateSettings(s)
-                        }
-                    ),
-                    in: 7...30,
-                    step: 1
-                )
-                ForEach(plateOptions, id: \.self) { plate in
-                    Toggle(
-                        "\(String(format: "%g", plate)) kg",
-                        isOn: Binding(
-                            get: { store.state.settings.ownedPlatesKg.contains(plate) },
-                            set: { on in
-                                var s = store.state.settings
-                                if on {
-                                    if !s.ownedPlatesKg.contains(plate) {
-                                        s.ownedPlatesKg.append(plate)
-                                        s.ownedPlatesKg.sort(by: >)
-                                    }
-                                } else {
-                                    s.ownedPlatesKg.removeAll { $0 == plate }
-                                }
-                                store.updateSettings(s)
-                            }
-                        )
-                    )
-                }
-                Button("Restaurar discos estándar") {
-                    var s = store.state.settings
-                    s.ownedPlatesKg = PlateMath.defaultPlatesKg
-                    s.barbellKg = PlateMath.defaultBarKg
-                    store.updateSettings(s)
-                }
-            } header: {
-                Text("Barra y discos")
-            } footer: {
-                Text("Marca los discos que tienes. Durante el entreno se calcula la carga (por lado o una pila, según el ejercicio).")
-            }
-
             Section("Datos") {
                 LabeledContent("Entrenamientos", value: "\(store.state.workouts.count)")
                 LabeledContent("Ejercicios", value: "\(store.state.exercises.count)")
@@ -375,8 +320,7 @@ struct SettingsView: View {
             }
         }
         .ogListChrome()
-        .ogContentTitleNav()
-        .navigationBarBackButtonHidden(true)
+        .ogPinnedTransparentNav("Ajustes")
         .task {
             health.refreshAuthorizationStatus()
             if health.isAuthorized {
@@ -462,11 +406,6 @@ struct SettingsView: View {
         }
     }
 
-    /// Catálogo + cualquier disco que el usuario ya tuviera guardado.
-    private var plateOptions: [Double] {
-        Array(Set(Self.plateCatalog + store.state.settings.ownedPlatesKg)).sorted(by: >)
-    }
-
     private func exportBackup() {
         guard let data = LocalStore.shared.exportJSON(store.state) else { return }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("gymbro-backup.json")
@@ -480,7 +419,6 @@ struct SettingsView: View {
 /// Orden de plantillas cuando el plan está en modo rotación (no por día de la semana).
 struct RotationPlanEditor: View {
     @Environment(GymbroStore.self) private var store
-    @Environment(\.dismiss) private var dismiss
 
     private var library: [Routine] {
         store.libraryRoutines
@@ -492,15 +430,6 @@ struct RotationPlanEditor: View {
 
     var body: some View {
         List {
-            Section {
-                OGBackPageHeader(
-                    title: "Rotación",
-                    subtitle: "El siguiente entreno del día sigue este orden, no el día de la semana.",
-                    onBack: { dismiss() }
-                )
-                .ogListPageHeaderRow()
-            }
-
             Section {
                 if orderedIds.isEmpty {
                     Text("Añade rutinas de Diario → Rutinas para armar la cola.")
@@ -519,7 +448,7 @@ struct RotationPlanEditor: View {
             } header: {
                 Text("Orden")
             } footer: {
-                Text("Arrastra para reordenar. Al terminar un entreno de la cola, avanza a la siguiente.")
+                Text("El siguiente entreno del día sigue este orden, no el día de la semana. Arrastra para reordenar.")
             }
 
             Section("Disponibles") {
@@ -541,8 +470,7 @@ struct RotationPlanEditor: View {
             }
         }
         .ogListChrome()
-        .ogContentTitleNav()
-        .navigationBarBackButtonHidden(true)
+        .ogPinnedTransparentNav("Rotación")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 EditButton()

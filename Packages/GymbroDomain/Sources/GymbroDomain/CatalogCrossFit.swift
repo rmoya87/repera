@@ -3,7 +3,7 @@ import Foundation
 /// Movimientos propios de CrossFit / functional fitness (WOD, odd objects, comba, monostructural).
 /// Halterofilia y gimnasia pura viven en `CatalogHalterofilia` y `CatalogGimnasia`.
 enum CatalogCrossFit {
-    private static let g = "CrossFit"
+    private static let sport = "CrossFit"
 
     static let rows: [EnrichedSeed] = [
         // MARK: Barra / híbridos WOD
@@ -72,7 +72,11 @@ enum CatalogCrossFit {
         cf("Box jump over", equipment: "Peso corporal", target: "quads",
            secondary: ["glutes", "calves"], body: "upper legs",
            description: "Salto al cajón y bajas al otro lado (lateral o frontal).",
-           instructions: ["Salta al cajón.", "Pasa al otro lado.", "Repite sin descanso largo."],
+           instructions: [
+               "Flexiona frente al cajón, brazos atrás.",
+               "Salta y pasa por encima del cajón.",
+               "Aterriza al otro lado en el suelo, suave.",
+           ],
            primaries: ["quadriceps"], secondaries: ["gluteal", "calves"]),
         cf("Broad jump", equipment: "Peso corporal", target: "glutes",
            secondary: ["quads", "calves", "core"], body: "upper legs",
@@ -236,8 +240,8 @@ enum CatalogCrossFit {
         primaries: [String] = [],
         secondaries: [String] = []
     ) -> EnrichedSeed {
-        CatalogSeedBuilder.row(
-            name, group: g, equipment: equipment, target: target,
+        CatalogSeedBuilder.sportRow(
+            name, sport: sport, equipment: equipment, target: target,
             secondary: secondary, body: body, description: description,
             instructions: instructions, primaries: primaries, secondaries: secondaries
         )

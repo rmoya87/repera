@@ -50,7 +50,7 @@ public enum MuscleTaxonomy {
         "latissimus dorsi": "upper-back", "rhomboids": "upper-back", "back": "upper-back", "espalda": "upper-back",
         "calves": "calves", "gemelos": "calves", "soleus": "calves",
         "quads": "quadriceps", "quadriceps": "quadriceps", "piernas": "quadriceps",
-        "forearms": "forearm", "forearm": "forearm", "wrists": "forearm",
+        "forearms": "forearm", "forearm": "forearm", "wrists": "forearm", "antebrazos": "forearm",
         "hamstrings": "hamstring", "hamstring": "hamstring", "isquios": "hamstring",
         "spine": "lower-back", "lower back": "lower-back", "lower-back": "lower-back", "lumbar": "lower-back",
         "traps": "trapezius", "trapezius": "trapezius", "trapecio": "trapezius", "levator scapulae": "trapezius",
@@ -75,8 +75,45 @@ public enum MuscleTaxonomy {
         "Gemelos": ["calves": 0.8, "tibialis": 0.2],
         "Core": ["abs": 0.7, "obliques": 0.3],
         "Cardio": [:],
+        "Antebrazos": ["forearm": 1],
         "Custom": ["chest": 0.2, "upper-back": 0.2, "gluteal": 0.2, "quadriceps": 0.2, "hamstring": 0.1, "abs": 0.1],
         "WOD": ["chest": 0.15, "upper-back": 0.15, "quadriceps": 0.2, "hamstring": 0.15, "gluteal": 0.15, "abs": 0.1, "deltoids": 0.1],
+    ]
+
+    /// Grupo de biblioteca (filtro ES) según el músculo que más carga el ejercicio.
+    /// No usar deportes (CrossFit, Halterofilia…) como grupo: las métricas van al primario.
+    public static func libraryMuscleGroup(primaries: [String], target: String?) -> String {
+        let candidates = primaries + [target].compactMap { $0 }
+        for raw in candidates {
+            if let slug = canonical(raw), let group = filterGroupES[slug] {
+                return group
+            }
+            if byBodyPartES[raw] != nil { return raw }
+        }
+        let t = (target ?? "").lowercased()
+        if t.contains("cardio") { return "Cardio" }
+        return "Custom"
+    }
+
+    private static let filterGroupES: [String: String] = [
+        "chest": "Pecho",
+        "upper-back": "Espalda",
+        "lower-back": "Espalda",
+        "serratus": "Espalda",
+        "trapezius": "Espalda",
+        "deltoids": "Hombros",
+        "biceps": "Bíceps",
+        "triceps": "Tríceps",
+        "forearm": "Antebrazos",
+        "quadriceps": "Piernas",
+        "adductors": "Piernas",
+        "hip-flexors": "Piernas",
+        "hamstring": "Isquios",
+        "gluteal": "Glúteos",
+        "calves": "Gemelos",
+        "tibialis": "Gemelos",
+        "abs": "Core",
+        "obliques": "Core",
     ]
 
     public static func canonical(_ value: String?) -> String? {

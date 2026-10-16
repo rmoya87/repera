@@ -1,6 +1,6 @@
 # Gymbro
 
-App nativa de entrenamiento (**iPhone + Apple Watch**), **local-first + iCloud**, UI **SwiftUI Liquid Glass** (iOS 26+).
+App nativa de entrenamiento (**iPhone + Apple Watch**), **local-first + iCloud**, UI **SwiftUI Liquid Glass** (iOS 27+).
 
 Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (solo dominio/UX; no se copia código).
 
@@ -41,7 +41,7 @@ open Gymbro.xcodeproj
 cd Packages/GymbroDomain && swift test
 ```
 
-Requisitos: **Xcode con SDK iOS 26**, dispositivo/simulador compatible. Apple Intelligence es opcional (fallback local en pizarra).
+Requisitos: **Xcode con SDK iOS 27**, dispositivo/simulador compatible. Apple Intelligence es opcional (fallback local en pizarra).
 
 ## Identificadores
 

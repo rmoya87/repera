@@ -20,16 +20,24 @@ Si el cambio es solo tipográfico o de estilo sin cambio de producto, no hace fa
 
 ## Stack
 
-- iOS 26+ / watchOS 26+, SwiftUI, XcodeGen (`project.yml`).
+- **Siempre la última OS**: iOS 27+ / watchOS 27+ (no programar para majors anteriores). Al salir una nueva, subir `project.yml`, `Package.swift` y docs.
+- SwiftUI, XcodeGen (`project.yml`).
 - Dominio: `Packages/GymbroDomain`.
 - App: `Apps/Gymbro`, Watch: `Apps/GymbroWatch`.
 
 ## Convenciones UI
 
 - Tokens `OG*` en `Theme.swift`.
-- Cabeceras de subpágina: `OGBackPageHeader` + botones glass 44pt.
-- Sheets: `ogFittedSheet` / `ogSheetCorners`.
-- Títulos dentro de cards: `OGCardSectionTitle`.
+- Roots sin volver: `ogFixedTopBar` (título arriba; acciones a la derecha en la misma fila).
+- Subpáginas con volver: `ogPinnedTransparentNav` (título large debajo del chevron/acciones).
+- Sheets compactos: `OGPageHeader` + `ogFittedSheet` / `ogSheetCorners`.
+- Títulos de sección **encima** de las cards: `OGCardSectionTitle` (gris, estilo Ajustes).
+
+## Arte de ejercicios (carrusel)
+
+- Mismo **equipo** (diseño idéntico) y misma **persona** (pelo, ropa, zapatillas) en todos los frames de un ejercicio.
+- Ropa: **tank + shorts + zapatillas**; nunca torso desnudo ni sin shorts.
+- Al regenerar: usar el frame `_1` como `reference_image_paths` y solo cambiar la pose.
 
 ## Pizarra
 

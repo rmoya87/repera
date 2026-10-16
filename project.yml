@@ -2,8 +2,8 @@ name: Gymbro
 options:
   bundleIdPrefix: app.gymbroapp
   deploymentTarget:
-    iOS: "26.0"
-    watchOS: "26.0"
+    iOS: "27.0"
+    watchOS: "27.0"
   createIntermediateGroups: true
   groupSortPosition: top
 

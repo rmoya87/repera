@@ -2,7 +2,7 @@ import Foundation
 
 /// Catálogo de halterofilia olímpica (competición + accesorios de box).
 enum CatalogHalterofilia {
-    private static let g = "Halterofilia"
+    private static let sport = "Halterofilia"
 
     static let rows: [EnrichedSeed] = [
         // MARK: Arrancada
@@ -91,7 +91,7 @@ enum CatalogHalterofilia {
         h("Cargada colgante", equipment: "Barra", target: "hamstrings",
           secondary: ["glutes", "traps", "core"], body: "full body",
           description: "Hang clean desde muslos a rack.",
-          instructions: ["Barra en muslos.", "Hinge, extiende y recibe en rack.", "Párate."],
+          instructions: ["Barra en muslos, bisagra ligera.", "Extiende cadera y tira la barra arriba.", "Recibe en rack frontal y párate."],
           primaries: ["hamstring", "gluteal"], secondaries: ["trapezius", "abs"]),
         h("Cargada colgante completa", equipment: "Barra", target: "quads",
           secondary: ["glutes", "traps", "core"], body: "full body",
@@ -220,8 +220,8 @@ enum CatalogHalterofilia {
         primaries: [String] = [],
         secondaries: [String] = []
     ) -> EnrichedSeed {
-        CatalogSeedBuilder.row(
-            name, group: g, equipment: equipment, target: target,
+        CatalogSeedBuilder.sportRow(
+            name, sport: sport, equipment: equipment, target: target,
             secondary: secondary, body: body, description: description,
             instructions: instructions, primaries: primaries, secondaries: secondaries
         )

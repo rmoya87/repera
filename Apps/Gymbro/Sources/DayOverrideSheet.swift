@@ -16,20 +16,17 @@ struct DayOverrideSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 OGPageHeader(title: dayLabel) {
-                    HStack(spacing: 8) {
-                        if let onCreateNew {
-                            OGToolbarGlassButton(
-                                systemName: "plus",
-                                accessibilityLabel: "Nueva rutina",
-                                tint: OG.accent,
-                                appliesGlass: true,
-                                glassTint: OG.accent
-                            ) {
-                                dismiss()
-                                onCreateNew()
-                            }
+                    if let onCreateNew {
+                        OGToolbarGlassButton(
+                            systemName: "plus",
+                            accessibilityLabel: "Nueva rutina",
+                            tint: .white,
+                            appliesGlass: true,
+                            glassTint: OG.accent
+                        ) {
+                            dismiss()
+                            onCreateNew()
                         }
-                        CloseToolbarButton(action: { dismiss() }, large: true)
                     }
                 }
                 .padding(.top, 4)
@@ -71,7 +68,10 @@ struct DayOverrideSheet: View {
                                     Spacer()
                                     if routine.weekday == isoWeekday {
                                         Image(systemName: "checkmark")
-                                            .foregroundStyle(OG.accent)
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundStyle(.white)
+                                            .frame(width: 28, height: 28)
+                                            .background(OG.accent, in: Circle())
                                     }
                                 }
                                 .padding(.horizontal, 14)

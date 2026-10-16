@@ -85,10 +85,28 @@ public struct ExerciseLoadPreference: Codable, Sendable, Equatable, Hashable {
     public var mode: PlateLoadMode
     /// Peso de máquina/trineo/cinturón antes de discos (0 = solo discos).
     public var baseWeightKg: Double
+    /// 1RM real / máxima conocida del usuario (para % y comparación). Nil = solo e1RM del historial.
+    public var testedOneRMKg: Double?
 
-    public init(mode: PlateLoadMode = .perSide, baseWeightKg: Double = 0) {
+    public init(
+        mode: PlateLoadMode = .off,
+        baseWeightKg: Double = 0,
+        testedOneRMKg: Double? = nil
+    ) {
         self.mode = mode
         self.baseWeightKg = baseWeightKg
+        self.testedOneRMKg = testedOneRMKg
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case mode, baseWeightKg, testedOneRMKg
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        mode = try c.decodeIfPresent(PlateLoadMode.self, forKey: .mode) ?? .off
+        baseWeightKg = try c.decodeIfPresent(Double.self, forKey: .baseWeightKg) ?? 0
+        testedOneRMKg = try c.decodeIfPresent(Double.self, forKey: .testedOneRMKg)
     }
 }
 

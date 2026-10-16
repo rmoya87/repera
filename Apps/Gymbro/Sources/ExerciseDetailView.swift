@@ -1,16 +1,13 @@
 import GymbroDomain
 import SwiftUI
 
-/// Ficha de ejercicio: tags, descripción, añadir al día, placas, 1RM, progreso e historial.
+/// Ficha de ejercicio: tags, 1RM, carga sugerida y evolución (historial + gráfica).
 struct ExerciseDetailView: View {
     @Environment(GymbroStore.self) private var store
-    @Environment(\.dismiss) private var dismiss
     let exerciseId: UUID
 
     var onOpenedWorkout: (() -> Void)? = nil
 
-    @State private var estimateWeight: Double = 20
-    @State private var estimateReps: Int = 5
     @State private var showQuickLog = false
     @State private var suggestPercent: Double = 70
 
@@ -22,75 +19,23 @@ struct ExerciseDetailView: View {
         store.loadPreference(for: exerciseId)
     }
 
-    private var estimateOneRM: Double {
-        PlateMath.epleyOneRM(weightKg: estimateWeight, reps: estimateReps)
-    }
-
     var body: some View {
         Group {
             if let exercise {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        OGBackPageHeader(title: exercise.name, onBack: { dismiss() }) {
-                            HStack(spacing: 8) {
-                                OGToolbarGlassButton(
-                                    systemName: exercise.isFavorite ? "star.fill" : "star",
-                                    accessibilityLabel: exercise.isFavorite ? "Quitar de favoritos" : "Favorito",
-                                    tint: exercise.isFavorite ? OG.yellow : OG.label,
-                                    appliesGlass: true
-                                ) {
-                                    store.toggleFavorite(exerciseId)
-                                }
-                                OGToolbarGlassButton(
-                                    systemName: "plus",
-                                    accessibilityLabel: "Apuntar series",
-                                    tint: .white,
-                                    appliesGlass: true,
-                                    glassTint: OG.accent
-                                ) {
-                                    showQuickLog = true
-                                }
-                            }
-                        }
-                        .padding(.horizontal, OG.pad)
-
                         // Imagen edge-to-edge; técnica solo aquí (no repetir abajo).
                         ExerciseArtView(exercise: exercise, showStepCaptions: true)
 
                         VStack(alignment: .leading, spacing: 12) {
-                            tagChips(exercise)
+                            muscleEquipmentBlock(exercise)
 
-                            OGCard { suggestedLoadSection(exercise) }
-
-                            OGCard { plateLoadingSection }
-
-                            OGCard { estimatedOneRMSection }
-
-                            NavigationLink {
-                                ExerciseProgressView(exerciseId: exercise.id)
-                            } label: {
-                                OGCard {
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text("Progreso del ejercicio")
-                                                .font(.system(size: 15, weight: .semibold))
-                                                .foregroundStyle(OG.label)
-                                            Text("Top set · 1RM · esfuerzo · sesiones")
-                                                .font(.system(size: 12))
-                                                .foregroundStyle(OG.label2)
-                                        }
-                                        Spacer()
-                                        Image(systemName: "chart.xyaxis.line")
-                                            .foregroundStyle(OG.blue)
-                                        Image(systemName: "chevron.right")
-                                            .font(.caption.weight(.semibold))
-                                            .foregroundStyle(OG.label3)
-                                    }
-                                }
+                            VStack(alignment: .leading, spacing: 8) {
+                                OGCardSectionTitle(title: "Carga sugerida")
+                                OGCard { suggestedLoadSection(exercise) }
                             }
-                            .buttonStyle(.plain)
 
-                            historySection(exercise)
+                            ExerciseEvolutionPanel(exerciseId: exercise.id)
                         }
                         .padding(.horizontal, OG.pad)
                     }
@@ -98,10 +43,26 @@ struct ExerciseDetailView: View {
                     .padding(.bottom, 28)
                 }
                 .background(OG.bg)
-                .ogContentTitleNav()
-                .navigationBarBackButtonHidden(true)
-                .onAppear {
-                    seedEstimateFromHistory(exercise)
+                .ogPinnedTransparentNav(exercise.name)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        OGToolbarGlassButton(
+                            systemName: exercise.isFavorite ? "star.fill" : "star",
+                            accessibilityLabel: exercise.isFavorite ? "Quitar de favoritos" : "Favorito",
+                            tint: exercise.isFavorite ? OG.yellow : OG.label
+                        ) {
+                            store.toggleFavorite(exerciseId)
+                        }
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        OGToolbarGlassButton(
+                            systemName: "plus",
+                            accessibilityLabel: "Apuntar series",
+                            tint: OG.accent
+                        ) {
+                            showQuickLog = true
+                        }
+                    }
                 }
                 .sheet(isPresented: $showQuickLog) {
                     QuickLogSheet(exercise: exercise)
@@ -114,366 +75,251 @@ struct ExerciseDetailView: View {
 
     @ViewBuilder
     private func suggestedLoadSection(_ exercise: Exercise) -> some View {
+        // 1RM solo desde Evolución (Tope) o e1RM historial — sin duplicar el editor aquí.
         let hist = StatsEngine.history(for: exercise.id, workouts: store.state.workouts)
-        let oneRM = hist.estimatedOneRM
-        VStack(alignment: .leading, spacing: 10) {
-            OGCardSectionTitle(title: "Carga sugerida (% → kg)")
-            if let oneRM, oneRM > 0 {
-                let increment = store.state.settings.weightIncrementKg
+        let tested = loadPref.testedOneRMKg.flatMap { $0 > 0 ? $0 : nil }
+        let estimated = hist.estimatedOneRM.flatMap { $0 > 0 ? $0 : nil }
+        let oneRM = tested ?? estimated
+        let source = tested != nil ? "1RM" : (estimated != nil ? "e1RM" : nil)
+        let increment = store.state.settings.weightIncrementKg
+
+        VStack(alignment: .leading, spacing: 12) {
+            if let oneRM {
                 let kg = LoadSuggestion.weightKg(
                     oneRM: oneRM,
                     percent: suggestPercent,
                     roundTo: increment
                 )
-                HStack {
-                    Text("\(Int(suggestPercent))% e1RM")
+                HStack(alignment: .firstTextBaseline) {
+                    Text("\(Int(suggestPercent))%")
+                        .font(.system(size: 28, weight: .bold).monospacedDigit())
+                        .foregroundStyle(OG.accent)
+                    Text(source ?? "")
+                        .font(.subheadline.weight(.medium))
                         .foregroundStyle(OG.label2)
                     Spacer()
                     Text("\(kg.formatted(.number.precision(.fractionLength(0...1)))) kg")
-                        .font(.system(size: 20, weight: .semibold).monospacedDigit())
+                        .font(.system(size: 28, weight: .bold).monospacedDigit())
                         .foregroundStyle(OG.label)
                 }
+
                 Slider(value: $suggestPercent, in: 50...95, step: 5)
                     .tint(OG.accent)
-                Text("e1RM ≈ \(oneRM.formatted(.number.precision(.fractionLength(0...1)))) kg")
+
+                Text("Pasos de 5% · sobre \(source ?? "1RM") \(oneRM.formatted(.number.precision(.fractionLength(0...1)))) kg")
                     .font(.caption)
                     .foregroundStyle(OG.label3)
-                if loadPref.mode != .off {
-                    let solution = PlateMath.solve(
-                        targetKg: kg,
-                        baseKg: loadPref.baseWeightKg,
-                        mode: loadPref.mode,
-                        availablePlatesKg: store.state.settings.ownedPlatesKg
-                    )
-                    if let compact = solution.perSideCompact {
-                        Text(compact)
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(OG.label2)
-                    }
-                }
             } else {
-                Text("Sin historial de peso aún. Apunta series para estimar 1RM.")
+                Text("Fija el Tope 1RM en Evolución (o entrena con peso) para calcular kg.")
                     .font(.footnote)
                     .foregroundStyle(OG.label2)
             }
         }
     }
 
-    // MARK: - Tags
+    // MARK: - Músculos / equipo
 
     @ViewBuilder
-    private func tagChips(_ exercise: Exercise) -> some View {
-        let tags = detailTags(exercise)
-        if !tags.isEmpty {
-            OGCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    OGCardSectionTitle(title: "Músculos y equipo")
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(Array(tags.enumerated()), id: \.offset) { index, tag in
-                                HStack(spacing: 5) {
-                                    if let icon = tag.icon {
-                                        Image(systemName: icon)
-                                            .font(.system(size: 11, weight: .semibold))
+    private func muscleEquipmentBlock(_ exercise: Exercise) -> some View {
+        let meta = detailMeta(exercise)
+        if meta.hasContent {
+            VStack(alignment: .leading, spacing: 8) {
+                OGCardSectionTitle(title: "Músculos y equipo")
+                OGCard {
+                    VStack(alignment: .leading, spacing: 14) {
+                        metaRow(title: "Músculo", icon: "figure.strengthtraining.traditional") {
+                            chipFlow {
+                                metaChip(meta.primary, emphasized: true)
+                            }
+                        }
+
+                        if !meta.secondaries.isEmpty {
+                            metaRow(title: "También", icon: nil) {
+                                chipFlow {
+                                    ForEach(meta.secondaries, id: \.self) { label in
+                                        metaChip(label)
                                     }
-                                    Text(tag.label)
-                                        .font(.system(size: 13, weight: .semibold))
                                 }
-                                .foregroundStyle(index == 0 ? OG.onAccent : OG.label)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 7)
-                                .background(index == 0 ? OG.accent : OG.surface2, in: Capsule())
+                            }
+                        }
+
+                        if let equipment = meta.equipment {
+                            metaRow(title: "Equipo", icon: "dumbbell.fill") {
+                                chipFlow {
+                                    metaChip(equipment, icon: "dumbbell.fill")
+                                }
+                            }
+                        }
+
+                        if let sport = meta.sport {
+                            metaRow(title: "Deporte", icon: "sportscourt") {
+                                chipFlow {
+                                    metaChip(sport, icon: "sportscourt")
+                                }
                             }
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
     }
 
-    private struct DetailTag {
-        var label: String
-        var icon: String?
-    }
-
-    private func detailTags(_ exercise: Exercise) -> [DetailTag] {
-        var tags: [DetailTag] = []
-        var seen = Set<String>()
-        func add(_ raw: String?, icon: String? = nil) {
-            guard let raw, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-            let label = LocalizedMuscle.es(raw)
-            let key = label.lowercased()
-            guard !seen.contains(key) else { return }
-            seen.insert(key)
-            tags.append(DetailTag(label: label, icon: icon))
-        }
-        add(exercise.bodyPart)
-        add(exercise.targetMuscle ?? exercise.muscleGroup, icon: "figure.strengthtraining.traditional")
-        if let eq = exercise.equipment, !eq.isEmpty {
-            add(eq, icon: "dumbbell.fill")
-        }
-        for secondary in exercise.secondaryMuscles {
-            add(secondary)
-        }
-        return tags
-    }
-
-    // MARK: - Plate loading
-
-    private var plateLoadingSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            OGCardSectionTitle(title: "Carga de discos")
-
-            Picker("Modo", selection: Binding(
-                get: { loadPref.mode },
-                set: { newMode in
-                    var pref = loadPref
-                    pref.mode = newMode
-                    store.setLoadPreference(pref, for: exerciseId)
-                }
-            )) {
-                ForEach(PlateLoadMode.allCases, id: \.self) { mode in
-                    Text(mode.displayName).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-
-            Text(plateModeCaption(loadPref.mode))
-                .font(.system(size: 12))
-                .foregroundStyle(OG.label3)
-
-            if loadPref.mode != .off {
-                Text("Peso base (kg)")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(OG.label2)
-                    .frame(maxWidth: .infinity)
-
-                detailStepper(
-                    valueLabel: String(format: "%g", loadPref.baseWeightKg),
-                    onMinus: {
-                        var pref = loadPref
-                        pref.baseWeightKg = max(0, ((pref.baseWeightKg - 1.25) * 100).rounded() / 100)
-                        store.setLoadPreference(pref, for: exerciseId)
-                    },
-                    onPlus: {
-                        var pref = loadPref
-                        pref.baseWeightKg = ((pref.baseWeightKg + 1.25) * 100).rounded() / 100
-                        store.setLoadPreference(pref, for: exerciseId)
-                    }
-                )
-
-                Text(plateBaseFooter(loadPref.mode))
-                    .font(.system(size: 12))
-                    .foregroundStyle(OG.label3)
-            }
-        }
-    }
-
-    private func plateModeCaption(_ mode: PlateLoadMode) -> String {
-        switch mode {
-        case .perSide:
-            return "Barra olímpica u otra carga simétrica: mismos discos a cada lado."
-        case .singleStack:
-            return "Una pila: cinturón, landmine, máquina de discos o trineo."
-        case .off:
-            return "Sin línea de discos bajo cada serie."
-        }
-    }
-
-    private func plateBaseFooter(_ mode: PlateLoadMode) -> String {
-        switch mode {
-        case .perSide:
-            return "Peso de la barra antes de los discos. Sigues registrando el total; esto solo alimenta la línea de discos."
-        case .singleStack:
-            return "La máquina o el trineo, antes de poner discos. 0 si es todo discos. Sigues registrando el total."
-        case .off:
-            return ""
-        }
-    }
-
-    // MARK: - 1RM
-
-    private var estimatedOneRMSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            OGCardSectionTitle(title: "1RM estimado")
-
-            HStack(spacing: 12) {
-                VStack(spacing: 6) {
-                    Text("Peso (kg)")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(OG.label2)
-                    detailStepper(
-                        valueLabel: String(format: "%g", estimateWeight),
-                        onMinus: { estimateWeight = max(0, ((estimateWeight - store.state.settings.weightIncrementKg) * 10).rounded() / 10) },
-                        onPlus: { estimateWeight = ((estimateWeight + store.state.settings.weightIncrementKg) * 10).rounded() / 10 }
-                    )
-                }
-                VStack(spacing: 6) {
-                    Text("Reps")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(OG.label2)
-                    detailStepper(
-                        valueLabel: "\(estimateReps)",
-                        onMinus: { estimateReps = max(1, estimateReps - 1) },
-                        onPlus: { estimateReps = min(30, estimateReps + 1) }
-                    )
-                }
-            }
-
-            HStack {
-                Text("Estimación")
-                    .font(.system(size: 15))
-                    .foregroundStyle(OG.label2)
-                Spacer()
-                Text("\(estimateOneRM.formatted(.number.precision(.fractionLength(0...1)))) kg")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(OG.accent)
-            }
-            .padding(.top, 4)
-
-            Text("Fórmula de Epley: calculado a partir de una serie, no un máximo testado.")
-                .font(.system(size: 12))
-                .foregroundStyle(OG.label3)
-        }
-    }
-
-    private func detailStepper(
-        valueLabel: String,
-        onMinus: @escaping () -> Void,
-        onPlus: @escaping () -> Void
-    ) -> some View {
-        HStack(spacing: 0) {
-            Button(action: onMinus) {
-                Image(systemName: "minus")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(OG.label2)
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.plain)
-
-            Text(valueLabel)
-                .font(.system(size: 18, weight: .semibold).monospacedDigit())
-                .foregroundStyle(OG.label)
-                .frame(maxWidth: .infinity)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-
-            Button(action: onPlus) {
-                Image(systemName: "plus")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(OG.label2)
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.plain)
-        }
-        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-
-    private func seedEstimateFromHistory(_ exercise: Exercise) {
-        let h = StatsEngine.history(for: exercise.id, workouts: store.state.workouts)
-        if let w = h.lastWeightKg ?? h.maxWeightKg {
-            estimateWeight = w
-        }
-        if let r = h.lastReps ?? h.repsAtMaxWeight {
-            estimateReps = max(1, r)
-        }
-    }
-
-    // MARK: - History
-
-    private func historySection(_ exercise: Exercise) -> some View {
-        let h = StatsEngine.history(for: exercise.id, workouts: store.state.workouts)
-        return OGCard {
-            VStack(alignment: .leading, spacing: 10) {
-                OGCardSectionTitle(title: "Tu historial")
-                if !h.hasData {
-                    Text("Cuando lo entrenes, verás máximos y la última sesión aquí.")
-                        .font(.system(size: 14))
-                        .foregroundStyle(OG.label2)
-                } else {
-                    HStack(spacing: 10) {
-                        histTile("Máx.", h.maxWeightKg.map { "\($0.formatted(.number.precision(.fractionLength(0)))) kg" } ?? "—")
-                        histTile("Reps máx.", h.bestReps.map(String.init) ?? "—")
-                        histTile("Veces", "\(h.timesPerformed)")
-                    }
-                    if let w = h.maxWeightKg, let r = h.repsAtMaxWeight {
-                        labeled("Mejor serie", "\(r) reps × \(w.formatted(.number.precision(.fractionLength(1)))) kg", tint: OG.accent)
-                    }
-                    if let e1 = h.estimatedOneRM {
-                        labeled("1RM est.", "\(e1.formatted(.number.precision(.fractionLength(1)))) kg", tint: OG.yellow)
-                    }
-                    if let date = h.lastDate {
-                        let last = [
-                            h.lastReps.map { "\($0) reps" },
-                            h.lastWeightKg.map { "\($0.formatted(.number.precision(.fractionLength(1)))) kg" },
-                        ].compactMap { $0 }.joined(separator: " · ")
-                        labeled("Última vez", "\(SpanishDate.short(date))" + (last.isEmpty ? "" : " · \(last)"), tint: OG.label)
-                    }
-                }
-            }
-        }
-    }
-
-    private func histTile(_ title: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(value)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(OG.label)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(title)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(OG.label3)
+    /// El layout necesita ancho máximo del padre para llenar la fila.
+    @ViewBuilder
+    private func chipFlow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        OGFlowLayout(spacing: 8) {
+            content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
-    private func labeled(_ title: String, _ value: String, tint: Color) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title)
-                .font(.system(size: 13))
-                .foregroundStyle(OG.label2)
-                .frame(width: 96, alignment: .leading)
-            Text(value)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(tint == OG.label2 ? OG.label : tint)
+    @ViewBuilder
+    private func metaRow<Content: View>(
+        title: String,
+        icon: String?,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 5) {
+                if let icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                Text(title.uppercased())
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(0.4)
+            }
+            .foregroundStyle(OG.label3)
+            content()
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
+
+    private func metaChip(_ label: String, icon: String? = nil, emphasized: Bool = false) -> some View {
+        HStack(spacing: 5) {
+            if let icon {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            Text(label)
+                .font(.system(size: emphasized ? 14 : 13, weight: .semibold))
+        }
+        .foregroundStyle(emphasized ? OG.onAccent : OG.label)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(emphasized ? OG.accent : OG.surface2, in: Capsule())
+    }
+
+    private struct DetailMeta {
+        var primary: String
+        var secondaries: [String]
+        var equipment: String?
+        var sport: String?
+        var hasContent: Bool { !primary.isEmpty }
+    }
+
+    private func detailMeta(_ exercise: Exercise) -> DetailMeta {
+        let primary = LocalizedMuscle.es(exercise.targetMuscle ?? exercise.muscleGroup)
+        var seen: Set<String> = [primary.lowercased()]
+        var secondaries: [String] = []
+        for raw in exercise.secondaryMuscles {
+            let label = LocalizedMuscle.es(raw)
+            let key = label.lowercased()
+            guard !key.isEmpty, !seen.contains(key) else { continue }
+            seen.insert(key)
+            secondaries.append(label)
+        }
+        if let body = exercise.bodyPart, !body.isEmpty {
+            let label = LocalizedMuscle.es(body)
+            let key = label.lowercased()
+            if !seen.contains(key) {
+                seen.insert(key)
+                secondaries.insert(label, at: 0)
+            }
+        }
+        let equipment = exercise.equipment.flatMap { raw -> String? in
+            let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            return t.isEmpty ? nil : LocalizedMuscle.es(t)
+        }
+        let sport = exercise.sportTag.flatMap { raw -> String? in
+            let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            return t.isEmpty ? nil : t
+        }
+        return DetailMeta(
+            primary: primary,
+            secondaries: secondaries,
+            equipment: equipment,
+            sport: sport
+        )
+    }
+
 }
 
 struct FlowChips: View {
     var items: [String]
     var body: some View {
-        FlexibleChipWrap(items: Array(Set(items)).sorted())
-    }
-}
-
-struct FlexibleChipWrap: View {
-    var items: [String]
-    var body: some View {
-        let rows = items.chunked(into: 3)
-        return VStack(alignment: .leading, spacing: 6) {
-            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                HStack(spacing: 6) {
-                    ForEach(row, id: \.self) { item in
-                        Text(item)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(OG.label)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(OG.surface2, in: Capsule())
-                    }
-                }
+        OGFlowLayout(spacing: 8) {
+            ForEach(Array(Set(items)).sorted(), id: \.self) { item in
+                Text(item)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(OG.label)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(OG.surface2, in: Capsule())
             }
         }
     }
 }
 
-extension Array {
-    func chunked(into size: Int) -> [[Element]] {
-        stride(from: 0, to: count, by: size).map { Array(self[$0..<Swift.min($0 + size, count)]) }
+/// Chips en fila: usa todo el ancho propuesto; salta de línea solo al llenarlo.
+struct OGFlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        let result = arrange(maxWidth: maxWidth, subviews: subviews)
+        // Si el padre propone ancho concreto, lo reclamamos entero para no “encoger” la card.
+        let width = maxWidth.isFinite ? maxWidth : result.width
+        return CGSize(width: width, height: result.height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = arrange(maxWidth: bounds.width, subviews: subviews)
+        for (index, frame) in result.frames.enumerated() {
+            guard subviews.indices.contains(index) else { continue }
+            subviews[index].place(
+                at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
+                proposal: ProposedViewSize(frame.size)
+            )
+        }
+    }
+
+    private struct ArrangeResult {
+        var frames: [CGRect]
+        var width: CGFloat
+        var height: CGFloat
+    }
+
+    private func arrange(maxWidth: CGFloat, subviews: Subviews) -> ArrangeResult {
+        var frames: [CGRect] = []
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var usedWidth: CGFloat = 0
+        for sub in subviews {
+            let size = sub.sizeThatFits(.unspecified)
+            if maxWidth.isFinite, x > 0, x + size.width > maxWidth {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            frames.append(CGRect(origin: CGPoint(x: x, y: y), size: size))
+            rowHeight = max(rowHeight, size.height)
+            x += size.width + spacing
+            usedWidth = max(usedWidth, x - spacing)
+        }
+        return ArrangeResult(frames: frames, width: usedWidth, height: y + rowHeight)
     }
 }
 
@@ -525,12 +371,17 @@ struct MuscleImpactDiagram: View {
 enum LocalizedMuscle {
     static func es(_ raw: String) -> String {
         let map: [String: String] = [
+            // Músculos / zonas
             "pectorals": "Pectorales",
             "chest": "Pecho",
             "full body": "Cuerpo completo",
             "lats": "Dorsales",
+            "latissimus dorsi": "Dorsales",
             "upper back": "Espalda alta",
+            "upper-back": "Espalda alta",
+            "back": "Espalda",
             "traps": "Trapecios",
+            "trapezius": "Trapecio",
             "delts": "Deltoides",
             "deltoids": "Deltoides",
             "shoulders": "Hombros",
@@ -539,6 +390,7 @@ enum LocalizedMuscle {
             "forearms": "Antebrazos",
             "forearm": "Antebrazos",
             "abs": "Abdominales",
+            "abdominals": "Abdominales",
             "core": "Core",
             "waist": "Cintura",
             "obliques": "Oblicuos",
@@ -554,19 +406,67 @@ enum LocalizedMuscle {
             "hip flexors": "Flexores de cadera",
             "hip-flexors": "Flexores de cadera",
             "lower back": "Lumbar",
+            "lower-back": "Lumbar",
+            "spine": "Lumbar",
+            "serratus": "Serrato",
+            "serratus anterior": "Serrato",
+            "tibialis": "Tibial",
             "grip": "Agarre",
             "cardiovascular system": "Cardio",
             "cardio": "Cardio",
+            // Partes del cuerpo (catálogo EN)
+            "upper legs": "Piernas",
+            "lower legs": "Gemelos",
+            "upper arms": "Brazos",
+            "lower arms": "Antebrazos",
+            "legs": "Piernas",
+            "arms": "Brazos",
+            "neck": "Cuello",
+            // Equipo
             "body weight": "Peso corporal",
             "bodyweight": "Peso corporal",
+            "peso corporal": "Peso corporal",
             "barbell": "Barra",
+            "barra": "Barra",
             "dumbbell": "Mancuernas",
+            "dumbbells": "Mancuernas",
+            "mancuernas": "Mancuernas",
+            "kettlebell": "Kettlebell",
             "cable": "Polea",
+            "polea": "Polea",
             "machine": "Máquina",
+            "máquina": "Máquina",
             "body only": "Peso corporal",
             "assisted": "Asistido",
+            "band": "Banda",
+            "bands": "Bandas",
+            "medicine ball": "Balón medicinal",
+            "stability ball": "Fitball",
+            "ez barbell": "Barra EZ",
+            "smith machine": "Máquina Smith",
+            "leverage machine": "Máquina",
+            "rope": "Cuerda",
+            "sled": "Trineo",
+            "trap bar": "Barra hexagonal",
+            "olympic bar": "Barra olímpica",
+            "plate": "Disco",
+            "disco": "Disco",
+            "rings": "Anillas",
+            "anillas": "Anillas",
+            "pull-up bar": "Barra de dominadas",
+            "box": "Cajón",
+            "cajón": "Cajón",
         ]
         let key = raw.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        return map[key] ?? raw.capitalized
+        if let hit = map[key] { return hit }
+        if let taxonomy = MuscleTaxonomy.displayNameES[key] { return taxonomy }
+        // Evitar mostrar inglés crudo: capitaliza solo si ya parece español/corto.
+        return raw
+            .split(separator: " ")
+            .map { part -> String in
+                let p = String(part).lowercased()
+                return map[p] ?? String(part).capitalized
+            }
+            .joined(separator: " ")
     }
 }

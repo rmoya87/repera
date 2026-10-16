@@ -18,13 +18,14 @@ enum HealthMuscleMapper {
     static func daySamples(from activities: [HealthKitStore.ExternalActivity]) -> [ExternalDaySample] {
         activities.map { activity in
             let mins = max(0, activity.durationMinutes)
-            // Todas las actividades de Salud (carrera, bici, HIIT, deportes…) alimentan cardio.
+            // Solo tipos cardio reales en «cardioMinutes» (fuerza no infla la tile Cardio).
+            let cardio = isCardio(activity.activityType) ? mins : 0
             return ExternalDaySample(
                 date: activity.start,
                 minutes: mins,
                 volumeKg: 0,
                 activeEnergyKcal: max(0, activity.activeEnergyKcal ?? 0),
-                cardioMinutes: mins
+                cardioMinutes: cardio
             )
         }
     }

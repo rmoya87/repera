@@ -1,6 +1,6 @@
 # Arquitectura Gymbro
 
-Última actualización: 2026-10-16
+Última actualización: 2026-10-16 (Lote 3 pasos gym; fallback movementFrames)
 
 ## Visión
 
@@ -13,7 +13,7 @@ gymbro/
 ├── Apps/
 │   ├── Gymbro/                 # Target iPhone (SwiftUI)
 │   │   ├── Sources/            # UI + stores de plataforma
-│   │   └── Resources/          # Assets, Info.plist, BodyPaths.json, ExerciseArt
+│   │   └── Resources/          # Assets, Info.plist, BodyPaths.json, ExerciseArt (JPG 1024 + thumbs/192)
 │   ├── GymbroWatch/            # Companion Watch
 │   ├── GymbroRestWidget/       # Live Activity (descanso)
 │   └── Shared/                 # RestActivityAttributes (app + widget)
@@ -29,7 +29,7 @@ gymbro/
 
 | Target | Rol |
 |--------|-----|
-| **Gymbro** | App iOS 26+. Tabs, sesión, Salud, OCR/IA pizarra, Live Activity host |
+| **Gymbro** | App iOS 27+. Tabs, sesión, Salud, OCR/IA pizarra, Live Activity host |
 | **GymbroRestWidget** | Widget Extension: Dynamic Island / lock screen del descanso |
 | **GymbroWatch** | Sesión + log rápido vía Watch Connectivity |
 | **GymbroDomain** (SPM) | Modelos, catálogo, stats, progresión, parser, LoadSuggestion |
@@ -58,21 +58,21 @@ Fuente de verdad de la UI: ejercicios, rutinas, sesiones, peso corporal, favorit
 
 ### `HealthKitStore`
 
-Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Alimenta Progreso (kcal diarias, FC min/media/máx, heatmap, equilibrio). Sync de peso: muestra más reciente por día calendario.
+Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Alimenta Progreso con **caché diaria** de FC/kcal (hasta 360d); la UI promedia a semana/mes solo al pintar. Sync de peso: 1 muestra/día.
 
 ### `GymbroDomain` — piezas clave
 
 | Módulo | Responsabilidad |
 |--------|-----------------|
 | `Models.swift` | `Exercise`, `Routine`, `RoutineBlock`, `WODMovement`, `WorkoutSession`, `AppState`… |
-| `Catalog*.swift` | Seed gym / CrossFit / halterofilia / gimnasia + ES |
+| `Catalog*.swift` | Seed gym / CrossFit / halterofilia / gimnasia + ES; deporte en `sportTag`, grupo = músculo principal |
 | `StatsEngine` | Series de progreso, PRs, métricas diarias, filtros `ProgressTimeRange` |
-| `MuscleTaxonomy` / `MuscleMapEngine` | Carga muscular y mapa |
+| `MuscleTaxonomy` / `MuscleMapEngine` | Carga muscular y mapa; `libraryMuscleGroup` para filtros |
 | `BoardImportParser` | OCR texto → bloques WOD (reglas) |
 | `SessionController` | Ciclo de vida de la sesión |
 | `ProgressionEngine` | Off / lineal / doble / Greyskull / triple |
-| `PlateMath` | Discos / 1RM Epley |
-| `LoadSuggestion` | `%` de e1RM → kg (pizarra / ficha) |
+| `PlateMath` | 1RM Epley (`epleyOneRM`); preferencia `testedOneRMKg` por ejercicio |
+| `LoadSuggestion` | `%` de 1RM (tested o e1RM) → kg (pizarra / ficha) |
 | `ExerciseSubstitutes` | Alternativas mismo músculo (dominio; UI de cambio no expuesta) |
 | `ProgressTimeRange` | Periodos de Progreso |
 
@@ -88,11 +88,13 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 `Theme.swift` (`OG*`):
 
 - Colores oscuros, acento verde `#30d158`
-- `OGCard`, `OGPageHeader`, `OGBackPageHeader`
-- Botones glass: `OGToolbarGlassButton` (44pt en cabeceras de contenido)
+- `OGCard`, `OGPageHeader`, `OGBackPageHeader` (legacy / sheets compactos)
+- `ogPinnedTransparentNav`: título large debajo de volver/acciones (subpáginas)
+- `ogFixedTopBar` / `OGFixedTopBar`: título arriba del todo; acciones en la misma fila (roots sin franja vacía)
+- `OGCardSectionTitle`: título gris encima de la card (estilo Ajustes)
+- Botones glass: `OGToolbarGlassButton` (`appliesGlass: false` en `.toolbar` del sistema)
 - Sheets: `ogFittedSheet` / `ogSheetCorners` (radio 38 + **liquid glass** de fondo)
 - Confirmaciones (eliminar, vaciar…): `OGConfirmSheet` (mismo glass)
-- Cabecera Inicio: `HomeHeaderAvatarLayout` (avatar = alto de título+fecha)
 
 ## Datos y sync
 
@@ -110,6 +112,9 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 | `BodyMapView` + `BodyPaths.json` | Mapa muscular SVG |
 | `ProgressTrendCards` | Cardio, kcal, peso vs objetivo |
 | `QuickLogSheet` / `QuickLogPickerView` | Apuntar series |
+| `ExerciseArt` / `ExerciseThumb` | Hero 1024px anatómico (gris+lime/charcoal); carrusel = `base_1…N` o `movementFrames` (reuso de héroes); caption = instructions[i]; holds estáticos sin carrusel; poses en aire sin sombra de suelo; listas usan `thumbs/` 192px; prefetch paralelo |
+| `ExerciseSearch` | `Document` index + `score`/`ranked` (filtro sync en LibraryView) |
+| `LibrarySearchLog` | Timing DEBUG rebuild/`rank top` del buscador |
 | `PhoneConnectivity` / Watch | Sesión + acciones `quickLog` / `logSet` |
 
 ## Tests

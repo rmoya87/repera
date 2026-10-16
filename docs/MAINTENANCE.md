@@ -1,6 +1,6 @@
 # Mantenimiento de la documentación
 
-Última actualización: 2026-10-16 (docs vivas alineadas con main)
+Última actualización: 2026-10-16 (fix carruseles; sin sombra en poses aéreas)
 
 ## Regla de oro
 

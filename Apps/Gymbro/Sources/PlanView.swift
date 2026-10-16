@@ -30,37 +30,6 @@ struct PlanView: View {
         NavigationStack {
             List {
                 Section {
-                    OGPageHeader(title: "Diario") {
-                        if section == .schedule {
-                            Menu {
-                                Button {
-                                    let n = store.copyPreviousWeekSchedule()
-                                    copyWeekFlash = n
-                                } label: {
-                                    Label("Copiar semana pasada", systemImage: "calendar.badge.clock")
-                                }
-                                if !store.plannedRoutines.isEmpty {
-                                    Button(role: .destructive) {
-                                        confirmClearSchedule = true
-                                    } label: {
-                                        Label("Vaciar programación", systemImage: "calendar.badge.minus")
-                                    }
-                                }
-                            } label: {
-                                Image(systemName: "ellipsis")
-                                    .font(.system(size: OG.toolbarGlassIcon, weight: .semibold))
-                                    .foregroundStyle(OG.label)
-                                    .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
-                                    .contentShape(Circle())
-                                    .glassEffect(.regular.interactive(), in: .circle)
-                            }
-                            .accessibilityLabel("Más opciones")
-                        }
-                    }
-                    .ogListPageHeaderRow()
-                }
-
-                Section {
                     Picker("Sección", selection: $section) {
                         ForEach(DiarioSection.allCases) { tab in
                             Text(tab.title).tag(tab)
@@ -78,8 +47,33 @@ struct PlanView: View {
                 }
             }
             .ogListChrome()
-            .ogContentTitleNav()
-            .toolbar(.hidden, for: .navigationBar)
+            .ogFixedTopBar("Diario") {
+                if section == .schedule {
+                    Menu {
+                        Button {
+                            let n = store.copyPreviousWeekSchedule()
+                            copyWeekFlash = n
+                        } label: {
+                            Label("Copiar semana pasada", systemImage: "calendar.badge.clock")
+                        }
+                        if !store.plannedRoutines.isEmpty {
+                            Button(role: .destructive) {
+                                confirmClearSchedule = true
+                            } label: {
+                                Label("Vaciar programación", systemImage: "calendar.badge.minus")
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: OG.toolbarGlassIcon, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                            .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
+                            .contentShape(Circle())
+                            .glassEffect(.regular.interactive(), in: .circle)
+                    }
+                    .accessibilityLabel("Más opciones")
+                }
+            }
             .sheet(item: $editing) { routine in
                 DayEditorView(routine: routine, mode: .plan(isNew: isCreating))
                     .ogSheetCorners()
@@ -440,24 +434,6 @@ struct DayEditorView: View {
     private var editorForm: some View {
         Form {
             Section {
-                if usesPageCloseHeader {
-                    OGPageHeader(title: navTitle) {
-                        CloseToolbarButton(action: closeEditor, large: true)
-                    } trailing: {
-                        Button(confirmTitle) { confirm() }
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(canConfirm ? OG.accent : OG.label3)
-                            .disabled(!canConfirm)
-                            .frame(height: 36)
-                    }
-                    .ogListPageHeaderRow()
-                } else {
-                    OGPageHeader(title: navTitle)
-                        .ogListPageHeaderRow()
-                }
-            }
-
-            Section {
                 TextField(nameFieldPlaceholder, text: $routine.title)
                 switch mode {
                 case .plan:
@@ -563,23 +539,26 @@ struct DayEditorView: View {
             }
         }
         .ogListChrome()
-        .ogContentTitleNav()
-        .toolbar(usesPageCloseHeader ? .hidden : .automatic, for: .navigationBar)
-        .toolbar {
-            if !usesPageCloseHeader {
-                if embedsNavigationStack {
-                    ToolbarItem(placement: .cancellationAction) {
-                        CloseToolbarButton(action: { closeEditor() }, large: false)
-                    }
+        .ogFixedTopBar(navTitle) {
+            HStack(spacing: 8) {
+                // Push (Entreno → Editar): X a la izquierda del check. Modal Diario: solo check (swipe para cerrar).
+                if usesPageCloseHeader {
+                    CloseToolbarButton(action: { closeEditor() }, large: true)
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(confirmTitle) { confirm() }
-                        .fontWeight(.semibold)
-                        .disabled(!canConfirm)
+                OGToolbarGlassButton(
+                    systemName: "checkmark",
+                    accessibilityLabel: confirmTitle,
+                    tint: .white,
+                    appliesGlass: true,
+                    glassTint: OG.accent
+                ) {
+                    confirm()
                 }
+                .opacity(canConfirm ? 1 : 0.4)
+                .disabled(!canConfirm)
             }
         }
-        .navigationBarBackButtonHidden(usesPageCloseHeader)
+        .navigationBarBackButtonHidden(usesPageCloseHeader || embedsNavigationStack)
         .sheet(item: Binding(
             get: { pickExerciseForBlock.map { IDBox(id: $0) } },
             set: { pickExerciseForBlock = $0?.id }
@@ -993,14 +972,14 @@ struct WODMovementEditor: View {
                         get: { movement.weightMaleKg.map { String(format: "%g", $0) } ?? "" },
                         set: { movement.weightMaleKg = Double($0.replacingOccurrences(of: ",", with: ".")) }
                     ))
-                    .keyboardType(.decimalPad)
+                    .ogKeyboardDone()
                     .multilineTextAlignment(.trailing)
                     Text("/")
                     TextField("35", text: Binding(
                         get: { movement.weightFemaleKg.map { String(format: "%g", $0) } ?? "" },
                         set: { movement.weightFemaleKg = Double($0.replacingOccurrences(of: ",", with: ".")) }
                     ))
-                    .keyboardType(.decimalPad)
+                    .ogKeyboardDone()
                     .multilineTextAlignment(.trailing)
                 }
                 TextField("Escala alternativa (ej. 100 SU)", text: Binding(
@@ -1018,12 +997,7 @@ struct WODMovementEditor: View {
             }
         }
         .ogListChrome()
-        .safeAreaInset(edge: .top, spacing: 0) {
-            OGPageHeader(title: "Movimiento WOD")
-                .padding(.horizontal, OG.pad)
-                .background(OG.bg)
-        }
-        .ogContentTitleNav()
+        .ogPinnedTransparentNav("Movimiento WOD")
     }
 }
 
@@ -1043,10 +1017,6 @@ struct RoutineExerciseEditor: View {
 
     var body: some View {
         Form {
-            Section {
-                OGPageHeader(title: exerciseName)
-                    .ogListPageHeaderRow()
-            }
             if let exercise {
                 Section {
                     ExerciseArtView(exercise: exercise, showBadge: false, showStepCaptions: false)
@@ -1091,8 +1061,6 @@ struct RoutineExerciseEditor: View {
                         index: index + 1,
                         set: binding(for: index),
                         weightStep: weightStep,
-                        barKg: store.state.settings.barbellKg,
-                        plates: store.state.settings.ownedPlatesKg,
                         canDelete: item.plannedSets.count > 1,
                         onDelete: { deleteSet(at: index) }
                     )
@@ -1113,7 +1081,7 @@ struct RoutineExerciseEditor: View {
             }
         }
         .ogListChrome()
-        .ogContentTitleNav()
+        .ogPinnedTransparentNav(exerciseName)
         .onAppear {
             if item.plannedSets.isEmpty {
                 item.plannedSets = [PlannedSet(targetReps: 8, targetWeightKg: nil)]
@@ -1159,73 +1127,57 @@ private struct PlannedSetConfigRow: View {
     var index: Int
     @Binding var set: PlannedSet
     var weightStep: Double
-    var barKg: Double
-    var plates: [Double]
     var canDelete: Bool
     var onDelete: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Text("\(index)")
-                    .font(.system(size: 13, weight: .bold).monospacedDigit())
-                    .foregroundStyle(OG.label)
-                    .frame(width: 28, height: 28)
-                    .background(OG.surface2, in: Circle())
+        HStack(spacing: 8) {
+            Text("\(index)")
+                .font(.system(size: 13, weight: .bold).monospacedDigit())
+                .foregroundStyle(OG.label)
+                .frame(width: 28, height: 28)
+                .background(OG.surface2, in: Circle())
 
-                OGRepeatStepper(
-                    display: set.targetWeightKg.map { String(format: "%g", $0) } ?? "—",
-                    keyboard: .decimalPad,
-                    onMinus: { bumpWeight(-weightStep) },
-                    onPlus: { bumpWeight(weightStep) },
-                    onCommitText: { text in
-                        let normalized = text.replacingOccurrences(of: ",", with: ".")
-                        if normalized.isEmpty || normalized == "—" {
-                            set.targetWeightKg = nil
-                        } else if let value = Double(normalized) {
-                            set.targetWeightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
-                        }
+            OGRepeatStepper(
+                display: set.targetWeightKg.map { String(format: "%g", $0) } ?? "—",
+                keyboard: .decimalPad,
+                onMinus: { bumpWeight(-weightStep) },
+                onPlus: { bumpWeight(weightStep) },
+                onCommitText: { text in
+                    let normalized = text.replacingOccurrences(of: ",", with: ".")
+                    if normalized.isEmpty || normalized == "—" {
+                        set.targetWeightKg = nil
+                    } else if let value = Double(normalized) {
+                        set.targetWeightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
                     }
-                )
-                .frame(maxWidth: .infinity)
-
-                OGRepeatStepper(
-                    display: "\(set.targetReps)",
-                    keyboard: .numberPad,
-                    onMinus: { set.targetReps = max(1, set.targetReps - 1) },
-                    onPlus: { set.targetReps = min(50, set.targetReps + 1) },
-                    onCommitText: { text in
-                        if let value = Int(text), value > 0 {
-                            set.targetReps = min(50, value)
-                        }
-                    }
-                )
-                .frame(width: 96)
-
-                Menu {
-                    Button("Sin RIR") { set.targetRir = nil }
-                    ForEach(0...5, id: \.self) { rir in
-                        Button("\(rir)") { set.targetRir = Double(rir) }
-                    }
-                } label: {
-                    Text(set.targetRir.map { String(format: "%g", $0) } ?? "RIR")
-                        .font(.system(size: 13, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(set.targetRir == nil ? OG.label3 : OG.label)
-                        .frame(width: 52, height: 36)
-                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
-            }
+            )
+            .frame(maxWidth: .infinity)
 
-            if let weight = set.targetWeightKg, weight > 0,
-               let compact = PlateMath.solve(targetKg: weight, barKg: barKg, availablePlatesKg: plates).perSideCompact {
-                HStack(spacing: 4) {
-                    Image(systemName: "circle.grid.cross")
-                        .font(.system(size: 10))
-                    Text(compact)
-                        .font(.system(size: 11))
+            OGRepeatStepper(
+                display: "\(set.targetReps)",
+                keyboard: .numberPad,
+                onMinus: { set.targetReps = max(1, set.targetReps - 1) },
+                onPlus: { set.targetReps = min(50, set.targetReps + 1) },
+                onCommitText: { text in
+                    if let value = Int(text), value > 0 {
+                        set.targetReps = min(50, value)
+                    }
                 }
-                .foregroundStyle(OG.label3)
-                .padding(.leading, 36)
+            )
+            .frame(width: 96)
+
+            Menu {
+                Button("Sin RIR") { set.targetRir = nil }
+                ForEach(0...5, id: \.self) { rir in
+                    Button("\(rir)") { set.targetRir = Double(rir) }
+                }
+            } label: {
+                Text(set.targetRir.map { String(format: "%g", $0) } ?? "RIR")
+                    .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(set.targetRir == nil ? OG.label3 : OG.label)
+                    .frame(width: 52, height: 36)
+                    .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -1253,12 +1205,6 @@ struct ExercisePickerView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    OGPageHeader(title: "Ejercicio") {
-                        CloseToolbarButton(action: { dismiss() }, large: true)
-                    }
-                    .ogListPageHeaderRow()
-                }
                 ForEach(filtered) { exercise in
                     Button {
                         onPick(exercise)
@@ -1278,8 +1224,12 @@ struct ExercisePickerView: View {
             }
             .ogListChrome()
             .searchable(text: $query, prompt: "Buscar ejercicio")
-            .ogContentTitleNav()
-            .toolbar(.hidden, for: .navigationBar)
+            .ogPinnedTransparentNav("Ejercicio")
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    CloseToolbarButton(action: { dismiss() }, large: false)
+                }
+            }
         }
         .preferredColorScheme(.dark)
     }

@@ -46,64 +46,13 @@ struct SessionPreviewView: View {
 
     var body: some View {
         List {
-            Section {
-                OGPageHeader(
-                    title: active != nil ? "Sesión" : "Entreno",
-                    subtitle: active == nil ? dayLabel : nil
-                ) {
-                    CloseToolbarButton(action: onClose, large: true)
-                } trailing: {
-                    if active != nil {
-                        // Eliminar: swipe en la tarjeta de sesión en curso.
-                        EmptyView()
-                    } else if liveRoutine != nil {
-                        HStack(spacing: 8) {
-                            Menu {
-                                Button {
-                                    if let routine = liveRoutine {
-                                        onEdit(routine)
-                                    }
-                                } label: {
-                                    Label("Editar", systemImage: "pencil")
-                                }
-                                Button {
-                                    if let routine = liveRoutine {
-                                        onLogResults(routine)
-                                    }
-                                } label: {
-                                    Label("Apuntar resultado", systemImage: "square.and.pencil")
-                                }
-                                Divider()
-                                Button(role: .destructive) {
-                                    showDeleteConfirm = true
-                                } label: {
-                                    Label("Borrar entreno", systemImage: "trash")
-                                }
-                            } label: {
-                                Image(systemName: "ellipsis")
-                                    .font(.system(size: OG.toolbarGlassIcon, weight: .semibold))
-                                    .foregroundStyle(OG.label)
-                                    .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
-                                    .contentShape(Circle())
-                                    .glassEffect(.regular.interactive(), in: .circle)
-                            }
-                            .accessibilityLabel("Más opciones")
-
-                            OGToolbarGlassButton(
-                                systemName: "play.fill",
-                                accessibilityLabel: "Comenzar",
-                                tint: OG.accent,
-                                appliesGlass: true,
-                                glassTint: OG.accent
-                            ) {
-                                guard let routine = liveRoutine else { return }
-                                store.startSession(from: routine)
-                                onStart()
-                            }
-                        }
-                    }
+            if active == nil, !dayLabel.isEmpty {
+                Section {
+                    Text(dayLabel)
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(OG.label2)
+                        .ogListPageHeaderRow()
                 }
-                .ogListPageHeaderRow()
             }
 
             if let active {
@@ -149,8 +98,56 @@ struct SessionPreviewView: View {
             }
         }
         .ogListChrome()
-        .ogContentTitleNav()
-        .toolbar(.hidden, for: .navigationBar)
+        .ogPinnedTransparentNav(active != nil ? "Sesión" : "Entreno")
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                CloseToolbarButton(action: onClose, large: false)
+            }
+            if active == nil, liveRoutine != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button {
+                            if let routine = liveRoutine {
+                                onEdit(routine)
+                            }
+                        } label: {
+                            Label("Editar", systemImage: "pencil")
+                        }
+                        Button {
+                            if let routine = liveRoutine {
+                                onLogResults(routine)
+                            }
+                        } label: {
+                            Label("Apuntar resultado", systemImage: "square.and.pencil")
+                        }
+                        Divider()
+                        Button(role: .destructive) {
+                            showDeleteConfirm = true
+                        } label: {
+                            Label("Borrar entreno", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                            .frame(width: 36, height: 36)
+                            .contentShape(Circle())
+                    }
+                    .accessibilityLabel("Más opciones")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    OGToolbarGlassButton(
+                        systemName: "play.fill",
+                        accessibilityLabel: "Comenzar",
+                        tint: OG.accent
+                    ) {
+                        guard let routine = liveRoutine else { return }
+                        store.startSession(from: routine)
+                        onStart()
+                    }
+                }
+            }
+        }
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showDeleteConfirm) {
             OGConfirmSheet(
@@ -322,22 +319,10 @@ struct LogFinalResultsView: View {
     var body: some View {
         List {
             Section {
-                OGPageHeader(title: "Resultado final", subtitle: routine.title) {
-                    CloseToolbarButton(action: { dismiss() }, large: true)
-                } trailing: {
-                    OGToolbarGlassButton(
-                        systemName: "checkmark",
-                        accessibilityLabel: "Guardar y terminar",
-                        tint: canSave ? OG.accent : OG.label3,
-                        appliesGlass: true
-                    ) {
-                        guard canSave else { return }
-                        save()
-                    }
-                    .opacity(canSave ? 1 : 0.45)
-                    .disabled(!canSave)
-                }
-                .ogListPageHeaderRow()
+                Text(routine.title)
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(OG.label2)
+                    .ogListPageHeaderRow()
             } footer: {
                 Text("Inicio y fin sirven para tiempo, kcal y emparejar con Apple Salud. Si coincide la franja, mandan los datos de Salud.")
             }
@@ -410,10 +395,25 @@ struct LogFinalResultsView: View {
             }
         }
         .ogListChrome()
-        .ogContentTitleNav()
-        .toolbar(.hidden, for: .navigationBar)
-        .navigationBarBackButtonHidden(true)
+        .ogPinnedTransparentNav("Resultado final")
         .toolbar(.hidden, for: .tabBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                CloseToolbarButton(action: { dismiss() }, large: false)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                OGToolbarGlassButton(
+                    systemName: "checkmark",
+                    accessibilityLabel: "Guardar y terminar",
+                    tint: canSave ? OG.accent : OG.label3
+                ) {
+                    guard canSave else { return }
+                    save()
+                }
+                .opacity(canSave ? 1 : 0.45)
+                .disabled(!canSave)
+            }
+        }
         .onAppear {
             if blocks.isEmpty {
                 blocks = Self.makeBlocks(routine: routine, catalog: store.state.exercises)

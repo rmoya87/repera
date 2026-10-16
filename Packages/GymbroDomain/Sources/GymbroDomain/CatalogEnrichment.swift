@@ -693,4 +693,6 @@ struct EnrichedSeed: Sendable {
     var instructions: [String]
     var primaries: [String]
     var secondaries: [String]
+    /// Deporte de origen (CrossFit, Halterofilia, Gimnasia). No es grupo muscular.
+    var sportTag: String? = nil
 }

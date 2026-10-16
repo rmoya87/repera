@@ -12,6 +12,8 @@ struct GymbroApp: App {
                 .environment(HealthKitStore.shared)
                 .task {
                     store.bootstrap()
+                    // Thumbs listos antes del 1.er foco en Ejercicios (no esperar a onAppear de la tab).
+                    ExerciseArt.prefetchThumbs(for: store.state.exercises)
                     let health = HealthKitStore.shared
                     health.refreshAuthorizationStatus()
                     if health.isAuthorized {

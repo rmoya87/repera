@@ -33,7 +33,6 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    header
                     weekAndDayCard
                     streakCard
                 }
@@ -42,7 +41,16 @@ struct HomeView: View {
                 .padding(.bottom, 28)
             }
             .background(OG.bg)
-            .toolbar(.hidden, for: .navigationBar)
+            .ogFixedTopBar("gymbro", subtitle: SpanishDate.long(selectedDay)) {
+                NavigationLink {
+                    SettingsView()
+                } label: {
+                    iCloudAvatar
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Ajustes y cuenta iCloud")
+            }
             .task(id: "\(weekOffset)-\(dayKey(selectedDay))") {
                 await refreshHealthForVisibleRange()
             }
@@ -112,33 +120,6 @@ struct HomeView: View {
                 )
             }
         }
-    }
-
-    private var header: some View {
-        HomeHeaderAvatarLayout(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("gymbro")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(OG.label)
-                    .tracking(-0.4)
-                    .lineLimit(1)
-                Text(SpanishDate.long(selectedDay))
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundStyle(OG.label2)
-                    .lineLimit(1)
-            }
-            .fixedSize()
-
-            NavigationLink {
-                SettingsView()
-            } label: {
-                iCloudAvatar
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Ajustes y cuenta iCloud")
-        }
-        .padding(.top, 8)
-        .padding(.bottom, 4)
     }
 
     @ViewBuilder
@@ -557,6 +538,7 @@ struct HomeView: View {
         return "\(set.reps)×\(w)"
     }
 
+    /// Como openGym: la racha abre el calendario/historial de entrenos (no Stats).
     private var streakCard: some View {
         let healthWeek = health.recentExternalActivities.filter {
             $0.start >= (calendar.date(byAdding: .day, value: -7, to: Date()) ?? Date())
@@ -564,27 +546,33 @@ struct HomeView: View {
         let weekDone = StatsEngine.workoutCount(from: store.state.workouts, days: 7) + healthWeek
         let planned = store.state.routines.filter { $0.weekday != nil }.count
         let total = store.state.workouts.count + health.recentExternalActivities.count
-        return OGCard {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 7) {
-                        Image(systemName: "flame.fill")
-                            .foregroundStyle(OG.orange)
-                        Text(streakTitle)
-                            .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(OG.label)
-                            .tracking(-0.4)
+        return NavigationLink {
+            HistoryView()
+        } label: {
+            OGCard {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 7) {
+                            Image(systemName: "flame.fill")
+                                .foregroundStyle(OG.orange)
+                            Text(streakTitle)
+                                .font(.system(size: 22, weight: .semibold))
+                                .foregroundStyle(OG.label)
+                                .tracking(-0.4)
+                        }
+                        Text(streakSubtitle(weekDone: weekDone, planned: planned, total: total))
+                            .font(.system(size: 13))
+                            .foregroundStyle(OG.label2)
                     }
-                    Text(streakSubtitle(weekDone: weekDone, planned: planned, total: total))
-                        .font(.system(size: 13))
-                        .foregroundStyle(OG.label2)
+                    Spacer()
+                    Image(systemName: "calendar")
+                        .font(.system(size: 18))
+                        .foregroundStyle(OG.label3)
                 }
-                Spacer()
-                Image(systemName: "calendar")
-                    .font(.system(size: 18))
-                    .foregroundStyle(OG.label3)
             }
         }
+        .buttonStyle(.plain)
+        .accessibilityHint("Abre el historial de entrenos")
     }
 
     // MARK: - Derived
@@ -889,34 +877,3 @@ private struct SwipeRowHeightKey: PreferenceKey {
         value = max(value, nextValue())
     }
 }
-
-/// Avatar a la derecha con el mismo alto que el bloque de texto (título + fecha), alineados arriba.
-private struct HomeHeaderAvatarLayout: Layout {
-    var spacing: CGFloat = 12
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        guard subviews.count == 2 else { return .zero }
-        let textSize = subviews[0].sizeThatFits(.unspecified)
-        let side = textSize.height
-        let width = proposal.width ?? (textSize.width + spacing + side)
-        return CGSize(width: width, height: side)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        guard subviews.count == 2 else { return }
-        let textSize = subviews[0].sizeThatFits(.unspecified)
-        let side = textSize.height
-        subviews[0].place(
-            at: CGPoint(x: bounds.minX, y: bounds.minY),
-            anchor: .topLeading,
-            proposal: ProposedViewSize(textSize)
-        )
-        subviews[1].place(
-            at: CGPoint(x: bounds.maxX - side, y: bounds.minY),
-            anchor: .topLeading,
-            proposal: ProposedViewSize(width: side, height: side)
-        )
-    }
-}
-
-

@@ -72,7 +72,7 @@ struct WorkoutView: View {
         .animation(.easeOut(duration: 0.2), value: restRemaining)
         .animation(.easeOut(duration: 0.25), value: showWODClock)
         .background(OG.bg)
-        .ogContentTitleNav()
+        .ogPinnedTransparentNav(store.state.activeSession?.title ?? "Entreno")
         .toolbar(showWODClock ? .hidden : .automatic, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -236,7 +236,6 @@ struct WorkoutView: View {
     private func content(_ session: WorkoutSession) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                OGPageHeader(title: session.title)
                 if let current = session.currentExercise {
                     currentCard(current, session: session)
                     setsBoard(current)
@@ -269,9 +268,8 @@ struct WorkoutView: View {
 
     /// Notas y ajustes del entreno (visibles en la sesión, no solo en el toolbar).
     private var workoutOptionsCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Opciones del entreno")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 8) {
+            OGCardSectionTitle(title: "Opciones del entreno")
             Button {
                 notesDraft = store.state.activeSession?.notes ?? ""
                 showNotes = true
@@ -408,15 +406,6 @@ struct WorkoutView: View {
                 .accessibilityLabel(row.completed ? "Serie hecha" : "Registrar serie")
             }
 
-            if !row.completed, let weight = row.weightKg, weight > 0,
-               let compact = store.plateCompactLine(exerciseId: current.exercise.id, targetKg: weight) {
-                HStack(spacing: 4) {
-                    Image(systemName: "circle.grid.cross").font(.system(size: 10))
-                    Text(compact).font(.system(size: 11))
-                }
-                .foregroundStyle(OG.label3)
-                .padding(.leading, 36)
-            }
         }
     }
 
@@ -604,13 +593,6 @@ struct WorkoutView: View {
 
             if let reason = store.progressionReasons[current.exercise.id] {
                 Label(reason, systemImage: "arrow.up.right.circle")
-                    .font(.caption)
-                    .foregroundStyle(OG.label2)
-            }
-            if let weight = target?.targetWeightKg ?? Double(weightText.replacingOccurrences(of: ",", with: ".")),
-               weight > 0,
-               let plateLine = store.plateSummaryLine(exerciseId: current.exercise.id, targetKg: weight) {
-                Label(plateLine, systemImage: "circle.grid.cross")
                     .font(.caption)
                     .foregroundStyle(OG.label2)
             }
@@ -1008,9 +990,10 @@ struct WorkoutView: View {
                     }
                     HStack(spacing: 10) {
                         TextField("kg drop", text: $dropWeightText)
-                            .keyboardType(.decimalPad)
+                            .ogKeyboardDone()
                         TextField("reps", text: $dropRepsText)
-                            .keyboardType(.numberPad)
+                            .ogNumericKeyboard(allowsDecimal: false)
+
                         Button("Añadir") {
                             let reps = Int(dropRepsText) ?? 0
                             let w = Double(dropWeightText.replacingOccurrences(of: ",", with: "."))
@@ -1035,7 +1018,8 @@ struct WorkoutView: View {
                     }
                     HStack(spacing: 10) {
                         TextField("reps", text: $clusterRepsText)
-                            .keyboardType(.numberPad)
+                            .ogNumericKeyboard(allowsDecimal: false)
+
                         Stepper("\(clusterRest)s", value: $clusterRest, in: 5...30, step: 5)
                         Button("Añadir") {
                             let reps = Int(clusterRepsText) ?? 0

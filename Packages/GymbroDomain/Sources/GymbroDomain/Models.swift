@@ -101,6 +101,8 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
     public var primaryRegions: [String]
     public var secondaryRegions: [String]
     public var isFavorite: Bool
+    /// Origen deportivo (CrossFit, Halterofilia, Gimnasia). Independiente del grupo muscular.
+    public var sportTag: String?
 
     public init(
         id: UUID = UUID(),
@@ -116,7 +118,8 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         instructions: [String] = [],
         primaryRegions: [String] = [],
         secondaryRegions: [String] = [],
-        isFavorite: Bool = false
+        isFavorite: Bool = false,
+        sportTag: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -132,12 +135,14 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         self.primaryRegions = primaryRegions
         self.secondaryRegions = secondaryRegions
         self.isFavorite = isFavorite
+        self.sportTag = sportTag
     }
 
     enum CodingKeys: String, CodingKey {
         case id, name, muscleGroup, equipment, isCustom
         case catalogId, targetMuscle, secondaryMuscles, bodyPart
         case detailDescription, instructions, primaryRegions, secondaryRegions, isFavorite
+        case sportTag
     }
 
     public init(from decoder: Decoder) throws {
@@ -156,6 +161,16 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         primaryRegions = try c.decodeIfPresent([String].self, forKey: .primaryRegions) ?? []
         secondaryRegions = try c.decodeIfPresent([String].self, forKey: .secondaryRegions) ?? []
         isFavorite = try c.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+        sportTag = try c.decodeIfPresent(String.self, forKey: .sportTag)
+        // Migración: antiguos grupos deporte → sportTag + músculo principal.
+        let legacySports: Set<String> = ["CrossFit", "Halterofilia", "Gimnasia"]
+        if sportTag == nil, legacySports.contains(muscleGroup) {
+            sportTag = muscleGroup
+            muscleGroup = MuscleTaxonomy.libraryMuscleGroup(
+                primaries: primaryRegions,
+                target: targetMuscle
+            )
+        }
     }
 }
 

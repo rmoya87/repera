@@ -34,65 +34,65 @@ struct MuscleBalanceCard: View {
     var body: some View {
         let load = self.load
         let ranked = MuscleLoadEngine.ranked(load: load)
-        return OGCard {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Equilibrio muscular")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(OG.label)
-                        Text("\(hardOnly ? "Series duras" : "Series trabajadas") · \(rangeLabel)")
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    OGCardSectionTitle(title: "Equilibrio muscular")
+                    Text("\(hardOnly ? "Series duras" : "Series trabajadas") · \(rangeLabel)")
+                        .font(.system(size: 12))
+                        .foregroundStyle(OG.label3)
+                        .padding(.horizontal, 4)
+                }
+                Spacer()
+                if hasHardSets {
+                    Button {
+                        hardOnly.toggle()
+                        selected = nil
+                    } label: {
+                        Text(hardOnly ? "Duras" : "Todas")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(hardOnly ? OG.yellow : OG.label2)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(OG.surface2, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            OGCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    BodyMapView(load: load, selected: selected) { slug in
+                        selected = (selected == slug) ? nil : slug
+                    }
+                    BodyMapLegend()
+
+                    barsSection(load: load, ranked: ranked)
+
+                    if ranked.missed.count > 0 {
+                        Text(hardOnly ? "Sin series duras en este periodo" : "Sin entrenar en este periodo")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(OG.label2)
+                            .padding(.top, 4)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                ForEach(ranked.missed, id: \.self) { slug in
+                                    Text(MuscleTaxonomy.displayName(slug))
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(OG.label3)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 5)
+                                        .background(OG.surface2, in: Capsule())
+                                        .overlay { Capsule().stroke(OG.label3.opacity(0.35), lineWidth: 1) }
+                                }
+                            }
+                        }
+                    } else if !ranked.worked.isEmpty {
+                        Text(hardOnly
+                             ? "Cada grupo tuvo al menos una serie dura."
+                             : "Cada grupo muscular recibió trabajo.")
                             .font(.system(size: 12))
                             .foregroundStyle(OG.label3)
                     }
-                    Spacer()
-                    if hasHardSets {
-                        Button {
-                            hardOnly.toggle()
-                            selected = nil
-                        } label: {
-                            Text(hardOnly ? "Duras" : "Todas")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(hardOnly ? OG.yellow : OG.label2)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(OG.surface2, in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                BodyMapView(load: load, selected: selected) { slug in
-                    selected = (selected == slug) ? nil : slug
-                }
-                BodyMapLegend()
-
-                barsSection(load: load, ranked: ranked)
-
-                if ranked.missed.count > 0 {
-                    Text(hardOnly ? "Sin series duras en este periodo" : "Sin entrenar en este periodo")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(OG.label2)
-                        .padding(.top, 4)
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 6) {
-                            ForEach(ranked.missed, id: \.self) { slug in
-                                Text(MuscleTaxonomy.displayName(slug))
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(OG.label3)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 5)
-                                    .background(OG.surface2, in: Capsule())
-                                    .overlay { Capsule().stroke(OG.label3.opacity(0.35), lineWidth: 1) }
-                            }
-                        }
-                    }
-                } else if !ranked.worked.isEmpty {
-                    Text(hardOnly
-                         ? "Cada grupo tuvo al menos una serie dura."
-                         : "Cada grupo muscular recibió trabajo.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(OG.label3)
                 }
             }
         }

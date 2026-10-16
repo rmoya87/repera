@@ -270,28 +270,77 @@ final class HealthKitStore {
         }
     }
 
-    /// Refresca la caché de actividades externas (por defecto ~6 meses; Progreso pide ~400d para el heatmap).
+    /// Días ya cargados en caché (evita re-fetch al bajar de 180→90→180).
+    @ObservationIgnored private var healthCacheDays: Int = 0
+    /// Caché antigua agregaba por semana/mes y rompía Hoy/Semana/Mes; solo reutilizamos si es diaria.
+    @ObservationIgnored private var healthCacheIsDaily = false
+
+    /// Refresca actividades + FC/kcal **por día**. Si ya hay caché diaria ≥ `days`, no vuelve a pedir Salud.
+    /// La UI promedia a semana/mes solo al pintar (90/180/360).
+    /// Publica los tres arrays **en un solo tick** de Observation para no re-renderizar Progreso 3 veces.
     func refreshRecentExternalActivities(
         excludingUUIDs: Set<UUID> = [],
         overlappingSessions: [WorkoutSession] = [],
         days: Int = 180
     ) async {
+        if healthCacheIsDaily,
+           healthCacheDays >= days,
+           !recentDailyHeartRate.isEmpty || !recentDailyActiveEnergy.isEmpty {
+            ProgressLog.healthCacheHit(
+                days: days,
+                hr: recentDailyHeartRate.count,
+                kcal: recentDailyActiveEnergy.count
+            )
+            return
+        }
+
+        let t0 = CFAbsoluteTimeGetCurrent()
+        ProgressLog.healthFetchStart(days: days)
+
         let end = Date()
         let start = Calendar.current.date(byAdding: .day, value: -days, to: end) ?? end
-        recentExternalActivities = await externalActivities(
+        let dayBucket = DateComponents(day: 1)
+
+        var t = CFAbsoluteTimeGetCurrent()
+        let activities = await externalActivities(
             from: start,
             to: end,
             excludingUUIDs: excludingUUIDs,
             overlappingSessions: overlappingSessions
         )
-        async let hr = dailyHeartRateStats(from: start, to: end)
-        async let energy = dailyActiveEnergyStats(from: start, to: end)
-        recentDailyHeartRate = await hr
-        recentDailyActiveEnergy = await energy
+        ProgressLog.healthFetchStep("activities", count: activities.count, elapsedMs: (CFAbsoluteTimeGetCurrent() - t) * 1000)
+
+        t = CFAbsoluteTimeGetCurrent()
+        async let hr = dailyHeartRateStats(from: start, to: end, interval: dayBucket)
+        async let energy = dailyActiveEnergyStats(from: start, to: end, interval: dayBucket)
+        let (hrPoints, energyPoints) = await (hr, energy)
+        ProgressLog.healthFetchStep(
+            "hr+kcal",
+            count: hrPoints.count + energyPoints.count,
+            elapsedMs: (CFAbsoluteTimeGetCurrent() - t) * 1000
+        )
+
+        // Un solo commit observable (evita 3 rebuilds de Charts en Progreso).
+        recentExternalActivities = activities
+        recentDailyHeartRate = hrPoints
+        recentDailyActiveEnergy = energyPoints
+        healthCacheDays = max(healthCacheDays, days)
+        healthCacheIsDaily = true
+
+        ProgressLog.healthFetchDone(
+            totalMs: (CFAbsoluteTimeGetCurrent() - t0) * 1000,
+            activities: activities.count,
+            hr: hrPoints.count,
+            kcal: energyPoints.count
+        )
     }
 
-    /// FC mín / media / máx por día desde Salud.
-    func dailyHeartRateStats(from start: Date, to end: Date) async -> [DailyHeartRatePoint] {
+    /// FC mín / media / máx (intervalo configurable: día / semana / mes).
+    func dailyHeartRateStats(
+        from start: Date,
+        to end: Date,
+        interval: DateComponents = DateComponents(day: 1)
+    ) async -> [DailyHeartRatePoint] {
         guard isAvailable,
               let type = HKQuantityType.quantityType(forIdentifier: .heartRate)
         else { return [] }
@@ -305,7 +354,7 @@ final class HealthKitStore {
                 quantitySamplePredicate: predicate,
                 options: [.discreteMin, .discreteAverage, .discreteMax],
                 anchorDate: dayStart,
-                intervalComponents: DateComponents(day: 1)
+                intervalComponents: interval
             )
             query.initialResultsHandler = { _, collection, _ in
                 var points: [DailyHeartRatePoint] = []
@@ -331,8 +380,12 @@ final class HealthKitStore {
         }
     }
 
-    /// kcal activas acumuladas por día desde Salud (anillo de Movimiento).
-    func dailyActiveEnergyStats(from start: Date, to end: Date) async -> [DailyActiveEnergyPoint] {
+    /// kcal activas (intervalo configurable).
+    func dailyActiveEnergyStats(
+        from start: Date,
+        to end: Date,
+        interval: DateComponents = DateComponents(day: 1)
+    ) async -> [DailyActiveEnergyPoint] {
         guard isAvailable,
               let type = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)
         else { return [] }
@@ -345,7 +398,7 @@ final class HealthKitStore {
                 quantitySamplePredicate: predicate,
                 options: .cumulativeSum,
                 anchorDate: dayStart,
-                intervalComponents: DateComponents(day: 1)
+                intervalComponents: interval
             )
             query.initialResultsHandler = { _, collection, _ in
                 var points: [DailyActiveEnergyPoint] = []
@@ -405,15 +458,13 @@ final class HealthKitStore {
         ) {
             return nil
         }
-        let kcal: Double?
-        if let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
-           let burned = w.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie()) {
-            kcal = burned > 0 ? burned : nil
-        } else if let total = w.totalEnergyBurned?.doubleValue(for: .kilocalorie()), total > 0 {
-            kcal = total
-        } else {
-            kcal = nil
-        }
+        let kcal: Double? = {
+            guard let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
+                  let burned = w.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie()),
+                  burned > 0
+            else { return nil }
+            return burned
+        }()
         let distance = w.totalDistance?.doubleValue(for: .meter())
         return ExternalActivity(
             id: w.uuid,
@@ -529,8 +580,6 @@ final class HealthKitStore {
                let burned = workout.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie()),
                burned > 0 {
                 kcal = burned
-            } else if let total = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()), total > 0 {
-                kcal = total
             }
         }
 
@@ -595,7 +644,7 @@ final class HealthKitStore {
     /// Vuelve a pedir lectura de rutas (tipos nuevos no se activan solos tras la 1.ª autorización).
     func ensureWorkoutRouteAccess() async {
         guard isAvailable else { return }
-        var read: Set<HKObjectType> = [
+        let read: Set<HKObjectType> = [
             HKObjectType.quantityType(forIdentifier: .bodyMass)!,
             HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
             HKObjectType.quantityType(forIdentifier: .heartRate)!,
@@ -703,15 +752,18 @@ final class HealthKitStore {
 
     private func fetchLocations(in route: HKWorkoutRoute) async -> [CLLocation] {
         await withCheckedContinuation { cont in
-            var collected: [CLLocation] = []
-            var finished = false
+            final class RouteCollectBox: @unchecked Sendable {
+                var collected: [CLLocation] = []
+                var finished = false
+            }
+            let box = RouteCollectBox()
             let q = HKWorkoutRouteQuery(route: route) { _, locations, done, error in
                 if let locations {
-                    collected.append(contentsOf: locations)
+                    box.collected.append(contentsOf: locations)
                 }
-                if (done || error != nil), !finished {
-                    finished = true
-                    cont.resume(returning: collected)
+                if (done || error != nil), !box.finished {
+                    box.finished = true
+                    cont.resume(returning: box.collected)
                 }
             }
             store.execute(q)
@@ -1014,7 +1066,7 @@ final class HealthKitStore {
         }
     }
 
-    private static func isStrengthLike(_ type: HKWorkoutActivityType) -> Bool {
+    nonisolated private static func isStrengthLike(_ type: HKWorkoutActivityType) -> Bool {
         switch type {
         case .traditionalStrengthTraining, .functionalStrengthTraining, .highIntensityIntervalTraining,
              .crossTraining, .coreTraining:

@@ -380,13 +380,7 @@ struct BoardImportReviewView: View {
             }
         }
         .ogListChrome()
-        .safeAreaInset(edge: .top, spacing: 0) {
-            OGPageHeader(title: "De la pizarra")
-                .padding(.horizontal, OG.pad)
-                .padding(.top, 8)
-                .background(OG.bg)
-        }
-        .ogContentTitleNav()
+        .ogPinnedTransparentNav("De la pizarra")
         .toolbar {
             if embedsNavigationStack {
                 ToolbarItem(placement: .cancellationAction) {
@@ -450,11 +444,19 @@ struct BoardImportReviewView: View {
                     catalog: store.state.exercises
                 )
             }
+            let testedOneRMs: [UUID: Double] = Dictionary(
+                uniqueKeysWithValues: store.state.exerciseLoadPrefs.compactMap { key, pref in
+                    guard let tested = pref.testedOneRMKg, tested > 0,
+                          let id = UUID(uuidString: key) else { return nil }
+                    return (id, tested)
+                }
+            )
             blocks = LoadSuggestion.applyPercentLoads(
                 to: blocks,
                 workouts: store.state.workouts,
                 catalog: store.state.exercises,
-                incrementKg: store.state.settings.weightIncrementKg
+                incrementKg: store.state.settings.weightIncrementKg,
+                testedOneRMByExerciseId: testedOneRMs
             )
             BoardScanLog.info(
                 "Review onAppear: detectedBlocks=\(detectedBlocks.count) "

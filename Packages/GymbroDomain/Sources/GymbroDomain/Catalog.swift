@@ -23,7 +23,8 @@ public enum Catalog {
                 detailDescription: localized.description,
                 instructions: localized.instructions,
                 primaryRegions: row.primaries.isEmpty ? [row.muscleGroup.lowercased()] : row.primaries,
-                secondaryRegions: row.secondaries
+                secondaryRegions: row.secondaries,
+                sportTag: row.sportTag
             )
         }
     }

@@ -31,6 +31,7 @@ private enum ExerciseBrowseMode: String, CaseIterable, Identifiable {
 struct LibraryView: View {
     @Environment(GymbroStore.self) private var store
     var onOpenedWorkout: (() -> Void)? = nil
+    /// Texto del campo de búsqueda (filtra al instante; el índice precomputado hace barato el rank).
     @State private var query = ""
     @State private var showingAdd = false
     @State private var showFilter = false
@@ -43,37 +44,53 @@ struct LibraryView: View {
     @State private var detailDescription = ""
     @State private var instructionsText = ""
     @State private var browseMode: ExerciseBrowseMode = .alphabetical
+    /// Secciones cacheadas: no reordenar ~200 filas en cada tecla.
+    @State private var cachedSections: [LibrarySectionModel] = []
+    /// Nombres/meta ya normalizados (evitar re-normalize en cada tecla).
+    @State private var searchIndex: [ExerciseSearch.Document] = []
+    @State private var didPrefetchThumbs = false
 
     private let muscles = [
         "Pecho", "Espalda", "Piernas", "Isquios", "Hombros", "Bíceps", "Tríceps",
-        "Core", "Glúteos", "Gemelos", "Cardio", "CrossFit", "Halterofilia", "Gimnasia",
+        "Core", "Glúteos", "Gemelos", "Antebrazos", "Cardio",
     ]
 
-    private let sportGroups: Set<String> = ["CrossFit", "Halterofilia", "Gimnasia", "Cardio"]
+    private let sportTags: Set<String> = ["CrossFit", "Halterofilia", "Gimnasia", "Cardio"]
 
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(sections, id: \.key) { group in
-                    if let title = group.title {
-                        Section(title) {
-                            exerciseRows(group.items)
-                        }
-                    } else {
-                        Section {
-                            exerciseRows(group.items)
-                        }
-                    }
-                }
-            }
-            .ogListChrome()
-            .searchable(
-                text: $query,
-                placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Nombre, músculo o equipo"
+            LibraryExerciseList(
+                sections: cachedSections,
+                onToggleFavorite: { store.toggleFavorite($0) },
+                onDelete: { store.deleteExercise($0) }
             )
+            .ogListChrome()
+            .scrollDismissesKeyboard(.interactively)
+            // Sin animaciones al filtrar / al activar teclado (isSearching).
+            .transaction { $0.animation = nil }
+            .animation(nil, value: query)
+            .onChange(of: query) { _, _ in
+                rebuildSections(reason: "query")
+            }
+            .onChange(of: browseMode) { _, _ in
+                rebuildSections(reason: "browseMode")
+            }
+            .onChange(of: store.state.exercises) { _, exercises in
+                searchIndex = ExerciseSearch.makeIndex(exercises)
+                rebuildSections(reason: "exercises")
+                prefetchThumbsIfNeeded()
+            }
+            .onAppear {
+                if searchIndex.isEmpty {
+                    searchIndex = ExerciseSearch.makeIndex(store.state.exercises)
+                }
+                if cachedSections.isEmpty {
+                    rebuildSections(reason: "appear")
+                }
+                prefetchThumbsIfNeeded()
+            }
             .navigationTitle("Ejercicios")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .ogTransparentNav()
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -92,6 +109,15 @@ struct LibraryView: View {
                         showingAdd = true
                     }
                 }
+            }
+            // Campo nativo del sistema debajo del título / filtro / +.
+            .searchable(
+                text: $query,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Nombre, músculo o equipo"
+            )
+            .navigationDestination(for: UUID.self) { id in
+                ExerciseDetailView(exerciseId: id, onOpenedWorkout: onOpenedWorkout)
             }
             .sheet(isPresented: $showFilter) {
                 filterSheet
@@ -226,116 +252,116 @@ struct LibraryView: View {
         .ogFittedSheet()
     }
 
-    @ViewBuilder
-    private func exerciseRows(_ items: [Exercise]) -> some View {
-        ForEach(items) { exercise in
-            NavigationLink {
-                ExerciseDetailView(exerciseId: exercise.id, onOpenedWorkout: onOpenedWorkout)
-            } label: {
-                HStack(spacing: 12) {
-                    ExerciseThumb(exercise: exercise)
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 6) {
-                            Text(exercise.name)
-                                .foregroundStyle(OG.label)
-                            if exercise.isFavorite {
-                                Image(systemName: "star.fill")
-                                    .font(.caption2)
-                                    .foregroundStyle(OG.yellow)
-                            }
-                        }
-                        Text(librarySubtitle(exercise))
-                            .font(.caption)
-                            .foregroundStyle(OG.label2)
-                    }
-                    Spacer(minLength: 0)
-                }
+    private func prefetchThumbsIfNeeded() {
+        guard !didPrefetchThumbs else { return }
+        didPrefetchThumbs = true
+        ExerciseArt.prefetchThumbs(for: store.state.exercises)
+    }
+
+    private func rebuildSections(reason: String) {
+        let t0 = CFAbsoluteTimeGetCurrent()
+        let sections = makeSections()
+        // Evita invalidar la List si el resultado no cambió (p. ej. espacios al final).
+        if sections == cachedSections { return }
+        cachedSections = sections
+        let items = sections.reduce(0) { $0 + $1.items.count }
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        LibrarySearchLog.rebuildSections(
+            reason: reason,
+            count: items,
+            queryEmpty: q.isEmpty,
+            ms: (CFAbsoluteTimeGetCurrent() - t0) * 1000
+        )
+        #if DEBUG
+        if !q.isEmpty, let top = sections.first?.items.prefix(3) {
+            let labels = top.map {
+                "\($0.name)(\(ExerciseSearch.score($0.exercise, query: q)))"
             }
-            .swipeActions {
-                Button {
-                    store.toggleFavorite(exercise.id)
-                } label: {
-                    Label(exercise.isFavorite ? "Quitar" : "Favorito", systemImage: "star")
-                }
-                .tint(OG.yellow)
-                if exercise.isCustom {
-                    Button(role: .destructive) {
-                        store.deleteExercise(exercise.id)
-                    } label: {
-                        Label("Borrar", systemImage: "trash")
-                    }
-                }
-            }
+            LibrarySearchLog.info("rank top: \(labels.joined(separator: ", "))")
+        }
+        #endif
+    }
+
+    private func filteredExercises() -> [Exercise] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let docs: [ExerciseSearch.Document]
+        if browseMode == .favorites {
+            docs = searchIndex.filter(\.exercise.isFavorite)
+        } else {
+            docs = searchIndex
+        }
+        guard !q.isEmpty else {
+            return docs.map(\.exercise)
+        }
+        return ExerciseSearch.ranked(docs, query: q)
+    }
+
+    private func rowModels(from exercises: [Exercise]) -> [LibraryRowModel] {
+        exercises.map { ex in
+            LibraryRowModel(
+                id: ex.id,
+                name: ex.name,
+                subtitle: librarySubtitle(ex),
+                isFavorite: ex.isFavorite,
+                isCustom: ex.isCustom,
+                exercise: ex
+            )
         }
     }
 
     private func librarySubtitle(_ exercise: Exercise) -> String {
         var parts: [String] = [exercise.muscleGroup]
+        if let sport = exercise.sportTag, !sport.isEmpty {
+            parts.append(sport)
+        }
         if let eq = exercise.equipment, !eq.isEmpty {
-            parts.append(eq)
+            parts.append(LocalizedMuscle.es(eq))
         }
         return parts.joined(separator: " · ")
     }
 
-    private struct SectionModel: Identifiable {
-        var id: String { key }
-        var key: String
-        var title: String?
-        var items: [Exercise]
-    }
-
-    private var filtered: [Exercise] {
-        var list = store.state.exercises
-        if browseMode == .favorites {
-            list = list.filter(\.isFavorite)
+    private func makeSections() -> [LibrarySectionModel] {
+        let list = filteredExercises()
+        let searching = !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        // Misma `key` en lista plana: SwiftUI reusa filas/thumbs al filtrar (diff por id).
+        if searching {
+            return [
+                LibrarySectionModel(key: "flat", title: nil, items: rowModels(from: list)),
+            ]
         }
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !q.isEmpty else { return list }
-        // Solo campos indexados “baratos” (sin descripción/instrucciones) para no frenar el teclado.
-        return list.filter {
-            $0.name.lowercased().contains(q)
-                || $0.muscleGroup.lowercased().contains(q)
-                || ($0.equipment?.lowercased().contains(q) ?? false)
-                || ($0.targetMuscle?.lowercased().contains(q) ?? false)
+        if browseMode == .alphabetical || browseMode == .favorites {
+            let sorted = list.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            return [
+                LibrarySectionModel(key: "flat", title: nil, items: rowModels(from: sorted)),
+            ]
         }
-    }
-
-    private var sections: [SectionModel] {
-        let list = filtered
         switch browseMode {
         case .alphabetical, .favorites:
+            let sorted = list.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
             return [
-                SectionModel(
-                    key: "all",
-                    title: nil,
-                    items: list.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-                ),
+                LibrarySectionModel(key: "flat", title: nil, items: rowModels(from: sorted)),
             ]
         case .muscle:
             return Dictionary(grouping: list, by: \.muscleGroup)
                 .map { key, value in
-                    SectionModel(
-                        key: key,
-                        title: key,
-                        items: value.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-                    )
+                    let sorted = value.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+                    return LibrarySectionModel(key: key, title: key, items: rowModels(from: sorted))
                 }
-                .sorted { $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending }
+                .sorted { $0.key < $1.key }
         case .sport:
-            return Dictionary(grouping: list) { sportBucket(for: $0.muscleGroup) }
+            return Dictionary(grouping: list) { sportBucket(for: $0) }
                 .map { key, value in
-                    SectionModel(
-                        key: key,
-                        title: key,
-                        items: value.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-                    )
+                    let sorted = value.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+                    return LibrarySectionModel(key: key, title: key, items: rowModels(from: sorted))
                 }
                 .sorted { sportSort($0.key) < sportSort($1.key) }
         }
     }
 
-    private func sportBucket(for muscleGroup: String) -> String {
-        if sportGroups.contains(muscleGroup) { return muscleGroup }
+    private func sportBucket(for exercise: Exercise) -> String {
+        if let tag = exercise.sportTag, sportTags.contains(tag) { return tag }
+        if exercise.muscleGroup == "Cardio" { return "Cardio" }
+        if sportTags.contains(exercise.muscleGroup) { return exercise.muscleGroup }
         return "Fuerza"
     }
 
@@ -347,6 +373,103 @@ struct LibraryView: View {
         case "Gimnasia": return 3
         case "Cardio": return 4
         default: return 99
+        }
+    }
+}
+
+private struct LibrarySectionModel: Identifiable, Equatable {
+    var id: String { key }
+    var key: String
+    var title: String?
+    var items: [LibraryRowModel]
+}
+
+private struct LibraryRowModel: Identifiable, Equatable {
+    let id: UUID
+    let name: String
+    let subtitle: String
+    let isFavorite: Bool
+    let isCustom: Bool
+    let exercise: Exercise
+}
+
+/// Lista aislada: lee `isSearching` y corta animaciones al abrir el teclado.
+private struct LibraryExerciseList: View {
+    @Environment(\.isSearching) private var isSearching
+
+    let sections: [LibrarySectionModel]
+    var onToggleFavorite: (UUID) -> Void
+    var onDelete: (UUID) -> Void
+
+    var body: some View {
+        List {
+            ForEach(sections) { group in
+                if let title = group.title {
+                    Section(title) {
+                        rows(group.items)
+                    }
+                } else {
+                    Section {
+                        rows(group.items)
+                    }
+                }
+            }
+        }
+        .animation(nil, value: isSearching)
+        .transaction { tx in
+            tx.animation = nil
+            if isSearching {
+                tx.disablesAnimations = true
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func rows(_ items: [LibraryRowModel]) -> some View {
+        ForEach(items) { row in
+            NavigationLink(value: row.id) {
+                LibraryExerciseRowLabel(row: row)
+            }
+            .swipeActions {
+                Button {
+                    onToggleFavorite(row.id)
+                } label: {
+                    Label(row.isFavorite ? "Quitar" : "Favorito", systemImage: "star")
+                }
+                .tint(OG.yellow)
+                if row.isCustom {
+                    Button(role: .destructive) {
+                        onDelete(row.id)
+                    } label: {
+                        Label("Borrar", systemImage: "trash")
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct LibraryExerciseRowLabel: View {
+    let row: LibraryRowModel
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ExerciseThumb(exercise: row.exercise)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(row.name)
+                        .foregroundStyle(OG.label)
+                    if row.isFavorite {
+                        Image(systemName: "star.fill")
+                            .font(.caption2)
+                            .foregroundStyle(OG.yellow)
+                    }
+                }
+                Text(row.subtitle)
+                    .font(.caption)
+                    .foregroundStyle(OG.label2)
+            }
+            Spacer(minLength: 0)
         }
     }
 }
