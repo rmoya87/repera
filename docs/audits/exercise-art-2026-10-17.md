@@ -76,7 +76,7 @@
 | Push jerk | `art_cf_push_jerk` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
 | Split jerk | `art_cf_split_jerk` | WARN | Carrusel 3 pasos: sin QA visual completa | Inspeccionar hero, fases, sombras y cámara |
 | Overhead squat | `art_cf_ohs` | WARN | Carrusel 3 pasos: sin QA visual completa | Inspeccionar hero, fases, sombras y cámara |
-| Thruster | `art_cf_thruster` | FAIL | `_3`: termina con mancuernas en lugar de barra | Regenerar `art_cf_thruster_3` y reactivar carrusel |
+| Thruster | `art_cf_thruster` | WARN | Paso `_3` corregido con hero overhead de barra; falta QA de consistencia | Verificar cámara/personaje; full y thumb ya versionados |
 | Cluster | `art_cf_cluster` | WARN | Carrusel 3 pasos: sin QA visual completa | Inspeccionar hero, fases, sombras y cámara |
 | Sumo high pull | `art_cf_sumo_hp` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
 | Burpee | `art_cf_burpee` | WARN | Carrusel 3 pasos: sin QA visual completa | Inspeccionar hero, fases, sombras y cámara |
@@ -84,7 +84,7 @@
 | Salto al cajón | `art_cf_box_jump` | WARN | Carrusel 3 pasos: sin QA visual completa | Inspeccionar hero, fases, sombras y cámara |
 | Step-up al cajón | `art_cf_step_up` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
 | Muscle-up barra | `art_cf_mu_bar` | FAIL | `_3`: soporte sobre barra no representado | Regenerar `art_cf_mu_bar_3` sin sombra |
-| Muscle-up anillas | `art_cf_mu_rings` | WARN | Carrusel 3 pasos: sin QA visual completa | Inspeccionar hero, fases, sombras y cámara |
+| Muscle-up anillas | `art_cf_mu_rings` | FAIL | `_1` y `_3` con sombra en suspensión; `_2` con pies al suelo | Regenerar las tres fases de anillas; sin sombra aérea |
 | Toes to bar | `art_cf_ttb` | WARN | Carrusel 3 pasos: sin QA visual completa | Inspeccionar hero, fases, sombras y cámara |
 | Knees to elbows | `art_cf_kte` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
 | Chest to bar | `art_cf_ctb` | WARN | Carrusel 3 pasos: sin QA visual completa | Inspeccionar hero, fases, sombras y cámara |
@@ -145,7 +145,7 @@
 | Envión detrás de nuca | `art_hl_btn_jerk` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
 | Sots press | `art_hl_sots` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
 | Sentadilla frontal con pausa | `art_hl_pause_fs` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
-| Dominadas estrictas | `art_gy_strict_pu` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
+| Dominadas estrictas | `art_gy_strict_pu` | FAIL | Hero presenta sombra debajo de los pies suspendidos | Regenerar hero y thumb sin sombra |
 | Dominadas kipping | `art_gy_kip_pu` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
 | Dominadas butterfly | `art_gy_bfly_pu` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
 | Dominadas supinas | `art_gy_chinup` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
@@ -165,7 +165,7 @@
 | Handstand hold | `art_gy_hs_hold` | WARN | Hero presente; sin carrusel propio verificado | Conservar solo hero; comprobar estilo |
 | Press to handstand | `art_gy_press_hs` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
 | Fondos en paralelas | `art_gy_pb_dip` | WARN | Cambio de cámara entre `_1` y `_2` | Unificar cámara si se regenera |
-| Soporte en anillas | `art_gy_ring_sup` | WARN | Hero presente; sin carrusel propio verificado | Conservar solo hero; comprobar estilo |
+| Soporte en anillas | `art_gy_ring_sup` | FAIL | Hero con óvalo/sombra de suelo pese a soporte aéreo | Regenerar hero y thumb sin sombra |
 | False grip hang | `art_gy_false_grip` | WARN | Hero presente; sin carrusel propio verificado | Conservar solo hero; comprobar estilo |
 | Skin the cat | `art_gy_skin_cat` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
 | German hang | `art_gy_german` | WARN | Hero presente; sin carrusel propio verificado | Conservar solo hero; comprobar estilo |
@@ -205,8 +205,11 @@
 
 ## Stems por regenerar (confirmados)
 
-- `art_cf_thruster_3`: barra olímpica en overhead; mismo personaje que `_1/_2`.
+- `art_cf_thruster_3`: **corregido**: ahora full y thumb reutilizan el hero original con barra olímpica overhead; pendiente QA de continuidad.
 - `art_cf_mu_bar_3`: soporte sobre la misma barra, pies suspendidos, sin sombra.
+- `art_cf_mu_rings_1`, `_2`, `_3`: quitar sombras y corregir la transición.
+- `art_gy_ring_sup`, `art_gy_strict_pu`: regenerar hero por sombra aérea.
+- `art_cf_ring_dip_2`: eliminar camiseta y sombra.
 - `art_cf_ring_dip_3`: paso final distinto del `_1` (actualmente son exactamente el mismo JPG).
 - `art_cf_hang_clean`, `art_cf_hang_clean_1`, `_2`, `_3`: eliminar camiseta y shadow de `_2`.
 
