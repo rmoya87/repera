@@ -8,6 +8,7 @@
 - 188 hero presentes; 0 full sin thumb; 0 thumbs sin full.
 - Dimensiones y calidad visual de todos los JPG: **no certificadas**. El script `scripts/audit_exercise_art.py` las comprueba en checkout con Pillow y produce hojas de contacto.
 - Fallbacks mezclados desactivados hasta contar con secuencias verificadas; los holds se muestran con hero.
+- Se encontró una duplicación interna de fases: `art_cf_ring_dip_1.jpg` y `art_cf_ring_dip_3.jpg` tienen el mismo SHA.
 
 ## Tabla por ejercicio (188)
 
@@ -90,7 +91,7 @@
 | HSPU | `art_cf_hspu` | WARN | Carrusel 3 pasos: sin QA visual completa | Inspeccionar hero, fases, sombras y cámara |
 | Handstand walk | `art_cf_hsw` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
 | Wall walk | `art_cf_wall_walk` | WARN | Carrusel 3 pasos: sin QA visual completa | Inspeccionar hero, fases, sombras y cámara |
-| Fondos en anillas | `art_cf_ring_dip` | WARN | Carrusel 3 pasos: sin QA visual completa | Inspeccionar hero, fases, sombras y cámara |
+| Fondos en anillas | `art_cf_ring_dip` | FAIL | Los pasos `_1` y `_3` son binariamente idénticos | Regenerar paso `_3` como fase final diferenciada y reactivar carrusel |
 | Pistol squat | `art_cf_pistol` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
 | Rope climb | `art_cf_rope` | WARN | Carrusel 3 pasos: sin QA visual completa | Inspeccionar hero, fases, sombras y cámara |
 | Hollow rock | `art_cf_hollow` | WARN | Hero presente; sin carrusel propio verificado | Revisar hero; crear fases propias si el movimiento las necesita |
@@ -206,6 +207,7 @@
 
 - `art_cf_thruster_3`: barra olímpica en overhead; mismo personaje que `_1/_2`.
 - `art_cf_mu_bar_3`: soporte sobre la misma barra, pies suspendidos, sin sombra.
+- `art_cf_ring_dip_3`: paso final distinto del `_1` (actualmente son exactamente el mismo JPG).
 - `art_cf_hang_clean`, `art_cf_hang_clean_1`, `_2`, `_3`: eliminar camiseta y shadow de `_2`.
 
 ## WARN visuales relevantes
