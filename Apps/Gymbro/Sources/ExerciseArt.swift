@@ -101,6 +101,13 @@ enum ExerciseArt {
             lookup.setNames([], for: cacheKey)
             return []
         }
+        // Un hold no tiene fases: incluso si aparecen JPG numerados, solo se muestra el hero.
+        // Los carruseles en cuarentena contienen poses/equipo incorrectos y no deben enseñarse.
+        if staticHolds.contains(exercise.name) || quarantinedSequences.contains(exercise.name) {
+            let resolved = uiImage(named: base) == nil ? [] : [base]
+            lookup.setNames(resolved, for: cacheKey)
+            return resolved
+        }
         var numbered: [String] = []
         for i in 1...8 {
             let step = "\(base)_\(i)"
@@ -162,133 +169,27 @@ enum ExerciseArt {
         }
     }
 
-    /// Secuencias de fotogramas distintos (mismo estilo) cuando no hay `base_1/_2/_3`.
-    /// Holds estáticos no van aquí. Preferir pasos propios `_1…N` cuando existan.
-    private static let movementFrames: [String: [String]] = [
-        // MARK: Halterofilia — arrancada / cargada / envión
-        "Arrancada muscular": ["art_hl_snatch_dl", "art_hl_snatch_pull", "art_hl_muscle_snatch"],
-        "Balance de arrancada": ["art_hl_snatch_bal", "art_cf_ohs", "art_hl_sots"],
-        "Arrancada": ["art_hl_snatch_dl", "art_hl_snatch_pull", "art_cf_arrancada"],
-        "Arrancada de potencia": ["art_hl_snatch_pull", "art_cf_power_snatch", "art_hl_tall_snatch"],
-        "Arrancada colgante": ["art_hl_hang_snatch", "art_hl_snatch_pull", "art_hl_tall_snatch"],
-        "Arrancada colgante completa": ["art_hl_hang_sq_snatch", "art_cf_ohs", "art_hl_sots"],
-        "Hang power snatch": ["art_hl_hang_snatch", "art_hl_snatch_pull", "art_cf_hps"],
-        "Arrancada desde bloques": ["art_hl_block_snatch", "art_hl_snatch_pull", "art_cf_power_snatch"],
-        "Arrancada con pausa": ["art_hl_pause_snatch", "art_hl_snatch_pull", "art_cf_arrancada"],
-        "Drop snatch": ["art_hl_drop_snatch", "art_cf_ohs", "art_hl_sots"],
-        "Tall snatch": ["art_hl_tall_snatch", "art_cf_ohs", "art_hl_sots"],
-        "Arrancada en split": ["art_hl_snatch_pull", "art_hl_split_snatch", "art_hl_tall_snatch"],
-        "Tirón de arrancada": ["art_hl_snatch_dl", "art_hl_snatch_pull", "art_hl_tall_snatch"],
-        "Peso muerto agarre arrancada": ["art_hl_snatch_dl", "art_hl_snatch_pull", "art_peso_muerto"],
-        "Cargada muscular": ["art_hl_clean_pull", "art_hl_muscle_clean", "art_hl_tall_clean"],
-        "Cargada": ["art_hl_clean_pull", "art_cf_cargada", "art_hl_tall_clean"],
-        "Cargada de potencia": ["art_hl_clean_pull", "art_cf_power_clean", "art_hl_tall_clean"],
-        // Preferir art_cf_hang_clean_1…3 (hang → extensión → rack) si existen
-        "Cargada colgante": ["art_cf_hang_clean_1", "art_cf_hang_clean_2", "art_cf_hang_clean_3"],
-        "Cargada colgante completa": ["art_hl_hang_sq_clean", "art_cf_hang_clean_2", "art_cf_hang_clean_3"],
-        "Hang power clean": ["art_cf_hang_clean_1", "art_cf_hang_clean_2", "art_cf_hang_clean_3"],
-        "Cargada desde bloques": ["art_hl_block_clean", "art_hl_clean_pull", "art_cf_power_clean"],
-        "Cargada con pausa": ["art_hl_pause_clean", "art_hl_clean_pull", "art_cf_cargada"],
-        "Tall clean": ["art_hl_tall_clean", "art_hl_muscle_clean", "art_sentadilla_frontal"],
-        "Tirón de cargada": ["art_peso_muerto", "art_hl_clean_pull", "art_cf_power_clean"],
-        "Cargada y press": ["art_cf_cargada", "art_hl_clean_press", "art_cf_strict_press"],
-        "Cargada y envión": ["art_cf_cargada", "art_cf_push_jerk", "art_cf_cj"],
-        "Balance de envión": ["art_hl_jerk_bal", "art_hl_power_jerk", "art_cf_split_jerk"],
-        "Power jerk": ["art_hl_jerk_bal", "art_hl_power_jerk", "art_cf_push_jerk"],
-        "Push jerk": ["art_cf_push_press", "art_cf_push_jerk", "art_hl_power_jerk"],
-        "Split jerk": ["art_cf_push_press", "art_cf_split_jerk", "art_hl_btn_jerk"],
-        "Push press": ["art_cf_strict_press", "art_cf_push_press", "art_hl_power_jerk"],
-        "Strict press": ["art_press_militar", "art_cf_strict_press", "art_hl_btn_press"],
-        "Press detrás de nuca": ["art_hl_btn_press", "art_cf_strict_press", "art_press_militar"],
-        "Envión detrás de nuca": ["art_hl_btn_press", "art_hl_btn_jerk", "art_cf_split_jerk"],
-        "Sots press": ["art_hl_sots", "art_cf_ohs", "art_hl_pause_fs"],
-        "Overhead squat": ["art_cf_ohs", "art_hl_sots", "art_sentadilla_frontal"],
-        "Front rack lunge": ["art_sentadilla_frontal", "art_cf_fr_lunge", "art_zancadas"],
-        "Sentadilla frontal con pausa": ["art_sentadilla_frontal", "art_hl_pause_fs", "art_cf_ohs"],
-        "Sumo high pull": ["art_sumo", "art_cf_sumo_hp", "art_remo_menton"],
+    /// Una secuencia de fallback solo se puede publicar tras validar visualmente los
+    /// fotogramas reutilizados: misma persona, equipo, cámara, orden y pies de foto.
+    /// Las combinaciones antiguas mezclaban ejercicios (barra/mancuernas, dominada/remo,
+    /// back/front rack, etc.). Se retiran hasta tener alternativas verificadas.
+    /// Prioridad conservada: _1…N → movementFrames verificados → hero.
+    private static let movementFrames: [String: [String]] = [:]
 
-        // MARK: CrossFit / skill — frames reutilizados (hasta pasos propios)
-        "Thruster": ["art_sentadilla_frontal", "art_cf_thruster", "art_cf_push_press"],
-        "Thruster mancuernas": ["art_press_mancuernas", "art_cf_thruster_db", "art_press_militar"],
-        "Thruster kettlebell": ["art_cf_goblet", "art_cf_thruster_kb", "art_cf_kb_amer"],
-        "Cluster": ["art_cf_cargada", "art_cf_cluster", "art_cf_thruster"],
-        "Ground to overhead": ["art_peso_muerto", "art_cf_gto", "art_cf_push_press"],
-        "Wall ball": ["art_cf_goblet", "art_cf_wall_ball", "art_cf_slam"],
-        "Swing kettlebell": ["art_cf_kb_swing", "art_cf_kb_amer", "art_cf_kb_snatch"],
-        "Swing americano": ["art_cf_kb_swing", "art_cf_kb_amer", "art_cf_kb_snatch"],
-        "Snatch kettlebell": ["art_cf_kb_swing", "art_cf_kb_snatch", "art_cf_kb_amer"],
-        "Clean kettlebell": ["art_cf_kb_swing", "art_cf_kb_clean", "art_cf_goblet"],
-        "Clean mancuerna": ["art_cf_db_clean", "art_press_mancuernas", "art_cf_thruster_db"],
-        "Snatch mancuerna": ["art_cf_db_snatch", "art_cf_db_clean", "art_press_militar"],
-        "Turkish get-up": ["art_cf_tgu", "art_cf_kb_amer", "art_press_militar"],
-        "Devil press": ["art_cf_devil", "art_cf_db_snatch", "art_cf_burpee"],
-        "Burpee pull-up": ["art_cf_burpee", "art_cf_burpee_pu", "art_dominadas"],
-        "Burpee al cajón": ["art_cf_burpee", "art_cf_burpee_box", "art_cf_box_jump"],
-        "Salto al cajón": ["art_gy_air_squat", "art_cf_box_jump", "art_gy_jump_squat"],
-        "Step-up al cajón": ["art_zancadas", "art_cf_step_up", "art_gy_air_squat"],
-        // Fallback si faltan art_cf_bjo_1…N (última NO debe ser broad jump)
-        "Box jump over": ["art_cf_box_jump_1", "art_cf_bjo", "art_cf_bjo_3"],
-        "Medball clean": ["art_cf_mb_clean", "art_cf_wall_ball", "art_cf_slam"],
-        "Sandbag clean": ["art_cf_sb_clean", "art_cf_sb_os", "art_cf_cargada"],
-        "Man maker": ["art_remo_mancuerna", "art_cf_manmaker", "art_press_mancuernas"],
+    /// Holds estáticos: sin carrusel aunque se añadan imágenes numeradas por error.
+    private static let staticHolds: Set<String> = [
+        "Plancha", "Hollow hold", "Arch hold", "Handstand hold",
+        "L-sit", "V-sit", "Soporte en anillas", "False grip hang",
+        "Front lever tuck", "Back lever tuck", "Planche tuck", "German hang",
+    ]
 
-        // MARK: Gimnasia dinámica — interim hasta pasos propios `_1…N`
-        "Muscle-up barra": ["art_gy_strict_pu", "art_cf_mu_bar", "art_gy_pb_dip"],
-        "Muscle-up anillas": ["art_gy_ring_pu", "art_cf_mu_rings", "art_cf_ring_dip"],
-        "Muscle-up estricto barra": ["art_gy_strict_pu", "art_gy_strict_mubar", "art_gy_pb_dip"],
-        "Muscle-up estricto anillas": ["art_gy_ring_pu", "art_gy_strict_muring", "art_cf_ring_dip"],
-        "Toes to bar": ["art_gy_strict_pu", "art_cf_kte", "art_cf_ttb"],
-        "Toes to bar estrictos": ["art_gy_strict_pu", "art_cf_kte", "art_gy_strict_ttb"],
-        "Knees to elbows": ["art_gy_strict_pu", "art_cf_kte", "art_cf_ttb"],
-        "Hip to bar": ["art_gy_strict_pu", "art_gy_htb", "art_cf_ttb"],
-        // Fallback: hang → chin → pecho a barra (art_cf_ctb_1…3 propios)
-        "Chest to bar": ["art_cf_ctb_1", "art_cf_ctb_2", "art_cf_ctb_3"],
-        "Dominadas estrictas": ["art_gy_strict_pu", "art_dominadas", "art_cf_ctb"],
-        "Dominadas kipping": ["art_gy_kip_swing", "art_gy_kip_pu", "art_dominadas"],
-        "Dominadas butterfly": ["art_gy_kip_swing", "art_gy_bfly_pu", "art_dominadas"],
-        "Dominadas supinas": ["art_gy_chinup", "art_dominadas", "art_cf_ctb"],
-        "Dominadas en anillas": ["art_gy_ring_pu", "art_gy_ring_row", "art_cf_ring_dip"],
-        "HSPU": ["art_gy_pike_pu", "art_cf_hspu", "art_gy_hs_hold"],
-        "HSPU deficit": ["art_gy_pike_pu", "art_gy_hspu_def", "art_gy_hs_hold"],
-        "HSPU libre": ["art_gy_hs_hold", "art_gy_hspu_free", "art_gy_press_hs"],
-        "Pike push-up": ["art_gy_pike_pu", "art_cf_hspu", "art_gy_hs_hold"],
-        "Wall walk": ["art_gy_pike_pu", "art_cf_wall_walk", "art_gy_hs_hold"],
-        "Press to handstand": ["art_gy_press_hs", "art_gy_pike_pu", "art_gy_hs_hold"],
-        "Handstand walk": ["art_gy_hs_hold", "art_cf_hsw", "art_cf_wall_walk"],
-        "Pull-over barra": ["art_gy_strict_pu", "art_gy_pullover", "art_gy_pb_dip"],
-        // Skin the cat: sin _2/_3 propios (fallaban); hang → base → back-lever tuck. Sin sombra en cuelgue.
-        "Skin the cat": ["art_gy_skin_cat_1", "art_gy_skin_cat", "art_gy_back_lev"],
-        // Kip: sin _1…N propios para no pisar arch → kip → hollow (pasos numerados malos override).
-        "Kip swing": ["art_gy_arch", "art_gy_kip_swing", "art_gy_hollow_hold"],
-        "Fondos en paralelas": ["art_gy_pb_dip", "art_fondos", "art_cf_ring_dip"],
-        // Fallback: soporte → bottom → lockout (nunca art_fondos = paralelas)
-        "Fondos en anillas": ["art_gy_ring_sup", "art_cf_ring_dip_2", "art_cf_ring_dip"],
-        "Rope climb": ["art_cf_rope", "art_gy_rope_ll", "art_gy_strict_pu"],
-        "Rope climb legless": ["art_gy_rope_ll", "art_cf_rope", "art_gy_strict_pu"],
-        "Pistol squat": ["art_gy_air_squat", "art_cf_pistol", "art_gy_shrimp"],
-        "Air squat": ["art_gy_air_squat", "art_sentadilla", "art_gy_jump_squat"],
-        // Fallback: solo GHD real (no sit-up / V-up)
-        "GHD sit-up": ["art_cf_ghd_1", "art_cf_ghd_2", "art_cf_ghd_3"],
-        "V-up": ["art_cf_situp", "art_cf_vup", "art_cf_ttb"],
-
-        // MARK: Gym clásico — fallback si no hay base_1…N propios
-        // Con pasos dedicados en disco, imageNames prioriza esos; estas filas quedan de respaldo.
-        "Fondos": ["art_fondos", "art_fondos_banco", "art_gy_pb_dip"],
-        "Press militar": ["art_press_militar", "art_cf_strict_press", "art_cf_push_press"],
-        "Press mancuernas": ["art_press_mancuernas", "art_aperturas", "art_press_banca"],
-        "Press banca inclinada": ["art_press_inclinado", "art_press_banca", "art_press_mancuernas"],
-        "Press cerrado": ["art_press_cerrado", "art_press_banca", "art_press_frances"],
-        "Peso muerto rumano": ["art_rdl", "art_peso_muerto", "art_buenos_dias"],
-        "Zancadas": ["art_zancadas", "art_cf_walk_lunge", "art_bulgara"],
-        "Hip thrust": ["art_hip_thrust", "art_rdl", "art_buenos_dias"],
-        "Remo con barra": ["art_remo_barra", "art_remo_mancuerna", "art_peso_muerto"],
-        "Remo mancuerna": ["art_remo_mancuerna", "art_remo_barra", "art_jalon"],
-        "Jalón al pecho": ["art_jalon", "art_dominadas", "art_remo_sentado"],
-        "Sentadilla frontal": ["art_sentadilla_frontal", "art_sentadilla", "art_hl_pause_fs"],
-        "Sentadilla búlgara": ["art_bulgara", "art_zancadas", "art_sentadilla"],
-        "Curl barra": ["art_curl_barra", "art_curl_mancuernas", "art_curl_predicador"],
-        "Press francés": ["art_press_frances", "art_press_cerrado", "art_fondos_banco"],
-        "Pullover": ["art_pullover", "art_aperturas", "art_press_banca"],
+    /// Requieren nueva generación + export (1024 y 192) antes de reactivar pasos.
+    /// Hero + bloque de técnica es preferible a enseñar una fase falsa.
+    private static let quarantinedSequences: Set<String> = [
+        "Muscle-up barra",   // _3 no es soporte real sobre la barra
+        "Muscle-up anillas", // _3 muestra sombra de suelo estando suspendido
+        "Cargada colgante", // _1…3 llevan camiseta (incumple el estilo)
+        "Fondos en anillas",  // _1 y _3 son el mismo JPG: no hay progresión
     ]
 
     /// Cache thread-safe. Thumbs en `Dictionary` (no `NSCache`) para no perderlos al abrir el teclado.

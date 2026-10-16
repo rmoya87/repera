@@ -48,3 +48,6 @@ reference/
 .venv/
 .venv-img/
 .venv-art/
+
+# Generated Gymbro exercise-art QA reports
+art-audit/

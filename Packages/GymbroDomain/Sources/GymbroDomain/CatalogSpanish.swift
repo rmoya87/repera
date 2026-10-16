@@ -176,9 +176,9 @@ public enum CatalogSpanish {
             "Empuja de nuevo a soporte bloqueado (imagen: lockout; sin sombra).",
         ],
         "GHD sit-up": [
-            "Pies en rodillos: deja el torso atrás en extensión (imagen: torso reclinado/atrás en el GHD).",
-            "Flexiona el tronco hacia arriba con control (imagen: a mitad de subida, brazos al frente).",
-            "Siéntate al estándar (torso más erguido) y vuelve a la extensión (imagen: fase alta del sit-up).",
+            "Extiende el tronco hacia atrás con los pies sujetos a los rodillos.",
+            "Eleva el tronco hasta la mitad del recorrido.",
+            "Termina la subida y mantén la espalda larga antes de volver a bajar.",
         ],
         "Jalón al pecho": [
             "Brazos extendidos sujetando la barra alta (imagen: inicio del jalón).",
@@ -200,9 +200,8 @@ public enum CatalogSpanish {
             "Empuja el suelo y bloquea cadera de pie sin hiperextender (imagen: lockout erguido).",
         ],
         "Peso muerto rumano": [
-            "De pie, barra en muslos, rodillas blandas (imagen: inicio erguido).",
-            "Bisagra: baja la barra por el dorso de muslos (imagen: torso inclinado, barra a mid-shin/knee).",
-            "Estira isquios abajo y vuelve extendiendo cadera (imagen: vuelta al erguido).",
+            "Mantén la barra delante de los muslos con las rodillas ligeramente flexionadas.",
+            "Lleva la cadera atrás y baja la barra rozando las piernas con la espalda recta.",
         ],
         "Sentadilla": [
             "Barra sobre trapecios, pies al ancho de hombros, pecho alto (imagen: de pie, back squat).",
@@ -408,9 +407,9 @@ public enum CatalogSpanish {
 
         // MARK: Gimnasia / skill
         "Muscle-up barra": [
-            "Cuelga de una sola barra, brazos largos (imagen: hang; sin sombra de suelo).",
-            "Transición: pecho/cadera a la altura de la barra, torso pasando por encima (imagen: wrap/transition; sin sombra).",
-            "Soporte: brazos bloqueados, barra a la altura de cadera/muslos (imagen: support; sin sombra).",
+            "Cuélgate de la barra con los brazos estirados y los pies en el aire.",
+            "Lleva el pecho sobre la barra flexionando los codos y adelantando el torso.",
+            "Empuja hasta sostenerte encima de la barra con los brazos extendidos.",
         ],
         "Muscle-up anillas": [
             "Cuelga de dos anillas en false grip (imagen: hang; sin sombra).",
@@ -448,9 +447,8 @@ public enum CatalogSpanish {
             "Alterna hollow–arch con hombros activos (imagen: swing dinámico; sin sombra).",
         ],
         "Fondos en paralelas": [
-            "Soporte en paralelas, brazos extendidos (imagen: support).",
-            "Baja a ~90° de codo (imagen: fondo).",
-            "Empuja a bloqueo (imagen: lockout).",
+            "Sostente sobre las paralelas con los brazos estirados y los pies en el aire.",
+            "Flexiona los codos y baja el pecho ligeramente hacia delante.",
         ],
         "Rope climb": [
             "Salta y agarra la cuerda alto (imagen: reach/hang en cuerda).",
@@ -485,14 +483,14 @@ public enum CatalogSpanish {
             "Levántate sin perder el bloqueo (imagen: stand OH de nuevo).",
         ],
         "Thruster": [
-            "Front rack y sentadilla frontal profunda (imagen: squat con barra delante del cuello, codos altos).",
-            "Sube explotando desde abajo sin pausar (imagen: subida / media extensión).",
-            "Press overhead en un solo tiempo (imagen: barra bloqueada arriba).",
+            "Sujeta la barra delante de los hombros y baja a una sentadilla profunda.",
+            "Extiende las piernas manteniendo la barra cerca de los hombros.",
+            "Empuja la barra sobre la cabeza hasta estirar los brazos.",
         ],
         "Turkish get-up": [
-            "Tumbado, KB/mancuerna a brazo bloqueado mirando el peso (imagen: suelo, brazo vertical).",
-            "Pasa a codo/mano, puente y rodilla con el peso siempre arriba (imagen: medio TGU).",
-            "Párate overhead y baja en orden inverso (imagen: de pie con peso OH).",
+            "Túmbate boca arriba con la kettlebell sostenida en vertical.",
+            "Apóyate en el antebrazo y eleva la cadera manteniendo la kettlebell arriba.",
+            "Ponte de pie con el brazo de la kettlebell completamente extendido.",
         ],
         "Devil press": [
             "Pecho al suelo entre las mancuernas (imagen: chest-to-floor con DBs).",
@@ -500,9 +498,9 @@ public enum CatalogSpanish {
             "Snatch ambas overhead en un movimiento (imagen: DBs bloqueadas arriba).",
         ],
         "Wall ball": [
-            "Balón en pecho, sentadilla completa frente a la diana (imagen: squat con medball).",
-            "Extiende y lanza el balón a la diana (imagen: brazos altos, balón en vuelo/diana).",
-            "Recibe el balón y encadena la siguiente sentadilla (imagen: catch + squat).",
+            "Sujeta el balón frente al pecho y baja a una sentadilla profunda.",
+            "Lanza el balón hacia la diana al extender las piernas.",
+            "Recibe el balón con las manos altas antes de iniciar otra sentadilla.",
         ],
         "Cluster": [
             "Rack frontal tras la cargada (imagen: front rack de pie).",
