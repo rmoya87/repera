@@ -1,6 +1,6 @@
 # Funcionalidades Gymbro
 
-Última actualización: 2026-10-16 (QA carruseles + instrucciones PT con landmark `imagen:`)
+Última actualización: 2026-10-17 (auditoría visual y aislamiento de secuencias incorrectas)
 
 ## Tabs
 
@@ -52,23 +52,14 @@
 - Al foco: sin animaciones de List (`isSearching`), `NavigationLink(value:)` (sin destinos eager) y thumbs solo desde cache.
 - Búsqueda **semántica con pesos** (`ExerciseSearch.ranked` + índice); «press de banca» → Press banca y derivados.
 - Thumbs precargados + cache; trazas DEBUG `LibrarySearch` (`rebuild` / `rank top`).
-- Arte ejercicios: ilustraciones anatómicas generadas (gris + lime sobre charcoal); full **1024px**; `ExerciseArt/thumbs/` **192px** para listas. Export limpio: `scripts/export_generated_art.py` (thumbs: `scripts/homogenize_exercise_art.py`).
-- Carrusel de técnica (híbrido):
-  1. Pasos propios `base_1…N` si existen (≥2) — poses distintas del mismo movimiento (gimnasia Lote 1, HL Lote 2, gym clásico Lote 3, CF Lote 4). Lote 3: fondos, presses, RDL, zancadas, hip thrust, remos, jalón, sentadilla frontal/búlgara, curl barra; press francés sigue en `movementFrames` (gens no distinguían el bottom).
-  2. Si no, `movementFrames` en `ExerciseArt.swift` reutiliza héroes ya existentes con poses distintas (~109 ejercicios HL/CF/gimnasia dinámica/gym).
-  3. Si no, un solo hero.
-- Criterio visual: cada frame debe ser la fase del mismo ejercicio (**mismo equipo con el mismo diseño** entre pasos; misma silueta de persona: pelo, ropa, zapatillas); cambio articular evidente entre pasos. Ropa obligatoria: **tank + shorts + zapatillas** (nunca torso desnudo ni sin shorts). Si el atleta está **en el aire** (cuelgue, soporte sobre barra/anillas, salto a mitad), **sin** óvalo/sombra de suelo — solo fondo charcoal vacío. Al regenerar: anclar con `reference_image_paths` al frame `_1` del mismo ejercicio.
-- Holds estáticos (hollow hold, HS hold, L-sit, levers, planche tuck…) **sin** carrusel forzado.
-- Pie de foto: los N primeros textos de `CatalogSpanish.instructions` describen la pose del frame i con tono de entrenador y landmark visual (`imagen:…`) en `ExerciseArtView`. Preferir fondos/lockouts claros frente a mid-reps ambiguos si el arte no los distingue. Si un `_1…N` engaña, quitarlo y usar `movementFrames`/hero.
-- Filtro / orden: alfabético, músculo, deporte, favoritos (modal).
-- **Músculo** = grupo anatómico (Pecho, Piernas…). CrossFit / Halterofilia / Gimnasia no son grupos musculares: van en **Deporte** (`sportTag`) y el ejercicio se asigna al músculo principal para métricas.
-- Alta de ejercicio custom.
-- **Sin** botón «+ Plan» en filas.
-
-#### Ficha de ejercicio (`ExerciseDetailView`)
-
-- Topbar fijo transparente: nombre del ejercicio + favorito / **+** en toolbar.
-- **+** abre modal de series (`QuickLogSheet`: series, nota, guardar / cancelar = X), sin sesión completa.
+- Arte de ejercicios: silueta masculina anatómica en grises, pelo charcoal, **torso descubierto**, shorts oscuros y zapatillas grises; músculos de cada fase en lime; fondo charcoal casi negro, sin texto ni logos.
+- Recursos: full JPG **1024×1024** en `ExerciseArt/<stem>.jpg` y thumb JPG **192×192** en `ExerciseArt/thumbs/<stem>.jpg`. Exportar **solo** con `scripts/export_generated_art.py` desde el Python que tenga Pillow; no dejar generados temporales sin exportar.
+- Orden de selección: pasos dedicados `base_1…N` (≥2) → `movementFrames` visualmente verificados → hero. **Ningún fallback antiguo mezclado está validado actualmente**, por lo que `movementFrames` permanece vacío temporalmente. Volverá a poblarse solo tras QA visual de cada reuso.
+- Cuarentena preventiva de pasos: **Thruster** (`_3` cambia barra por mancuernas), **Muscle-up barra** (`_3` no es soporte) y **Cargada colgante** (atleta con camiseta). Se muestra el hero con el bloque de técnica hasta regenerar/exportar.
+- Los holds estáticos solo muestran hero. En fases aéreas (cuelgue, soporte en barra/anillas o salto), **no dibujar sombra ni óvalo**; en apoyo sí se permite sombra de contacto.
+- Dentro de un carrusel mantener **misma persona, cámara, encuadre, lateralidad y equipo**. Solo cambia la pose y el lime de los músculos activos.
+- Pie de foto: exactamente **N** frases cortas, imperativas, en español para **N** frames; cada `instructions[i]` describe `_i+1`. Con hero único, la ficha presenta los pasos en bloque de técnica.
+- Validación de archivos y reporte por ejercicio: `scripts/audit_exercise_art.py`. La revisión visual de todo el catálogo sigue siendo necesaria antes de declarar cada stem OK.
 - **Evolución** en la ficha: tiles 3+2 · tabs + gráfica · resumen (mejor/%/última) + fila **Historial** → listado completo del ejercicio (estilo historial global, abre el entreno).
 - Steppers numéricos (`OGRepeatStepper`): ± fiables en scroll; toque en el número → teclado con **intro** (confirma y cierra; el pad puro de Apple no tiene return).
 - **Músculos y equipo**: subsecciones (Músculo / También / Equipo / Deporte); chips con `OGFlowLayout` a todo el ancho de la card.
