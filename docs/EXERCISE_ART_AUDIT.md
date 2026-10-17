@@ -57,7 +57,9 @@ La inspección adicional ha identificado **11 héroes FAIL** y **2 WARN** (adem�
 - `ExerciseArtCaptionTests.swift`: asegura el número de frases para los 38 carruseles propios.
 - `scripts/audit_exercise_art.py`: valida full 1024, thumb 192, integridad JPEG, naming y N↔N de instrucciones.
 
-**Imágenes JPG regeneradas/exportadas (2026-10-17):** los **155 stems** de `docs/EXERCISE_ART_REGEN_PROMPTS.md` tienen full 1024 + thumb 192 reexportados. Auditor Pillow: 0 FAIL estructurales, 291/291 emparejados. Cuarentena residual: solo `art_cf_ghd` (máquina aún tipo decline crunch, no GHD real). Pendientes menores opcionales: jump_lunge, block snatch grip, curl martillo neutro, lateralidad zancadas/TGU.
+**Imágenes JPG regeneradas/exportadas (2026-10-17):** los **155 stems** de `docs/EXERCISE_ART_REGEN_PROMPTS.md` tienen full 1024 + thumb 192 reexportados. Auditor Pillow: 0 FAIL estructurales, 291/291 emparejados.
+
+**Revisión final de incongruencias (mismo día):** corregidos y reexportados GHD sit-up (pad+rodillos), hang clean (hang → extensión → rack frontal de pie), OHS en sentadilla, split jerk en split, HSPU con fases, muscle-up barra, aperturas en banco inclinado (captions alineados), planche tuck y GHD back. Cuarentena `art_cf_ghd` retirada. Pendientes opcionales si reaparecen en QA: CTB con pecho claramente pegado a la barra, MU anillas en hang (no soporte), algunos HL (pause clean / hang snatch) si el modelo vuelve a overhead/back rack.
 
 ## Procedimiento de cierre visual, por stem
 

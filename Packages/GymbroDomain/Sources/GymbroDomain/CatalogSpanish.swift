@@ -69,7 +69,7 @@ public enum CatalogSpanish {
         "Press banca": "Press de banca clásico con barra: bajas la barra al pecho y la empujas arriba. Trabaja pecho, hombros y tríceps.",
         "Press banca inclinada": "Press en banco inclinado: más énfasis en la parte alta del pecho y los hombros.",
         "Press mancuernas": "Press con mancuernas en banco plano: mayor rango de movimiento que con barra.",
-        "Aperturas": "Aperturas con mancuernas en banco plano: abres y cierras los brazos para estirar y contraer el pecho, con los codos ligeramente flexionados.",
+        "Aperturas": "Aperturas con mancuernas en banco inclinado: abres y cierras los brazos para estirar y contraer el pecho, con los codos ligeramente flexionados.",
         "Fondos": "Fondos en paralelas: bajas y subes el cuerpo con los brazos. Pecho o tríceps según la inclinación.",
         "Dominadas": "Dominadas: tiras el pecho hacia la barra. Trabaja espalda y brazos.",
         "Jalón al pecho": "Jalón al pecho en polea: tiras la barra hacia el pecho sentado. Dorsales y agarre.",
@@ -148,8 +148,8 @@ public enum CatalogSpanish {
             "Extiende arriba juntando ligeramente las mancuernas.",
         ],
         "Aperturas": [
-            "Cierra el arco: mancuernas casi juntas sobre el esternón, codos blandos.",
-            "Abre en arco amplio hasta estirar el pecho, mancuernas a la altura del torso.",
+            "Abre en arco amplio hasta estirar el pecho, mancuernas a la altura del torso, codos blandos.",
+            "Recoge el arco con codos abiertos y mancuernas sobre el pecho, sin convertir el movimiento en press.",
         ],
         "Fondos": [
             "Soporte: brazos bloqueados, hombros bajos, pecho abierto.",

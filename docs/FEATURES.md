@@ -1,6 +1,6 @@
 # Funcionalidades Gymbro
 
-Última actualización: 2026-10-17 (auditoría de ExerciseArt y seguridad de carruseles)
+Última actualización: 2026-10-17 (revisión final ExerciseArt: GHD fuera de cuarentena)
 
 ## Tabs
 

@@ -177,8 +177,6 @@ enum ExerciseArt {
     /// Estos héroes incumplen el movimiento/equipo/estilo; mostrar MuscleImpactDiagram.
     /// Solo retirarlos tras regenerar full y thumb con verificación visual.
     private static let quarantinedHeroes: Set<String> = [
-        // GHD still shows decline-crunch machine instead of true GHD pad+rollers
-        "art_cf_ghd",
     ]
 
     /// Holds no dinámicos: una sola ilustración, aunque aparezcan pasos por error.
@@ -191,8 +189,6 @@ enum ExerciseArt {
     /// Secuencias que se han revisado visualmente y fallan el criterio de producto.
     /// Se mantiene el hero hasta regenerar y exportar TODOS sus frames defectuosos.
     private static let quarantinedSequences: Set<String> = [
-        // GHD frames still not a true glute-ham developer sit-up sequence
-        "art_cf_ghd",
     ]
 
     /// Candidatos movementFrames siguen documentados abajo, pero ninguno ha
