@@ -14,6 +14,7 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 | [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md) | Checklist manual por feature |
 | [docs/MAINTENANCE.md](docs/MAINTENANCE.md) | Cómo mantener docs al día |
 | [docs/ios27-modernization/](docs/ios27-modernization/) | Canvas modernización iOS 27 |
+| [docs/decisions/](docs/decisions/) | ADRs (persistencia, timers, nav, HK, arte) |
 | [AGENTS.md](AGENTS.md) | Instrucciones para agentes Cursor |
 
 > **Obligatorio:** cualquier cambio de comportamiento debe actualizar estos docs (ver `MAINTENANCE.md` y la regla Cursor `update-docs-on-change`).

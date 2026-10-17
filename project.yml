@@ -147,6 +147,21 @@ targets:
         WKRunsIndependentlyOfCompanionApp: false
         NSMotionUsageDescription: Gymbro usa el movimiento del Watch para contar repeticiones durante el entrenamiento.
 
+  GymbroUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Apps/GymbroUITests
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: app.gymbroapp.ios.uitests
+      GENERATE_INFOPLIST_FILE: true
+      TARGETED_DEVICE_FAMILY: "1"
+      CODE_SIGN_STYLE: Automatic
+      DEVELOPMENT_TEAM: 9DTDGQ8UUQ
+      TEST_TARGET_NAME: Gymbro
+    dependencies:
+      - target: Gymbro
+
 schemes:
   Gymbro:
     build:
@@ -157,3 +172,6 @@ schemes:
     run:
       config: Debug
       executable: Gymbro
+    test:
+      targets:
+        - GymbroUITests

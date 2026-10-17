@@ -4,6 +4,7 @@ import SwiftUI
 struct WorkoutView: View {
     @Environment(GymbroStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Si se presenta fuera de un sheet, cierra el flujo de navegación raíz.
     var onClose: (() -> Void)? = nil
     @State private var repsText = ""
@@ -38,6 +39,8 @@ struct WorkoutView: View {
     @State private var notesDraft = ""
     /// Filas editables del ejercicio actual (objetivo por serie + check para registrar).
     @State private var liveSets: [LiveSetRow] = []
+    @State private var setCompletionPulse = 0
+    @State private var restStartedPulse = 0
 
     private struct LiveSetRow: Identifiable, Equatable {
         let id: UUID
@@ -68,8 +71,10 @@ struct WorkoutView: View {
                     .zIndex(10)
             }
         }
-        .animation(.easeOut(duration: 0.2), value: store.restCoordinator.isActive)
-        .animation(.easeOut(duration: 0.25), value: showWODClock)
+        .animation(reduceMotion ? nil : .snappy, value: store.restCoordinator.isActive)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: showWODClock)
+        .sensoryFeedback(.success, trigger: setCompletionPulse)
+        .sensoryFeedback(.impact(flexibility: .soft), trigger: restStartedPulse)
         .background(OG.bg)
         .ogPinnedTransparentNav(store.state.activeSession?.title ?? "Entreno")
         .toolbar(showWODClock ? .hidden : .automatic, for: .navigationBar)
@@ -131,9 +136,8 @@ struct WorkoutView: View {
                     OGToolbarGlassButton(
                         systemName: "checkmark",
                         accessibilityLabel: "Terminar",
-                        tint: .white,
-                        appliesGlass: true,
-                        glassTint: OG.accent
+                        tint: OG.accent,
+                        appliesGlass: false
                     ) {
                         stopWODClock()
                         store.endActiveSession(save: true)
@@ -510,6 +514,7 @@ struct WorkoutView: View {
             drops: [],
             clusters: []
         )
+        setCompletionPulse &+= 1
         let rest: Int = {
             if current.supersetGroup != nil {
                 return max(30, store.state.settings.defaultRestSeconds / 3)
@@ -517,8 +522,11 @@ struct WorkoutView: View {
             return store.state.settings.defaultRestSeconds
         }()
         beginRest(rest)
+        restStartedPulse &+= 1
         if let updated = store.state.activeSession?.currentExercise {
-            rebuildLiveSets(from: updated)
+            withAnimation(reduceMotion ? nil : .smooth) {
+                rebuildLiveSets(from: updated)
+            }
             weightText = updated.loggedSets.last?.weightKg.map { String(format: "%g", $0) } ?? weightText
             repsText = "\(updated.loggedSets.last?.reps ?? row.reps)"
         }

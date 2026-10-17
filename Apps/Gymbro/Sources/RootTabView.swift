@@ -115,9 +115,9 @@ struct RootTabView: View {
             .navigationBarBackButtonHidden(true)
 
         case .logFinalResults(let routineId):
+            // Nested route: keep system back gesture into the session preview.
             if let routine = resolvePreviewRoutine(id: routineId) {
                 LogFinalResultsView(routine: routine, onSaved: { flowPath = [] })
-                    .navigationBarBackButtonHidden(true)
             } else {
                 Color.clear
                     .onAppear {
@@ -136,7 +136,6 @@ struct RootTabView: View {
                     embedsNavigationStack: false,
                     usesPageCloseHeader: true
                 )
-                .navigationBarBackButtonHidden(true)
             } else {
                 Color.clear
                     .onAppear {
@@ -145,6 +144,7 @@ struct RootTabView: View {
             }
 
         case .workout:
+            // Full session UI owns dismissal; overlay keeps tab state underneath.
             WorkoutView(onClose: { flowPath = [] })
                 .navigationBarBackButtonHidden(true)
         }

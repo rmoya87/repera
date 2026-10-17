@@ -43,3 +43,11 @@ QA multi-dispositivo / Watch físico: **bloqueada**.
 
 ### G27-013/014 — Salud / arranque
 - Freshness + invalidate; prefetch diferido; sin prompt HK en cold launch.
+
+## 2026-10-17 — P2–P4 (in_review)
+
+- Navegación: gesto volver en rutas anidadas del flujo de sesión.
+- swipeActionsContainer + reorderable/reorderContainer (SDK iOS 27).
+- Steppers sin highPriority Drag; PhotosPicker; zoom biblioteca; sensoryFeedback.
+- Watch Digital Crown + reachability.
+- UITests target, CI workflow, ADRs, METRICS template, art boundary ADR.

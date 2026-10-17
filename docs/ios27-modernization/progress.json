@@ -3,15 +3,15 @@
   "project": "Gymbro",
   "branch": "feat/ios27-native-performance-audit",
   "baseCommit": "b198235c93fbc36b0c790eece80bf301f15e55fa",
-  "headCommit": "e686414e47d28adf4cd42353bda240cab6deae95",
-  "updatedAt": "2026-10-17T09:05:18Z",
+  "headCommit": "18016fe7e3b56f3acfc278db020076feff303487",
+  "updatedAt": "2026-10-17T09:10:42Z",
   "global": {
     "total": 30,
     "completed": 0,
     "inProgress": 0,
-    "inReview": 14,
+    "inReview": 30,
     "blocked": 0,
-    "pending": 16,
+    "pending": 0,
     "percentComplete": 0.0
   },
   "phases": {
@@ -38,27 +38,27 @@
       "total": 6,
       "completed": 0,
       "inProgress": 0,
-      "inReview": 0,
+      "inReview": 6,
       "blocked": 0,
-      "pending": 6
+      "pending": 0
     },
     "P3": {
       "label": "Animaciones y experiencia Apple",
       "total": 4,
       "completed": 0,
       "inProgress": 0,
-      "inReview": 0,
+      "inReview": 4,
       "blocked": 0,
-      "pending": 4
+      "pending": 0
     },
     "P4": {
       "label": "Calidad y validación",
       "total": 6,
       "completed": 0,
       "inProgress": 0,
-      "inReview": 0,
+      "inReview": 6,
       "blocked": 0,
-      "pending": 6
+      "pending": 0
     }
   },
   "tasks": [
@@ -730,7 +730,7 @@
       "priority": "high",
       "title": "Navegación principal",
       "summary": "TabView/NavigationStack nativos; Continuar; estado tabs.",
-      "status": "pending",
+      "status": "in_review",
       "dependsOn": [],
       "blockedBy": [],
       "risks": [],
@@ -738,18 +738,29 @@
         "Gesto volver",
         "Sesión desde cualquier tab"
       ],
-      "filesModified": [],
+      "filesModified": [
+        "Apps/Gymbro/Sources/RootTabView.swift"
+      ],
       "relatedFiles": [
         "RootTabView.swift"
       ],
       "commits": [],
       "prLinks": [],
-      "tests": [],
+      "tests": [
+        {
+          "name": "xcodebuild Gymbro+Watch",
+          "result": "pass"
+        },
+        {
+          "name": "nested back gesture device",
+          "result": "blocked"
+        }
+      ],
       "metrics": [],
-      "notes": "",
+      "notes": "Nested edit/log routes keep system back; session overlay preserved.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T08:28:35Z"
+      "updatedAt": "2026-10-17T09:10:42Z"
     },
     {
       "id": "G27-016",
@@ -757,7 +768,7 @@
       "priority": "medium",
       "title": "SwipeActions nativas",
       "summary": "Sustituir SwipeToDeleteRow; confirm destructivo; a11y.",
-      "status": "pending",
+      "status": "in_review",
       "dependsOn": [],
       "blockedBy": [],
       "risks": [],
@@ -765,19 +776,26 @@
         "swipeActions SDK-verified",
         "Confirm delete"
       ],
-      "filesModified": [],
+      "filesModified": [
+        "Apps/Gymbro/Sources/HomeView.swift"
+      ],
       "relatedFiles": [
         "HomeView.swift",
         "Theme.swift"
       ],
       "commits": [],
       "prLinks": [],
-      "tests": [],
+      "tests": [
+        {
+          "name": "xcodebuild Gymbro+Watch",
+          "result": "pass"
+        }
+      ],
       "metrics": [],
-      "notes": "",
+      "notes": "swipeActions + swipeActionsContainer; confirm sheets.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T08:28:35Z"
+      "updatedAt": "2026-10-17T09:10:42Z"
     },
     {
       "id": "G27-017",
@@ -785,7 +803,7 @@
       "priority": "medium",
       "title": "Reordenación nativa",
       "summary": "reorderable/reorderContainer si SDK; a11y alternativa.",
-      "status": "pending",
+      "status": "in_review",
       "dependsOn": [],
       "blockedBy": [],
       "risks": [],
@@ -793,19 +811,26 @@
         "Persist order",
         "VoiceOver"
       ],
-      "filesModified": [],
+      "filesModified": [
+        "Apps/Gymbro/Sources/PlanView.swift"
+      ],
       "relatedFiles": [
         "Plan views",
         "Routine editors"
       ],
       "commits": [],
       "prLinks": [],
-      "tests": [],
+      "tests": [
+        {
+          "name": "xcodebuild Gymbro+Watch",
+          "result": "pass"
+        }
+      ],
       "metrics": [],
-      "notes": "",
+      "notes": "reorderable(collectionID:) + reorderContainer for strength blocks.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T08:28:35Z"
+      "updatedAt": "2026-10-17T09:10:42Z"
     },
     {
       "id": "G27-018",
@@ -813,7 +838,7 @@
       "priority": "medium",
       "title": "Barras, sheets y Liquid Glass",
       "summary": "APIs oficiales; no glass doble.",
-      "status": "pending",
+      "status": "in_review",
       "dependsOn": [],
       "blockedBy": [],
       "risks": [],
@@ -821,18 +846,26 @@
         "System glass",
         "Safe areas"
       ],
-      "filesModified": [],
+      "filesModified": [
+        "Apps/Gymbro/Sources/Theme.swift",
+        "Apps/Gymbro/Sources/WorkoutView.swift"
+      ],
       "relatedFiles": [
         "Theme.swift"
       ],
       "commits": [],
       "prLinks": [],
-      "tests": [],
+      "tests": [
+        {
+          "name": "xcodebuild Gymbro+Watch",
+          "result": "pass"
+        }
+      ],
       "metrics": [],
-      "notes": "",
+      "notes": "No double glass in toolbar.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T08:28:35Z"
+      "updatedAt": "2026-10-17T09:10:42Z"
     },
     {
       "id": "G27-019",
@@ -840,7 +873,7 @@
       "priority": "medium",
       "title": "Steppers y controles numéricos",
       "summary": "Sin gestos que bloqueen scroll; a11y.",
-      "status": "pending",
+      "status": "in_review",
       "dependsOn": [],
       "blockedBy": [],
       "risks": [],
@@ -848,18 +881,25 @@
         "Scroll OK",
         "Keyboard dismiss"
       ],
-      "filesModified": [],
+      "filesModified": [
+        "Apps/Gymbro/Sources/Theme.swift"
+      ],
       "relatedFiles": [
         "Theme.swift"
       ],
       "commits": [],
       "prLinks": [],
-      "tests": [],
+      "tests": [
+        {
+          "name": "xcodebuild Gymbro+Watch",
+          "result": "pass"
+        }
+      ],
       "metrics": [],
-      "notes": "",
+      "notes": "Button+longPress; accessibilityAdjustableAction.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T08:28:35Z"
+      "updatedAt": "2026-10-17T09:10:42Z"
     },
     {
       "id": "G27-020",
@@ -867,7 +907,7 @@
       "priority": "low",
       "title": "Cámara y fototeca",
       "summary": "PhotosPicker/Transferable o AVFoundation mínimo.",
-      "status": "pending",
+      "status": "in_review",
       "dependsOn": [],
       "blockedBy": [],
       "risks": [],
@@ -875,18 +915,27 @@
         "HEIC/JPEG",
         "OCR board"
       ],
-      "filesModified": [],
+      "filesModified": [
+        "Apps/Gymbro/Sources/CameraPicker.swift",
+        "DayPlusSheet",
+        "StartHubSheet"
+      ],
       "relatedFiles": [
         "CameraPicker.swift"
       ],
       "commits": [],
       "prLinks": [],
-      "tests": [],
+      "tests": [
+        {
+          "name": "xcodebuild Gymbro+Watch",
+          "result": "pass"
+        }
+      ],
       "metrics": [],
-      "notes": "",
+      "notes": "PhotosPicker library; CameraPicker camera-only.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T08:28:35Z"
+      "updatedAt": "2026-10-17T09:10:42Z"
     },
     {
       "id": "G27-021",
@@ -894,7 +943,7 @@
       "priority": "medium",
       "title": "Animaciones durante entrenamientos",
       "summary": "smooth/snappy/numericText/symbolEffect/sensoryFeedback.",
-      "status": "pending",
+      "status": "in_review",
       "dependsOn": [
         "G27-003",
         "G27-004"
@@ -905,18 +954,25 @@
         "No animar cada segundo",
         "Respect Reduce Motion"
       ],
-      "filesModified": [],
+      "filesModified": [
+        "Apps/Gymbro/Sources/WorkoutView.swift"
+      ],
       "relatedFiles": [
         "WorkoutView.swift"
       ],
       "commits": [],
       "prLinks": [],
-      "tests": [],
+      "tests": [
+        {
+          "name": "xcodebuild Gymbro+Watch",
+          "result": "pass"
+        }
+      ],
       "metrics": [],
-      "notes": "",
+      "notes": "sensoryFeedback + snappy/smooth; respect Reduce Motion.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T08:28:35Z"
+      "updatedAt": "2026-10-17T09:10:42Z"
     },
     {
       "id": "G27-022",
@@ -924,7 +980,7 @@
       "priority": "medium",
       "title": "Transiciones biblioteca→ficha",
       "summary": "matchedTransitionSource / zoom si aporta.",
-      "status": "pending",
+      "status": "in_review",
       "dependsOn": [
         "G27-009"
       ],
@@ -934,19 +990,26 @@
         "Gesto volver",
         "Reduce Motion"
       ],
-      "filesModified": [],
+      "filesModified": [
+        "Apps/Gymbro/Sources/LibraryView.swift"
+      ],
       "relatedFiles": [
         "LibraryView.swift",
         "ExerciseDetailView.swift"
       ],
       "commits": [],
       "prLinks": [],
-      "tests": [],
+      "tests": [
+        {
+          "name": "xcodebuild Gymbro+Watch",
+          "result": "pass"
+        }
+      ],
       "metrics": [],
-      "notes": "",
+      "notes": "matchedTransitionSource + zoom; disabled if reduceMotion.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T08:28:35Z"
+      "updatedAt": "2026-10-17T09:10:42Z"
     },
     {
       "id": "G27-023",
@@ -954,25 +1017,39 @@
       "priority": "high",
       "title": "Accesibilidad completa",
       "summary": "Dynamic Type, VO, Reduce Motion/Transparency, contrast.",
-      "status": "pending",
+      "status": "in_review",
       "dependsOn": [],
       "blockedBy": [],
       "risks": [],
       "acceptanceCriteria": [
         "Checklist a11y por pantalla"
       ],
-      "filesModified": [],
+      "filesModified": [
+        "LibraryView",
+        "Theme stepper",
+        "WatchSessionView",
+        "HomeView"
+      ],
       "relatedFiles": [
         "All screens"
       ],
       "commits": [],
       "prLinks": [],
-      "tests": [],
+      "tests": [
+        {
+          "name": "xcodebuild Gymbro+Watch",
+          "result": "pass"
+        },
+        {
+          "name": "full VO audit device",
+          "result": "blocked"
+        }
+      ],
       "metrics": [],
-      "notes": "",
+      "notes": "Partial a11y pass on library/swipe/stepper/watch; full screen audit remaining.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T08:28:35Z"
+      "updatedAt": "2026-10-17T09:10:42Z"
     },
     {
       "id": "G27-024",
@@ -980,7 +1057,7 @@
       "priority": "medium",
       "title": "Experiencia Apple Watch",
       "summary": "Crown, haptics, connectivity status, quick log.",
-      "status": "pending",
+      "status": "in_review",
       "dependsOn": [
         "G27-007"
       ],
@@ -990,18 +1067,29 @@
         "Quick log fiable",
         "Connectivity UI"
       ],
-      "filesModified": [],
+      "filesModified": [
+        "Apps/GymbroWatch/Sources/WatchSessionView.swift"
+      ],
       "relatedFiles": [
         "GymbroWatch"
       ],
       "commits": [],
       "prLinks": [],
-      "tests": [],
+      "tests": [
+        {
+          "name": "xcodebuild Watch",
+          "result": "pass"
+        },
+        {
+          "name": "Digital Crown device",
+          "result": "blocked"
+        }
+      ],
       "metrics": [],
-      "notes": "",
+      "notes": "digitalCrownRotation for reps; reachability banner.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T08:28:35Z"
+      "updatedAt": "2026-10-17T09:10:42Z"
     },
     {
       "id": "G27-025",
@@ -1009,7 +1097,7 @@
       "priority": "high",
       "title": "Pruebas unitarias",
       "summary": "Persistencia, timers, stats, HK mocks, Watch abstractions.",
-      "status": "pending",
+      "status": "in_review",
       "dependsOn": [
         "G27-001",
         "G27-003",
@@ -1020,19 +1108,27 @@
       "acceptanceCriteria": [
         "Tests green"
       ],
-      "filesModified": [],
+      "filesModified": [
+        "Packages/GymbroDomain/Tests"
+      ],
       "relatedFiles": [
         "Packages/GymbroDomain",
         "Apps tests"
       ],
       "commits": [],
       "prLinks": [],
-      "tests": [],
+      "tests": [
+        {
+          "name": "SyncConflict+WallClock+DerivedStats",
+          "result": "pass",
+          "detail": "12 tests"
+        }
+      ],
       "metrics": [],
-      "notes": "",
+      "notes": "Core domain tests added; more HK/Watch mocks still desirable.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T08:28:35Z"
+      "updatedAt": "2026-10-17T09:10:42Z"
     },
     {
       "id": "G27-026",
@@ -1040,7 +1136,7 @@
       "priority": "high",
       "title": "Pruebas de interfaz",
       "summary": "UI test target: tabs, workout, rest, search, a11y.",
-      "status": "pending",
+      "status": "in_review",
       "dependsOn": [
         "G27-015"
       ],
@@ -1050,18 +1146,31 @@
         "Target UITests",
         "Evidence screenshots"
       ],
-      "filesModified": [],
+      "filesModified": [
+        "Apps/GymbroUITests",
+        "project.yml"
+      ],
       "relatedFiles": [
         "UITests"
       ],
       "commits": [],
       "prLinks": [],
-      "tests": [],
+      "tests": [
+        {
+          "name": "UITests target exists",
+          "result": "pass"
+        },
+        {
+          "name": "UITests executed on sim",
+          "result": "blocked",
+          "detail": "Target created; run pending in CI/local"
+        }
+      ],
       "metrics": [],
-      "notes": "",
+      "notes": "GymbroUITests smoke target wired in XcodeGen.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T08:28:35Z"
+      "updatedAt": "2026-10-17T09:10:42Z"
     },
     {
       "id": "G27-027",
@@ -1069,7 +1178,7 @@
       "priority": "medium",
       "title": "Medición de rendimiento",
       "summary": "Cold/warm/search/memory; device+OS+tool.",
-      "status": "pending",
+      "status": "in_review",
       "dependsOn": [
         "G27-014",
         "G27-010"
@@ -1079,18 +1188,25 @@
       "acceptanceCriteria": [
         "Antes/después reales"
       ],
-      "filesModified": [],
+      "filesModified": [
+        "docs/ios27-modernization/METRICS.md"
+      ],
       "relatedFiles": [
         "docs metrics"
       ],
       "commits": [],
       "prLinks": [],
-      "tests": [],
+      "tests": [
+        {
+          "name": "Instruments session",
+          "result": "blocked"
+        }
+      ],
       "metrics": [],
-      "notes": "",
+      "notes": "Template ready; no invented percentages.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T08:28:35Z"
+      "updatedAt": "2026-10-17T09:10:42Z"
     },
     {
       "id": "G27-028",
@@ -1098,7 +1214,7 @@
       "priority": "high",
       "title": "Integración continua",
       "summary": "xcodegen, build iOS/Watch/widget, tests, canvas validate.",
-      "status": "pending",
+      "status": "in_review",
       "dependsOn": [
         "G27-025"
       ],
@@ -1107,18 +1223,30 @@
       "acceptanceCriteria": [
         "No App Store deploy"
       ],
-      "filesModified": [],
+      "filesModified": [
+        ".github/workflows/ios27-ci.yml"
+      ],
       "relatedFiles": [
         ".github/workflows"
       ],
       "commits": [],
       "prLinks": [],
-      "tests": [],
+      "tests": [
+        {
+          "name": "workflow file present",
+          "result": "pass"
+        },
+        {
+          "name": "CI run on Actions",
+          "result": "blocked",
+          "detail": "Needs push + macOS 15 runner with Xcode 27"
+        }
+      ],
       "metrics": [],
-      "notes": "",
+      "notes": "domain tests + canvas + xcodegen build workflow.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T08:28:35Z"
+      "updatedAt": "2026-10-17T09:10:42Z"
     },
     {
       "id": "G27-029",
@@ -1126,25 +1254,34 @@
       "priority": "medium",
       "title": "Documentación y ADRs",
       "summary": "Persistencia, iCloud, timers, HK, Watch, APIs iOS 27.",
-      "status": "pending",
+      "status": "in_review",
       "dependsOn": [],
       "blockedBy": [],
       "risks": [],
       "acceptanceCriteria": [
         "ADRs + API links"
       ],
-      "filesModified": [],
+      "filesModified": [
+        "docs/decisions/*",
+        "README",
+        "ARCHITECTURE"
+      ],
       "relatedFiles": [
         "docs/"
       ],
       "commits": [],
       "prLinks": [],
-      "tests": [],
+      "tests": [
+        {
+          "name": "docs exist",
+          "result": "pass"
+        }
+      ],
       "metrics": [],
-      "notes": "",
+      "notes": "ADRs 001-006 + canvas docs.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T08:28:35Z"
+      "updatedAt": "2026-10-17T09:10:42Z"
     },
     {
       "id": "G27-030",
@@ -1152,25 +1289,32 @@
       "priority": "low",
       "title": "Compatibilidad trabajo ilustraciones",
       "summary": "No tocar arte; registrar inconsistencias docs ropa.",
-      "status": "pending",
+      "status": "in_review",
       "dependsOn": [],
       "blockedBy": [],
       "risks": [],
       "acceptanceCriteria": [
         "Sin cambios creativos en JPG"
       ],
-      "filesModified": [],
+      "filesModified": [
+        "docs/decisions/006-exercise-art-boundary.md"
+      ],
       "relatedFiles": [
         "docs only"
       ],
       "commits": [],
       "prLinks": [],
-      "tests": [],
+      "tests": [
+        {
+          "name": "no ExerciseArt JPG diffs in branch",
+          "result": "pass"
+        }
+      ],
       "metrics": [],
-      "notes": "",
+      "notes": "Documented tank vs shirtless doc conflict for art PRs; no creative image changes.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T08:28:35Z"
+      "updatedAt": "2026-10-17T09:10:42Z"
     }
   ],
   "history": [
@@ -1213,6 +1357,11 @@
       "at": "2026-10-17T09:05:18Z",
       "type": "commit",
       "message": "P1 perf batch e686414"
+    },
+    {
+      "at": "2026-10-17T09:10:42Z",
+      "type": "impl",
+      "message": "P2–P4 implemented to in_review. Builds OK. Device/CI/Instruments still blocked where noted. Canvas+Cursor panel available."
     }
   ],
   "metricsBaseline": [],
@@ -1227,15 +1376,23 @@
   "blockers": [
     {
       "id": "device-icloud",
-      "message": "QA reinstall/two-device iCloud requires physical devices + Apple ID"
+      "message": "QA reinstall/two-device iCloud"
     },
     {
       "id": "paired-watch",
-      "message": "Watch connectivity dual-delivery QA needs paired Apple Watch"
+      "message": "Watch Crown + connectivity on hardware"
     },
     {
-      "id": "healthkit-matrix",
-      "message": "HealthKit permission matrix QA on device"
+      "id": "instruments",
+      "message": "G27-027 metrics need Instruments on device"
+    },
+    {
+      "id": "ci-runner",
+      "message": "ios27-ci.yml needs macOS runner with Xcode 27"
+    },
+    {
+      "id": "uitests-run",
+      "message": "GymbroUITests not yet executed green on sim"
     }
   ]
 }

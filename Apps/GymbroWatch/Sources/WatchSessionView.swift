@@ -1,5 +1,6 @@
 import GymbroDomain
 import SwiftUI
+import WatchConnectivity
 
 struct WatchSessionView: View {
     @Environment(WatchSessionHub.self) private var hub
@@ -45,8 +46,17 @@ struct WatchSessionView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
+            .accessibilityHint("Envía la serie al iPhone si está conectado")
         }
         .padding()
+        .overlay(alignment: .top) {
+            if !WCSession.default.isReachable {
+                Text("iPhone no alcanzable")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+                    .accessibilityLabel("Conectividad: iPhone no alcanzable")
+            }
+        }
     }
 
     @ViewBuilder
@@ -99,13 +109,36 @@ struct WatchSessionView: View {
     }
 
     private func countingView(_ session: WorkoutSession) -> some View {
-        VStack(spacing: 8) {
+        let reps = session.currentExercise?.completedReps ?? 0
+        return VStack(spacing: 8) {
             Text(session.currentExercise?.exercise.name ?? "—")
                 .font(.caption)
                 .multilineTextAlignment(.center)
-            Text("\(session.currentExercise?.completedReps ?? 0)")
+            Text("\(reps)")
                 .font(.system(size: 48, weight: .bold, design: .rounded))
                 .monospacedDigit()
+                .contentTransition(.numericText())
+                .focusable(true)
+                .digitalCrownRotation(
+                    Binding(
+                        get: { Double(reps) },
+                        set: { newValue in
+                            let target = max(0, Int(newValue.rounded()))
+                            let delta = target - reps
+                            if delta != 0 {
+                                hub.adjustReps(delta)
+                            }
+                        }
+                    ),
+                    from: 0,
+                    through: 99,
+                    by: 1,
+                    sensitivity: .medium,
+                    isContinuous: false,
+                    isHapticFeedbackEnabled: true
+                )
+                .accessibilityLabel("Repeticiones")
+                .accessibilityValue("\(reps)")
             Text("reps")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -114,9 +147,11 @@ struct WatchSessionView: View {
                 Button { hub.adjustReps(-1) } label: {
                     Image(systemName: "minus.circle.fill")
                 }
+                .accessibilityLabel("Quitar repetición")
                 Button { hub.adjustReps(1) } label: {
                     Image(systemName: "plus.circle.fill")
                 }
+                .accessibilityLabel("Añadir repetición")
             }
             .font(.title2)
 
@@ -127,6 +162,7 @@ struct WatchSessionView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
+            .accessibilityHint("Registra una serie con las repeticiones actuales")
 
             Button {
                 hub.finishCurrent()
@@ -137,5 +173,6 @@ struct WatchSessionView: View {
             .buttonStyle(.borderedProminent)
         }
         .padding()
+        .sensoryFeedback(.selection, trigger: reps)
     }
 }
