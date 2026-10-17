@@ -238,15 +238,32 @@ enum ExerciseArt {
     /// Secuencias que se han revisado visualmente y fallan el criterio de producto.
     /// Se mantiene el hero hasta regenerar y exportar TODOS sus frames defectuosos.
     private static let quarantinedSequences: Set<String> = [
-        "art_cf_thruster",     // Paso 3: mancuernas en lugar de barra.
-        "art_cf_tgu",          // Paso 1: mancuerna; los siguientes usan kettlebell.
-        "art_cf_hang_clean",   // Camiseta en todos los frames; sombra en fase aérea.
-        "art_cf_mu_rings",    // Sombra de suelo mientras cuelga de las anillas.
-        "art_cf_ghd",         // Camiseta y fases poco diferenciadas.
-        "art_rdl",            // Distinto ángulo de cámara entre las dos fases.
-        "art_gy_pb_dip",      // Cambio de cámara/equipo entre fases.
-        "art_cf_mu_bar",      // Cambio brusco de ángulo en la transición.
-        "art_cf_wall_ball",   // Paso 3 y caption no representan la misma recepción.
+        "art_cf_thruster",
+        "art_cf_tgu",
+        "art_cf_hang_clean",
+        "art_cf_mu_rings",
+        "art_cf_ghd",
+        "art_rdl",
+        "art_gy_pb_dip",
+        "art_cf_mu_bar",
+        "art_cf_wall_ball",
+        "art_aperturas",
+        "art_peso_muerto",
+        "art_bulgara",
+        "art_zancadas",
+        "art_hip_thrust",
+        "art_cf_cargada",
+        "art_cf_arrancada",
+        "art_cf_cj",
+        "art_cf_split_jerk",
+        "art_cf_ohs",
+        "art_cf_cluster",
+        "art_cf_ctb",
+        "art_cf_hspu",
+        "art_cf_ring_dip",
+        "art_cf_rope",
+        "art_cf_kb_snatch",
+        "art_cf_burpee_pu",
     ]
 
     /// Candidatos movementFrames siguen documentados abajo, pero ninguno ha
