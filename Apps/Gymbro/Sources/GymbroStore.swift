@@ -9,11 +9,18 @@ final class GymbroStore: NSObject {
     var state: AppState
     var isWatchReachable = false
     var iCloudStatus: ICloudStatus = .temporarilyUnavailable
+    var syncPhase: AppSyncPhase = .loadingLocal
     var isSyncingiCloud = false
     var lastiCloudSyncMessage: String?
+    /// True until the first remote recovery attempt finishes (success, offline, or waiting).
+    private(set) var didCompleteInitialRemoteSync = false
+    /// Blocks remote uploads until recovery knows the cloud document is ready or absent.
+    private var allowRemoteUpload = false
     /// exerciseId → progression reason for the active session
     var progressionReasons: [UUID: String] = [:]
     var lastImportSummary: String?
+    /// Rest between sets — owned by the store so leaving WorkoutView does not cancel it.
+    let restCoordinator = RestSessionCoordinator()
 
     private let store = LocalStore.shared
     private let connectivity = PhoneConnectivity()
@@ -28,9 +35,10 @@ final class GymbroStore: NSObject {
     }
 
     override init() {
-        state = LocalStore.shared.load()
+        state = LocalStore.shared.loadLocalOnly()
         super.init()
         iCloudStatus = LocalStore.shared.iCloudStatus
+        syncPhase = LocalStore.shared.syncPhase
     }
 
     func bootstrap() {
@@ -41,8 +49,9 @@ final class GymbroStore: NSObject {
         enrichCatalogMetadata()
         mergeMissingSeedExercises()
         dedupeBodyWeightsByDay()
-        persist()
-        Task { await refreshFromiCloud() }
+        // Local only until iCloud recovery completes — never upload seed over undownloaded cloud.
+        persistLocalOnly(immediate: true)
+        Task { await completeInitialRemoteSync() }
     }
 
     /// Sincroniza metadata seed (grupo, instrucciones…) sin pisar custom/favoritos/id.
@@ -106,39 +115,96 @@ final class GymbroStore: NSObject {
 
     // MARK: - Persistence
 
-    func persist() {
-        state.updatedAt = Date()
-        store.save(state)
+    /// Durable local write. Remote mirror only after initial recovery allows uploads.
+    func persist(immediate: Bool = true) {
+        store.stampForPersist(&state, bumpRevision: true)
+        store.persistLocal(state, immediate: immediate)
         iCloudStatus = store.iCloudStatus
+        syncPhase = store.syncPhase
+        if allowRemoteUpload {
+            let snapshot = state
+            Task { await store.pushToiCloudIfSafe(snapshot) }
+        }
     }
 
-    func refreshFromiCloud() async {
+    /// Local disk only — used during bootstrap before remote recovery.
+    func persistLocalOnly(immediate: Bool = true) {
+        store.stampForPersist(&state, bumpRevision: true)
+        store.persistLocal(state, immediate: immediate)
+        syncPhase = store.syncPhase
+    }
+
+    func completeInitialRemoteSync() async {
+        await refreshFromiCloud(isInitial: true)
+        didCompleteInitialRemoteSync = true
+    }
+
+    func refreshFromiCloud(isInitial: Bool = false) async {
         isSyncingiCloud = true
         defer { isSyncingiCloud = false }
         store.refreshICloudStatus()
         iCloudStatus = store.iCloudStatus
+        syncPhase = .awaitingRemote
+
         guard iCloudStatus == .available else {
+            allowRemoteUpload = iCloudStatus != .temporarilyUnavailable
+            syncPhase = iCloudStatus == .signedOut ? .offline : .offline
             lastiCloudSyncMessage = iCloudStatus == .signedOut
                 ? "Inicia sesión en iCloud"
                 : "iCloud no disponible aún"
+            // Offline: keep local; do not invent a remote upload.
+            if iCloudStatus == .signedOut {
+                allowRemoteUpload = true
+            }
             return
         }
-        // Primero lee remoto (sin pisarlo). Gana el updatedAt más reciente; luego persiste el ganador.
-        let localStamp = state.updatedAt
-        if let newest = await store.syncFromiCloud() {
-            if newest.updatedAt > localStamp {
-                state = newest
-                stripSeededDemoPlanIfNeeded()
-                lastiCloudSyncMessage = "Datos restaurados desde iCloud"
-            } else {
-                store.save(state)
-                lastiCloudSyncMessage = "Copia en iCloud actualizada"
-            }
-        } else {
-            store.save(state)
-            lastiCloudSyncMessage = "Copia en iCloud actualizada"
-        }
+
+        let outcome = await store.recoverFromiCloud(local: state)
+        syncPhase = store.syncPhase
         iCloudStatus = store.iCloudStatus
+
+        switch outcome {
+        case .adoptedRemote(let remote):
+            state = remote
+            stripSeededDemoPlanIfNeeded()
+            enrichCatalogMetadata()
+            mergeMissingSeedExercises()
+            // Metadata merges stay local until the next user edit bumps revision.
+            store.persistLocal(state, immediate: true)
+            allowRemoteUpload = true
+            lastiCloudSyncMessage = "Datos restaurados desde iCloud"
+        case .keptLocal(let shouldUpload):
+            allowRemoteUpload = true
+            if shouldUpload {
+                await store.pushToiCloudIfSafe(state)
+                lastiCloudSyncMessage = "Copia en iCloud actualizada"
+            } else {
+                lastiCloudSyncMessage = "Usando copia local"
+            }
+        case .noRemoteDocument:
+            // True first install (or empty container): safe to upload local seed/catalog.
+            allowRemoteUpload = true
+            await store.pushToiCloudIfSafe(state)
+            lastiCloudSyncMessage = isInitial
+                ? "Primera copia subida a iCloud"
+                : "Copia en iCloud actualizada"
+            syncPhase = .ready
+        case .waitingForDownload:
+            allowRemoteUpload = false
+            lastiCloudSyncMessage = "Descargando datos de iCloud…"
+            syncPhase = .awaitingRemote
+        case .corruptRemote:
+            allowRemoteUpload = false
+            lastiCloudSyncMessage = "Documento iCloud ilegible; no se sobrescribe"
+            syncPhase = .recoveringCorrupt
+        case .unavailable(let status):
+            allowRemoteUpload = status == .signedOut
+            iCloudStatus = status
+            syncPhase = .offline
+            lastiCloudSyncMessage = status == .signedOut
+                ? "Inicia sesión en iCloud"
+                : "iCloud no disponible aún"
+        }
     }
 
     /// Borra entrenos, rutinas y peso; mantiene el catálogo de ejercicios.
@@ -334,6 +400,7 @@ final class GymbroStore: NSObject {
         }
         let start = session.startedAt ?? Date()
         let end = session.finishedAt ?? Date()
+        restCoordinator.endForSessionClose()
         state.activeSession = nil
         persist()
         pushActiveToWatch()
@@ -1239,8 +1306,10 @@ extension GymbroStore: PhoneConnectivityDelegate {
         }
     }
 
-    nonisolated func phoneConnectivityDidReceiveLogSet(reps: Int, weightKg: Double?) {
+    nonisolated func phoneConnectivityDidReceiveLogSet(reps: Int, weightKg: Double?, actionId: UUID) {
         Task { @MainActor in
+            // actionId already deduped in PhoneConnectivity.
+            _ = actionId
             self.handleWatchLogSet(reps: reps, weightKg: weightKg)
         }
     }

@@ -29,6 +29,7 @@ struct GymbroApp: App {
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active {
                         Task {
+                            // Pull remote first; uploads remain gated until recovery allows them.
                             await store.refreshFromiCloud()
                             let health = HealthKitStore.shared
                             health.refreshAuthorizationStatus()
@@ -38,7 +39,8 @@ struct GymbroApp: App {
                             }
                         }
                     } else if phase == .background {
-                        store.persist()
+                        store.persist(immediate: true)
+                        Task { await LocalStore.shared.flush() }
                     }
                 }
         }

@@ -98,7 +98,12 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 
 ## Datos y sync
 
-- Estado: `AppState` Codable → fichero en contenedor iCloud Documents cuando hay cuenta.
+- Estado: `AppState` Codable → JSON local (`Application Support/Gymbro`) + espejo iCloud Documents.
+- Bootstrap: carga **solo local**; la subida remota queda bloqueada hasta recuperar iCloud (evita pisar stubs no descargados con el seed).
+- Conflictos: `syncRevision` + `lastWriterDeviceId` (`SyncConflictResolver`); fallback a `updatedAt` para docs legacy.
+- I/O: actor `AppStatePersistence` (encode/write atómicos, coalescing); fachada `LocalStore` en MainActor.
+- Fases: `AppSyncPhase` (`loadingLocal` → `awaitingRemote` → `ready` / `offline` / `recoveringCorrupt`).
+- Canvas de modernización: `docs/ios27-modernization/`.
 - Export / import JSON; import CSV Strong/Hevy (`WorkoutCSVImporter`).
 
 ## Plataforma específica (solo app)
