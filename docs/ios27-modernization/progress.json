@@ -3,8 +3,8 @@
   "project": "Gymbro",
   "branch": "feat/ios27-native-performance-audit",
   "baseCommit": "b198235c93fbc36b0c790eece80bf301f15e55fa",
-  "headCommit": "047db48a4ee9083b850d5c753e41b9a95cef4b1e",
-  "updatedAt": "2026-10-17T09:04:56Z",
+  "headCommit": "e686414e47d28adf4cd42353bda240cab6deae95",
+  "updatedAt": "2026-10-17T09:05:18Z",
   "global": {
     "total": 30,
     "completed": 0,
@@ -441,7 +441,9 @@
         "Apps/Gymbro/Sources",
         "Apps/GymbroWatch/Sources"
       ],
-      "commits": [],
+      "commits": [
+        "e686414"
+      ],
       "prLinks": [],
       "tests": [
         {
@@ -458,7 +460,7 @@
       "notes": "Rest LA MainActor; StatsView Task cancel; ThumbImageLoader actor. Leftover: Theme PreferenceKey, CameraPicker providers, BodyMap/Heatmap Task.detached (acceptable for heavy work).",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T09:04:56Z"
+      "updatedAt": "2026-10-17T09:05:18Z"
     },
     {
       "id": "G27-009",
@@ -482,7 +484,9 @@
       "relatedFiles": [
         "ExerciseArt.swift"
       ],
-      "commits": [],
+      "commits": [
+        "e686414"
+      ],
       "prLinks": [],
       "tests": [
         {
@@ -499,7 +503,7 @@
       "notes": "JPG manifest; no decode in body (cachedThumb); carousel uses manifest to skip missing stems.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T09:04:56Z"
+      "updatedAt": "2026-10-17T09:05:18Z"
     },
     {
       "id": "G27-010",
@@ -524,7 +528,9 @@
       "relatedFiles": [
         "ExerciseArt.swift"
       ],
-      "commits": [],
+      "commits": [
+        "e686414"
+      ],
       "prLinks": [],
       "tests": [
         {
@@ -540,7 +546,7 @@
       "notes": "maxConcurrent=4; in-flight dedupe; LRU memory 120; cancelAllInFlight available.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T09:04:56Z"
+      "updatedAt": "2026-10-17T09:05:18Z"
     },
     {
       "id": "G27-011",
@@ -570,7 +576,9 @@
         "ExerciseDetailView.swift",
         "ExerciseProgressView.swift"
       ],
-      "commits": [],
+      "commits": [
+        "e686414"
+      ],
       "prLinks": [],
       "tests": [
         {
@@ -583,7 +591,7 @@
       "notes": "DerivedStatsCache invalidated on persist; PRs/history cached by syncRevision.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T09:04:56Z"
+      "updatedAt": "2026-10-17T09:05:18Z"
     },
     {
       "id": "G27-012",
@@ -608,7 +616,9 @@
         "StatsView.swift",
         "ProgressChartBuilder.swift"
       ],
-      "commits": [],
+      "commits": [
+        "e686414"
+      ],
       "prLinks": [],
       "tests": [
         {
@@ -624,7 +634,7 @@
       "notes": "prepareTask?.cancel() + Task.isCancelled + generation guard.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T09:04:56Z"
+      "updatedAt": "2026-10-17T09:05:18Z"
     },
     {
       "id": "G27-013",
@@ -649,7 +659,9 @@
       "relatedFiles": [
         "HealthKitStore.swift"
       ],
-      "commits": [],
+      "commits": [
+        "e686414"
+      ],
       "prLinks": [],
       "tests": [
         {
@@ -665,7 +677,7 @@
       "notes": "healthCacheFetchedAt + freshness window; invalidate on delete.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T09:04:56Z"
+      "updatedAt": "2026-10-17T09:05:18Z"
     },
     {
       "id": "G27-014",
@@ -691,7 +703,9 @@
         "GymbroApp.swift",
         "GymbroStore.swift"
       ],
-      "commits": [],
+      "commits": [
+        "e686414"
+      ],
       "prLinks": [],
       "tests": [
         {
@@ -708,7 +722,7 @@
       "notes": "Deferred thumb prefetch; no HK permission prompt on cold launch; warm manifest early.",
       "startedAt": null,
       "completedAt": null,
-      "updatedAt": "2026-10-17T09:04:56Z"
+      "updatedAt": "2026-10-17T09:05:18Z"
     },
     {
       "id": "G27-015",
@@ -1194,6 +1208,11 @@
       "at": "2026-10-17T09:04:56Z",
       "type": "impl",
       "message": "P1 batch G27-008..014 implemented (in_review). Domain DerivedStatsCacheTests pass; iOS+Watch builds OK. Device Instruments QA blocked."
+    },
+    {
+      "at": "2026-10-17T09:05:18Z",
+      "type": "commit",
+      "message": "P1 perf batch e686414"
     }
   ],
   "metricsBaseline": [],
