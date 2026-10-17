@@ -1,7 +1,8 @@
 import Foundation
 
 public enum Catalog {
-    public static func seed() -> [Exercise] {
+    /// Built once per process — `seed()` used to rebuild hundreds of exercises on every call.
+    private static let cachedSeed: [Exercise] = {
         (CatalogEnrichment.rows
             + CatalogHalterofilia.rows
             + CatalogGimnasia.rows
@@ -27,7 +28,9 @@ public enum Catalog {
                 sportTag: row.sportTag
             )
         }
-    }
+    }()
+
+    public static func seed() -> [Exercise] { cachedSeed }
 
     /// Plan demo solo para tests; la app no lo carga.
     public static func defaultWeekPlan(exercises: [Exercise]) -> [Routine] {

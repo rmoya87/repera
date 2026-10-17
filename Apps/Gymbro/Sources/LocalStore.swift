@@ -42,6 +42,8 @@ actor AppStatePersistence {
     private var pendingState: AppState?
     private var coalesceTask: Task<Void, Never>?
     private var lastWriteGeneration: UInt64 = 0
+    /// Ubiquity container resolution is expensive; cache after first hit.
+    private var cachedCloudDocsURL: URL?
 
     init() {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -49,7 +51,8 @@ actor AppStatePersistence {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         localURL = dir.appendingPathComponent("app_state.json")
         let enc = JSONEncoder()
-        enc.outputFormatting = [.prettyPrinted, .sortedKeys]
+        // Compact JSON: faster encode and smaller cold-start I/O.
+        enc.outputFormatting = [.sortedKeys]
         enc.dateEncodingStrategy = .iso8601
         encoder = enc
         let dec = JSONDecoder()
@@ -131,6 +134,11 @@ actor AppStatePersistence {
     }
 
     func iCloudDocumentsURL() -> URL? {
+        if FileManager.default.ubiquityIdentityToken == nil {
+            cachedCloudDocsURL = nil
+            return nil
+        }
+        if let cachedCloudDocsURL { return cachedCloudDocsURL }
         let root = FileManager.default.url(forUbiquityContainerIdentifier: Self.ubiquityContainerID)
             ?? FileManager.default.url(forUbiquityContainerIdentifier: nil)
         guard let root else { return nil }
@@ -140,7 +148,9 @@ actor AppStatePersistence {
         } catch {
             return nil
         }
-        return docs.appendingPathComponent("app_state.json")
+        let url = docs.appendingPathComponent("app_state.json")
+        cachedCloudDocsURL = url
+        return url
     }
 
     /// `.notDownloaded` stubs must not be overwritten.
@@ -153,16 +163,13 @@ actor AppStatePersistence {
         guard FileManager.default.fileExists(atPath: url.path) || isUbiquitous else {
             return .absent
         }
+        // NS_TYPED_ENUM — compare explicitly (switch is never exhaustive).
         let status = try? url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey])
             .ubiquitousItemDownloadingStatus
-        switch status {
-        case .notDownloaded:
+        if status == .notDownloaded {
             return .notDownloaded
-        case .downloaded, .current, .none:
-            return .ready
-        @unknown default:
-            return .ready
         }
+        return .ready
     }
 
     enum CloudReadiness: Equatable, Sendable {
@@ -178,7 +185,12 @@ actor AppStatePersistence {
         }
     }
 
-    func waitForCloudDownload(at url: URL, attempts: Int = 24, sleepNanos: UInt64 = 250_000_000) async -> CloudReadiness {
+    /// Short poll so cold launch is not blocked for seconds on a stub.
+    func waitForCloudDownload(
+        at url: URL,
+        attempts: Int = 6,
+        sleepNanos: UInt64 = 80_000_000
+    ) async -> CloudReadiness {
         startCloudDownloadIfNeeded(at: url)
         for _ in 0..<attempts {
             let readiness = cloudReadiness(at: url)
@@ -343,6 +355,15 @@ final class LocalStore {
                 self.iCloudStatus = status
             }
         }
+    }
+
+    /// Resolves ubiquity on the persistence actor (can take ~1s); use from async recovery paths.
+    func refreshICloudStatusAsync() async {
+        if FileManager.default.ubiquityIdentityToken == nil {
+            iCloudStatus = .signedOut
+            return
+        }
+        iCloudStatus = await persistence.iCloudStatus()
     }
 
     /// Cold start: local only. Never reads undownloaded iCloud stubs.

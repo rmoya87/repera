@@ -11,20 +11,23 @@ struct GymbroApp: App {
                 .environment(store)
                 .environment(HealthKitStore.shared)
                 .task {
+                    // First paint wins: connectivity + deferred catalog/iCloud only.
                     store.bootstrap()
-                    // Manifest + thumbs after local bootstrap; do not block first paint.
                     ExerciseArt.warmArtManifest()
+
+                    // HealthKit + thumbs off the critical path (do not await before UI settles).
                     Task(priority: .utility) {
-                        // Wait briefly so iCloud recovery can adopt remote catalog first.
-                        try? await Task.sleep(nanoseconds: 400_000_000)
-                        ExerciseArt.prefetchThumbs(for: store.state.exercises)
+                        let health = HealthKitStore.shared
+                        health.refreshAuthorizationStatus()
+                        if health.isAuthorized {
+                            await health.refreshToday()
+                            await store.syncBodyWeightWithHealth()
+                        }
                     }
-                    let health = HealthKitStore.shared
-                    health.refreshAuthorizationStatus()
-                    // Contextual: only refresh if already authorized — never prompt on cold launch.
-                    if health.isAuthorized {
-                        await health.refreshToday()
-                        await store.syncBodyWeightWithHealth()
+                    Task(priority: .utility) {
+                        // Prefer local thumbs first; refresh after a short settle if catalog grew.
+                        try? await Task.sleep(nanoseconds: 150_000_000)
+                        ExerciseArt.prefetchThumbs(for: store.state.exercises)
                     }
                 }
                 .onChange(of: scenePhase) { _, phase in

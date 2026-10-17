@@ -47,17 +47,25 @@ final class GymbroStore: NSObject {
         connectivity.delegate = self
         connectivity.activate()
         isWatchReachable = WCSession.default.isReachable
-        stripSeededDemoPlanIfNeeded()
-        enrichCatalogMetadata()
-        mergeMissingSeedExercises()
-        dedupeBodyWeightsByDay()
-        // Local only until iCloud recovery completes — never upload seed over undownloaded cloud.
-        persistLocalOnly(immediate: true)
-        Task { await completeInitialRemoteSync() }
+        // Catalog merges + disk write after first frame — keep LaunchScreen → Home snappy.
+        Task(priority: .userInitiated) { @MainActor in
+            await Task.yield()
+            var dirty = false
+            dirty = stripSeededDemoPlanIfNeeded() || dirty
+            dirty = enrichCatalogMetadata() || dirty
+            dirty = mergeMissingSeedExercises() || dirty
+            dirty = dedupeBodyWeightsByDay() || dirty
+            if dirty {
+                // Local only until iCloud recovery completes — never upload seed over undownloaded cloud.
+                persistLocalOnly(immediate: true)
+            }
+            await completeInitialRemoteSync()
+        }
     }
 
     /// Sincroniza metadata seed (grupo, instrucciones…) sin pisar custom/favoritos/id.
-    private func enrichCatalogMetadata() {
+    @discardableResult
+    private func enrichCatalogMetadata() -> Bool {
         let seedByName = Dictionary(uniqueKeysWithValues: Catalog.seed().map { ($0.name, $0) })
         var changed = false
         for i in state.exercises.indices {
@@ -94,25 +102,30 @@ final class GymbroStore: NSObject {
             changed = true
         }
         if changed { state.updatedAt = Date() }
+        return changed
     }
 
     /// Añade ejercicios nuevos del catálogo seed (p. ej. CrossFit) sin duplicar por nombre.
-    private func mergeMissingSeedExercises() {
+    @discardableResult
+    private func mergeMissingSeedExercises() -> Bool {
         let existing = Set(state.exercises.map(\.name))
         let missing = Catalog.seed().filter { !existing.contains($0.name) }
-        guard !missing.isEmpty else { return }
+        guard !missing.isEmpty else { return false }
         state.exercises.append(contentsOf: missing)
         state.updatedAt = Date()
+        return true
     }
 
     /// Quita el plan Push/Pull/Legs de demo si el usuario no ha creado nada propio.
-    private func stripSeededDemoPlanIfNeeded() {
+    @discardableResult
+    private func stripSeededDemoPlanIfNeeded() -> Bool {
         let demoTitles: Set<String> = ["Push", "Pull", "Legs", "Push 2", "Pull 2"]
         guard !state.routines.isEmpty,
               state.routines.allSatisfy({ demoTitles.contains($0.title) })
-        else { return }
+        else { return false }
         state.routines = []
         state.updatedAt = Date()
+        return true
     }
 
     // MARK: - Persistence
@@ -164,10 +177,25 @@ final class GymbroStore: NSObject {
         didCompleteInitialRemoteSync = true
     }
 
+    /// Retries cloud stub download without blocking first paint.
+    private func scheduleCloudDownloadRetry() {
+        Task(priority: .utility) { @MainActor in
+            for _ in 0..<10 {
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                if allowRemoteUpload { return }
+                if syncPhase == .ready || syncPhase == .offline || syncPhase == .recoveringCorrupt {
+                    return
+                }
+                await refreshFromiCloud(isInitial: false)
+                if allowRemoteUpload || syncPhase == .ready { return }
+            }
+        }
+    }
+
     func refreshFromiCloud(isInitial: Bool = false) async {
         isSyncingiCloud = true
         defer { isSyncingiCloud = false }
-        store.refreshICloudStatus()
+        await store.refreshICloudStatusAsync()
         iCloudStatus = store.iCloudStatus
         syncPhase = .awaitingRemote
 
@@ -218,6 +246,9 @@ final class GymbroStore: NSObject {
             allowRemoteUpload = false
             lastiCloudSyncMessage = "Descargando datos de iCloud…"
             syncPhase = .awaitingRemote
+            if isInitial {
+                scheduleCloudDownloadRetry()
+            }
         case .corruptRemote:
             allowRemoteUpload = false
             lastiCloudSyncMessage = "Documento iCloud ilegible; no se sobrescribe"
@@ -1235,7 +1266,9 @@ final class GymbroStore: NSObject {
     }
 
     /// Colapsa varios pesajes del mismo día dejando el más reciente.
-    private func dedupeBodyWeightsByDay() {
+    @discardableResult
+    private func dedupeBodyWeightsByDay() -> Bool {
+        let before = state.bodyWeights.count
         let cal = Calendar.current
         var bestByDay: [Date: BodyWeightEntry] = [:]
         for entry in state.bodyWeights {
@@ -1248,7 +1281,10 @@ final class GymbroStore: NSObject {
                 bestByDay[day] = entry
             }
         }
-        state.bodyWeights = bestByDay.values.sorted { $0.date > $1.date }
+        let deduped = bestByDay.values.sorted { $0.date > $1.date }
+        guard deduped.count != before else { return false }
+        state.bodyWeights = deduped
+        return true
     }
 
     /// Importa pesos de Salud (1 por día) y sube a Salud los días que solo están en la app.

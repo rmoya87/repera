@@ -45,6 +45,8 @@ cd Packages/GymbroDomain && swift test
 
 Requisitos: **Xcode con SDK iOS 27**, dispositivo/simulador compatible. Apple Intelligence es opcional (fallback local en pizarra).
 
+Cold start: LaunchScreen usa splash JPEG ligero (~170 KB); la UI pinta con estado local antes de merges de catálogo / iCloud / Salud.
+
 ## Identificadores
 
 | Qué | Valor |
