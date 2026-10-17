@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "project": "Gymbro",
   "branch": "feat/ios27-native-performance-audit",
-  "baseCommit": "2536e7f464eedd72eaabfddeebd5ba1c271135c8",
-  "headCommit": "pending",
-  "updatedAt": "2026-10-17T08:38:28Z",
+  "baseCommit": "b198235c93fbc36b0c790eece80bf301f15e55fa",
+  "headCommit": "e150694b3a7c27002f0be0124147afe56dc11620",
+  "updatedAt": "2026-10-17T08:38:56Z",
   "global": {
     "total": 30,
     "completed": 0,
@@ -94,7 +94,10 @@
         "GymbroStore.swift",
         "GymbroApp.swift"
       ],
-      "commits": [],
+      "commits": [
+        "1a06984",
+        "03e645c"
+      ],
       "prLinks": [],
       "tests": [
         {
@@ -147,7 +150,10 @@
         "LocalStore.swift",
         "GymbroStore.swift"
       ],
-      "commits": [],
+      "commits": [
+        "1a06984",
+        "03e645c"
+      ],
       "prLinks": [],
       "tests": [
         {
@@ -191,7 +197,9 @@
         "WorkoutView.swift",
         "StandaloneTimerView.swift"
       ],
-      "commits": [],
+      "commits": [
+        "dfc6c70"
+      ],
       "prLinks": [],
       "tests": [
         {
@@ -243,7 +251,9 @@
         "RestLiveActivity.swift",
         "GymbroStore.swift"
       ],
-      "commits": [],
+      "commits": [
+        "dfc6c70"
+      ],
       "prLinks": [],
       "tests": [
         {
@@ -289,7 +299,9 @@
         "HistoryView.swift",
         "HealthKitStore.swift"
       ],
-      "commits": [],
+      "commits": [
+        "e150694"
+      ],
       "prLinks": [],
       "tests": [
         {
@@ -333,7 +345,9 @@
         "GymbroApp.swift",
         "SettingsView.swift"
       ],
-      "commits": [],
+      "commits": [
+        "e150694"
+      ],
       "prLinks": [],
       "tests": [
         {
@@ -377,7 +391,9 @@
         "WatchConnectivityClient.swift",
         "WatchSessionHub.swift"
       ],
-      "commits": [],
+      "commits": [
+        "e150694"
+      ],
       "prLinks": [],
       "tests": [
         {
@@ -1076,6 +1092,16 @@
       "at": "2026-10-17T08:38:28Z",
       "type": "impl",
       "message": "P0 batch: G27-001..007 implemented (in_review). Builds iOS+Watch OK. Domain timer/conflict tests pass. Device/Watch QA blocked where noted."
+    },
+    {
+      "at": "2026-10-17T08:38:56Z",
+      "type": "commit",
+      "message": "Canvas init 03e645c"
+    },
+    {
+      "at": "2026-10-17T08:38:56Z",
+      "type": "rebase",
+      "message": "Rebased onto origin/main (b198235); HEAD e150694"
     }
   ],
   "metricsBaseline": [],
