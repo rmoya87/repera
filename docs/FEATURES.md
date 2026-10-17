@@ -1,6 +1,6 @@
 # Funcionalidades Gymbro
 
-Última actualización: 2026-10-17 (Splash JPEG; WOD wall-clock; catálogo «Cómo hacerlo»)
+Última actualización: 2026-10-17 (Catálogo: coaching específico 188/188; sin ampliar carruseles)
 
 ## Tabs
 
