@@ -1,5 +1,6 @@
 import GymbroDomain
 import SwiftUI
+import UIKit
 
 struct WorkoutView: View {
     @Environment(GymbroStore.self) private var store
@@ -20,21 +21,6 @@ struct WorkoutView: View {
     @State private var clusterRepsText = ""
     @State private var clusterRest = 15
     @State private var pendingClusters: [RestPauseCluster] = []
-    @State private var showWODClock = false
-    @State private var wodSecondsLeft = 0
-    @State private var wodElapsed = 0
-    @State private var wodIntervalIndex = 0
-    @State private var wodTotalIntervals = 0
-    @State private var wodIntervalLength = 60
-    @State private var wodIsIntervalMode = false
-    @State private var wodIsCountingUp = false
-    @State private var wodIsRunning = false
-    @State private var wodPreCountdown = 0
-    @State private var wodHasStarted = false
-    @State private var wodTitle = ""
-    @State private var wodSubtitle = ""
-    @State private var wodClockTimer: Timer?
-    @State private var clockExercise: Exercise?
     @State private var showNotes = false
     @State private var notesDraft = ""
     /// Filas editables del ejercicio actual (objetivo por serie + check para registrar).
@@ -59,25 +45,25 @@ struct WorkoutView: View {
                     ContentUnavailableView("Sin sesión", systemImage: "pause.circle", description: Text("Vuelve a Inicio para empezar."))
                 }
             }
-            if store.restCoordinator.isActive, !showWODClock {
+            if store.restCoordinator.isActive, !store.workoutClock.isVisible {
                 restDock
                     .padding(.horizontal, OG.pad)
                     .padding(.bottom, 12)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            if showWODClock {
+            if store.workoutClock.isVisible {
                 wodFullscreenClock
                     .transition(.opacity)
                     .zIndex(10)
             }
         }
         .animation(reduceMotion ? nil : .snappy, value: store.restCoordinator.isActive)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: showWODClock)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: store.workoutClock.isVisible)
         .sensoryFeedback(.success, trigger: setCompletionPulse)
         .sensoryFeedback(.impact(flexibility: .soft), trigger: restStartedPulse)
         .background(OG.bg)
         .ogPinnedTransparentNav(store.state.activeSession?.title ?? "Entreno")
-        .toolbar(showWODClock ? .hidden : .automatic, for: .navigationBar)
+        .toolbar(store.workoutClock.isVisible ? .hidden : .automatic, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 CloseToolbarButton(action: { closeFlow() }, large: false)
@@ -104,7 +90,7 @@ struct WorkoutView: View {
                     }
                     Divider()
                     Button(role: .destructive) {
-                        stopWODClock()
+                        store.workoutClock.stop()
                         store.endActiveSession(save: false)
                         closeFlow()
                     } label: {
@@ -124,7 +110,7 @@ struct WorkoutView: View {
                     Button(store.nextIsSupersetPartner ? "Siguiente SS" : "Siguiente") {
                         store.finishCurrentExercise()
                         store.restCoordinator.skip()
-                        stopWODClock()
+                        store.workoutClock.stop()
                         if store.state.activeSession == nil {
                             closeFlow()
                         }
@@ -139,7 +125,7 @@ struct WorkoutView: View {
                         tint: OG.accent,
                         appliesGlass: false
                     ) {
-                        stopWODClock()
+                        store.workoutClock.stop()
                         store.endActiveSession(save: true)
                         closeFlow()
                     }
@@ -155,11 +141,13 @@ struct WorkoutView: View {
         }
         .onChange(of: store.state.activeSession?.currentIndex) { _, _ in
             prefill()
-            stopWODClock()
+            store.workoutClock.stop()
         }
         .onDisappear {
-            // Rest is owned by GymbroStore.restCoordinator — do not stop on view disappear.
-            stopWODClock()
+            // Rest + WOD clocks are owned by GymbroStore — do not stop on view disappear.
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            store.workoutClock.syncFromWallClock()
         }
     }
 
@@ -620,7 +608,7 @@ struct WorkoutView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(OG.accent)
                     .controlSize(.large)
-                } else if !showWODClock {
+                } else if !store.workoutClock.isVisible {
                     Button {
                         startBlockClock(for: current)
                     } label: {
@@ -690,66 +678,38 @@ struct WorkoutView: View {
     }
 
     private var wodFullscreenClock: some View {
-        let displaySeconds: Int = {
-            if wodPreCountdown > 0 { return wodPreCountdown }
-            return wodIsCountingUp ? wodElapsed : wodSecondsLeft
-        }()
-        let roundDisplay: Int? = wodIsIntervalMode
-            ? min(wodIntervalIndex + 1, max(wodTotalIntervals, 1))
+        let clock = store.workoutClock
+        let roundDisplay: Int? = clock.isIntervalMode
+            ? min(clock.intervalIndex + 1, max(clock.totalIntervals, 1))
             : nil
-        return BlockTimerScreen(
-            title: wodTitle,
-            subtitle: wodPreCountdown > 0 ? "Cuenta atrás" : wodSubtitle,
-            exercise: clockExercise,
-            roundNumber: roundDisplay,
-            totalRounds: wodIsIntervalMode ? wodTotalIntervals : nil,
-            displaySeconds: displaySeconds,
-            isRunning: wodIsRunning,
-            isCountingUp: wodIsCountingUp,
-            primaryTitle: wodClockPrimaryTitle,
-            onPrimary: handleWODPrimary,
-            onClose: { stopWODClock() },
-            onSkip: wodIsIntervalMode ? { advanceWODInterval() } : nil
-        )
-    }
-
-    private var wodClockPrimaryTitle: String {
-        if wodPreCountdown > 0 { return "…" }
-        if !wodIsRunning { return "Comenzar" }
-        return "Pausar"
-    }
-
-    private func handleWODPrimary() {
-        if wodPreCountdown > 0 { return }
-        if wodIsRunning {
-            wodClockTimer?.invalidate()
-            wodClockTimer = nil
-            wodIsRunning = false
-        } else {
-            // Pre-countdown only on the first start; resume continues immediately.
-            if !wodHasStarted {
-                wodPreCountdown = 3
-                wodHasStarted = true
-            }
-            wodIsRunning = true
-            tickWODClock()
+        return TimelineView(.periodic(from: .now, by: 0.25)) { context in
+            BlockTimerScreen(
+                title: clock.title,
+                subtitle: clock.isPreCountdown ? "Cuenta atrás" : clock.subtitle,
+                exercise: clock.exercise,
+                roundNumber: roundDisplay,
+                totalRounds: clock.isIntervalMode ? clock.totalIntervals : nil,
+                displaySeconds: {
+                    clock.syncFromWallClock(now: context.date)
+                    return clock.displaySeconds
+                }(),
+                isRunning: clock.isRunning,
+                isCountingUp: clock.isCountingUp,
+                primaryTitle: clock.primaryTitle,
+                onPrimary: { clock.handlePrimary() },
+                onClose: { clock.stop() },
+                onSkip: clock.isIntervalMode ? { clock.skipInterval() } : nil
+            )
         }
     }
 
     /// Reloj a pantalla completa para cualquier tipo de bloque (EMOM, AMRAP, fuerza…).
     private func startBlockClock(for current: SessionExercise) {
-        stopWODClock()
-        clockExercise = current.exercise
-        wodTitle = current.exercise.name
-        wodElapsed = 0
-        wodIsCountingUp = false
-        wodIsIntervalMode = false
-        wodIsRunning = false
-        wodTotalIntervals = 0
-        wodIntervalIndex = 0
-        wodPreCountdown = 0
-
+        let sound = store.state.settings.restSoundEnabled
+        let haptic = store.state.settings.restHapticEnabled
         let format = current.wodFormat
+        let subtitleDefault = wodPlanLabel(for: current)
+
         switch format {
         case .emom:
             let interval = max(15, current.blockIntervalSeconds ?? 60)
@@ -757,140 +717,109 @@ struct WorkoutView: View {
                 ?? current.blockRounds
                 ?? current.blockTimeCapMinutes
                 ?? 8
-            wodIsIntervalMode = true
-            wodIntervalLength = interval
-            wodTotalIntervals = max(1, rounds)
-            wodSecondsLeft = interval
-            wodSubtitle = wodPlanLabel(for: current) ?? "EMOM"
+            store.workoutClock.configure(
+                exercise: current.exercise,
+                title: current.exercise.name,
+                subtitle: subtitleDefault ?? "EMOM",
+                countingUp: false,
+                intervalMode: true,
+                intervalLength: interval,
+                totalIntervals: max(1, rounds),
+                initialCountdown: interval,
+                sound: sound,
+                haptic: haptic
+            )
         case .tabata:
             let work = max(5, current.blockWorkSeconds ?? 20)
+            let rest = max(5, current.blockRestSeconds ?? 10)
             let rounds = max(1, current.blockRounds ?? 8)
-            wodIsIntervalMode = true
-            wodIntervalLength = work
-            wodTotalIntervals = rounds * 2
-            wodSecondsLeft = work
-            wodSubtitle = "Tabata · trabajo"
+            store.workoutClock.configure(
+                exercise: current.exercise,
+                title: current.exercise.name,
+                subtitle: "Tabata · trabajo",
+                countingUp: false,
+                intervalMode: true,
+                intervalLength: work,
+                totalIntervals: rounds * 2,
+                initialCountdown: work,
+                tabataWork: work,
+                tabataRest: rest,
+                sound: sound,
+                haptic: haptic
+            )
         case .amrap, .forTime, .chipper, .afap, .deathBy, .maxEffort:
             let mins = current.blockTimeCapMinutes ?? 12
-            wodSecondsLeft = max(60, mins * 60)
-            wodSubtitle = wodPlanLabel(for: current) ?? format?.displayName ?? "WOD"
+            let seconds = max(60, mins * 60)
+            store.workoutClock.configure(
+                exercise: current.exercise,
+                title: current.exercise.name,
+                subtitle: subtitleDefault ?? format?.displayName ?? "WOD",
+                countingUp: false,
+                intervalMode: false,
+                intervalLength: seconds,
+                totalIntervals: 0,
+                initialCountdown: seconds,
+                sound: sound,
+                haptic: haptic
+            )
         case .ladder, .partner, .buyInCashOut, .roundsForQuality, .circuit:
             if let mins = current.blockTimeCapMinutes, mins > 0 {
-                wodSecondsLeft = mins * 60
-                wodSubtitle = wodPlanLabel(for: current) ?? format?.displayName ?? "Bloque"
+                let seconds = mins * 60
+                store.workoutClock.configure(
+                    exercise: current.exercise,
+                    title: current.exercise.name,
+                    subtitle: subtitleDefault ?? format?.displayName ?? "Bloque",
+                    countingUp: false,
+                    intervalMode: false,
+                    intervalLength: seconds,
+                    totalIntervals: 0,
+                    initialCountdown: seconds,
+                    sound: sound,
+                    haptic: haptic
+                )
             } else {
-                prepareCountUpClock(subtitle: wodPlanLabel(for: current) ?? format?.displayName ?? "Bloque")
-                showWODClock = true
-                return
+                store.workoutClock.configure(
+                    exercise: current.exercise,
+                    title: current.exercise.name,
+                    subtitle: subtitleDefault ?? format?.displayName ?? "Bloque",
+                    countingUp: true,
+                    intervalMode: false,
+                    intervalLength: 0,
+                    totalIntervals: 0,
+                    initialCountdown: 0,
+                    sound: sound,
+                    haptic: haptic
+                )
             }
         case .strength, .none:
             if let mins = current.blockTimeCapMinutes, mins > 0 {
-                wodSecondsLeft = mins * 60
-                wodSubtitle = wodPlanLabel(for: current) ?? "Fuerza"
+                let seconds = mins * 60
+                store.workoutClock.configure(
+                    exercise: current.exercise,
+                    title: current.exercise.name,
+                    subtitle: subtitleDefault ?? "Fuerza",
+                    countingUp: false,
+                    intervalMode: false,
+                    intervalLength: seconds,
+                    totalIntervals: 0,
+                    initialCountdown: seconds,
+                    sound: sound,
+                    haptic: haptic
+                )
             } else {
-                prepareCountUpClock(subtitle: wodPlanLabel(for: current) ?? "Fuerza")
-                showWODClock = true
-                return
+                store.workoutClock.configure(
+                    exercise: current.exercise,
+                    title: current.exercise.name,
+                    subtitle: subtitleDefault ?? "Fuerza",
+                    countingUp: true,
+                    intervalMode: false,
+                    intervalLength: 0,
+                    totalIntervals: 0,
+                    initialCountdown: 0,
+                    sound: sound,
+                    haptic: haptic
+                )
             }
-        }
-
-        showWODClock = true
-    }
-
-    private func prepareCountUpClock(subtitle: String) {
-        wodIsCountingUp = true
-        wodIsIntervalMode = false
-        wodSecondsLeft = 0
-        wodElapsed = 0
-        wodSubtitle = subtitle
-    }
-
-    private func tickWODClock() {
-        wodClockTimer?.invalidate()
-        wodClockTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            Task { @MainActor in
-                guard showWODClock else { return }
-                if wodPreCountdown > 0 {
-                    wodPreCountdown -= 1
-                    RestFeedback.tick(
-                        remaining: wodPreCountdown,
-                        sound: store.state.settings.restSoundEnabled,
-                        haptic: store.state.settings.restHapticEnabled
-                    )
-                    if wodPreCountdown == 0 {
-                        RestFeedback.intervalBeep(
-                            sound: store.state.settings.restSoundEnabled,
-                            haptic: store.state.settings.restHapticEnabled
-                        )
-                    }
-                    return
-                }
-                guard wodIsRunning else { return }
-                if wodIsCountingUp {
-                    wodElapsed += 1
-                    return
-                }
-                if wodSecondsLeft <= 1 {
-                    if wodIsIntervalMode, wodIntervalIndex + 1 < wodTotalIntervals {
-                        advanceWODInterval()
-                        RestFeedback.intervalBeep(
-                            sound: store.state.settings.restSoundEnabled,
-                            haptic: store.state.settings.restHapticEnabled
-                        )
-                    } else {
-                        wodSecondsLeft = 0
-                        wodIsRunning = false
-                        wodClockTimer?.invalidate()
-                        wodClockTimer = nil
-                        RestFeedback.restComplete(
-                            sound: store.state.settings.restSoundEnabled,
-                            haptic: store.state.settings.restHapticEnabled
-                        )
-                    }
-                } else {
-                    wodSecondsLeft -= 1
-                    if wodSecondsLeft <= 3 {
-                        RestFeedback.tick(
-                            remaining: wodSecondsLeft,
-                            sound: store.state.settings.restSoundEnabled,
-                            haptic: store.state.settings.restHapticEnabled
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private func advanceWODInterval() {
-        wodIntervalIndex += 1
-        let current = store.state.activeSession?.currentExercise
-        if current?.wodFormat == .tabata {
-            let isWork = wodIntervalIndex % 2 == 0
-            let work = current?.blockWorkSeconds ?? 20
-            let rest = current?.blockRestSeconds ?? 10
-            wodIntervalLength = isWork ? work : rest
-            wodSubtitle = isWork ? "Tabata · trabajo" : "Tabata · descanso"
-        }
-        wodSecondsLeft = wodIntervalLength
-        RestFeedback.intervalBeep(
-            sound: store.state.settings.restSoundEnabled,
-            haptic: store.state.settings.restHapticEnabled
-        )
-    }
-
-    private func stopWODClock(keepVisible: Bool = false) {
-        wodClockTimer?.invalidate()
-        wodClockTimer = nil
-        wodIsRunning = false
-        if !keepVisible {
-            showWODClock = false
-            wodSecondsLeft = 0
-            wodElapsed = 0
-            wodIntervalIndex = 0
-            wodTotalIntervals = 0
-            wodIsCountingUp = false
-            wodPreCountdown = 0
-            clockExercise = nil
         }
     }
 

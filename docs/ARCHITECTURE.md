@@ -1,6 +1,6 @@
 # Arquitectura Gymbro
 
-Última actualización: 2026-10-17 (J28: buscador off-main + ThumbMemoryCache/ImageIO)
+Última actualización: 2026-10-17 (J28: splash JPEG + WOD/persist/Watch ACK)
 
 ## Visión
 
@@ -99,7 +99,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 ## Datos y sync
 
 - Estado: `AppState` Codable → JSON local (`Application Support/Gymbro`) + espejo iCloud Documents.
-- Bootstrap: `GymbroStore` arranca con shell vacío (sin disco ni `Catalog.seed` en `init`). Tras el primer frame: hydrate disco → `Catalog.prewarm()` off-main → merges → iCloud. LaunchScreen es color sólido negro (sin bitmap). Poll iCloud corto + reintento en background.
+- Bootstrap: `GymbroStore` arranca con shell vacío (sin disco ni `Catalog.seed` en `init`). Tras el primer frame: hydrate disco → `Catalog.prewarm()` off-main → merges → iCloud. LaunchScreen muestra `Splash.jpg` (~170KB) a pantalla completa sobre fondo brand green. Poll iCloud corto + reintento en background.
 - Conflictos: `syncRevision` + `lastWriterDeviceId` (`SyncConflictResolver`); fallback a `updatedAt` para docs legacy.
 - I/O: actor `AppStatePersistence` (encode/write atómicos, coalescing); fachada `LocalStore` en MainActor.
 - Fases: `AppSyncPhase` (`loadingLocal` → `awaitingRemote` → `ready` / `offline` / `recoveringCorrupt`).

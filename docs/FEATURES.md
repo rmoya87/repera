@@ -1,6 +1,6 @@
 # Funcionalidades Gymbro
 
-Última actualización: 2026-10-17 (Ejercicios: búsqueda off-main + thumbs ImageIO; sin prefetch global)
+Última actualización: 2026-10-17 (Splash JPEG restaurado; WOD wall-clock; Watch ACK durable)
 
 ## Tabs
 

@@ -7,15 +7,24 @@ protocol PhoneConnectivityDelegate: AnyObject {
     func phoneConnectivityDidUpdateReachability(_ reachable: Bool)
     func phoneConnectivityDidReceive(session: WorkoutSession)
     func phoneConnectivityDidReceiveQuickLogRequest(exerciseId: UUID?)
-    func phoneConnectivityDidReceiveLogSet(reps: Int, weightKg: Double?, actionId: UUID)
+    /// Persist then ACK. Returns sessionRevision after durable write (0 on failure).
+    func phoneConnectivityDidReceiveLogSet(
+        reps: Int,
+        weightKg: Double?,
+        actionId: UUID
+    ) async -> Int
 }
 
 extension PhoneConnectivityDelegate {
     func phoneConnectivityDidReceiveQuickLogRequest(exerciseId: UUID?) {}
-    func phoneConnectivityDidReceiveLogSet(reps: Int, weightKg: Double?, actionId: UUID) {}
+    func phoneConnectivityDidReceiveLogSet(
+        reps: Int,
+        weightKg: Double?,
+        actionId: UUID
+    ) async -> Int { 0 }
 }
 
-final class PhoneConnectivity: NSObject, WCSessionDelegate {
+final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable {
     weak var delegate: PhoneConnectivityDelegate?
     private let logger = Logger(subsystem: "app.gymbroapp.ios", category: "WatchConnectivity")
     private var processedActionIds: Set<UUID> = []
@@ -29,7 +38,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate {
     }
 
     /// Latest-state sync via application context. Reachable message is optional hint only.
-    func send(session: WorkoutSession?, quickLogHint: (id: UUID, name: String)? = nil) {
+    func send(session: WorkoutSession?, quickLogHint: (id: UUID, name: String)? = nil, sessionRevision: Int = 0) {
         guard WCSession.isSupported() else { return }
         let wc = WCSession.default
         guard wc.activationState == .activated else { return }
@@ -37,9 +46,13 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate {
         var payload: [String: Any]
         if let session,
            let data = try? JSONEncoder().encode(session) {
-            payload = ["session": data, "stateRevision": session.updatedStamp]
+            payload = [
+                "session": data,
+                "stateRevision": session.updatedStamp,
+                "sessionRevision": sessionRevision,
+            ]
         } else {
-            payload = ["session": Data()]
+            payload = ["session": Data(), "sessionRevision": sessionRevision]
         }
         if let hint = quickLogHint {
             payload["quickLogExerciseId"] = hint.id.uuidString
@@ -52,8 +65,6 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate {
             logger.error("updateApplicationContext failed: \(error.localizedDescription, privacy: .public)")
         }
 
-        // Do not duplicate full session over sendMessage — Watch applies context only.
-        // Keep a lightweight ping when reachable so the Watch knows the phone is live.
         if wc.isReachable {
             wc.sendMessage(["ping": true], replyHandler: nil) { error in
                 self.logger.debug("ping failed: \(error.localizedDescription, privacy: .public)")
@@ -76,6 +87,13 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate {
         delegate?.phoneConnectivityDidUpdateReachability(session.isReachable)
     }
 
+    #if os(iOS)
+    func sessionDidBecomeInactive(_ session: WCSession) {}
+    func sessionDidDeactivate(_ session: WCSession) {
+        WCSession.default.activate()
+    }
+    #endif
+
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
         decode(applicationContext)
     }
@@ -83,7 +101,10 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate {
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         if message["ping"] as? Bool == true { return }
         if let action = message["action"] as? String {
-            handleAction(action, message: message)
+            nonisolated(unsafe) let snapshot = message
+            Task { [self] in
+                _ = await self.handleAction(action, message: snapshot)
+            }
             return
         }
         decode(message)
@@ -99,42 +120,48 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate {
             return
         }
         if let action = message["action"] as? String {
-            let ok = handleAction(action, message: message)
-            replyHandler(["ok": ok])
+            nonisolated(unsafe) let snapshot = message
+            nonisolated(unsafe) let reply = replyHandler
+            Task { [self] in
+                let payload = await self.handleAction(action, message: snapshot)
+                reply(payload)
+            }
             return
         }
         decode(message)
         replyHandler(["ok": true])
     }
 
-    #if os(iOS)
-    func sessionDidBecomeInactive(_ session: WCSession) {}
-    func sessionDidDeactivate(_ session: WCSession) {
-        WCSession.default.activate()
-    }
-    #endif
-
     @discardableResult
-    private func handleAction(_ action: String, message: [String: Any]) -> Bool {
+    private func handleAction(_ action: String, message: [String: Any]) async -> [String: Any] {
         switch action {
         case "quickLog":
             let id = (message["exerciseId"] as? String).flatMap(UUID.init(uuidString:))
             delegate?.phoneConnectivityDidReceiveQuickLogRequest(exerciseId: id)
-            return true
+            return ["ok": true]
         case "logSet":
             let actionId = (message["actionId"] as? String).flatMap(UUID.init(uuidString:)) ?? UUID()
             if processedActionIds.contains(actionId) {
                 logger.info("Ignoring duplicate logSet \(actionId.uuidString, privacy: .public)")
-                return true
+                // Duplicate: ACK without re-mutating; revision 0 means "already applied".
+                return ["ok": true, "actionId": actionId.uuidString, "sessionRevision": 0]
             }
             remember(actionId)
             let reps = message["reps"] as? Int ?? 1
             let weight = message["weightKg"] as? Double
-            delegate?.phoneConnectivityDidReceiveLogSet(reps: reps, weightKg: weight, actionId: actionId)
-            return true
+            let revision = await delegate?.phoneConnectivityDidReceiveLogSet(
+                reps: reps,
+                weightKg: weight,
+                actionId: actionId
+            ) ?? 0
+            return [
+                "ok": revision > 0,
+                "actionId": actionId.uuidString,
+                "sessionRevision": revision,
+            ]
         default:
             logger.warning("Unknown Watch action \(action, privacy: .public)")
-            return false
+            return ["ok": false]
         }
     }
 

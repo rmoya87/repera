@@ -2,6 +2,15 @@
 
 Historial de implementaciones (G27 + J28). Rama activa: `fix/ios27-jank-search-reliability`.
 
+## 2026-10-17 — J28 Fase C (fiabilidad + splash)
+
+- Splash: `LaunchScreen` vuelve a mostrar `Splash.jpg` (fondo brand green); se revirtió el negro plano.
+- J28-006/008: `persistAndFlush` + cola FIFO cloud recover/upload.
+- J28-009/010: `WorkoutClockCoordinator` wall-clock; standalone intervals catch-up.
+- J28-011/024: Live Activity generation; `RestLocalNotifier` al fin de descanso.
+- J28-012…016/019/020: heatmap revision, HealthKit revision/filtros/overlap, Watch ACK, OCR off-main, CI fail-hard.
+- J28-023: blocked (dispositivo físico).
+
 ## 2026-10-17 — J28 Fase B (buscador / thumbs) in_review
 
 - J28-001/004: `ThumbMemoryCache` + ImageIO; prefetch ventana ≤20; max 4 workers; sin doble pasada; cancel al salir de Ejercicios.

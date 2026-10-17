@@ -15,6 +15,7 @@ final class RestSessionCoordinator {
     private var completionTask: Task<Void, Never>?
     private var soundEnabled = true
     private var hapticEnabled = true
+    private var notifyToken: UInt64 = 0
 
     var isActive: Bool {
         if isPaused { return pausedRemaining > 0 }
@@ -46,7 +47,12 @@ final class RestSessionCoordinator {
         self.pausedRemaining = 0
         let end = Date().addingTimeInterval(TimeInterval(seconds))
         self.endDate = end
+        notifyToken &+= 1
+        let token = notifyToken
         Task { await RestLiveActivityCoordinator.shared.start(totalSeconds: seconds, endDate: end, exerciseName: exerciseName) }
+        if soundEnabled {
+            RestLocalNotifier.schedule(token: token, at: end, exerciseName: exerciseName)
+        }
         scheduleCompletion(at: end)
         scheduleFeedback()
     }
@@ -57,6 +63,7 @@ final class RestSessionCoordinator {
         isPaused = true
         self.endDate = nil
         cancelTasks()
+        RestLocalNotifier.cancel(token: notifyToken)
         Task { await RestLiveActivityCoordinator.shared.end() }
     }
 
@@ -97,6 +104,7 @@ final class RestSessionCoordinator {
         pausedRemaining = 0
         isPaused = false
         totalSeconds = 0
+        RestLocalNotifier.cancel(token: notifyToken)
         Task { await RestLiveActivityCoordinator.shared.end() }
         if shouldAnnounce {
             RestFeedback.restComplete(sound: soundEnabled, haptic: hapticEnabled)

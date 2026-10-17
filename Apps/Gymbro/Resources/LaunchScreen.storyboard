@@ -15,9 +15,20 @@
                     <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Splash" translatesAutoresizingMaskIntoConstraints="NO" id="Splash-IV">
+                                <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                            </imageView>
+                        </subviews>
                         <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
-                        <!-- Match Home `OG.bg` (black) so LaunchScreen → Inicio is continuous. -->
-                        <color key="backgroundColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <!-- Brand green under the splash art (JPEG ~170KB in Assets). -->
+                        <color key="backgroundColor" red="0.010" green="0.180" blue="0.140" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <constraints>
+                            <constraint firstItem="Splash-IV" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top" id="c1"/>
+                            <constraint firstItem="Splash-IV" firstAttribute="leading" secondItem="Ze5-6b-2t3" secondAttribute="leading" id="c2"/>
+                            <constraint firstItem="Splash-IV" firstAttribute="trailing" secondItem="Ze5-6b-2t3" secondAttribute="trailing" id="c3"/>
+                            <constraint firstItem="Splash-IV" firstAttribute="bottom" secondItem="Ze5-6b-2t3" secondAttribute="bottom" id="c4"/>
+                        </constraints>
                     </view>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
@@ -25,4 +36,7 @@
             <point key="canvasLocation" x="53" y="375"/>
         </scene>
     </scenes>
+    <resources>
+        <image name="Splash" width="1014" height="2200"/>
+    </resources>
 </document>

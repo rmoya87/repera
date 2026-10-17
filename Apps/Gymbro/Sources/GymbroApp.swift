@@ -54,9 +54,11 @@ struct GymbroApp: App {
                             }
                         }
                     } else if phase == .background {
-                        guard store.isHydrated else { return }
-                        store.persist(immediate: true)
-                        Task { await LocalStore.shared.flush() }
+                        Task {
+                            guard store.isHydrated else { return }
+                            // Durable flush without bumping syncRevision (no mutation implied).
+                            await LocalStore.shared.persistAndFlush(store.state)
+                        }
                     }
                 }
         }

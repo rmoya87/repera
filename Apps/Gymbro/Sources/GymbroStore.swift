@@ -23,6 +23,8 @@ final class GymbroStore: NSObject {
     var lastImportSummary: String?
     /// Rest between sets — owned by the store so leaving WorkoutView does not cancel it.
     let restCoordinator = RestSessionCoordinator()
+    /// WOD / block clock — wall-clock; survives WorkoutView disappear.
+    let workoutClock = WorkoutClockCoordinator()
     /// Expensive StatsEngine results keyed by sync revision.
     let statsCache = DerivedStatsCache()
 
@@ -798,7 +800,11 @@ final class GymbroStore: NSObject {
     }
 
     private func pushActiveToWatch() {
-        connectivity.send(session: state.activeSession, quickLogHint: quickLogHintPayload())
+        connectivity.send(
+            session: state.activeSession,
+            quickLogHint: quickLogHintPayload(),
+            sessionRevision: state.syncRevision
+        )
     }
 
     private func quickLogHintPayload() -> (id: UUID, name: String)? {
@@ -828,18 +834,21 @@ final class GymbroStore: NSObject {
         pushActiveToWatch()
     }
 
-    /// Watch: registra una serie en la sesión activa (o arranca log rápido).
-    func handleWatchLogSet(reps: Int, weightKg: Double?) {
+    /// Watch: registra una serie, flushes durable, returns `syncRevision` for ACK (0 = failed).
+    @discardableResult
+    func handleWatchLogSet(reps: Int, weightKg: Double?) async -> Int {
         if state.activeSession == nil {
             handleWatchQuickLogRequest(exerciseId: nil)
         }
-        guard state.activeSession != nil else { return }
+        guard state.activeSession != nil else { return 0 }
         let weight = weightKg
             ?? state.activeSession?.currentExercise?.lastLoggedWeight
             ?? state.activeSession?.currentExercise?.plannedSets.first?.targetWeightKg
         mutateActive {
             $0.logSet(reps: max(1, reps), weightKg: weight)
         }
+        await LocalStore.shared.persistAndFlush(state)
+        return state.syncRevision
     }
 
     // MARK: - Routines
@@ -1405,11 +1414,13 @@ extension GymbroStore: PhoneConnectivityDelegate {
         }
     }
 
-    nonisolated func phoneConnectivityDidReceiveLogSet(reps: Int, weightKg: Double?, actionId: UUID) {
-        Task { @MainActor in
-            // actionId already deduped in PhoneConnectivity.
-            _ = actionId
-            self.handleWatchLogSet(reps: reps, weightKg: weightKg)
-        }
+    nonisolated func phoneConnectivityDidReceiveLogSet(
+        reps: Int,
+        weightKg: Double?,
+        actionId: UUID
+    ) async -> Int {
+        // actionId already deduped in PhoneConnectivity.
+        _ = actionId
+        return await handleWatchLogSet(reps: reps, weightKg: weightKg)
     }
 }

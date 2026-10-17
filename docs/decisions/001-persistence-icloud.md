@@ -10,7 +10,7 @@
 - Uploads remotos gated hasta `recoverFromiCloud`.
 - Conflictos: `syncRevision` + `lastWriterDeviceId` (`SyncConflictResolver`), fallback `updatedAt`.
 - I/O en actor `AppStatePersistence`; fachada `LocalStore` en MainActor.
-- Arranque rápido: `GymbroStore` con shell vacío (sin disco/`Catalog.seed` en `init`); hydrate + `Catalog.prewarm()` off-main tras el primer frame; LaunchScreen sin bitmap; poll iCloud corto + reintento en background; URL Documents cacheada; JSON compacto.
+- Arranque rápido: `GymbroStore` con shell vacío (sin disco/`Catalog.seed` en `init`); hydrate + `Catalog.prewarm()` off-main tras el primer frame; LaunchScreen con `Splash.jpg` (~170KB); poll iCloud corto + reintento en background; URL Documents cacheada; JSON compacto.
 - Sin migrar a SwiftData/CloudKit en esta fase.
 
 ## Consecuencias

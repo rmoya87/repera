@@ -20,6 +20,8 @@ enum HeatmapMetric: String, CaseIterable, Identifiable {
 struct ActivityHeatmapView: View {
     var workouts: [WorkoutSession]
     var external: [ExternalDaySample]
+    /// Bumps when workout/external *content* changes without changing `.count`.
+    var dataRevision: Int = 0
     var range: ProgressTimeRange = .week
     var weekStartsOnMonday: Bool = true
     var metric: HeatmapMetric = .time
@@ -109,7 +111,7 @@ struct ActivityHeatmapView: View {
     }
 
     private var rebuildKey: String {
-        "\(metric.rawValue)|\(range.rawValue)|\(weekStartsOnMonday)|\(workouts.count)|\(external.count)"
+        "\(metric.rawValue)|\(range.rawValue)|\(weekStartsOnMonday)|\(dataRevision)|\(workouts.count)|\(external.count)"
     }
 
     @ViewBuilder

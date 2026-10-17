@@ -1,3 +1,4 @@
+import ImageIO
 import UIKit
 import Vision
 
@@ -6,7 +7,10 @@ enum BoardTextRecognizer {
 
     static func recognize(in image: UIImage) async throws -> String {
         BoardScanLog.image(image, step: "recognize.input")
-        let cgImage = try normalizedCGImage(from: image)
+        // Entire normalize + Vision path off the main actor (ImageIO + UIGraphics in worker).
+        let cgImage = try await Task.detached(priority: .userInitiated) {
+            try Self.normalizedCGImage(from: image)
+        }.value
         BoardScanLog.info("recognize.normalized: \(cgImage.width)x\(cgImage.height)")
         return try await Task.detached(priority: .userInitiated) {
             try Self.performRecognition(on: cgImage)
@@ -56,14 +60,34 @@ enum BoardTextRecognizer {
         return text
     }
 
-    /// Rasteriza siempre a un CGImage vertical (`.up`).
+    /// Prefer ImageIO thumbnail when possible; fall back to UIGraphics rasterize off-main.
     private static func normalizedCGImage(from image: UIImage) throws -> CGImage {
-        // Preferir tamaño en puntos orientados (UIKit ya contempla EXIF en `size`).
+        if let viaImageIO = imageIODownscaled(from: image) {
+            return viaImageIO
+        }
+        return try rasterizedCGImage(from: image)
+    }
+
+    private static func imageIODownscaled(from image: UIImage) -> CGImage? {
+        guard let data = image.jpegData(compressionQuality: 0.92)
+            ?? image.pngData()
+        else { return nil }
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: Int(maxPixelLongSide),
+            kCGImageSourceShouldCacheImmediately: true,
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+    }
+
+    /// Rasteriza siempre a un CGImage vertical (`.up`).
+    private static func rasterizedCGImage(from image: UIImage) throws -> CGImage {
         let scale = max(image.scale, 1)
         var width = max(1, image.size.width * scale)
         var height = max(1, image.size.height * scale)
 
-        // Si hay cgImage y la orientación no rota, usar píxeles reales.
         if let cg = image.cgImage, image.imageOrientation == .up || image.imageOrientation == .upMirrored {
             width = CGFloat(cg.width)
             height = CGFloat(cg.height)

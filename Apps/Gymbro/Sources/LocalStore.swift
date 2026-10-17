@@ -42,6 +42,8 @@ actor AppStatePersistence {
     private var pendingState: AppState?
     private var coalesceTask: Task<Void, Never>?
     private var lastWriteGeneration: UInt64 = 0
+    /// Highest syncRevision successfully written to disk.
+    private var lastCommittedRevision: Int = -1
     /// Ubiquity container resolution is expensive; cache after first hit.
     private var cachedCloudDocsURL: URL?
 
@@ -80,9 +82,17 @@ actor AppStatePersistence {
     }
 
     func writeLocal(_ state: AppState) throws {
+        // Discard stale snapshots that lost the race to a newer revision.
+        if state.syncRevision < lastCommittedRevision {
+            logger.info(
+                "Skip stale local write rev=\(state.syncRevision, privacy: .public) < committed=\(self.lastCommittedRevision, privacy: .public)"
+            )
+            return
+        }
         guard let data = try? encoder.encode(state) else { throw PersistenceError.encodeFailed }
         do {
             try data.write(to: localURL, options: [.atomic])
+            lastCommittedRevision = max(lastCommittedRevision, state.syncRevision)
         } catch {
             logger.error("Local write failed: \(String(describing: error), privacy: .public)")
             throw PersistenceError.writeFailed
@@ -91,6 +101,9 @@ actor AppStatePersistence {
 
     /// Coalesce frequent saves; critical path should call `flush` / `writeLocalNow`.
     func scheduleLocalWrite(_ state: AppState, delayNanoseconds: UInt64 = 120_000_000) {
+        if let pending = pendingState, state.syncRevision < pending.syncRevision {
+            return
+        }
         pendingState = state
         lastWriteGeneration &+= 1
         let generation = lastWriteGeneration
@@ -114,6 +127,14 @@ actor AppStatePersistence {
             pendingState = nil
             try? writeLocal(pending)
         }
+    }
+
+    /// Write snapshot then flush any coalesce — single barrier for background / session end.
+    func persistAndFlush(_ state: AppState) async throws {
+        coalesceTask?.cancel()
+        coalesceTask = nil
+        pendingState = nil
+        try writeLocal(state)
     }
 
     func writeLocalNow(_ state: AppState) throws {
@@ -323,6 +344,8 @@ final class LocalStore {
     static let shared = LocalStore()
 
     private let persistence = AppStatePersistence.shared
+    /// Chains recover/upload so parallel refresh + persist cannot interleave cloud I/O.
+    private var cloudTail: Task<Void, Never>?
     private(set) var iCloudStatus: ICloudStatus = .temporarilyUnavailable
     private(set) var syncPhase: AppSyncPhase = .loadingLocal
     private(set) var lastPersistenceError: PersistenceError?
@@ -468,6 +491,18 @@ final class LocalStore {
         }
     }
 
+    /// Awaitable barrier: durable local write of this snapshot (drops older revisions).
+    func persistAndFlush(_ state: AppState) async {
+        lastPersistenceError = nil
+        do {
+            try await persistence.persistAndFlush(state)
+        } catch let error as PersistenceError {
+            lastPersistenceError = error
+        } catch {
+            lastPersistenceError = .writeFailed
+        }
+    }
+
     /// Local + remote when cloud is ready. Skips remote if stub not downloaded.
     func save(_ state: AppState) {
         persistLocal(state, immediate: true)
@@ -480,42 +515,59 @@ final class LocalStore {
     }
 
     func recoverFromiCloud(local: AppState) async -> AppStatePersistence.RecoveryOutcome {
-        syncPhase = .awaitingRemote
-        let outcome = await persistence.recoverRemote(local: local)
-        let status = await persistence.iCloudStatus()
-        iCloudStatus = status
-        switch outcome {
-        case .unavailable(.signedOut):
-            syncPhase = .offline
-        case .unavailable:
-            syncPhase = .offline
-        case .waitingForDownload:
-            syncPhase = .awaitingRemote
-        case .corruptRemote:
-            syncPhase = .recoveringCorrupt
-        case .adoptedRemote, .keptLocal, .noRemoteDocument:
-            syncPhase = status == .available ? .ready : .offline
+        await withCloudSerial { [self] in
+            self.syncPhase = .awaitingRemote
+            let outcome = await self.persistence.recoverRemote(local: local)
+            let status = await self.persistence.iCloudStatus()
+            self.iCloudStatus = status
+            switch outcome {
+            case .unavailable(.signedOut):
+                self.syncPhase = .offline
+            case .unavailable:
+                self.syncPhase = .offline
+            case .waitingForDownload:
+                self.syncPhase = .awaitingRemote
+            case .corruptRemote:
+                self.syncPhase = .recoveringCorrupt
+            case .adoptedRemote, .keptLocal, .noRemoteDocument:
+                self.syncPhase = status == .available ? .ready : .offline
+            }
+            return outcome
         }
-        return outcome
     }
 
     func pushToiCloudIfSafe(_ state: AppState) async {
-        let status = await persistence.iCloudStatus()
-        iCloudStatus = status
-        guard status == .available, let url = await persistence.iCloudDocumentsURL() else { return }
-        let readiness = await persistence.cloudReadiness(at: url)
-        guard readiness != .notDownloaded else {
-            lastPersistenceError = .cloudNotReady
-            await persistence.startCloudDownloadIfNeeded(at: url)
-            return
+        await withCloudSerial { [self] in
+            let status = await self.persistence.iCloudStatus()
+            self.iCloudStatus = status
+            guard status == .available, let url = await self.persistence.iCloudDocumentsURL() else { return }
+            let readiness = await self.persistence.cloudReadiness(at: url)
+            guard readiness != .notDownloaded else {
+                self.lastPersistenceError = .cloudNotReady
+                await self.persistence.startCloudDownloadIfNeeded(at: url)
+                return
+            }
+            do {
+                try await self.persistence.writeCloud(at: url, state: state)
+            } catch let error as PersistenceError {
+                self.lastPersistenceError = error
+            } catch {
+                self.lastPersistenceError = .writeFailed
+            }
         }
-        do {
-            try await persistence.writeCloud(at: url, state: state)
-        } catch let error as PersistenceError {
-            lastPersistenceError = error
-        } catch {
-            lastPersistenceError = .writeFailed
+    }
+
+    /// FIFO cloud ops: each waits for the previous recover/upload to finish.
+    private func withCloudSerial<T: Sendable>(
+        _ body: @escaping @MainActor @Sendable () async -> T
+    ) async -> T {
+        let prior = cloudTail
+        let task = Task { @MainActor in
+            await prior?.value
+            return await body()
         }
+        cloudTail = Task { _ = await task.value }
+        return await task.value
     }
 
     /// Download + merge; never uploads when cloud is still a stub.
