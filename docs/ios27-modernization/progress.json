@@ -4,7 +4,7 @@
   "branch": "feat/ios27-native-performance-audit",
   "baseCommit": "b198235c93fbc36b0c790eece80bf301f15e55fa",
   "headCommit": "e150694b3a7c27002f0be0124147afe56dc11620",
-  "updatedAt": "2026-10-17T08:38:56Z",
+  "updatedAt": "2026-10-17T08:39:21Z",
   "global": {
     "total": 30,
     "completed": 0,
@@ -1102,11 +1102,22 @@
       "at": "2026-10-17T08:38:56Z",
       "type": "rebase",
       "message": "Rebased onto origin/main (b198235); HEAD e150694"
+    },
+    {
+      "at": "2026-10-17T08:39:21Z",
+      "type": "pr",
+      "message": "Draft PR #3 opened for P0 work"
     }
   ],
   "metricsBaseline": [],
   "metricsCurrent": [],
-  "pullRequests": [],
+  "pullRequests": [
+    {
+      "title": "feat: modernización iOS 27 — P0 estabilidad y datos",
+      "url": "https://github.com/rmoya87/gymbro/pull/3",
+      "draft": true
+    }
+  ],
   "blockers": [
     {
       "id": "device-icloud",
