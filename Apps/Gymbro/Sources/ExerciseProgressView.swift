@@ -34,7 +34,7 @@ struct ExerciseEvolutionPanel: View {
     @State private var topeDraft = ""
 
     private var history: ExerciseHistorySummary {
-        StatsEngine.history(for: exerciseId, workouts: store.state.workouts)
+        store.cachedHistory(for: exerciseId)
     }
 
     private var loadPref: ExerciseLoadPreference {

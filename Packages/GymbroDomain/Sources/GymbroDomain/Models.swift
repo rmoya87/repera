@@ -1173,8 +1173,12 @@ public struct AppState: Codable, Sendable, Equatable {
     public var favoriteTimers: [FavoriteTimer]
     /// Preferencias de carga de discos por ejercicio (`exerciseId.uuidString`).
     public var exerciseLoadPrefs: [String: ExerciseLoadPreference]
-    /// Used to resolve local vs iCloud conflicts (last write wins).
+    /// Wall-clock stamp for display / coarse ordering.
     public var updatedAt: Date
+    /// Monotonic per-writer revision for conflict resolution (preferred over `updatedAt` alone).
+    public var syncRevision: Int
+    /// Stable device/install id of the last successful persist writer.
+    public var lastWriterDeviceId: String
 
     public init(
         settings: AppSettings = AppSettings(),
@@ -1186,7 +1190,9 @@ public struct AppState: Codable, Sendable, Equatable {
         rotation: RotationPlan? = nil,
         favoriteTimers: [FavoriteTimer] = [],
         exerciseLoadPrefs: [String: ExerciseLoadPreference] = [:],
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        syncRevision: Int = 0,
+        lastWriterDeviceId: String = ""
     ) {
         self.settings = settings
         self.exercises = exercises
@@ -1198,11 +1204,13 @@ public struct AppState: Codable, Sendable, Equatable {
         self.favoriteTimers = favoriteTimers
         self.exerciseLoadPrefs = exerciseLoadPrefs
         self.updatedAt = updatedAt
+        self.syncRevision = syncRevision
+        self.lastWriterDeviceId = lastWriterDeviceId
     }
 
     enum CodingKeys: String, CodingKey {
         case settings, exercises, routines, workouts, bodyWeights, activeSession, rotation, favoriteTimers
-        case exerciseLoadPrefs, updatedAt
+        case exerciseLoadPrefs, updatedAt, syncRevision, lastWriterDeviceId
     }
 
     public init(from decoder: Decoder) throws {
@@ -1217,6 +1225,8 @@ public struct AppState: Codable, Sendable, Equatable {
         favoriteTimers = try c.decodeIfPresent([FavoriteTimer].self, forKey: .favoriteTimers) ?? []
         exerciseLoadPrefs = try c.decodeIfPresent([String: ExerciseLoadPreference].self, forKey: .exerciseLoadPrefs) ?? [:]
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .distantPast
+        syncRevision = try c.decodeIfPresent(Int.self, forKey: .syncRevision) ?? 0
+        lastWriterDeviceId = try c.decodeIfPresent(String.self, forKey: .lastWriterDeviceId) ?? ""
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -1231,5 +1241,7 @@ public struct AppState: Codable, Sendable, Equatable {
         try c.encode(favoriteTimers, forKey: .favoriteTimers)
         try c.encode(exerciseLoadPrefs, forKey: .exerciseLoadPrefs)
         try c.encode(updatedAt, forKey: .updatedAt)
+        try c.encode(syncRevision, forKey: .syncRevision)
+        try c.encode(lastWriterDeviceId, forKey: .lastWriterDeviceId)
     }
 }

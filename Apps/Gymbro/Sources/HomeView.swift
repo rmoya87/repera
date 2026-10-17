@@ -89,15 +89,9 @@ struct HomeView: View {
                     title: "¿Eliminar registro?",
                     message: "Se borrará «\(session.title)» de este día. No se puede deshacer.",
                     onConfirm: {
-                        let hkUUID = session.healthKitWorkoutUUID
                         store.deleteWorkout(session.id)
                         workoutPendingDelete = nil
-                        Task {
-                            if let hkUUID {
-                                _ = await health.deleteExternalWorkout(id: hkUUID)
-                            }
-                            await refreshHealthForVisibleRange()
-                        }
+                        Task { await refreshHealthForVisibleRange() }
                     },
                     onCancel: { workoutPendingDelete = nil }
                 )
@@ -219,21 +213,34 @@ struct HomeView: View {
 
         VStack(spacing: 10) {
             if hasActive {
-                SwipeToDeleteRow(
-                    onDelete: {
-                        store.endActiveSession(save: false)
-                    },
-                    onTap: { onStart() }
-                ) {
+                Button(action: onStart) {
                     dayActionRowContent
+                }
+                .buttonStyle(.plain)
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button(role: .destructive) {
+                        store.endActiveSession(save: false)
+                    } label: {
+                        Label("Descartar", systemImage: "trash")
+                    }
+                    .accessibilityLabel("Descartar entreno en curso")
                 }
             } else if !workouts.isEmpty {
                 ForEach(workouts) { session in
-                    SwipeToDeleteRow(
-                        onDelete: { workoutPendingDelete = session },
-                        onTap: { openWorkoutId = session.id }
-                    ) {
+                    Button {
+                        openWorkoutId = session.id
+                    } label: {
                         dayWorkoutCard(session)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Toca para ver el detalle del entreno")
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
+                            workoutPendingDelete = session
+                        } label: {
+                            Label("Eliminar", systemImage: "trash")
+                        }
+                        .accessibilityLabel("Eliminar registro de entreno")
                     }
                 }
             } else if !hasCompletedActivity {
@@ -242,11 +249,20 @@ struct HomeView: View {
             }
 
             ForEach(healthActivities) { activity in
-                SwipeToDeleteRow(
-                    onDelete: { healthPendingDelete = activity },
-                    onTap: { openHealthActivityId = activity.id }
-                ) {
+                Button {
+                    openHealthActivityId = activity.id
+                } label: {
                     healthActivityCard(activity)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Toca para ver el detalle de la actividad")
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button(role: .destructive) {
+                        healthPendingDelete = activity
+                    } label: {
+                        Label("Eliminar", systemImage: "trash")
+                    }
+                    .accessibilityLabel("Eliminar registro de Salud")
                 }
             }
 
@@ -255,6 +271,7 @@ struct HomeView: View {
                 addAnotherWorkoutButton
             }
         }
+        .swipeActionsContainer()
     }
 
     private var addAnotherWorkoutButton: some View {
@@ -463,7 +480,7 @@ struct HomeView: View {
         .buttonStyle(.plain)
     }
 
-    /// Contenido de la fila de entreno del día (sin Button; usable con SwipeToDeleteRow).
+    /// Contenido de la fila de entreno del día (sin Button; usable con swipeActions).
     private var dayActionRowContent: some View {
         let isToday = calendar.isDateInToday(selectedDay)
         let planned = plannedRoutineForSelectedDay
@@ -776,104 +793,5 @@ struct HomeView: View {
     private func dayKey(_ date: Date) -> String {
         let c = calendar.dateComponents([.year, .month, .day], from: date)
         return "\(c.year!)-\(c.month!)-\(c.day!)"
-    }
-}
-
-/// Swipe horizontal ← → eliminar; toque → abrir.
-/// HStack + clip (no ZStack overlay): el hit-test de la papelera es fiable.
-private struct SwipeToDeleteRow<Content: View>: View {
-    var onDelete: () -> Void
-    var onTap: () -> Void
-    @ViewBuilder var content: () -> Content
-
-    @State private var offset: CGFloat = 0
-    @State private var dragStartOffset: CGFloat = 0
-    @State private var rowHeight: CGFloat = 0
-    @State private var draggingHorizontally = false
-    private let deleteWidth: CGFloat = 80
-
-    private var isOpen: Bool { offset <= -deleteWidth * 0.5 }
-
-    var body: some View {
-        GeometryReader { geo in
-            HStack(spacing: 0) {
-                content()
-                    .frame(width: geo.size.width, alignment: .leading)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if isOpen {
-                            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                                offset = 0
-                            }
-                        } else if !draggingHorizontally {
-                            onTap()
-                        }
-                    }
-                    .background(
-                        GeometryReader { inner in
-                            Color.clear.preference(key: SwipeRowHeightKey.self, value: inner.size.height)
-                        }
-                    )
-                    // Gesto solo en la tarjeta: la papelera queda libre para el tap.
-                    .gesture(swipeGesture)
-
-                Button {
-                    let action = onDelete
-                    withAnimation(.easeOut(duration: 0.15)) { offset = 0 }
-                    DispatchQueue.main.async {
-                        action()
-                    }
-                } label: {
-                    Image(systemName: "trash.fill")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: deleteWidth)
-                        .frame(maxHeight: .infinity)
-                        .background(OG.red)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Eliminar")
-            }
-            .offset(x: offset)
-        }
-        .frame(height: rowHeight > 0 ? rowHeight : nil)
-        .onPreferenceChange(SwipeRowHeightKey.self) { rowHeight = $0 }
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-
-    private var swipeGesture: some Gesture {
-        DragGesture(minimumDistance: 16, coordinateSpace: .local)
-            .onChanged { value in
-                let dx = value.translation.width
-                let dy = value.translation.height
-                if !draggingHorizontally {
-                    guard abs(dx) > 14, abs(dx) > abs(dy) * 1.8 else { return }
-                    draggingHorizontally = true
-                    dragStartOffset = offset
-                }
-                guard draggingHorizontally else { return }
-                offset = min(0, max(dragStartOffset + dx, -deleteWidth))
-            }
-            .onEnded { value in
-                let wasDragging = draggingHorizontally
-                DispatchQueue.main.async { draggingHorizontally = false }
-                guard wasDragging else { return }
-                let predicted = value.predictedEndTranslation.width
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                    if offset < -deleteWidth * 0.45 || predicted < -deleteWidth * 0.6 {
-                        offset = -deleteWidth
-                    } else {
-                        offset = 0
-                    }
-                }
-            }
-    }
-}
-
-private struct SwipeRowHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
     }
 }

@@ -130,11 +130,8 @@ struct HistoryView: View {
         for entry in doomed {
             switch entry {
             case .gymbro(let session):
-                let hk = session.healthKitWorkoutUUID
+                // HealthKit delete is centralized in `GymbroStore.deleteWorkout`.
                 store.deleteWorkout(session.id)
-                if let hk {
-                    Task { _ = await HealthKitStore.shared.deleteExternalWorkout(id: hk) }
-                }
             case .health(let activity):
                 Task {
                     _ = await HealthKitStore.shared.deleteExternalWorkout(id: activity.id)
@@ -293,13 +290,9 @@ struct WorkoutDetailView: View {
                     title: "¿Eliminar entreno?",
                     message: "Se borrará «\(title)» de este día. No se puede deshacer.",
                     onConfirm: {
-                        let hk = draft?.healthKitWorkoutUUID
                         store.deleteWorkout(sessionId)
                         showDeleteConfirm = false
                         dismiss()
-                        if let hk {
-                            Task { _ = await HealthKitStore.shared.deleteExternalWorkout(id: hk) }
-                        }
                     },
                     onCancel: { showDeleteConfirm = false }
                 )

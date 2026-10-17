@@ -13,6 +13,7 @@ struct StatsView: View {
     @State private var preparedCharts = ProgressPreparedCharts.empty
     @State private var chartsPreparing = false
     @State private var prepareGeneration = 0
+    @State private var prepareTask: Task<Void, Never>?
 
     private var mondayFirst: Bool {
         store.state.settings.weekStartsOn == .monday
@@ -55,7 +56,11 @@ struct StatsView: View {
     }
 
     private var records: [PersonalRecord] {
-        StatsEngine.personalRecords(from: filteredWorkouts)
+        store.cachedPersonalRecords(
+            from: filteredWorkouts,
+            rangeRaw: range.rawValue,
+            mondayFirst: mondayFirst
+        )
     }
 
     private var chartExercises: [Exercise] {
@@ -228,7 +233,8 @@ struct StatsView: View {
             weekStartsOnMonday: monday
         )
 
-        Task(priority: .userInitiated) {
+        prepareTask?.cancel()
+        prepareTask = Task(priority: .userInitiated) {
             let built = await Task.detached(priority: .userInitiated) {
                 ProgressChartBuilder.build(
                     range: range,
@@ -239,6 +245,10 @@ struct StatsView: View {
                     external: external
                 )
             }.value
+            guard !Task.isCancelled else {
+                ProgressLog.info("prepare cancelled gen=\(gen)")
+                return
+            }
             await MainActor.run {
                 guard gen == prepareGeneration else {
                     ProgressLog.info("prepare stale drop gen=\(gen)")

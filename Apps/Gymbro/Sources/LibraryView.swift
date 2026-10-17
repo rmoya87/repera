@@ -30,6 +30,7 @@ private enum ExerciseBrowseMode: String, CaseIterable, Identifiable {
 
 struct LibraryView: View {
     @Environment(GymbroStore.self) private var store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var onOpenedWorkout: (() -> Void)? = nil
     /// Texto del campo de búsqueda (filtra al instante; el índice precomputado hace barato el rank).
     @State private var query = ""
@@ -49,6 +50,7 @@ struct LibraryView: View {
     /// Nombres/meta ya normalizados (evitar re-normalize en cada tecla).
     @State private var searchIndex: [ExerciseSearch.Document] = []
     @State private var didPrefetchThumbs = false
+    @Namespace private var exerciseZoomNamespace
 
     private let muscles = [
         "Pecho", "Espalda", "Piernas", "Isquios", "Hombros", "Bíceps", "Tríceps",
@@ -61,6 +63,8 @@ struct LibraryView: View {
         NavigationStack {
             LibraryExerciseList(
                 sections: cachedSections,
+                zoomNamespace: exerciseZoomNamespace,
+                reduceMotion: reduceMotion,
                 onToggleFavorite: { store.toggleFavorite($0) },
                 onDelete: { store.deleteExercise($0) }
             )
@@ -118,6 +122,11 @@ struct LibraryView: View {
             )
             .navigationDestination(for: UUID.self) { id in
                 ExerciseDetailView(exerciseId: id, onOpenedWorkout: onOpenedWorkout)
+                    .modifier(ExerciseZoomDestinationModifier(
+                        id: id,
+                        namespace: exerciseZoomNamespace,
+                        enabled: !reduceMotion
+                    ))
             }
             .sheet(isPresented: $showFilter) {
                 filterSheet
@@ -398,6 +407,8 @@ private struct LibraryExerciseList: View {
     @Environment(\.isSearching) private var isSearching
 
     let sections: [LibrarySectionModel]
+    var zoomNamespace: Namespace.ID
+    var reduceMotion: Bool
     var onToggleFavorite: (UUID) -> Void
     var onDelete: (UUID) -> Void
 
@@ -430,6 +441,11 @@ private struct LibraryExerciseList: View {
             NavigationLink(value: row.id) {
                 LibraryExerciseRowLabel(row: row)
             }
+            .modifier(ExerciseZoomSourceModifier(
+                id: row.id,
+                namespace: zoomNamespace,
+                enabled: !reduceMotion
+            ))
             .swipeActions {
                 Button {
                     onToggleFavorite(row.id)
@@ -437,14 +453,44 @@ private struct LibraryExerciseList: View {
                     Label(row.isFavorite ? "Quitar" : "Favorito", systemImage: "star")
                 }
                 .tint(OG.yellow)
+                .accessibilityLabel(row.isFavorite ? "Quitar de favoritos" : "Marcar favorito")
                 if row.isCustom {
                     Button(role: .destructive) {
                         onDelete(row.id)
                     } label: {
                         Label("Borrar", systemImage: "trash")
                     }
+                    .accessibilityLabel("Borrar ejercicio personalizado")
                 }
             }
+        }
+    }
+}
+
+private struct ExerciseZoomSourceModifier: ViewModifier {
+    let id: UUID
+    let namespace: Namespace.ID
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.matchedTransitionSource(id: id, in: namespace)
+        } else {
+            content
+        }
+    }
+}
+
+private struct ExerciseZoomDestinationModifier: ViewModifier {
+    let id: UUID
+    let namespace: Namespace.ID
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.navigationTransition(.zoom(sourceID: id, in: namespace))
+        } else {
+            content
         }
     }
 }

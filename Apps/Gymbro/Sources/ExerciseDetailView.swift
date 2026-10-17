@@ -76,7 +76,7 @@ struct ExerciseDetailView: View {
     @ViewBuilder
     private func suggestedLoadSection(_ exercise: Exercise) -> some View {
         // 1RM solo desde Evolución (Tope) o e1RM historial — sin duplicar el editor aquí.
-        let hist = StatsEngine.history(for: exercise.id, workouts: store.state.workouts)
+        let hist = store.cachedHistory(for: exercise.id)
         let tested = loadPref.testedOneRMKg.flatMap { $0 > 0 ? $0 : nil }
         let estimated = hist.estimatedOneRM.flatMap { $0 > 0 ? $0 : nil }
         let oneRM = tested ?? estimated

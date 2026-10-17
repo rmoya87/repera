@@ -4,6 +4,7 @@ import SwiftUI
 struct WorkoutView: View {
     @Environment(GymbroStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Si se presenta fuera de un sheet, cierra el flujo de navegación raíz.
     var onClose: (() -> Void)? = nil
     @State private var repsText = ""
@@ -19,8 +20,6 @@ struct WorkoutView: View {
     @State private var clusterRepsText = ""
     @State private var clusterRest = 15
     @State private var pendingClusters: [RestPauseCluster] = []
-    @State private var restRemaining = 0
-    @State private var restTimer: Timer?
     @State private var showWODClock = false
     @State private var wodSecondsLeft = 0
     @State private var wodElapsed = 0
@@ -31,6 +30,7 @@ struct WorkoutView: View {
     @State private var wodIsCountingUp = false
     @State private var wodIsRunning = false
     @State private var wodPreCountdown = 0
+    @State private var wodHasStarted = false
     @State private var wodTitle = ""
     @State private var wodSubtitle = ""
     @State private var wodClockTimer: Timer?
@@ -39,6 +39,8 @@ struct WorkoutView: View {
     @State private var notesDraft = ""
     /// Filas editables del ejercicio actual (objetivo por serie + check para registrar).
     @State private var liveSets: [LiveSetRow] = []
+    @State private var setCompletionPulse = 0
+    @State private var restStartedPulse = 0
 
     private struct LiveSetRow: Identifiable, Equatable {
         let id: UUID
@@ -57,7 +59,7 @@ struct WorkoutView: View {
                     ContentUnavailableView("Sin sesión", systemImage: "pause.circle", description: Text("Vuelve a Inicio para empezar."))
                 }
             }
-            if restRemaining > 0, !showWODClock {
+            if store.restCoordinator.isActive, !showWODClock {
                 restDock
                     .padding(.horizontal, OG.pad)
                     .padding(.bottom, 12)
@@ -69,8 +71,10 @@ struct WorkoutView: View {
                     .zIndex(10)
             }
         }
-        .animation(.easeOut(duration: 0.2), value: restRemaining)
-        .animation(.easeOut(duration: 0.25), value: showWODClock)
+        .animation(reduceMotion ? nil : .snappy, value: store.restCoordinator.isActive)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: showWODClock)
+        .sensoryFeedback(.success, trigger: setCompletionPulse)
+        .sensoryFeedback(.impact(flexibility: .soft), trigger: restStartedPulse)
         .background(OG.bg)
         .ogPinnedTransparentNav(store.state.activeSession?.title ?? "Entreno")
         .toolbar(showWODClock ? .hidden : .automatic, for: .navigationBar)
@@ -101,7 +105,6 @@ struct WorkoutView: View {
                     Divider()
                     Button(role: .destructive) {
                         stopWODClock()
-                        stopRest(announce: false)
                         store.endActiveSession(save: false)
                         closeFlow()
                     } label: {
@@ -120,7 +123,7 @@ struct WorkoutView: View {
                 if hasMoreExercises {
                     Button(store.nextIsSupersetPartner ? "Siguiente SS" : "Siguiente") {
                         store.finishCurrentExercise()
-                        stopRest()
+                        store.restCoordinator.skip()
                         stopWODClock()
                         if store.state.activeSession == nil {
                             closeFlow()
@@ -133,9 +136,8 @@ struct WorkoutView: View {
                     OGToolbarGlassButton(
                         systemName: "checkmark",
                         accessibilityLabel: "Terminar",
-                        tint: .white,
-                        appliesGlass: true,
-                        glassTint: OG.accent
+                        tint: OG.accent,
+                        appliesGlass: false
                     ) {
                         stopWODClock()
                         store.endActiveSession(save: true)
@@ -156,7 +158,7 @@ struct WorkoutView: View {
             stopWODClock()
         }
         .onDisappear {
-            stopRest()
+            // Rest is owned by GymbroStore.restCoordinator — do not stop on view disappear.
             stopWODClock()
         }
     }
@@ -255,7 +257,7 @@ struct WorkoutView: View {
             }
             .padding(.horizontal, OG.pad)
             .padding(.top, 0)
-            .padding(.bottom, restRemaining > 0 ? 88 : 28)
+            .padding(.bottom, store.restCoordinator.isActive ? 88 : 28)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .task(id: session.id) {
@@ -512,43 +514,51 @@ struct WorkoutView: View {
             drops: [],
             clusters: []
         )
+        setCompletionPulse &+= 1
         let rest: Int = {
             if current.supersetGroup != nil {
                 return max(30, store.state.settings.defaultRestSeconds / 3)
             }
             return store.state.settings.defaultRestSeconds
         }()
-        startRest(rest)
+        beginRest(rest)
+        restStartedPulse &+= 1
         if let updated = store.state.activeSession?.currentExercise {
-            rebuildLiveSets(from: updated)
+            withAnimation(reduceMotion ? nil : .smooth) {
+                rebuildLiveSets(from: updated)
+            }
             weightText = updated.loggedSets.last?.weightKg.map { String(format: "%g", $0) } ?? weightText
             repsText = "\(updated.loggedSets.last?.reps ?? row.reps)"
         }
     }
 
     private var restDock: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "timer")
-                .font(.title2.bold())
-                .foregroundStyle(OG.orange)
-                .symbolEffect(.pulse, options: .repeating, isActive: restRemaining > 0)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Descanso")
-                    .font(.caption)
-                    .foregroundStyle(OG.label2)
-                Text("\(restRemaining)s")
-                    .font(.system(size: 28, weight: .bold).monospacedDigit())
-                    .foregroundStyle(OG.label)
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            let remaining = store.restCoordinator.remainingSeconds
+            HStack(spacing: 14) {
+                Image(systemName: "timer")
+                    .font(.title2.bold())
+                    .foregroundStyle(OG.orange)
+                    .symbolEffect(.pulse, options: .repeating, isActive: remaining > 0)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Descanso")
+                        .font(.caption)
+                        .foregroundStyle(OG.label2)
+                    Text("\(remaining)s")
+                        .font(.system(size: 28, weight: .bold).monospacedDigit())
+                        .foregroundStyle(OG.label)
+                        .contentTransition(.numericText())
+                }
+                Spacer()
+                Button("Saltar") {
+                    store.restCoordinator.skip()
+                }
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(OG.accent)
             }
-            Spacer()
-            Button("Saltar") {
-                stopRest(announce: false)
-            }
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(OG.accent)
+            .padding(16)
+            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 18))
         }
-        .padding(16)
-        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 18))
     }
 
     private func currentCard(_ current: SessionExercise, session: WorkoutSession) -> some View {
@@ -716,7 +726,11 @@ struct WorkoutView: View {
             wodClockTimer = nil
             wodIsRunning = false
         } else {
-            wodPreCountdown = 3
+            // Pre-countdown only on the first start; resume continues immediately.
+            if !wodHasStarted {
+                wodPreCountdown = 3
+                wodHasStarted = true
+            }
             wodIsRunning = true
             tickWODClock()
         }
@@ -1150,7 +1164,7 @@ struct WorkoutView: View {
             }
             return store.state.settings.defaultRestSeconds
         }()
-        startRest(rest)
+        beginRest(rest)
         pendingDrops = []
         pendingClusters = []
         dropWeightText = ""
@@ -1353,51 +1367,13 @@ struct WorkoutView: View {
         repsText = "\(max(0, current + delta))"
     }
 
-    private func startRest(_ seconds: Int) {
-        stopRest(announce: false)
-        restRemaining = seconds
+    private func beginRest(_ seconds: Int) {
         let exerciseName = store.state.activeSession?.currentExercise?.exercise.name
-        RestLiveActivity.start(totalSeconds: seconds, exerciseName: exerciseName)
-        restTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            Task { @MainActor in
-                if restRemaining <= 1 {
-                    await stopRestAsync(announce: true)
-                } else {
-                    restRemaining -= 1
-                    await RestLiveActivity.update(remaining: restRemaining)
-                    RestFeedback.tick(
-                        remaining: restRemaining,
-                        sound: store.state.settings.restSoundEnabled,
-                        haptic: store.state.settings.restHapticEnabled
-                    )
-                }
-            }
-        }
-    }
-
-    private func stopRest(announce: Bool = false) {
-        restTimer?.invalidate()
-        restTimer = nil
-        RestLiveActivity.endDetached()
-        if announce && restRemaining <= 1 {
-            RestFeedback.restComplete(
-                sound: store.state.settings.restSoundEnabled,
-                haptic: store.state.settings.restHapticEnabled
-            )
-        }
-        restRemaining = 0
-    }
-
-    private func stopRestAsync(announce: Bool) async {
-        restTimer?.invalidate()
-        restTimer = nil
-        await RestLiveActivity.end()
-        if announce && restRemaining <= 1 {
-            RestFeedback.restComplete(
-                sound: store.state.settings.restSoundEnabled,
-                haptic: store.state.settings.restHapticEnabled
-            )
-        }
-        restRemaining = 0
+        store.restCoordinator.start(
+            seconds: seconds,
+            exerciseName: exerciseName,
+            sound: store.state.settings.restSoundEnabled,
+            haptic: store.state.settings.restHapticEnabled
+        )
     }
 }

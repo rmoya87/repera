@@ -1,4 +1,5 @@
 import GymbroDomain
+import PhotosUI
 import SwiftUI
 import UIKit
 
@@ -20,6 +21,7 @@ struct DayPlusSheet: View {
     @State private var showImageSourceDialog = false
     @State private var showCameraPicker = false
     @State private var showLibraryPicker = false
+    @State private var libraryPhotoItem: PhotosPickerItem?
     @State private var captured: UIImage?
     @State private var reviewLines: [BoardImportLine] = []
     @State private var reviewOCR = ""
@@ -76,11 +78,21 @@ struct DayPlusSheet: View {
                 }) {
                     CameraPicker(image: $captured).ignoresSafeArea()
                 }
-                .sheet(isPresented: $showLibraryPicker, onDismiss: {
-                    processCapturedImageIfNeeded()
-                }) {
-                    PhotoLibraryPicker(image: $captured)
-                        .ignoresSafeArea()
+                .photosPicker(
+                    isPresented: $showLibraryPicker,
+                    selection: $libraryPhotoItem,
+                    matching: .images,
+                    photoLibrary: .shared()
+                )
+                .onChange(of: libraryPhotoItem) { _, item in
+                    guard let item else { return }
+                    Task { @MainActor in
+                        if let image = await BoardScanPhotoLoader.loadUIImage(from: item) {
+                            captured = image
+                            processCapturedImageIfNeeded()
+                        }
+                        libraryPhotoItem = nil
+                    }
                 }
                 .sheet(isPresented: $showReview) {
                     BoardImportReviewView(

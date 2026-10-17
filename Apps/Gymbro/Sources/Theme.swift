@@ -263,7 +263,7 @@ extension View {
         modifier(OGFittedSheetModifier(expanded: expanded))
     }
 
-    /// Esquinas + fondo liquid glass en cualquier sheet (detent fijo o large).
+    /// Esquinas + fondo Liquid Glass del sheet (`.presentationBackground`); no duplicar en botones del `.toolbar`.
     func ogSheetCorners() -> some View {
         self
             .presentationCornerRadius(OG.sheetCornerRadius)
@@ -433,6 +433,7 @@ struct OGToolbarGlassButton: View {
     }
 }
 
+/// Liquid Glass manual (`.glassEffect`) solo fuera del `.toolbar` del sistema; ahí iOS 27 ya envuelve el ítem.
 private struct OGToolbarGlassModifier: ViewModifier {
     var enabled: Bool
     var tint: Color?
@@ -548,6 +549,8 @@ struct OGRepeatStepper: View {
     @State private var draft = ""
     @State private var holdTask: Task<Void, Never>?
     @State private var holdingSide: HoldSide?
+    /// Evita que el `Button` dispare otro paso al soltar tras una repetición por mantener.
+    @State private var holdDidRepeat = false
 
     private enum HoldSide { case minus, plus }
 
@@ -560,6 +563,17 @@ struct OGRepeatStepper: View {
         .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .opacity(enabled ? 1 : 0.45)
         .disabled(!enabled)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Valor")
+        .accessibilityValue(display)
+        .accessibilityAdjustableAction { direction in
+            guard enabled else { return }
+            switch direction {
+            case .increment: onPlus()
+            case .decrement: onMinus()
+            @unknown default: break
+            }
+        }
         .onDisappear { stopHold() }
     }
 
@@ -591,35 +605,45 @@ struct OGRepeatStepper: View {
         }
     }
 
-    /// Prioridad alta para ganar al ScrollView (el `.gesture` normal se lo come el scroll).
+    /// Tap → `Button`; mantener → repetición sin `highPriorityGesture` (no bloquea scroll vertical).
     private func holdButton(systemName: String, side: HoldSide, action: @escaping () -> Void) -> some View {
-        Image(systemName: systemName)
-            .font(.system(size: 12, weight: .bold))
-            .foregroundStyle(OG.label2)
-            .frame(width: 36, height: 36)
-            .contentShape(Rectangle())
-            .highPriorityGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        guard enabled else { return }
-                        if holdingSide != side {
-                            startHold(side: side, action: action)
-                        }
-                    }
-                    .onEnded { _ in
-                        stopHold()
-                    }
-            )
-            .accessibilityLabel(side == .minus ? "Menos" : "Más")
-            .accessibilityAddTraits(.isButton)
+        Button {
+            guard enabled else { return }
+            if holdDidRepeat {
+                holdDidRepeat = false
+                return
+            }
+            action()
+        } label: {
+            Image(systemName: systemName)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(OG.label2)
+                .frame(width: 36, height: 36)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onLongPressGesture(minimumDuration: 0.28, pressing: { pressing in
+            guard enabled else { return }
+            if pressing {
+                if holdingSide != side {
+                    startHold(side: side, action: action)
+                }
+            } else {
+                stopHold()
+            }
+        }, perform: {})
+        .accessibilityLabel(side == .minus ? "Menos" : "Más")
     }
 
     private func startHold(side: HoldSide, action: @escaping () -> Void) {
         stopHold()
         holdingSide = side
-        action()
+        holdDidRepeat = false
         holdTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 280_000_000)
+            guard !Task.isCancelled else { return }
+            holdDidRepeat = true
+            action()
             var interval: UInt64 = 90_000_000
             while !Task.isCancelled {
                 action()

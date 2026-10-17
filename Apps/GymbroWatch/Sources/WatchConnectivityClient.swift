@@ -1,6 +1,7 @@
 import Foundation
 import GymbroDomain
 import WatchConnectivity
+import os
 
 protocol WatchConnectivityClientDelegate: AnyObject {
     func watchConnectivityDidReceive(session: WorkoutSession?)
@@ -13,6 +14,9 @@ extension WatchConnectivityClientDelegate {
 
 final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     weak var delegate: WatchConnectivityClientDelegate?
+    private let logger = Logger(subsystem: "app.gymbroapp.ios.watch", category: "WatchConnectivity")
+    private var lastAppliedSessionData: Data?
+    private var pendingLogSets: [[String: Any]] = []
 
     func activate() {
         guard WCSession.isSupported() else { return }
@@ -21,6 +25,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         session.activate()
     }
 
+    /// State sync only — application context. Avoids double-apply with sendMessage.
     func send(session: WorkoutSession) {
         guard WCSession.isSupported() else { return }
         let wc = WCSession.default
@@ -31,15 +36,13 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         let payload: [String: Any] = ["session": data]
         do {
             try wc.updateApplicationContext(payload)
-        } catch {}
-
-        if wc.isReachable {
-            wc.sendMessage(payload, replyHandler: nil) { _ in }
+        } catch {
+            logger.error("updateApplicationContext failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 
     func requestQuickLog(exerciseId: UUID?) {
-        var payload: [String: Any] = ["action": "quickLog"]
+        var payload: [String: Any] = ["action": "quickLog", "actionId": UUID().uuidString]
         if let exerciseId {
             payload["exerciseId"] = exerciseId.uuidString
         }
@@ -47,7 +50,11 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     }
 
     func requestLogSet(reps: Int, weightKg: Double?) {
-        var payload: [String: Any] = ["action": "logSet", "reps": reps]
+        var payload: [String: Any] = [
+            "action": "logSet",
+            "actionId": UUID().uuidString,
+            "reps": reps,
+        ]
         if let weightKg {
             payload["weightKg"] = weightKg
         }
@@ -55,10 +62,46 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     }
 
     private func sendAction(_ payload: [String: Any]) {
+        guard WCSession.isSupported() else {
+            queuePending(payload)
+            return
+        }
+        let wc = WCSession.default
+        guard wc.activationState == .activated else {
+            queuePending(payload)
+            return
+        }
+        guard wc.isReachable else {
+            queuePending(payload)
+            logger.info("Phone unreachable — queued local action")
+            return
+        }
+        wc.sendMessage(payload, replyHandler: { reply in
+            if (reply["ok"] as? Bool) != true {
+                self.logger.error("Action rejected by phone")
+            }
+        }, errorHandler: { error in
+            self.logger.error("sendMessage failed: \(error.localizedDescription, privacy: .public)")
+            self.queuePending(payload)
+        })
+    }
+
+    private func queuePending(_ payload: [String: Any]) {
+        pendingLogSets.append(payload)
+        if pendingLogSets.count > 20 {
+            pendingLogSets.removeFirst(pendingLogSets.count - 20)
+        }
+    }
+
+    private func flushPendingIfPossible() {
         guard WCSession.isSupported() else { return }
         let wc = WCSession.default
-        guard wc.activationState == .activated, wc.isReachable else { return }
-        wc.sendMessage(payload, replyHandler: nil) { _ in }
+        guard wc.activationState == .activated, wc.isReachable, !pendingLogSets.isEmpty else { return }
+        let queued = pendingLogSets
+        pendingLogSets = []
+        for payload in queued {
+            sendAction(payload)
+        }
     }
 
     func session(
@@ -66,7 +109,17 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         activationDidCompleteWith activationState: WCSessionActivationState,
         error: (any Error)?
     ) {
+        if let error {
+            logger.error("activation error: \(error.localizedDescription, privacy: .public)")
+        }
         applyContext(session.receivedApplicationContext)
+        flushPendingIfPossible()
+    }
+
+    func sessionReachabilityDidChange(_ session: WCSession) {
+        if session.isReachable {
+            flushPendingIfPossible()
+        }
     }
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
@@ -74,6 +127,9 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        if message["ping"] as? Bool == true { return }
+        // Ignore full session over message — state arrives via application context.
+        if message["session"] != nil { return }
         applyContext(message)
     }
 
@@ -81,12 +137,15 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         let hintId = (payload["quickLogExerciseId"] as? String).flatMap(UUID.init(uuidString:))
         let hintName = payload["quickLogExerciseName"] as? String
         delegate?.watchConnectivityDidReceiveQuickLogHint(id: hintId, name: hintName)
-        delegate?.watchConnectivityDidReceive(session: decode(payload))
-    }
 
-    private func decode(_ payload: [String: Any]) -> WorkoutSession? {
-        guard let data = payload["session"] as? Data else { return nil }
-        if data.isEmpty { return nil }
-        return try? JSONDecoder().decode(WorkoutSession.self, from: data)
+        guard let data = payload["session"] as? Data else { return }
+        if data == lastAppliedSessionData { return }
+        lastAppliedSessionData = data
+        if data.isEmpty {
+            delegate?.watchConnectivityDidReceive(session: nil)
+            return
+        }
+        let session = try? JSONDecoder().decode(WorkoutSession.self, from: data)
+        delegate?.watchConnectivityDidReceive(session: session)
     }
 }

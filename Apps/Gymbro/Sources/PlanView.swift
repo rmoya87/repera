@@ -539,6 +539,11 @@ struct DayEditorView: View {
             }
         }
         .ogListChrome()
+        .reorderContainer(for: RoutineExercise.self, in: UUID.self) { difference in
+            let blockId = difference.destination.collectionID
+            guard let blockIndex = routine.blocks.firstIndex(where: { $0.id == blockId }) else { return }
+            applyStrengthExerciseReorder(to: &routine.blocks[blockIndex].exercises, difference: difference)
+        }
         .ogFixedTopBar(navTitle) {
             HStack(spacing: 8) {
                 // Push (Entreno → Editar): X a la izquierda del check. Modal Diario: solo check (swipe para cerrar).
@@ -735,6 +740,7 @@ struct DayEditorView: View {
 
     @ViewBuilder
     private func strengthBlock(index: Int) -> some View {
+        let blockId = routine.blocks[index].id
         ForEach(Array(routine.blocks[index].exercises.enumerated()), id: \.element.id) { exIndex, item in
             if let ex = store.state.exercises.first(where: { $0.id == item.exerciseId }) {
                 NavigationLink {
@@ -755,6 +761,7 @@ struct DayEditorView: View {
                         }
                     }
                 }
+                .accessibilityHint("Arrastra para cambiar el orden dentro del bloque de fuerza")
                 .swipeActions {
                     Button(role: .destructive) {
                         routine.blocks[index].exercises.remove(at: exIndex)
@@ -762,7 +769,26 @@ struct DayEditorView: View {
                 }
             }
         }
+        .reorderable(collectionID: blockId)
         Button("Añadir ejercicio") { pickExerciseForBlock = routine.blocks[index].id }
+    }
+
+    private func applyStrengthExerciseReorder(
+        to exercises: inout [RoutineExercise],
+        difference: ReorderDifference<UUID, UUID>
+    ) {
+        let sourceIDs = Set(difference.sources)
+        let moved = difference.sources.compactMap { id in exercises.first { $0.id == id } }
+        guard !moved.isEmpty else { return }
+        exercises.removeAll { sourceIDs.contains($0.id) }
+        let insertIndex: Int
+        switch difference.destination.position {
+        case .before(let anchorID):
+            insertIndex = exercises.firstIndex { $0.id == anchorID } ?? exercises.count
+        case .end:
+            insertIndex = exercises.count
+        }
+        exercises.insert(contentsOf: moved, at: insertIndex)
     }
 
     @ViewBuilder
