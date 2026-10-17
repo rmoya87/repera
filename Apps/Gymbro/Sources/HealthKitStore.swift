@@ -151,6 +151,8 @@ final class HealthKitStore {
     var recentDailyHeartRate: [DailyHeartRatePoint] = []
     /// kcal activas diarias cacheadas para Progreso.
     var recentDailyActiveEnergy: [DailyActiveEnergyPoint] = []
+    /// Monotonic bump whenever progressive Health arrays are committed or invalidated.
+    private(set) var healthDataRevision: Int = 0
 
     private var liveBuilder: HKWorkoutBuilder?
     private var trackedSessionId: UUID?
@@ -285,15 +287,22 @@ final class HealthKitStore {
     @ObservationIgnored private var healthCacheDays: Int = 0
     /// Caché antigua agregaba por semana/mes y rompía Hoy/Semana/Mes; solo reutilizamos si es diaria.
     @ObservationIgnored private var healthCacheIsDaily = false
+    /// Fingerprint of exclusion / overlap filters used for the last activities fetch.
+    @ObservationIgnored private var healthCacheFilterKey: String = ""
     /// Wall-clock of last successful Health cache commit (nil = never / invalidated).
     private(set) var healthCacheFetchedAt: Date?
     /// Requested day window of the last successful fetch.
     private(set) var healthCacheCoverageDays: Int = 0
 
-    /// True when cached progressive metrics are fresh enough for the requested window.
-    func isHealthCacheFresh(forDays days: Int, maxAge: TimeInterval = 120) -> Bool {
+    /// True when cached progressive metrics are fresh enough for the requested window + filter key.
+    func isHealthCacheFresh(
+        forDays days: Int,
+        filterKey: String = "",
+        maxAge: TimeInterval = 120
+    ) -> Bool {
         guard healthCacheIsDaily,
               healthCacheDays >= days,
+              healthCacheFilterKey == filterKey,
               let fetched = healthCacheFetchedAt
         else { return false }
         return Date().timeIntervalSince(fetched) <= maxAge
@@ -304,7 +313,26 @@ final class HealthKitStore {
         healthCacheIsDaily = false
         healthCacheFetchedAt = nil
         healthCacheCoverageDays = 0
+        healthCacheFilterKey = ""
+        healthDataRevision &+= 1
         ProgressLog.info("health cache invalidate \(reason)")
+    }
+
+    nonisolated static func healthFilterKey(
+        excludingUUIDs: Set<UUID>,
+        overlappingSessions: [WorkoutSession]
+    ) -> String {
+        let uuidPart = excludingUUIDs.map(\.uuidString).sorted().joined(separator: ",")
+        let sessionPart = overlappingSessions
+            .map { s -> String in
+                let start = s.startedAt?.timeIntervalSince1970 ?? 0
+                let end = s.finishedAt?.timeIntervalSince1970 ?? 0
+                let hk = s.healthKitWorkoutUUID?.uuidString ?? "-"
+                return "\(s.id.uuidString):\(start):\(end):\(hk)"
+            }
+            .sorted()
+            .joined(separator: "|")
+        return "\(uuidPart)#\(sessionPart)"
     }
 
     /// Refresca actividades + FC/kcal **por día**. Si ya hay caché diaria ≥ `days`, no vuelve a pedir Salud.
@@ -315,7 +343,11 @@ final class HealthKitStore {
         overlappingSessions: [WorkoutSession] = [],
         days: Int = 180
     ) async {
-        if isHealthCacheFresh(forDays: days),
+        let filterKey = Self.healthFilterKey(
+            excludingUUIDs: excludingUUIDs,
+            overlappingSessions: overlappingSessions
+        )
+        if isHealthCacheFresh(forDays: days, filterKey: filterKey),
            !recentDailyHeartRate.isEmpty || !recentDailyActiveEnergy.isEmpty {
             ProgressLog.healthCacheHit(
                 days: days,
@@ -359,6 +391,8 @@ final class HealthKitStore {
         healthCacheIsDaily = true
         healthCacheFetchedAt = Date()
         healthCacheCoverageDays = healthCacheDays
+        healthCacheFilterKey = filterKey
+        healthDataRevision &+= 1
 
         ProgressLog.healthFetchDone(
             totalMs: (CFAbsoluteTimeGetCurrent() - t0) * 1000,
@@ -840,7 +874,8 @@ final class HealthKitStore {
     }
 
 
-    /// Mismo entreno que Gymbro si coincide el UUID o hay solape temporal (p. ej. Apple Watch).
+    /// Same Gymbro session when UUID matches, or a single unambiguous strict overlap.
+    /// Ambiguous multi-match (±slack) returns false so callers fall back to interval energy.
     static func matchesGymbroSession(
         healthStart: Date,
         healthEnd: Date,
@@ -848,8 +883,11 @@ final class HealthKitStore {
         sessions: [WorkoutSession],
         slack: TimeInterval = 45 * 60
     ) -> Bool {
+        if sessions.contains(where: { $0.healthKitWorkoutUUID == healthUUID }) {
+            return true
+        }
+        var hits = 0
         for session in sessions {
-            if session.healthKitWorkoutUUID == healthUUID { return true }
             guard let start = session.startedAt else { continue }
             let duration: TimeInterval
             if let apple = session.appleDurationSeconds, apple > 0 {
@@ -860,13 +898,20 @@ final class HealthKitStore {
                 duration = max(60, session.durationMinutes * 60)
             }
             let end = session.finishedAt ?? start.addingTimeInterval(duration)
+            let gymbroDuration = max(60, end.timeIntervalSince(start))
+            let overlapStart = max(healthStart, start)
+            let overlapEnd = min(healthEnd, end)
+            let overlap = max(0, overlapEnd.timeIntervalSince(overlapStart))
+            // Require real overlap ≥ 40% of Gymbro duration (not mere ±45min proximity).
+            guard overlap >= gymbroDuration * 0.4 else { continue }
+            // Also require the Health sample to land near the session window (±slack).
             let looseStart = start.addingTimeInterval(-slack)
             let looseEnd = end.addingTimeInterval(slack)
-            let overlapStart = max(healthStart, looseStart)
-            let overlapEnd = min(healthEnd, looseEnd)
-            if overlapEnd > overlapStart { return true }
+            guard healthStart < looseEnd, healthEnd > looseStart else { continue }
+            hits += 1
+            if hits > 1 { return false }
         }
-        return false
+        return hits == 1
     }
 
     private static func displayName(for type: HKWorkoutActivityType) -> String {
@@ -1080,9 +1125,11 @@ final class HealthKitStore {
         )
     }
 
-    /// Franja similar (~45 min de holgura) para emparejar Watch/Salud con Gymbro.
+    /// Match Watch/Salud workout only when overlap is unambiguous (≥40% of Gymbro span).
     private func overlappingWorkout(from start: Date, to end: Date) async -> HKWorkout? {
         let slack: TimeInterval = 45 * 60
+        let gymbroDuration = max(60, end.timeIntervalSince(start))
+        let minOverlap = gymbroDuration * 0.4
         let expandedStart = start.addingTimeInterval(-slack)
         let expandedEnd = end.addingTimeInterval(slack)
         let predicate = HKQuery.predicateForSamples(withStart: expandedStart, end: expandedEnd)
@@ -1095,22 +1142,29 @@ final class HealthKitStore {
                 sortDescriptors: [sort]
             ) { _, samples, _ in
                 let workouts = (samples as? [HKWorkout]) ?? []
-                let looseStart = start.addingTimeInterval(-slack)
-                let looseEnd = end.addingTimeInterval(slack)
                 let ranked = workouts
                     .map { w -> (HKWorkout, TimeInterval) in
-                        let overlapStart = max(w.startDate, looseStart)
-                        let overlapEnd = min(w.endDate, looseEnd)
+                        let overlapStart = max(w.startDate, start)
+                        let overlapEnd = min(w.endDate, end)
                         let overlap = max(0, overlapEnd.timeIntervalSince(overlapStart))
                         return (w, overlap)
                     }
-                    .filter { $0.1 > 60 }
+                    .filter { $0.1 >= minOverlap }
                     .sorted { a, b in
                         let aStrength = Self.isStrengthLike(a.0.workoutActivityType)
                         let bStrength = Self.isStrengthLike(b.0.workoutActivityType)
                         if aStrength != bStrength { return aStrength && !bStrength }
                         return a.1 > b.1
                     }
+                // Ambiguous: two strong candidates within 15% of each other → nil.
+                if ranked.count >= 2 {
+                    let best = ranked[0].1
+                    let second = ranked[1].1
+                    if second >= best * 0.85 {
+                        cont.resume(returning: nil)
+                        return
+                    }
+                }
                 cont.resume(returning: ranked.first?.0)
             }
             store.execute(q)

@@ -14,6 +14,8 @@ final class GymbroStore: NSObject {
     var lastiCloudSyncMessage: String?
     /// True until the first remote recovery attempt finishes (success, offline, or waiting).
     private(set) var didCompleteInitialRemoteSync = false
+    /// Disk/catalog hydrated after first SwiftUI frame (LaunchScreen can dismiss immediately).
+    private(set) var isHydrated = false
     /// Blocks remote uploads until recovery knows the cloud document is ready or absent.
     private var allowRemoteUpload = false
     /// exerciseId → progression reason for the active session
@@ -21,6 +23,8 @@ final class GymbroStore: NSObject {
     var lastImportSummary: String?
     /// Rest between sets — owned by the store so leaving WorkoutView does not cancel it.
     let restCoordinator = RestSessionCoordinator()
+    /// WOD / block clock — wall-clock; survives WorkoutView disappear.
+    let workoutClock = WorkoutClockCoordinator()
     /// Expensive StatsEngine results keyed by sync revision.
     let statsCache = DerivedStatsCache()
 
@@ -37,19 +41,50 @@ final class GymbroStore: NSObject {
     }
 
     override init() {
-        state = LocalStore.shared.loadLocalOnly()
+        // Intentionally empty — do not call Catalog.seed() or read disk here (blocks LaunchScreen).
+        state = LocalStore.shared.emptyShellState()
         super.init()
-        iCloudStatus = LocalStore.shared.iCloudStatus
-        syncPhase = LocalStore.shared.syncPhase
+        syncPhase = .loadingLocal
+        LaunchTiming.mark("GymbroStore.init(shell)")
+    }
+
+    /// Load local JSON after the first frame. Seed fill is deferred so Home can paint.
+    func hydrateFromDisk() async {
+        guard !isHydrated else { return }
+        let t0 = CFAbsoluteTimeGetCurrent()
+        LaunchTiming.mark("hydrate.start")
+        let loaded = await store.loadLocalOnlyAsync()
+        state = loaded
+        iCloudStatus = store.iCloudStatus
+        syncPhase = store.syncPhase
+        isHydrated = true
+        LaunchTiming.span("hydrate.disk", from: t0)
+
+        // First install: fill seed in background after Home is already visible.
+        if state.exercises.isEmpty {
+            Task(priority: .userInitiated) { @MainActor in
+                let tSeed = CFAbsoluteTimeGetCurrent()
+                let seed = await store.buildSeedCatalogAsync()
+                if state.exercises.isEmpty {
+                    state.exercises = seed
+                    state.updatedAt = Date()
+                    persistLocalOnly(immediate: true)
+                }
+                LaunchTiming.span("hydrate.seed", from: tSeed)
+            }
+        }
     }
 
     func bootstrap() {
         connectivity.delegate = self
         connectivity.activate()
         isWatchReachable = WCSession.default.isReachable
-        // Catalog merges + disk write after first frame — keep LaunchScreen → Home snappy.
+        // Catalog merges + iCloud after hydrate — never on the LaunchScreen path.
         Task(priority: .userInitiated) { @MainActor in
             await Task.yield()
+            // First `Catalog.seed()` builds hundreds of exercises — must not run on MainActor
+            // or SwiftUI freezes on the LaunchScreen / first frame for ~1–2s.
+            _ = await store.buildSeedCatalogAsync()
             var dirty = false
             dirty = stripSeededDemoPlanIfNeeded() || dirty
             dirty = enrichCatalogMetadata() || dirty
@@ -765,7 +800,11 @@ final class GymbroStore: NSObject {
     }
 
     private func pushActiveToWatch() {
-        connectivity.send(session: state.activeSession, quickLogHint: quickLogHintPayload())
+        connectivity.send(
+            session: state.activeSession,
+            quickLogHint: quickLogHintPayload(),
+            sessionRevision: state.syncRevision
+        )
     }
 
     private func quickLogHintPayload() -> (id: UUID, name: String)? {
@@ -795,18 +834,21 @@ final class GymbroStore: NSObject {
         pushActiveToWatch()
     }
 
-    /// Watch: registra una serie en la sesión activa (o arranca log rápido).
-    func handleWatchLogSet(reps: Int, weightKg: Double?) {
+    /// Watch: registra una serie, flushes durable, returns `syncRevision` for ACK (0 = failed).
+    @discardableResult
+    func handleWatchLogSet(reps: Int, weightKg: Double?) async -> Int {
         if state.activeSession == nil {
             handleWatchQuickLogRequest(exerciseId: nil)
         }
-        guard state.activeSession != nil else { return }
+        guard state.activeSession != nil else { return 0 }
         let weight = weightKg
             ?? state.activeSession?.currentExercise?.lastLoggedWeight
             ?? state.activeSession?.currentExercise?.plannedSets.first?.targetWeightKg
         mutateActive {
             $0.logSet(reps: max(1, reps), weightKg: weight)
         }
+        await LocalStore.shared.persistAndFlush(state)
+        return state.syncRevision
     }
 
     // MARK: - Routines
@@ -1372,11 +1414,13 @@ extension GymbroStore: PhoneConnectivityDelegate {
         }
     }
 
-    nonisolated func phoneConnectivityDidReceiveLogSet(reps: Int, weightKg: Double?, actionId: UUID) {
-        Task { @MainActor in
-            // actionId already deduped in PhoneConnectivity.
-            _ = actionId
-            self.handleWatchLogSet(reps: reps, weightKg: weightKg)
-        }
+    nonisolated func phoneConnectivityDidReceiveLogSet(
+        reps: Int,
+        weightKg: Double?,
+        actionId: UUID
+    ) async -> Int {
+        // actionId already deduped in PhoneConnectivity.
+        _ = actionId
+        return await handleWatchLogSet(reps: reps, weightKg: weightKg)
     }
 }

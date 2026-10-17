@@ -530,14 +530,59 @@ struct StandaloneTimerView: View {
                 RestFeedback.tick(remaining: remaining, sound: true, haptic: true)
             }
         case .intervals:
-            let remaining = liveDisplaySeconds(at: now)
+            catchUpIntervals(now: now)
+        }
+    }
+
+    /// Skip as many work/rest phases as wall-clock overtime requires (not just one).
+    private func catchUpIntervals(now: Date) {
+        guard let end = phaseEndDate else { return }
+        if now < end {
+            let remaining = WallClockTimer.remainingSeconds(until: end, now: now)
             displaySeconds = remaining
-            if remaining <= 0 {
-                advanceInterval()
+            RestFeedback.tick(remaining: remaining, sound: true, haptic: true)
+            return
+        }
+        var cursor = end
+        var safety = 0
+        while now >= cursor, safety < 500 {
+            safety += 1
+            if phaseIsWork {
+                if config.restTotalSeconds > 0 {
+                    phaseIsWork = false
+                    cursor = cursor.addingTimeInterval(TimeInterval(config.restTotalSeconds))
+                } else if !advanceRoundAnchor(from: &cursor) {
+                    return
+                }
             } else {
-                RestFeedback.tick(remaining: remaining, sound: true, haptic: true)
+                if !advanceRoundAnchor(from: &cursor) {
+                    return
+                }
             }
         }
+        // Land in the phase that contains `now`.
+        let phaseLen = phaseIsWork ? config.workTotalSeconds : config.restTotalSeconds
+        let phaseStart = cursor.addingTimeInterval(TimeInterval(-phaseLen))
+        let elapsedInPhase = now.timeIntervalSince(phaseStart)
+        let remaining = max(0, TimeInterval(phaseLen) - elapsedInPhase)
+        displaySeconds = Int(ceil(remaining))
+        phaseEndDate = now.addingTimeInterval(remaining)
+        RestFeedback.intervalBeep(sound: true, haptic: true)
+    }
+
+    /// Returns false when the timer finished all rounds.
+    private func advanceRoundAnchor(from cursor: inout Date) -> Bool {
+        if roundNumber >= config.rounds {
+            displaySeconds = 0
+            isRunning = false
+            stopTimer(keepState: true)
+            RestFeedback.restComplete(sound: true, haptic: true)
+            return false
+        }
+        roundNumber += 1
+        phaseIsWork = true
+        cursor = cursor.addingTimeInterval(TimeInterval(config.workTotalSeconds))
+        return true
     }
 
     private func advanceInterval() {

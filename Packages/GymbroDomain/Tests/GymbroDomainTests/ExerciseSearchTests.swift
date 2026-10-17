@@ -85,9 +85,9 @@ final class ExerciseSearchTests: XCTestCase {
             exercise(name: "Press banca", muscle: "Pecho"),
             exercise(name: "Aperturas", muscle: "Pecho"),
         ]
-        let viaIndex = ExerciseSearch.ranked(ExerciseSearch.makeIndex(catalog), query: "press de banca")
+        let viaDocs = ExerciseSearch.rankedDocuments(ExerciseSearch.makeIndex(catalog), query: "press de banca")
         let viaList = ExerciseSearch.ranked(catalog, query: "press de banca")
-        XCTAssertEqual(viaIndex.map(\.name), viaList.map(\.name))
+        XCTAssertEqual(viaDocs.map(\.displayName), viaList.map(\.name))
     }
 
     func testRankPerfUnder2ms() {
@@ -104,7 +104,7 @@ final class ExerciseSearchTests: XCTestCase {
         let index = ExerciseSearch.makeIndex(catalog)
         let t0 = CFAbsoluteTimeGetCurrent()
         for _ in 0..<80 {
-            _ = ExerciseSearch.ranked(index, query: "press de banca")
+            _ = ExerciseSearch.rankedDocuments(index, query: "press de banca")
         }
         let ms = (CFAbsoluteTimeGetCurrent() - t0) * 1000 / 80
         XCTAssertLessThan(ms, 3.0, "ranked avg \(ms)ms")

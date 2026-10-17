@@ -43,7 +43,11 @@ def recompute(data: dict) -> dict:
         "percentComplete": round((completed / total) * 100, 1) if total else 0.0,
     }
     phases: dict[str, dict] = {}
-    for p in ("P0", "P1", "P2", "P3", "P4"):
+    phase_ids = sorted({t.get("phase") for t in tasks if t.get("phase")}, key=lambda x: x or "")
+    # Keep known order, then any extras.
+    ordered = [p for p in ("P0", "P1", "P2", "P3", "P4", "P5") if p in phase_ids]
+    ordered += [p for p in phase_ids if p not in ordered]
+    for p in ordered:
         pt = [t for t in tasks if t.get("phase") == p]
         pc = {s: sum(1 for t in pt if t.get("status") == s) for s in STATUSES}
         label = (data.get("phases") or {}).get(p, {}).get("label", p)
@@ -70,7 +74,8 @@ def validate(data: dict) -> list[str]:
     for t in data.get("tasks", []):
         if t.get("status") not in STATUSES:
             errors.append(f"{t.get('id')}: invalid status {t.get('status')}")
-        if t.get("phase") not in ("P0", "P1", "P2", "P3", "P4"):
+        phase = t.get("phase")
+        if not isinstance(phase, str) or not phase.startswith("P"):
             errors.append(f"{t.get('id')}: invalid phase")
         if t.get("status") == "completed":
             tests = t.get("tests") or []

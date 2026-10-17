@@ -45,7 +45,7 @@ cd Packages/GymbroDomain && swift test
 
 Requisitos: **Xcode con SDK iOS 27**, dispositivo/simulador compatible. Apple Intelligence es opcional (fallback local en pizarra).
 
-Cold start: LaunchScreen usa splash JPEG ligero (~170 KB); la UI pinta con estado local antes de merges de catálogo / iCloud / Salud.
+Cold start: LaunchScreen sólido (sin imagen); store en shell vacío hasta hidratar disco; `Catalog.prewarm()` fuera del MainActor. En Debug+Simulador el dylib (~20 MB) puede retrasar el process start; medir en Release/dispositivo.
 
 ## Identificadores
 

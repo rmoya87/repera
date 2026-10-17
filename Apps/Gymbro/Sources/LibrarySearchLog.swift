@@ -4,8 +4,27 @@ import os
 /// Timing del buscador de Ejercicios (Consola → `subsystem:app.gymbroapp.ios category:LibrarySearch`).
 enum LibrarySearchLog {
     private static let logger = Logger(subsystem: "app.gymbroapp.ios", category: "LibrarySearch")
+    private static let signposter = OSSignposter(subsystem: "app.gymbroapp.ios", category: "LibrarySearch")
+    private static let signpostLock = OSAllocatedUnfairLock(initialState: [String: OSSignpostIntervalState]())
     private static let focusLock = OSAllocatedUnfairLock<CFAbsoluteTime?>(initialState: nil)
     private static let tapLock = OSAllocatedUnfairLock<CFAbsoluteTime?>(initialState: nil)
+
+    static func signpostBegin(_ name: StaticString) {
+        let state = signposter.beginInterval(name)
+        signpostLock.withLock { $0[String(describing: name)] = state }
+    }
+
+    static func signpostEnd(_ name: StaticString) {
+        let key = String(describing: name)
+        let state = signpostLock.withLock { store -> OSSignpostIntervalState? in
+            let v = store[key]
+            store[key] = nil
+            return v
+        }
+        if let state {
+            signposter.endInterval(name, state)
+        }
+    }
 
     static func info(_ message: String) {
         logger.info("\(message, privacy: .public)")

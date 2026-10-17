@@ -21,6 +21,7 @@
                             </imageView>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
+                        <!-- Brand green under the splash art (JPEG ~170KB in Assets). -->
                         <color key="backgroundColor" red="0.010" green="0.180" blue="0.140" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
                             <constraint firstItem="Splash-IV" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top" id="c1"/>
@@ -36,6 +37,6 @@
         </scene>
     </scenes>
     <resources>
-        <image name="Splash" width="1416" height="3072"/>
+        <image name="Splash" width="1014" height="2200"/>
     </resources>
 </document>

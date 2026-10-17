@@ -19,7 +19,7 @@ enum ExerciseArt {
     static func cachedThumb(for exercise: Exercise, pointSize: CGFloat = 48) -> UIImage? {
         guard let name = heroImageName(for: exercise) else { return nil }
         let pixel = max(1, Int((pointSize * 3).rounded()))
-        return lookup.thumb(for: "\(name)#\(pixel)")
+        return ThumbMemoryCache.shared.image(for: "\(name)#\(pixel)")
     }
 
     /// Decode + downscale fuera del main actor (concurrencia acotada + dedupe).
@@ -27,39 +27,41 @@ enum ExerciseArt {
         if let hit = cachedThumb(for: exercise, pointSize: pointSize) { return hit }
         guard let name = heroImageName(for: exercise) else { return nil }
         let pixel = max(1, Int((pointSize * 3).rounded()))
-        let cacheKey = "\(name)#\(pixel)"
-        if let hit = await ThumbImageLoader.shared.cached(key: cacheKey) {
-            lookup.setThumb(hit, for: cacheKey)
-            return hit
-        }
         let t0 = CFAbsoluteTimeGetCurrent()
         let loaded = await ThumbImageLoader.shared.load(named: name, maxPixel: pixel)
         let ms = (CFAbsoluteTimeGetCurrent() - t0) * 1000
         if ms > 8 {
             LibrarySearchLog.thumbMiss(name: name, ms: ms)
         }
-        guard let loaded else { return nil }
-        lookup.setThumb(loaded, for: cacheKey)
         return loaded
     }
 
-    /// Precarga con límite de concurrencia. Llamar tras bootstrap / al abrir Ejercicios.
-    static func prefetchThumbs(for exercises: [Exercise], pointSize: CGFloat = 48) {
+    /// Prefetch only the visible window (default first ~16). No second full-catalog pass.
+    static func prefetchThumbs(
+        for exercises: [Exercise],
+        pointSize: CGFloat = 48,
+        limit: Int = 16
+    ) {
         Task(priority: .utility) {
             let t0 = CFAbsoluteTimeGetCurrent()
             let pixel = max(1, Int((pointSize * 3).rounded()))
             let manifest = await ThumbImageLoader.shared.ensureManifest()
             lookup.installManifest(manifest)
-            let names = Array(Set(exercises.compactMap { heroImageName(for: $0) }))
-            await ThumbImageLoader.shared.prefetch(names: names, maxPixel: pixel)
-            for exercise in exercises {
-                _ = await loadThumb(for: exercise, pointSize: pointSize)
-            }
+            let window = Array(exercises.prefix(max(0, limit)))
+            let names = window.compactMap { heroImageName(for: $0) }
+            // Unique while preserving order.
+            var seen = Set<String>()
+            let unique = names.filter { seen.insert($0).inserted }
+            await ThumbImageLoader.shared.prefetch(names: unique, maxPixel: pixel)
             LibrarySearchLog.prefetch(
-                count: exercises.count,
+                count: unique.count,
                 ms: (CFAbsoluteTimeGetCurrent() - t0) * 1000
             )
         }
+    }
+
+    static func cancelThumbPrefetch() {
+        Task { await ThumbImageLoader.shared.cancelAllInFlight() }
     }
 
     /// Warm JPG existence set so carousel probing avoids missing-file I/O.
@@ -337,12 +339,11 @@ enum ExerciseArt {
         "Pullover": ["art_pullover", "art_aperturas", "art_press_banca"],
     ]
 
-    /// Cache thread-safe. Thumbs en `Dictionary` (no `NSCache`) para no perderlos al abrir el teclado.
+    /// Cache thread-safe for full-bleed + name maps. Thumbs live only in `ThumbMemoryCache`.
     private final class ImageLookupCache: @unchecked Sendable {
         private let lock = NSLock()
         let images = NSCache<NSString, UIImage>()
         private var missing = Set<String>()
-        private var thumbs: [String: UIImage] = [:]
         private var heroByExercise: [String: String] = [:]
         private var namesByExercise: [String: [String]] = [:]
         private var artDir: URL?
@@ -358,16 +359,6 @@ enum ExerciseArt {
             lock.lock(); defer { lock.unlock() }
             guard let manifest else { return nil }
             return manifest.contains(name)
-        }
-
-        func thumb(for key: String) -> UIImage? {
-            lock.lock(); defer { lock.unlock() }
-            return thumbs[key]
-        }
-
-        func setThumb(_ image: UIImage, for key: String) {
-            lock.lock(); defer { lock.unlock() }
-            thumbs[key] = image
         }
 
         func heroName(for key: String) -> String? {
@@ -675,10 +666,12 @@ struct ExerciseThumb: View {
         .frame(width: size, height: size)
         .clipped()
         .clipShape(RoundedRectangle(cornerRadius: size * 0.2, style: .continuous))
-        .task(id: exercise.id) {
-            // Solo decode si no hay cache (prefetch debería haber calentado la lista).
+        .task(id: "\(exercise.id.uuidString)-\(Int(size))") {
+            fetched = nil
             guard ExerciseArt.cachedThumb(for: exercise, pointSize: size) == nil else { return }
-            fetched = await ExerciseArt.loadThumb(for: exercise, pointSize: size)
+            let image = await ExerciseArt.loadThumb(for: exercise, pointSize: size)
+            if Task.isCancelled { return }
+            fetched = image
         }
     }
 }

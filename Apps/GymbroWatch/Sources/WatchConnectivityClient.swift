@@ -76,9 +76,23 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
             logger.info("Phone unreachable — queued local action")
             return
         }
+        let expectedActionId = payload["actionId"] as? String
         wc.sendMessage(payload, replyHandler: { reply in
-            if (reply["ok"] as? Bool) != true {
+            guard (reply["ok"] as? Bool) == true else {
                 self.logger.error("Action rejected by phone")
+                self.queuePending(payload)
+                return
+            }
+            if let expectedActionId,
+               let acked = reply["actionId"] as? String,
+               acked != expectedActionId {
+                self.logger.error("ACK actionId mismatch")
+                self.queuePending(payload)
+                return
+            }
+            // sessionRevision > 0 confirms durable persist; 0 on duplicate ACK is OK.
+            if let rev = reply["sessionRevision"] as? Int {
+                self.logger.info("Phone ACK sessionRevision=\(rev, privacy: .public)")
             }
         }, errorHandler: { error in
             self.logger.error("sendMessage failed: \(error.localizedDescription, privacy: .public)")

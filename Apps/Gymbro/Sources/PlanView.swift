@@ -1269,11 +1269,9 @@ struct ExercisePickerView: View {
     }
 
     private var filtered: [Exercise] {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if q.isEmpty { return store.state.exercises }
-        return store.state.exercises.filter {
-            $0.name.lowercased().contains(q) || $0.muscleGroup.lowercased().contains(q)
-        }
+        return ExerciseSearch.ranked(store.state.exercises, query: q)
     }
 }
 

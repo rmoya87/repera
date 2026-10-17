@@ -48,23 +48,34 @@ public enum ExerciseSearch {
     }
 
     /// Campos ya normalizados (una vez al abrir / al cambiar catálogo).
+    /// Does **not** embed the full `Exercise` (instructions/description) — keeps index cheap to copy.
     public struct Document: Sendable, Hashable {
-        public let exercise: Exercise
+        public let id: UUID
+        public let displayName: String
         public let name: String
         public let muscle: String
         public let meta: String
+        public let isFavorite: Bool
+        public let muscleGroup: String
+        public let sportTag: String?
+        public let equipment: String?
 
         public init(exercise: Exercise) {
-            self.exercise = exercise
+            self.id = exercise.id
+            self.displayName = exercise.name
             let name = ExerciseSearch.normalize(exercise.name)
             let muscle = ExerciseSearch.normalize(exercise.muscleGroup)
             let sport = ExerciseSearch.normalize(exercise.sportTag ?? "")
-            let equipment = ExerciseSearch.normalize(exercise.equipment ?? "")
+            let equipmentNorm = ExerciseSearch.normalize(exercise.equipment ?? "")
             let target = ExerciseSearch.normalize(exercise.targetMuscle ?? "")
             let body = ExerciseSearch.normalize(exercise.bodyPart ?? "")
             self.name = name
             self.muscle = muscle
-            self.meta = [muscle, sport, equipment, target, body].filter { !$0.isEmpty }.joined(separator: " ")
+            self.meta = [muscle, sport, equipmentNorm, target, body].filter { !$0.isEmpty }.joined(separator: " ")
+            self.isFavorite = exercise.isFavorite
+            self.muscleGroup = exercise.muscleGroup
+            self.sportTag = exercise.sportTag
+            self.equipment = exercise.equipment
         }
     }
 
@@ -99,15 +110,17 @@ public enum ExerciseSearch {
 
     /// Filtra y ordena por puntuación (desc); empate → nombre.
     public static func ranked(_ exercises: [Exercise], query: String) -> [Exercise] {
-        ranked(makeIndex(exercises), query: query)
+        let docs = rankedDocuments(makeIndex(exercises), query: query)
+        let byId = Dictionary(uniqueKeysWithValues: exercises.map { ($0.id, $0) })
+        return docs.compactMap { byId[$0.id] }
     }
 
-    public static func ranked(_ documents: [Document], query: String) -> [Exercise] {
+    public static func rankedDocuments(_ documents: [Document], query: String) -> [Document] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else {
-            return documents
-                .map(\.exercise)
-                .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            return documents.sorted {
+                $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending
+            }
         }
         let qTokens = tokens(from: q)
         guard !qTokens.isEmpty else { return [] }
@@ -119,9 +132,9 @@ public enum ExerciseSearch {
             .filter { $0.score > 0 }
             .sorted { lhs, rhs in
                 if lhs.score != rhs.score { return lhs.score > rhs.score }
-                return lhs.doc.exercise.name.localizedStandardCompare(rhs.doc.exercise.name) == .orderedAscending
+                return lhs.doc.displayName.localizedStandardCompare(rhs.doc.displayName) == .orderedAscending
             }
-            .map(\.doc.exercise)
+            .map(\.doc)
     }
 
     public static func score(_ document: Document, query: String) -> Int {

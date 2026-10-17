@@ -197,11 +197,11 @@ struct StatsView: View {
             .onChange(of: range) { _, _ in
                 rebuildPreparedCharts(reason: "range")
             }
-            .onChange(of: health.recentDailyHeartRate.count) { _, _ in
-                rebuildPreparedCharts(reason: "hr-count")
+            .onChange(of: health.healthDataRevision) { _, _ in
+                rebuildPreparedCharts(reason: "health-rev")
             }
-            .onChange(of: health.recentDailyActiveEnergy.count) { _, _ in
-                rebuildPreparedCharts(reason: "kcal-count")
+            .onChange(of: store.state.syncRevision) { _, _ in
+                rebuildPreparedCharts(reason: "sync-rev")
             }
             .onAppear {
                 if preparedCharts.heartRate.isEmpty && preparedCharts.calories.isEmpty {
@@ -483,6 +483,7 @@ struct StatsView: View {
                 ActivityHeatmapView(
                     workouts: filteredWorkouts,
                     external: filteredExternal,
+                    dataRevision: store.state.syncRevision,
                     range: range,
                     weekStartsOnMonday: mondayFirst,
                     metric: heatmapMetric,

@@ -1,27 +1,55 @@
 import Foundation
-import GymbroDomain
+import ImageIO
 import UIKit
 import os
 
-/// Bounded concurrent decode of exercise thumbs. Deduplicates in-flight loads and supports cancel.
+/// Process-wide thumb memory. Safe to read from MainActor without hopping into the loader actor.
+final class ThumbMemoryCache: @unchecked Sendable {
+    static let shared = ThumbMemoryCache()
+
+    private let cache = NSCache<NSString, UIImage>()
+
+    private init() {
+        cache.countLimit = 160
+        // ~48×48@3x RGBA ≈ 27KB; budget ~40MB of decoded thumbs.
+        cache.totalCostLimit = 40 * 1024 * 1024
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.cache.removeAllObjects()
+        }
+    }
+
+    func image(for key: String) -> UIImage? {
+        cache.object(forKey: key as NSString)
+    }
+
+    func store(_ image: UIImage, for key: String, pixel: Int) {
+        let cost = max(1, pixel * pixel * 4)
+        cache.setObject(image, forKey: key as NSString, cost: cost)
+    }
+
+    func removeAll() {
+        cache.removeAllObjects()
+    }
+}
+
+/// Bounded concurrent decode of exercise thumbs. Sliding-window prefetch (no hundreds of waiters).
 actor ThumbImageLoader {
     static let shared = ThumbImageLoader()
 
     private let maxConcurrent = 4
-    private var running = 0
-    private var waiters: [CheckedContinuation<Void, Never>] = []
     private var inFlight: [String: Task<UIImage?, Never>] = [:]
-    private var memory: [String: UIImage] = [:]
-    private var memoryOrder: [String] = []
-    private let memoryLimit = 120
+    private let memory = ThumbMemoryCache.shared
     private let logger = Logger(subsystem: "app.gymbroapp.ios", category: "ThumbLoader")
 
-    /// Disk path / existence manifest built once (bundle probe is expensive).
     private var manifestBuilt = false
     private var existingNames: Set<String> = []
 
     func cached(key: String) -> UIImage? {
-        memory[key]
+        memory.image(for: key)
     }
 
     func load(
@@ -30,25 +58,27 @@ actor ThumbImageLoader {
         priority: TaskPriority = .utility
     ) async -> UIImage? {
         let key = "\(name)#\(maxPixel)"
-        if let hit = memory[key] { return hit }
+        if let hit = memory.image(for: key) { return hit }
+        if Task.isCancelled { return nil }
         if let existing = inFlight[key] {
             return await existing.value
         }
         let task = Task(priority: priority) { () -> UIImage? in
-            await self.withPermit {
-                await self.decode(named: name, maxPixel: maxPixel)
-            }
+            if Task.isCancelled { return nil }
+            let image = Self.decodeWithImageIO(named: name, maxPixel: maxPixel)
+            if Task.isCancelled { return nil }
+            return image
         }
         inFlight[key] = task
         let image = await task.value
         inFlight[key] = nil
+        if Task.isCancelled { return nil }
         if let image {
-            insertMemory(image, key: key)
+            memory.store(image, for: key, pixel: maxPixel)
         }
         return image
     }
 
-    /// Cancel outstanding loads that are no longer needed (best-effort).
     func cancelAllInFlight() {
         for (_, task) in inFlight {
             task.cancel()
@@ -56,9 +86,29 @@ actor ThumbImageLoader {
         inFlight.removeAll()
     }
 
+    /// Prefetch with a sliding window of at most `maxConcurrent` tasks — no N suspended waiters.
     func prefetch(names: [String], maxPixel: Int) async {
+        let pending = names.filter { memory.image(for: "\($0)#\(maxPixel)") == nil }
+        guard !pending.isEmpty else { return }
         await withTaskGroup(of: Void.self) { group in
-            for name in names {
+            var next = 0
+            let total = pending.count
+            let initial = min(maxConcurrent, total)
+            for _ in 0..<initial {
+                let name = pending[next]
+                next += 1
+                group.addTask {
+                    _ = await self.load(named: name, maxPixel: maxPixel)
+                }
+            }
+            while await group.next() != nil {
+                if Task.isCancelled {
+                    group.cancelAll()
+                    break
+                }
+                guard next < total else { continue }
+                let name = pending[next]
+                next += 1
                 group.addTask {
                     _ = await self.load(named: name, maxPixel: maxPixel)
                 }
@@ -97,85 +147,45 @@ actor ThumbImageLoader {
         ensureManifest()
     }
 
-    // MARK: - Private
+    // MARK: - ImageIO
 
-    private func withPermit<T: Sendable>(_ work: @Sendable () async -> T) async -> T {
-        if running >= maxConcurrent {
-            await withCheckedContinuation { cont in
-                waiters.append(cont)
-            }
-        }
-        running += 1
-        defer {
-            running -= 1
-            if !waiters.isEmpty {
-                let next = waiters.removeFirst()
-                next.resume()
-            }
-        }
-        return await work()
-    }
-
-    private func decode(named name: String, maxPixel: Int) async -> UIImage? {
+    nonisolated private static func decodeWithImageIO(named name: String, maxPixel: Int) -> UIImage? {
         if Task.isCancelled { return nil }
-        return await Task.detached(priority: .utility) {
-            Self.loadAndDownscale(named: name, maxPixel: maxPixel)
-        }.value
-    }
-
-    private func insertMemory(_ image: UIImage, key: String) {
-        if memory[key] == nil {
-            memoryOrder.append(key)
-        }
-        memory[key] = image
-        while memoryOrder.count > memoryLimit {
-            let old = memoryOrder.removeFirst()
-            memory.removeValue(forKey: old)
-        }
-    }
-
-    nonisolated private static func loadAndDownscale(named name: String, maxPixel: Int) -> UIImage? {
-        if let pre = loadUIImageFromDisk(named: name, subdirectory: "ExerciseArt/thumbs") {
-            if max(pre.size.width * pre.scale, pre.size.height * pre.scale) <= CGFloat(maxPixel) + 1 {
-                return pre
+        let urls = candidateURLs(named: name)
+        for url in urls {
+            if Task.isCancelled { return nil }
+            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { continue }
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceShouldCacheImmediately: true,
+            ]
+            guard let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+                continue
             }
-            return downscale(pre, maxPixel: maxPixel)
-        }
-        guard let full = loadUIImageFromDisk(named: name, subdirectory: "ExerciseArt") else { return nil }
-        return downscale(full, maxPixel: maxPixel)
-    }
-
-    nonisolated private static func loadUIImageFromDisk(
-        named name: String,
-        subdirectory: String
-    ) -> UIImage? {
-        if subdirectory == "ExerciseArt", let img = UIImage(named: name) { return img }
-        let bundle = Bundle.main
-        let candidates: [URL?] = [
-            bundle.resourceURL?.appendingPathComponent("\(subdirectory)/\(name).jpg"),
-            bundle.bundleURL.appendingPathComponent("\(subdirectory)/\(name).jpg"),
-            bundle.url(forResource: name, withExtension: "jpg", subdirectory: subdirectory),
-            subdirectory == "ExerciseArt" ? bundle.url(forResource: name, withExtension: "jpg") : nil,
-        ]
-        for url in candidates {
-            guard let url, FileManager.default.fileExists(atPath: url.path),
-                  let img = UIImage(contentsOfFile: url.path)
-            else { continue }
-            return img
+            return UIImage(cgImage: cg, scale: 1, orientation: .up)
         }
         return nil
     }
 
-    nonisolated private static func downscale(_ image: UIImage, maxPixel: Int) -> UIImage? {
-        let maxSide = max(image.size.width * image.scale, image.size.height * image.scale)
-        guard maxSide > CGFloat(maxPixel) else { return image }
-        let scale = CGFloat(maxPixel) / maxSide
-        let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = 1
-        let renderer = UIGraphicsImageRenderer(size: size, format: format)
-        return renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: size))
+    nonisolated private static func candidateURLs(named name: String) -> [URL] {
+        let bundle = Bundle.main
+        var urls: [URL] = []
+        let thumbs = [
+            bundle.resourceURL?.appendingPathComponent("ExerciseArt/thumbs/\(name).jpg"),
+            bundle.bundleURL.appendingPathComponent("ExerciseArt/thumbs/\(name).jpg"),
+            bundle.url(forResource: name, withExtension: "jpg", subdirectory: "ExerciseArt/thumbs"),
+        ]
+        let full = [
+            bundle.resourceURL?.appendingPathComponent("ExerciseArt/\(name).jpg"),
+            bundle.bundleURL.appendingPathComponent("ExerciseArt/\(name).jpg"),
+            bundle.url(forResource: name, withExtension: "jpg", subdirectory: "ExerciseArt"),
+        ]
+        for candidate in thumbs + full {
+            guard let candidate, FileManager.default.fileExists(atPath: candidate.path) else { continue }
+            urls.append(candidate)
         }
+        return urls
     }
 }
