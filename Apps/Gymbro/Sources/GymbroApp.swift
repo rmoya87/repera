@@ -12,18 +12,19 @@ struct GymbroApp: App {
                 .environment(HealthKitStore.shared)
                 .task {
                     store.bootstrap()
-                    // Thumbs listos antes del 1.er foco en Ejercicios (no esperar a onAppear de la tab).
-                    ExerciseArt.prefetchThumbs(for: store.state.exercises)
+                    // Manifest + thumbs after local bootstrap; do not block first paint.
+                    ExerciseArt.warmArtManifest()
+                    Task(priority: .utility) {
+                        // Wait briefly so iCloud recovery can adopt remote catalog first.
+                        try? await Task.sleep(nanoseconds: 400_000_000)
+                        ExerciseArt.prefetchThumbs(for: store.state.exercises)
+                    }
                     let health = HealthKitStore.shared
                     health.refreshAuthorizationStatus()
+                    // Contextual: only refresh if already authorized — never prompt on cold launch.
                     if health.isAuthorized {
                         await health.refreshToday()
                         await store.syncBodyWeightWithHealth()
-                    } else if health.isAvailable {
-                        await health.requestAccess()
-                        if health.isAuthorized {
-                            await store.syncBodyWeightWithHealth()
-                        }
                     }
                 }
                 .onChange(of: scenePhase) { _, phase in

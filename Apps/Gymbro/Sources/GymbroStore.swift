@@ -21,6 +21,8 @@ final class GymbroStore: NSObject {
     var lastImportSummary: String?
     /// Rest between sets — owned by the store so leaving WorkoutView does not cancel it.
     let restCoordinator = RestSessionCoordinator()
+    /// Expensive StatsEngine results keyed by sync revision.
+    let statsCache = DerivedStatsCache()
 
     private let store = LocalStore.shared
     private let connectivity = PhoneConnectivity()
@@ -121,9 +123,32 @@ final class GymbroStore: NSObject {
         store.persistLocal(state, immediate: immediate)
         iCloudStatus = store.iCloudStatus
         syncPhase = store.syncPhase
+        statsCache.invalidate()
         if allowRemoteUpload {
             let snapshot = state
             Task { await store.pushToiCloudIfSafe(snapshot) }
+        }
+    }
+
+    func cachedPersonalRecords(
+        from workouts: [WorkoutSession],
+        rangeRaw: String,
+        mondayFirst: Bool
+    ) -> [PersonalRecord] {
+        let key = DerivedStatsCache.Key(
+            revision: state.syncRevision,
+            rangeRaw: rangeRaw,
+            mondayFirst: mondayFirst,
+            workoutCount: workouts.count
+        )
+        return statsCache.personalRecords(key: key) {
+            StatsEngine.personalRecords(from: workouts)
+        }
+    }
+
+    func cachedHistory(for exerciseId: UUID) -> ExerciseHistorySummary {
+        statsCache.history(exerciseId: exerciseId, revision: state.syncRevision) {
+            StatsEngine.history(for: exerciseId, workouts: state.workouts)
         }
     }
 
@@ -577,7 +602,12 @@ final class GymbroStore: NSObject {
         persist()
         // También quitar de Salud: si no, reaparece como actividad externa «propia».
         if let hkUUID {
-            Task { await HealthKitStore.shared.deleteExternalWorkout(id: hkUUID) }
+            Task {
+                _ = await HealthKitStore.shared.deleteExternalWorkout(id: hkUUID)
+                HealthKitStore.shared.invalidateHealthMetricCache(reason: "deleteGymbroWorkout")
+            }
+        } else {
+            HealthKitStore.shared.invalidateHealthMetricCache(reason: "deleteLocalWorkout")
         }
     }
 

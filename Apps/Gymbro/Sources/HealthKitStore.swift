@@ -285,6 +285,27 @@ final class HealthKitStore {
     @ObservationIgnored private var healthCacheDays: Int = 0
     /// Caché antigua agregaba por semana/mes y rompía Hoy/Semana/Mes; solo reutilizamos si es diaria.
     @ObservationIgnored private var healthCacheIsDaily = false
+    /// Wall-clock of last successful Health cache commit (nil = never / invalidated).
+    private(set) var healthCacheFetchedAt: Date?
+    /// Requested day window of the last successful fetch.
+    private(set) var healthCacheCoverageDays: Int = 0
+
+    /// True when cached progressive metrics are fresh enough for the requested window.
+    func isHealthCacheFresh(forDays days: Int, maxAge: TimeInterval = 120) -> Bool {
+        guard healthCacheIsDaily,
+              healthCacheDays >= days,
+              let fetched = healthCacheFetchedAt
+        else { return false }
+        return Date().timeIntervalSince(fetched) <= maxAge
+    }
+
+    func invalidateHealthMetricCache(reason: String = "manual") {
+        healthCacheDays = 0
+        healthCacheIsDaily = false
+        healthCacheFetchedAt = nil
+        healthCacheCoverageDays = 0
+        ProgressLog.info("health cache invalidate \(reason)")
+    }
 
     /// Refresca actividades + FC/kcal **por día**. Si ya hay caché diaria ≥ `days`, no vuelve a pedir Salud.
     /// La UI promedia a semana/mes solo al pintar (90/180/360).
@@ -294,8 +315,7 @@ final class HealthKitStore {
         overlappingSessions: [WorkoutSession] = [],
         days: Int = 180
     ) async {
-        if healthCacheIsDaily,
-           healthCacheDays >= days,
+        if isHealthCacheFresh(forDays: days),
            !recentDailyHeartRate.isEmpty || !recentDailyActiveEnergy.isEmpty {
             ProgressLog.healthCacheHit(
                 days: days,
@@ -337,6 +357,8 @@ final class HealthKitStore {
         recentDailyActiveEnergy = energyPoints
         healthCacheDays = max(healthCacheDays, days)
         healthCacheIsDaily = true
+        healthCacheFetchedAt = Date()
+        healthCacheCoverageDays = healthCacheDays
 
         ProgressLog.healthFetchDone(
             totalMs: (CFAbsoluteTimeGetCurrent() - t0) * 1000,
@@ -656,6 +678,7 @@ final class HealthKitStore {
         do {
             try await store.delete(workout)
             recentExternalActivities.removeAll { $0.id == id }
+            invalidateHealthMetricCache(reason: "deleteWorkout")
             lastError = nil
             return true
         } catch {

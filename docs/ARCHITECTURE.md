@@ -104,6 +104,10 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 - I/O: actor `AppStatePersistence` (encode/write atómicos, coalescing); fachada `LocalStore` en MainActor.
 - Fases: `AppSyncPhase` (`loadingLocal` → `awaitingRemote` → `ready` / `offline` / `recoveringCorrupt`).
 - Canvas de modernización: `docs/ios27-modernization/`.
+- Thumbs: `ThumbImageLoader` (concurrencia 4, LRU, manifiesto JPG).
+- Stats: `DerivedStatsCache` invalidado con `syncRevision`.
+- Salud: frescura `healthCacheFetchedAt` + invalidate al borrar.
+
 - Export / import JSON; import CSV Strong/Hevy (`WorkoutCSVImporter`).
 
 ## Plataforma específica (solo app)

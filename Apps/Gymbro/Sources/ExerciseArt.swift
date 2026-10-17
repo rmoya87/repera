@@ -22,16 +22,18 @@ enum ExerciseArt {
         return lookup.thumb(for: "\(name)#\(pixel)")
     }
 
-    /// Decode + downscale fuera del main actor.
+    /// Decode + downscale fuera del main actor (concurrencia acotada + dedupe).
     static func loadThumb(for exercise: Exercise, pointSize: CGFloat = 48) async -> UIImage? {
         if let hit = cachedThumb(for: exercise, pointSize: pointSize) { return hit }
         guard let name = heroImageName(for: exercise) else { return nil }
         let pixel = max(1, Int((pointSize * 3).rounded()))
         let cacheKey = "\(name)#\(pixel)"
+        if let hit = await ThumbImageLoader.shared.cached(key: cacheKey) {
+            lookup.setThumb(hit, for: cacheKey)
+            return hit
+        }
         let t0 = CFAbsoluteTimeGetCurrent()
-        let loaded: UIImage? = await Task.detached(priority: .utility) {
-            Self.loadAndDownscale(named: name, maxPixel: pixel)
-        }.value
+        let loaded = await ThumbImageLoader.shared.load(named: name, maxPixel: pixel)
         let ms = (CFAbsoluteTimeGetCurrent() - t0) * 1000
         if ms > 8 {
             LibrarySearchLog.thumbMiss(name: name, ms: ms)
@@ -41,21 +43,30 @@ enum ExerciseArt {
         return loaded
     }
 
-    /// Precarga en paralelo (no MainActor). Llamar tras bootstrap / al abrir Ejercicios.
+    /// Precarga con límite de concurrencia. Llamar tras bootstrap / al abrir Ejercicios.
     static func prefetchThumbs(for exercises: [Exercise], pointSize: CGFloat = 48) {
-        Task.detached(priority: .utility) {
+        Task(priority: .utility) {
             let t0 = CFAbsoluteTimeGetCurrent()
-            await withTaskGroup(of: Void.self) { group in
-                for exercise in exercises {
-                    group.addTask {
-                        _ = await loadThumb(for: exercise, pointSize: pointSize)
-                    }
-                }
+            let pixel = max(1, Int((pointSize * 3).rounded()))
+            let manifest = await ThumbImageLoader.shared.ensureManifest()
+            lookup.installManifest(manifest)
+            let names = Array(Set(exercises.compactMap { heroImageName(for: $0) }))
+            await ThumbImageLoader.shared.prefetch(names: names, maxPixel: pixel)
+            for exercise in exercises {
+                _ = await loadThumb(for: exercise, pointSize: pointSize)
             }
             LibrarySearchLog.prefetch(
                 count: exercises.count,
                 ms: (CFAbsoluteTimeGetCurrent() - t0) * 1000
             )
+        }
+    }
+
+    /// Warm JPG existence set so carousel probing avoids missing-file I/O.
+    static func warmArtManifest() {
+        Task(priority: .utility) {
+            let manifest = await ThumbImageLoader.shared.ensureManifest()
+            lookup.installManifest(manifest)
         }
     }
 
@@ -107,6 +118,7 @@ enum ExerciseArt {
            !quarantinedSequences.contains(base) {
             for i in 1...8 {
                 let step = "\(base)_\(i)"
+                if let known = lookup.manifestHas(step), !known { break }
                 guard uiImage(named: step) != nil else { break }
                 numbered.append(step)
             }
@@ -338,6 +350,19 @@ enum ExerciseArt {
         private var heroByExercise: [String: String] = [:]
         private var namesByExercise: [String: [String]] = [:]
         private var artDir: URL?
+        /// Optional JPG stem set from ThumbImageLoader manifest.
+        private var manifest: Set<String>?
+
+        func installManifest(_ names: Set<String>) {
+            lock.lock(); defer { lock.unlock() }
+            manifest = names
+        }
+
+        func manifestHas(_ name: String) -> Bool? {
+            lock.lock(); defer { lock.unlock() }
+            guard let manifest else { return nil }
+            return manifest.contains(name)
+        }
 
         func thumb(for key: String) -> UIImage? {
             lock.lock(); defer { lock.unlock() }

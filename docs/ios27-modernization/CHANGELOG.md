@@ -29,3 +29,17 @@ Historial de implementaciones en `feat/ios27-native-performance-audit`.
 
 Validaciones: `swift test` (conflict+timer), `xcodebuild` Gymbro + GymbroWatch (iPhone 17e / Watch Series 12).
 QA multi-dispositivo / Watch físico: **bloqueada**.
+
+## 2026-10-17 — P1 rendimiento (in_review)
+
+### G27-008 — Concurrency
+- Cancelación real de prepare charts; Rest LA en MainActor; loader actor.
+
+### G27-009/010 — Ilustraciones
+- Manifiesto JPG; `ThumbImageLoader` con límite, dedupe y LRU.
+
+### G27-011/012 — Stats
+- `DerivedStatsCache` + tests golden; cancel de Task al cambiar periodo.
+
+### G27-013/014 — Salud / arranque
+- Freshness + invalidate; prefetch diferido; sin prompt HK en cold launch.
