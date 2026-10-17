@@ -1,0 +1,81 @@
+name: Exercise art audit
+
+on:
+  pull_request:
+    paths:
+      - 'Apps/Gymbro/Resources/ExerciseArt/**'
+      - 'Apps/Gymbro/Sources/ExerciseArt.swift'
+      - 'Packages/GymbroDomain/Sources/GymbroDomain/CatalogSpanish.swift'
+      - 'Packages/GymbroDomain/Tests/GymbroDomainTests/ExerciseArtCaptionTests.swift'
+      - 'scripts/audit_exercise_art.py'
+      - '.github/workflows/exercise-art-audit.yml'
+  push:
+    branches:
+      - fix/exercise-art-audit-20261017
+
+jobs:
+  assets:
+    name: JPEG and caption structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Pillow
+        run: python -m pip install --disable-pip-version-check Pillow==11.3.0
+      - name: Audit every exported JPG and thumb
+        run: python scripts/audit_exercise_art.py
+      - name: Fail on malformed or missing assets
+        run: |
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+          p=Path('docs/EXERCISE_ART_AUDIT.csv')
+          rows=list(csv.DictReader(p.open(encoding='utf-8')))
+          structural=('Falta miniatura','Miniatura sin full','Imagen corrupta','Dimensiones','Formato distinto','Stem sin','Hero no','Paso sin','Carrusel:','Paso aislado')
+          bad=[(r['stem'],r['problem']) for r in rows if any(x in r['problem'] for x in structural)]
+          print(f'{len(rows)} stems audited, {len(bad)} structural defects')
+          for stem,reason in bad: print(f'::error title=Invalid ExerciseArt asset::{stem}: {reason}')
+          assert not bad, f'{len(bad)} structural defects in ExerciseArt'
+          PY
+      - name: Archive per-stem report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exercise-art-report
+          path: docs/EXERCISE_ART_AUDIT.csv
+
+  domain:
+    name: GymbroDomain caption tests
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Swift toolchain
+        run: swift --version
+      - name: Run domain unit tests
+        run: swift test --package-path Packages/GymbroDomain
+
+  visual-release-gate:
+    name: Visual art must be corrected
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Pillow
+        run: python -m pip install --disable-pip-version-check Pillow==11.3.0
+      - name: Block release while FAIL or WARN assets remain
+        run: |
+          python scripts/audit_exercise_art.py
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+          rows=list(csv.DictReader(Path('docs/EXERCISE_ART_AUDIT.csv').open(encoding='utf-8')))
+          remaining=[r for r in rows if r['verdict']!='OK']
+          print(f'{len(remaining)} stems require visual approval before release')
+          if remaining:
+              print(f'::error title=Visual QA required::{len(remaining)} assets are not approved')
+              raise SystemExit(1)
+          PY
