@@ -1,6 +1,6 @@
 # Funcionalidades Gymbro
 
-Última actualización: 2026-10-17 (Catálogo: instrucciones ES + músculos/equilibrio corregidos)
+Última actualización: 2026-10-17 (Catálogo: guía «Cómo hacerlo» nivel entrenador)
 
 ## Tabs
 
@@ -59,11 +59,11 @@
 - Los candidatos anteriores de `movementFrames` permanecen como referencia en el código, pero **no se habilitan sin QA visual**: distintos héroes no garantizan cámara, personaje ni equipamiento constantes.
 - Los holds estáticos (hollow hold, handstand hold, L-sit, levers, planche tuck, false grip hang…) muestran hero sin carrusel.
 - Cada frame debe mantener persona, proporciones, vestimenta, orientación, equipo y cámara. En suspensión (cuelgue, barra/anillas, salto) **no debe existir sombra/óvalo de suelo**. En apoyo sí puede aparecer uno suave.
-- Las instrucciones deben describir la **pose de su frame** en español claro (una acción por frase, preferiblemente 8–16 palabras). No mostrar notas editoriales entre paréntesis (`imagen:`) ni repetir la última instrucción cuando falte.
+- Captions de fase (carrusel): una acción por frase, preferiblemente 8–16 palabras, alineada al frame. Debajo, guía **Cómo hacerlo** con tono de entrenador (setup, ejecución, respiración, error típico, estándar/progresión). Sin notas editoriales (`imagen:`).
 - QA: inventario por stem en `docs/EXERCISE_ART_AUDIT.csv`; auditoría reproducible con `.venv-art/bin/python scripts/audit_exercise_art.py`. Estados: `FAIL` (defecto confirmado), `WARN` (revisar), `PENDING_VISUAL_QA` (sin aprobar visualmente). No confundir existencia en disco con veredicto OK.
 - Filtro / orden: alfabético, músculo, deporte, favoritos (modal).
 - **Músculo** = grupo anatómico (Pecho, Piernas…). CrossFit / Halterofilia / Gimnasia no son grupos musculares: van en **Deporte** (`sportTag`) y el ejercicio se asigna al músculo principal para métricas.
-- Ficha: descripción + pasos «cómo hacerlo» en ES para los **188** del seed (`CatalogSpanish`); si hay carrusel de arte, los N primeros pasos son captions de fase.
+- Ficha: descripción + guía **Cómo hacerlo** (tono entrenador: setup, ejecución, error típico, estándar) para los **188**. Con carrusel, N captions de fase + coaching debajo.
 - Alta de ejercicio custom.
 - **Sin** botón «+ Plan» en filas.
 

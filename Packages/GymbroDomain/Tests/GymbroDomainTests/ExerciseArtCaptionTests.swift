@@ -46,7 +46,16 @@ final class ExerciseArtCaptionTests: XCTestCase {
         ]
         for (name, count) in expected {
             let captions = CatalogSpanish.instructions(forName: name)
-            XCTAssertEqual(captions?.count, count, "Número de captions incorrecto: \(name)")
+            XCTAssertGreaterThanOrEqual(
+                captions?.count ?? 0,
+                count,
+                "Faltan captions de fase (mín. \(count)): \(name)"
+            )
+            XCTAssertGreaterThanOrEqual(
+                (captions?.count ?? 0) - count,
+                4,
+                "Faltan pasos de coaching tras las fases: \(name)"
+            )
         }
     }
 

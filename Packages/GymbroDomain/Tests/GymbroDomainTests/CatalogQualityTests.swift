@@ -12,10 +12,16 @@ final class CatalogQualityTests: XCTestCase {
 
             let steps = CatalogSpanish.instructions(forName: exercise.name)
             XCTAssertNotNil(steps, "Faltan instrucciones ES: \(exercise.name)")
-            XCTAssertGreaterThanOrEqual(steps?.count ?? 0, 2, "Pocos pasos: \(exercise.name)")
+            XCTAssertGreaterThanOrEqual(steps?.count ?? 0, 5, "Pocos pasos de técnica: \(exercise.name)")
+            let totalChars = (steps ?? []).map(\.count).reduce(0, +)
+            XCTAssertGreaterThanOrEqual(totalChars, 280, "Instrucciones demasiado cortas: \(exercise.name)")
             for step in steps ?? [] {
                 XCTAssertFalse(step.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
+            let joined = (steps ?? []).joined(separator: " ").lowercased()
+            let hasCoachVoice = ["error típico", "estándar", "inhala", "exhala", "progresión", "si no"]
+                .contains { joined.contains($0) }
+            XCTAssertTrue(hasCoachVoice, "Falta tono de entrenador en \(exercise.name)")
         }
     }
 
@@ -23,7 +29,6 @@ final class CatalogQualityTests: XCTestCase {
         for exercise in Catalog.seed() {
             let weights = MuscleTaxonomy.muscleWeights(for: exercise)
             if exercise.muscleGroup == "Cardio" {
-                // Cardio puede pintar piernas/espalda vía secundarios; no exigir vacío.
                 continue
             }
             XCTAssertFalse(
@@ -67,7 +72,6 @@ final class CatalogQualityTests: XCTestCase {
         let row = Catalog.seed().first { $0.name == "Press banca" }!
         let w = MuscleTaxonomy.muscleWeights(for: row)
         XCTAssertEqual(w["chest"], 1)
-        // Primer secundario ~0.55; no debe ser 1.
         if let tri = w["triceps"] {
             XCTAssertLessThan(tri, 1)
             XCTAssertGreaterThan(tri, 0.3)

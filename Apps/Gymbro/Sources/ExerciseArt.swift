@@ -150,10 +150,10 @@ enum ExerciseArt {
         } else {
             resolved = []
         }
-        // Impedir subtítulos desplazados o repetidos si un seed cambia sus instrucciones.
+        // Los N primeros textos son captions de fase del carrusel; pueden seguir pasos de coaching.
         let captions = CatalogSpanish.instructions(forName: exercise.name) ?? exercise.instructions
         let captionCount = captions.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count
-        if resolved.count >= 2 && captionCount != resolved.count {
+        if resolved.count >= 2 && captionCount < resolved.count {
             resolved = uiImage(named: base) == nil ? [] : [base]
         }
         lookup.setNames(resolved, for: cacheKey)
@@ -695,6 +695,16 @@ struct ExerciseArtView: View {
 
     private var names: [String] { ExerciseArt.imageNames(for: exercise) }
     private var steps: [String] { ExerciseCopy.techniqueSteps(for: exercise) }
+    /// Captions cortas alineadas 1:1 con frames del carrusel.
+    private var phaseCaptions: [String] {
+        guard names.count > 1 else { return [] }
+        return Array(steps.prefix(names.count))
+    }
+    /// Guía de entrenador (tras las fases, o todos los pasos si no hay carrusel).
+    private var coachingSteps: [String] {
+        if names.count > 1 { return Array(steps.dropFirst(names.count)) }
+        return steps
+    }
 
     /// Ancho/alto de la imagen actual (o la primera); fallback 4:3.
     private var artAspect: CGFloat {
@@ -726,9 +736,9 @@ struct ExerciseArtView: View {
             .aspectRatio(artAspect, contentMode: .fit)
             .clipped()
 
-            if showStepCaptions, !steps.isEmpty {
-                Group {
-                    if names.count > 1 {
+            if showStepCaptions {
+                VStack(alignment: .leading, spacing: 12) {
+                    if names.count > 1, phaseCaptions.indices.contains(page) {
                         OGCard {
                             HStack(alignment: .top, spacing: 10) {
                                 Text("\(page + 1)/\(names.count)")
@@ -737,18 +747,20 @@ struct ExerciseArtView: View {
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
                                     .background(OG.accent, in: Capsule())
-                                Text(caption(for: page))
+                                Text(phaseCaptions[page])
                                     .font(.system(size: 15))
                                     .foregroundStyle(OG.label)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                         }
-                    } else {
+                    }
+
+                    if !coachingSteps.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
-                            OGCardSectionTitle(title: "Técnica")
+                            OGCardSectionTitle(title: "Cómo hacerlo")
                             OGCard {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    ForEach(Array(steps.enumerated()), id: \.offset) { idx, step in
+                                VStack(alignment: .leading, spacing: 10) {
+                                    ForEach(Array(coachingSteps.enumerated()), id: \.offset) { idx, step in
                                         HStack(alignment: .top, spacing: 8) {
                                             Text("\(idx + 1).")
                                                 .font(.system(size: 14, weight: .bold).monospacedDigit())
@@ -756,6 +768,7 @@ struct ExerciseArtView: View {
                                             Text(step)
                                                 .font(.system(size: 15))
                                                 .foregroundStyle(OG.label)
+                                                .fixedSize(horizontal: false, vertical: true)
                                         }
                                     }
                                 }
@@ -791,9 +804,4 @@ struct ExerciseArtView: View {
         }
     }
 
-    private func caption(for index: Int) -> String {
-        if steps.indices.contains(index) { return steps[index] }
-        if let last = steps.last { return last }
-        return "Paso \(index + 1)"
-    }
 }

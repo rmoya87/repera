@@ -1,6 +1,6 @@
 # Arquitectura Gymbro
 
-Última actualización: 2026-10-17 (Catálogo: ES completo + MuscleTaxonomy pesos graduados)
+Última actualización: 2026-10-17 (Catálogo: coaching «Cómo hacerlo» + músculos)
 
 ## Visión
 
@@ -65,7 +65,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 | Módulo | Responsabilidad |
 |--------|-----------------|
 | `Models.swift` | `Exercise`, `Routine`, `RoutineBlock`, `WODMovement`, `WorkoutSession`, `AppState`… |
-| `Catalog*.swift` | Seed gym / CrossFit / halterofilia / gimnasia + ES (`CatalogSpanish` 188/188); deporte en `sportTag`, grupo = músculo principal |
+| `Catalog*.swift` | Seed gym / CrossFit / halterofilia / gimnasia + ES (`CatalogSpanish` 188/188: desc + guía entrenador); deporte en `sportTag`, grupo = músculo principal |
 | `StatsEngine` | Series de progreso, PRs, métricas diarias, filtros `ProgressTimeRange` |
 | `MuscleTaxonomy` / `MuscleMapEngine` | Carga muscular y mapa; primario 1.0 / secundarios ~0.55–0.35; `libraryMuscleGroup` para filtros |
 | `BoardImportParser` | OCR texto → bloques WOD (reglas) |
@@ -147,7 +147,7 @@ Guía manual: [TESTING_GUIDE.md](TESTING_GUIDE.md).
 - `ExerciseArt.imageName(forExerciseName:muscleGroup:)` solo devuelve un hero cuando hay asignación exacta en `nameMap`: nunca emplea una foto ajena como fallback por músculo.
 - `imageNames(for:)` prioriza pasos propios `_1…_8`, después `movementFrames` verificados y por último un hero. La lista de candidaturas no habilita por sí misma un fallback.
 - El conjunto `quarantinedSequences` bloquea carruseles con fallos comprobados visualmente: la ficha conserva el hero y el texto técnico mientras se regenera el material, aunque el hero también requiere QA independiente.
-- Los holds estáticos se fuerzan a un único hero; si el número de instrucciones no coincide con el del carrusel, se retira la secuencia y se muestra solo hero.
+- Los holds estáticos se fuerzan a un único hero. Los N primeros textos de `CatalogSpanish.instructions` son captions de fase; si hay menos de N, se retira el carrusel y queda solo el hero. Los pasos siguientes son coaching («Cómo hacerlo») y no cuentan para ese chequeo.
 - `scripts/export_generated_art.py` escribe full JPEG 1024×1024 y thumb JPEG 192×192 bajo `Apps/Gymbro/Resources/ExerciseArt/`; no hace falta registrar cada recurso por separado en `project.yml`.
 - `scripts/audit_exercise_art.py` con Pillow valida JPEG, medidas, pares full/thumb, referencia desde `nameMap` y N captions. `docs/EXERCISE_ART_AUDIT.csv` recopila por stem los defectos confirmados y lo que continúa pendiente de inspección visual.
 

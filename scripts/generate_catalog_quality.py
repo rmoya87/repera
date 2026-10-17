@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Generate corrected muscle metadata + full ES instructions/descriptions for Catalog."""
+"""Generate corrected muscle metadata + full ES instructions/descriptions for Catalog.
+
+Tras regenerar, si hace falta rehacer el tono entrenador: `python3 scripts/upgrade_coach_cues.py`.
+"""
 from __future__ import annotations
 
 import json
@@ -969,9 +972,13 @@ def rewrite_catalog_spanish(all_names: list[str]):
     instr: dict[str, list[str]] = {}
     for n in all_names:
         if n in CAROUSEL:
-            # Preserve exact carousel captions
-            if n not in old_instr or len(old_instr[n]) != CAROUSEL[n]:
+            # Preserve phase captions (+ coaching tail if already upgraded).
+            if n not in old_instr or len(old_instr[n]) < CAROUSEL[n]:
                 raise SystemExit(f"Missing carousel captions for {n}")
+            instr[n] = old_instr[n]
+        elif n in old_instr and len(old_instr[n]) >= 5 and any(
+            "Error típico" in s for s in old_instr[n]
+        ):
             instr[n] = old_instr[n]
         elif n in DEFAULT_STEPS:
             instr[n] = DEFAULT_STEPS[n]
