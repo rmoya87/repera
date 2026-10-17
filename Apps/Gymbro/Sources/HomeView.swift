@@ -89,15 +89,9 @@ struct HomeView: View {
                     title: "¿Eliminar registro?",
                     message: "Se borrará «\(session.title)» de este día. No se puede deshacer.",
                     onConfirm: {
-                        let hkUUID = session.healthKitWorkoutUUID
                         store.deleteWorkout(session.id)
                         workoutPendingDelete = nil
-                        Task {
-                            if let hkUUID {
-                                _ = await health.deleteExternalWorkout(id: hkUUID)
-                            }
-                            await refreshHealthForVisibleRange()
-                        }
+                        Task { await refreshHealthForVisibleRange() }
                     },
                     onCancel: { workoutPendingDelete = nil }
                 )

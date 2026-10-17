@@ -13,7 +13,11 @@ final class HealthKitStore {
     private let store = HKHealthStore()
 
     var isAvailable: Bool { HKHealthStore.isHealthDataAvailable() }
+    /// Write access for workouts / active energy (sharingAuthorized).
     var isAuthorized = false
+    /// Read access for workouts — distinct from write; empty results ≠ denied.
+    var canReadWorkouts = false
+    var canWriteWorkouts = false
     var latestWeightKg: Double?
     var latestWeightDate: Date?
     var activeEnergyTodayKcal: Double?
@@ -188,16 +192,23 @@ final class HealthKitStore {
     }
 
     /// `requestAuthorization` no falla si el usuario niega: hay que mirar el estado de escritura.
+    /// Read status is `sharingDenied` only when explicitly denied; `.notDetermined` ≠ no data.
     func refreshAuthorizationStatus() {
         guard isAvailable else {
             isAuthorized = false
+            canReadWorkouts = false
+            canWriteWorkouts = false
             return
         }
         let workoutStatus = store.authorizationStatus(for: .workoutType())
         let energyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
         let energyStatus = store.authorizationStatus(for: energyType)
+        canWriteWorkouts = workoutStatus == .sharingAuthorized
+        // HealthKit does not expose a dedicated "read authorized" flag for workouts;
+        // treat sharingDenied as no write, and allow read attempts unless unavailable.
+        canReadWorkouts = workoutStatus != .sharingDenied
         // Conectado = podemos escribir entrenos o al menos energía activa.
-        isAuthorized = workoutStatus == .sharingAuthorized || energyStatus == .sharingAuthorized
+        isAuthorized = canWriteWorkouts || energyStatus == .sharingAuthorized
     }
 
     func refreshToday() async {
@@ -622,13 +633,25 @@ final class HealthKitStore {
         }
     }
 
-    /// Borra un entreno de Salud (si Gymbro tiene permiso de escritura).
+    /// Borra un entreno de Salud **solo si** el sample es de esta app.
+    /// - Returns: `true` if deleted or already absent; `false` if foreign / error.
     @discardableResult
     func deleteExternalWorkout(id: UUID) async -> Bool {
         guard isAvailable else { return false }
+        guard canWriteWorkouts || isAuthorized else {
+            lastError = "Sin permiso de escritura en Salud"
+            return false
+        }
         guard let workout = await fetchWorkout(uuid: id) else {
+            // Idempotent: sample already gone — clear cache only.
             recentExternalActivities.removeAll { $0.id == id }
             return true
+        }
+        let bundle = Bundle.main.bundleIdentifier
+        let sourceBundle = workout.sourceRevision.source.bundleIdentifier
+        if let bundle, sourceBundle != bundle {
+            lastError = "No se puede borrar un entreno de otra app"
+            return false
         }
         do {
             try await store.delete(workout)
@@ -873,6 +896,11 @@ final class HealthKitStore {
     /// Arranca un `HKWorkoutBuilder` de fuerza tradicional alineado con el reloj/Salud.
     func beginWorkout(sessionId: UUID, title: String, start: Date = Date()) async {
         guard isAvailable else { return }
+        refreshAuthorizationStatus()
+        guard canWriteWorkouts || isAuthorized else {
+            lastError = "Sin permiso de escritura en Salud"
+            return
+        }
         trackedSessionId = sessionId
         trackedStart = start
         liveActiveEnergyKcal = 0
