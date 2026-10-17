@@ -1,6 +1,15 @@
 # CHANGELOG — Modernización iOS 27
 
-Historial de implementaciones (G27 + J28). Rama activa: `fix/ios27-jank-search-reliability`.
+Historial de implementaciones (G27 + J28 + PROG). Rama activa: `perf/progress-snapshot-engine`.
+
+## 2026-10-17 — P6 Progreso snapshot / jank
+
+- `ProgressSnapshot` + `ProgressDataEngine`: un payload por periodo (charts, tiles, heatmap×2, músculo all/hard, PRs, peso).
+- `ProgressViewModel`: caché por periodo/revisión; cancelación del `Task.detached` de prep (sin huérfanos).
+- `StatsView`: `LazyVStack`; sin filtros/cálculos en `body`.
+- HealthKit: `GymbroSessionMatchIndex`; race Home/Progreso corregida; métricas FC/kcal separables de actividades.
+- Peso: `ProgressWeightPoint` con id = fecha de bucket (no `UUID()`).
+- Tests: `ProgressSnapshotEngineTests` (6 periodos + series estables).
 
 ## 2026-10-17 — J28 Fase C (fiabilidad + splash)
 

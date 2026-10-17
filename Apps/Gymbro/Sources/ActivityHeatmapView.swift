@@ -22,12 +22,22 @@ struct ActivityHeatmapView: View {
     var external: [ExternalDaySample]
     /// Bumps when workout/external *content* changes without changing `.count`.
     var dataRevision: Int = 0
+    /// When set, skip async rebuild and switch instantly between time/volume.
+    var preparedTime: HeatmapGrid? = nil
+    var preparedVolume: HeatmapGrid? = nil
     var range: ProgressTimeRange = .week
     var weekStartsOnMonday: Bool = true
     var metric: HeatmapMetric = .time
     var onMetricChange: ((HeatmapMetric) -> Void)? = nil
 
     @State private var grid: HeatmapGrid = .empty
+
+    private var preparedGrid: HeatmapGrid? {
+        switch metric {
+        case .time: return preparedTime
+        case .volume: return preparedVolume
+        }
+    }
 
     private var calendar: Calendar {
         var cal = Calendar.current
@@ -86,7 +96,14 @@ struct ActivityHeatmapView: View {
             }
             .frame(maxWidth: .infinity)
         }
+        .onAppear { applyPreparedOrRebuild() }
+        .onChange(of: metric) { _, _ in applyPreparedOrRebuild() }
+        .onChange(of: dataRevision) { _, _ in applyPreparedOrRebuild() }
         .task(id: rebuildKey) {
+            if preparedGrid != nil {
+                applyPreparedOrRebuild()
+                return
+            }
             let workouts = self.workouts
             let external = self.external
             let metric = self.metric
@@ -97,6 +114,12 @@ struct ActivityHeatmapView: View {
                 return HeatmapGrid.build(agg: agg, metric: metric, range: range, calendar: cal)
             }.value
             grid = built
+        }
+    }
+
+    private func applyPreparedOrRebuild() {
+        if let preparedGrid {
+            grid = preparedGrid
         }
     }
 
@@ -268,10 +291,10 @@ private struct HeatmapCanvas: View {
     }
 }
 
-struct HeatmapGrid: Sendable {
+struct HeatmapGrid: Sendable, Equatable {
     static let empty = HeatmapGrid(columns: [], monthLabels: [], dayLabels: [], rowCount: 7)
 
-    struct Column: Sendable {
+    struct Column: Sendable, Equatable {
         var levels: [Int]
         var today: [Bool]
         var future: [Bool]

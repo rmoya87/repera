@@ -301,6 +301,8 @@ struct ProgressWeightChartCard: View {
     var goalKg: Double?
     var range: ProgressTimeRange
     var weekStartsOnMonday: Bool = true
+    /// Prepared stable points from ProgressSnapshot (preferred).
+    var preparedPoints: [ProgressWeightPoint]? = nil
 
     private var rawPoints: [BodyWeightEntry] {
         let start = range.startDate(now: Date(), weekStartsOnMonday: weekStartsOnMonday)
@@ -317,24 +319,18 @@ struct ProgressWeightChartCard: View {
         ProgressSeriesGranularity.forChart(range: range)
     }
 
-    private var points: [BodyWeightEntry] {
+    private var points: [ProgressWeightPoint] {
+        if let preparedPoints { return preparedPoints }
         let raw = rawPoints
-        guard granularity != .day, raw.count > 1 else { return raw }
-        let series = raw.map {
-            ProgressDayPoint(dayKey: "\($0.id)", date: $0.date, value: $0.weightKg)
-        }
-        let averaged = StatsEngine.averagedSeries(
-            series,
-            granularity: granularity,
+        let mapped = ProgressDataEngine.buildWeightPoints(
+            entries: raw,
+            range: range,
             weekStartsOnMonday: weekStartsOnMonday
         )
-        // Remap a BodyWeightEntry (id sintético por fecha).
-        return averaged.map {
-            BodyWeightEntry(id: UUID(), date: $0.date, weightKg: $0.value)
-        }
+        return mapped
     }
 
-    private var latest: BodyWeightEntry? { points.last ?? rawPoints.last }
+    private var latest: ProgressWeightPoint? { points.last }
 
     private var deltaVsGoal: Double? {
         guard let goal = goalKg, let latest else { return nil }

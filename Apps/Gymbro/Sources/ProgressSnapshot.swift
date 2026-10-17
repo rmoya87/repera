@@ -1,0 +1,291 @@
+import Foundation
+import GymbroDomain
+
+/// Cache / invalidation key for a prepared Progress period.
+struct ProgressDataKey: Hashable, Sendable {
+    var range: ProgressTimeRange
+    var weekStartsOnMonday: Bool
+    var syncRevision: Int
+    var healthDataRevision: Int
+    var bodyWeightRevision: Int
+}
+
+/// Stable weight plot point (id = bucket date, never random UUID).
+struct ProgressWeightPoint: Identifiable, Equatable, Sendable {
+    var id: Date { date }
+    var date: Date
+    var weightKg: Double
+}
+
+/// Immutable, ready-to-draw payload for one Progress period.
+struct ProgressSnapshot: Equatable, Sendable {
+    var key: ProgressDataKey
+    var range: ProgressTimeRange
+    var weekStartsOnMonday: Bool
+    var charts: ProgressPreparedCharts
+    var summary: ProgressHealthSummary
+    var previousSummary: ProgressHealthSummary?
+    var streak: Int
+    var averageHeartRate: Double?
+    var previousAverageHeartRate: Double?
+    var records: [PersonalRecord]
+    var muscleLoadAll: [String: Double]
+    var muscleLoadHard: [String: Double]
+    var hasHardSets: Bool
+    var heatmapTime: HeatmapGrid
+    var heatmapVolume: HeatmapGrid
+    var weightPoints: [ProgressWeightPoint]
+    var chartExercises: [Exercise]
+    var topExerciseMaxWeights: [UUID: Double]
+    var filteredWorkouts: [WorkoutSession]
+    var filteredExternal: [ExternalDaySample]
+    var filteredStimuli: [ExternalMuscleStimulus]
+
+    static func empty(range: ProgressTimeRange = .week, weekStartsOnMonday: Bool = true) -> ProgressSnapshot {
+        ProgressSnapshot(
+            key: ProgressDataKey(
+                range: range,
+                weekStartsOnMonday: weekStartsOnMonday,
+                syncRevision: -1,
+                healthDataRevision: -1,
+                bodyWeightRevision: -1
+            ),
+            range: range,
+            weekStartsOnMonday: weekStartsOnMonday,
+            charts: .empty,
+            summary: ProgressHealthSummary(
+                averageMinutes: nil,
+                totalKcal: 0,
+                averageCardioMinutes: nil,
+                volumeKg: 0,
+                sessionCount: 0
+            ),
+            previousSummary: nil,
+            streak: 0,
+            averageHeartRate: nil,
+            previousAverageHeartRate: nil,
+            records: [],
+            muscleLoadAll: [:],
+            muscleLoadHard: [:],
+            hasHardSets: false,
+            heatmapTime: .empty,
+            heatmapVolume: .empty,
+            weightPoints: [],
+            chartExercises: [],
+            topExerciseMaxWeights: [:],
+            filteredWorkouts: [],
+            filteredExternal: [],
+            filteredStimuli: []
+        )
+    }
+}
+
+/// Raw inputs copied off the MainActor before heavy prep.
+struct ProgressBuildInput: Sendable {
+    var key: ProgressDataKey
+    var range: ProgressTimeRange
+    var weekStartsOnMonday: Bool
+    var workouts: [WorkoutSession]
+    var exercises: [Exercise]
+    var bodyWeights: [BodyWeightEntry]
+    var heartRateDays: [HealthKitStore.DailyHeartRatePoint]
+    var energyDays: [HealthKitStore.DailyActiveEnergyPoint]
+    var externalActivities: [HealthKitStore.ExternalActivity]
+    var now: Date
+}
+
+enum ProgressDataEngine {
+    /// Full period prep. Call from a cancellable detached task; check `Task.isCancelled` between phases.
+    static func build(_ input: ProgressBuildInput) -> ProgressSnapshot? {
+        if Task.isCancelled { return nil }
+
+        let monday = input.weekStartsOnMonday
+        let range = input.range
+        let now = input.now
+
+        var cal = Calendar.current
+        cal.firstWeekday = monday ? 2 : 1
+
+        let externalSamples = HealthMuscleMapper.daySamples(from: input.externalActivities)
+        let stimuli = HealthMuscleMapper.stimuli(from: input.externalActivities)
+        if Task.isCancelled { return nil }
+
+        let filteredWorkouts = StatsEngine.filterWorkouts(
+            input.workouts,
+            range: range,
+            weekStartsOnMonday: monday,
+            now: now
+        )
+        let filteredExternal = StatsEngine.filterExternal(
+            externalSamples,
+            range: range,
+            weekStartsOnMonday: monday,
+            now: now
+        )
+        let filteredStimuli = StatsEngine.filterStimuli(
+            stimuli,
+            range: range,
+            weekStartsOnMonday: monday,
+            now: now
+        )
+        if Task.isCancelled { return nil }
+
+        let charts = ProgressChartBuilder.build(
+            range: range,
+            weekStartsOnMonday: monday,
+            heartRateDays: input.heartRateDays,
+            energyDays: input.energyDays,
+            workouts: filteredWorkouts,
+            external: filteredExternal,
+            now: now
+        )
+        if Task.isCancelled { return nil }
+
+        let summary = StatsEngine.progressHealthSummary(
+            workouts: input.workouts,
+            external: externalSamples,
+            range: range,
+            weekStartsOnMonday: monday,
+            now: now
+        )
+        let prevWorkouts = StatsEngine.filterWorkoutsInPreviousPeriod(
+            input.workouts,
+            range: range,
+            weekStartsOnMonday: monday,
+            now: now
+        )
+        let prevExternal = externalSamples.filter {
+            range.containsInPreviousPeriod($0.date, now: now, weekStartsOnMonday: monday)
+        }
+        let previousSummary = StatsEngine.progressHealthSummary(
+            workouts: prevWorkouts,
+            external: prevExternal,
+            range: range,
+            weekStartsOnMonday: monday,
+            now: now,
+            applyRangeFilter: false
+        )
+        if Task.isCancelled { return nil }
+
+        let streak = StatsEngine.consecutiveWeekStreak(
+            workoutDates: input.workouts.compactMap { $0.finishedAt ?? $0.startedAt },
+            externalDates: input.externalActivities.map(\.start),
+            weekStartsOnMonday: monday,
+            now: now
+        )
+
+        let prevAvgHr: Double? = {
+            let pts = input.heartRateDays.filter {
+                range.containsInPreviousPeriod($0.date, now: now, weekStartsOnMonday: monday)
+            }
+            guard !pts.isEmpty else { return nil }
+            return pts.map(\.avgBpm).reduce(0, +) / Double(pts.count)
+        }()
+
+        let records = StatsEngine.personalRecords(from: filteredWorkouts)
+        if Task.isCancelled { return nil }
+
+        let muscleAll = MuscleLoadEngine.load(
+            workouts: filteredWorkouts,
+            external: filteredStimuli,
+            window: .all,
+            weekStartsOnMonday: monday,
+            now: now,
+            hardOnly: false
+        )
+        let muscleHard = MuscleLoadEngine.load(
+            workouts: filteredWorkouts,
+            external: filteredStimuli,
+            window: .all,
+            weekStartsOnMonday: monday,
+            now: now,
+            hardOnly: true
+        )
+        let hasHardSets = filteredWorkouts.contains { session in
+            session.exercises.contains { entry in
+                entry.loggedSets.contains { !$0.isWarmup && $0.reps > 0 && Effort.isHard(rir: $0.rir) }
+            }
+        }
+        if Task.isCancelled { return nil }
+
+        let agg = StatsEngine.dailyActivity(
+            workouts: filteredWorkouts,
+            external: filteredExternal,
+            calendar: cal
+        )
+        let heatmapTime = HeatmapGrid.build(agg: agg, metric: .time, range: range, calendar: cal, now: now)
+        let heatmapVolume = HeatmapGrid.build(agg: agg, metric: .volume, range: range, calendar: cal, now: now)
+        if Task.isCancelled { return nil }
+
+        let weightPoints = buildWeightPoints(
+            entries: input.bodyWeights,
+            range: range,
+            weekStartsOnMonday: monday,
+            now: now
+        )
+
+        let ids = Set(filteredWorkouts.flatMap { $0.exercises.map(\.exercise.id) })
+        let chartExercises = input.exercises.filter { ids.contains($0.id) }.sorted { $0.name < $1.name }
+        var tops: [UUID: Double] = [:]
+        for workout in filteredWorkouts {
+            for entry in workout.exercises {
+                for set in entry.loggedSets where !set.isWarmup && set.reps > 0 {
+                    guard let w = set.weightKg, w > 0 else { continue }
+                    tops[entry.exercise.id] = max(tops[entry.exercise.id] ?? 0, w)
+                }
+            }
+        }
+
+        return ProgressSnapshot(
+            key: input.key,
+            range: range,
+            weekStartsOnMonday: monday,
+            charts: charts,
+            summary: summary,
+            previousSummary: previousSummary,
+            streak: streak,
+            averageHeartRate: charts.averageHeartRate,
+            previousAverageHeartRate: prevAvgHr,
+            records: records,
+            muscleLoadAll: muscleAll,
+            muscleLoadHard: muscleHard,
+            hasHardSets: hasHardSets,
+            heatmapTime: heatmapTime,
+            heatmapVolume: heatmapVolume,
+            weightPoints: weightPoints,
+            chartExercises: chartExercises,
+            topExerciseMaxWeights: tops,
+            filteredWorkouts: filteredWorkouts,
+            filteredExternal: filteredExternal,
+            filteredStimuli: filteredStimuli
+        )
+    }
+
+    static func buildWeightPoints(
+        entries: [BodyWeightEntry],
+        range: ProgressTimeRange,
+        weekStartsOnMonday: Bool,
+        now: Date = Date()
+    ) -> [ProgressWeightPoint] {
+        let start = range.startDate(now: now, weekStartsOnMonday: weekStartsOnMonday) ?? .distantPast
+        let end = Calendar.current.date(
+            byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now)
+        ) ?? now
+        let raw = entries
+            .filter { $0.date >= start && $0.date < end }
+            .sorted { $0.date < $1.date }
+        let granularity = ProgressSeriesGranularity.forChart(range: range)
+        guard granularity != .day, raw.count > 1 else {
+            return raw.map { ProgressWeightPoint(date: $0.date, weightKg: $0.weightKg) }
+        }
+        let series = raw.map {
+            ProgressDayPoint(dayKey: "\($0.date.timeIntervalSince1970)", date: $0.date, value: $0.weightKg)
+        }
+        let averaged = StatsEngine.averagedSeries(
+            series,
+            granularity: granularity,
+            weekStartsOnMonday: weekStartsOnMonday
+        )
+        return averaged.map { ProgressWeightPoint(date: $0.date, weightKg: $0.value) }
+    }
+}

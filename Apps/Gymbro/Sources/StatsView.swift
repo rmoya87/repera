@@ -7,82 +7,31 @@ struct StatsView: View {
     @Environment(GymbroStore.self) private var store
     @Environment(HealthKitStore.self) private var health
 
+    @State private var model = ProgressViewModel()
     @State private var heatmapMetric: HeatmapMetric = .time
-    @State private var range: ProgressTimeRange = .week
     @State private var showRangePicker = false
-    @State private var preparedCharts = ProgressPreparedCharts.empty
-    @State private var chartsPreparing = false
-    @State private var prepareGeneration = 0
-    @State private var prepareTask: Task<Void, Never>?
 
     private var mondayFirst: Bool {
         store.state.settings.weekStartsOn == .monday
     }
 
-    private var healthSessions: [HealthKitStore.ExternalActivity] {
-        health.recentExternalActivities
-    }
-
-    private var allExternalSamples: [ExternalDaySample] {
-        HealthMuscleMapper.daySamples(from: healthSessions)
-    }
-
-    private var allStimuli: [ExternalMuscleStimulus] {
-        HealthMuscleMapper.stimuli(from: healthSessions)
-    }
-
-    private var filteredWorkouts: [WorkoutSession] {
-        StatsEngine.filterWorkouts(
-            store.state.workouts,
-            range: range,
-            weekStartsOnMonday: mondayFirst
-        )
-    }
-
-    private var filteredExternal: [ExternalDaySample] {
-        StatsEngine.filterExternal(
-            allExternalSamples,
-            range: range,
-            weekStartsOnMonday: mondayFirst
-        )
-    }
-
-    private var filteredStimuli: [ExternalMuscleStimulus] {
-        StatsEngine.filterStimuli(
-            allStimuli,
-            range: range,
-            weekStartsOnMonday: mondayFirst
-        )
-    }
-
-    private var records: [PersonalRecord] {
-        store.cachedPersonalRecords(
-            from: filteredWorkouts,
-            rangeRaw: range.rawValue,
-            mondayFirst: mondayFirst
-        )
-    }
-
-    private var chartExercises: [Exercise] {
-        let ids = Set(filteredWorkouts.flatMap { $0.exercises.map(\.exercise.id) })
-        return store.state.exercises.filter { ids.contains($0.id) }.sorted { $0.name < $1.name }
-    }
+    private var snap: ProgressSnapshot { model.snapshot }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+                LazyVStack(alignment: .leading, spacing: 12) {
                     tilesGrid
 
                     if health.isAuthorized {
-                        if chartsPreparing && preparedCharts.range != range {
+                        if model.isPreparing && snap.range != model.range {
                             ProgressView("Actualizando gráficas…")
                                 .tint(OG.accent)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                         }
-                        ProgressCardioChartCard(prepared: preparedCharts)
-                        ProgressCaloriesChartCard(prepared: preparedCharts)
+                        ProgressCardioChartCard(prepared: snap.charts)
+                        ProgressCaloriesChartCard(prepared: snap.charts)
                     } else {
                         VStack(alignment: .leading, spacing: 8) {
                             OGCardSectionTitle(title: "Salud")
@@ -102,24 +51,28 @@ struct StatsView: View {
                     ProgressWeightChartCard(
                         entries: store.state.bodyWeights,
                         goalKg: store.state.settings.bodyWeightGoalKg,
-                        range: range,
-                        weekStartsOnMonday: mondayFirst
+                        range: model.range,
+                        weekStartsOnMonday: mondayFirst,
+                        preparedPoints: snap.range == model.range ? snap.weightPoints : nil
                     )
 
                     activityCard
 
                     MuscleBalanceCard(
-                        workouts: filteredWorkouts,
-                        external: filteredStimuli,
-                        rangeLabel: range.title,
-                        weekStartsOnMonday: mondayFirst
+                        workouts: snap.filteredWorkouts,
+                        external: snap.filteredStimuli,
+                        rangeLabel: model.range.title,
+                        weekStartsOnMonday: mondayFirst,
+                        preparedLoadAll: snap.muscleLoadAll,
+                        preparedLoadHard: snap.muscleLoadHard,
+                        preparedHasHardSets: snap.hasHardSets
                     )
 
-                    if chartExercises.isEmpty {
+                    if snap.chartExercises.isEmpty {
                         progressEmptyCard(
                             title: "Sin ejercicios aún",
-                            subtitle: "Escanea una pizarra o crea un plan desde Crear / Diario.",
-                            systemImage: "dumbbell",
+                            subtitle: "Cuando registres series, verás el progreso aquí.",
+                            systemImage: "figure.strengthtraining.traditional",
                             cta: nil,
                             action: nil
                         )
@@ -127,10 +80,10 @@ struct StatsView: View {
                         exerciseProgressCard
                     }
 
-                    if records.isEmpty {
+                    if snap.records.isEmpty {
                         progressEmptyCard(
                             title: "Sin récords en el periodo",
-                            subtitle: "Entrena y apunta cargas para ver e1RM.",
+                            subtitle: "Entrena y apunta pesos para ver e1RM.",
                             systemImage: "trophy",
                             cta: nil,
                             action: nil
@@ -159,7 +112,7 @@ struct StatsView: View {
                 .padding(.bottom, 28)
             }
             .background(OG.bg)
-            .ogFixedTopBar("Progreso", subtitle: range.title) {
+            .ogFixedTopBar("Progreso", subtitle: model.range.title) {
                 Button {
                     showRangePicker = true
                 } label: {
@@ -178,9 +131,9 @@ struct StatsView: View {
                     .ogFittedSheet()
             }
             .task {
-                // Una sola carga amplia (360d); cambiar periodo solo filtra en local.
                 guard health.isAuthorized else {
                     ProgressLog.info("Progreso: Salud no autorizada, skip HK")
+                    schedulePrepare(reason: "no-health")
                     return
                 }
                 ProgressLog.info("Progreso appear → refresh HK 360d")
@@ -192,72 +145,32 @@ struct StatsView: View {
                     overlappingSessions: sessions,
                     days: ProgressTimeRange.days360.healthFetchDayCount
                 )
-                rebuildPreparedCharts(reason: "hk-ready")
+                schedulePrepare(reason: "hk-ready")
             }
-            .onChange(of: range) { _, _ in
-                rebuildPreparedCharts(reason: "range")
+            .onChange(of: model.range) { _, _ in
+                schedulePrepare(reason: "range")
             }
             .onChange(of: health.healthDataRevision) { _, _ in
-                rebuildPreparedCharts(reason: "health-rev")
+                model.invalidateCache(reason: "health-rev")
+                schedulePrepare(reason: "health-rev")
             }
             .onChange(of: store.state.syncRevision) { _, _ in
-                rebuildPreparedCharts(reason: "sync-rev")
-            }
-            .onAppear {
-                if preparedCharts.heartRate.isEmpty && preparedCharts.calories.isEmpty {
-                    rebuildPreparedCharts(reason: "appear")
-                }
+                model.invalidateCache(reason: "sync-rev")
+                schedulePrepare(reason: "sync-rev")
             }
         }
     }
 
-    /// Agrega/filtra series fuera del `body` (evita el freeze al cambiar 90/180/360).
-    private func rebuildPreparedCharts(reason: String) {
-        prepareGeneration += 1
-        let gen = prepareGeneration
-        chartsPreparing = true
-        ProgressLog.info("prepare enqueue \(reason) gen=\(gen) range=\(range.rawValue)")
-
-        let range = range
-        let monday = mondayFirst
-        let hr = health.recentDailyHeartRate
-        let energy = health.recentDailyActiveEnergy
-        let workouts = StatsEngine.filterWorkouts(
-            store.state.workouts,
-            range: range,
-            weekStartsOnMonday: monday
-        )
-        let external = StatsEngine.filterExternal(
-            HealthMuscleMapper.daySamples(from: health.recentExternalActivities),
-            range: range,
-            weekStartsOnMonday: monday
-        )
-
-        prepareTask?.cancel()
-        prepareTask = Task(priority: .userInitiated) {
-            let built = await Task.detached(priority: .userInitiated) {
-                ProgressChartBuilder.build(
-                    range: range,
-                    weekStartsOnMonday: monday,
-                    heartRateDays: hr,
-                    energyDays: energy,
-                    workouts: workouts,
-                    external: external
-                )
-            }.value
-            guard !Task.isCancelled else {
-                ProgressLog.info("prepare cancelled gen=\(gen)")
-                return
-            }
-            await MainActor.run {
-                guard gen == prepareGeneration else {
-                    ProgressLog.info("prepare stale drop gen=\(gen)")
-                    return
-                }
-                preparedCharts = built
-                chartsPreparing = false
-            }
+    private func schedulePrepare(reason: String) {
+        if model.applyCacheIfPossible(
+            weekStartsOnMonday: mondayFirst,
+            syncRevision: store.state.syncRevision,
+            healthDataRevision: health.healthDataRevision,
+            bodyWeights: store.state.bodyWeights
+        ) {
+            return
         }
+        model.requestPrepare(store: store, health: health, reason: reason)
     }
 
     @ViewBuilder
@@ -300,17 +213,18 @@ struct StatsView: View {
                         Divider().opacity(0.35).padding(.leading, 50)
                     }
                     Button {
-                        guard option != range else {
+                        guard option != model.range else {
                             showRangePicker = false
                             return
                         }
-                        ProgressLog.rangeTap(from: range, to: option)
+                        ProgressLog.rangeTap(from: model.range, to: option)
                         showRangePicker = false
-                        // Cierra el sheet antes de recalcular Charts (evita el bloqueo percibido).
+                        // Close sheet first; prep runs after — selector stays instant.
                         Task { @MainActor in
                             let t0 = CFAbsoluteTimeGetCurrent()
                             await Task.yield()
-                            range = option
+                            model.setRange(option)
+                            schedulePrepare(reason: "range")
                             ProgressLog.rangeApplied(
                                 option,
                                 elapsedMs: (CFAbsoluteTimeGetCurrent() - t0) * 1000
@@ -319,12 +233,12 @@ struct StatsView: View {
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "calendar")
-                                .foregroundStyle(range == option ? OG.accent : OG.label2)
+                                .foregroundStyle(model.range == option ? OG.accent : OG.label2)
                                 .frame(width: 24)
                             Text(option.title)
                                 .foregroundStyle(OG.label)
                             Spacer()
-                            if range == option {
+                            if model.range == option {
                                 Image(systemName: "checkmark")
                                     .foregroundStyle(OG.accent)
                                     .fontWeight(.semibold)
@@ -348,56 +262,14 @@ struct StatsView: View {
         .preferredColorScheme(.dark)
     }
 
-    // MARK: - Tiles
-
-    /// Media de FC (lpm) de Salud en el periodo visible — alineada con la gráfica Cardio.
-    private func averageHeartRate(in range: ProgressTimeRange) -> Double? {
-        let pts = health.recentDailyHeartRate.filter {
-            range.contains($0.date, weekStartsOnMonday: mondayFirst)
-        }
-        guard !pts.isEmpty else { return nil }
-        return pts.map(\.avgBpm).reduce(0, +) / Double(pts.count)
-    }
+    // MARK: - Tiles (data from snapshot only)
 
     private var tilesGrid: some View {
-        let summary = StatsEngine.progressHealthSummary(
-            workouts: store.state.workouts,
-            external: allExternalSamples,
-            range: range,
-            weekStartsOnMonday: mondayFirst
-        )
-        let previous: ProgressHealthSummary? = {
-            let prevWorkouts = StatsEngine.filterWorkoutsInPreviousPeriod(
-                store.state.workouts,
-                range: range,
-                weekStartsOnMonday: mondayFirst
-            )
-            let prevExternal = allExternalSamples.filter {
-                range.containsInPreviousPeriod($0.date, weekStartsOnMonday: mondayFirst)
-            }
-            return StatsEngine.progressHealthSummary(
-                workouts: prevWorkouts,
-                external: prevExternal,
-                range: range,
-                weekStartsOnMonday: mondayFirst,
-                applyRangeFilter: false
-            )
-        }()
-        let streak = StatsEngine.consecutiveWeekStreak(
-            workoutDates: store.state.workouts.compactMap { $0.finishedAt ?? $0.startedAt },
-            externalDates: healthSessions.map(\.start),
-            weekStartsOnMonday: mondayFirst
-        )
-        let avgHr = preparedCharts.range == range
-            ? preparedCharts.averageHeartRate
-            : averageHeartRate(in: range)
-        let prevAvgHr: Double? = {
-            let pts = health.recentDailyHeartRate.filter {
-                range.containsInPreviousPeriod($0.date, weekStartsOnMonday: mondayFirst)
-            }
-            guard !pts.isEmpty else { return nil }
-            return pts.map(\.avgBpm).reduce(0, +) / Double(pts.count)
-        }()
+        let summary = snap.summary
+        let previous = snap.previousSummary
+        let streak = snap.streak
+        let avgHr = snap.averageHeartRate
+        let prevAvgHr = snap.previousAverageHeartRate
         return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
             tile(
                 icon: "dumbbell.fill",
@@ -448,25 +320,27 @@ struct StatsView: View {
         valueColor: Color = OG.label,
         delta: Int? = nil
     ) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Label {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(iconColor)
+                .frame(width: 22, height: 22)
+            VStack(alignment: .leading, spacing: 2) {
                 Text(label)
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(OG.label2)
-            } icon: {
-                Image(systemName: icon)
-                    .foregroundStyle(iconColor)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(value)
+                        .font(.system(size: 22, weight: .bold).monospacedDigit())
+                        .foregroundStyle(valueColor)
+                    if let delta, delta != 0 {
+                        Text(delta > 0 ? "+\(delta)" : "\(delta)")
+                            .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(delta > 0 ? OG.accent : OG.yellow)
+                    }
+                }
             }
-            .font(.system(size: 11, weight: .medium))
-            .labelStyle(.titleAndIcon)
-            Text(value)
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(valueColor)
-                .tracking(-0.4)
-            if let delta {
-                Text(delta == 0 ? "=" : (delta > 0 ? "+\(delta)" : "\(delta)"))
-                    .font(.system(size: 11, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(delta > 0 ? OG.accent : (delta < 0 ? OG.red : OG.label3))
-            }
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, minHeight: 64, maxHeight: .infinity, alignment: .topLeading)
         .padding(.horizontal, 12)
@@ -478,13 +352,15 @@ struct StatsView: View {
 
     private var activityCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Actividad · \(range.title.lowercased())")
+            OGCardSectionTitle(title: "Actividad · \(model.range.title.lowercased())")
             OGCard {
                 ActivityHeatmapView(
-                    workouts: filteredWorkouts,
-                    external: filteredExternal,
-                    dataRevision: store.state.syncRevision,
-                    range: range,
+                    workouts: snap.filteredWorkouts,
+                    external: snap.filteredExternal,
+                    dataRevision: snap.key.syncRevision &+ snap.key.healthDataRevision,
+                    preparedTime: snap.heatmapTime,
+                    preparedVolume: snap.heatmapVolume,
+                    range: model.range,
                     weekStartsOnMonday: mondayFirst,
                     metric: heatmapMetric,
                     onMetricChange: { heatmapMetric = $0 }
@@ -493,27 +369,13 @@ struct StatsView: View {
         }
     }
 
-    // MARK: - Exercise / weight / PRs
-
-    /// Una pasada sobre el periodo (evita 8× `history` ordenando todos los entrenos en «Todo»).
-    private var topExerciseMaxWeights: [UUID: Double] {
-        var best: [UUID: Double] = [:]
-        for workout in filteredWorkouts {
-            for entry in workout.exercises {
-                for set in entry.loggedSets where !set.isWarmup && set.reps > 0 {
-                    guard let w = set.weightKg, w > 0 else { continue }
-                    best[entry.exercise.id] = max(best[entry.exercise.id] ?? 0, w)
-                }
-            }
-        }
-        return best
-    }
+    // MARK: - Exercise / PRs
 
     private var exerciseProgressCard: some View {
-        let tops = topExerciseMaxWeights
-        let listed = Array(chartExercises.prefix(8))
+        let tops = snap.topExerciseMaxWeights
+        let listed = Array(snap.chartExercises.prefix(8))
         return VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Progreso por ejercicio · \(range.title.lowercased())")
+            OGCardSectionTitle(title: "Progreso por ejercicio · \(model.range.title.lowercased())")
             OGCard {
                 VStack(alignment: .leading, spacing: 12) {
                     if listed.isEmpty {
@@ -550,14 +412,14 @@ struct StatsView: View {
 
     private var prSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Récords (e1RM) · \(range.title.lowercased())")
+            OGCardSectionTitle(title: "Récords (e1RM) · \(model.range.title.lowercased())")
             OGCard {
                 VStack(alignment: .leading, spacing: 12) {
-                    if records.isEmpty {
+                    if snap.records.isEmpty {
                         Text("Sin PRs en este periodo.")
                             .foregroundStyle(OG.label2)
                     } else {
-                        ForEach(records.prefix(12)) { pr in
+                        ForEach(snap.records.prefix(12)) { pr in
                             HStack {
                                 VStack(alignment: .leading) {
                                     Text(pr.exerciseName)
@@ -576,7 +438,7 @@ struct StatsView: View {
                                         .foregroundStyle(OG.label2)
                                 }
                             }
-                            if pr.id != records.prefix(12).last?.id {
+                            if pr.id != snap.records.prefix(12).last?.id {
                                 Divider().overlay(Color.white.opacity(0.08))
                             }
                         }

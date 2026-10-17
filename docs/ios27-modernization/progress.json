@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "project": "Gymbro",
-  "branch": "fix/ios27-jank-search-reliability",
-  "baseCommit": "b198235c93fbc36b0c790eece80bf301f15e55fa",
+  "branch": "perf/progress-snapshot-engine",
+  "baseCommit": "7790eb1ed57af6f7f857b030676470fed652bff9",
   "headCommit": "pending",
-  "updatedAt": "2026-10-17T09:39:41Z",
+  "updatedAt": "2026-10-17T10:08:45Z",
   "global": {
-    "total": 55,
+    "total": 61,
     "completed": 0,
     "inProgress": 1,
-    "inReview": 36,
+    "inReview": 42,
     "blocked": 1,
     "pending": 17,
     "percentComplete": 0.0
@@ -68,6 +68,15 @@
       "inReview": 6,
       "blocked": 1,
       "pending": 17
+    },
+    "P6": {
+      "label": "Progreso — snapshot / jank (audit 2026-10-17)",
+      "total": 6,
+      "completed": 0,
+      "inProgress": 0,
+      "inReview": 6,
+      "blocked": 0,
+      "pending": 0
     }
   },
   "tasks": [
@@ -1801,6 +1810,138 @@
       "commits": [],
       "metrics": {},
       "notes": "Este lote"
+    },
+    {
+      "id": "PROG-001",
+      "phase": "P6",
+      "priority": "critical",
+      "title": "ProgressSnapshot + ProgressDataEngine off-MainActor",
+      "summary": "Un solo payload preparado por periodo; sin filtros en body.",
+      "status": "in_review",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "Un solo payload preparado por periodo; sin filtros en body."
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "Un solo payload preparado por periodo; sin filtros en body.",
+      "startedAt": "2026-10-17T10:08:45Z",
+      "completedAt": null,
+      "updatedAt": "2026-10-17T10:08:45Z"
+    },
+    {
+      "id": "PROG-002",
+      "phase": "P6",
+      "priority": "critical",
+      "title": "ProgressViewModel caché por periodo/revisión",
+      "summary": "Cache key range+sync+health+bodyWeight; cancelación efectiva.",
+      "status": "in_review",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "Cache key range+sync+health+bodyWeight; cancelación efectiva."
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "Cache key range+sync+health+bodyWeight; cancelación efectiva.",
+      "startedAt": "2026-10-17T10:08:45Z",
+      "completedAt": null,
+      "updatedAt": "2026-10-17T10:08:45Z"
+    },
+    {
+      "id": "PROG-003",
+      "phase": "P6",
+      "priority": "critical",
+      "title": "StatsView LazyVStack + datos preparados",
+      "summary": "Tiles/charts/heatmap/muscle/PRs leen snapshot.",
+      "status": "in_review",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "Tiles/charts/heatmap/muscle/PRs leen snapshot."
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "Tiles/charts/heatmap/muscle/PRs leen snapshot.",
+      "startedAt": "2026-10-17T10:08:45Z",
+      "completedAt": null,
+      "updatedAt": "2026-10-17T10:08:45Z"
+    },
+    {
+      "id": "PROG-004",
+      "phase": "P6",
+      "priority": "high",
+      "title": "HealthKit match index + race de cobertura",
+      "summary": "GymbroSessionMatchIndex; gen refresh; métricas separadas.",
+      "status": "in_review",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "GymbroSessionMatchIndex; gen refresh; métricas separadas."
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "GymbroSessionMatchIndex; gen refresh; métricas separadas.",
+      "startedAt": "2026-10-17T10:08:45Z",
+      "completedAt": null,
+      "updatedAt": "2026-10-17T10:08:45Z"
+    },
+    {
+      "id": "PROG-005",
+      "phase": "P6",
+      "priority": "high",
+      "title": "IDs estables gráfica de peso",
+      "summary": "ProgressWeightPoint por fecha de bucket.",
+      "status": "in_review",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "ProgressWeightPoint por fecha de bucket."
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "ProgressWeightPoint por fecha de bucket.",
+      "startedAt": "2026-10-17T10:08:45Z",
+      "completedAt": null,
+      "updatedAt": "2026-10-17T10:08:45Z"
+    },
+    {
+      "id": "PROG-006",
+      "phase": "P6",
+      "priority": "medium",
+      "title": "Tests dominio + docs canvas Progreso",
+      "summary": "ProgressSnapshotEngineTests + CHANGELOG/FEATURES.",
+      "status": "in_review",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "ProgressSnapshotEngineTests + CHANGELOG/FEATURES."
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "ProgressSnapshotEngineTests + CHANGELOG/FEATURES.",
+      "startedAt": "2026-10-17T10:08:45Z",
+      "completedAt": null,
+      "updatedAt": "2026-10-17T10:08:45Z"
     }
   ],
   "history": [
@@ -1848,6 +1989,11 @@
       "at": "2026-10-17T09:10:42Z",
       "type": "impl",
       "message": "P2–P4 implemented to in_review. Builds OK. Device/CI/Instruments still blocked where noted. Canvas+Cursor panel available."
+    },
+    {
+      "at": "2026-10-17T10:08:45Z",
+      "type": "impl",
+      "message": "P6 Progress snapshot engine: off-main prep, period cache, HK match index, stable weight ids, LazyVStack StatsView."
     }
   ],
   "metricsBaseline": [],

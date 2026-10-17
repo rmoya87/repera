@@ -274,11 +274,13 @@ final class HealthKitStore {
             }
             store.execute(q)
         }
+        let index = GymbroSessionMatchIndex(sessions: overlappingSessions)
+        // Map off the hot path of MainActor Observation — compactMap is pure.
         return workouts.compactMap { w in
             mapExternalActivity(
                 w,
                 excludingUUIDs: excludingUUIDs,
-                overlappingSessions: overlappingSessions
+                matchIndex: index
             )
         }
     }
@@ -293,6 +295,11 @@ final class HealthKitStore {
     private(set) var healthCacheFetchedAt: Date?
     /// Requested day window of the last successful fetch.
     private(set) var healthCacheCoverageDays: Int = 0
+    /// Serializes overlapping Progress/Home refreshes; only the newest commit wins.
+    @ObservationIgnored private var healthRefreshGeneration: UInt64 = 0
+    /// Separate TTL for HR/kcal vs activities (session edits don't force FC re-query).
+    @ObservationIgnored private var metricsCacheDays: Int = 0
+    @ObservationIgnored private var metricsCacheFetchedAt: Date?
 
     /// True when cached progressive metrics are fresh enough for the requested window + filter key.
     func isHealthCacheFresh(
@@ -314,8 +321,22 @@ final class HealthKitStore {
         healthCacheFetchedAt = nil
         healthCacheCoverageDays = 0
         healthCacheFilterKey = ""
+        metricsCacheDays = 0
+        metricsCacheFetchedAt = nil
+        healthRefreshGeneration &+= 1
         healthDataRevision &+= 1
         ProgressLog.info("health cache invalidate \(reason)")
+    }
+
+    /// Invalidate only activity exclusion filter (Gymbro session edits) — keep HR/kcal metrics.
+    func invalidateExternalActivityFilter(reason: String = "sessions") {
+        healthCacheFilterKey = ""
+        healthCacheDays = 0
+        healthCacheIsDaily = false
+        healthCacheFetchedAt = nil
+        healthCacheCoverageDays = 0
+        healthDataRevision &+= 1
+        ProgressLog.info("health activity filter invalidate \(reason)")
     }
 
     nonisolated static func healthFilterKey(
@@ -357,6 +378,8 @@ final class HealthKitStore {
             return
         }
 
+        healthRefreshGeneration &+= 1
+        let gen = healthRefreshGeneration
         let t0 = CFAbsoluteTimeGetCurrent()
         ProgressLog.healthFetchStart(days: days)
 
@@ -373,25 +396,54 @@ final class HealthKitStore {
         )
         ProgressLog.healthFetchStep("activities", count: activities.count, elapsedMs: (CFAbsoluteTimeGetCurrent() - t) * 1000)
 
-        t = CFAbsoluteTimeGetCurrent()
-        async let hr = dailyHeartRateStats(from: start, to: end, interval: dayBucket)
-        async let energy = dailyActiveEnergyStats(from: start, to: end, interval: dayBucket)
-        let (hrPoints, energyPoints) = await (hr, energy)
-        ProgressLog.healthFetchStep(
-            "hr+kcal",
-            count: hrPoints.count + energyPoints.count,
-            elapsedMs: (CFAbsoluteTimeGetCurrent() - t) * 1000
-        )
+        let metricsFresh = metricsCacheDays >= days
+            && metricsCacheFetchedAt.map { Date().timeIntervalSince($0) <= 120 } == true
+            && (!recentDailyHeartRate.isEmpty || !recentDailyActiveEnergy.isEmpty)
 
-        // Un solo commit observable (evita 3 rebuilds de Charts en Progreso).
+        let hrPoints: [DailyHeartRatePoint]
+        let energyPoints: [DailyActiveEnergyPoint]
+        if metricsFresh {
+            hrPoints = recentDailyHeartRate
+            energyPoints = recentDailyActiveEnergy
+            ProgressLog.info("health metrics cache hit days=\(days)")
+        } else {
+            t = CFAbsoluteTimeGetCurrent()
+            async let hr = dailyHeartRateStats(from: start, to: end, interval: dayBucket)
+            async let energy = dailyActiveEnergyStats(from: start, to: end, interval: dayBucket)
+            let pair = await (hr, energy)
+            hrPoints = pair.0
+            energyPoints = pair.1
+            ProgressLog.healthFetchStep(
+                "hr+kcal",
+                count: hrPoints.count + energyPoints.count,
+                elapsedMs: (CFAbsoluteTimeGetCurrent() - t) * 1000
+            )
+        }
+
+        // Drop stale overlapping refreshes (Home 180 vs Progress 370).
+        guard gen == healthRefreshGeneration else {
+            ProgressLog.info("health refresh stale drop gen=\(gen) days=\(days)")
+            return
+        }
+        // Never publish a smaller window over a larger one already committed.
+        if healthCacheIsDaily, healthCacheDays > days, healthCacheFilterKey == filterKey {
+            ProgressLog.info("health refresh skip smaller window \(days)<\(healthCacheDays)")
+            return
+        }
+
         recentExternalActivities = activities
         recentDailyHeartRate = hrPoints
         recentDailyActiveEnergy = energyPoints
-        healthCacheDays = max(healthCacheDays, days)
+        // Coverage matches what we actually published (not max of stale races).
+        healthCacheDays = days
         healthCacheIsDaily = true
         healthCacheFetchedAt = Date()
-        healthCacheCoverageDays = healthCacheDays
+        healthCacheCoverageDays = days
         healthCacheFilterKey = filterKey
+        if !metricsFresh {
+            metricsCacheDays = days
+            metricsCacheFetchedAt = Date()
+        }
         healthDataRevision &+= 1
 
         ProgressLog.healthFetchDone(
@@ -514,14 +566,13 @@ final class HealthKitStore {
     private func mapExternalActivity(
         _ w: HKWorkout,
         excludingUUIDs: Set<UUID>,
-        overlappingSessions: [WorkoutSession]
+        matchIndex: GymbroSessionMatchIndex
     ) -> ExternalActivity? {
         guard !excludingUUIDs.contains(w.uuid) else { return nil }
-        if Self.matchesGymbroSession(
+        if matchIndex.matches(
             healthStart: w.startDate,
             healthEnd: w.endDate,
-            healthUUID: w.uuid,
-            sessions: overlappingSessions
+            healthUUID: w.uuid
         ) {
             return nil
         }

@@ -7,13 +7,19 @@ struct MuscleBalanceCard: View {
     var external: [ExternalMuscleStimulus]
     var rangeLabel: String
     var weekStartsOnMonday: Bool = true
+    /// Precomputed loads from ProgressSnapshot (skip MainActor MuscleLoadEngine).
+    var preparedLoadAll: [String: Double]? = nil
+    var preparedLoadHard: [String: Double]? = nil
+    var preparedHasHardSets: Bool? = nil
 
     @State private var hardOnly = false
     @State private var selected: String? = nil
     @State private var expanded = false
 
     private var load: [String: Double] {
-        MuscleLoadEngine.load(
+        if hardOnly, let preparedLoadHard { return preparedLoadHard }
+        if !hardOnly, let preparedLoadAll { return preparedLoadAll }
+        return MuscleLoadEngine.load(
             workouts: workouts,
             external: external,
             window: .all,
@@ -24,7 +30,8 @@ struct MuscleBalanceCard: View {
     }
 
     private var hasHardSets: Bool {
-        workouts.contains { session in
+        if let preparedHasHardSets { return preparedHasHardSets }
+        return workouts.contains { session in
             session.exercises.contains { entry in
                 entry.loggedSets.contains { !$0.isWarmup && $0.reps > 0 && Effort.isHard(rir: $0.rir) }
             }

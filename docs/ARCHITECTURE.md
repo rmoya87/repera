@@ -1,6 +1,6 @@
 # Arquitectura Gymbro
 
-Última actualización: 2026-10-17 (J28 splash/WOD/sync; coaching ES 188/188)
+Última actualización: 2026-10-17 (Progreso: ProgressDataEngine + ViewModel cache)
 
 ## Visión
 
@@ -106,7 +106,8 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 - Canvas de modernización: `docs/ios27-modernization/`.
 - Thumbs: `ThumbImageLoader` (concurrencia 4, LRU, manifiesto JPG).
 - Stats: `DerivedStatsCache` invalidado con `syncRevision`.
-- Salud: frescura `healthCacheFetchedAt` + invalidate al borrar.
+- Progreso: `ProgressViewModel` + `ProgressDataEngine` preparan un `ProgressSnapshot` off-MainActor (tiles, charts, heatmap, músculo, PRs, peso); caché por `ProgressDataKey` (periodo + revisiones). `StatsView` pinta `LazyVStack` con datos listos.
+- Salud: frescura `healthCacheFetchedAt` + invalidate al borrar; match Gymbro↔HK con `GymbroSessionMatchIndex`; refrescos serializados por generación (sin sobrescribir 370d con 180d).
 
 - Export / import JSON; import CSV Strong/Hevy (`WorkoutCSVImporter`).
 

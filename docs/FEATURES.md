@@ -1,6 +1,6 @@
 # Funcionalidades Gymbro
 
-Última actualización: 2026-10-17 (Catálogo: coaching específico 188/188; sin ampliar carruseles)
+Última actualización: 2026-10-17 (Progreso: ProgressSnapshot off-main + caché por periodo)
 
 ## Tabs
 
@@ -40,11 +40,13 @@
 - Gráficas: día en periodos cortos; **media semanal** en 90/180; **media mensual** en 360.
 - Tiles: entrenos, tiempo medio, **FC media (lpm de Salud)**, racha.
 - Racha: semanas consecutivas con ≥1 entreno ≈ openGym `streakWeeks`.
-- **Cardio / calorías:** series precalculadas en background al cambiar periodo (`ProgressChartBuilder`, máx. 48 pts); curvas `catmullRom`.
-- Agregación al pintar: día (hoy/semana), media semanal (mes/90/180), media mensual (360).
+- **Cardio / calorías / tiles / heatmap / músculo / PRs / peso:** un `ProgressSnapshot` por periodo (`ProgressDataEngine` off-main); `ProgressViewModel` cachea por periodo+revisión y cancela preps obsoletas.
+- Selector de periodo responde al toque; si hay caché, pinta al instante; si no, loader solo en gráficas.
+- Agregación: día (hoy/semana), media semanal (mes/90/180), media mensual (360); Charts ≤48 pts.
 - Calorías: días con dato; Salud o fallback Gymbro/externos.
-- Salud: caché diaria ≤360d. Trazas `category:Progress` (`prepare …ms`, `HK fetch`).
-- Heatmap, equilibrio muscular, progreso por ejercicio y PRs; enlace a historial.
+- Salud: caché diaria ≤360d; match de sesiones indexado; sin sobrescribir ventanas grandes con refrescos cortos.
+- Heatmap (tiempo/volumen precalculados), equilibrio (all/hard precalculados), progreso por ejercicio y PRs; enlace a historial.
+- `LazyVStack` en el scroll de Progreso.
 - Equilibrio: cada ejercicio del seed tiene `target`/`primaryRegions` (peso 1) y secundarios (≈0.55 el primero, ≈0.35 el resto) vía `MuscleTaxonomy.muscleWeights`; se acumula por series efectivas en la ventana.
 
 ### Ejercicios (`LibraryView`)
