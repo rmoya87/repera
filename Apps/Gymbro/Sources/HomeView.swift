@@ -51,6 +51,9 @@ struct HomeView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Ajustes y cuenta iCloud")
             }
+            .onAppear {
+                LaunchTiming.mark("HomeView.onAppear")
+            }
             .task(id: "\(weekOffset)-\(dayKey(selectedDay))") {
                 await refreshHealthForVisibleRange()
             }

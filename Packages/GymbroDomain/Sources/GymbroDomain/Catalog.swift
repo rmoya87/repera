@@ -1,36 +1,57 @@
 import Foundation
 
 public enum Catalog {
-    /// Built once per process — `seed()` used to rebuild hundreds of exercises on every call.
-    private static let cachedSeed: [Exercise] = {
-        (CatalogEnrichment.rows
-            + CatalogHalterofilia.rows
-            + CatalogGimnasia.rows
-            + CatalogCrossFit.rows).map { row in
-            let localized = CatalogSpanish.localize(
-                name: row.name,
-                description: row.description,
-                instructions: row.instructions
-            )
-            return Exercise(
-                name: row.name,
-                muscleGroup: row.muscleGroup,
-                equipment: row.equipment,
-                isCustom: false,
-                catalogId: row.catalogId,
-                targetMuscle: row.target,
-                secondaryMuscles: row.secondaryMuscles,
-                bodyPart: row.bodyPart,
-                detailDescription: localized.description,
-                instructions: localized.instructions,
-                primaryRegions: row.primaries.isEmpty ? [row.muscleGroup.lowercased()] : row.primaries,
-                secondaryRegions: row.secondaries,
-                sportTag: row.sportTag
-            )
-        }
-    }()
+    /// Process-wide seed cache. `@unchecked Sendable` + lock — built once, read many.
+    private final class SeedCache: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value: [Exercise]?
 
-    public static func seed() -> [Exercise] { cachedSeed }
+        func getOrCreate(_ build: () -> [Exercise]) -> [Exercise] {
+            lock.lock()
+            defer { lock.unlock() }
+            if let value { return value }
+            let built = build()
+            value = built
+            return built
+        }
+    }
+
+    private static let cache = SeedCache()
+
+    /// Safe to call from a background task before UI merges touch `seed()`.
+    public static func prewarm() {
+        _ = seed()
+    }
+
+    public static func seed() -> [Exercise] {
+        cache.getOrCreate {
+            (CatalogEnrichment.rows
+                + CatalogHalterofilia.rows
+                + CatalogGimnasia.rows
+                + CatalogCrossFit.rows).map { row in
+                let localized = CatalogSpanish.localize(
+                    name: row.name,
+                    description: row.description,
+                    instructions: row.instructions
+                )
+                return Exercise(
+                    name: row.name,
+                    muscleGroup: row.muscleGroup,
+                    equipment: row.equipment,
+                    isCustom: false,
+                    catalogId: row.catalogId,
+                    targetMuscle: row.target,
+                    secondaryMuscles: row.secondaryMuscles,
+                    bodyPart: row.bodyPart,
+                    detailDescription: localized.description,
+                    instructions: localized.instructions,
+                    primaryRegions: row.primaries.isEmpty ? [row.muscleGroup.lowercased()] : row.primaries,
+                    secondaryRegions: row.secondaries,
+                    sportTag: row.sportTag
+                )
+            }
+        }
+    }
 
     /// Plan demo solo para tests; la app no lo carga.
     public static func defaultWeekPlan(exercises: [Exercise]) -> [Routine] {

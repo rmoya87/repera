@@ -99,7 +99,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 ## Datos y sync
 
 - Estado: `AppState` Codable → JSON local (`Application Support/Gymbro`) + espejo iCloud Documents.
-- Bootstrap: carga **solo local** en `GymbroStore.init`; merges de catálogo + iCloud van **tras el primer frame** (LaunchScreen no espera sync). Poll corto del stub iCloud + reintento en background; `Catalog.seed()` memoizado.
+- Bootstrap: `GymbroStore` arranca con shell vacío (sin disco ni `Catalog.seed` en `init`). Tras el primer frame: hydrate disco → `Catalog.prewarm()` off-main → merges → iCloud. LaunchScreen es color sólido negro (sin bitmap). Poll iCloud corto + reintento en background.
 - Conflictos: `syncRevision` + `lastWriterDeviceId` (`SyncConflictResolver`); fallback a `updatedAt` para docs legacy.
 - I/O: actor `AppStatePersistence` (encode/write atómicos, coalescing); fachada `LocalStore` en MainActor.
 - Fases: `AppSyncPhase` (`loadingLocal` → `awaitingRemote` → `ready` / `offline` / `recoveringCorrupt`).

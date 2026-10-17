@@ -366,11 +366,22 @@ final class LocalStore {
         iCloudStatus = await persistence.iCloudStatus()
     }
 
-    /// Cold start: local only. Never reads undownloaded iCloud stubs.
+    /// Empty shell so SwiftUI can paint before disk/catalog work.
+    func emptyShellState() -> AppState {
+        AppState(
+            exercises: [],
+            routines: [],
+            workouts: [],
+            bodyWeights: [],
+            updatedAt: .distantPast,
+            syncRevision: 0,
+            lastWriterDeviceId: deviceId
+        )
+    }
+
+    /// Cold start: local only. Prefer `loadLocalOnlyAsync` so first frame is not blocked.
     func loadLocalOnly() -> AppState {
         syncPhase = .loadingLocal
-        // Synchronous bridge for `GymbroStore.init` — actor hop via semaphore avoided;
-        // use a dedicated sync helper that only touches the local path.
         let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             .appendingPathComponent("Gymbro", isDirectory: true)
             .appendingPathComponent("app_state.json")
@@ -380,7 +391,6 @@ final class LocalStore {
             syncPhase = .awaitingRemote
             return state
         }
-        // First launch / empty disk: seed in memory only (no remote write yet).
         syncPhase = .awaitingRemote
         return AppState(
             exercises: Catalog.seed(),
@@ -391,6 +401,40 @@ final class LocalStore {
             syncRevision: 0,
             lastWriterDeviceId: deviceId
         )
+    }
+
+    /// Disk + decode off the critical path. First install returns an empty shell immediately;
+    /// call `buildSeedCatalogAsync` afterward so Home can paint before Catalog.seed().
+    func loadLocalOnlyAsync() async -> AppState {
+        syncPhase = .loadingLocal
+        let writerId = deviceId
+        let result = await persistence.readLocal()
+        switch result {
+        case .success(let state):
+            if let state {
+                syncPhase = .awaitingRemote
+                return state
+            }
+        case .failure:
+            break
+        }
+        syncPhase = .awaitingRemote
+        return AppState(
+            exercises: [],
+            routines: [],
+            workouts: [],
+            bodyWeights: [],
+            updatedAt: .distantPast,
+            syncRevision: 0,
+            lastWriterDeviceId: writerId
+        )
+    }
+
+    func buildSeedCatalogAsync() async -> [Exercise] {
+        await Task.detached(priority: .userInitiated) {
+            Catalog.prewarm()
+            return Catalog.seed()
+        }.value
     }
 
     /// Legacy entry used by older call sites — prefer `loadLocalOnly` + `recoverFromiCloud`.

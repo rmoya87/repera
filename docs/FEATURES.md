@@ -1,6 +1,6 @@
 # Funcionalidades Gymbro
 
-Última actualización: 2026-10-17 (arranque: LaunchScreen ligero + bootstrap/iCloud diferidos)
+Última actualización: 2026-10-17 (arranque: shell vacío + Catalog.prewarm off-main; LaunchScreen negro)
 
 ## Tabs
 

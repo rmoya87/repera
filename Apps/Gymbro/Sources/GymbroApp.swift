@@ -1,3 +1,4 @@
+import GymbroDomain
 import SwiftUI
 
 @main
@@ -5,17 +6,31 @@ struct GymbroApp: App {
     @State private var store = GymbroStore()
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        // Warm catalog on a background thread ASAP — before bootstrap merges touch `seed()`.
+        Task.detached(priority: .userInitiated) {
+            Catalog.prewarm()
+        }
+        LaunchTiming.mark("GymbroApp.init")
+    }
+
     var body: some Scene {
         WindowGroup {
             RootTabView()
                 .environment(store)
                 .environment(HealthKitStore.shared)
+                .preferredColorScheme(.dark)
+                .background(Color.black)
                 .task {
-                    // First paint wins: connectivity + deferred catalog/iCloud only.
+                    LaunchTiming.mark("RootTabView.task")
+                    // Paint first, then hydrate. Do not await seed/enrich before Home is visible.
+                    Task(priority: .utility) {
+                        ExerciseArt.warmArtManifest()
+                    }
+                    await store.hydrateFromDisk()
+                    LaunchTiming.mark("hydrate.done→bootstrap")
                     store.bootstrap()
-                    ExerciseArt.warmArtManifest()
 
-                    // HealthKit + thumbs off the critical path (do not await before UI settles).
                     Task(priority: .utility) {
                         let health = HealthKitStore.shared
                         health.refreshAuthorizationStatus()
@@ -25,15 +40,14 @@ struct GymbroApp: App {
                         }
                     }
                     Task(priority: .utility) {
-                        // Prefer local thumbs first; refresh after a short settle if catalog grew.
-                        try? await Task.sleep(nanoseconds: 150_000_000)
-                        ExerciseArt.prefetchThumbs(for: store.state.exercises)
+                        try? await Task.sleep(nanoseconds: 1_500_000_000)
+                        ExerciseArt.prefetchThumbs(for: Array(store.state.exercises.prefix(40)))
                     }
                 }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active {
                         Task {
-                            // Pull remote first; uploads remain gated until recovery allows them.
+                            guard store.isHydrated else { return }
                             await store.refreshFromiCloud()
                             let health = HealthKitStore.shared
                             health.refreshAuthorizationStatus()
@@ -43,6 +57,7 @@ struct GymbroApp: App {
                             }
                         }
                     } else if phase == .background {
+                        guard store.isHydrated else { return }
                         store.persist(immediate: true)
                         Task { await LocalStore.shared.flush() }
                     }
