@@ -111,6 +111,11 @@ struct StandaloneTimerView: View {
     @State private var phaseIsWork = true
     @State private var preCountdown = 0
     @State private var timer: Timer?
+    /// Wall-clock anchors — display is derived from Date, not tick accumulation.
+    @State private var preCountdownEnd: Date?
+    @State private var phaseEndDate: Date?
+    @State private var phaseStartDate: Date?
+    @State private var pausedDisplaySeconds: Int?
     @State private var showSaveAlert = false
     @State private var saveTitle = ""
     @State private var editingFavoriteId: UUID?
@@ -147,7 +152,10 @@ struct StandaloneTimerView: View {
         } message: {
             Text("Se guardará esta configuración para reutilizarla desde Favoritos.")
         }
-        .onDisappear { stopTimer() }
+        .onDisappear {
+            // Keep the fullscreen clock running if only the config view left the hierarchy.
+            if !showClock { stopTimer() }
+        }
     }
 
     private var content: some View {
@@ -348,23 +356,46 @@ struct StandaloneTimerView: View {
         let skip: (() -> Void)? = config.mode == .intervals
             ? { skipInterval() }
             : nil
-        return BlockTimerScreen(
-            title: "Temporizador",
-            subtitle: clockSubtitle,
-            exercise: nil,
-            roundNumber: config.mode == .intervals ? roundNumber : nil,
-            totalRounds: config.mode == .intervals ? config.rounds : nil,
-            displaySeconds: preCountdown > 0 ? preCountdown : displaySeconds,
-            isRunning: isRunning,
-            isCountingUp: config.mode == .up && preCountdown == 0,
-            primaryTitle: primaryButtonTitle,
-            onPrimary: { toggleRun() },
-            onClose: {
-                stopTimer()
-                showClock = false
-            },
-            onSkip: skip
-        )
+        return TimelineView(.periodic(from: .now, by: 1)) { context in
+            let shown = liveDisplaySeconds(at: context.date)
+            BlockTimerScreen(
+                title: "Temporizador",
+                subtitle: clockSubtitle,
+                exercise: nil,
+                roundNumber: config.mode == .intervals ? roundNumber : nil,
+                totalRounds: config.mode == .intervals ? config.rounds : nil,
+                displaySeconds: shown,
+                isRunning: isRunning,
+                isCountingUp: config.mode == .up && preCountdown == 0,
+                primaryTitle: primaryButtonTitle,
+                onPrimary: { toggleRun() },
+                onClose: {
+                    stopTimer()
+                    showClock = false
+                },
+                onSkip: skip
+            )
+        }
+    }
+
+    private func liveDisplaySeconds(at now: Date) -> Int {
+        if let end = preCountdownEnd {
+            return WallClockTimer.remainingSeconds(until: end, now: now)
+        }
+        if !isRunning, let paused = pausedDisplaySeconds {
+            return paused
+        }
+        switch config.mode {
+        case .up:
+            guard let start = phaseStartDate else { return displaySeconds }
+            return min(
+                config.durationTotalSeconds,
+                WallClockTimer.elapsedSeconds(since: start, now: now)
+            )
+        case .down, .intervals:
+            guard let end = phaseEndDate else { return displaySeconds }
+            return WallClockTimer.remainingSeconds(until: end, now: now)
+        }
     }
 
     private var clockSubtitle: String {
@@ -402,33 +433,75 @@ struct StandaloneTimerView: View {
 
     private func toggleRun() {
         if isRunning {
+            pausedDisplaySeconds = liveDisplaySeconds(at: Date())
+            displaySeconds = pausedDisplaySeconds ?? displaySeconds
             stopTimer(keepState: true)
             isRunning = false
+            preCountdownEnd = nil
+            phaseEndDate = nil
+            phaseStartDate = nil
         } else {
             isRunning = true
+            pausedDisplaySeconds = nil
+            armAnchorsForResume()
             startTicking()
         }
     }
 
-    private func startTicking() {
-        timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            Task { @MainActor in
-                tick()
-            }
+    private func armAnchorsForResume() {
+        let now = Date()
+        if preCountdown > 0 {
+            preCountdownEnd = WallClockTimer.endDate(from: now, lasting: preCountdown)
+            phaseEndDate = nil
+            phaseStartDate = nil
+            return
         }
+        switch config.mode {
+        case .up:
+            let already = displaySeconds
+            phaseStartDate = now.addingTimeInterval(TimeInterval(-already))
+            phaseEndDate = nil
+        case .down, .intervals:
+            phaseEndDate = WallClockTimer.endDate(from: now, lasting: max(1, displaySeconds))
+            phaseStartDate = nil
+        }
+        preCountdownEnd = nil
     }
 
-    private func tick() {
-        if preCountdown > 0 {
-            preCountdown -= 1
-            RestFeedback.tick(
-                remaining: preCountdown,
-                sound: true,
-                haptic: true
-            )
-            if preCountdown == 0 {
+    private func startTicking() {
+        timer?.invalidate()
+        // Feedback / phase transitions only — UI uses TimelineView + wall clock.
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            Task { @MainActor in
+                syncFromWallClock()
+            }
+        }
+        RunLoop.main.add(timer!, forMode: .common)
+    }
+
+    private func syncFromWallClock() {
+        let now = Date()
+        if let end = preCountdownEnd {
+            let remaining = WallClockTimer.remainingSeconds(until: end, now: now)
+            preCountdown = remaining
+            RestFeedback.tick(remaining: remaining, sound: true, haptic: true)
+            if remaining == 0 {
+                preCountdownEnd = nil
                 RestFeedback.restComplete(sound: true, haptic: true)
+                // Arm work phase
+                switch config.mode {
+                case .up:
+                    displaySeconds = 0
+                    phaseStartDate = now
+                    phaseEndDate = nil
+                case .down:
+                    displaySeconds = config.durationTotalSeconds
+                    phaseEndDate = WallClockTimer.endDate(from: now, lasting: config.durationTotalSeconds)
+                case .intervals:
+                    displaySeconds = config.workTotalSeconds
+                    phaseIsWork = true
+                    phaseEndDate = WallClockTimer.endDate(from: now, lasting: config.workTotalSeconds)
+                }
             }
             return
         }
@@ -436,39 +509,45 @@ struct StandaloneTimerView: View {
 
         switch config.mode {
         case .up:
-            displaySeconds += 1
-            if displaySeconds >= config.durationTotalSeconds {
+            let elapsed = liveDisplaySeconds(at: now)
+            displaySeconds = elapsed
+            RestFeedback.tick(remaining: config.durationTotalSeconds - elapsed, sound: true, haptic: true)
+            if elapsed >= config.durationTotalSeconds {
                 displaySeconds = config.durationTotalSeconds
                 isRunning = false
                 stopTimer(keepState: true)
                 RestFeedback.restComplete(sound: true, haptic: true)
             }
         case .down:
-            if displaySeconds <= 1 {
+            let remaining = liveDisplaySeconds(at: now)
+            displaySeconds = remaining
+            if remaining <= 0 {
                 displaySeconds = 0
                 isRunning = false
                 stopTimer(keepState: true)
                 RestFeedback.restComplete(sound: true, haptic: true)
             } else {
-                displaySeconds -= 1
-                RestFeedback.tick(remaining: displaySeconds, sound: true, haptic: true)
+                RestFeedback.tick(remaining: remaining, sound: true, haptic: true)
             }
         case .intervals:
-            if displaySeconds <= 1 {
+            let remaining = liveDisplaySeconds(at: now)
+            displaySeconds = remaining
+            if remaining <= 0 {
                 advanceInterval()
             } else {
-                displaySeconds -= 1
-                RestFeedback.tick(remaining: displaySeconds, sound: true, haptic: true)
+                RestFeedback.tick(remaining: remaining, sound: true, haptic: true)
             }
         }
     }
 
     private func advanceInterval() {
         RestFeedback.restComplete(sound: true, haptic: true)
+        let now = Date()
         if phaseIsWork {
             if config.restTotalSeconds > 0 {
                 phaseIsWork = false
                 displaySeconds = config.restTotalSeconds
+                phaseEndDate = WallClockTimer.endDate(from: now, lasting: config.restTotalSeconds)
             } else {
                 finishOrNextRound()
             }
@@ -488,6 +567,7 @@ struct StandaloneTimerView: View {
         roundNumber += 1
         phaseIsWork = true
         displaySeconds = config.workTotalSeconds
+        phaseEndDate = WallClockTimer.endDate(from: Date(), lasting: config.workTotalSeconds)
     }
 
     private func skipInterval() {
@@ -498,8 +578,12 @@ struct StandaloneTimerView: View {
     private func stopTimer(keepState: Bool = false) {
         timer?.invalidate()
         timer = nil
+        preCountdownEnd = nil
+        phaseEndDate = nil
+        phaseStartDate = nil
         if !keepState {
             isRunning = false
+            pausedDisplaySeconds = nil
             preCountdown = 0
         }
     }
