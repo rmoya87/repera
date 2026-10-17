@@ -1,6 +1,6 @@
 # Funcionalidades Gymbro
 
-Última actualización: 2026-10-17 (revisión final ExerciseArt: GHD fuera de cuarentena)
+Última actualización: 2026-10-17 (arranque: LaunchScreen ligero + bootstrap/iCloud diferidos)
 
 ## Tabs
 

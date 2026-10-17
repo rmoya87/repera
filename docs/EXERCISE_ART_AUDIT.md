@@ -63,7 +63,9 @@ La inspección adicional ha identificado **11 héroes FAIL** y **2 WARN** (adem�
 
 **Follow-up post-push (mismo día):** corregidos hang_clean_3 (front rack), kb_snatch_1 (lateralidad), mu_bar_2 / mu_rings_2 (transición), ring_dip_3 (lockout), cargada_3 / cluster hero, TGU 1–3 (KB brazo derecho), curl martillo.
 
-Pendientes opcionales si reaparecen en QA: CTB con pecho claramente pegado a la barra, MU anillas en hang (no soporte), algunos HL (pause clean / hang snatch) si el modelo vuelve a overhead/back rack.
+**Re-auditoría + regen FAIL (mismo día, post búlgara):** regenerados y exportados tras QA visual: `art_cf_thruster_2` (front rack), `art_cf_ohs_1`/`_3` (de pie OH), `art_cf_hspu_3` (bloqueo), `art_cf_tgu_3` (de pie), `art_cf_ghd`/`_1`–`_3` (banco GHD/decline con rodillos, torso descubierto), `art_cf_ctb_3`, `art_cf_mu_rings_2` (transición), `art_cf_split_jerk_3` (pies juntos), `art_cf_bjo_3`, `art_cf_burpee_pu_2` (dead hang), `art_cf_wall_ball_1` (sin camiseta), `art_cf_kb_snatch_2`, `art_cf_rope_1`, `art_press_banca_1` (plano, barra al pecho), `art_press_militar_1` (front rack), `art_hip_thrust_1` (cadera baja), `art_sentadilla_1` (mismos discos), `art_aperturas`/`_1`/`_2` (inclinado open→close), `art_zancadas`/`_3` (dos mancuernas). Auditor Pillow: 0 FAIL estructurales.
+
+Pendientes opcionales si reaparecen en QA: CTB con pecho inequívoco + agarre prono (el modelo insiste en chin-up); aperturas `_2` cierre de arco (tiende a press); GHD máquina comercial vs decline+rodillos; rope `_1` salto inicial.
 
 ## Procedimiento de cierre visual, por stem
 
