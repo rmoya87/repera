@@ -52,11 +52,9 @@ struct QuickLogPickerView: View {
     }
 
     private var filtered: [Exercise] {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let base = store.state.exercises
         if q.isEmpty { return base }
-        return base.filter {
-            $0.name.lowercased().contains(q) || $0.muscleGroup.lowercased().contains(q)
-        }
+        return ExerciseSearch.ranked(base, query: q)
     }
 }

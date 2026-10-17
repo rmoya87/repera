@@ -39,10 +39,7 @@ struct GymbroApp: App {
                             await store.syncBodyWeightWithHealth()
                         }
                     }
-                    Task(priority: .utility) {
-                        try? await Task.sleep(nanoseconds: 1_500_000_000)
-                        ExerciseArt.prefetchThumbs(for: Array(store.state.exercises.prefix(40)))
-                    }
+                    // No global thumb prefetch on launch — LibraryView warms visible rows only.
                 }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active {

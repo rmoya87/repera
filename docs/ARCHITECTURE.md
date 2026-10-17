@@ -1,6 +1,6 @@
 # Arquitectura Gymbro
 
-Última actualización: 2026-10-17 (arranque rápido: splash + bootstrap diferido)
+Última actualización: 2026-10-17 (J28: buscador off-main + ThumbMemoryCache/ImageIO)
 
 ## Visión
 

@@ -1,7 +1,7 @@
 import GymbroDomain
 import SwiftUI
 
-private enum ExerciseBrowseMode: String, CaseIterable, Identifiable {
+private enum ExerciseBrowseMode: String, CaseIterable, Identifiable, Sendable {
     case alphabetical
     case muscle
     case sport
@@ -70,28 +70,22 @@ struct LibraryView: View {
             )
             .ogListChrome()
             .scrollDismissesKeyboard(.interactively)
-            // Sin animaciones al filtrar / al activar teclado (isSearching).
-            .transaction { $0.animation = nil }
-            .animation(nil, value: query)
-            .onChange(of: query) { _, _ in
-                rebuildSections(reason: "query")
+            // Only mute list diff animations — do not disable keyboard / focus transitions.
+            .animation(nil, value: cachedSections.map(\.id))
+            .task(id: store.state.syncRevision) {
+                await rebuildIndexOffMain(reason: "catalog")
+            }
+            .task(id: "\(query)|\(browseMode.rawValue)|\(searchIndex.count)") {
+                await applySectionsCancelable(reason: query.isEmpty ? "browse" : "query")
             }
             .onChange(of: browseMode) { _, _ in
-                rebuildSections(reason: "browseMode")
-            }
-            .onChange(of: store.state.exercises) { _, exercises in
-                searchIndex = ExerciseSearch.makeIndex(exercises)
-                rebuildSections(reason: "exercises")
-                prefetchThumbsIfNeeded()
+                prefetchVisibleThumbs()
             }
             .onAppear {
-                if searchIndex.isEmpty {
-                    searchIndex = ExerciseSearch.makeIndex(store.state.exercises)
-                }
-                if cachedSections.isEmpty {
-                    rebuildSections(reason: "appear")
-                }
-                prefetchThumbsIfNeeded()
+                prefetchVisibleThumbs()
+            }
+            .onDisappear {
+                ExerciseArt.cancelThumbPrefetch()
             }
             .navigationTitle("Ejercicios")
             .navigationBarTitleDisplayMode(.inline)
@@ -261,120 +255,140 @@ struct LibraryView: View {
         .ogFittedSheet()
     }
 
-    private func prefetchThumbsIfNeeded() {
-        guard !didPrefetchThumbs else { return }
+    private func prefetchVisibleThumbs() {
+        let ids = cachedSections.prefix(2).flatMap(\.items).prefix(20).map(\.id)
+        let exercises = ids.compactMap { id in store.state.exercises.first { $0.id == id } }
+        let source = exercises.isEmpty ? Array(store.state.exercises.prefix(16)) : exercises
+        ExerciseArt.prefetchThumbs(for: source, limit: 20)
         didPrefetchThumbs = true
-        ExerciseArt.prefetchThumbs(for: store.state.exercises)
     }
 
-    private func rebuildSections(reason: String) {
+    private func rebuildIndexOffMain(reason: String) async {
+        let exercises = store.state.exercises
+        LibrarySearchLog.signpostBegin("IndexBuild")
+        let index = await Task.detached(priority: .userInitiated) {
+            ExerciseSearch.makeIndex(exercises)
+        }.value
+        guard !Task.isCancelled else {
+            LibrarySearchLog.signpostEnd("IndexBuild")
+            return
+        }
+        searchIndex = index
+        LibrarySearchLog.signpostEnd("IndexBuild")
+        LibrarySearchLog.info("index ready reason=\(reason) docs=\(index.count)")
+        await applySectionsCancelable(reason: reason)
+        prefetchVisibleThumbs()
+    }
+
+    private func applySectionsCancelable(reason: String) async {
         let t0 = CFAbsoluteTimeGetCurrent()
-        let sections = makeSections()
-        // Evita invalidar la List si el resultado no cambió (p. ej. espacios al final).
-        if sections == cachedSections { return }
-        cachedSections = sections
+        LibrarySearchLog.signpostBegin("SectionsBuild")
+        let index = searchIndex
+        let mode = browseMode
+        let q = query
+        let byId = Dictionary(uniqueKeysWithValues: store.state.exercises.map { ($0.id, $0) })
+        let sections = await Task.detached(priority: .userInitiated) {
+            Self.makeSections(
+                index: index,
+                query: q,
+                browseMode: mode,
+                sportTags: ["CrossFit", "Halterofilia", "Gimnasia", "Cardio"],
+                exercisesById: byId
+            )
+        }.value
+        guard !Task.isCancelled else {
+            LibrarySearchLog.signpostEnd("SectionsBuild")
+            return
+        }
+        if sections != cachedSections {
+            cachedSections = sections
+        }
         let items = sections.reduce(0) { $0 + $1.items.count }
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        LibrarySearchLog.signpostEnd("SectionsBuild")
         LibrarySearchLog.rebuildSections(
             reason: reason,
             count: items,
-            queryEmpty: q.isEmpty,
+            queryEmpty: q.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
             ms: (CFAbsoluteTimeGetCurrent() - t0) * 1000
         )
-        #if DEBUG
-        if !q.isEmpty, let top = sections.first?.items.prefix(3) {
-            let labels = top.map {
-                "\($0.name)(\(ExerciseSearch.score($0.exercise, query: q)))"
-            }
-            LibrarySearchLog.info("rank top: \(labels.joined(separator: ", "))")
-        }
-        #endif
     }
 
-    private func filteredExercises() -> [Exercise] {
+    nonisolated private static func makeSections(
+        index: [ExerciseSearch.Document],
+        query: String,
+        browseMode: ExerciseBrowseMode,
+        sportTags: Set<String>,
+        exercisesById: [UUID: Exercise]
+    ) -> [LibrarySectionModel] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let docs: [ExerciseSearch.Document]
         if browseMode == .favorites {
-            docs = searchIndex.filter(\.exercise.isFavorite)
+            docs = index.filter(\.isFavorite)
         } else {
-            docs = searchIndex
+            docs = index
         }
-        guard !q.isEmpty else {
-            return docs.map(\.exercise)
+        let rankedDocs: [ExerciseSearch.Document]
+        if q.isEmpty {
+            rankedDocs = docs.sorted {
+                $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending
+            }
+        } else {
+            rankedDocs = ExerciseSearch.rankedDocuments(docs, query: q)
         }
-        return ExerciseSearch.ranked(docs, query: q)
-    }
-
-    private func rowModels(from exercises: [Exercise]) -> [LibraryRowModel] {
-        exercises.map { ex in
-            LibraryRowModel(
-                id: ex.id,
-                name: ex.name,
-                subtitle: librarySubtitle(ex),
-                isFavorite: ex.isFavorite,
+        let rows = rankedDocs.compactMap { doc -> LibraryRowModel? in
+            guard let ex = exercisesById[doc.id] else { return nil }
+            return LibraryRowModel(
+                id: doc.id,
+                name: doc.displayName,
+                subtitle: librarySubtitle(doc),
+                isFavorite: doc.isFavorite,
                 isCustom: ex.isCustom,
                 exercise: ex
             )
         }
+        if !q.isEmpty || browseMode == .alphabetical || browseMode == .favorites {
+            return [LibrarySectionModel(key: "flat", title: nil, items: rows)]
+        }
+        switch browseMode {
+        case .alphabetical, .favorites:
+            return [LibrarySectionModel(key: "flat", title: nil, items: rows)]
+        case .muscle:
+            return Dictionary(grouping: rows, by: { exercisesById[$0.id]?.muscleGroup ?? "" })
+                .map { key, value in
+                    LibrarySectionModel(key: key, title: key, items: value)
+                }
+                .sorted { $0.key < $1.key }
+        case .sport:
+            return Dictionary(grouping: rows) { row in
+                sportBucket(for: exercisesById[row.id], sportTags: sportTags)
+            }
+            .map { key, value in
+                LibrarySectionModel(key: key, title: key, items: value)
+            }
+            .sorted { sportSort($0.key) < sportSort($1.key) }
+        }
     }
 
-    private func librarySubtitle(_ exercise: Exercise) -> String {
-        var parts: [String] = [exercise.muscleGroup]
-        if let sport = exercise.sportTag, !sport.isEmpty {
+    nonisolated private static func librarySubtitle(_ doc: ExerciseSearch.Document) -> String {
+        var parts: [String] = [doc.muscleGroup]
+        if let sport = doc.sportTag, !sport.isEmpty {
             parts.append(sport)
         }
-        if let eq = exercise.equipment, !eq.isEmpty {
+        if let eq = doc.equipment, !eq.isEmpty {
             parts.append(LocalizedMuscle.es(eq))
         }
         return parts.joined(separator: " · ")
     }
 
-    private func makeSections() -> [LibrarySectionModel] {
-        let list = filteredExercises()
-        let searching = !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        // Misma `key` en lista plana: SwiftUI reusa filas/thumbs al filtrar (diff por id).
-        if searching {
-            return [
-                LibrarySectionModel(key: "flat", title: nil, items: rowModels(from: list)),
-            ]
-        }
-        if browseMode == .alphabetical || browseMode == .favorites {
-            let sorted = list.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-            return [
-                LibrarySectionModel(key: "flat", title: nil, items: rowModels(from: sorted)),
-            ]
-        }
-        switch browseMode {
-        case .alphabetical, .favorites:
-            let sorted = list.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-            return [
-                LibrarySectionModel(key: "flat", title: nil, items: rowModels(from: sorted)),
-            ]
-        case .muscle:
-            return Dictionary(grouping: list, by: \.muscleGroup)
-                .map { key, value in
-                    let sorted = value.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-                    return LibrarySectionModel(key: key, title: key, items: rowModels(from: sorted))
-                }
-                .sorted { $0.key < $1.key }
-        case .sport:
-            return Dictionary(grouping: list) { sportBucket(for: $0) }
-                .map { key, value in
-                    let sorted = value.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-                    return LibrarySectionModel(key: key, title: key, items: rowModels(from: sorted))
-                }
-                .sorted { sportSort($0.key) < sportSort($1.key) }
-        }
-    }
-
-    private func sportBucket(for exercise: Exercise) -> String {
+    nonisolated private static func sportBucket(for exercise: Exercise?, sportTags: Set<String>) -> String {
+        guard let exercise else { return "Fuerza" }
         if let tag = exercise.sportTag, sportTags.contains(tag) { return tag }
         if exercise.muscleGroup == "Cardio" { return "Cardio" }
         if sportTags.contains(exercise.muscleGroup) { return exercise.muscleGroup }
         return "Fuerza"
     }
 
-    private func sportSort(_ key: String) -> Int {
+    nonisolated private static func sportSort(_ key: String) -> Int {
         switch key {
         case "Fuerza": return 0
         case "CrossFit": return 1
@@ -402,10 +416,8 @@ private struct LibraryRowModel: Identifiable, Equatable {
     let exercise: Exercise
 }
 
-/// Lista aislada: lee `isSearching` y corta animaciones al abrir el teclado.
+/// Lista aislada. Does not disable system search/keyboard animations.
 private struct LibraryExerciseList: View {
-    @Environment(\.isSearching) private var isSearching
-
     let sections: [LibrarySectionModel]
     var zoomNamespace: Namespace.ID
     var reduceMotion: Bool
@@ -424,13 +436,6 @@ private struct LibraryExerciseList: View {
                         rows(group.items)
                     }
                 }
-            }
-        }
-        .animation(nil, value: isSearching)
-        .transaction { tx in
-            tx.animation = nil
-            if isSearching {
-                tx.disablesAnimations = true
             }
         }
     }

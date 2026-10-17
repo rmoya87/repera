@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "project": "Gymbro",
-  "branch": "feat/ios27-native-performance-audit",
+  "branch": "fix/ios27-jank-search-reliability",
   "baseCommit": "b198235c93fbc36b0c790eece80bf301f15e55fa",
-  "headCommit": "18016fe7e3b56f3acfc278db020076feff303487",
-  "updatedAt": "2026-10-17T09:10:42Z",
+  "headCommit": "pending",
+  "updatedAt": "2026-10-17T09:39:41Z",
   "global": {
-    "total": 30,
+    "total": 55,
     "completed": 0,
-    "inProgress": 0,
-    "inReview": 30,
-    "blocked": 0,
-    "pending": 0,
+    "inProgress": 1,
+    "inReview": 36,
+    "blocked": 1,
+    "pending": 17,
     "percentComplete": 0.0
   },
   "phases": {
@@ -59,6 +59,15 @@
       "inReview": 6,
       "blocked": 0,
       "pending": 0
+    },
+    "P5": {
+      "label": "Jank búsqueda + fiabilidad (J28)",
+      "total": 25,
+      "completed": 0,
+      "inProgress": 1,
+      "inReview": 6,
+      "blocked": 1,
+      "pending": 17
     }
   },
   "tasks": [
@@ -1315,6 +1324,483 @@
       "startedAt": null,
       "completedAt": null,
       "updatedAt": "2026-10-17T09:10:42Z"
+    },
+    {
+      "id": "J28-001",
+      "phase": "P5",
+      "priority": "critical",
+      "title": "Prefetch visible-only + max 4 workers",
+      "summary": "Sin precarga global; ImageIO; cancelación",
+      "status": "in_review",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "Sin precarga global; ImageIO; cancelación"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "Sin precarga global; ImageIO; cancelación"
+    },
+    {
+      "id": "J28-002",
+      "phase": "P5",
+      "priority": "critical",
+      "title": "Índice/secciones off-MainActor",
+      "summary": "Document ligero + rankedDocuments + .task cancelable",
+      "status": "in_review",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "Document ligero + rankedDocuments + .task cancelable"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "Document ligero + rankedDocuments + .task cancelable"
+    },
+    {
+      "id": "J28-003",
+      "phase": "P5",
+      "priority": "critical",
+      "title": "Foco buscador / animaciones / signposts",
+      "summary": "OSSignposter; no matar animaciones de teclado",
+      "status": "in_review",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "OSSignposter; no matar animaciones de teclado"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "OSSignposter; no matar animaciones de teclado"
+    },
+    {
+      "id": "J28-004",
+      "phase": "P5",
+      "priority": "critical",
+      "title": "Unificar caché thumbs NSCache+ImageIO",
+      "summary": "ThumbMemoryCache única; sin doble Dictionary",
+      "status": "in_review",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "ThumbMemoryCache única; sin doble Dictionary"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "ThumbMemoryCache única; sin doble Dictionary"
+    },
+    {
+      "id": "J28-005",
+      "phase": "P5",
+      "priority": "high",
+      "title": "Pickers reutilizan ExerciseSearch.ranked",
+      "summary": "PlanView + QuickLogPicker",
+      "status": "in_review",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "PlanView + QuickLogPicker"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "PlanView + QuickLogPicker"
+    },
+    {
+      "id": "J28-006",
+      "phase": "P5",
+      "priority": "critical",
+      "title": "Persistencia ordered-writes",
+      "summary": "Cola monotónica + persistAndFlush",
+      "status": "pending",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "Cola monotónica + persistAndFlush"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "Cola monotónica + persistAndFlush"
+    },
+    {
+      "id": "J28-007",
+      "phase": "P5",
+      "priority": "critical",
+      "title": "Arranque sin I/O sync en init",
+      "summary": "Shell vacío + hydrate async (rama)",
+      "status": "in_review",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "Shell vacío + hydrate async (rama)"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "Shell vacío + hydrate async (rama)"
+    },
+    {
+      "id": "J28-008",
+      "phase": "P5",
+      "priority": "critical",
+      "title": "iCloud conflictos / upload gate",
+      "summary": "Serializar fetch/resolve/upload",
+      "status": "pending",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "Serializar fetch/resolve/upload"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "Serializar fetch/resolve/upload"
+    },
+    {
+      "id": "J28-009",
+      "phase": "P5",
+      "priority": "critical",
+      "title": "WOD wall-clock coordinator",
+      "summary": "Eliminar tickWODClock",
+      "status": "pending",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "Eliminar tickWODClock"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "Eliminar tickWODClock"
+    },
+    {
+      "id": "J28-010",
+      "phase": "P5",
+      "priority": "high",
+      "title": "Standalone timer multi-fase tras sleep",
+      "summary": "Timeline determinista",
+      "status": "pending",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "Timeline determinista"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "Timeline determinista"
+    },
+    {
+      "id": "J28-011",
+      "phase": "P5",
+      "priority": "high",
+      "title": "Live Activity race por generation",
+      "summary": "ID de descanso",
+      "status": "pending",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "ID de descanso"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "ID de descanso"
+    },
+    {
+      "id": "J28-012",
+      "phase": "P5",
+      "priority": "high",
+      "title": "Heatmap invalidación por revisión",
+      "summary": "No solo .count",
+      "status": "pending",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "No solo .count"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "No solo .count"
+    },
+    {
+      "id": "J28-013",
+      "phase": "P5",
+      "priority": "high",
+      "title": "Stats charts cancelables",
+      "summary": "healthDataRevision",
+      "status": "pending",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "healthDataRevision"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "healthDataRevision"
+    },
+    {
+      "id": "J28-014",
+      "phase": "P5",
+      "priority": "high",
+      "title": "Health cache por exclusiones",
+      "summary": "raw HK + filtros dinámicos",
+      "status": "pending",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "raw HK + filtros dinámicos"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "raw HK + filtros dinámicos"
+    },
+    {
+      "id": "J28-015",
+      "phase": "P5",
+      "priority": "high",
+      "title": "overlappingWorkout estricto",
+      "summary": "No match ±45min ambiguo",
+      "status": "pending",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "No match ±45min ambiguo"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "No match ±45min ambiguo"
+    },
+    {
+      "id": "J28-016",
+      "phase": "P5",
+      "priority": "high",
+      "title": "Watch ACK tras persist",
+      "summary": "sessionRevision + actionId",
+      "status": "pending",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "sessionRevision + actionId"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "sessionRevision + actionId"
+    },
+    {
+      "id": "J28-017",
+      "phase": "P5",
+      "priority": "high",
+      "title": "Observable session isolation",
+      "summary": "Profiling primero",
+      "status": "pending",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "Profiling primero"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "Profiling primero"
+    },
+    {
+      "id": "J28-018",
+      "phase": "P5",
+      "priority": "medium",
+      "title": "RootTab navigation jank",
+      "summary": "Perfil rutas",
+      "status": "pending",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "Perfil rutas"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "Perfil rutas"
+    },
+    {
+      "id": "J28-019",
+      "phase": "P5",
+      "priority": "medium",
+      "title": "OCR off MainActor",
+      "summary": "ImageIO worker",
+      "status": "pending",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "ImageIO worker"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "ImageIO worker"
+    },
+    {
+      "id": "J28-020",
+      "phase": "P5",
+      "priority": "critical",
+      "title": "CI scheme Gymbro + fail hard",
+      "summary": "Sin continue-on-error UITests",
+      "status": "pending",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "Sin continue-on-error UITests"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "Sin continue-on-error UITests"
+    },
+    {
+      "id": "J28-021",
+      "phase": "P5",
+      "priority": "medium",
+      "title": "Task/concurrency audit",
+      "summary": "Inventario Task.detached",
+      "status": "pending",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "Inventario Task.detached"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "Inventario Task.detached"
+    },
+    {
+      "id": "J28-022",
+      "phase": "P5",
+      "priority": "medium",
+      "title": "Memoria pantallas secundarias",
+      "summary": "Instruments",
+      "status": "pending",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "Instruments"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "Instruments"
+    },
+    {
+      "id": "J28-023",
+      "phase": "P5",
+      "priority": "high",
+      "title": "Banco latencia primer toque",
+      "summary": "Requiere dispositivo físico Release",
+      "status": "blocked",
+      "dependsOn": [],
+      "blockedBy": [
+        "device-instruments"
+      ],
+      "risks": [],
+      "acceptanceCriteria": [
+        "Requiere dispositivo físico Release"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "Requiere dispositivo físico Release"
+    },
+    {
+      "id": "J28-024",
+      "phase": "P5",
+      "priority": "medium",
+      "title": "Notificación fin descanso",
+      "summary": "Live Activity + opcional local notif",
+      "status": "pending",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "Live Activity + opcional local notif"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "Live Activity + opcional local notif"
+    },
+    {
+      "id": "J28-025",
+      "phase": "P5",
+      "priority": "medium",
+      "title": "Canvas J28 + métricas",
+      "summary": "Este lote",
+      "status": "in_progress",
+      "dependsOn": [],
+      "blockedBy": [],
+      "risks": [],
+      "acceptanceCriteria": [
+        "Este lote"
+      ],
+      "filesModified": [],
+      "tests": [],
+      "commits": [],
+      "metrics": {},
+      "notes": "Este lote"
     }
   ],
   "history": [

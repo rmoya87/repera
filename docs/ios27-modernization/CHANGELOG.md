@@ -1,6 +1,16 @@
 # CHANGELOG — Modernización iOS 27
 
-Historial de implementaciones en `feat/ios27-native-performance-audit`.
+Historial de implementaciones (G27 + J28). Rama activa: `fix/ios27-jank-search-reliability`.
+
+## 2026-10-17 — J28 Fase B (buscador / thumbs) in_review
+
+- J28-001/004: `ThumbMemoryCache` + ImageIO; prefetch ventana ≤20; max 4 workers; sin doble pasada; cancel al salir de Ejercicios.
+- J28-002: `ExerciseSearch.Document` sin Exercise completo; índice/secciones en `Task.detached`; `.task(id:)` cancelable.
+- J28-003: OSSignposter IndexBuild/SectionsBuild; no `disablesAnimations` en teclado.
+- J28-005: Plan/QuickLog usan `ExerciseSearch.ranked`.
+- J28-007: shell vacío + `Catalog.prewarm` (commit previo en rama).
+- J28-023: blocked (dispositivo físico).
+- Canvas: 25 tareas J28 en P5; generador admite P5.
 
 ## 2026-10-17 — Canvas inicial
 
