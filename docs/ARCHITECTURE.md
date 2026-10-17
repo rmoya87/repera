@@ -1,6 +1,6 @@
 # Arquitectura Gymbro
 
-Última actualización: 2026-10-17 (J28 splash/WOD/sync + catálogo coaching)
+Última actualización: 2026-10-17 (J28 splash/WOD/sync; coaching ES 188/188)
 
 ## Visión
 
