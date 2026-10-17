@@ -59,7 +59,9 @@ La inspección adicional ha identificado **11 héroes FAIL** y **2 WARN** (adem�
 
 **Imágenes JPG regeneradas/exportadas (2026-10-17):** los **155 stems** de `docs/EXERCISE_ART_REGEN_PROMPTS.md` tienen full 1024 + thumb 192 reexportados. Auditor Pillow: 0 FAIL estructurales, 291/291 emparejados.
 
-**Revisión final de incongruencias (mismo día):** corregidos y reexportados GHD sit-up (pad+rodillos), hang clean (hang → extensión → rack frontal de pie), OHS en sentadilla, split jerk en split, HSPU con fases, muscle-up barra, aperturas en banco inclinado (captions alineados), planche tuck y GHD back. Cuarentena `art_cf_ghd` retirada. **Follow-up post-push (mismo día):** corregidos hang_clean_3 (front rack), kb_snatch_1 (lateralidad), mu_bar_2 / mu_rings_2 (transición), ring_dip_3 (lockout), cargada_3 / cluster hero, TGU 1–3 (KB brazo derecho), curl martillo.
+**Revisión final de incongruencias (mismo día):** corregidos y reexportados GHD sit-up (pad+rodillos), hang clean (hang → extensión → rack frontal de pie), OHS en sentadilla, split jerk en split, HSPU con fases, muscle-up barra, aperturas en banco inclinado (captions alineados), planche tuck y GHD back. Cuarentena `art_cf_ghd` retirada. **Recuperación agente FAIL (mismo día):** reexportados `mu_rings` (hang), `mu_bar_1` (dead hang), `hang_snatch` (hang mid-thigh), `planche` (tuck), `muscle_clean` (front rack). CTB pecho-a-barra sigue difícil para el modelo.
+
+**Follow-up post-push (mismo día):** corregidos hang_clean_3 (front rack), kb_snatch_1 (lateralidad), mu_bar_2 / mu_rings_2 (transición), ring_dip_3 (lockout), cargada_3 / cluster hero, TGU 1–3 (KB brazo derecho), curl martillo.
 
 Pendientes opcionales si reaparecen en QA: CTB con pecho claramente pegado a la barra, MU anillas en hang (no soporte), algunos HL (pause clean / hang snatch) si el modelo vuelve a overhead/back rack.
 
