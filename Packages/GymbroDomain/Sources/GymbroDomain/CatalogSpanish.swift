@@ -459,8 +459,8 @@ public enum CatalogSpanish {
         // MARK: Halterofilia / CF
         "Arrancada": [
             "Setup: barra sobre mediopié, AGARRE ANCHO de snatch, espalda plana.",
-            "Métete bajo la barra tras la tirada: recibes hacia overhead squat.",
-            "Overhead squat profundo o de pie bloqueado, agarre ancho.",
+            "Tirón: extiende cadera y rodillas; barra sube pegada con agarre ancho.",
+            "Bloquea overhead de pie, brazos extendidos, agarre ancho.",
         ],
         "Cargada": [
             "Setup: barra sobre mediopié, agarre de clean.",
@@ -509,7 +509,7 @@ public enum CatalogSpanish {
         ],
         "Burpee pull-up": [
             "Pecho al suelo bajo la barra.",
-            "Salta y agarra la barra.",
+            "Agarra la barra y cuelga con brazos extendidos.",
             "Dominada: barbilla por encima de la barra.",
         ],
         "Salto al cajón": [

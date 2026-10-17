@@ -57,7 +57,7 @@ La inspección adicional ha identificado **11 héroes FAIL** y **2 WARN** (adem�
 - `ExerciseArtCaptionTests.swift`: asegura el número de frases para los 38 carruseles propios.
 - `scripts/audit_exercise_art.py`: valida full 1024, thumb 192, integridad JPEG, naming y N↔N de instrucciones.
 
-**Imágenes JPG regeneradas/exportadas en esta revisión: ninguna.** No se ha tenido acceso al directorio local `/Users/ramon/Proyectos/gymbro` ni a fuentes coherentes de cada fase que puedan exportarse y subirse de forma verificable. Por tanto, no se afirma que los defectos visuales estén subsanados: quedan en cuarentena para no enseñar instrucciones falsas.
+**Imágenes JPG regeneradas/exportadas (2026-10-17):** los **155 stems** de `docs/EXERCISE_ART_REGEN_PROMPTS.md` tienen full 1024 + thumb 192 reexportados. Auditor Pillow: 0 FAIL estructurales, 291/291 emparejados. Cuarentena residual: solo `art_cf_ghd` (máquina aún tipo decline crunch, no GHD real). Pendientes menores opcionales: jump_lunge, block snatch grip, curl martillo neutro, lateralidad zancadas/TGU.
 
 ## Procedimiento de cierre visual, por stem
 
