@@ -1,6 +1,6 @@
 # Funcionalidades Gymbro
 
-Última actualización: 2026-10-17 (arranque: LaunchScreen ligero + bootstrap/iCloud diferidos)
+Última actualización: 2026-10-17 (Catálogo: instrucciones ES + músculos/equilibrio corregidos)
 
 ## Tabs
 
@@ -45,6 +45,7 @@
 - Calorías: días con dato; Salud o fallback Gymbro/externos.
 - Salud: caché diaria ≤360d. Trazas `category:Progress` (`prepare …ms`, `HK fetch`).
 - Heatmap, equilibrio muscular, progreso por ejercicio y PRs; enlace a historial.
+- Equilibrio: cada ejercicio del seed tiene `target`/`primaryRegions` (peso 1) y secundarios (≈0.55 el primero, ≈0.35 el resto) vía `MuscleTaxonomy.muscleWeights`; se acumula por series efectivas en la ventana.
 
 ### Ejercicios (`LibraryView`)
 
@@ -62,6 +63,7 @@
 - QA: inventario por stem en `docs/EXERCISE_ART_AUDIT.csv`; auditoría reproducible con `.venv-art/bin/python scripts/audit_exercise_art.py`. Estados: `FAIL` (defecto confirmado), `WARN` (revisar), `PENDING_VISUAL_QA` (sin aprobar visualmente). No confundir existencia en disco con veredicto OK.
 - Filtro / orden: alfabético, músculo, deporte, favoritos (modal).
 - **Músculo** = grupo anatómico (Pecho, Piernas…). CrossFit / Halterofilia / Gimnasia no son grupos musculares: van en **Deporte** (`sportTag`) y el ejercicio se asigna al músculo principal para métricas.
+- Ficha: descripción + pasos «cómo hacerlo» en ES para los **188** del seed (`CatalogSpanish`); si hay carrusel de arte, los N primeros pasos son captions de fase.
 - Alta de ejercicio custom.
 - **Sin** botón «+ Plan» en filas.
 

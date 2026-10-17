@@ -10,23 +10,23 @@ enum CatalogEnrichment {
             target: "pectorals",
             secondaryMuscles: ["triceps", "shoulders"],
             bodyPart: "chest",
-            description: "The classic flat bench press. Lower the bar to your chest and press it up to build the chest, shoulders and triceps.",
+            description: "Press de banca en banco plano: bajas la barra al pecho y la empujas a bloqueo. Pecho, hombros y tríceps.",
             instructions: ["Lie flat on a bench with your feet flat on the ground and your back pressed against the bench.", "Grasp the barbell with an overhand grip slightly wider than shoulder-width apart.", "Lift the barbell off the rack and hold it directly above your chest with your arms fully extended.", "Lower the barbell slowly towards your chest, keeping your elbows tucked in.", "Pause for a moment when the barbell touches your chest.", "Push the barbell back up to the starting position by extending your arms."],
             primaries: ["chest"],
-            secondaries: ["triceps", "deltoids", "biceps"]
+            secondaries: ["triceps", "deltoids"]
         ),
         EnrichedSeed(
             name: "Press banca inclinada",
             muscleGroup: "Pecho",
             equipment: "Barra",
             catalogId: "0048",
-            target: "triceps",
-            secondaryMuscles: ["chest", "shoulders"],
-            bodyPart: "upper arms",
-            description: "An incline press with a reverse grip, loading the upper chest and triceps.",
+            target: "pectorals",
+            secondaryMuscles: ["triceps", "shoulders"],
+            bodyPart: "chest",
+            description: "Press en banco inclinado (30–45°): más énfasis en pecho alto y deltoides anterior.",
             instructions: ["Set up an incline bench at a 45-degree angle.", "Lie back on the bench and grasp the barbell with a reverse grip, hands slightly wider than shoulder-width apart.", "Unrack the barbell and lower it towards your upper chest, keeping your elbows tucked in.", "Pause for a moment at the bottom, then push the barbell back up to the starting position.", "Repeat for the desired number of repetitions."],
-            primaries: [],
-            secondaries: []
+            primaries: ["chest"],
+            secondaries: ["triceps", "deltoids"]
         ),
         EnrichedSeed(
             name: "Press mancuernas",
@@ -36,10 +36,10 @@ enum CatalogEnrichment {
             target: "pectorals",
             secondaryMuscles: ["triceps", "shoulders"],
             bodyPart: "chest",
-            description: "The classic dumbbell press on a flat bench. It builds the chest, shoulders and triceps with a good range of motion.",
-            instructions: ["Lie flat on a bench with your feet flat on the ground and your back pressed against the bench.", "Hold a dumbbell in each hand, with your palms facing forward and your arms extended above your chest.", "Lower the dumbbells slowly to the sides of your chest, keeping your elbows at a 90-degree angle.", "Pause for a moment, then push the dumbbells back up to the starting position, fully extending your arms.", "Repeat for the desired number of repetitions."],
+            description: "Press con mancuernas en banco plano: mayor rango y estabilización que con barra.",
+            instructions: ["Túmbate en banco plano, pies firmes, mancuernas a los lados del pecho.", "Muñecas sobre los codos; omóplatos retraídos.", "Empuja arriba juntando ligeramente las mancuernas sin chocarlas.", "Baja controlado hasta estirar el pecho; no abras los codos en exceso."],
             primaries: ["chest"],
-            secondaries: ["triceps", "deltoids", "biceps"]
+            secondaries: ["triceps", "deltoids"]
         ),
         EnrichedSeed(
             name: "Aperturas",
@@ -49,23 +49,23 @@ enum CatalogEnrichment {
             target: "pectorals",
             secondaryMuscles: ["shoulders", "biceps"],
             bodyPart: "chest",
-            description: "A chest fly with chains adding load.",
+            description: "Aperturas en banco inclinado: abres y cierras en arco con codos blandos para estirar y contraer el pecho.",
             instructions: ["Lie on a bench with chains.", "Hold weights above your chest.", "Open arms.", "Stretch your chest.", "Bring weights together.", "Keep elbows soft."],
-            primaries: [],
-            secondaries: []
+            primaries: ["chest"],
+            secondaries: ["deltoids", "biceps"]
         ),
         EnrichedSeed(
             name: "Fondos",
             muscleGroup: "Pecho",
             equipment: "Peso corporal",
             catalogId: "1442",
-            target: "triceps",
-            secondaryMuscles: ["chest", "shoulders", "core"],
-            bodyPart: "upper arms",
-            description: "Holding the top of a dip on parallel bars. It builds the triceps and shoulder stability.",
-            instructions: ["Grip the parallel bars and press yourself up with straight arms.", "Lean slightly forward and lock your shoulders down.", "Hold the position with your body still.", "Keep your elbows near your sides.", "Hold for 15-30 seconds and step down."],
-            primaries: [],
-            secondaries: []
+            target: "pectorals",
+            secondaryMuscles: ["triceps", "shoulders", "core"],
+            bodyPart: "chest",
+            description: "Fondos en paralelas inclinando el torso: pecho y tríceps; más vertical = más tríceps.",
+            instructions: ["Agarra las paralelas y súbete a soporte con brazos bloqueados.", "Inclina el torso ligeramente adelante y baja hasta ~90° de codo.", "Empuja a bloqueo sin encoger trapecios ni balancear piernas.", "Si buscas más pecho, inclina más; más vertical = más tríceps."],
+            primaries: ["chest", "triceps"],
+            secondaries: ["deltoids", "abs"]
         ),
         EnrichedSeed(
             name: "Dominadas",
@@ -73,12 +73,12 @@ enum CatalogEnrichment {
             equipment: "Peso corporal",
             catalogId: "3487",
             target: "lats",
-            secondaryMuscles: ["biceps", "upper back", "forearms", "rhomboids"],
+            secondaryMuscles: ["biceps", "upper back", "forearms"],
             bodyPart: "back",
-            description: "A beginner-friendly pull-up built from a bar across two chairs, with the feet on the floor and knees bent. It builds lats and arm pulling strength.",
+            description: "Dominadas: tiras el pecho hacia la barra. Dorsales, bíceps y agarre.",
             instructions: ["Set a sturdy bar across two stable chairs, high enough to sit under.", "Sit or lie beneath it and grip the bar slightly wider than your shoulders.", "Keep your knees bent with feet on the floor for light help.", "Pull your chest toward the bar by driving elbows down.", "Lower slowly until your arms are straight.", "Use your legs as little as you can."],
-            primaries: [],
-            secondaries: []
+            primaries: ["upper-back"],
+            secondaries: ["biceps", "forearm", "trapezius"]
         ),
         EnrichedSeed(
             name: "Jalón al pecho",
@@ -88,36 +88,36 @@ enum CatalogEnrichment {
             target: "lats",
             secondaryMuscles: ["biceps", "forearms"],
             bodyPart: "back",
-            description: "A classic seated cable pulldown with a wide bar. You pull to the chest to train the lats and the muscles around the shoulder blades.",
-            instructions: ["Adjust the cable pulldown machine so that the seat is at a comfortable height and the knee pad is secured.", "Sit on the seat with your back straight and your feet flat on the ground.", "Grasp the cable bar with an overhand grip, slightly wider than shoulder-width apart.", "Lean back slightly and engage your core.", "Pull the cable bar down towards your chest, squeezing your shoulder blades together.", "Pause for a moment at the bottom of the movement, then slowly release the bar back to the starting position."],
+            description: "Jalón al pecho sentado: tiras la barra a la clavícula/pecho alto. Dorsales y espalda media.",
+            instructions: ["Siéntate con muslos fijados; agarre prono un poco más ancho que hombros.", "Inicia el tirón llevando los codos abajo y atrás.", "Lleva la barra a pecho alto / clavícula sin balancear el tronco.", "Extiende los brazos con control manteniendo tensión en dorsales."],
             primaries: ["upper-back"],
-            secondaries: ["biceps", "deltoids", "forearm", "trapezius", "triceps"]
+            secondaries: ["biceps", "forearm", "trapezius"]
         ),
         EnrichedSeed(
             name: "Remo con barra",
             muscleGroup: "Espalda",
             equipment: "Barra",
             catalogId: nil,
-            target: nil,
-            secondaryMuscles: [],
-            bodyPart: nil,
-            description: nil,
-            instructions: [],
-            primaries: [],
-            secondaries: []
+            target: "lats",
+            secondaryMuscles: ["upper back", "biceps", "rear deltoids", "forearms"],
+            bodyPart: "back",
+            description: "Remo con barra inclinado: tiras la barra al abdomen. Espalda media/dorsal y bíceps.",
+            instructions: ["Bisagra de cadera, espalda plana, barra colgando a brazos extendidos.", "Tira la barra hacia el ombligo / abdomen bajo, codos cerca del cuerpo.", "Aprieta omóplatos un segundo arriba.", "Baja sin redondear la lumbar; no uses impulso de cadera excesivo."],
+            primaries: ["upper-back"],
+            secondaries: ["biceps", "deltoids", "forearm", "lower-back"]
         ),
         EnrichedSeed(
             name: "Remo mancuerna",
             muscleGroup: "Espalda",
             equipment: "Mancuernas",
             catalogId: nil,
-            target: nil,
-            secondaryMuscles: [],
-            bodyPart: nil,
-            description: nil,
-            instructions: [],
-            primaries: [],
-            secondaries: []
+            target: "lats",
+            secondaryMuscles: ["upper back", "biceps", "rear deltoids"],
+            bodyPart: "back",
+            description: "Remo a una mano apoyado en banco: dorsal y espalda media con buen estiramiento.",
+            instructions: ["Apoya una rodilla y una mano en el banco; tronco casi paralelo.", "Mancuerna colgando a brazo largo; omóplato activo.", "Tira el codo hacia la cadera hasta la costilla.", "Baja con control y cambia de lado al terminar la serie."],
+            primaries: ["upper-back"],
+            secondaries: ["biceps", "deltoids", "forearm"]
         ),
         EnrichedSeed(
             name: "Peso muerto",
@@ -125,12 +125,12 @@ enum CatalogEnrichment {
             equipment: "Barra",
             catalogId: "0967",
             target: "glutes",
-            secondaryMuscles: ["hamstrings", "lower back", "upper back", "grip muscles"],
+            secondaryMuscles: ["hamstrings", "lower back", "upper back", "forearms"],
             bodyPart: "upper legs",
-            description: "The barbell deadlift seen from the front. A strong lift for the glutes, hamstrings and back.",
+            description: "Peso muerto convencional: bisagra y extensión de cadera hasta de pie. Posterior completo y agarre.",
             instructions: ["Stand with feet hip width apart, bar over mid-foot.", "Hinge at the hips and grip the bar just outside your legs.", "Brace your core and keep your back flat.", "Push the floor away and stand up, keeping the bar close to your legs.", "Lock out your hips at the top without leaning back.", "Lower the bar by pushing your hips back and bending your knees."],
-            primaries: [],
-            secondaries: []
+            primaries: ["gluteal", "hamstring", "lower-back"],
+            secondaries: ["upper-back", "quadriceps", "forearm", "trapezius"]
         ),
         EnrichedSeed(
             name: "Peso muerto rumano",
@@ -138,25 +138,25 @@ enum CatalogEnrichment {
             equipment: "Barra",
             catalogId: "6552",
             target: "hamstrings",
-            secondaryMuscles: ["glutes", "lower back", "grip muscles"],
+            secondaryMuscles: ["glutes", "lower back", "forearms"],
             bodyPart: "upper legs",
-            description: "A hip hinge using a low cable. It trains the hamstrings and glutes with steady tension.",
+            description: "Peso muerto rumano: bisagra con poca flexión de rodilla; isquios y glúteos.",
             instructions: ["Attach a straight bar to a low pulley and face the machine.", "Hold the bar, step back and stand tall with soft knees.", "Push your hips back and slide the bar down your thighs.", "Keep your back flat and shoulders pulled back.", "Lower until you feel a hamstring stretch.", "Drive your hips forward to stand up."],
-            primaries: [],
-            secondaries: []
+            primaries: ["hamstring", "gluteal"],
+            secondaries: ["lower-back", "forearm"]
         ),
         EnrichedSeed(
             name: "Sentadilla",
             muscleGroup: "Piernas",
             equipment: "Barra",
             catalogId: "1462",
-            target: "glutes",
-            secondaryMuscles: ["quadriceps", "hamstrings", "calves", "core"],
+            target: "quads",
+            secondaryMuscles: ["glutes", "hamstrings", "core", "calves"],
             bodyPart: "upper legs",
-            description: "A full-depth barbell squat shown from the side. It builds the quads, glutes and core and shows your depth and back angle clearly.",
+            description: "Sentadilla con barra en espalda: bajas a paralelo o más y te levantas. Cuádriceps, glúteos y core.",
             instructions: ["Stand with your feet shoulder-width apart, toes slightly turned out.", "Hold the barbell across your upper back, resting it on your traps or rear delts.", "Engage your core and keep your chest up as you begin to lower your body down.", "Bend at the knees and hips, pushing your hips back and down as if sitting into a chair.", "Lower your body until your thighs are parallel to the ground or slightly below.", "Keep your knees in line with your toes and your weight in your heels."],
-            primaries: ["quadriceps", "gluteal", "adductors"],
-            secondaries: ["hamstring", "calves", "lower-back", "abs", "obliques"]
+            primaries: ["quadriceps", "gluteal"],
+            secondaries: ["hamstring", "adductors", "abs", "calves"]
         ),
         EnrichedSeed(
             name: "Sentadilla frontal",
@@ -164,24 +164,24 @@ enum CatalogEnrichment {
             equipment: "Barra",
             catalogId: "1595",
             target: "quads",
-            secondaryMuscles: ["glutes", "core", "hamstrings", "upper back"],
+            secondaryMuscles: ["glutes", "core", "upper back"],
             bodyPart: "upper legs",
-            description: "A front squat with the bar guided by the smith machine. It trains the quads with an upright torso.",
+            description: "Sentadilla frontal: barra en rack frontal, torso vertical; énfasis en cuádriceps.",
             instructions: ["Set the bar at shoulder height and rest it on the front of your shoulders with elbows up.", "Unrack it and step your feet slightly forward.", "Squat down until your thighs are about parallel to the floor.", "Keep your elbows high and your chest up.", "Press through your heels to stand and rerack when done."],
-            primaries: [],
-            secondaries: []
+            primaries: ["quadriceps"],
+            secondaries: ["gluteal", "abs", "upper-back"]
         ),
         EnrichedSeed(
             name: "Prensa",
             muscleGroup: "Piernas",
             equipment: "Máquina",
             catalogId: "0760",
-            target: "glutes",
-            secondaryMuscles: ["quadriceps", "hamstrings", "calves"],
+            target: "quads",
+            secondaryMuscles: ["glutes", "hamstrings", "calves"],
             bodyPart: "upper legs",
-            description: "A leg press done on a smith machine setup, pushing the footplate away with both legs. It builds the thighs and glutes with a guided path.",
-            instructions: ["Adjust the seat and footplate of the smith machine to a comfortable position.", "Sit on the machine with your back against the backrest and your feet shoulder-width apart on the footplate.", "Grasp the handles or sides of the machine for stability.", "Push the footplate away from you by extending your legs, keeping your back against the backrest.", "Pause for a moment at the fully extended position.", "Slowly bend your knees and lower the footplate back towards you, returning to the starting position."],
-            primaries: ["quadriceps", "gluteal", "adductors"],
+            description: "Prensa de piernas: empujas la plataforma. Cuádriceps y glúteos con trayectoria guiada.",
+            instructions: ["Espalda y pelvis pegadas al respaldo; pies al ancho de hombros en la plataforma.", "Baja flexionando rodillas sin despegar la lumbar.", "Empuja hasta casi extender sin bloquear de golpe las rodillas.", "Controla el descenso; no dejes que la plataforma te aplaste el pecho."],
+            primaries: ["quadriceps", "gluteal"],
             secondaries: ["hamstring", "calves"]
         ),
         EnrichedSeed(
@@ -189,26 +189,26 @@ enum CatalogEnrichment {
             muscleGroup: "Piernas",
             equipment: "Mancuernas",
             catalogId: "3582",
-            target: "glutes",
-            secondaryMuscles: ["quadriceps", "hamstrings", "calves"],
+            target: "quads",
+            secondaryMuscles: ["glutes", "hamstrings", "calves"],
             bodyPart: "upper legs",
-            description: "A lunge followed by a jump where the legs switch in mid-air. It builds leg power and raises your heart rate.",
+            description: "Zancadas: paso adelante o caminando; trabajo unilateral de piernas y estabilidad.",
             instructions: ["Start by standing with your feet shoulder-width apart.", "Take a step forward with your right foot, lowering your body into a lunge position.", "Push off with your right foot and jump into the air, switching the position of your feet mid-air.", "Land softly with your left foot forward and immediately lower your body into a lunge position.", "Continue alternating between lunges and jumps for the desired number of repetitions."],
-            primaries: [],
-            secondaries: []
+            primaries: ["quadriceps", "gluteal"],
+            secondaries: ["hamstring", "calves"]
         ),
         EnrichedSeed(
             name: "Extensión de cuádriceps",
             muscleGroup: "Piernas",
             equipment: "Máquina",
             catalogId: "4386",
-            target: "abs",
-            secondaryMuscles: ["core", "glutes", "shoulders", "hip flexors"],
-            bodyPart: "waist",
-            description: "A plank where you lift and extend one leg at a time, testing core stability and strengthening the glutes.",
-            instructions: ["Get into a forearm or high plank with a flat back.", "Brace your abs and squeeze your glutes.", "Lift one leg straight behind you without rotating your hips.", "Lower it with control.", "Repeat on the other leg and alternate."],
-            primaries: [],
-            secondaries: []
+            target: "quads",
+            secondaryMuscles: ["hip flexors"],
+            bodyPart: "upper legs",
+            description: "Extensión de cuádriceps en máquina: aísla la cara anterior del muslo.",
+            instructions: ["Ajusta el rodillo sobre la tibia distal; espalda apoyada.", "Extiende las rodillas hasta casi bloqueo sin arquear la lumbar.", "Pausa breve arriba apretando cuádriceps.", "Baja despacio hasta el rango cómodo; no rebotes abajo."],
+            primaries: ["quadriceps"],
+            secondaries: ["hip-flexors"]
         ),
         EnrichedSeed(
             name: "Curl femoral",
@@ -216,12 +216,12 @@ enum CatalogEnrichment {
             equipment: "Máquina",
             catalogId: "0569",
             target: "hamstrings",
-            secondaryMuscles: ["glutes", "core", "calves"],
+            secondaryMuscles: ["glutes", "calves"],
             bodyPart: "upper legs",
-            description: "Lying on your back with heels on a ball, you curl it toward your hips. It works the hamstrings and core together.",
-            instructions: ["Lie on your back with your heels on a stability ball and legs straight.", "Press your hips up so your body forms a line.", "Pull the ball toward your glutes by bending your knees.", "Keep your hips lifted throughout.", "Pause at the top.", "Roll the ball back out slowly."],
-            primaries: [],
-            secondaries: []
+            description: "Curl femoral en máquina: flexión de rodilla para isquiotibiales.",
+            instructions: ["Ajusta almohadillas; cadera estable en la máquina.", "Flexiona rodillas llevando el rodillo hacia los glúteos.", "Aprieta isquios arriba sin levantar la pelvis.", "Extiende con control hasta casi estirar."],
+            primaries: ["hamstring"],
+            secondaries: ["gluteal", "calves"]
         ),
         EnrichedSeed(
             name: "Elevación de gemelos",
@@ -229,12 +229,12 @@ enum CatalogEnrichment {
             equipment: "Máquina",
             catalogId: "3390",
             target: "calves",
-            secondaryMuscles: ["soleus", "ankles", "feet"],
+            secondaryMuscles: ["soleus"],
             bodyPart: "lower legs",
-            description: "A calf raise from a raised step with a chair for balance, giving a deeper stretch and fuller range.",
-            instructions: ["Stand with the balls of your feet on a step edge, holding a chair for balance.", "Let your heels drop below the step to stretch your calves.", "Rise as high onto your toes as you can.", "Pause for a second at the top.", "Lower slowly into the deep stretch.", "Keep your knees almost straight."],
-            primaries: [],
-            secondaries: []
+            description: "Elevación de gemelos de pie o en máquina: extensión de tobillo.",
+            instructions: ["Antepié en el borde o plataforma; tobillos libres.", "Sube lo más alto posible sobre las puntas.", "Pausa arriba; baja talones por debajo del nivel del apoyo.", "Rodillas casi extendidas (de pie) o flexionadas (sentado/sóleo)."],
+            primaries: ["calves"],
+            secondaries: ["tibialis"]
         ),
         EnrichedSeed(
             name: "Press militar",
@@ -244,10 +244,10 @@ enum CatalogEnrichment {
             target: "delts",
             secondaryMuscles: ["triceps", "upper chest", "core"],
             bodyPart: "shoulders",
-            description: "An overhead press using a band for resistance. It builds the shoulders and triceps.",
+            description: "Press militar de pie: empujas la barra desde hombros a overhead. Deltoides y tríceps.",
             instructions: ["Stand on the band with feet shoulder-width apart.", "Hold the band at shoulder height.", "Press your hands overhead until your arms are straight.", "Keep your core tight.", "Lower slowly back to the shoulders.", "Avoid leaning back."],
-            primaries: [],
-            secondaries: []
+            primaries: ["deltoids"],
+            secondaries: ["triceps", "chest", "abs", "trapezius"]
         ),
         EnrichedSeed(
             name: "Elevaciones laterales",
@@ -255,25 +255,25 @@ enum CatalogEnrichment {
             equipment: "Mancuernas",
             catalogId: "3741",
             target: "delts",
-            secondaryMuscles: ["trapezius", "rotator cuff"],
+            secondaryMuscles: ["trapezius"],
             bodyPart: "shoulders",
-            description: "A no-equipment side raise using a towel for resistance, so you can train the delts at home.",
-            instructions: ["Hold a towel with both hands and stand on its middle with one foot, or pull its ends apart.", "Keep your elbows slightly bent.", "Raise your arms out to the sides to shoulder height.", "Lower slowly.", "Keep tension on the towel throughout."],
-            primaries: [],
-            secondaries: []
+            description: "Elevaciones laterales: aíslan el deltoides medio hasta la altura del hombro.",
+            instructions: ["Mancuernas a los lados, codos blandos, torso quieto.", "Eleva en arco hasta ~altura de hombros, meñiques ligeramente arriba.", "No encogas trapecios ni balancees el cuerpo.", "Baja en 2–3 segundos manteniendo tensión."],
+            primaries: ["deltoids"],
+            secondaries: ["trapezius"]
         ),
         EnrichedSeed(
             name: "Pájaros",
             muscleGroup: "Hombros",
             equipment: "Mancuernas",
             catalogId: "3746",
-            target: "upper back",
-            secondaryMuscles: ["rear deltoids", "rhomboids", "biceps"],
-            bodyPart: "back",
-            description: "A rowing pattern that uses a bed sheet anchored around a door handle or post to work the upper back.",
-            instructions: ["Loop a bed sheet around a sturdy anchor and hold the ends.", "Lean back with your arms straight.", "Pull your hands toward your chest, elbows flared out.", "Squeeze your shoulder blades.", "Return slowly."],
-            primaries: [],
-            secondaries: []
+            target: "rear deltoids",
+            secondaryMuscles: ["upper back", "rhomboids"],
+            bodyPart: "shoulders",
+            description: "Pájaros / elevaciones posteriores: deltoides posterior y espalda alta.",
+            instructions: ["Inclina el torso o tumba boca abajo; mancuernas colgando.", "Abre los brazos en cruz con codos blandos, apretando omóplatos.", "Llega a la línea de los hombros sin hiperextender la lumbar.", "Baja controlado; prioriza deltoides posterior, no el peso."],
+            primaries: ["deltoids"],
+            secondaries: ["upper-back", "trapezius"]
         ),
         EnrichedSeed(
             name: "Curl barra",
@@ -281,12 +281,12 @@ enum CatalogEnrichment {
             equipment: "Barra",
             catalogId: "5883",
             target: "biceps",
-            secondaryMuscles: ["shoulders", "triceps", "forearms"],
+            secondaryMuscles: ["forearms", "brachialis"],
             bodyPart: "upper arms",
-            description: "A three-part arm combo: curl, press overhead, then lower behind the head for a triceps extension. It works the whole arm in one set.",
-            instructions: ["Stand holding a barbell with an underhand grip at thigh level.", "Curl the bar up to your shoulders without swinging.", "Press it overhead until your arms are straight.", "Bend your elbows to lower the bar behind your head, keeping your upper arms still.", "Extend, bring the bar back to the front and lower it under control.", "Use a light weight to keep your form tidy."],
-            primaries: [],
-            secondaries: []
+            description: "Curl de bíceps con barra: flexión de codo sin balanceo de tronco.",
+            instructions: ["Agarre supino al ancho de hombros; codos pegados al torso.", "Sube la barra sin balancear cadera ni hombros.", "Aprieta bíceps arriba; muñecas neutras.", "Baja hasta casi extender sin soltar tensión."],
+            primaries: ["biceps"],
+            secondaries: ["forearm"]
         ),
         EnrichedSeed(
             name: "Curl mancuernas",
@@ -294,12 +294,12 @@ enum CatalogEnrichment {
             equipment: "Mancuernas",
             catalogId: "3347",
             target: "biceps",
-            secondaryMuscles: ["shoulders", "triceps", "brachialis"],
+            secondaryMuscles: ["forearms", "brachialis"],
             bodyPart: "upper arms",
-            description: "Curl the dumbbells and keep going into an overhead press, training the arms and shoulders in one smooth rep.",
-            instructions: ["Stand tall holding a dumbbell in each hand, palms forward.", "Curl both weights up to shoulder height without swinging.", "Rotate your wrists slightly and press the weights overhead.", "Lower to your shoulders, then back down to your sides.", "Brace your core and keep your ribs down."],
-            primaries: [],
-            secondaries: []
+            description: "Curl con mancuernas: permite rotación y mayor rango que la barra.",
+            instructions: ["Mancuernas a los lados, palmas al frente o semi-supinación.", "Curl sin balanceo; codos fijos junto a las costillas.", "Opcional: rota la palma arriba al subir (supinación).", "Baja controlado y alterna o haz ambas a la vez."],
+            primaries: ["biceps"],
+            secondaries: ["forearm"]
         ),
         EnrichedSeed(
             name: "Curl martillo",
@@ -309,10 +309,10 @@ enum CatalogEnrichment {
             target: "biceps",
             secondaryMuscles: ["brachialis", "forearms"],
             bodyPart: "upper arms",
-            description: "A hammer curl with a band. The neutral grip hits the brachialis and forearms along with the biceps.",
-            instructions: ["Stand on the band and hold the ends with palms facing in.", "Keep your elbows at your sides.", "Curl your hands up toward your shoulders.", "Pause briefly.", "Lower slowly without swinging."],
-            primaries: [],
-            secondaries: []
+            description: "Curl martillo: agarre neutro; bíceps, braquial y antebrazo.",
+            instructions: ["Agarre neutro (palmas mirándose); codos quietos.", "Sube las mancuernas hacia el hombro sin abrir los codos.", "Pausa breve arriba.", "Baja lento; trabaja braquial y antebrazo además del bíceps."],
+            primaries: ["biceps"],
+            secondaries: ["forearm"]
         ),
         EnrichedSeed(
             name: "Fondos en banco",
@@ -322,49 +322,49 @@ enum CatalogEnrichment {
             target: "triceps",
             secondaryMuscles: ["chest", "shoulders"],
             bodyPart: "upper arms",
-            description: "With your hands on a bench behind you and your feet on the floor, you bend and straighten your elbows. It builds the triceps, chest and shoulders.",
-            instructions: ["Sit on the edge of a bench or chair with your hands gripping the edge, fingers pointing forward.", "Slide your butt off the bench, supporting your weight with your hands.", "Lower your body by bending your elbows until your upper arms are parallel to the floor.", "Push yourself back up to the starting position by straightening your arms.", "Repeat for the desired number of repetitions."],
-            primaries: [],
-            secondaries: []
+            description: "Fondos en banco: tríceps con manos en el borde y pies al frente.",
+            instructions: ["Manos en el borde del banco, dedos al frente; glúteos cerca del banco.", "Baja flexionando codos hasta ~90° con hombros bajos.", "Empuja a extensión sin encoger el cuello.", "Mantén el pecho abierto; no te alejes demasiado del banco."],
+            primaries: ["triceps"],
+            secondaries: ["chest", "deltoids"]
         ),
         EnrichedSeed(
             name: "Extensión tríceps polea",
             muscleGroup: "Tríceps",
             equipment: "Polea",
             catalogId: "0199",
-            target: "lats",
-            secondaryMuscles: ["triceps", "shoulders"],
-            bodyPart: "back",
-            description: "A straight-arm pushdown from a high pulley, moving the bar from overhead to the thighs. It isolates the lats without bending the elbows.",
-            instructions: ["Attach a straight bar to a high pulley cable machine.", "Stand facing the machine with your feet shoulder-width apart and a slight bend in your knees.", "Grasp the bar with an overhand grip, keeping your arms straight and your palms facing down.", "Engage your core and keep your back straight as you exhale and push the bar down towards your thighs.", "Pause for a moment at the bottom, then slowly return the bar to the starting position while inhaling.", "Repeat for the desired number of repetitions."],
-            primaries: [],
-            secondaries: []
+            target: "triceps",
+            secondaryMuscles: ["forearms", "shoulders"],
+            bodyPart: "upper arms",
+            description: "Extensión de tríceps en polea alta: aísla la cara posterior del brazo.",
+            instructions: ["Codos pegados al cuerpo, antebrazos paralelos al suelo al inicio.", "Extiende solo el codo llevando la barra/cuerda abajo.", "Aprieta tríceps abajo; no muevas hombros ni tronco.", "Vuelve con control hasta el estiramiento cómodo."],
+            primaries: ["triceps"],
+            secondaries: ["forearm", "deltoids"]
         ),
         EnrichedSeed(
             name: "Press cerrado",
             muscleGroup: "Tríceps",
             equipment: "Barra",
             catalogId: "1327",
-            target: "lats",
-            secondaryMuscles: ["biceps", "forearms"],
-            bodyPart: "back",
-            description: "A chin-up with your hands close together on an underhand grip. It works the lats and puts extra load on the biceps.",
-            instructions: ["Grab the pull-up bar with your palms facing towards you and your hands shoulder-width apart.", "Hang from the bar with your arms fully extended and your feet off the ground.", "Engage your back muscles and pull your body up towards the bar, keeping your elbows close to your body.", "Continue pulling until your chin is above the bar.", "Pause for a moment at the top, then slowly lower your body back down to the starting position.", "Repeat for the desired number of repetitions."],
-            primaries: ["upper-back"],
-            secondaries: ["biceps", "deltoids", "forearm"]
+            target: "triceps",
+            secondaryMuscles: ["chest", "shoulders"],
+            bodyPart: "upper arms",
+            description: "Press banca agarre cerrado: más énfasis en tríceps, pecho como secundario.",
+            instructions: ["Banco plano; agarre al ancho de hombros o un poco más estrecho.", "Baja la barra al pecho medio con codos cerca del cuerpo.", "Empuja a bloqueo priorizando tríceps.", "No abras los codos como en press ancho."],
+            primaries: ["triceps", "chest"],
+            secondaries: ["deltoids"]
         ),
         EnrichedSeed(
             name: "Plancha",
             muscleGroup: "Core",
             equipment: "Peso corporal",
             catalogId: "10326",
-            target: "quads",
-            secondaryMuscles: ["glutes", "core", "shoulders", "hamstrings"],
-            bodyPart: "full body",
-            description: "A fast move from a plank to a squat jump position, raising the heart rate and training the legs and core.",
-            instructions: ["Start in a high plank with hands under shoulders.", "Jump both feet forward, landing outside your hands in a wide squat.", "Stand or hop up briefly if you like, then lower your hands.", "Jump your feet back to the plank.", "Keep a tight core and land softly."],
-            primaries: [],
-            secondaries: []
+            target: "abs",
+            secondaryMuscles: ["obliques", "shoulders", "glutes"],
+            bodyPart: "waist",
+            description: "Plancha isométrica: cuerpo en línea, abdomen y glúteos activos.",
+            instructions: ["Antebrazos o manos bajo hombros; cuerpo en línea recta.", "Activa abdomen y glúteos; pelvis neutra (sin hundir lumbar).", "Mirada al suelo; hombros lejos de las orejas.", "Respira y mantén el tiempo objetivo sin elevar cadera."],
+            primaries: ["abs"],
+            secondaries: ["obliques", "deltoids", "gluteal"]
         ),
         EnrichedSeed(
             name: "Crunch",
@@ -372,12 +372,12 @@ enum CatalogEnrichment {
             equipment: "Peso corporal",
             catalogId: "0273",
             target: "abs",
-            secondaryMuscles: ["hip flexors", "lower abs"],
+            secondaryMuscles: ["hip flexors"],
             bodyPart: "waist",
-            description: "A crunch with your legs pointing straight up so you reach toward your toes. It works the abs with less hip flexor pull.",
-            instructions: ["Lie on your back with your legs straight up toward the ceiling.", "Extend your arms toward your feet.", "Curl your shoulders off the floor and reach toward your toes.", "Squeeze your abs at the top.", "Lower slowly.", "Keep your legs still and your neck relaxed."],
-            primaries: [],
-            secondaries: []
+            description: "Crunch: flexionas el tronco acercando costillas a pelvis sin tirar del cuello.",
+            instructions: ["Tumbado, rodillas flexionadas, lumbar apoyada.", "Manos junto a sienes (no tires del cuello).", "Enrolla costillas hacia pelvis; omóplatos despegan poco.", "Baja controlado; no uses impulso de cadera."],
+            primaries: ["abs"],
+            secondaries: ["hip-flexors"]
         ),
         EnrichedSeed(
             name: "Elevación de piernas",
@@ -385,12 +385,12 @@ enum CatalogEnrichment {
             equipment: "Peso corporal",
             catalogId: "1854",
             target: "abs",
-            secondaryMuscles: ["lower abs", "hip flexors"],
+            secondaryMuscles: ["hip flexors"],
             bodyPart: "waist",
-            description: "A leg raise with slightly bent knees, a gentler version for the lower abs.",
-            instructions: ["Lie on your back with your hands under your hips.", "Bend your knees slightly and lift your feet off the floor.", "Raise your legs until they are above your hips.", "Lower slowly without letting your back arch.", "Keep your core tight throughout."],
-            primaries: [],
-            secondaries: []
+            description: "Elevación de piernas: abdominales inferiores y flexores de cadera.",
+            instructions: ["Tumbado o colgado; lumbar estable (presiona el suelo si estás tumbado).", "Eleva piernas juntas hasta ~90° o el rango sin arquear.", "Baja despacio sin soltar el abdomen.", "Si es difícil, flexiona ligeramente las rodillas."],
+            primaries: ["abs"],
+            secondaries: ["hip-flexors"]
         ),
         EnrichedSeed(
             name: "Hip thrust",
@@ -400,23 +400,23 @@ enum CatalogEnrichment {
             target: "glutes",
             secondaryMuscles: ["hamstrings", "core"],
             bodyPart: "upper legs",
-            description: "A glute-focused bridge with the upper back on a bench, lifting the hips to build strong glutes.",
+            description: "Hip thrust: empuje de cadera con espalda en banco; glúteos como motor principal.",
             instructions: ["Sit on the floor with your upper back against a bench and knees bent.", "Plant your feet flat, hip-width apart.", "Drive through your heels to lift your hips until your torso is level.", "Squeeze your glutes at the top.", "Lower slowly and repeat."],
-            primaries: [],
-            secondaries: []
+            primaries: ["gluteal"],
+            secondaries: ["hamstring", "abs"]
         ),
         EnrichedSeed(
             name: "Face pull",
             muscleGroup: "Hombros",
             equipment: "Polea",
             catalogId: "5607",
-            target: "delts",
-            secondaryMuscles: ["rear deltoids", "rotator cuff", "upper back"],
+            target: "rear deltoids",
+            secondaryMuscles: ["upper back", "rotator cuff", "trapezius"],
             bodyPart: "shoulders",
-            description: "Face pull using a band to train the rear delts and upper back.",
-            instructions: ["Anchor a band at head height and hold the ends.", "Step back to create tension.", "Pull the band toward your face, elbows high.", "Squeeze your shoulder blades.", "Return slowly."],
-            primaries: [],
-            secondaries: []
+            description: "Face pull: tiras hacia la cara con codos altos; deltoides posterior y estabilizadores.",
+            instructions: ["Polea o banda a altura de cara; agarre neutro/cuerda.", "Tira hacia la cara con codos altos y abiertos.", "Separa las manos al llegar; aprieta omóplatos y deltoides posterior.", "Vuelve sin dejar que los hombros se redondeen."],
+            primaries: ["deltoids"],
+            secondaries: ["upper-back", "trapezius"]
         ),
         EnrichedSeed(
             name: "Remo al mentón",
@@ -426,36 +426,36 @@ enum CatalogEnrichment {
             target: "delts",
             secondaryMuscles: ["trapezius", "biceps", "upper back"],
             bodyPart: "shoulders",
-            description: "Pull a band up along your body toward chest height. It works the shoulders and upper traps with gentle, joint-friendly resistance.",
-            instructions: ["Stand on the middle of the band with feet hip-width apart and grip the ends with both hands.", "Let your arms hang in front of your thighs with the band slightly taut.", "Pull your hands up along your body, leading with the elbows, until they reach about chest height.", "Pause briefly, then lower under control without letting the band snap back.", "Keep your chest tall and your shoulders away from your ears."],
-            primaries: [],
-            secondaries: []
+            description: "Remo al mentón: tiras la barra hacia el pecho con codos altos; hombros y trapecio.",
+            instructions: ["Barra o mancuernas delante de muslos; agarre prono.", "Tira hacia arriba guiando con los codos hasta pecho alto.", "Mantén la barra cerca del cuerpo; no encogas orejas.", "Baja controlado; usa carga moderada por el hombro."],
+            primaries: ["deltoids", "trapezius"],
+            secondaries: ["biceps", "upper-back"]
         ),
         EnrichedSeed(
             name: "Buenos días",
             muscleGroup: "Isquios",
             equipment: "Barra",
             catalogId: "4547",
-            target: "glutes",
-            secondaryMuscles: ["hamstrings", "quadriceps", "lower back", "core"],
+            target: "hamstrings",
+            secondaryMuscles: ["glutes", "lower back", "core"],
             bodyPart: "upper legs",
-            description: "A combo of a hip hinge and a squat that warms up and strengthens the glutes, hamstrings and lower back.",
-            instructions: ["Stand with feet shoulder-width apart and hands behind your head.", "Push your hips back and hinge forward with a flat back.", "Come back up to standing.", "Bend your knees and sink into a squat with your chest tall.", "Stand up and repeat the hinge, then the squat.", "Keep your core braced and your weight over your mid-foot."],
-            primaries: [],
-            secondaries: []
+            description: "Buenos días: bisagra de cadera con barra en espalda; isquios y lumbares.",
+            instructions: ["Barra sobre trapecios; pies al ancho de cadera.", "Bisagra de cadera empujando glúteos atrás, rodillas blandas.", "Baja hasta sentir isquios; espalda plana.", "Extiende cadera para volver; no redondees la lumbar."],
+            primaries: ["hamstring", "gluteal"],
+            secondaries: ["lower-back", "abs"]
         ),
         EnrichedSeed(
             name: "Hack squat",
             muscleGroup: "Piernas",
             equipment: "Máquina",
             catalogId: "0743",
-            target: "glutes",
-            secondaryMuscles: ["quadriceps", "hamstrings", "calves"],
+            target: "quads",
+            secondaryMuscles: ["glutes", "hamstrings"],
             bodyPart: "upper legs",
-            description: "On a sled machine, you squat with your back against the pad. Works the quads and glutes.",
-            instructions: ["Adjust the sled machine to a comfortable position for your height.", "Stand with your feet shoulder-width apart on the platform, toes slightly pointed outwards.", "Hold onto the handles or bars for stability.", "Lower your body by bending your knees and hips, keeping your back straight and chest up.", "Continue lowering until your thighs are parallel to the ground or slightly below.", "Pause for a moment, then push through your heels to raise your body back up to the starting position."],
-            primaries: ["quadriceps", "gluteal", "adductors"],
-            secondaries: ["hamstring", "calves"]
+            description: "Hack squat: sentadilla guiada con énfasis en cuádriceps.",
+            instructions: ["Espalda y hombros en los pads; pies al ancho cómodo.", "Baja en sentadilla controlada hasta profundidad segura.", "Empuja la plataforma sin despegar talones ni lumbar.", "No bloquees rodillas de golpe arriba."],
+            primaries: ["quadriceps"],
+            secondaries: ["gluteal", "hamstring"]
         ),
         EnrichedSeed(
             name: "Pullover",
@@ -463,12 +463,12 @@ enum CatalogEnrichment {
             equipment: "Mancuernas",
             catalogId: "8750",
             target: "lats",
-            secondaryMuscles: ["biceps", "chest", "core"],
+            secondaryMuscles: ["chest", "triceps", "core"],
             bodyPart: "back",
-            description: "An advanced ring move that sweeps the body over the rings, working the lats and core.",
-            instructions: ["Hang from the rings with an overhand grip.", "Pull your hips up and bring your knees to your chest.", "Rotate backward, pulling the body over the rings.", "Lower under control.", "Keep the movement smooth."],
-            primaries: [],
-            secondaries: []
+            description: "Pullover con mancuerna: dorsales y pecho con brazos semi-extendidos.",
+            instructions: ["Tumbado, mancuerna a dos manos sobre el pecho.", "Brazos casi extendidos; baja la carga atrás en arco.", "Siente el estiramiento en dorsal/pecho; no arquees lumbar.", "Vuelve sobre el pecho apretando dorsales."],
+            primaries: ["upper-back"],
+            secondaries: ["chest", "triceps", "abs"]
         ),
         EnrichedSeed(
             name: "Cinta / carrera",
@@ -476,12 +476,12 @@ enum CatalogEnrichment {
             equipment: nil,
             catalogId: "2197",
             target: "cardiovascular system",
-            secondaryMuscles: ["calves", "quadriceps", "hamstrings", "glutes"],
+            secondaryMuscles: ["quadriceps", "hamstrings", "glutes", "calves"],
             bodyPart: "cardio",
-            description: "Running at a steady pace on a treadmill to build endurance and burn energy.",
-            instructions: ["Step onto the belt and clip the safety key to your clothing.", "Start at a walk and raise the speed gradually to a comfortable jog.", "Keep your chest tall and your arms swinging loosely at your sides.", "Land softly under your hips and keep your steps quick.", "Run for 10-30 minutes at a pace where you can still breathe steadily.", "Slow to a walk for a few minutes to cool down."],
-            primaries: [],
-            secondaries: []
+            description: "Carrera en cinta u outdoor: cardio de piernas y resistencia.",
+            instructions: ["Calienta caminando; sube velocidad de forma progresiva.", "Postura alta, mirada al frente, brazos relajados.", "Pasos cortos bajo la cadera; aterriza suave.", "Enfría 2–3 min andando al terminar."],
+            primaries: ["quadriceps", "calves"],
+            secondaries: ["hamstring", "gluteal"]
         ),
         EnrichedSeed(
             name: "Bici estática",
@@ -491,10 +491,10 @@ enum CatalogEnrichment {
             target: "cardiovascular system",
             secondaryMuscles: ["quadriceps", "hamstrings", "glutes"],
             bodyPart: "cardio",
-            description: "A stationary bike session at a brisk pace, similar to running in effort, to build heart and leg endurance.",
-            instructions: ["Adjust the seat so your knees stay slightly bent at the bottom of the stroke.", "Hold the handles and sit tall.", "Start pedalling at an easy pace to warm up.", "Raise the speed to a brisk rhythm you can sustain.", "Keep your upper body relaxed.", "Continue for 10-30 minutes, then slow down to cool off."],
-            primaries: [],
-            secondaries: []
+            description: "Bici estática: cardio de piernas con bajo impacto.",
+            instructions: ["Ajusta sillín: rodilla casi extendida abajo del pedal.", "Pedalea redondo; torso estable, hombros relajados.", "Elige resistencia que permita ritmo constante.", "Incluye calentamiento y enfriamiento de 2–3 min."],
+            primaries: ["quadriceps"],
+            secondaries: ["hamstring", "gluteal", "calves"]
         ),
         EnrichedSeed(
             name: "Remo máquina",
@@ -504,23 +504,23 @@ enum CatalogEnrichment {
             target: "cardiovascular system",
             secondaryMuscles: ["lats", "quadriceps", "hamstrings", "core"],
             bodyPart: "cardio",
-            description: "Steady rowing on an indoor machine for full-body cardio conditioning.",
-            instructions: ["Sit on the machine, strap in your feet and grab the handle with straight arms.", "Push through your legs first, then lean back slightly.", "Pull the handle to your lower ribs with elbows close.", "Reverse the order: arms out, hips hinge, then knees bend to slide forward.", "Keep a smooth rhythm for 10-30 minutes at a comfortable pace."],
-            primaries: [],
-            secondaries: []
+            description: "Remoergómetro: cardio de cuerpo completo (piernas + tirón).",
+            instructions: ["Pies fijados; inicia el remada con empuje de piernas.", "Luego bisagra y tira el mango a costillas bajas.", "Recupera en orden inverso: brazos, cadera, rodillas.", "Cadencia suave; no redondees la espalda al llegar adelante."],
+            primaries: ["upper-back", "quadriceps"],
+            secondaries: ["hamstring", "gluteal", "abs", "biceps"]
         ),
         EnrichedSeed(
             name: "Farmer walk",
             muscleGroup: "Core",
             equipment: "Mancuernas",
             catalogId: "2133",
-            target: "quads",
-            secondaryMuscles: ["calves", "forearms", "core"],
-            bodyPart: "upper legs",
-            description: "A loaded carry holding a dumbbell in each hand while walking tall. Builds grip, core and total-body strength.",
-            instructions: ["Stand up straight with a dumbbell in each hand, palms facing your sides.", "Keep your back straight and your shoulders back.", "Take small, controlled steps forward, maintaining an upright posture.", "Continue walking for the desired distance or time.", "To finish, stop walking and carefully lower the dumbbells to your sides."],
-            primaries: [],
-            secondaries: []
+            target: "forearms",
+            secondaryMuscles: ["core", "traps", "glutes", "calves"],
+            bodyPart: "full body",
+            description: "Paseo del granjero: caminas erguido con carga en cada mano; agarre, core y postura.",
+            instructions: ["Coge las cargas, párate alto, hombros abajo y atrás.", "Camina con pasos cortos y firmes; mirada al frente.", "Evita inclinarte lateralmente; aprieta el abdomen.", "Deja la carga con control al terminar la distancia."],
+            primaries: ["forearm", "abs", "trapezius"],
+            secondaries: ["gluteal", "calves", "obliques"]
         ),
         EnrichedSeed(
             name: "Press banca declinado",
@@ -530,10 +530,10 @@ enum CatalogEnrichment {
             target: "pectorals",
             secondaryMuscles: ["triceps", "shoulders"],
             bodyPart: "chest",
-            description: "On a decline bench, you press a smith machine bar from your lower chest. Works the lower chest and triceps.",
-            instructions: ["Adjust the decline bench to the desired angle.", "Lie down on the bench with your feet secured under the foot pads.", "Grasp the barbell with an overhand grip slightly wider than shoulder-width apart.", "Unrack the barbell and lower it slowly towards your chest, keeping your elbows tucked in.", "Pause for a moment at the bottom, then push the barbell back up to the starting position.", "Repeat for the desired number of repetitions."],
-            primaries: [],
-            secondaries: []
+            description: "Press banca declinado: más énfasis en pecho inferior y tríceps.",
+            instructions: ["Asegura pies en el banco declinado; omóplatos retraídos.", "Baja la barra al pecho bajo/medio con control.", "Empuja a bloqueo sobre el pecho.", "No rebotes la barra en el esternón."],
+            primaries: ["chest"],
+            secondaries: ["triceps", "deltoids"]
         ),
         EnrichedSeed(
             name: "Cruce de poleas",
@@ -541,12 +541,12 @@ enum CatalogEnrichment {
             equipment: "Polea",
             catalogId: "3868",
             target: "pectorals",
-            secondaryMuscles: ["upper chest", "shoulders", "biceps"],
+            secondaryMuscles: ["shoulders", "biceps"],
             bodyPart: "chest",
-            description: "A cable fly with your chest against a bench, which isolates the pecs with steady tension.",
-            instructions: ["Set the pulleys at about shoulder height and position an incline bench facing the stack, chest against the pad.", "Hold a handle in each hand with arms out to the sides.", "With a slight bend in your elbows, sweep your arms forward in a wide arc.", "Squeeze your chest as the handles meet.", "Return slowly until you feel a stretch across the chest."],
-            primaries: [],
-            secondaries: []
+            description: "Cruce de poleas: aperturas con tensión constante sobre el pecho.",
+            instructions: ["Poleas altas o medias; un paso adelante, torso estable.", "Brazos semi-extendidos; cierra en arco hacia el centro.", "Aprieta pecho al juntar las manos.", "Abre hasta estirar sin arquear la lumbar."],
+            primaries: ["chest"],
+            secondaries: ["deltoids", "biceps"]
         ),
         EnrichedSeed(
             name: "Remo sentado",
@@ -554,12 +554,12 @@ enum CatalogEnrichment {
             equipment: "Polea",
             catalogId: "3848",
             target: "lats",
-            secondaryMuscles: ["upper back", "biceps", "rear deltoids", "forearms"],
+            secondaryMuscles: ["upper back", "biceps", "rear deltoids"],
             bodyPart: "back",
-            description: "A seated row using a towel for resistance. It trains your lats and upper back.",
-            instructions: ["Sit with your legs extended and loop a towel around your feet.", "Hold the ends with arms straight.", "Pull the towel toward your lower ribs.", "Squeeze your shoulder blades together.", "Extend your arms slowly."],
-            primaries: [],
-            secondaries: []
+            description: "Remo sentado en polea: espalda media y dorsales con torso estable.",
+            instructions: ["Pies en la plataforma; torso erguido, ligera inclinación.", "Tira el agarre al abdomen, codos atrás.", "Aprieta omóplatos; no uses balanceo de tronco.", "Extiende brazos con control manteniendo pecho alto."],
+            primaries: ["upper-back"],
+            secondaries: ["biceps", "deltoids", "forearm"]
         ),
         EnrichedSeed(
             name: "Peso muerto sumo",
@@ -567,12 +567,12 @@ enum CatalogEnrichment {
             equipment: "Barra",
             catalogId: "1199",
             target: "glutes",
-            secondaryMuscles: ["quadriceps", "hamstrings", "trapezius", "shoulders", "upper back"],
+            secondaryMuscles: ["quadriceps", "hamstrings", "adductors", "upper back"],
             bodyPart: "upper legs",
-            description: "A wide-stance deadlift finished with an upright row. It works the thighs, glutes and shoulders in one smooth motion.",
-            instructions: ["Stand with a wide stance and grip the barbell between your legs with hands close together.", "Keep your back flat and drive through your legs to stand up.", "As the bar passes your hips, pull it up to chest height with your elbows high.", "Lower the bar back along the same path.", "Keep the bar close to your body throughout."],
-            primaries: [],
-            secondaries: []
+            description: "Peso muerto sumo: stance ancho; glúteos, aductores y cuádriceps.",
+            instructions: ["Pies anchos, puntas afuera; barra cerca de las espinillas.", "Agarre dentro de las piernas; pecho alto, espalda plana.", "Empuja el suelo y extiende rodillas y cadera a la vez.", "Bloquea arriba sin hiperextender; baja con control."],
+            primaries: ["gluteal", "quadriceps", "adductors"],
+            secondaries: ["hamstring", "upper-back", "trapezius"]
         ),
         EnrichedSeed(
             name: "Sentadilla búlgara",
@@ -582,10 +582,10 @@ enum CatalogEnrichment {
             target: "quads",
             secondaryMuscles: ["glutes", "hamstrings", "core"],
             bodyPart: "upper legs",
-            description: "A split squat paired with a backward roll to challenge your control and leg strength.",
+            description: "Sentadilla búlgara: pierna trasera elevada; cuádriceps y glúteo de la pierna delantera.",
             instructions: ["Start in a split stance with your torso upright.", "Lower into a split squat until the front thigh is parallel.", "Sit back and roll onto your back with control.", "Roll up and return to the split stance.", "Stand and repeat, then switch legs."],
-            primaries: [],
-            secondaries: []
+            primaries: ["quadriceps", "gluteal"],
+            secondaries: ["hamstring", "abs"]
         ),
         EnrichedSeed(
             name: "Curl predicador",
@@ -595,10 +595,10 @@ enum CatalogEnrichment {
             target: "biceps",
             secondaryMuscles: ["forearms", "brachialis"],
             bodyPart: "upper arms",
-            description: "A side-by-side form check for wrist position during a preacher curl, showing the common mistake next to the correct technique so you can spot it in your own sets.",
-            instructions: ["Sit at the preacher bench with your upper arms flat on the pad.", "Compare the faulty version with the correct one: your wrists stay neutral and straight rather than bending back or curling in.", "Perform the lift slowly with a light load and keep the correct position throughout.", "Use a mirror or film a set from the side to check your own position.", "Fix the cue before adding weight, and rest between sets so form stays clean."],
-            primaries: [],
-            secondaries: []
+            description: "Curl predicador: bíceps con brazos apoyados; menos trampa de balanceo.",
+            instructions: ["Brazos apoyados en el banco predicador; axilas al borde.", "Curl sin despegar los brazos del pad.", "No hiperextiendas del todo abajo si te duele el codo.", "Sube y baja en rango controlado."],
+            primaries: ["biceps"],
+            secondaries: ["forearm"]
         ),
         EnrichedSeed(
             name: "Press francés",
@@ -608,10 +608,10 @@ enum CatalogEnrichment {
             target: "triceps",
             secondaryMuscles: ["forearms", "shoulders"],
             bodyPart: "upper arms",
-            description: "A lying triceps extension using a band for resistance. It isolates the back of the upper arm.",
-            instructions: ["Anchor the band behind your head and lie on your back holding the ends.", "Start with your arms straight above your chest.", "Bend only your elbows to lower your hands toward your forehead.", "Extend your arms back up against the band.", "Keep your upper arms still throughout."],
-            primaries: [],
-            secondaries: []
+            description: "Press francés / skull crusher: extensión de tríceps tumbado.",
+            instructions: ["Tumbado, barra o mancuerna sobre el pecho, brazos verticales.", "Flexiona solo codos bajando la carga hacia la frente/sien.", "Extiende a bloqueo apretando tríceps.", "Codos apuntando al techo; no abras hacia fuera."],
+            primaries: ["triceps"],
+            secondaries: ["forearm", "deltoids"]
         ),
         EnrichedSeed(
             name: "Elevaciones frontales",
@@ -619,12 +619,12 @@ enum CatalogEnrichment {
             equipment: "Mancuernas",
             catalogId: "0978",
             target: "delts",
-            secondaryMuscles: ["triceps", "upper back"],
+            secondaryMuscles: ["upper chest", "traps"],
             bodyPart: "shoulders",
-            description: "A front raise with a band, raising both arms forward. It builds the front shoulders.",
-            instructions: ["Stand with your feet shoulder-width apart and hold the band in front of your thighs with your palms facing down.", "Keep your arms straight and slowly raise them forward until they are parallel to the ground.", "Pause for a moment at the top, then slowly lower your arms back down to the starting position.", "Repeat for the desired number of repetitions."],
-            primaries: [],
-            secondaries: []
+            description: "Elevaciones frontales: deltoides anterior hasta la altura de los ojos.",
+            instructions: ["Mancuernas delante de muslos, agarre prono o neutro.", "Eleva hasta altura de ojos con codos blandos.", "Torso quieto; no uses impulso de cadera.", "Baja en 2–3 segundos."],
+            primaries: ["deltoids"],
+            secondaries: ["chest", "trapezius"]
         ),
         EnrichedSeed(
             name: "Ab wheel",
@@ -632,25 +632,25 @@ enum CatalogEnrichment {
             equipment: "Peso corporal",
             catalogId: "4979",
             target: "abs",
-            secondaryMuscles: ["core", "shoulders", "lats"],
+            secondaryMuscles: ["lats", "shoulders", "hip flexors"],
             bodyPart: "waist",
-            description: "A rollout using gymnastic rings. The unstable rings make your core work hard.",
-            instructions: ["Kneel holding rings under your shoulders.", "Brace your core and tuck your pelvis.", "Roll your arms forward, extending your body.", "Go as far as you can with a flat back.", "Pull back to the start using your abs.", "Keep your ribs down."],
-            primaries: [],
-            secondaries: []
+            description: "Rueda abdominal: rollout de core manteniendo pelvis neutra.",
+            instructions: ["De rodillas, rueda bajo los hombros, pelvis neutra.", "Rueda hacia delante manteniendo costillas abajo.", "Ve solo hasta donde controles sin hundir la lumbar.", "Vuelve tirando con el abdomen, no solo con los hombros."],
+            primaries: ["abs"],
+            secondaries: ["obliques", "upper-back", "deltoids", "hip-flexors"]
         ),
         EnrichedSeed(
             name: "Paso lateral con banda",
             muscleGroup: "Glúteos",
             equipment: nil,
             catalogId: "3776",
-            target: "abductors",
-            secondaryMuscles: ["glutes", "core", "obliques", "shoulders"],
+            target: "glutes",
+            secondaryMuscles: ["abductors", "core"],
             bodyPart: "upper legs",
-            description: "Side steps in a half squat while holding the band out in front of you. It works your hips and resists rotation through the core.",
-            instructions: ["Anchor the band at chest height and stand side-on to it.", "Press the handle straight out and sink into a quarter squat.", "Take small steps sideways away from the anchor, keeping your torso square.", "Step back in under control.", "Repeat for your set, then switch sides."],
-            primaries: [],
-            secondaries: []
+            description: "Pasos laterales con banda: glúteo medio y estabilidad de cadera.",
+            instructions: ["Banda sobre rodillas o tobillos; media sentadilla.", "Pasos laterales cortos sin juntar del todo los pies.", "Mantén rodillas alineadas con puntas; torso alto.", "Cambia de dirección a mitad de serie."],
+            primaries: ["gluteal"],
+            secondaries: ["abs", "obliques"]
         ),
         EnrichedSeed(
             name: "Remo invertido",
@@ -658,12 +658,12 @@ enum CatalogEnrichment {
             equipment: "Peso corporal",
             catalogId: "3388",
             target: "upper back",
-            secondaryMuscles: ["lats", "biceps", "rhomboids", "core"],
+            secondaryMuscles: ["lats", "biceps", "core"],
             bodyPart: "back",
-            description: "A bodyweight row under a sturdy support between two chairs for the upper back and arms.",
-            instructions: ["Set a sturdy bar or table edge between two stable chairs and lie under it.", "Grip the support with straight arms and your body in a plank line.", "Pull your chest toward the support.", "Squeeze your shoulder blades together at the top.", "Lower slowly until your arms are straight.", "Keep your hips up the whole time."],
-            primaries: [],
-            secondaries: []
+            description: "Remo invertido: remo con peso corporal bajo una barra o mesa.",
+            instructions: ["Cuelga bajo la barra en plancha invertida, cuerpo recto.", "Tira el pecho a la barra apretando omóplatos.", "Baja a brazos extendidos sin hundir cadera.", "Cuanto más horizontal, más difícil."],
+            primaries: ["upper-back"],
+            secondaries: ["biceps", "abs"]
         ),
         EnrichedSeed(
             name: "Press Arnold",
@@ -673,10 +673,10 @@ enum CatalogEnrichment {
             target: "delts",
             secondaryMuscles: ["triceps", "upper chest"],
             bodyPart: "shoulders",
-            description: "A seated dumbbell press that rotates the palms from facing you to facing forward as you lift. Hits all three heads of the shoulder.",
-            instructions: ["Sit on a bench with back support and hold a dumbbell in each hand at shoulder level, palms facing your body and elbows bent.", "Press the dumbbells upward until your arms are fully extended and your palms are facing forward.", "Rotate your wrists as you lift, so that your palms are facing forward at the top of the movement.", "Pause for a moment at the top, then slowly lower the dumbbells back to the starting position.", "Repeat for the desired number of repetitions."],
-            primaries: [],
-            secondaries: []
+            description: "Press Arnold: press con rotación de mancuernas; las tres cabezas del hombro.",
+            instructions: ["Mancuernas a la altura de hombros, palmas hacia ti.", "Presiona arriba rotando palmas hacia delante.", "Bloquea sin encoger trapecios.", "Baja rotando de nuevo a palmas hacia ti."],
+            primaries: ["deltoids"],
+            secondaries: ["triceps", "chest"]
         ),
     ]
 }

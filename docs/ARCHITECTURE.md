@@ -1,6 +1,6 @@
 # Arquitectura Gymbro
 
-Última actualización: 2026-10-17 (arranque rápido: splash + bootstrap diferido)
+Última actualización: 2026-10-17 (Catálogo: ES completo + MuscleTaxonomy pesos graduados)
 
 ## Visión
 
@@ -65,9 +65,9 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 | Módulo | Responsabilidad |
 |--------|-----------------|
 | `Models.swift` | `Exercise`, `Routine`, `RoutineBlock`, `WODMovement`, `WorkoutSession`, `AppState`… |
-| `Catalog*.swift` | Seed gym / CrossFit / halterofilia / gimnasia + ES; deporte en `sportTag`, grupo = músculo principal |
+| `Catalog*.swift` | Seed gym / CrossFit / halterofilia / gimnasia + ES (`CatalogSpanish` 188/188); deporte en `sportTag`, grupo = músculo principal |
 | `StatsEngine` | Series de progreso, PRs, métricas diarias, filtros `ProgressTimeRange` |
-| `MuscleTaxonomy` / `MuscleMapEngine` | Carga muscular y mapa; `libraryMuscleGroup` para filtros |
+| `MuscleTaxonomy` / `MuscleMapEngine` | Carga muscular y mapa; primario 1.0 / secundarios ~0.55–0.35; `libraryMuscleGroup` para filtros |
 | `BoardImportParser` | OCR texto → bloques WOD (reglas) |
 | `SessionController` | Ciclo de vida de la sesión |
 | `ProgressionEngine` | Off / lineal / doble / Greyskull / triple |

@@ -36,7 +36,14 @@ public enum MuscleTaxonomy {
         "head", "hair", "neck", "hands", "feet", "knees", "ankles",
     ]
 
-    private static let secondaryWeight: Double = 0.4
+    /// Primario = 1.0. Secundarios: el primero ~0.55, el resto ~0.35 (más realista que un 0.4 plano).
+    private static let secondaryPrimaryWeight: Double = 0.55
+    private static let secondaryWeight: Double = 0.35
+
+    /// bodyPart genéricos de Open API que no deben pintar el BodyMap a peso 1.
+    private static let nonMuscleBodyParts: Set<String> = [
+        "full body", "upper arms", "upper legs", "lower legs", "waist", "cardio", "shoulders",
+    ]
 
     private static let alias: [String: String?] = [
         "abs": "abs", "abdominals": "abs", "core": "abs", "lower abs": "abs", "abdomen": "abs",
@@ -51,6 +58,7 @@ public enum MuscleTaxonomy {
         "calves": "calves", "gemelos": "calves", "soleus": "calves",
         "quads": "quadriceps", "quadriceps": "quadriceps", "piernas": "quadriceps",
         "forearms": "forearm", "forearm": "forearm", "wrists": "forearm", "antebrazos": "forearm",
+        "grip": "forearm", "grip muscles": "forearm",
         "hamstrings": "hamstring", "hamstring": "hamstring", "isquios": "hamstring",
         "spine": "lower-back", "lower back": "lower-back", "lower-back": "lower-back", "lumbar": "lower-back",
         "traps": "trapezius", "trapezius": "trapezius", "trapecio": "trapezius", "levator scapulae": "trapezius",
@@ -59,8 +67,10 @@ public enum MuscleTaxonomy {
         "hip flexors": "hip-flexors", "hip-flexors": "hip-flexors",
         "obliques": "obliques", "oblicuos": "obliques",
         "shins": "tibialis", "tibialis": "tibialis",
+        "legs": "quadriceps",
         "ankles": nil, "feet": nil, "hands": nil, "ankle stabilizers": nil,
         "cardiovascular system": nil, "cardio": nil,
+        "full body": nil, "upper arms": nil, "upper legs": nil, "lower legs": nil, "waist": nil,
     ]
 
     private static let byBodyPartES: [String: [String: Double]] = [
@@ -151,14 +161,25 @@ public enum MuscleTaxonomy {
         for region in exercise.primaryRegions {
             add(region, 1)
         }
-        for secondary in exercise.secondaryMuscles {
-            add(secondary, secondaryWeight)
+        for (idx, secondary) in exercise.secondaryMuscles.enumerated() {
+            add(secondary, idx == 0 ? secondaryPrimaryWeight : secondaryWeight)
         }
-        for region in exercise.secondaryRegions {
-            add(region, secondaryWeight)
+        for (idx, region) in exercise.secondaryRegions.enumerated() {
+            // secondaryRegions suelen ser más precisos (slugs BodyMap).
+            add(region, idx == 0 ? secondaryPrimaryWeight : secondaryWeight)
         }
-        add(exercise.bodyPart, 1)
-        add(exercise.muscleGroup, out.isEmpty ? 1 : 0.5)
+        // bodyPart genérico (upper arms, full body…) no debe pintar a peso 1.
+        if let body = exercise.bodyPart?.lowercased(),
+           !nonMuscleBodyParts.contains(body),
+           canonical(body) != nil {
+            add(body, out.isEmpty ? 1 : 0.25)
+        }
+        if out.isEmpty {
+            add(exercise.muscleGroup, 1)
+        } else {
+            // Refuerzo suave del grupo de biblioteca si aún no hay carga ahí.
+            add(exercise.muscleGroup, 0.2)
+        }
 
         if out.isEmpty, let fallback = byBodyPartES[exercise.muscleGroup] {
             merge(fallback)

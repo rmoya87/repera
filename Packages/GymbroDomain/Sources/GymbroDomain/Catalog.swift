@@ -23,7 +23,9 @@ public enum Catalog {
                 bodyPart: row.bodyPart,
                 detailDescription: localized.description,
                 instructions: localized.instructions,
-                primaryRegions: row.primaries.isEmpty ? [row.muscleGroup.lowercased()] : row.primaries,
+                primaryRegions: row.primaries.isEmpty
+                    ? (row.target.map { [$0] } ?? [])
+                    : row.primaries,
                 secondaryRegions: row.secondaries,
                 sportTag: row.sportTag
             )
