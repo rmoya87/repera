@@ -1,6 +1,6 @@
 # Funcionalidades Gymbro
 
-Última actualización: 2026-10-17 (Progreso: ProgressSnapshot off-main + caché por periodo)
+Última actualización: 2026-10-17 (Swipe delete rojo + icono; ProgressSnapshot off-main)
 
 ## Tabs
 
@@ -12,7 +12,7 @@
 - Métricas del día: tiempo, kcal (Salud manda), ejercicios.
 - Lista de entrenos Gymbro del día + actividades externas de Salud.
 - Acciones: empezar, planificar día (`DayPlusSheet`), escanear pizarra.
-- Swipe en filas de entreno para eliminar (confirmación glass).
+- Swipe en filas de entreno para eliminar: fondo **rojo** (`OGSwipeDeleteButton`), solo icono (sin «Eliminar»/«Quitar» debajo); confirmación glass.
 
 ### Diario (`PlanView`)
 
@@ -85,7 +85,7 @@
 - **Apuntar series**: UI plana; **Terminar** = círculo verde + check blanco (mismo estilo topbar).
 - Series planificadas / logueadas, superseries, WOD clocks.
 - Menú **⋯**: favorito, nota, eliminar entrenamiento (sin guardar).
-- Sesión en curso: swipe para eliminar.
+- Sesión en curso: swipe rojo (solo icono) para descartar.
 - Borrar un entreno guardado también lo elimina de Apple Salud.
 - Confirmaciones: `OGConfirmSheet` (liquid glass).
 - Rest feedback (sonido / háptico según settings).

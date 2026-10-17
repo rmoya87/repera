@@ -52,12 +52,9 @@ struct StartHubSheet: View {
                             }
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
+                            OGSwipeDeleteButton(accessibilityLabel: "Descartar entreno en curso") {
                                 store.endActiveSession(save: false)
-                            } label: {
-                                Label("Eliminar", systemImage: "trash")
                             }
-                            .tint(OG.red)
                         }
                     } footer: {
                         Text("Toca para continuar · desliza para eliminar (no se guarda)")
@@ -189,12 +186,9 @@ struct StartHubSheet: View {
                                 }
                             }
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) {
+                                OGSwipeDeleteButton(systemImage: "xmark") {
                                     store.deleteRoutine(routine.id)
-                                } label: {
-                                    Label("Eliminar", systemImage: "xmark")
                                 }
-                                .tint(OG.red)
                             }
                         }
                         Button {

@@ -221,12 +221,9 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button(role: .destructive) {
+                    OGSwipeDeleteButton(accessibilityLabel: "Descartar entreno en curso") {
                         store.endActiveSession(save: false)
-                    } label: {
-                        Label("Descartar", systemImage: "trash")
                     }
-                    .accessibilityLabel("Descartar entreno en curso")
                 }
             } else if !workouts.isEmpty {
                 ForEach(workouts) { session in
@@ -238,12 +235,9 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                     .accessibilityHint("Toca para ver el detalle del entreno")
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive) {
+                        OGSwipeDeleteButton(accessibilityLabel: "Eliminar registro de entreno") {
                             workoutPendingDelete = session
-                        } label: {
-                            Label("Eliminar", systemImage: "trash")
                         }
-                        .accessibilityLabel("Eliminar registro de entreno")
                     }
                 }
             } else if !hasCompletedActivity {
@@ -260,12 +254,9 @@ struct HomeView: View {
                 .buttonStyle(.plain)
                 .accessibilityHint("Toca para ver el detalle de la actividad")
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button(role: .destructive) {
+                    OGSwipeDeleteButton(accessibilityLabel: "Eliminar registro de Salud") {
                         healthPendingDelete = activity
-                    } label: {
-                        Label("Eliminar", systemImage: "trash")
                     }
-                    .accessibilityLabel("Eliminar registro de Salud")
                 }
             }
 

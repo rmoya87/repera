@@ -48,19 +48,17 @@ struct FavoritesHubView: View {
                             }
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
+                            OGSwipeDeleteButton {
                                 store.removeFavorite(routine.id)
-                            } label: {
-                                Label("Eliminar", systemImage: "trash")
                             }
-                            .tint(OG.red)
                             Button {
                                 isCreating = false
                                 editing = routine
                             } label: {
-                                Label("Editar", systemImage: "pencil")
+                                Image(systemName: "pencil")
                             }
                             .tint(OG.blue)
+                            .accessibilityLabel("Editar")
                         }
                     }
                 }
@@ -86,12 +84,9 @@ struct FavoritesHubView: View {
                             }
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
+                            OGSwipeDeleteButton {
                                 store.deleteFavoriteTimer(timer.id)
-                            } label: {
-                                Label("Eliminar", systemImage: "trash")
                             }
-                            .tint(OG.red)
                         }
                     }
                 }

@@ -212,12 +212,9 @@ struct PlanView: View {
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     if let routine {
-                        Button(role: .destructive) {
+                        OGSwipeDeleteButton(systemImage: "xmark", accessibilityLabel: "Quitar") {
                             store.assignRoutine(routine.id, toWeekday: nil)
-                        } label: {
-                            Label("Quitar", systemImage: "xmark")
                         }
-                        .tint(OG.red)
                     }
                 }
             }
@@ -309,31 +306,27 @@ struct PlanView: View {
                         .padding(.vertical, 4)
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive) {
+                        OGSwipeDeleteButton {
                             store.deleteRoutine(routine.id)
-                        } label: {
-                            Label("Eliminar", systemImage: "trash")
                         }
-                        .tint(OG.red)
                         if routine.weekday != nil {
                             Button {
                                 store.assignRoutine(routine.id, toWeekday: nil)
                             } label: {
-                                Label("Desasignar", systemImage: "calendar.badge.minus")
+                                Image(systemName: "calendar.badge.minus")
                             }
                             .tint(OG.orange)
+                            .accessibilityLabel("Desasignar")
                         }
                     }
                     .swipeActions(edge: .leading) {
                         Button {
                             store.setRoutineFavorite(routine.id, isFavorite: !routine.isFavorite)
                         } label: {
-                            Label(
-                                routine.isFavorite ? "Quitar favorito" : "Favorito",
-                                systemImage: routine.isFavorite ? "star.slash" : "star"
-                            )
+                            Image(systemName: routine.isFavorite ? "star.slash" : "star")
                         }
                         .tint(OG.yellow)
+                        .accessibilityLabel(routine.isFavorite ? "Quitar favorito" : "Favorito")
                     }
                 }
             }
@@ -763,9 +756,9 @@ struct DayEditorView: View {
                 }
                 .accessibilityHint("Arrastra para cambiar el orden dentro del bloque de fuerza")
                 .swipeActions {
-                    Button(role: .destructive) {
+                    OGSwipeDeleteButton(accessibilityLabel: "Quitar") {
                         routine.blocks[index].exercises.remove(at: exIndex)
-                    } label: { Label("Quitar", systemImage: "trash") }
+                    }
                 }
             }
         }
@@ -923,9 +916,9 @@ struct DayEditorView: View {
                 }
             }
             .swipeActions {
-                Button(role: .destructive) {
+                OGSwipeDeleteButton(accessibilityLabel: "Quitar") {
                     routine.blocks[index].movements.remove(at: mIndex)
-                } label: { Label("Quitar", systemImage: "trash") }
+                }
             }
         }
 
@@ -1208,9 +1201,7 @@ private struct PlannedSetConfigRow: View {
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if canDelete {
-                Button(role: .destructive, action: onDelete) {
-                    Label("Eliminar", systemImage: "trash")
-                }
+                OGSwipeDeleteButton(action: onDelete)
             }
         }
     }

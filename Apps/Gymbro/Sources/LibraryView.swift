@@ -455,17 +455,14 @@ private struct LibraryExerciseList: View {
                 Button {
                     onToggleFavorite(row.id)
                 } label: {
-                    Label(row.isFavorite ? "Quitar" : "Favorito", systemImage: "star")
+                    Image(systemName: row.isFavorite ? "star.slash" : "star")
                 }
                 .tint(OG.yellow)
                 .accessibilityLabel(row.isFavorite ? "Quitar de favoritos" : "Marcar favorito")
                 if row.isCustom {
-                    Button(role: .destructive) {
+                    OGSwipeDeleteButton(accessibilityLabel: "Borrar ejercicio personalizado") {
                         onDelete(row.id)
-                    } label: {
-                        Label("Borrar", systemImage: "trash")
                     }
-                    .accessibilityLabel("Borrar ejercicio personalizado")
                 }
             }
         }

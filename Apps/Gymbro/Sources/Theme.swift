@@ -333,6 +333,21 @@ private struct OGFittedSheetModifier: ViewModifier {
     }
 }
 
+/// Acción swipe destructiva: fondo rojo (no el accent verde global) e icono sin título debajo.
+struct OGSwipeDeleteButton: View {
+    var systemImage: String = "trash"
+    var accessibilityLabel: String = "Eliminar"
+    var action: () -> Void
+
+    var body: some View {
+        Button(role: .destructive, action: action) {
+            Image(systemName: systemImage)
+        }
+        .tint(OG.red)
+        .accessibilityLabel(accessibilityLabel)
+    }
+}
+
 /// Modal de confirmación (eliminar / vaciar…) con liquid glass.
 struct OGConfirmSheet: View {
     var systemImage: String = "trash.circle.fill"

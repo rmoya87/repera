@@ -66,13 +66,10 @@ struct SessionPreviewView: View {
                     .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
                     .listRowBackground(OG.surface)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(role: .destructive) {
+                        OGSwipeDeleteButton(accessibilityLabel: "Descartar entreno en curso") {
                             store.endActiveSession(save: false)
                             onClose()
-                        } label: {
-                            Label("Eliminar", systemImage: "trash")
                         }
-                        .tint(OG.red)
                     }
                 } footer: {
                     Text("Toca para continuar · desliza para eliminar (no se guarda)")
@@ -361,12 +358,9 @@ struct LogFinalResultsView: View {
                                 .listRowBackground(OG.surface)
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     if draft.sets.count > 1 {
-                                        Button(role: .destructive) {
+                                        OGSwipeDeleteButton {
                                             deleteSet(blockId: block.id, exerciseId: draft.id, setId: set.id)
-                                        } label: {
-                                            Label("Eliminar", systemImage: "trash")
                                         }
-                                        .tint(OG.red)
                                     }
                                 }
                         }
