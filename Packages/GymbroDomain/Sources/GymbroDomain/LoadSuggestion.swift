@@ -27,6 +27,42 @@ public enum LoadSuggestion {
         return (raw / step).rounded() * step
     }
 
+    /// Peso para `reps` dejando `targetRir` en reserva (Epley inverso: RTF = reps + RIR).
+    /// Ejemplo: 8 reps @ RIR 2 → carga ≈ 1RM / (1 + 10/30).
+    public static func weightKg(
+        oneRM: Double,
+        reps: Int,
+        targetRir: Double,
+        roundTo incrementKg: Double = 2.5
+    ) -> Double {
+        guard oneRM > 0, reps > 0 else { return 0 }
+        let rir = max(0, targetRir)
+        let repsToFailure = Double(reps) + rir
+        let raw = oneRM / (1 + repsToFailure / 30.0)
+        let step = max(incrementKg, 0.5)
+        return (raw / step).rounded() * step
+    }
+
+    /// Si no hay 1RM, estima desde la última serie de trabajo (mismo Epley).
+    public static func weightKgFromLastSet(
+        lastWeightKg: Double,
+        lastReps: Int,
+        lastRir: Double?,
+        targetReps: Int,
+        targetRir: Double,
+        roundTo incrementKg: Double = 2.5
+    ) -> Double {
+        guard lastWeightKg > 0, lastReps > 0, targetReps > 0 else { return 0 }
+        let lastRTF = Double(lastReps) + max(0, lastRir ?? 2)
+        let oneRM = lastWeightKg * (1 + lastRTF / 30.0)
+        return weightKg(
+            oneRM: oneRM,
+            reps: targetReps,
+            targetRir: targetRir,
+            roundTo: incrementKg
+        )
+    }
+
     /// Rellena `weightMaleKg` en movimientos que solo traen % y tienen 1RM conocido (tested o e1RM).
     public static func applyPercentLoads(
         to blocks: [RoutineBlock],

@@ -14,19 +14,54 @@ struct HomeView: View {
 
     @State private var weekOffset = 0
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: Date())
-    @State private var dayHealth = HealthKitStore.DayMetrics()
-    @State private var healthActivities: [HealthKitStore.ExternalActivity] = []
-    @State private var healthActiveDayKeys: Set<String> = []
+    /// Live refine for **today** only (HK query). Past days use bucket metrics — never wait on HealthKit to paint.
+    @State private var todayHealthLive = HealthKitStore.DayMetrics()
     @State private var showCreatePlanForDay = false
     @State private var workoutPendingDelete: WorkoutSession?
     @State private var healthPendingDelete: HealthKitStore.ExternalActivity?
     @State private var openWorkoutId: UUID?
     @State private var openHealthActivityId: UUID?
+    /// Day-keyed buckets — rebuilt off the critical body path (no full-array filter per paint).
+    @State private var workoutsByDayKey: [String: [WorkoutSession]] = [:]
+    @State private var healthByDayKey: [String: [HealthKitStore.ExternalActivity]] = [:]
+    @State private var healthActiveDayKeys: Set<String> = []
+    @State private var kcalByDayKey: [String: Double] = [:]
+    @State private var healthMinutesByDayKey: [String: Double] = [:]
+    @State private var prCountBySessionId: [UUID: Int] = [:]
+    /// Semana / racha precalculados — cambiar de día no recalcula dots ni streak.
+    @State private var cachedWeekDays: [DayCell] = []
+    @State private var cachedWeekMonthTitle = "—"
+    @State private var cachedStreakWeeks = 0
+    @State private var cachedStreakWeekDone = 0
+    @State private var cachedStreakPlanned = 0
+    @State private var cachedStreakTotal = 0
 
     private var calendar: Calendar { Calendar.current }
 
     private var selectedISOWeekday: Int {
         CalendarHelpers.isoWeekday(for: selectedDay)
+    }
+
+    private var healthActivities: [HealthKitStore.ExternalActivity] {
+        healthByDayKey[dayKey(selectedDay)] ?? []
+    }
+
+    private var dayHealth: HealthKitStore.DayMetrics {
+        let key = dayKey(selectedDay)
+        if calendar.isDateInToday(selectedDay) {
+            return HealthKitStore.DayMetrics(
+                activeEnergyKcal: todayHealthLive.activeEnergyKcal
+                    ?? health.activeEnergyTodayKcal
+                    ?? kcalByDayKey[key],
+                workoutMinutes: todayHealthLive.workoutMinutes
+                    ?? health.workoutMinutesToday
+                    ?? healthMinutesByDayKey[key]
+            )
+        }
+        return HealthKitStore.DayMetrics(
+            activeEnergyKcal: kcalByDayKey[key],
+            workoutMinutes: healthMinutesByDayKey[key]
+        )
     }
 
     var body: some View {
@@ -53,9 +88,51 @@ struct HomeView: View {
             }
             .onAppear {
                 LaunchTiming.mark("HomeView.onAppear")
+                // Con diskPaint, workouts ya están en store (mismo ritmo que Salud).
+                rebuildDayBuckets()
+                rebuildWeekChrome()
+                Task(priority: .utility) {
+                    rebuildStreakChrome()
+                    prCountBySessionId = store.cachedPersonalRecordCountsBySession()
+                }
+                Task(priority: .utility) {
+                    health.refreshAuthorizationStatus()
+                }
             }
-            .task(id: "\(weekOffset)-\(dayKey(selectedDay))") {
-                await refreshHealthForVisibleRange()
+            .onChange(of: store.isHydrated) { _, hydrated in
+                guard hydrated else { return }
+                rebuildDayBuckets()
+                rebuildWeekChrome()
+            }
+            .onChange(of: selectedDay) { _, newDay in
+                if calendar.isDateInToday(newDay) {
+                    Task(priority: .utility) { await refineTodayMetricsInBackground() }
+                }
+            }
+            .onChange(of: weekOffset) { _, _ in
+                rebuildWeekChrome()
+            }
+            .onChange(of: health.isAuthorized) { _, authorized in
+                if authorized {
+                    Task(priority: .utility) { await refreshProgressiveHealthIfNeeded() }
+                }
+            }
+            .task(id: "\(store.workoutsEpoch)-\(health.healthDataRevision)") {
+                rebuildDayBuckets()
+                rebuildWeekChrome()
+                await Task.yield()
+                rebuildStreakChrome()
+                prCountBySessionId = store.cachedPersonalRecordCountsBySession()
+            }
+            // Salud diferida: no bloquear el primer paint de Inicio.
+            .task(id: "\(weekOffset)-\(store.isHydrated)") {
+                guard store.isHydrated else { return }
+                rebuildWeekChrome()
+                try? await Task.sleep(for: .milliseconds(120))
+                await refreshProgressiveHealthIfNeeded()
+                if calendar.isDateInToday(selectedDay) {
+                    await refineTodayMetricsInBackground()
+                }
             }
             .sheet(isPresented: $showCreatePlanForDay) {
                 DayPlusSheet(
@@ -94,7 +171,13 @@ struct HomeView: View {
                     onConfirm: {
                         store.deleteWorkout(session.id)
                         workoutPendingDelete = nil
-                        Task { await refreshHealthForVisibleRange() }
+                        Task {
+                            await refreshProgressiveHealthIfNeeded()
+                            rebuildDayBuckets()
+                            rebuildWeekChrome()
+                            rebuildStreakChrome()
+                            prCountBySessionId = store.cachedPersonalRecordCountsBySession()
+                        }
                     },
                     onCancel: { workoutPendingDelete = nil }
                 )
@@ -106,11 +189,13 @@ struct HomeView: View {
                     onConfirm: {
                         let id = activity.id
                         healthPendingDelete = nil
-                        healthActivities.removeAll { $0.id == id }
-                        healthActiveDayKeys.remove(dayKey(activity.start))
                         Task {
                             _ = await health.deleteExternalWorkout(id: id)
-                            await refreshHealthForVisibleRange()
+                            await refreshProgressiveHealthIfNeeded()
+                            rebuildDayBuckets()
+                            rebuildWeekChrome()
+                            rebuildStreakChrome()
+                            prCountBySessionId = store.cachedPersonalRecordCountsBySession()
                         }
                     },
                     onCancel: { healthPendingDelete = nil }
@@ -185,7 +270,7 @@ struct HomeView: View {
                 }
 
                 HStack(alignment: .top, spacing: 2) {
-                    ForEach(weekDays, id: \.iso) { day in
+                    ForEach(cachedWeekDays, id: \.iso) { day in
                         Button {
                             selectedDay = day.date
                         } label: {
@@ -211,7 +296,7 @@ struct HomeView: View {
     @ViewBuilder
     private func dayEntrenoStack(workouts: [WorkoutSession]) -> some View {
         let isToday = calendar.isDateInToday(selectedDay)
-        let hasActive = isToday && store.state.activeSession != nil
+        let hasActive = isToday && store.hasActiveSession
         let hasCompletedActivity = !workouts.isEmpty || !healthActivities.isEmpty
 
         VStack(spacing: 10) {
@@ -227,18 +312,7 @@ struct HomeView: View {
                 }
             } else if !workouts.isEmpty {
                 ForEach(workouts) { session in
-                    Button {
-                        openWorkoutId = session.id
-                    } label: {
-                        dayWorkoutCard(session)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("Toca para ver el detalle del entreno")
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        OGSwipeDeleteButton(accessibilityLabel: "Eliminar registro de entreno") {
-                            workoutPendingDelete = session
-                        }
-                    }
+                    dayWorkoutCard(session)
                 }
             } else if !hasCompletedActivity {
                 // Sin registros → plan o día de descanso.
@@ -246,18 +320,7 @@ struct HomeView: View {
             }
 
             ForEach(healthActivities) { activity in
-                Button {
-                    openHealthActivityId = activity.id
-                } label: {
-                    healthActivityCard(activity)
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint("Toca para ver el detalle de la actividad")
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    OGSwipeDeleteButton(accessibilityLabel: "Eliminar registro de Salud") {
-                        healthPendingDelete = activity
-                    }
-                }
+                healthActivityCard(activity)
             }
 
             // Ya hay algo ese día → permitir sumar otro entreno.
@@ -293,121 +356,170 @@ struct HomeView: View {
         let minutes = sessionMinutes(session)
         let logged = session.exercises.filter { !$0.loggedSets.isEmpty }
         let kcal = session.appleActiveEnergyKcal
+        let prs = prCountBySessionId[session.id] ?? 0
         let isToday = calendar.isDateInToday(selectedDay)
-        return HStack(alignment: .top, spacing: 12) {
-            ZStack {
-                Circle().fill(OG.accent.opacity(0.22))
-                Image(systemName: "checkmark")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(OG.accent)
-            }
-            .frame(width: 44, height: 44)
+        return registerCardWithChipsOverlay(
+            open: { openWorkoutId = session.id },
+            accessibilityHint: "Toca para ver el detalle del entreno",
+            deleteLabel: "Eliminar registro de entreno",
+            onDelete: { workoutPendingDelete = session },
+            title: {
+                HStack(alignment: .top, spacing: 12) {
+                    ZStack {
+                        Circle().fill(OG.accent.opacity(0.22))
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(OG.accent)
+                    }
+                    .frame(width: 44, height: 44)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text(isToday ? "ENTRENO" : dayHeaderLabel.uppercased())
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(OG.label3)
-                    .tracking(0.3)
-
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(session.title)
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(OG.label)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    Spacer(minLength: 4)
-                    if let start = session.startedAt {
-                        Text(SpanishDate.time(start))
-                            .font(.system(size: 13, weight: .semibold).monospacedDigit())
-                            .foregroundStyle(OG.label2)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(dayLabelWithTime(isToday: isToday, time: session.startedAt.map(SpanishDate.time)))
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(OG.label3)
+                            .tracking(0.3)
+                        Text(session.title)
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundStyle(OG.label)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-
-                HStack(spacing: 6) {
-                    if minutes > 0 {
-                        registerChip("\(Int(minutes.rounded())) min", icon: "timer")
-                    }
-                    if let kcal, kcal > 0 {
-                        registerChip("\(Int(kcal.rounded())) kcal", icon: "flame.fill")
-                    }
-                    if !logged.isEmpty {
-                        registerChip("\(logged.count) ej.", icon: "list.bullet")
-                    }
+                .padding(.horizontal, Self.registerCardPad)
+            },
+            chips: {
+                if minutes > 0 {
+                    registerChip("\(Int(minutes.rounded())) min", icon: "timer")
+                }
+                if let kcal, kcal > 0 {
+                    registerChip("\(Int(kcal.rounded())) kcal", icon: "flame.fill")
+                }
+                if !logged.isEmpty {
+                    registerChip("\(logged.count) ej.", icon: "list.bullet")
+                }
+                if prs > 0 {
+                    registerChip("\(prs) PR", icon: "trophy.fill")
                 }
             }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        )
     }
 
     private func healthActivityCard(_ activity: HealthKitStore.ExternalActivity) -> some View {
         let isToday = calendar.isDateInToday(selectedDay)
-        return HStack(alignment: .top, spacing: 12) {
-            ZStack {
-                Circle().fill(OG.red.opacity(0.22))
-                Image(systemName: activity.symbolName)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(OG.red)
-            }
-            .frame(width: 44, height: 44)
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text(isToday ? "ENTRENO" : dayHeaderLabel.uppercased())
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(OG.label3)
-                    .tracking(0.3)
-
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(activity.title)
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(OG.label)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    Spacer(minLength: 4)
-                    Text(SpanishDate.time(activity.start))
-                        .font(.system(size: 13, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(OG.label2)
-                }
-
-                HStack(spacing: 6) {
-                    registerChip("Salud", icon: "heart.fill")
-                    if activity.durationMinutes > 0 {
-                        registerChip("\(Int(activity.durationMinutes.rounded())) min", icon: "timer")
+        return registerCardWithChipsOverlay(
+            open: { openHealthActivityId = activity.id },
+            accessibilityHint: "Toca para ver el detalle de la actividad",
+            deleteLabel: "Eliminar registro de Salud",
+            onDelete: { healthPendingDelete = activity },
+            title: {
+                HStack(alignment: .top, spacing: 12) {
+                    ZStack {
+                        Circle().fill(OG.red.opacity(0.22))
+                        Image(systemName: activity.symbolName)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(OG.red)
                     }
-                    if let kcal = activity.activeEnergyKcal, kcal > 0 {
-                        registerChip("\(Int(kcal.rounded())) kcal", icon: "flame.fill")
+                    .frame(width: 44, height: 44)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(dayLabelWithTime(isToday: isToday, time: SpanishDate.time(activity.start)))
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(OG.label3)
+                            .tracking(0.3)
+                        Text(activity.title)
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundStyle(OG.label)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
+                .padding(.horizontal, Self.registerCardPad)
+            },
+            chips: {
+                registerChip("Salud", icon: "heart.fill")
+                if activity.durationMinutes > 0 {
+                    registerChip("\(Int(activity.durationMinutes.rounded())) min", icon: "timer")
+                }
+                if let kcal = activity.activeEnergyKcal, kcal > 0 {
+                    registerChip("\(Int(kcal.rounded())) kcal", icon: "flame.fill")
+                }
             }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        )
     }
 
-    private func refreshHealthForVisibleRange() async {
-        guard health.isAuthorized else {
-            healthActivities = []
-            healthActiveDayKeys = []
-            dayHealth = HealthKitStore.DayMetrics()
-            return
-        }
-        if calendar.isDateInToday(selectedDay) {
-            await health.refreshToday()
-        }
-        dayHealth = await health.dayMetrics(for: selectedDay)
+    /// Card con chips: la caja entera (chips incluidos) se desliza; gesto de borrar solo fuera del carrusel.
+    private func registerCardWithChipsOverlay<Title: View>(
+        open: @escaping () -> Void,
+        accessibilityHint: String,
+        deleteLabel: String,
+        onDelete: @escaping () -> Void,
+        @ViewBuilder title: @escaping () -> Title,
+        @ViewBuilder chips: @escaping () -> some View
+    ) -> some View {
+        RegisterSwipeRevealCard(
+            onOpen: open,
+            onDelete: onDelete,
+            deleteAccessibilityLabel: deleteLabel,
+            title: title,
+            chips: { registerChipsRow(content: chips) }
+        )
+        .accessibilityHint(accessibilityHint)
+    }
+
+    /// Progressive window for dots / past-day metrics. Not tied to day selection.
+    private func refreshProgressiveHealthIfNeeded() async {
+        health.refreshAuthorizationStatus()
+        guard health.isAuthorized else { return }
 
         let linked = Set(store.state.workouts.compactMap(\.healthKitWorkoutUUID))
+        // Day swipe must not wait on a 2‑minute TTL — coverage + dirty flag is enough.
+        if health.hasProgressiveCache,
+           health.healthCacheCoverageDays >= 7,
+           !health.healthNeedsRefresh {
+            return
+        }
+
         await health.refreshRecentExternalActivities(
             excludingUUIDs: linked,
             overlappingSessions: store.state.workouts
         )
-        let recent = health.recentExternalActivities
-        healthActivities = recent.filter { calendar.isDate($0.start, inSameDayAs: selectedDay) }
-        healthActiveDayKeys = Set(recent.map { dayKey($0.start) })
+    }
+
+    /// Soft refine for today tiles only; never clears displayed cache while waiting.
+    private func refineTodayMetricsInBackground() async {
+        guard health.isAuthorized, calendar.isDateInToday(selectedDay) else { return }
+        let key = dayKey(selectedDay)
+        let hasBuckets = kcalByDayKey[key] != nil || healthMinutesByDayKey[key] != nil
+            || health.activeEnergyTodayKcal != nil
+        if !hasBuckets {
+            await health.refreshToday()
+        }
+        let live = await health.dayMetrics(for: selectedDay)
+        guard calendar.isDateInToday(selectedDay) else { return }
+        if live.activeEnergyKcal != nil || live.workoutMinutes != nil {
+            todayHealthLive = live
+        }
+    }
+
+    /// Padding del título; el carrusel va edge-to-edge dentro de la card.
+    private static let registerCardPad: CGFloat = 14
+    /// Card pad + icono 44 + gap 12 → chips alineados al título en reposo.
+    private static let chipsTitleLeading: CGFloat = registerCardPad + 44 + 12
+
+    /// Carrusel edge-to-edge; sin gesto de borrar (vive en el título de `RegisterSwipeRevealCard`).
+    @ViewBuilder
+    private func registerChipsRow(@ViewBuilder content: () -> some View) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                content()
+            }
+            .padding(.leading, Self.chipsTitleLeading)
+        }
+        .contentMargins(.horizontal, 0, for: .scrollContent)
+        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func registerChip(_ text: String, icon: String) -> some View {
@@ -416,6 +528,8 @@ struct HomeView: View {
                 .font(.system(size: 10, weight: .semibold))
             Text(text)
                 .font(.system(size: 11, weight: .semibold))
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
         }
         .foregroundStyle(OG.label2)
         .padding(.horizontal, 8)
@@ -424,7 +538,7 @@ struct HomeView: View {
     }
 
     private func startPlannedDayIfPossible() {
-        if calendar.isDateInToday(selectedDay), store.state.activeSession != nil {
+        if calendar.isDateInToday(selectedDay), store.hasActiveSession {
             onStart()
             return
         }
@@ -461,7 +575,7 @@ struct HomeView: View {
         let isToday = calendar.isDateInToday(selectedDay)
         let planned = plannedRoutineForSelectedDay
         return Button {
-            if isToday, store.state.activeSession != nil {
+            if isToday, store.hasActiveSession {
                 onStart()
             } else if let planned {
                 onStartRoutine(planned)
@@ -488,7 +602,7 @@ struct HomeView: View {
                         .foregroundStyle(todayIconFg)
                 }
             VStack(alignment: .leading, spacing: 2) {
-                Text(isToday ? "ENTRENO" : dayHeaderLabel.uppercased())
+                Text(dayLabelWithTime(isToday: isToday, time: selectedDayTimeLabel))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(OG.label3)
                     .tracking(0.3)
@@ -497,7 +611,8 @@ struct HomeView: View {
                     .foregroundStyle(OG.label)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                if isToday, store.state.activeSession != nil {
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if isToday, store.hasActiveSession {
                     Text("Toca para continuar · desliza para eliminar")
                         .font(.system(size: 12))
                         .foregroundStyle(OG.label2)
@@ -551,13 +666,7 @@ struct HomeView: View {
 
     /// Como openGym: la racha abre el calendario/historial de entrenos (no Stats).
     private var streakCard: some View {
-        let healthWeek = health.recentExternalActivities.filter {
-            $0.start >= (calendar.date(byAdding: .day, value: -7, to: Date()) ?? Date())
-        }.count
-        let weekDone = StatsEngine.workoutCount(from: store.state.workouts, days: 7) + healthWeek
-        let planned = store.state.routines.filter { $0.weekday != nil }.count
-        let total = store.state.workouts.count + health.recentExternalActivities.count
-        return NavigationLink {
+        NavigationLink {
             HistoryView()
         } label: {
             OGCard {
@@ -566,12 +675,16 @@ struct HomeView: View {
                         HStack(spacing: 7) {
                             Image(systemName: "flame.fill")
                                 .foregroundStyle(OG.orange)
-                            Text(streakTitle)
+                            Text(cachedStreakTitle)
                                 .font(.system(size: 22, weight: .semibold))
                                 .foregroundStyle(OG.label)
                                 .tracking(-0.4)
                         }
-                        Text(streakSubtitle(weekDone: weekDone, planned: planned, total: total))
+                        Text(streakSubtitle(
+                            weekDone: cachedStreakWeekDone,
+                            planned: cachedStreakPlanned,
+                            total: cachedStreakTotal
+                        ))
                             .font(.system(size: 13))
                             .foregroundStyle(OG.label2)
                     }
@@ -590,11 +703,65 @@ struct HomeView: View {
 
     /// Solo entrenos ya terminados ese día (no borradores ni sesiones a medias).
     private var workoutsOnSelectedDay: [WorkoutSession] {
-        store.state.workouts.filter { w in
-            guard let d = w.finishedAt else { return false }
-            return calendar.isDate(d, inSameDayAs: selectedDay)
+        workoutsByDayKey[dayKey(selectedDay)] ?? []
+    }
+
+    private func rebuildDayBuckets() {
+        var workouts: [String: [WorkoutSession]] = [:]
+        for w in store.state.workouts {
+            guard let d = w.finishedAt else { continue }
+            workouts[dayKey(d), default: []].append(w)
         }
-        .sorted { ($0.finishedAt ?? .distantPast) > ($1.finishedAt ?? .distantPast) }
+        for key in workouts.keys {
+            workouts[key]?.sort {
+                ($0.finishedAt ?? .distantPast) > ($1.finishedAt ?? .distantPast)
+            }
+        }
+
+        var healthMap: [String: [HealthKitStore.ExternalActivity]] = [:]
+        var minutes: [String: Double] = [:]
+        var keys = Set<String>()
+        for activity in health.recentExternalActivities {
+            let key = dayKey(activity.start)
+            keys.insert(key)
+            healthMap[key, default: []].append(activity)
+            minutes[key, default: 0] += max(0, activity.durationMinutes)
+        }
+        for key in healthMap.keys {
+            healthMap[key]?.sort { $0.start > $1.start }
+        }
+
+        var kcals: [String: Double] = [:]
+        for point in health.recentDailyActiveEnergy where point.kcal > 0 {
+            kcals[dayKey(point.date)] = point.kcal
+        }
+
+        workoutsByDayKey = workouts
+        healthByDayKey = healthMap
+        healthActiveDayKeys = keys
+        kcalByDayKey = kcals
+        healthMinutesByDayKey = minutes.filter { $0.value > 0 }
+    }
+
+    private func rebuildWeekChrome() {
+        let days = makeWeekDays()
+        cachedWeekDays = days
+        if let first = days.first?.date, let last = days.last?.date {
+            cachedWeekMonthTitle = SpanishDate.monthHeadline(from: first, to: last, calendar: calendar)
+        } else {
+            cachedWeekMonthTitle = "—"
+        }
+    }
+
+    private func rebuildStreakChrome() {
+        let weekAgo = calendar.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+        let healthWeek = health.recentExternalActivities.reduce(into: 0) { count, activity in
+            if activity.start >= weekAgo { count += 1 }
+        }
+        cachedStreakWeekDone = StatsEngine.workoutCount(from: store.state.workouts, days: 7) + healthWeek
+        cachedStreakPlanned = store.state.routines.reduce(into: 0) { $0 += $1.weekday != nil ? 1 : 0 }
+        cachedStreakTotal = store.state.workouts.count + health.recentExternalActivities.count
+        cachedStreakWeeks = consecutiveWeekStreak()
     }
 
     private var plannedRoutineForSelectedDay: Routine? {
@@ -611,27 +778,40 @@ struct HomeView: View {
     }
 
     private var selectedDayTitle: String {
-        if calendar.isDateInToday(selectedDay), let active = store.state.activeSession {
-            return "\(active.title) (en curso)"
+        if calendar.isDateInToday(selectedDay), store.hasActiveSession {
+            let name = store.continueAccessory?.title ?? "Entreno"
+            return "\(name) (en curso)"
         }
         if let done = workoutsOnSelectedDay.first {
-            if let start = done.startedAt {
-                return "\(done.title) · \(SpanishDate.time(start))"
-            }
             return done.title
         }
         // Actividad de Apple Salud = día trabajado, no descanso.
         if let health = healthActivities.first {
-            return "\(health.title) · \(SpanishDate.time(health.start))"
+            return health.title
         }
         // Plan solo si aún no hay registro completado.
         if let planned = plannedRoutineForSelectedDay {
-            if let minutes = planned.normalizedScheduledTimeMinutes {
-                return "\(planned.title) · \(SpanishDate.time(minutesFromMidnight: minutes))"
-            }
             return planned.title
         }
         return "Día de descanso"
+    }
+
+    /// Hora a la derecha del día (no en el título) para dejar ancho al nombre del entreno.
+    private var selectedDayTimeLabel: String? {
+        if calendar.isDateInToday(selectedDay), store.hasActiveSession {
+            return nil
+        }
+        if let done = workoutsOnSelectedDay.first, let start = done.startedAt {
+            return SpanishDate.time(start)
+        }
+        if let health = healthActivities.first {
+            return SpanishDate.time(health.start)
+        }
+        if let planned = plannedRoutineForSelectedDay,
+           let minutes = planned.normalizedScheduledTimeMinutes {
+            return SpanishDate.time(minutesFromMidnight: minutes)
+        }
+        return nil
     }
 
     private var dayHeaderLabel: String {
@@ -641,22 +821,28 @@ struct HomeView: View {
         return f.string(from: selectedDay)
     }
 
+    private func dayLabelWithTime(isToday: Bool, time: String?) -> String {
+        let day = isToday ? "ENTRENO" : dayHeaderLabel.uppercased()
+        guard let time, !time.isEmpty else { return day }
+        return "\(day) · \(time)"
+    }
+
     private var todayIconBg: Color {
-        if calendar.isDateInToday(selectedDay), store.state.activeSession != nil { return OG.orange }
+        if calendar.isDateInToday(selectedDay), store.hasActiveSession { return OG.orange }
         if calendar.isDateInToday(selectedDay), store.routineForToday() != nil { return OG.accent }
         return OG.surface3
     }
 
     private var todayIconFg: Color {
         if calendar.isDateInToday(selectedDay),
-           store.state.activeSession != nil || store.routineForToday() != nil {
+           store.hasActiveSession || store.routineForToday() != nil {
             return Color.black
         }
         return OG.label2
     }
 
     private var todayIcon: String {
-        if calendar.isDateInToday(selectedDay), store.state.activeSession != nil { return "play.fill" }
+        if calendar.isDateInToday(selectedDay), store.hasActiveSession { return "play.fill" }
         if hasCompletedActivityOnSelectedDay { return "checkmark" }
         if plannedTitleForSelectedDay != nil { return "figure.strengthtraining.traditional" }
         return "moon.fill"
@@ -678,10 +864,9 @@ struct HomeView: View {
         return durationMin * 7.5 + volume * 0.02
     }
 
-    private var streakTitle: String {
-        let weeks = consecutiveWeekStreak()
-        if weeks == 0 { return "Sin racha todavía" }
-        return weeks == 1 ? "Racha de 1 semana" : "Racha de \(weeks) semanas"
+    private var cachedStreakTitle: String {
+        if cachedStreakWeeks == 0 { return "Sin racha todavía" }
+        return cachedStreakWeeks == 1 ? "Racha de 1 semana" : "Racha de \(cachedStreakWeeks) semanas"
     }
 
     private func streakSubtitle(weekDone: Int, planned: Int, total: Int) -> String {
@@ -737,12 +922,9 @@ struct HomeView: View {
         var hasPlan: Bool
     }
 
-    private var visibleWeekMonthTitle: String {
-        guard let first = weekDays.first?.date, let last = weekDays.last?.date else { return "—" }
-        return SpanishDate.monthHeadline(from: first, to: last, calendar: calendar)
-    }
+    private var visibleWeekMonthTitle: String { cachedWeekMonthTitle }
 
-    private var weekDays: [DayCell] {
+    private func makeWeekDays() -> [DayCell] {
         let today = Date()
         let weekday = calendar.component(.weekday, from: today)
         let startOffset = store.state.settings.weekStartsOn == .monday
@@ -756,24 +938,39 @@ struct HomeView: View {
             ? ["LU", "MA", "MI", "JU", "VI", "SA", "DO"]
             : ["DO", "LU", "MA", "MI", "JU", "VI", "SA"]
 
-        var workoutDays: Set<String> = Set(
-            store.state.workouts.compactMap { w -> String? in
-                guard let d = w.finishedAt ?? w.startedAt else { return nil }
-                return dayKey(d)
-            }
-        )
+        var workoutDays = Set(workoutsByDayKey.keys)
+        for w in store.state.workouts where w.finishedAt == nil {
+            if let d = w.startedAt { workoutDays.insert(dayKey(d)) }
+        }
         workoutDays.formUnion(healthActiveDayKeys)
 
-        return (0..<7).compactMap { i in
-            guard let d = calendar.date(byAdding: .day, value: i, to: start) else { return nil }
+        // Un solo pase de rutinas → keys de plan de la semana visible.
+        var planKeys = Set<String>()
+        let weekDates: [Date] = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+        let weekISO = Set(weekDates.map { CalendarHelpers.isoWeekday(for: $0, calendar: calendar) })
+        for routine in store.state.routines {
+            if let scheduled = routine.scheduledDate {
+                let key = dayKey(scheduled)
+                if weekDates.contains(where: { calendar.isDate($0, inSameDayAs: scheduled) }) {
+                    planKeys.insert(key)
+                }
+            } else if let wd = routine.weekday, weekISO.contains(wd) {
+                for d in weekDates where CalendarHelpers.isoWeekday(for: d, calendar: calendar) == wd {
+                    planKeys.insert(dayKey(d))
+                }
+            }
+        }
+
+        return weekDates.enumerated().map { i, d in
             let dayStart = calendar.startOfDay(for: d)
+            let key = dayKey(dayStart)
             return DayCell(
-                iso: dayKey(d),
+                iso: key,
                 date: dayStart,
                 lbl: labels[i],
                 num: calendar.component(.day, from: d),
-                hasWorkout: workoutDays.contains(dayKey(d)),
-                hasPlan: store.routineForDay(dayStart) != nil
+                hasWorkout: workoutDays.contains(key),
+                hasPlan: planKeys.contains(key)
             )
         }
     }

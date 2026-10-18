@@ -32,6 +32,15 @@ public enum ExerciseSearch {
         "chestpress": "banca",
     ]
 
+    /// Flat set for O(1) `isMuscleToken` (avoids scanning all alias arrays).
+    private static let allMuscleTokens: Set<String> = {
+        var set = Set(muscleAliases.keys)
+        for aliases in muscleAliases.values {
+            set.formUnion(aliases)
+        }
+        return set
+    }()
+
     // MARK: - Pesos (mayor = más relevante)
 
     private enum Weight {
@@ -83,12 +92,26 @@ public enum ExerciseSearch {
         exercises.map(Document.init)
     }
 
+    /// Normaliza sin `NSRegularExpression` (hot path de `makeIndex`).
     public static func normalize(_ raw: String) -> String {
-        raw.lowercased()
+        let folded = raw.lowercased()
             .folding(options: .diacriticInsensitive, locale: Locale(identifier: "es_ES"))
-            .replacingOccurrences(of: #"[:\-_/.,;+()¡!¿?]"#, with: " ", options: .regularExpression)
-            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        var out = ""
+        out.reserveCapacity(folded.count)
+        var lastWasSpace = true
+        for ch in folded.unicodeScalars {
+            if CharacterSet.alphanumerics.contains(ch) {
+                out.unicodeScalars.append(ch)
+                lastWasSpace = false
+            } else if !lastWasSpace {
+                out.append(" ")
+                lastWasSpace = true
+            }
+        }
+        if out.hasSuffix(" ") {
+            out.removeLast()
+        }
+        return out
     }
 
     public static func tokens(from raw: String) -> [String] {
@@ -222,8 +245,7 @@ public enum ExerciseSearch {
     }
 
     private static func isMuscleToken(_ token: String) -> Bool {
-        if muscleAliases[token] != nil { return true }
-        return muscleAliases.values.contains { $0.contains(token) }
+        allMuscleTokens.contains(token)
     }
 
     private static func matchesMuscleGroup(_ tokens: [String], muscleGroup: String) -> Bool {

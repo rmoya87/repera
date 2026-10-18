@@ -31,6 +31,9 @@ struct ProgressSnapshot: Equatable, Sendable {
     var records: [PersonalRecord]
     var muscleLoadAll: [String: Double]
     var muscleLoadHard: [String: Double]
+    /// Fatiga retenida (vida media) para el BodyMap — independiente del ranking por series.
+    var muscleFatigueAll: [String: Double]
+    var muscleFatigueHard: [String: Double]
     var hasHardSets: Bool
     var heatmapTime: HeatmapGrid
     var heatmapVolume: HeatmapGrid
@@ -67,6 +70,8 @@ struct ProgressSnapshot: Equatable, Sendable {
             records: [],
             muscleLoadAll: [:],
             muscleLoadHard: [:],
+            muscleFatigueAll: [:],
+            muscleFatigueHard: [:],
             hasHardSets: false,
             heatmapTime: .empty,
             heatmapVolume: .empty,
@@ -201,6 +206,19 @@ enum ProgressDataEngine {
             now: now,
             hardOnly: true
         )
+        // Fatiga con decaimiento desde `now` (solo estímulos del periodo filtrado).
+        let muscleFatigueAll = MuscleMapEngine.retainedLoad(
+            workouts: filteredWorkouts,
+            external: filteredStimuli,
+            hardOnly: false,
+            now: now
+        )
+        let muscleFatigueHard = MuscleMapEngine.retainedLoad(
+            workouts: filteredWorkouts,
+            external: filteredStimuli,
+            hardOnly: true,
+            now: now
+        )
         let hasHardSets = filteredWorkouts.contains { session in
             session.exercises.contains { entry in
                 entry.loggedSets.contains { !$0.isWarmup && $0.reps > 0 && Effort.isHard(rir: $0.rir) }
@@ -249,6 +267,8 @@ enum ProgressDataEngine {
             records: records,
             muscleLoadAll: muscleAll,
             muscleLoadHard: muscleHard,
+            muscleFatigueAll: muscleFatigueAll,
+            muscleFatigueHard: muscleFatigueHard,
             hasHardSets: hasHardSets,
             heatmapTime: heatmapTime,
             heatmapVolume: heatmapVolume,

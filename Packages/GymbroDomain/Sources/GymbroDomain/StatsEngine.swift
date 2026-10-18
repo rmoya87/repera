@@ -271,6 +271,46 @@ public struct ExerciseSessionSnapshot: Identifiable, Sendable, Equatable {
     }
 }
 
+/// Última sesión de trabajo de un ejercicio (series estructuradas para orientar la carga).
+public struct ExerciseLastSession: Sendable, Equatable {
+    public struct WorkSet: Sendable, Equatable, Identifiable {
+        public var id: UUID
+        public var weightKg: Double?
+        public var reps: Int
+        public var rir: Double?
+
+        public init(id: UUID = UUID(), weightKg: Double?, reps: Int, rir: Double?) {
+            self.id = id
+            self.weightKg = weightKg
+            self.reps = reps
+            self.rir = rir
+        }
+
+        public var line: String {
+            let w = weightKg.map { String(format: "%g", $0) } ?? "—"
+            var s = "\(w)×\(reps)"
+            if let rir {
+                s += " · RIR \(String(format: "%g", rir))"
+            }
+            return s
+        }
+    }
+
+    public var sessionId: UUID
+    public var date: Date
+    public var sets: [WorkSet]
+
+    public init(sessionId: UUID, date: Date, sets: [WorkSet]) {
+        self.sessionId = sessionId
+        self.date = date
+        self.sets = sets
+    }
+
+    public var topSet: WorkSet? {
+        sets.max { ($0.weightKg ?? 0) < ($1.weightKg ?? 0) }
+    }
+}
+
 extension StatsEngine {
     /// Serie temporal para la ficha de progreso de un ejercicio.
     public static func exerciseProgressSeries(
@@ -334,6 +374,35 @@ extension StatsEngine {
         return points
     }
 
+    /// Última sesión con series de trabajo (más reciente primero).
+    public static func lastWorkingSession(
+        for exerciseId: UUID,
+        workouts: [WorkoutSession]
+    ) -> ExerciseLastSession? {
+        for workout in workouts.sorted(by: {
+            ($0.finishedAt ?? $0.startedAt ?? .distantPast) > ($1.finishedAt ?? $1.startedAt ?? .distantPast)
+        }) {
+            guard workout.finishedAt != nil || workout.phase == .finished else { continue }
+            guard let date = workout.finishedAt ?? workout.startedAt else { continue }
+            guard let ex = workout.exercises.first(where: { $0.exercise.id == exerciseId }) else { continue }
+            let work = ex.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
+            guard !work.isEmpty else { continue }
+            return ExerciseLastSession(
+                sessionId: workout.id,
+                date: date,
+                sets: work.map {
+                    ExerciseLastSession.WorkSet(
+                        id: $0.id,
+                        weightKg: $0.weightKg,
+                        reps: $0.reps,
+                        rir: $0.rir
+                    )
+                }
+            )
+        }
+        return nil
+    }
+
     /// Sesiones de un ejercicio con desglose serie a serie (para la lista bajo el gráfico).
     public static func exerciseSessionSnapshots(
         exerciseId: UUID,
@@ -376,28 +445,45 @@ extension StatsEngine {
 
     /// Nº de PRs (mejor e1RM hasta esa fecha) logrados en una sesión.
     public static func personalRecordCount(in session: WorkoutSession, allWorkouts: [WorkoutSession]) -> Int {
-        guard let sessionDate = session.finishedAt ?? session.startedAt else { return 0 }
-        var count = 0
-        for exercise in session.exercises {
-            let work = exercise.loggedSets.filter { !$0.isWarmup && $0.reps > 0 && ($0.weightKg ?? 0) > 0 }
-            guard !work.isEmpty else { continue }
-            let sessionBest = work.map { $0.weightKg! * (1 + Double($0.reps) / 30.0) }.max() ?? 0
-            guard sessionBest > 0 else { continue }
+        personalRecordCountsBySessionId(workouts: allWorkouts)[session.id] ?? 0
+    }
 
-            var priorBest: Double = 0
-            for other in allWorkouts {
-                guard let d = other.finishedAt ?? other.startedAt, d < sessionDate else { continue }
-                guard let ex = other.exercises.first(where: { $0.exercise.id == exercise.exercise.id }) else { continue }
-                for set in ex.loggedSets where !set.isWarmup && set.reps > 0 {
-                    guard let w = set.weightKg, w > 0 else { continue }
-                    priorBest = max(priorBest, w * (1 + Double(set.reps) / 30.0))
+    /// PRs por sesión en un solo pase cronológico (O(series) vs O(sesiones²) por fila).
+    public static func personalRecordCountsBySessionId(workouts: [WorkoutSession]) -> [UUID: Int] {
+        let dated = workouts.compactMap { session -> (WorkoutSession, Date)? in
+            guard let date = session.finishedAt ?? session.startedAt else { return nil }
+            return (session, date)
+        }
+        .sorted { lhs, rhs in
+            if lhs.1 != rhs.1 { return lhs.1 < rhs.1 }
+            return lhs.0.id.uuidString < rhs.0.id.uuidString
+        }
+
+        var bestE1RM: [UUID: Double] = [:]
+        var result: [UUID: Int] = [:]
+        result.reserveCapacity(dated.count)
+
+        for (session, _) in dated {
+            var count = 0
+            var sessionBests: [(UUID, Double)] = []
+            for exercise in session.exercises {
+                let work = exercise.loggedSets.filter { !$0.isWarmup && $0.reps > 0 && ($0.weightKg ?? 0) > 0 }
+                guard !work.isEmpty else { continue }
+                let sessionBest = work.map { $0.weightKg! * (1 + Double($0.reps) / 30.0) }.max() ?? 0
+                guard sessionBest > 0 else { continue }
+                let exerciseId = exercise.exercise.id
+                let prior = bestE1RM[exerciseId] ?? 0
+                if sessionBest > prior + 0.05 {
+                    count += 1
                 }
+                sessionBests.append((exerciseId, sessionBest))
             }
-            if sessionBest > priorBest + 0.05 {
-                count += 1
+            result[session.id] = count
+            for (exerciseId, best) in sessionBests {
+                bestE1RM[exerciseId] = max(bestE1RM[exerciseId] ?? 0, best)
             }
         }
-        return count
+        return result
     }
 
     public static func totalSets(in session: WorkoutSession) -> Int {

@@ -158,7 +158,18 @@ final class HealthKitStore {
     private var trackedSessionId: UUID?
     private var trackedStart: Date?
 
-    private init() {}
+    private init() {
+        // Auth antes que Home: si no, el primer `.task` ve isAuthorized=false y limpia la UI.
+        refreshAuthorizationStatus()
+        // Cold start: paint Home/Progreso from last snapshot before HealthKit answers.
+        // Prefer decode already started in `LaunchWarmup` (overlaps first SwiftUI frame).
+        if let snap = LaunchWarmup.healthSnapshotForInit() {
+            applyDiskSnapshot(snap)
+            ProgressLog.info(
+                "HK disk hydrate activities=\(snap.activities.count) hr=\(snap.heartRate.count) kcal=\(snap.activeEnergy.count) age=\(Int(Date().timeIntervalSince(snap.fetchedAt)))s"
+            )
+        }
+    }
 
     func requestAccess() async {
         guard isAvailable else {
@@ -219,6 +230,37 @@ final class HealthKitStore {
         async let energy: Void = fetchActiveEnergyToday()
         async let minutes: Void = fetchWorkoutMinutesToday()
         _ = await (weight, energy, minutes)
+        persistProgressiveCacheToDisk()
+    }
+
+    /// kcal + minutos derivados de la caché progresiva (instantáneo; nil si el día no está cubierto).
+    func dayMetricsFromCache(for day: Date) -> DayMetrics? {
+        guard hasProgressiveCache else { return nil }
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: day)
+        // Outside coverage window → force live query.
+        if let fetched = healthCacheFetchedAt {
+            let coverageStart = cal.date(byAdding: .day, value: -healthCacheCoverageDays, to: fetched)
+                ?? start
+            if start < cal.startOfDay(for: coverageStart) { return nil }
+        }
+        let kcal = recentDailyActiveEnergy.first { cal.isDate($0.date, inSameDayAs: start) }?.kcal
+        let minutes = recentExternalActivities
+            .filter { cal.isDate($0.start, inSameDayAs: start) }
+            .reduce(0.0) { $0 + $1.durationMinutes }
+        if cal.isDateInToday(day) {
+            // Prefer live “today” fields when present.
+            let todayK = activeEnergyTodayKcal ?? kcal
+            let todayM = workoutMinutesToday ?? (minutes > 0 ? minutes : nil)
+            return DayMetrics(
+                activeEnergyKcal: (todayK ?? 0) > 0 ? todayK : nil,
+                workoutMinutes: (todayM ?? 0) > 0 ? todayM : nil
+            )
+        }
+        return DayMetrics(
+            activeEnergyKcal: (kcal ?? 0) > 0 ? kcal : nil,
+            workoutMinutes: minutes > 0 ? minutes : nil
+        )
     }
 
     /// kcal + minutos de entrenos de Salud para un día concreto (no solo “hoy”).
@@ -235,6 +277,38 @@ final class HealthKitStore {
             activeEnergyKcal: k > 0 ? k : nil,
             workoutMinutes: m > 0 ? m : nil
         )
+    }
+
+    /// HKObserverQuery + background delivery (entitlement already on). Marks dirty; refresh on foreground.
+    func startObservingHealthChanges() {
+        guard isAvailable, !healthObserversStarted else { return }
+        healthObserversStarted = true
+        let types: [HKSampleType] = [
+            .workoutType(),
+            HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
+        ]
+        for type in types {
+            let typeId = type.identifier
+            let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completionHandler, _ in
+                // Call completion on the query queue; hop to MainActor only for state.
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.healthNeedsRefresh = true
+                    // Keep progressive arrays for instant UI; only expire freshness so next refresh runs.
+                    self.healthCacheFetchedAt = nil
+                    self.metricsCacheFetchedAt = nil
+                    ProgressLog.info("HK observer dirty \(typeId)")
+                }
+                completionHandler()
+            }
+            store.execute(query)
+            store.enableBackgroundDelivery(for: type, frequency: .hourly) { _, error in
+                if let error {
+                    ProgressLog.info("HK backgroundDelivery \(typeId) err=\(error.localizedDescription)")
+                }
+            }
+        }
+        ProgressLog.info("HK observers started")
     }
 
     /// Entrenamientos de Salud en un día, excluyendo UUIDs ya vinculados o solapes con sesiones Gymbro.
@@ -300,6 +374,11 @@ final class HealthKitStore {
     /// Separate TTL for HR/kcal vs activities (session edits don't force FC re-query).
     @ObservationIgnored private var metricsCacheDays: Int = 0
     @ObservationIgnored private var metricsCacheFetchedAt: Date?
+    /// Anchored workout query cursor (incremental merges).
+    @ObservationIgnored private var workoutQueryAnchor: HKQueryAnchor?
+    @ObservationIgnored private var healthObserversStarted = false
+    /// Set by HKObserverQuery; cleared after a successful progressive refresh.
+    private(set) var healthNeedsRefresh = false
 
     /// True when cached progressive metrics are fresh enough for the requested window + filter key.
     func isHealthCacheFresh(
@@ -315,6 +394,13 @@ final class HealthKitStore {
         return Date().timeIntervalSince(fetched) <= maxAge
     }
 
+    /// True when memory has progressive arrays (disk hydrate or prior fetch) usable for instant UI.
+    var hasProgressiveCache: Bool {
+        healthCacheIsDaily && (!recentExternalActivities.isEmpty
+            || !recentDailyHeartRate.isEmpty
+            || !recentDailyActiveEnergy.isEmpty)
+    }
+
     func invalidateHealthMetricCache(reason: String = "manual") {
         healthCacheDays = 0
         healthCacheIsDaily = false
@@ -323,28 +409,30 @@ final class HealthKitStore {
         healthCacheFilterKey = ""
         metricsCacheDays = 0
         metricsCacheFetchedAt = nil
+        workoutQueryAnchor = nil
         healthRefreshGeneration &+= 1
         healthDataRevision &+= 1
+        healthNeedsRefresh = true
         ProgressLog.info("health cache invalidate \(reason)")
     }
 
-    /// Invalidate only activity exclusion filter (Gymbro session edits) — keep HR/kcal metrics.
+    /// Gymbro workouts changed: keep progressive arrays for instant UI, force a coalesced re-fetch
+    /// so exclusion / overlap filter matches the new session list (no duplicate Health rows).
     func invalidateExternalActivityFilter(reason: String = "sessions") {
         healthCacheFilterKey = ""
-        healthCacheDays = 0
-        healthCacheIsDaily = false
-        healthCacheFetchedAt = nil
-        healthCacheCoverageDays = 0
-        healthDataRevision &+= 1
+        healthNeedsRefresh = true
+        // Do **not** clear `healthCacheIsDaily` / arrays — Home buckets stay paintable.
         ProgressLog.info("health activity filter invalidate \(reason)")
     }
 
+    /// Stable short fingerprint (not `Hasher` — survives relaunch for disk cache).
     nonisolated static func healthFilterKey(
         excludingUUIDs: Set<UUID>,
         overlappingSessions: [WorkoutSession]
     ) -> String {
-        let uuidPart = excludingUUIDs.map(\.uuidString).sorted().joined(separator: ",")
-        let sessionPart = overlappingSessions
+        var payload = excludingUUIDs.map(\.uuidString).sorted().joined(separator: ",")
+        payload += "#"
+        let sessions = overlappingSessions
             .map { s -> String in
                 let start = s.startedAt?.timeIntervalSince1970 ?? 0
                 let end = s.finishedAt?.timeIntervalSince1970 ?? 0
@@ -353,8 +441,23 @@ final class HealthKitStore {
             }
             .sorted()
             .joined(separator: "|")
-        return "\(uuidPart)#\(sessionPart)"
+        payload += sessions
+        return "f\(Self.stableDigest64(payload))"
     }
+
+    nonisolated private static func stableDigest64(_ string: String) -> String {
+        var hash: UInt64 = 5381
+        for byte in string.utf8 {
+            hash = ((hash << 5) &+ hash) &+ UInt64(byte)
+        }
+        return String(hash, radix: 16)
+    }
+
+    /// Coalesce Home/Progreso overlapping refreshes into one fetch with max(days).
+    @ObservationIgnored private var coalesceRefreshTask: Task<Void, Never>?
+    @ObservationIgnored private var coalesceDays = 0
+    @ObservationIgnored private var coalesceExcluding: Set<UUID> = []
+    @ObservationIgnored private var coalesceSessions: [WorkoutSession] = []
 
     /// Refresca actividades + FC/kcal **por día**. Si ya hay caché diaria ≥ `days`, no vuelve a pedir Salud.
     /// La UI promedia a semana/mes solo al pintar (90/180/360).
@@ -368,7 +471,8 @@ final class HealthKitStore {
             excludingUUIDs: excludingUUIDs,
             overlappingSessions: overlappingSessions
         )
-        if isHealthCacheFresh(forDays: days, filterKey: filterKey),
+        if !healthNeedsRefresh,
+           isHealthCacheFresh(forDays: days, filterKey: filterKey),
            !recentDailyHeartRate.isEmpty || !recentDailyActiveEnergy.isEmpty {
             ProgressLog.healthCacheHit(
                 days: days,
@@ -378,80 +482,310 @@ final class HealthKitStore {
             return
         }
 
-        healthRefreshGeneration &+= 1
-        let gen = healthRefreshGeneration
-        let t0 = CFAbsoluteTimeGetCurrent()
-        ProgressLog.healthFetchStart(days: days)
+        coalesceDays = max(coalesceDays, days)
+        coalesceExcluding = excludingUUIDs
+        coalesceSessions = overlappingSessions
 
-        let end = Date()
-        let start = Calendar.current.date(byAdding: .day, value: -days, to: end) ?? end
-        let dayBucket = DateComponents(day: 1)
+        if let existing = coalesceRefreshTask {
+            await existing.value
+            let key = Self.healthFilterKey(
+                excludingUUIDs: excludingUUIDs,
+                overlappingSessions: overlappingSessions
+            )
+            if !healthNeedsRefresh,
+               isHealthCacheFresh(forDays: days, filterKey: key),
+               !recentDailyHeartRate.isEmpty || !recentDailyActiveEnergy.isEmpty {
+                return
+            }
+        }
 
-        var t = CFAbsoluteTimeGetCurrent()
+        let task = Task { @MainActor in
+            await self.performCoalescedHealthRefresh()
+        }
+        coalesceRefreshTask = task
+        await task.value
+        if coalesceRefreshTask == task {
+            coalesceRefreshTask = nil
+        }
+    }
+
+    private func performCoalescedHealthRefresh() async {
+        while true {
+            let days = max(coalesceDays, 1)
+            let excludingUUIDs = coalesceExcluding
+            let overlappingSessions = coalesceSessions
+            coalesceDays = 0
+            let filterKey = Self.healthFilterKey(
+                excludingUUIDs: excludingUUIDs,
+                overlappingSessions: overlappingSessions
+            )
+            if !healthNeedsRefresh,
+               isHealthCacheFresh(forDays: days, filterKey: filterKey),
+               !recentDailyHeartRate.isEmpty || !recentDailyActiveEnergy.isEmpty {
+                if coalesceDays > days { continue }
+                return
+            }
+
+            healthRefreshGeneration &+= 1
+            let gen = healthRefreshGeneration
+            let t0 = CFAbsoluteTimeGetCurrent()
+            ProgressLog.healthFetchStart(days: days)
+
+            let end = Date()
+            let start = Calendar.current.date(byAdding: .day, value: -days, to: end) ?? end
+            let dayBucket = DateComponents(day: 1)
+
+            var t = CFAbsoluteTimeGetCurrent()
+            let activities = await loadExternalActivitiesIncremental(
+                from: start,
+                to: end,
+                excludingUUIDs: excludingUUIDs,
+                overlappingSessions: overlappingSessions,
+                filterKey: filterKey
+            )
+            ProgressLog.healthFetchStep("activities", count: activities.count, elapsedMs: (CFAbsoluteTimeGetCurrent() - t) * 1000)
+
+            let metricsFresh = metricsCacheDays >= days
+                && metricsCacheFetchedAt.map { Date().timeIntervalSince($0) <= 120 } == true
+                && (!recentDailyHeartRate.isEmpty || !recentDailyActiveEnergy.isEmpty)
+
+            let hrPoints: [DailyHeartRatePoint]
+            let energyPoints: [DailyActiveEnergyPoint]
+            if metricsFresh {
+                hrPoints = recentDailyHeartRate
+                energyPoints = recentDailyActiveEnergy
+                ProgressLog.info("health metrics cache hit days=\(days)")
+            } else {
+                t = CFAbsoluteTimeGetCurrent()
+                async let hr = dailyHeartRateStats(from: start, to: end, interval: dayBucket)
+                async let energy = dailyActiveEnergyStats(from: start, to: end, interval: dayBucket)
+                let pair = await (hr, energy)
+                hrPoints = pair.0
+                energyPoints = pair.1
+                ProgressLog.healthFetchStep(
+                    "hr+kcal",
+                    count: hrPoints.count + energyPoints.count,
+                    elapsedMs: (CFAbsoluteTimeGetCurrent() - t) * 1000
+                )
+            }
+
+            // Drop stale overlapping refreshes (Home 180 vs Progress 370).
+            guard gen == healthRefreshGeneration else {
+                ProgressLog.info("health refresh stale drop gen=\(gen) days=\(days)")
+                if coalesceDays > 0 { continue }
+                return
+            }
+            // Never publish a smaller window over a larger one already committed.
+            if healthCacheIsDaily, healthCacheDays > days, healthCacheFilterKey == filterKey {
+                ProgressLog.info("health refresh skip smaller window \(days)<\(healthCacheDays)")
+                if coalesceDays > days { continue }
+                return
+            }
+
+            recentExternalActivities = activities
+            recentDailyHeartRate = hrPoints
+            recentDailyActiveEnergy = energyPoints
+            // Coverage matches what we actually published (not max of stale races).
+            healthCacheDays = days
+            healthCacheIsDaily = true
+            healthCacheFetchedAt = Date()
+            healthCacheCoverageDays = days
+            healthCacheFilterKey = filterKey
+            if !metricsFresh {
+                metricsCacheDays = days
+                metricsCacheFetchedAt = Date()
+            }
+            healthNeedsRefresh = false
+            healthDataRevision &+= 1
+            persistProgressiveCacheToDisk()
+
+            ProgressLog.healthFetchDone(
+                totalMs: (CFAbsoluteTimeGetCurrent() - t0) * 1000,
+                activities: activities.count,
+                hr: hrPoints.count,
+                kcal: energyPoints.count
+            )
+            if coalesceDays > days { continue }
+            return
+        }
+    }
+
+    /// Prefer anchored merge when we already have a window; fall back to full sample query.
+    private func loadExternalActivitiesIncremental(
+        from start: Date,
+        to end: Date,
+        excludingUUIDs: Set<UUID>,
+        overlappingSessions: [WorkoutSession],
+        filterKey: String
+    ) async -> [ExternalActivity] {
+        let index = GymbroSessionMatchIndex(sessions: overlappingSessions)
+        // Same exclusion fingerprint → safe to merge deltas. Filter-key changes need a full pull
+        // (excluded Gymbro-overlapping workouts are not kept in memory).
+        let canMerge = workoutQueryAnchor != nil
+            && healthCacheIsDaily
+            && healthCacheFilterKey == filterKey
+            && !recentExternalActivities.isEmpty
+
+        if canMerge, let anchor = workoutQueryAnchor {
+            let delta = await anchoredWorkouts(since: anchor)
+            workoutQueryAnchor = delta.anchor ?? workoutQueryAnchor
+            if delta.added.isEmpty, delta.deleted.isEmpty {
+                return recentExternalActivities
+            }
+            var byId = Dictionary(
+                uniqueKeysWithValues: recentExternalActivities.map { ($0.id, $0) }
+            )
+            for id in delta.deleted {
+                byId.removeValue(forKey: id)
+            }
+            for w in delta.added {
+                guard w.endDate >= start else { continue }
+                if let mapped = mapExternalActivity(
+                    w,
+                    excludingUUIDs: excludingUUIDs,
+                    matchIndex: index
+                ) {
+                    byId[mapped.id] = mapped
+                }
+            }
+            return byId.values
+                .filter { $0.start >= start && $0.start <= end }
+                .sorted { $0.start > $1.start }
+        }
+
+        // Cold / large window: full query + seed anchor for next time.
         let activities = await externalActivities(
             from: start,
             to: end,
             excludingUUIDs: excludingUUIDs,
             overlappingSessions: overlappingSessions
         )
-        ProgressLog.healthFetchStep("activities", count: activities.count, elapsedMs: (CFAbsoluteTimeGetCurrent() - t) * 1000)
+        let seed = await anchoredWorkouts(since: nil)
+        workoutQueryAnchor = seed.anchor
+        return activities
+    }
 
-        let metricsFresh = metricsCacheDays >= days
-            && metricsCacheFetchedAt.map { Date().timeIntervalSince($0) <= 120 } == true
-            && (!recentDailyHeartRate.isEmpty || !recentDailyActiveEnergy.isEmpty)
+    private struct AnchoredWorkoutDelta: Sendable {
+        var added: [HKWorkout]
+        var deleted: [UUID]
+        var anchor: HKQueryAnchor?
+    }
 
-        let hrPoints: [DailyHeartRatePoint]
-        let energyPoints: [DailyActiveEnergyPoint]
-        if metricsFresh {
-            hrPoints = recentDailyHeartRate
-            energyPoints = recentDailyActiveEnergy
-            ProgressLog.info("health metrics cache hit days=\(days)")
-        } else {
-            t = CFAbsoluteTimeGetCurrent()
-            async let hr = dailyHeartRateStats(from: start, to: end, interval: dayBucket)
-            async let energy = dailyActiveEnergyStats(from: start, to: end, interval: dayBucket)
-            let pair = await (hr, energy)
-            hrPoints = pair.0
-            energyPoints = pair.1
-            ProgressLog.healthFetchStep(
-                "hr+kcal",
-                count: hrPoints.count + energyPoints.count,
-                elapsedMs: (CFAbsoluteTimeGetCurrent() - t) * 1000
+    private func anchoredWorkouts(since anchor: HKQueryAnchor?) async -> AnchoredWorkoutDelta {
+        guard isAvailable else {
+            return AnchoredWorkoutDelta(added: [], deleted: [], anchor: anchor)
+        }
+        return await withCheckedContinuation { cont in
+            let q = HKAnchoredObjectQuery(
+                type: .workoutType(),
+                predicate: nil,
+                anchor: anchor,
+                limit: HKObjectQueryNoLimit
+            ) { _, added, deleted, newAnchor, _ in
+                cont.resume(
+                    returning: AnchoredWorkoutDelta(
+                        added: (added as? [HKWorkout]) ?? [],
+                        deleted: (deleted ?? []).map(\.uuid),
+                        anchor: newAnchor
+                    )
+                )
+            }
+            store.execute(q)
+        }
+    }
+
+    private func applyDiskSnapshot(_ snap: HealthDiskCache.Snapshot) {
+        recentExternalActivities = snap.activities.map {
+            ExternalActivity(
+                id: $0.id,
+                title: $0.title,
+                start: $0.start,
+                end: $0.end,
+                durationMinutes: $0.durationMinutes,
+                activeEnergyKcal: $0.activeEnergyKcal,
+                distanceMeters: $0.distanceMeters,
+                sourceName: $0.sourceName,
+                activityTypeRaw: $0.activityTypeRaw
             )
         }
-
-        // Drop stale overlapping refreshes (Home 180 vs Progress 370).
-        guard gen == healthRefreshGeneration else {
-            ProgressLog.info("health refresh stale drop gen=\(gen) days=\(days)")
-            return
+        recentDailyHeartRate = snap.heartRate.map {
+            DailyHeartRatePoint(date: $0.date, minBpm: $0.minBpm, avgBpm: $0.avgBpm, maxBpm: $0.maxBpm)
         }
-        // Never publish a smaller window over a larger one already committed.
-        if healthCacheIsDaily, healthCacheDays > days, healthCacheFilterKey == filterKey {
-            ProgressLog.info("health refresh skip smaller window \(days)<\(healthCacheDays)")
-            return
+        recentDailyActiveEnergy = snap.activeEnergy.map {
+            DailyActiveEnergyPoint(date: $0.date, kcal: $0.kcal)
         }
-
-        recentExternalActivities = activities
-        recentDailyHeartRate = hrPoints
-        recentDailyActiveEnergy = energyPoints
-        // Coverage matches what we actually published (not max of stale races).
-        healthCacheDays = days
-        healthCacheIsDaily = true
-        healthCacheFetchedAt = Date()
-        healthCacheCoverageDays = days
-        healthCacheFilterKey = filterKey
-        if !metricsFresh {
-            metricsCacheDays = days
-            metricsCacheFetchedAt = Date()
+        healthCacheDays = snap.coverageDays
+        healthCacheCoverageDays = snap.coverageDays
+        healthCacheIsDaily = snap.isDaily
+        healthCacheFetchedAt = snap.fetchedAt
+        healthCacheFilterKey = snap.filterKey
+        metricsCacheDays = snap.metricsCoverageDays ?? snap.coverageDays
+        metricsCacheFetchedAt = snap.metricsFetchedAt ?? snap.fetchedAt
+        if let kcal = snap.todayActiveEnergyKcal { activeEnergyTodayKcal = kcal }
+        if let minutes = snap.todayWorkoutMinutes { workoutMinutesToday = minutes }
+        if let data = snap.workoutAnchor {
+            workoutQueryAnchor = try? NSKeyedUnarchiver.unarchivedObject(
+                ofClass: HKQueryAnchor.self,
+                from: data
+            )
+        }
+        // Stale disk is fine for paint; force a background refresh soon.
+        if Date().timeIntervalSince(snap.fetchedAt) > 120 {
+            healthNeedsRefresh = true
         }
         healthDataRevision &+= 1
+    }
 
-        ProgressLog.healthFetchDone(
-            totalMs: (CFAbsoluteTimeGetCurrent() - t0) * 1000,
-            activities: activities.count,
-            hr: hrPoints.count,
-            kcal: energyPoints.count
+    private func persistProgressiveCacheToDisk() {
+        guard healthCacheIsDaily else { return }
+        let anchorData: Data? = {
+            guard let workoutQueryAnchor else { return nil }
+            return try? NSKeyedArchiver.archivedData(
+                withRootObject: workoutQueryAnchor,
+                requiringSecureCoding: true
+            )
+        }()
+        let snap = HealthDiskCache.Snapshot(
+            version: HealthDiskCache.schemaVersion,
+            fetchedAt: healthCacheFetchedAt ?? Date(),
+            coverageDays: healthCacheCoverageDays,
+            filterKey: healthCacheFilterKey,
+            isDaily: healthCacheIsDaily,
+            activities: recentExternalActivities.map {
+                HealthDiskCache.Activity(
+                    id: $0.id,
+                    title: $0.title,
+                    start: $0.start,
+                    end: $0.end,
+                    durationMinutes: $0.durationMinutes,
+                    activeEnergyKcal: $0.activeEnergyKcal,
+                    distanceMeters: $0.distanceMeters,
+                    sourceName: $0.sourceName,
+                    activityTypeRaw: $0.activityTypeRaw
+                )
+            },
+            heartRate: recentDailyHeartRate.map {
+                HealthDiskCache.HeartRate(
+                    date: $0.date,
+                    minBpm: $0.minBpm,
+                    avgBpm: $0.avgBpm,
+                    maxBpm: $0.maxBpm
+                )
+            },
+            activeEnergy: recentDailyActiveEnergy.map {
+                HealthDiskCache.ActiveEnergy(date: $0.date, kcal: $0.kcal)
+            },
+            workoutAnchor: anchorData,
+            todayActiveEnergyKcal: activeEnergyTodayKcal,
+            todayWorkoutMinutes: workoutMinutesToday,
+            todayFetchedAt: Date(),
+            metricsFetchedAt: metricsCacheFetchedAt,
+            metricsCoverageDays: metricsCacheDays
         )
+        // Disk I/O off the main actor observation tick.
+        Task.detached(priority: .utility) {
+            HealthDiskCache.save(snap)
+        }
     }
 
     /// FC mín / media / máx (intervalo configurable: día / semana / mes).

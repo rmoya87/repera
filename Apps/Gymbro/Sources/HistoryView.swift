@@ -34,6 +34,8 @@ struct HistoryView: View {
         var entries: [HistoryEntry]
     }
 
+    @State private var prCountBySessionId: [UUID: Int] = [:]
+
     /// Solo sesiones terminadas (no planes guardados ni borradores).
     private var finishedWorkouts: [WorkoutSession] {
         store.state.workouts.filter { $0.finishedAt != nil && $0.phase == .finished }
@@ -78,12 +80,26 @@ struct HistoryView: View {
                                     } label: {
                                         gymbroHistoryRow(session)
                                     }
+                                    .navigationLinkIndicatorVisibility(.hidden)
+                                    .listRowInsets(EdgeInsets(
+                                        top: 10,
+                                        leading: Self.historyRowPad,
+                                        bottom: 10,
+                                        trailing: 0
+                                    ))
                                 case .health(let activity):
                                     NavigationLink {
                                         HealthActivityDetailView(activityId: activity.id)
                                     } label: {
                                         healthHistoryRow(activity)
                                     }
+                                    .navigationLinkIndicatorVisibility(.hidden)
+                                    .listRowInsets(EdgeInsets(
+                                        top: 10,
+                                        leading: Self.historyRowPad,
+                                        bottom: 10,
+                                        trailing: 0
+                                    ))
                                 }
                             }
                             .onDelete { indexSet in
@@ -102,6 +118,9 @@ struct HistoryView: View {
         }
         .background(OG.bg)
         .ogPinnedTransparentNav("Historial")
+        .task(id: store.workoutsEpoch) {
+            prCountBySessionId = store.cachedPersonalRecordCountsBySession()
+        }
         .task {
             await refreshHealthEntries()
         }
@@ -144,19 +163,12 @@ struct HistoryView: View {
         let minutes = session.durationMinutes
         let logged = session.exercises.filter { !$0.loggedSets.isEmpty }
         let kcal = session.appleActiveEnergyKcal
-        let prs = StatsEngine.personalRecordCount(in: session, allWorkouts: store.state.workouts)
+        let prs = prCountBySessionId[session.id] ?? 0
         let start = session.startedAt ?? session.finishedAt
 
-        return HStack(alignment: .top, spacing: 12) {
-            ZStack {
-                Circle().fill(OG.accent.opacity(0.22))
-                Image(systemName: "checkmark")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(OG.accent)
-            }
-            .frame(width: 44, height: 44)
-
-            VStack(alignment: .leading, spacing: 8) {
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 12) {
+                historyLeadingIcon(systemName: "checkmark", tint: OG.accent)
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     HStack(spacing: 6) {
                         Text(session.title)
@@ -176,38 +188,34 @@ struct HistoryView: View {
                             .font(.system(size: 13, weight: .semibold).monospacedDigit())
                             .foregroundStyle(OG.label2)
                     }
-                }
-
-                HStack(spacing: 6) {
-                    if minutes > 0 {
-                        historyChip("\(Int(minutes.rounded())) min", icon: "timer")
-                    }
-                    if let kcal, kcal > 0 {
-                        historyChip("\(Int(kcal.rounded())) kcal", icon: "flame.fill")
-                    }
-                    if !logged.isEmpty {
-                        historyChip("\(logged.count) ej.", icon: "list.bullet")
-                    }
-                    if prs > 0 {
-                        historyChip("\(prs) PR", icon: "trophy.fill")
-                    }
+                    historyChevron
                 }
             }
+            .padding(.trailing, Self.historyRowPad)
+
+            // Carrusel edge-to-edge (trailing 0 en listRowInsets); inset solo en el contenido.
+            historyChipsRow {
+                if minutes > 0 {
+                    historyChip("\(Int(minutes.rounded())) min", icon: "timer")
+                }
+                if let kcal, kcal > 0 {
+                    historyChip("\(Int(kcal.rounded())) kcal", icon: "flame.fill")
+                }
+                if !logged.isEmpty {
+                    historyChip("\(logged.count) ej.", icon: "list.bullet")
+                }
+                if prs > 0 {
+                    historyChip("\(prs) PR", icon: "trophy.fill")
+                }
+            }
+            .padding(.leading, -Self.historyRowPad)
         }
-        .padding(.vertical, 4)
     }
 
     private func healthHistoryRow(_ activity: HealthKitStore.ExternalActivity) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            ZStack {
-                Circle().fill(OG.red.opacity(0.22))
-                Image(systemName: activity.symbolName)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(OG.red)
-            }
-            .frame(width: 44, height: 44)
-
-            VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 12) {
+                historyLeadingIcon(systemName: activity.symbolName, tint: OG.red)
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(activity.title)
                         .font(.system(size: 17, weight: .medium))
@@ -218,20 +226,58 @@ struct HistoryView: View {
                     Text(SpanishDate.time(activity.start))
                         .font(.system(size: 13, weight: .semibold).monospacedDigit())
                         .foregroundStyle(OG.label2)
-                }
-
-                HStack(spacing: 6) {
-                    historyChip("Salud", icon: "heart.fill")
-                    if activity.durationMinutes > 0 {
-                        historyChip("\(Int(activity.durationMinutes.rounded())) min", icon: "timer")
-                    }
-                    if let kcal = activity.activeEnergyKcal, kcal > 0 {
-                        historyChip("\(Int(kcal.rounded())) kcal", icon: "flame.fill")
-                    }
+                    historyChevron
                 }
             }
+            .padding(.trailing, Self.historyRowPad)
+
+            historyChipsRow {
+                historyChip("Salud", icon: "heart.fill")
+                if activity.durationMinutes > 0 {
+                    historyChip("\(Int(activity.durationMinutes.rounded())) min", icon: "timer")
+                }
+                if let kcal = activity.activeEnergyKcal, kcal > 0 {
+                    historyChip("\(Int(kcal.rounded())) kcal", icon: "flame.fill")
+                }
+            }
+            .padding(.leading, -Self.historyRowPad)
         }
-        .padding(.vertical, 4)
+    }
+
+    private func historyLeadingIcon(systemName: String, tint: Color) -> some View {
+        ZStack {
+            Circle().fill(tint.opacity(0.22))
+            Image(systemName: systemName)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(tint)
+        }
+        .frame(width: 44, height: 44)
+    }
+
+    private var historyChevron: some View {
+        Image(systemName: "chevron.right")
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(OG.label3)
+            .padding(.leading, 2)
+    }
+
+    /// Inset leading de la fila; trailing 0 para que el carrusel llegue al borde del cuadrado.
+    private static let historyRowPad: CGFloat = 16
+    /// Row pad + icono 44 + gap 12 → chips alineados al título en reposo.
+    private static let chipsTitleLeading: CGFloat = historyRowPad + 44 + 12
+
+    /// Viewport a todo el ancho de la fila; inset solo en el contenido (inicio).
+    @ViewBuilder
+    private func historyChipsRow(@ViewBuilder content: () -> some View) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                content()
+            }
+            .padding(.leading, Self.chipsTitleLeading)
+        }
+        .contentMargins(.horizontal, 0, for: .scrollContent)
+        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func historyChip(_ text: String, icon: String) -> some View {
@@ -240,6 +286,8 @@ struct HistoryView: View {
                 .font(.system(size: 10, weight: .semibold))
             Text(text)
                 .font(.system(size: 11, weight: .semibold))
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
         }
         .foregroundStyle(OG.label2)
         .padding(.horizontal, 8)

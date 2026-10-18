@@ -129,11 +129,11 @@ struct QuickLogSheet: View {
     private var step: Double { store.state.settings.weightIncrementKg }
 
     private var defaultWeight: Double {
-        StatsEngine.history(for: exercise.id, workouts: store.state.workouts).lastWeightKg ?? 20
+        store.cachedHistory(for: exercise.id).lastWeightKg ?? 20
     }
 
     private var defaultReps: Int {
-        StatsEngine.history(for: exercise.id, workouts: store.state.workouts).lastReps ?? 8
+        store.cachedHistory(for: exercise.id).lastReps ?? 8
     }
 
     private func seedRows() {

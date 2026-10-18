@@ -46,6 +46,9 @@ actor AppStatePersistence {
     private var lastCommittedRevision: Int = -1
     /// Ubiquity container resolution is expensive; cache after first hit.
     private var cachedCloudDocsURL: URL?
+    /// Result of `LaunchWarmup` / first `readLocal` — avoids a second disk decode on hydrate.
+    /// Also seeded when `LaunchWarmup.loadAppStateSync` already decoded for first paint.
+    private var warmedLocalRead: Result<AppState?, PersistenceError>?
 
     init() {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -68,7 +71,25 @@ actor AppStatePersistence {
         FileManager.default.fileExists(atPath: localURL.path)
     }
 
+    /// Overlap disk decode with first SwiftUI frame (`LaunchWarmup.start`).
+    func warmLocalRead() async {
+        if warmedLocalRead != nil { return }
+        // Prefer state already decoded sync for GymbroStore first paint.
+        if let painted = LaunchWarmup.appStateForFirstPaint() {
+            warmedLocalRead = .success(painted)
+            return
+        }
+        warmedLocalRead = performReadLocal()
+    }
+
     func readLocal() -> Result<AppState?, PersistenceError> {
+        if let warmedLocalRead { return warmedLocalRead }
+        let result = performReadLocal()
+        warmedLocalRead = result
+        return result
+    }
+
+    private func performReadLocal() -> Result<AppState?, PersistenceError> {
         guard FileManager.default.fileExists(atPath: localURL.path) else { return .success(nil) }
         do {
             let data = try Data(contentsOf: localURL)
@@ -431,6 +452,7 @@ final class LocalStore {
     func loadLocalOnlyAsync() async -> AppState {
         syncPhase = .loadingLocal
         let writerId = deviceId
+        await persistence.warmLocalRead()
         let result = await persistence.readLocal()
         switch result {
         case .success(let state):

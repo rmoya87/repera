@@ -551,9 +551,12 @@ struct WorkoutView: View {
 
     private func currentCard(_ current: SessionExercise, session: WorkoutSession) -> some View {
         let target = current.plannedSets.first
-        let last = StatsEngine.lastWorkingWeight(exerciseId: current.exercise.id, workouts: store.state.workouts)
-        let pr = StatsEngine.personalRecords(from: store.state.workouts)
-            .first { $0.exerciseName == current.exercise.name }
+        let last = store.cachedLastWorkingWeight(for: current.exercise.id)
+        let pr = store.cachedPersonalRecords(
+            from: store.state.workouts,
+            rangeRaw: "all",
+            mondayFirst: store.state.settings.weekStartsOn == .monday
+        ).first { $0.exerciseName == current.exercise.name }
         return VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(current.exercise.name)
@@ -638,7 +641,7 @@ struct WorkoutView: View {
             let weight = target?.targetWeightKg.map { String(format: "%g kg", $0) } ?? "PC"
             return "\(format.displayName) · \(reps) reps · \(weight)"
         }
-        return "\(current.exercise.muscleGroup) · \(current.plannedSets.count)×\(target?.targetReps ?? 0) @ \(target?.targetWeightKg.map { String(format: "%g kg", $0) } ?? "—")"
+        return "\(current.exercise.muscleGroup) · \(current.plannedSets.compactSummary)"
     }
 
     private func wodPlanLabel(for current: SessionExercise) -> String? {
@@ -689,10 +692,7 @@ struct WorkoutView: View {
                 exercise: clock.exercise,
                 roundNumber: roundDisplay,
                 totalRounds: clock.isIntervalMode ? clock.totalIntervals : nil,
-                displaySeconds: {
-                    clock.syncFromWallClock(now: context.date)
-                    return clock.displaySeconds
-                }(),
+                displaySeconds: clock.displaySeconds(at: context.date),
                 isRunning: clock.isRunning,
                 isCountingUp: clock.isCountingUp,
                 primaryTitle: clock.primaryTitle,
@@ -1255,9 +1255,7 @@ struct WorkoutView: View {
             if parts.isEmpty { return format.displayName }
             return parts.joined(separator: " · ")
         }
-        let target = item.plannedSets.first
-        let weight = target?.targetWeightKg.map { String(format: "%g kg", $0) } ?? "—"
-        return "\(item.plannedSets.count)×\(target?.targetReps ?? 0) @ \(weight)"
+        return item.plannedSets.compactSummary
     }
 
     private func prefill() {
@@ -1266,7 +1264,7 @@ struct WorkoutView: View {
             return
         }
         let suggested = current.lastLoggedWeight
-            ?? StatsEngine.lastWorkingWeight(exerciseId: current.exercise.id, workouts: store.state.workouts)
+            ?? store.cachedLastWorkingWeight(for: current.exercise.id)
             ?? current.plannedSets.first?.targetWeightKg
         weightText = suggested.map { String(format: "%g", $0) } ?? ""
         repsText = "\(current.plannedSets.first?.targetReps ?? 8)"

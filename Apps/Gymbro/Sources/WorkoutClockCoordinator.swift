@@ -47,13 +47,20 @@ final class WorkoutClockCoordinator {
     }
 
     var displaySeconds: Int {
-        if isPreCountdown { return preCountdownSeconds }
+        displaySeconds(at: Date())
+    }
+
+    /// Read-only tick for `TimelineView` — no Observation mutations (catch-up lives in `feedbackTask`).
+    func displaySeconds(at now: Date) -> Int {
+        if let preCountdownEnd, preCountdownEnd > now {
+            return WallClockTimer.remainingSeconds(until: preCountdownEnd, now: now)
+        }
         if isCountingUp {
             guard let countUpAnchor else { return Int(pausedCountUpElapsed) }
-            return WallClockTimer.elapsedSeconds(since: countUpAnchor)
+            return WallClockTimer.elapsedSeconds(since: countUpAnchor, now: now)
         }
         if let phaseEndDate {
-            return WallClockTimer.remainingSeconds(until: phaseEndDate)
+            return WallClockTimer.remainingSeconds(until: phaseEndDate, now: now)
         }
         return Int(ceil(pausedRemaining))
     }

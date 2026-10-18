@@ -2,59 +2,27 @@ import GymbroDomain
 import SwiftUI
 
 /// Picker de un ejercicio para log rápido (Crear → Apuntar series).
-/// Mismo lenguaje de lista/sección que Crear / Favoritos (sin card envolvente).
+/// Mismo pipeline rápido que `ExercisePickerView` (índice/ranking off-main).
 struct QuickLogPickerView: View {
     @Environment(GymbroStore.self) private var store
     var onOpenedWorkout: () -> Void
 
-    @State private var query = ""
-
     var body: some View {
-        List {
-            Section {
-                ForEach(filtered) { exercise in
-                    Button {
-                        store.startQuickLog(exerciseId: exercise.id)
-                        onOpenedWorkout()
-                    } label: {
-                        Label {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(exercise.name)
-                                    .foregroundStyle(OG.label)
-                                Text(subtitle(exercise))
-                                    .font(.caption)
-                                    .foregroundStyle(OG.label2)
-                            }
-                        } icon: {
-                            ExerciseThumb(exercise: exercise)
-                        }
-                    }
-                }
-            } header: {
+        ExerciseCatalogSearchList(
+            exercises: store.state.exercises,
+            prompt: "Buscar ejercicio",
+            onPick: { exercise in
+                store.startQuickLog(exerciseId: exercise.id)
+                onOpenedWorkout()
+            },
+            header: {
                 Text("Ejercicio")
-            } footer: {
+            },
+            footer: {
                 Text("Un ejercicio, sin montar rutina. Entra directo a apuntar series.")
             }
-        }
-        .ogListChrome()
-        .searchable(text: $query, prompt: "Buscar ejercicio")
+        )
         .ogPinnedTransparentNav("Apuntar series")
         .preferredColorScheme(.dark)
-    }
-
-    private func subtitle(_ exercise: Exercise) -> String {
-        var parts: [String] = [exercise.muscleGroup]
-        let hist = StatsEngine.history(for: exercise.id, workouts: store.state.workouts)
-        if let w = hist.lastWeightKg {
-            parts.append("últ. \(w.formatted(.number.precision(.fractionLength(0...1)))) kg")
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    private var filtered: [Exercise] {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        let base = store.state.exercises
-        if q.isEmpty { return base }
-        return ExerciseSearch.ranked(base, query: q)
     }
 }

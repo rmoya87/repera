@@ -62,4 +62,34 @@ final class DerivedStatsCacheTests: XCTestCase {
         XCTAssertEqual(direct.first?.estimatedOneRM, cached.first?.estimatedOneRM)
         XCTAssertFalse(direct.isEmpty)
     }
+
+    func testPersonalRecordCountsBatchMatchesPerSession() {
+        let session = SessionController.demoPushPull()
+        var ctrl = SessionController(session: session)
+        ctrl.startOnPhone()
+        ctrl.logSet(reps: 5, weightKg: 100)
+        ctrl.finishWorkout()
+        let first = ctrl.session
+
+        var ctrl2 = SessionController(session: SessionController.demoPushPull())
+        ctrl2.startOnPhone()
+        ctrl2.logSet(reps: 5, weightKg: 110)
+        ctrl2.finishWorkout()
+        let second = ctrl2.session
+
+        let workouts = [first, second]
+        let batch = StatsEngine.personalRecordCountsBySessionId(workouts: workouts)
+        XCTAssertGreaterThan(batch[first.id] ?? 0, 0)
+        XCTAssertGreaterThan(batch[second.id] ?? 0, 0)
+
+        let cache = DerivedStatsCache()
+        let mapped = cache.personalRecordCountsBySession(revision: 1) {
+            StatsEngine.personalRecordCountsBySessionId(workouts: workouts)
+        }
+        let again = cache.personalRecordCountsBySession(revision: 1) {
+            XCTFail("should hit cache")
+            return [:]
+        }
+        XCTAssertEqual(mapped, again)
+    }
 }

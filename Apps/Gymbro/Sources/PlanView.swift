@@ -942,10 +942,7 @@ struct DayEditorView: View {
     }
 
     private func setSummary(_ item: RoutineExercise) -> String {
-        let sets = item.plannedSets.count
-        let reps = item.plannedSets.first?.targetReps ?? 8
-        let weight = item.plannedSets.first?.targetWeightKg.map { String(format: "%g kg", $0) } ?? "—"
-        return "\(sets)×\(reps) · \(weight)"
+        item.plannedSets.compactSummary
     }
 
     /// Resuelve el ejercicio del catálogo para miniaturas en bloques WOD (EMOM, AMRAP…).
@@ -1034,6 +1031,10 @@ struct RoutineExerciseEditor: View {
 
     private var weightStep: Double { store.state.settings.weightIncrementKg }
 
+    private var referenceSet: PlannedSet {
+        item.plannedSets.first ?? PlannedSet(targetReps: 8)
+    }
+
     var body: some View {
         Form {
             if let exercise {
@@ -1043,22 +1044,27 @@ struct RoutineExerciseEditor: View {
                         .listRowBackground(Color.clear)
                 }
             }
+
             Section {
-                NavigationLink("Ver ficha del ejercicio") {
-                    ExerciseDetailView(exerciseId: exerciseId)
-                }
+                ExerciseLoadGuideCard(
+                    exerciseId: exerciseId,
+                    targetReps: referenceSet.targetReps,
+                    targetRir: referenceSet.targetRir,
+                    onApplySuggestedKg: { kg in
+                        applySuggestedLoad(kg)
+                    },
+                    onApplyLastSession: { last in
+                        applyLastSession(last)
+                    }
+                )
+                .listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
+                .listRowBackground(OG.surface)
+            } header: {
+                Text("Referencia")
+            } footer: {
+                Text("Aplicar escala la última sesión al kg sugerido (misma progresión, reps y RIR).")
             }
-            Section("Superserie") {
-                Picker("Grupo", selection: Binding(
-                    get: { item.supersetGroup ?? 0 },
-                    set: { item.supersetGroup = $0 == 0 ? nil : $0 }
-                )) {
-                    Text("Ninguna").tag(0)
-                    Text("Superserie A").tag(1)
-                    Text("Superserie B").tag(2)
-                    Text("Superserie C").tag(3)
-                }
-            }
+
             Section {
                 HStack(spacing: 8) {
                     Text("#")
@@ -1070,8 +1076,8 @@ struct RoutineExerciseEditor: View {
                     Text("RIR")
                         .frame(width: 52, alignment: .center)
                 }
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(OG.label3)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(OG.label)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 0, trailing: 12))
 
@@ -1098,6 +1104,24 @@ struct RoutineExerciseEditor: View {
             } footer: {
                 Text("Cada serie puede tener peso, reps y RIR distintos.")
             }
+
+            Section("Superserie") {
+                Picker("Grupo", selection: Binding(
+                    get: { item.supersetGroup ?? 0 },
+                    set: { item.supersetGroup = $0 == 0 ? nil : $0 }
+                )) {
+                    Text("Ninguna").tag(0)
+                    Text("Superserie A").tag(1)
+                    Text("Superserie B").tag(2)
+                    Text("Superserie C").tag(3)
+                }
+            }
+
+            Section {
+                NavigationLink("Ver ficha del ejercicio") {
+                    ExerciseDetailView(exerciseId: exerciseId)
+                }
+            }
         }
         .ogListChrome()
         .ogPinnedTransparentNav(exerciseName)
@@ -1105,6 +1129,62 @@ struct RoutineExerciseEditor: View {
             if item.plannedSets.isEmpty {
                 item.plannedSets = [PlannedSet(targetReps: 8, targetWeightKg: nil)]
             }
+        }
+    }
+
+    /// Escala la última sesión al kg sugerido: misma progresión de pesos, mismas reps y RIR.
+    private func applySuggestedLoad(_ kg: Double) {
+        guard kg > 0 else { return }
+        let step = max(weightStep, 0.5)
+        let fallbackRir = referenceSet.targetRir ?? 2
+
+        if let last = store.cachedLastWorkingSession(for: exerciseId),
+           !last.sets.isEmpty {
+            let anchor = last.topSet?.weightKg
+                ?? last.sets.compactMap(\.weightKg).first
+            if let anchor, anchor > 0 {
+                let ratio = kg / anchor
+                item.plannedSets = last.sets.map { set in
+                    let scaled: Double? = {
+                        guard let w = set.weightKg, w > 0 else { return kg }
+                        let raw = w * ratio
+                        let rounded = (raw / step).rounded() * step
+                        return rounded > 0 ? rounded : nil
+                    }()
+                    return PlannedSet(
+                        targetReps: set.reps,
+                        targetWeightKg: scaled,
+                        targetRir: set.rir ?? fallbackRir
+                    )
+                }
+            } else {
+                item.plannedSets = last.sets.map { set in
+                    PlannedSet(
+                        targetReps: set.reps,
+                        targetWeightKg: kg,
+                        targetRir: set.rir ?? fallbackRir
+                    )
+                }
+            }
+            return
+        }
+
+        for i in item.plannedSets.indices {
+            item.plannedSets[i].targetWeightKg = kg
+            if item.plannedSets[i].targetRir == nil {
+                item.plannedSets[i].targetRir = fallbackRir
+            }
+        }
+    }
+
+    private func applyLastSession(_ last: ExerciseLastSession) {
+        guard !last.sets.isEmpty else { return }
+        item.plannedSets = last.sets.map { set in
+            PlannedSet(
+                targetReps: set.reps,
+                targetWeightKg: set.weightKg,
+                targetRir: set.rir
+            )
         }
     }
 
@@ -1216,31 +1296,17 @@ private struct PlannedSetConfigRow: View {
 struct ExercisePickerView: View {
     @Environment(GymbroStore.self) private var store
     @Environment(\.dismiss) private var dismiss
-    @State private var query = ""
     var onPick: (Exercise) -> Void
 
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(filtered) { exercise in
-                    Button {
-                        onPick(exercise)
-                        dismiss()
-                    } label: {
-                        HStack(spacing: 12) {
-                            ExerciseThumb(exercise: exercise)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(exercise.name).foregroundStyle(OG.label)
-                                Text(pickerSubtitle(exercise))
-                                    .font(.caption)
-                                    .foregroundStyle(OG.label2)
-                            }
-                        }
-                    }
-                }
+            ExerciseCatalogSearchList(
+                exercises: store.state.exercises,
+                prompt: "Buscar ejercicio"
+            ) { exercise in
+                onPick(exercise)
+                dismiss()
             }
-            .ogListChrome()
-            .searchable(text: $query, prompt: "Buscar ejercicio")
             .ogPinnedTransparentNav("Ejercicio")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -1249,20 +1315,6 @@ struct ExercisePickerView: View {
             }
         }
         .preferredColorScheme(.dark)
-    }
-
-    private func pickerSubtitle(_ exercise: Exercise) -> String {
-        var parts: [String] = [exercise.muscleGroup]
-        if let eq = exercise.equipment, !eq.isEmpty {
-            parts.append(eq)
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    private var filtered: [Exercise] {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        if q.isEmpty { return store.state.exercises }
-        return ExerciseSearch.ranked(store.state.exercises, query: q)
     }
 }
 

@@ -1,5 +1,6 @@
 import GymbroDomain
 import SwiftUI
+import UIKit
 
 enum WorkoutFlowRoute: Hashable {
     case sessionPreview(routineId: UUID?)
@@ -17,10 +18,6 @@ struct RootTabView: View {
 
     enum AppTab: Hashable {
         case home, plan, create, stats, exercises
-    }
-
-    private var hasActiveWorkout: Bool {
-        store.state.activeSession != nil
     }
 
     var body: some View {
@@ -55,9 +52,10 @@ struct RootTabView: View {
                     LibraryView(onOpenedWorkout: openWorkout)
                 }
             }
-            .tabBarMinimizeBehavior(hasActiveWorkout ? .onScrollDown : .never)
+            // Observe Equatable chrome — not the full `activeSession` graph.
+            .tabBarMinimizeBehavior(store.hasActiveSession ? .onScrollDown : .never)
             .modifier(ContinueAccessoryModifier(
-                session: store.state.activeSession,
+                model: store.continueAccessory,
                 onContinue: {
                     previewRoutine = nil
                     flowPath = [.sessionPreview(routineId: nil)]
@@ -164,7 +162,7 @@ struct RootTabView: View {
     }
 
     private func openTodayPreview() {
-        if store.state.activeSession != nil {
+        if store.hasActiveSession {
             previewRoutine = nil
             flowPath = [.sessionPreview(routineId: nil)]
             return
@@ -183,31 +181,20 @@ struct RootTabView: View {
 }
 
 private struct ContinueAccessoryModifier: ViewModifier {
-    var session: WorkoutSession?
+    var model: ContinueAccessoryModel?
     var onContinue: () -> Void
 
     func body(content: Content) -> some View {
-        if let session {
+        if let model {
             content.tabViewBottomAccessory {
                 Button(action: onContinue) {
                     HStack(spacing: 12) {
-                        if let current = session.currentExercise {
-                            ExerciseThumb(exercise: current.exercise, size: 40)
-                        } else {
-                            ZStack {
-                                Circle().fill(OG.accent.opacity(0.2))
-                                Image(systemName: "play.fill")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(OG.accent)
-                            }
-                            .frame(width: 40, height: 40)
-                        }
-
+                        ContinueAccessoryThumb(name: model.thumbName)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Continuar")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(OG.label2)
-                            Text(session.currentExercise?.exercise.name ?? session.title)
+                            Text(model.title)
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(OG.label)
                                 .lineLimit(1)
@@ -215,7 +202,7 @@ private struct ContinueAccessoryModifier: ViewModifier {
 
                         Spacer(minLength: 8)
 
-                        Text(session.progressLabel)
+                        Text(model.progressLabel)
                             .font(.system(size: 13, weight: .semibold).monospacedDigit())
                             .foregroundStyle(OG.accent)
                     }
@@ -224,10 +211,46 @@ private struct ContinueAccessoryModifier: ViewModifier {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Continuar \(session.currentExercise?.exercise.name ?? session.title)")
+                .accessibilityLabel("Continuar \(model.title)")
             }
         } else {
             content
+        }
+    }
+}
+
+private struct ContinueAccessoryThumb: View {
+    var name: String?
+    @State private var image: UIImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 40, height: 40)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            } else {
+                ZStack {
+                    Circle().fill(OG.accent.opacity(0.2))
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(OG.accent)
+                }
+                .frame(width: 40, height: 40)
+            }
+        }
+        .task(id: name) {
+            guard let name else {
+                image = nil
+                return
+            }
+            if let hit = ThumbMemoryCache.shared.image(for: "\(name)#120") {
+                image = hit
+                return
+            }
+            image = await ThumbImageLoader.shared.load(named: name, maxPixel: 120)
         }
     }
 }

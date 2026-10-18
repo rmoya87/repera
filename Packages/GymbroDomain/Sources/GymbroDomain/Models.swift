@@ -219,6 +219,67 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
     }
 }
 
+extension [PlannedSet] {
+    /// Resumen compacto para listas: `3×8 · 60 kg`, `2×3, 2×1 · 150 kg`, `3 @ 100, 2 @ 110`.
+    public var compactSummary: String {
+        guard !isEmpty else { return "—" }
+        // (reps, weightKg, count)
+        var groups: [(Int, Double?, Int)] = []
+        for set in self {
+            if let last = groups.last,
+               last.0 == set.targetReps,
+               PlannedSetSummary.sameWeight(last.1, set.targetWeightKg) {
+                groups[groups.count - 1].2 += 1
+            } else {
+                groups.append((set.targetReps, set.targetWeightKg, 1))
+            }
+        }
+
+        let allSameWeight = groups.allSatisfy { PlannedSetSummary.sameWeight($0.1, groups[0].1) }
+        if allSameWeight {
+            let scheme = groups.map { reps, _, count in
+                count == 1 ? "\(reps)" : "\(count)×\(reps)"
+            }.joined(separator: ", ")
+            return "\(scheme) · \(PlannedSetSummary.weightLabel(groups[0].1))"
+        }
+
+        return groups.map { reps, weight, count in
+            let repsPart = count == 1 ? "\(reps)" : "\(count)×\(reps)"
+            return "\(repsPart) @ \(PlannedSetSummary.weightLabel(weight))"
+        }.joined(separator: ", ")
+    }
+
+    /// Solo el esquema de series/reps (sin peso): `3×8` o `2×3, 2×1`.
+    public var compactRepsSummary: String {
+        guard !isEmpty else { return "—" }
+        var groups: [(Int, Int)] = []
+        for set in self {
+            if let last = groups.last, last.0 == set.targetReps {
+                groups[groups.count - 1].1 += 1
+            } else {
+                groups.append((set.targetReps, 1))
+            }
+        }
+        return groups.map { reps, count in
+            count == 1 ? "\(reps)" : "\(count)×\(reps)"
+        }.joined(separator: ", ")
+    }
+}
+
+private enum PlannedSetSummary {
+    static func sameWeight(_ a: Double?, _ b: Double?) -> Bool {
+        switch (a, b) {
+        case (nil, nil): return true
+        case let (x?, y?): return abs(x - y) < 0.05
+        default: return false
+        }
+    }
+
+    static func weightLabel(_ w: Double?) -> String {
+        w.map { String(format: "%g kg", $0) } ?? "—"
+    }
+}
+
 public struct LoggedSet: Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var reps: Int

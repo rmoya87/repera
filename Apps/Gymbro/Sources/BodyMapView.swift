@@ -1,9 +1,12 @@
 import GymbroDomain
 import SwiftUI
 
-/// Silueta frente/espalda sombreada por carga muscular (openGym BodyMap).
+/// Silueta frente/espalda sombreada por fatiga / intensidad (verde → rojo).
 struct BodyMapView: View {
+    /// Series del periodo (barras / ranking). Si no hay `fatigueScores`, colorea por carga relativa.
     var load: [String: Double]
+    /// Estímulo retenido (`MuscleMapEngine`) — color por fatiga absoluta.
+    var fatigueScores: [String: Double]? = nil
     var selected: String? = nil
     var onSelect: ((String) -> Void)? = nil
 
@@ -11,7 +14,10 @@ struct BodyMapView: View {
     @State private var loadFailed = false
 
     private var levels: [String: Int] {
-        MuscleLoadEngine.levels(of: load)
+        if let fatigueScores {
+            return MuscleMapEngine.levels(ofScores: fatigueScores)
+        }
+        return MuscleLoadEngine.levels(of: load)
     }
 
     var body: some View {
@@ -65,7 +71,7 @@ struct BodyMapView: View {
 struct BodyMapLegend: View {
     var body: some View {
         HStack(spacing: 6) {
-            Text("Menos")
+            Text("Recuperado")
                 .font(.system(size: 11))
                 .foregroundStyle(OG.label3)
             ForEach(0...4, id: \.self) { level in
@@ -73,7 +79,7 @@ struct BodyMapLegend: View {
                     .fill(BodyMapPalette.fill(level: level))
                     .frame(width: 12, height: 12)
             }
-            Text("Más")
+            Text("Fatigado")
                 .font(.system(size: 11))
                 .foregroundStyle(OG.label3)
         }
@@ -82,12 +88,13 @@ struct BodyMapLegend: View {
 }
 
 enum BodyMapPalette {
+    /// 0 gris · 1 verde · 2 amarillo · 3 naranja · 4 rojo (más fatiga / trabajo retenido).
     static func fill(level: Int) -> Color {
         switch level {
-        case 1: return Color(red: 0.22, green: 0.42, blue: 0.28)
-        case 2: return Color(red: 0.22, green: 0.55, blue: 0.32)
-        case 3: return Color(red: 0.20, green: 0.70, blue: 0.36)
-        case 4: return OG.accent
+        case 1: return OG.accent
+        case 2: return OG.yellow
+        case 3: return OG.orange
+        case 4: return OG.red
         default: return Color(red: 0.23, green: 0.23, blue: 0.24)
         }
     }

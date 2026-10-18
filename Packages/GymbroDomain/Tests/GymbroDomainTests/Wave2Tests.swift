@@ -56,11 +56,33 @@ final class Wave2Tests: XCTestCase {
             phase: .finished,
             finishedAt: Date()
         )
-        let statuses = MuscleMapEngine.statuses(from: [workout])
-        let legs = statuses.first { $0.name == "Piernas" }
-        XCTAssertNotNil(legs)
-        XCTAssertGreaterThan(legs!.score, 0.2)
-        XCTAssertNotEqual(legs!.state, .ready)
+        let scores = MuscleMapEngine.retainedLoad(workouts: [workout])
+        let quads = scores["quadriceps"] ?? 0
+        XCTAssertGreaterThan(quads, 0.2)
+        XCTAssertNotEqual(MuscleMapEngine.state(forScore: quads), .ready)
+        XCTAssertGreaterThanOrEqual(MuscleMapEngine.level(forScore: quads), 3)
+    }
+
+    func testExternalHealthStimulusFeedsFatigue() {
+        // Simula ~45 min tenis / carrera vía estímulo Salud (mismo contrato que HealthMuscleMapper).
+        let tennis = ExternalMuscleStimulus(
+            date: Date(),
+            load: [
+                "quadriceps": 0.2 * 3.75, "deltoids": 0.15 * 3.75, "forearm": 0.12 * 3.75,
+                "calves": 0.12 * 3.75, "obliques": 0.1 * 3.75,
+            ]
+        )
+        let run = ExternalMuscleStimulus(
+            date: Date(),
+            load: [
+                "quadriceps": 0.3 * 3.0, "hamstring": 0.25 * 3.0, "gluteal": 0.2 * 3.0,
+                "calves": 0.15 * 3.0,
+            ]
+        )
+        let scores = MuscleMapEngine.retainedLoad(workouts: [], external: [tennis, run])
+        XCTAssertGreaterThan(scores["quadriceps"] ?? 0, 0.15)
+        XCTAssertGreaterThan(scores["deltoids"] ?? 0, 0.05)
+        XCTAssertGreaterThan(scores["calves"] ?? 0, 0.05)
     }
 
     func testStrongCSVImport() {

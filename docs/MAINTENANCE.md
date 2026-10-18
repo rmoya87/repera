@@ -1,6 +1,6 @@
 # Mantenimiento de la documentación
 
-Última actualización: 2026-10-16 (fix carruseles; sin sombra en poses aéreas)
+Última actualización: 2026-10-18 (docs PERFORMANCE)
 
 ## Regla de oro
 
@@ -16,6 +16,7 @@ No acumular docs obsoletas. Preferir editar y borrar a añadir páginas huérfan
 | Nuevo módulo / store / dependencia | `ARCHITECTURE.md` |
 | OCR / IA / parser pizarra | `BOARD_SCAN.md` (+ tests mencionados) |
 | Bundle, iCloud, arranque, requisitos | `README.md` |
+| Rendimiento / Observation / caches | `PERFORMANCE.md`, a veces `ARCHITECTURE.md` |
 | Convención para agentes | `AGENTS.md`, `.cursor/rules/` |
 | Feature eliminada o renombrada | Quitar o corregir en **todos** los docs que la citaban |
 

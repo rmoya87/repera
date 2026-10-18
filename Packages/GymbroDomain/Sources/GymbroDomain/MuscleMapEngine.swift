@@ -16,6 +16,7 @@ public enum FatigueState: String, Sendable {
 
 public struct MuscleStatus: Identifiable, Sendable, Equatable {
     public var id: String { name }
+    /// BodyMap slug (`chest`, `quadriceps`…) or legacy group label.
     public var name: String
     public var score: Double
     public var state: FatigueState
@@ -29,29 +30,38 @@ public struct MuscleStatus: Identifiable, Sendable, Equatable {
     }
 }
 
+/// Fatiga / recuperación por músculo (BodyMap slugs): el estímulo decae con vida media.
 public enum MuscleMapEngine {
-    /// Half-life hours by Gymbro muscle group labels.
+    /// Half-life hours by BodyMap slug (larger groups recover slower).
     private static let halfLifeHours: [String: Double] = [
-        "Pecho": 30,
-        "Espalda": 30,
-        "Hombros": 24,
-        "Bíceps": 24,
-        "Tríceps": 24,
-        "Piernas": 48,
-        "Isquios": 48,
-        "Glúteos": 48,
-        "Gemelos": 48,
-        "Core": 24,
-        "Cardio": 12,
+        "chest": 30,
+        "upper-back": 30,
+        "trapezius": 28,
+        "lower-back": 36,
+        "deltoids": 24,
+        "serratus": 24,
+        "biceps": 24,
+        "triceps": 24,
+        "forearm": 20,
+        "abs": 24,
+        "obliques": 24,
+        "gluteal": 48,
+        "quadriceps": 48,
+        "hamstring": 48,
+        "adductors": 40,
+        "hip-flexors": 36,
+        "calves": 36,
+        "tibialis": 24,
     ]
 
-    public static func statuses(
-        from workouts: [WorkoutSession],
+    /// Estímulo retenido ahora (0…~1.5+). Más alto = más fatiga residual.
+    public static func retainedLoad(
+        workouts: [WorkoutSession],
+        external: [ExternalMuscleStimulus] = [],
+        hardOnly: Bool = false,
         now: Date = Date()
-    ) -> [MuscleStatus] {
+    ) -> [String: Double] {
         var stimulus: [String: Double] = [:]
-        var weekly: [String: Double] = [:]
-        let weekAgo = Calendar.current.date(byAdding: .day, value: -7, to: now) ?? now
 
         for workout in workouts {
             let when = workout.finishedAt ?? workout.startedAt ?? now
@@ -59,43 +69,102 @@ public enum MuscleMapEngine {
             guard ageHours >= 0, ageHours < 30 * 24 else { continue }
 
             for entry in workout.exercises {
-                let muscle = entry.exercise.muscleGroup
-                // Warm-ups count less; hard work sets (low RIR) count fully.
                 let hardSets = entry.loggedSets.reduce(0.0) { partial, set in
                     guard set.reps > 0 else { return partial }
-                    if set.isWarmup { return partial + 0.25 }
+                    if set.isWarmup { return partial + (hardOnly ? 0 : 0.25) }
                     if Effort.isHard(rir: set.rir) { return partial + 1.0 }
-                    return partial + 0.7
+                    return hardOnly ? partial : partial + 0.7
                 }
                 guard hardSets > 0 else { continue }
                 let capped = min(hardSets, 12)
-                let hl = halfLifeHours[muscle] ?? 30
-                let retained = capped * pow(0.5, ageHours / hl)
-                stimulus[muscle, default: 0] += retained
-                if when >= weekAgo {
-                    weekly[muscle, default: 0] += capped
+                let weights = MuscleTaxonomy.muscleWeights(for: entry.exercise)
+                for (slug, w) in weights {
+                    let hl = halfLifeHours[slug] ?? 30
+                    let retained = capped * w * pow(0.5, ageHours / hl)
+                    stimulus[slug, default: 0] += retained
                 }
             }
         }
 
-        let names = Set(stimulus.keys).union(weekly.keys).union(Set(halfLifeHours.keys))
-        return names.sorted().map { name in
-            // Normalize: ~8 hard-set units ≈ score 1.0
-            let raw = (stimulus[name] ?? 0) / 8.0
-            let score = min(1.5, raw)
-            let state: FatigueState
-            if score < 0.25 {
-                state = .ready
-            } else if score <= 0.5 {
-                state = .recovering
-            } else {
-                state = .fatigued
+        for sample in external {
+            let ageHours = now.timeIntervalSince(sample.date) / 3600
+            guard ageHours >= 0, ageHours < 30 * 24 else { continue }
+            for (slug, w) in sample.load where w > 0 {
+                let hl = halfLifeHours[slug] ?? 30
+                // External loads are already “set-equivalent” units.
+                stimulus[slug, default: 0] += w * pow(0.5, ageHours / hl)
             }
+        }
+
+        // Normalize: ~8 hard-set·weight units ≈ score 1.0
+        var scores: [String: Double] = [:]
+        for slug in MuscleTaxonomy.muscles {
+            let raw = (stimulus[slug] ?? 0) / 8.0
+            if raw > 0 {
+                scores[slug] = min(1.5, raw)
+            }
+        }
+        return scores
+    }
+
+    /// Niveles absolutos para el mapa (misma leyenda siempre):
+    /// 0 sin estímulo · 1 listo · 2 suave · 3 recuperando · 4 fatigado.
+    public static func levels(ofScores scores: [String: Double]) -> [String: Int] {
+        var out: [String: Int] = [:]
+        for slug in MuscleTaxonomy.muscles {
+            out[slug] = level(forScore: scores[slug] ?? 0)
+        }
+        return out
+    }
+
+    public static func level(forScore score: Double) -> Int {
+        if score <= 0 { return 0 }
+        if score < 0.25 { return 1 }
+        if score < 0.5 { return 2 }
+        if score < 0.85 { return 3 }
+        return 4
+    }
+
+    public static func state(forScore score: Double) -> FatigueState {
+        if score < 0.25 { return .ready }
+        if score <= 0.5 { return .recovering }
+        return .fatigued
+    }
+
+    /// API de tests / listados: un `MuscleStatus` por slug con estímulo.
+    public static func statuses(
+        from workouts: [WorkoutSession],
+        external: [ExternalMuscleStimulus] = [],
+        hardOnly: Bool = false,
+        now: Date = Date()
+    ) -> [MuscleStatus] {
+        let scores = retainedLoad(
+            workouts: workouts,
+            external: external,
+            hardOnly: hardOnly,
+            now: now
+        )
+        let weekAgo = Calendar.current.date(byAdding: .day, value: -7, to: now) ?? now
+        var weekly: [String: Double] = [:]
+        for workout in workouts {
+            let when = workout.finishedAt ?? workout.startedAt ?? now
+            guard when >= weekAgo else { continue }
+            for entry in workout.exercises {
+                let sets = entry.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }.count
+                guard sets > 0 else { continue }
+                for (slug, w) in MuscleTaxonomy.muscleWeights(for: entry.exercise) {
+                    weekly[slug, default: 0] += w * Double(sets)
+                }
+            }
+        }
+        return MuscleTaxonomy.muscles.compactMap { slug in
+            let score = scores[slug] ?? 0
+            guard score > 0 || (weekly[slug] ?? 0) > 0 else { return nil }
             return MuscleStatus(
-                name: name,
+                name: slug,
                 score: score,
-                state: state,
-                setsLast7Days: weekly[name] ?? 0
+                state: state(forScore: score),
+                setsLast7Days: weekly[slug] ?? 0
             )
         }
         .sorted { $0.score > $1.score }

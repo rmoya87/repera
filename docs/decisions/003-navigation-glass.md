@@ -5,7 +5,7 @@
 ## Decisión
 - Tabs: `TabView` nativo + accessory Continuar.
 - Flujo de sesión: overlay `NavigationStack` (preserva estado de tabs). Nested routes (editar / apuntar resultados) usan gesto de volver del sistema.
-- Swipe: `swipeActions` + `swipeActionsContainer()` (iOS 27) en Inicio. Destructivos con `OGSwipeDeleteButton` (`.tint(OG.red)`, icono sin título; el `.tint` global verde no pinta el swipe).
+- Swipe: `swipeActions` + `swipeActionsContainer()` (iOS 27) donde aplica. En registros de Inicio con chips: `RegisterSwipeRevealCard` (círculo rojo + trash; offset de toda la card; gesto solo fuera del carrusel).
 - Reorden: `reorderable(collectionID:)` + `reorderContainer` en ejercicios de bloque.
 - Glass: no aplicar glass custom encima de toolbars del sistema (`appliesGlass: false` en `.toolbar`).
 - Zoom biblioteca→ficha: `matchedTransitionSource` + `navigationTransition(.zoom)` respetando Reduce Motion.

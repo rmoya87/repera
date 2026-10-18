@@ -72,7 +72,7 @@ struct LibraryView: View {
             .scrollDismissesKeyboard(.interactively)
             // Only mute list diff animations — do not disable keyboard / focus transitions.
             .animation(nil, value: cachedSections.map(\.id))
-            .task(id: store.state.syncRevision) {
+            .task(id: store.catalogEpoch) {
                 await rebuildIndexOffMain(reason: "catalog")
             }
             .task(id: "\(query)|\(browseMode.rawValue)|\(searchIndex.count)") {

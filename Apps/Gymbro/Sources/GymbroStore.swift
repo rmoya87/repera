@@ -28,8 +28,21 @@ final class GymbroStore: NSObject {
     /// Expensive StatsEngine results keyed by sync revision.
     let statsCache = DerivedStatsCache()
 
+    /// Fine-grained Observation tokens (views can key `.task(id:)` / onChange without full `state`).
+    private(set) var catalogEpoch: UInt64 = 0
+    private(set) var workoutsEpoch: UInt64 = 0
+    private(set) var sessionEpoch: UInt64 = 0
+    /// Tab chrome — Equatable; only publishes when title / progress / thumb / presence change.
+    private(set) var hasActiveSession = false
+    private(set) var continueAccessory: ContinueAccessoryModel?
+
     private let store = LocalStore.shared
     private let connectivity = PhoneConnectivity()
+    private var watchPushTask: Task<Void, Never>?
+
+    func bumpCatalogEpoch() { catalogEpoch &+= 1 }
+    func bumpWorkoutsEpoch() { workoutsEpoch &+= 1; statsCache.invalidate() }
+    func bumpSessionEpoch() { sessionEpoch &+= 1 }
 
     var controller: SessionController? {
         guard let active = state.activeSession else { return nil }
@@ -41,24 +54,45 @@ final class GymbroStore: NSObject {
     }
 
     override init() {
-        // Intentionally empty — do not call Catalog.seed() or read disk here (blocks LaunchScreen).
-        state = LocalStore.shared.emptyShellState()
+        // Same idea as HealthDiskCache: paint Gymbro workouts on first frame (not after hydrate).
+        if let painted = LaunchWarmup.appStateForFirstPaint() {
+            state = painted
+            isHydrated = true
+            catalogEpoch = 1
+            workoutsEpoch = 1
+            sessionEpoch = 1
+            syncPhase = .awaitingRemote
+            LaunchTiming.mark("GymbroStore.init(diskPaint workouts=\(painted.workouts.count))")
+        } else {
+            state = LocalStore.shared.emptyShellState()
+            syncPhase = .loadingLocal
+            LaunchTiming.mark("GymbroStore.init(shell)")
+        }
         super.init()
-        syncPhase = .loadingLocal
-        LaunchTiming.mark("GymbroStore.init(shell)")
+        publishSessionChrome()
     }
 
-    /// Load local JSON after the first frame. Seed fill is deferred so Home can paint.
+    /// Confirm / refresh local JSON after first frame. If init already painted from disk, this is cheap (warm cache).
     func hydrateFromDisk() async {
-        guard !isHydrated else { return }
         let t0 = CFAbsoluteTimeGetCurrent()
         LaunchTiming.mark("hydrate.start")
         let loaded = await store.loadLocalOnlyAsync()
+        let hadPaint = isHydrated
+        let changed = !hadPaint
+            || loaded.syncRevision != state.syncRevision
+            || loaded.workouts.count != state.workouts.count
+            || loaded.exercises.count != state.exercises.count
         state = loaded
         iCloudStatus = store.iCloudStatus
         syncPhase = store.syncPhase
         isHydrated = true
-        LaunchTiming.span("hydrate.disk", from: t0)
+        if changed {
+            catalogEpoch &+= 1
+            workoutsEpoch &+= 1
+            sessionEpoch &+= 1
+        }
+        publishSessionChrome()
+        LaunchTiming.span(hadPaint ? "hydrate.disk(confirm)" : "hydrate.disk", from: t0)
 
         // First install: fill seed in background after Home is already visible.
         if state.exercises.isEmpty {
@@ -68,6 +102,7 @@ final class GymbroStore: NSObject {
                 if state.exercises.isEmpty {
                     state.exercises = seed
                     state.updatedAt = Date()
+                    catalogEpoch &+= 1
                     persistLocalOnly(immediate: true)
                 }
                 LaunchTiming.span("hydrate.seed", from: tSeed)
@@ -80,44 +115,55 @@ final class GymbroStore: NSObject {
         connectivity.activate()
         isWatchReachable = WCSession.default.isReachable
         // Catalog merges + iCloud after hydrate — never on the LaunchScreen path.
-        Task(priority: .userInitiated) { @MainActor in
+        Task(priority: .utility) { @MainActor in
             await Task.yield()
-            // First `Catalog.seed()` builds hundreds of exercises — must not run on MainActor
-            // or SwiftUI freezes on the LaunchScreen / first frame for ~1–2s.
-            _ = await store.buildSeedCatalogAsync()
+            let t0 = CFAbsoluteTimeGetCurrent()
+            let seed = await store.buildSeedCatalogAsync()
+            let current = state.exercises
+            let merged = await Task.detached(priority: .utility) {
+                Self.mergeCatalogOffMain(current: current, seed: seed)
+            }.value
             var dirty = false
             dirty = stripSeededDemoPlanIfNeeded() || dirty
-            dirty = enrichCatalogMetadata() || dirty
-            dirty = mergeMissingSeedExercises() || dirty
+            if merged.changed {
+                state.exercises = merged.exercises
+                state.updatedAt = Date()
+                dirty = true
+            }
             dirty = dedupeBodyWeightsByDay() || dirty
             if dirty {
+                catalogEpoch &+= 1
                 // Local only until iCloud recovery completes — never upload seed over undownloaded cloud.
                 persistLocalOnly(immediate: true)
             }
+            LaunchTiming.span("bootstrap.catalogMerge", from: t0)
             await completeInitialRemoteSync()
         }
     }
 
-    /// Sincroniza metadata seed (grupo, instrucciones…) sin pisar custom/favoritos/id.
-    @discardableResult
-    private func enrichCatalogMetadata() -> Bool {
-        let seedByName = Dictionary(uniqueKeysWithValues: Catalog.seed().map { ($0.name, $0) })
+    /// Enrich + append missing seed rows off the MainActor (string compares over hundreds of exercises).
+    nonisolated private static func mergeCatalogOffMain(
+        current: [Exercise],
+        seed: [Exercise]
+    ) -> (exercises: [Exercise], changed: Bool) {
+        let seedByName = Dictionary(uniqueKeysWithValues: seed.map { ($0.name, $0) })
+        var exercises = current
         var changed = false
-        for i in state.exercises.indices {
-            guard !state.exercises[i].isCustom,
-                  let fresh = seedByName[state.exercises[i].name]
+        for i in exercises.indices {
+            guard !exercises[i].isCustom,
+                  let fresh = seedByName[exercises[i].name]
             else { continue }
-            let staleMeta = state.exercises[i].instructions.isEmpty
-                || state.exercises[i].catalogId == nil
-                || state.exercises[i].detailDescription != fresh.detailDescription
-                || state.exercises[i].instructions != fresh.instructions
-            let staleGroup = state.exercises[i].muscleGroup != fresh.muscleGroup
-                || state.exercises[i].equipment != fresh.equipment
-                || state.exercises[i].sportTag != fresh.sportTag
+            let staleMeta = exercises[i].instructions.isEmpty
+                || exercises[i].catalogId == nil
+                || exercises[i].detailDescription != fresh.detailDescription
+                || exercises[i].instructions != fresh.instructions
+            let staleGroup = exercises[i].muscleGroup != fresh.muscleGroup
+                || exercises[i].equipment != fresh.equipment
+                || exercises[i].sportTag != fresh.sportTag
             guard staleMeta || staleGroup else { continue }
-            let fav = state.exercises[i].isFavorite
-            let id = state.exercises[i].id
-            state.exercises[i] = Exercise(
+            let fav = exercises[i].isFavorite
+            let id = exercises[i].id
+            exercises[i] = Exercise(
                 id: id,
                 name: fresh.name,
                 muscleGroup: fresh.muscleGroup,
@@ -136,17 +182,21 @@ final class GymbroStore: NSObject {
             )
             changed = true
         }
-        if changed { state.updatedAt = Date() }
-        return changed
+        let existing = Set(exercises.map(\.name))
+        let missing = seed.filter { !existing.contains($0.name) }
+        if !missing.isEmpty {
+            exercises.append(contentsOf: missing)
+            changed = true
+        }
+        return (exercises, changed)
     }
 
-    /// Añade ejercicios nuevos del catálogo seed (p. ej. CrossFit) sin duplicar por nombre.
+    /// Enrich + missing seed in one pass (iCloud adopt path).
     @discardableResult
-    private func mergeMissingSeedExercises() -> Bool {
-        let existing = Set(state.exercises.map(\.name))
-        let missing = Catalog.seed().filter { !existing.contains($0.name) }
-        guard !missing.isEmpty else { return false }
-        state.exercises.append(contentsOf: missing)
+    private func enrichCatalogMetadata() -> Bool {
+        let result = Self.mergeCatalogOffMain(current: state.exercises, seed: Catalog.seed())
+        guard result.changed else { return false }
+        state.exercises = result.exercises
         state.updatedAt = Date()
         return true
     }
@@ -166,15 +216,43 @@ final class GymbroStore: NSObject {
     // MARK: - Persistence
 
     /// Durable local write. Remote mirror only after initial recovery allows uploads.
-    func persist(immediate: Bool = true) {
+    /// - Parameter touchWorkouts: bump Home/Historial epochs + Salud exclusion filter.
+    ///   Leave `false` for series logging / settings / plan so Inicio no rebuilds on each set.
+    func persist(immediate: Bool = true, touchWorkouts: Bool = false) {
         store.stampForPersist(&state, bumpRevision: true)
         store.persistLocal(state, immediate: immediate)
         iCloudStatus = store.iCloudStatus
         syncPhase = store.syncPhase
-        statsCache.invalidate()
+        if touchWorkouts {
+            workoutsEpoch &+= 1
+            statsCache.invalidate()
+            HealthKitStore.shared.invalidateExternalActivityFilter(reason: "workouts")
+            scheduleHealthActivitiesResync()
+        }
+        sessionEpoch &+= 1
         if allowRemoteUpload {
             let snapshot = state
             Task { await store.pushToiCloudIfSafe(snapshot) }
+        }
+    }
+
+    /// Persist + notify Home/Historial/Salud that the finished-workout list changed.
+    private func persistWorkouts(immediate: Bool = true) {
+        persist(immediate: immediate, touchWorkouts: true)
+    }
+
+    /// After Gymbro workout list changes, refresh Salud activities with the new exclusion set.
+    private func scheduleHealthActivitiesResync() {
+        let linked = Set(state.workouts.compactMap(\.healthKitWorkoutUUID))
+        let sessions = state.workouts
+        Task(priority: .utility) { @MainActor in
+            let health = HealthKitStore.shared
+            guard health.isAuthorized else { return }
+            await health.refreshRecentExternalActivities(
+                excludingUUIDs: linked,
+                overlappingSessions: sessions,
+                days: 180
+            )
         }
     }
 
@@ -197,6 +275,29 @@ final class GymbroStore: NSObject {
     func cachedHistory(for exerciseId: UUID) -> ExerciseHistorySummary {
         statsCache.history(exerciseId: exerciseId, revision: state.syncRevision) {
             StatsEngine.history(for: exerciseId, workouts: state.workouts)
+        }
+    }
+
+    func cachedLastWorkingSession(for exerciseId: UUID) -> ExerciseLastSession? {
+        statsCache.lastSession(exerciseId: exerciseId, revision: state.syncRevision) {
+            StatsEngine.lastWorkingSession(for: exerciseId, workouts: state.workouts)
+        }
+    }
+
+    func cachedLastWorkingWeight(for exerciseId: UUID) -> Double? {
+        statsCache.lastWorkingWeight(exerciseId: exerciseId, revision: state.syncRevision) {
+            StatsEngine.lastWorkingWeight(exerciseId: exerciseId, workouts: state.workouts)
+        }
+    }
+
+    func cachedPersonalRecordCount(in session: WorkoutSession) -> Int {
+        cachedPersonalRecordCountsBySession()[session.id] ?? 0
+    }
+
+    /// Mapa sesión→nº PRs (un pase; Historial no paga O(n²) por fila).
+    func cachedPersonalRecordCountsBySession() -> [UUID: Int] {
+        statsCache.personalRecordCountsBySession(revision: state.syncRevision) {
+            StatsEngine.personalRecordCountsBySessionId(workouts: state.workouts)
         }
     }
 
@@ -255,10 +356,12 @@ final class GymbroStore: NSObject {
         case .adoptedRemote(let remote):
             state = remote
             stripSeededDemoPlanIfNeeded()
-            enrichCatalogMetadata()
-            mergeMissingSeedExercises()
+            _ = enrichCatalogMetadata()
             // Metadata merges stay local until the next user edit bumps revision.
             store.persistLocal(state, immediate: true)
+            catalogEpoch &+= 1
+            workoutsEpoch &+= 1
+            publishSessionChrome()
             allowRemoteUpload = true
             lastiCloudSyncMessage = "Datos restaurados desde iCloud"
         case .keptLocal(let shouldUpload):
@@ -309,8 +412,8 @@ final class GymbroStore: NSObject {
             updatedAt: Date()
         )
         progressionReasons = [:]
-        persist()
-        pushActiveToWatch()
+        persistWorkouts()
+        pushActiveToWatch(immediate: true)
     }
 
     // MARK: - Plan / today
@@ -354,7 +457,7 @@ final class GymbroStore: NSObject {
         ctrl.startOnPhone()
         state.activeSession = ctrl.session
         persist()
-        pushActiveToWatch()
+        pushActiveToWatch(immediate: true)
         beginHealthTracking(for: ctrl.session)
     }
 
@@ -390,7 +493,7 @@ final class GymbroStore: NSObject {
         progressionReasons = [:]
         state.activeSession = ctrl.session
         persist()
-        pushActiveToWatch()
+        pushActiveToWatch(immediate: true)
         beginHealthTracking(for: ctrl.session)
         return true
     }
@@ -477,7 +580,7 @@ final class GymbroStore: NSObject {
         lastImportSummary =
             "\(result.source.rawValue): \(result.workouts.count) entrenos, \(result.matchedSets) series"
             + (result.createdExercises.isEmpty ? "" : ", \(result.createdExercises.count) ejercicios nuevos")
-        persist()
+        persistWorkouts()
         return result
     }
 
@@ -493,8 +596,9 @@ final class GymbroStore: NSObject {
         let end = session.finishedAt ?? Date()
         restCoordinator.endForSessionClose()
         state.activeSession = nil
+        // Clearing active session only — workout row lands after HK finish (or discard).
         persist()
-        pushActiveToWatch()
+        pushActiveToWatch(immediate: true)
 
         if save {
             let volume = session.totalVolumeKg
@@ -517,7 +621,7 @@ final class GymbroStore: NSObject {
                 session.healthKitWorkoutUUID = apple.workoutUUID
                 upsertWorkout(session)
                 advanceRotationIfNeeded(finishedRoutineId: finishedRoutineId)
-                persist()
+                persistWorkouts()
             }
         } else {
             Task { await HealthKitStore.shared.discardLiveTracking() }
@@ -553,7 +657,7 @@ final class GymbroStore: NSObject {
         session.notes = (trimmed?.isEmpty == false) ? trimmed : nil
         upsertWorkout(session)
         advanceRotationIfNeeded(finishedRoutineId: routine.id)
-        persist()
+        persistWorkouts()
 
         let volume = session.totalVolumeKg
         let fallbackKcal = HealthKitStore.estimateActiveEnergyKcal(
@@ -577,7 +681,7 @@ final class GymbroStore: NSObject {
                 updated.appleDurationSeconds = apple.durationSeconds
                 updated.healthKitWorkoutUUID = apple.workoutUUID
                 upsertWorkout(updated)
-                persist()
+                persistWorkouts()
             }
         }
         return session
@@ -665,15 +769,12 @@ final class GymbroStore: NSObject {
     func deleteWorkout(_ id: UUID) {
         let hkUUID = state.workouts.first(where: { $0.id == id })?.healthKitWorkoutUUID
         state.workouts.removeAll { $0.id == id }
-        persist()
+        persistWorkouts()
         // También quitar de Salud: si no, reaparece como actividad externa «propia».
         if let hkUUID {
             Task {
                 _ = await HealthKitStore.shared.deleteExternalWorkout(id: hkUUID)
-                HealthKitStore.shared.invalidateHealthMetricCache(reason: "deleteGymbroWorkout")
             }
-        } else {
-            HealthKitStore.shared.invalidateHealthMetricCache(reason: "deleteLocalWorkout")
         }
     }
 
@@ -712,7 +813,7 @@ final class GymbroStore: NSObject {
             }()
         )
         upsertWorkout(session)
-        persist()
+        persistWorkouts()
 
         let volume = session.totalVolumeKg
         let fallbackKcal = HealthKitStore.estimateActiveEnergyKcal(
@@ -736,7 +837,7 @@ final class GymbroStore: NSObject {
                 updated.appleDurationSeconds = apple.durationSeconds
                 updated.healthKitWorkoutUUID = apple.workoutUUID
                 upsertWorkout(updated)
-                persist()
+                persistWorkouts()
             }
         }
         return session
@@ -749,7 +850,7 @@ final class GymbroStore: NSObject {
             draft.finishedAt = start.addingTimeInterval(60)
         }
         upsertWorkout(draft)
-        persist()
+        persistWorkouts()
     }
 
     func removeLastSet() {
@@ -763,7 +864,7 @@ final class GymbroStore: NSObject {
         session.notes = trimmed.isEmpty ? nil : trimmed
         state.activeSession = session
         persist()
-        pushActiveToWatch()
+        pushActiveToWatch(immediate: true)
     }
 
     func applyWatchSession(_ session: WorkoutSession) {
@@ -771,8 +872,12 @@ final class GymbroStore: NSObject {
         if session.phase == .finished {
             upsertWorkout(session)
             state.activeSession = nil
+            persistWorkouts()
+            pushActiveToWatch(immediate: true)
+        } else {
+            persist()
+            pushActiveToWatch(immediate: true)
         }
-        persist()
     }
 
     private func upsertWorkout(_ session: WorkoutSession) {
@@ -792,14 +897,48 @@ final class GymbroStore: NSObject {
         for id in Set(exerciseIds) {
             var pref = loadPreference(for: id)
             guard let tested = pref.testedOneRMKg, tested > 0 else { continue }
-            let hist = StatsEngine.history(for: id, workouts: state.workouts)
+            let hist = cachedHistory(for: id)
             guard let e1 = hist.estimatedOneRM, e1 > tested + 0.049 else { continue }
             pref.testedOneRMKg = (e1 * 10).rounded() / 10
             state.exerciseLoadPrefs[id.uuidString] = pref
         }
     }
 
-    private func pushActiveToWatch() {
+    /// Publishes Equatable tab chrome; optionally debounces Watch applicationContext.
+    /// - Parameter immediate: start / end / Watch inbound — flush now. Set logging uses debounce.
+    private func pushActiveToWatch(immediate: Bool = false) {
+        publishSessionChrome()
+        if immediate {
+            watchPushTask?.cancel()
+            watchPushTask = nil
+            sendWatchContextNow()
+            return
+        }
+        watchPushTask?.cancel()
+        watchPushTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 280_000_000)
+            guard !Task.isCancelled else { return }
+            self.sendWatchContextNow()
+        }
+    }
+
+    private func publishSessionChrome() {
+        let active = state.activeSession
+        let nextHas = active != nil
+        let nextAccessory = ContinueAccessoryModel(session: active)
+        var changed = false
+        if hasActiveSession != nextHas {
+            hasActiveSession = nextHas
+            changed = true
+        }
+        if continueAccessory != nextAccessory {
+            continueAccessory = nextAccessory
+            changed = true
+        }
+        if changed { sessionEpoch &+= 1 }
+    }
+
+    private func sendWatchContextNow() {
         connectivity.send(
             session: state.activeSession,
             quickLogHint: quickLogHintPayload(),
@@ -831,7 +970,7 @@ final class GymbroStore: NSObject {
         if state.activeSession == nil {
             startQuickLog(exerciseId: id, sets: 5, reps: 8)
         }
-        pushActiveToWatch()
+        pushActiveToWatch(immediate: true)
     }
 
     /// Watch: registra una serie, flushes durable, returns `syncRevision` for ACK (0 = failed).
@@ -848,6 +987,7 @@ final class GymbroStore: NSObject {
             $0.logSet(reps: max(1, reps), weightKg: weight)
         }
         await LocalStore.shared.persistAndFlush(state)
+        pushActiveToWatch(immediate: true)
         return state.syncRevision
     }
 
@@ -1108,17 +1248,20 @@ final class GymbroStore: NSObject {
             instructions: instructions
         )
         state.exercises.append(exercise)
+        catalogEpoch &+= 1
         persist()
     }
 
     func deleteExercise(_ id: UUID) {
         state.exercises.removeAll { $0.id == id && $0.isCustom }
+        catalogEpoch &+= 1
         persist()
     }
 
     func toggleFavorite(_ id: UUID) {
         guard let i = state.exercises.firstIndex(where: { $0.id == id }) else { return }
         state.exercises[i].isFavorite.toggle()
+        catalogEpoch &+= 1
         persist()
     }
 
@@ -1184,7 +1327,7 @@ final class GymbroStore: NSObject {
     /// Log rápido: 1 ejercicio → series → terminar (sin montar rutina completa).
     func startQuickLog(exerciseId: UUID, sets: Int = 3, reps: Int = 8) {
         guard let exercise = state.exercises.first(where: { $0.id == exerciseId }) else { return }
-        let hist = StatsEngine.history(for: exerciseId, workouts: state.workouts)
+        let hist = cachedHistory(for: exerciseId)
         let weight = hist.lastWeightKg
         let targetReps = hist.lastReps ?? reps
         let items = [
@@ -1216,7 +1359,7 @@ final class GymbroStore: NSObject {
         entry.exercise = catalog
         session.exercises[idx] = entry
         state.activeSession = session
-        pushActiveToWatch()
+        pushActiveToWatch(immediate: true)
         return true
     }
 

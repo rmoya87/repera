@@ -65,6 +65,8 @@ struct StatsView: View {
                         weekStartsOnMonday: mondayFirst,
                         preparedLoadAll: snap.muscleLoadAll,
                         preparedLoadHard: snap.muscleLoadHard,
+                        preparedFatigueAll: snap.muscleFatigueAll,
+                        preparedFatigueHard: snap.muscleFatigueHard,
                         preparedHasHardSets: snap.hasHardSets
                     )
 

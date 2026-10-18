@@ -1,18 +1,18 @@
 # Funcionalidades Gymbro
 
-Última actualización: 2026-10-17 (Swipe delete rojo + icono; ProgressSnapshot off-main)
+Última actualización: 2026-10-18 (Inicio: entrenos Gymbro en primer paint)
 
 ## Tabs
 
 ### Inicio (`HomeView`)
 
 - Topbar fijo arriba (`ogFixedTopBar`): «gymbro» + fecha debajo; avatar a la derecha → Ajustes.
-- Selector de semana / día.
+- Selector de semana / día (entrenos/actividades/kcal indexados por día; al tocar un día pinta al instante sin esperar HealthKit).
 - Card **Racha de N semanas** (como openGym `streakWeeks`): cuenta Gymbro **y** Apple Salud; toque → **Historial** unificado.
-- Métricas del día: tiempo, kcal (Salud manda), ejercicios.
-- Lista de entrenos Gymbro del día + actividades externas de Salud.
+- Métricas del día: tiempo, kcal (caché progresiva; refine en vivo solo para Hoy), ejercicios.
+- Lista de entrenos Gymbro del día + actividades externas de Salud (etiqueta «DÍA · hora» misma tipografía; chips min/kcal/ej./PR como Historial, alineados al título al reposo, carrusel hasta los bordes de la card).
 - Acciones: empezar, planificar día (`DayPlusSheet`), escanear pizarra.
-- Swipe en filas de entreno para eliminar: fondo **rojo** (`OGSwipeDeleteButton`), solo icono (sin «Eliminar»/«Quitar» debajo); confirmación glass.
+- Swipe en filas de entreno: círculo rojo + papelera; **toda la card (chips incluidos)** se desliza. El gesto solo nace fuera del carrusel (sobre chips solo scroll); confirmación glass.
 
 ### Diario (`PlanView`)
 
@@ -23,12 +23,14 @@
 - Favoritos de rutinas.
 - Overrides de día.
 - **Copiar semana pasada**: clona entrenos sueltos de la semana ISO anterior a la actual (nuevos IDs).
+- **Editor de ejercicio** (`RoutineExerciseEditor`): card **Referencia** con última sesión (series + TOP) y **carga sugerida** (kg grande) según reps + RIR de la 1.ª serie (Epley / 1RM·e1RM); **Aplicar** rellena pesos; **Copiar última sesión** clona series.
 
 ### Crear (`StartHubSheet`)
 
 - Título arriba (`ogFixedTopBar`), sin franja vacía encima.
 - **Crear mi entreno**: sesión completa (bloques, WOD, pizarra). No asigna día del plan (solo Diario).
 - **Apuntar series** (log rápido): picker → modal de series (`QuickLogSheet`) → guardar (≠ Crear completo).
+- Pickers de ejercicio (`ExerciseCatalogSearchList`): índice/ranking off-main (mismo enfoque que Biblioteca); sin historial Sync en cada fila; prefetch de thumbs solo ventana visible.
 - Favoritos, timer standalone.
 - Cámara / galería → escáner de pizarra → revisión → guardar o empezar.
 
@@ -47,7 +49,7 @@
 - Salud: caché diaria ≤360d; match de sesiones indexado; sin sobrescribir ventanas grandes con refrescos cortos.
 - Heatmap (tiempo/volumen precalculados), equilibrio (all/hard precalculados), progreso por ejercicio y PRs; enlace a historial.
 - `LazyVStack` en el scroll de Progreso.
-- Equilibrio: cada ejercicio del seed tiene `target`/`primaryRegions` (peso 1) y secundarios (≈0.55 el primero, ≈0.35 el resto) vía `MuscleTaxonomy.muscleWeights`; se acumula por series efectivas en la ventana.
+- Equilibrio: mapa coloreado por **fatiga retenida** (`MuscleMapEngine`, vida media por músculo) — gris → verde → amarillo → naranja → rojo (Recuperado→Fatigado). Incluye entrenos Gymbro **y** Apple Salud (`HealthMuscleMapper`: correr, tenis/raqueta, bici, natación, HIIT, deportes de equipo, etc.). Barras = series del periodo; color de barra = fatiga. Toggle Todas/Duras.
 
 ### Ejercicios (`LibraryView`)
 
@@ -94,11 +96,12 @@
 
 ## Salud (Apple)
 
-- Workouts externos → muestras diarias + estímulo muscular (`HealthMuscleMapper`); también en **Historial** (junto a Gymbro) y en la racha de Inicio.
+- Workouts externos → muestras diarias + estímulo muscular (`HealthMuscleMapper`) que alimenta **equilibrio/fatiga** y el heatmap; también en **Historial** (junto a Gymbro) y en la racha de Inicio.
 - FC por día (min/avg/max) para gráfica Cardio.
 - Energía activa diaria para gráfica Calorías.
 - Empareja con sesiones Gymbro por UUID / solape temporal (no se duplican en Historial).
 - Borrar entreno en app → intenta borrar workout en Salud.
+- **Caché en disco** del último snapshot (actividades/FC/kcal): al abrir la app se muestran datos al instante; HealthKit actualiza en segundo plano (anclado + observers).
 
 ## Ajustes
 
@@ -106,7 +109,7 @@
 - Títulos de sección Form en gris encima de cada grupo.
 - iCloud (nombre, foto, sync).
 - Apple Salud (conectar / estado).
-- Historial de entrenos (Gymbro + Apple Salud, agrupado por día; filas como Inicio: hora a la derecha + chips tiempo/kcal/ej.).
+- Historial de entrenos (Gymbro + Apple Salud, agrupado por día; hora a la derecha del título; chips en **una sola línea** alineados al título al reposo, carrusel hasta los bordes de la fila si no caben).
 - **Peso corporal** (misma sección): pesajes + objetivo; un valor por día; sync Salud (muestra más reciente del día).
 - Unidades, modo de plan / rotación, semana, descanso, esfuerzo, progresión, incremento.
 - Export/import JSON, CSV Strong/Hevy, borrar datos.

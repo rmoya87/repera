@@ -1,7 +1,7 @@
 import GymbroDomain
 import SwiftUI
 
-/// Equilibrio muscular (BodyMap + barras). El periodo lo marca el filtro global de Progreso.
+/// Equilibrio muscular: mapa por **fatiga retenida** (vida media) + barras por series del periodo.
 struct MuscleBalanceCard: View {
     var workouts: [WorkoutSession]
     var external: [ExternalMuscleStimulus]
@@ -10,6 +10,8 @@ struct MuscleBalanceCard: View {
     /// Precomputed loads from ProgressSnapshot (skip MainActor MuscleLoadEngine).
     var preparedLoadAll: [String: Double]? = nil
     var preparedLoadHard: [String: Double]? = nil
+    var preparedFatigueAll: [String: Double]? = nil
+    var preparedFatigueHard: [String: Double]? = nil
     var preparedHasHardSets: Bool? = nil
 
     @State private var hardOnly = false
@@ -29,6 +31,16 @@ struct MuscleBalanceCard: View {
         )
     }
 
+    private var fatigue: [String: Double] {
+        if hardOnly, let preparedFatigueHard { return preparedFatigueHard }
+        if !hardOnly, let preparedFatigueAll { return preparedFatigueAll }
+        return MuscleMapEngine.retainedLoad(
+            workouts: workouts,
+            external: external,
+            hardOnly: hardOnly
+        )
+    }
+
     private var hasHardSets: Bool {
         if let preparedHasHardSets { return preparedHasHardSets }
         return workouts.contains { session in
@@ -40,12 +52,13 @@ struct MuscleBalanceCard: View {
 
     var body: some View {
         let load = self.load
+        let fatigue = self.fatigue
         let ranked = MuscleLoadEngine.ranked(load: load)
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     OGCardSectionTitle(title: "Equilibrio muscular")
-                    Text("\(hardOnly ? "Series duras" : "Series trabajadas") · \(rangeLabel)")
+                    Text("Fatiga actual · \(hardOnly ? "series duras" : "series trabajadas") · \(rangeLabel)")
                         .font(.system(size: 12))
                         .foregroundStyle(OG.label3)
                         .padding(.horizontal, 4)
@@ -68,12 +81,12 @@ struct MuscleBalanceCard: View {
             }
             OGCard {
                 VStack(alignment: .leading, spacing: 12) {
-                    BodyMapView(load: load, selected: selected) { slug in
+                    BodyMapView(load: load, fatigueScores: fatigue, selected: selected) { slug in
                         selected = (selected == slug) ? nil : slug
                     }
                     BodyMapLegend()
 
-                    barsSection(load: load, ranked: ranked)
+                    barsSection(load: load, fatigue: fatigue, ranked: ranked)
 
                     if ranked.missed.count > 0 {
                         Text(hardOnly ? "Sin series duras en este periodo" : "Sin entrenar en este periodo")
@@ -108,6 +121,7 @@ struct MuscleBalanceCard: View {
     @ViewBuilder
     private func barsSection(
         load: [String: Double],
+        fatigue: [String: Double],
         ranked: (worked: [String], missed: [String])
     ) -> some View {
         let worked = ranked.worked
@@ -125,6 +139,7 @@ struct MuscleBalanceCard: View {
         } else {
             ForEach(visible, id: \.self) { slug in
                 let value = load[slug] ?? 0
+                let level = MuscleMapEngine.level(forScore: fatigue[slug] ?? 0)
                 HStack(spacing: 8) {
                     Text(MuscleTaxonomy.displayName(slug))
                         .font(.system(size: 13, weight: selected == slug ? .bold : .regular))
@@ -134,7 +149,7 @@ struct MuscleBalanceCard: View {
                         ZStack(alignment: .leading) {
                             Capsule().fill(OG.surface2)
                             Capsule()
-                                .fill(hardOnly ? OG.yellow : OG.accent)
+                                .fill(BodyMapPalette.fill(level: max(level, 1)))
                                 .frame(width: maxLoad > 0 ? geo.size.width * CGFloat(value / maxLoad) : 0)
                         }
                     }

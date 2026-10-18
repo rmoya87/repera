@@ -60,6 +60,10 @@ actor ThumbImageLoader {
         let key = "\(name)#\(maxPixel)"
         if let hit = memory.image(for: key) { return hit }
         if Task.isCancelled { return nil }
+        // Manifiesto: evita abrir ImageIO para nombres que no existen.
+        if manifestBuilt, !existingNames.contains(name) {
+            return nil
+        }
         if let existing = inFlight[key] {
             return await existing.value
         }
@@ -169,23 +173,20 @@ actor ThumbImageLoader {
         return nil
     }
 
+    /// Sin `fileExists` en hot path — Bundle URL + ImageIO fallan barato si no hay archivo.
     nonisolated private static func candidateURLs(named name: String) -> [URL] {
         let bundle = Bundle.main
-        var urls: [URL] = []
-        let thumbs = [
-            bundle.resourceURL?.appendingPathComponent("ExerciseArt/thumbs/\(name).jpg"),
-            bundle.bundleURL.appendingPathComponent("ExerciseArt/thumbs/\(name).jpg"),
-            bundle.url(forResource: name, withExtension: "jpg", subdirectory: "ExerciseArt/thumbs"),
-        ]
-        let full = [
-            bundle.resourceURL?.appendingPathComponent("ExerciseArt/\(name).jpg"),
-            bundle.bundleURL.appendingPathComponent("ExerciseArt/\(name).jpg"),
-            bundle.url(forResource: name, withExtension: "jpg", subdirectory: "ExerciseArt"),
-        ]
-        for candidate in thumbs + full {
-            guard let candidate, FileManager.default.fileExists(atPath: candidate.path) else { continue }
-            urls.append(candidate)
+        if let thumbs = bundle.url(forResource: name, withExtension: "jpg", subdirectory: "ExerciseArt/thumbs") {
+            return [thumbs]
         }
-        return urls
+        if let full = bundle.url(forResource: name, withExtension: "jpg", subdirectory: "ExerciseArt") {
+            return [full]
+        }
+        return [
+            bundle.resourceURL?.appendingPathComponent("ExerciseArt/thumbs/\(name).jpg"),
+            bundle.resourceURL?.appendingPathComponent("ExerciseArt/\(name).jpg"),
+            bundle.bundleURL.appendingPathComponent("ExerciseArt/thumbs/\(name).jpg"),
+            bundle.bundleURL.appendingPathComponent("ExerciseArt/\(name).jpg"),
+        ].compactMap { $0 }
     }
 }

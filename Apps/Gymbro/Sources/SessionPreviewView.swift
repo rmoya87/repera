@@ -225,7 +225,7 @@ struct SessionPreviewView: View {
                     if let ex = store.state.exercises.first(where: { $0.id == item.exerciseId }) {
                         exerciseRow(
                             ex,
-                            detail: "\(item.plannedSets.count)×\(item.plannedSets.first?.targetReps ?? 0)"
+                            detail: item.plannedSets.compactSummary
                         )
                     }
                 }
@@ -246,7 +246,7 @@ struct SessionPreviewView: View {
                 if let ex = store.state.exercises.first(where: { $0.id == item.exerciseId }) {
                     exerciseRow(
                         ex,
-                        detail: "\(item.plannedSets.count)×\(item.plannedSets.first?.targetReps ?? 0)"
+                        detail: item.plannedSets.compactSummary
                     )
                 }
             }

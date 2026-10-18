@@ -1,6 +1,6 @@
 # Arquitectura Gymbro
 
-Última actualización: 2026-10-17 (Progreso: ProgressDataEngine + ViewModel cache)
+Última actualización: 2026-10-18 (equilibrio fatiga verde→rojo)
 
 ## Visión
 
@@ -60,6 +60,12 @@ Fuente de verdad de la UI: ejercicios, rutinas, sesiones, peso corporal, favorit
 
 Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Alimenta Progreso con **caché diaria** de FC/kcal (hasta 360d); la UI promedia a semana/mes solo al pintar. Sync de peso: 1 muestra/día.
 
+**Arranque rápido (local-first):**
+- Snapshot JSON en Application Support (`HealthDiskCache`) con actividades + FC/kcal + ancla `HKQueryAnchor`.
+- Hidrata en `init` → Inicio pinta puntos/kcal al instante; luego refresh en background.
+- `HKAnchoredObjectQuery` fusiona altas/bajas cuando el filtro Gymbro no cambió; si no, query completa.
+- `HKObserverQuery` + `enableBackgroundDelivery` (entitlement + `UIBackgroundModes: health-kit`) marca dirty; al volver a foreground se refresca.
+
 ### `GymbroDomain` — piezas clave
 
 | Módulo | Responsabilidad |
@@ -67,12 +73,12 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 | `Models.swift` | `Exercise`, `Routine`, `RoutineBlock`, `WODMovement`, `WorkoutSession`, `AppState`… |
 | `Catalog*.swift` | Seed gym / CrossFit / halterofilia / gimnasia + ES (`CatalogSpanish` 188/188: desc + guía entrenador); deporte en `sportTag`, grupo = músculo principal |
 | `StatsEngine` | Series de progreso, PRs, métricas diarias, filtros `ProgressTimeRange` |
-| `MuscleTaxonomy` / `MuscleMapEngine` | Carga muscular y mapa; primario 1.0 / secundarios ~0.55–0.35; `libraryMuscleGroup` para filtros |
+| `MuscleTaxonomy` / `MuscleMapEngine` | Carga + fatiga (vida media por slug BodyMap); niveles 0–4 verde→rojo; primario 1.0 / secundarios ~0.55–0.35 |
 | `BoardImportParser` | OCR texto → bloques WOD (reglas) |
 | `SessionController` | Ciclo de vida de la sesión |
 | `ProgressionEngine` | Off / lineal / doble / Greyskull / triple |
 | `PlateMath` | 1RM Epley (`epleyOneRM`); preferencia `testedOneRMKg` por ejercicio |
-| `LoadSuggestion` | `%` de 1RM (tested o e1RM) → kg (pizarra / ficha) |
+| `LoadSuggestion` | `%` de 1RM → kg (pizarra / ficha); también kg para reps+RIR (Epley inverso) en el editor de series |
 | `ExerciseSubstitutes` | Alternativas mismo músculo (dominio; UI de cambio no expuesta) |
 | `ProgressTimeRange` | Periodos de Progreso |
 
@@ -99,15 +105,16 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 ## Datos y sync
 
 - Estado: `AppState` Codable → JSON local (`Application Support/Gymbro`) + espejo iCloud Documents.
-- Bootstrap: `GymbroStore` arranca con shell vacío (sin disco ni `Catalog.seed` en `init`). Tras el primer frame: hydrate disco → `Catalog.prewarm()` off-main → merges → iCloud. LaunchScreen muestra `Splash.jpg` (~170KB) a pantalla completa sobre fondo brand green. Poll iCloud corto + reintento en background.
+- Bootstrap: `LaunchWarmup` solapa catálogo + `HealthDiskCache` + `app_state` con el primer frame. `GymbroStore` arranca con shell vacío; tras pintar: hydrate (reutiliza warm) → merge catálogo off-main → iCloud. LaunchScreen: `Splash.jpg` (~170KB). Detalle en `docs/PERFORMANCE.md`.
 - Conflictos: `syncRevision` + `lastWriterDeviceId` (`SyncConflictResolver`); fallback a `updatedAt` para docs legacy.
 - I/O: actor `AppStatePersistence` (encode/write atómicos, coalescing); fachada `LocalStore` en MainActor.
 - Fases: `AppSyncPhase` (`loadingLocal` → `awaitingRemote` → `ready` / `offline` / `recoveringCorrupt`).
 - Canvas de modernización: `docs/ios27-modernization/`.
 - Thumbs: `ThumbImageLoader` (concurrencia 4, LRU, manifiesto JPG).
-- Stats: `DerivedStatsCache` invalidado con `syncRevision`.
+- Stats: `DerivedStatsCache` invalidado con `syncRevision`; epochs Observation (`catalogEpoch` / `workoutsEpoch` / `sessionEpoch`); chrome de sesión `hasActiveSession` + `continueAccessory` (sin partir el documento Codable).
 - Progreso: `ProgressViewModel` + `ProgressDataEngine` preparan un `ProgressSnapshot` off-MainActor (tiles, charts, heatmap, músculo, PRs, peso); caché por `ProgressDataKey` (periodo + revisiones). `StatsView` pinta `LazyVStack` con datos listos.
-- Salud: frescura `healthCacheFetchedAt` + invalidate al borrar; match Gymbro↔HK con `GymbroSessionMatchIndex`; refrescos serializados por generación (sin sobrescribir 370d con 180d).
+- Salud: hydrate disco para primer paint; match Gymbro↔HK con `GymbroSessionMatchIndex`; al cambiar entrenos Gymbro se invalida solo el filter (sin vaciar UI) y se re-fetch coalescido; observers marcan `healthNeedsRefresh`.
+- Rendimiento: detalle en `docs/PERFORMANCE.md`.
 
 - Export / import JSON; import CSV Strong/Hevy (`WorkoutCSVImporter`).
 
