@@ -32,6 +32,7 @@ enum BoardAIImporter {
     }
 
     /// Devuelve bloques tipados o `nil` si no hay modelo / falla (fallback al parser).
+    /// El pipeline solo llama aquí si el parser local es débil (<2 bloques).
     static func interpret(ocrText: String) async -> [RoutineBlock]? {
         guard isAvailable else {
             BoardScanLog.info("BoardAI: no disponible (\(String(describing: availability)))")
@@ -50,9 +51,13 @@ enum BoardAIImporter {
                 """,
                 generating: AIBoardPlan.self
             )
-            let blocks = response.content.toRoutineBlocks()
-            BoardScanLog.info("BoardAI: OK blocks=\(blocks.count)")
-            return blocks.isEmpty ? nil : blocks
+            let derived = response.content.toRoutineBlocks().map { block -> RoutineBlock in
+                var b = block
+                b.deriveEmomRoundsIfNeeded()
+                return b
+            }
+            BoardScanLog.info("BoardAI: OK blocks=\(derived.count)")
+            return derived.isEmpty ? nil : derived
         } catch {
             BoardScanLog.error("BoardAI: \(error.localizedDescription)")
             return nil
@@ -127,6 +132,7 @@ private extension AIBoardBlock {
         block.emomIntervalSeconds = intervalSeconds
         block.wodNotes = notes
         block.movements = movements.map { $0.toMovement() }
+        block.deriveEmomRoundsIfNeeded()
         return block
     }
 

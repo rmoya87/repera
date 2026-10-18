@@ -67,6 +67,7 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
 
 // MARK: - Scroll lock
 
+@MainActor
 private enum SwipeCardScrollLock {
     /// Desactiva / reactiva todos los `UIScrollView` bajo `root` (carrusel de chips).
     static func setScrollEnabled(_ enabled: Bool, in root: UIView) {
@@ -204,7 +205,9 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
                 startX = currentX
                 lockedHorizontal = nil
                 if let root = host?.view {
-                    SwipeCardScrollLock.setScrollEnabled(false, in: root)
+                    MainActor.assumeIsolated {
+                        SwipeCardScrollLock.setScrollEnabled(false, in: root)
+                    }
                 }
 
             case .changed:
@@ -234,7 +237,9 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
                 defer {
                     isDragging = false
                     if let root = host?.view {
-                        SwipeCardScrollLock.setScrollEnabled(true, in: root)
+                        MainActor.assumeIsolated {
+                            SwipeCardScrollLock.setScrollEnabled(true, in: root)
+                        }
                     }
                 }
                 guard wasHorizontal else {
@@ -276,7 +281,9 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
             lockedHorizontal = nil
             isDragging = false
             if let root = host?.view {
-                SwipeCardScrollLock.setScrollEnabled(true, in: root)
+                MainActor.assumeIsolated {
+                    SwipeCardScrollLock.setScrollEnabled(true, in: root)
+                }
             }
             settle(to: x)
         }

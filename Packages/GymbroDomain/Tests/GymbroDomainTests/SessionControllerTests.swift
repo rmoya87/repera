@@ -71,4 +71,105 @@ final class SessionControllerTests: XCTestCase {
             }
         }
     }
+
+    func testEmomExpandsPlannedSetsByRounds() {
+        let catalog = Catalog.seed()
+        var emom = RoutineBlock.wod(format: .emom, title: "EMOM 12'")
+        emom.timeCapMinutes = 12
+        emom.emomIntervalSeconds = 60
+        emom.rounds = 4
+        emom.movements = [
+            WODMovement(name: "Pull-up", reps: 5),
+            WODMovement(name: "HSPU", reps: 8),
+            WODMovement(name: "REST", isRest: true, restSeconds: 60),
+        ]
+        let strength = RoutineBlock.strength(
+            title: "Fuerza",
+            exercises: [
+                RoutineExercise(
+                    exerciseId: catalog[0].id,
+                    plannedSets: (0..<5).map { _ in PlannedSet(targetReps: 5) }
+                ),
+            ]
+        )
+        let routine = Routine(title: "Test", blocks: [strength, emom])
+        let session = SessionController.from(routine: routine, exercises: catalog)
+
+        XCTAssertEqual(session.exercises.first?.plannedSets.count, 5)
+        let pull = session.exercises.first {
+            $0.exercise.name.localizedCaseInsensitiveContains("pull")
+                || $0.exercise.name.localizedCaseInsensitiveContains("dominad")
+        }
+        XCTAssertEqual(pull?.plannedSets.count, 4)
+        XCTAssertEqual(pull?.blockRounds, 4)
+        XCTAssertEqual(pull?.plannedIntervals, 12)
+        let hspu = session.exercises.first { $0.exercise.name.localizedCaseInsensitiveContains("HSPU") }
+        XCTAssertEqual(hspu?.plannedSets.count, 4)
+        XCTAssertFalse(session.exercises.contains { $0.exercise.name == "REST" })
+    }
+
+    func testRFTExpandsSetsChipperDoesNot() {
+        var rft = RoutineBlock.wod(format: .forTime, title: "4 RFT")
+        rft.rounds = 4
+        rft.movements = [WODMovement(name: "Burpee", reps: 10)]
+        var chipper = RoutineBlock.wod(format: .chipper, title: "Chipper")
+        chipper.movements = [WODMovement(name: "Run", distanceMeters: 400)]
+        let routine = Routine(title: "T", blocks: [rft, chipper])
+        let session = SessionController.from(routine: routine, exercises: [])
+        XCTAssertEqual(session.exercises.first { $0.exercise.name == "Burpee" }?.plannedSets.count, 4)
+        XCTAssertEqual(session.exercises.first { $0.exercise.name == "Run" }?.plannedSets.count, 1)
+    }
+
+    func testWaveSchemeNotMultipliedAgain() {
+        var emom = RoutineBlock.wod(format: .emom, title: "EMOM")
+        emom.timeCapMinutes = 12
+        emom.rounds = 4
+        emom.movements = [
+            WODMovement(name: "Push press", repScheme: [4, 4, 3, 3]),
+        ]
+        let session = SessionController.from(
+            routine: Routine(title: "T", blocks: [emom]),
+            exercises: []
+        )
+        XCTAssertEqual(session.exercises.first?.plannedSets.count, 4)
+        XCTAssertEqual(session.exercises.first?.plannedSets.map(\.targetReps), [4, 4, 3, 3])
+    }
+
+    func testAscendingRepRangeExpandsToEmomRounds() {
+        var emom = RoutineBlock.wod(format: .emom, title: "EMOM 12'")
+        emom.timeCapMinutes = 12
+        emom.emomIntervalSeconds = 60
+        emom.rounds = 4
+        emom.movements = [
+            WODMovement(name: "Pull-up", repScheme: [4, 3, 3, 2]),
+            WODMovement(name: "HSPU", repScheme: [5, 10]), // rango, no ola
+            WODMovement(name: "REST", isRest: true, restSeconds: 60),
+        ]
+        let session = SessionController.from(
+            routine: Routine(title: "T", blocks: [emom]),
+            exercises: []
+        )
+        let pull = session.exercises.first {
+            $0.exercise.name.localizedCaseInsensitiveContains("pull")
+                || $0.exercise.name.localizedCaseInsensitiveContains("dominad")
+        }
+        XCTAssertEqual(pull?.plannedSets.map(\.targetReps), [4, 3, 3, 2])
+        let hspu = session.exercises.first { $0.exercise.name.localizedCaseInsensitiveContains("HSPU") }
+        XCTAssertEqual(hspu?.plannedSets.count, 4)
+        XCTAssertEqual(hspu?.plannedSets.map(\.targetReps), [10, 10, 10, 10])
+    }
+
+    func testShortWavePadsWithLastRepForEmomRounds() {
+        var emom = RoutineBlock.wod(format: .emom, title: "EMOM 12'")
+        emom.timeCapMinutes = 12
+        emom.rounds = 4
+        emom.movements = [
+            WODMovement(name: "Push press", repScheme: [4, 3, 3]), // 3 números, 4 rondas → 4-3-3-3
+        ]
+        let session = SessionController.from(
+            routine: Routine(title: "T", blocks: [emom]),
+            exercises: []
+        )
+        XCTAssertEqual(session.exercises.first?.plannedSets.map(\.targetReps), [4, 3, 3, 3])
+    }
 }

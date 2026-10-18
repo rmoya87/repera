@@ -388,6 +388,46 @@ struct PlanView: View {
 
 // MARK: - Editor de rutina / día / crear entreno
 
+/// Chrome del editor: página push → volver + check; modal → solo check (swipe para cerrar).
+private struct DayEditorChromeModifier: ViewModifier {
+    let title: String
+    let usesPageCloseHeader: Bool
+    let embedsNavigationStack: Bool
+    let canConfirm: Bool
+    let confirmTitle: String
+    let onConfirm: () -> Void
+
+    func body(content: Content) -> some View {
+        if usesPageCloseHeader {
+            content
+                .ogPinnedTransparentNav(title)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        confirmButton
+                    }
+                }
+        } else {
+            content
+                .ogFixedTopBar(title) { confirmButton }
+                .navigationBarBackButtonHidden(embedsNavigationStack)
+        }
+    }
+
+    private var confirmButton: some View {
+        OGToolbarGlassButton(
+            systemName: "checkmark",
+            accessibilityLabel: confirmTitle,
+            tint: .white,
+            appliesGlass: true,
+            glassTint: OG.accent
+        ) {
+            onConfirm()
+        }
+        .opacity(canConfirm ? 1 : 0.4)
+        .disabled(!canConfirm)
+    }
+}
+
 enum DayEditorMode: Equatable {
     case plan(isNew: Bool)
     /// Entreno suelto de un día concreto (Inicio); no forma parte del plan semanal.
@@ -404,8 +444,10 @@ struct DayEditorView: View {
     var onSessionStarted: (() -> Void)? = nil
     /// Cierre explícito cuando se presenta como página (push), no modal.
     var onClose: (() -> Void)? = nil
+    /// Si no es nil, el check aplica el draft y cierra sin guardar en el store (revisión de pizarra).
+    var onApplyDraft: ((Routine) -> Void)? = nil
     var embedsNavigationStack: Bool = true
-    /// Cabecera con X arriba y título debajo (flujo Entreno → Editar).
+    /// Página push (Entreno → Editar): título large + chevron volver; sin X.
     var usesPageCloseHeader: Bool = false
     @State private var pickExerciseForBlock: UUID?
     @State private var pickMovementForBlock: UUID?
@@ -465,12 +507,16 @@ struct DayEditorView: View {
                     }
                     scheduledTimeControls
                 case .session:
-                    Toggle("Guardar en favoritos", isOn: $saveAsFavorite)
+                    if onApplyDraft == nil {
+                        Toggle("Guardar en favoritos", isOn: $saveAsFavorite)
+                    }
                 }
             } footer: {
                 switch mode {
                 case .session:
-                    Text("Solo empieza la sesión. El plan semanal se gestiona en Diario.")
+                    Text(onApplyDraft == nil
+                         ? "Solo empieza la sesión. El plan semanal se gestiona en Diario."
+                         : "Los cambios se aplican al revisar la pizarra; aún no se guarda el día.")
                 case .favorite:
                     Text("Los favoritos se reutilizan desde Crear. Opcionalmente puedes asignarlos a un día en Programado.")
                 case .oneOff:
@@ -537,26 +583,14 @@ struct DayEditorView: View {
             guard let blockIndex = routine.blocks.firstIndex(where: { $0.id == blockId }) else { return }
             applyStrengthExerciseReorder(to: &routine.blocks[blockIndex].exercises, difference: difference)
         }
-        .ogFixedTopBar(navTitle) {
-            HStack(spacing: 8) {
-                // Push (Entreno → Editar): X a la izquierda del check. Modal Diario: solo check (swipe para cerrar).
-                if usesPageCloseHeader {
-                    CloseToolbarButton(action: { closeEditor() }, large: true)
-                }
-                OGToolbarGlassButton(
-                    systemName: "checkmark",
-                    accessibilityLabel: confirmTitle,
-                    tint: .white,
-                    appliesGlass: true,
-                    glassTint: OG.accent
-                ) {
-                    confirm()
-                }
-                .opacity(canConfirm ? 1 : 0.4)
-                .disabled(!canConfirm)
-            }
-        }
-        .navigationBarBackButtonHidden(usesPageCloseHeader || embedsNavigationStack)
+        .modifier(DayEditorChromeModifier(
+            title: navTitle,
+            usesPageCloseHeader: usesPageCloseHeader,
+            embedsNavigationStack: embedsNavigationStack,
+            canConfirm: canConfirm,
+            confirmTitle: confirmTitle,
+            onConfirm: confirm
+        ))
         .sheet(item: Binding(
             get: { pickExerciseForBlock.map { IDBox(id: $0) } },
             set: { pickExerciseForBlock = $0?.id }
@@ -652,6 +686,7 @@ struct DayEditorView: View {
     }
 
     private var navTitle: String {
+        if onApplyDraft != nil { return "Editar entreno" }
         switch mode {
         case .session: return "Crear entreno"
         case .oneOff(let isNew): return isNew ? "Entreno del día" : "Editar entreno"
@@ -662,6 +697,7 @@ struct DayEditorView: View {
     }
 
     private var confirmTitle: String {
+        if onApplyDraft != nil { return "Listo" }
         switch mode {
         case .session: return "Empezar"
         case .plan, .favorite, .oneOff: return "Guardar"
@@ -669,6 +705,14 @@ struct DayEditorView: View {
     }
 
     private var canConfirm: Bool {
+        if onApplyDraft != nil {
+            return routine.blocks.contains { block in
+                switch block.kind {
+                case .strength: return !block.exercises.isEmpty
+                case .wod: return !block.movements.isEmpty
+                }
+            }
+        }
         switch mode {
         case .plan, .favorite, .oneOff: return true
         case .session:
@@ -682,6 +726,18 @@ struct DayEditorView: View {
     }
 
     private func confirm() {
+        if let onApplyDraft {
+            var draft = routine
+            for i in draft.blocks.indices {
+                draft.blocks[i].deriveEmomRoundsIfNeeded()
+            }
+            if draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                draft.title = "Entreno"
+            }
+            onApplyDraft(draft)
+            closeEditor()
+            return
+        }
         switch mode {
         case .plan:
             var draft = routine
@@ -784,6 +840,17 @@ struct DayEditorView: View {
         exercises.insert(contentsOf: moved, at: insertIndex)
     }
 
+    /// Rondas mostradas: EMOM deriva vueltas (cap÷estaciones); RFT default 4.
+    private func emomOrRFTRounds(at index: Int) -> Int {
+        if let rounds = routine.blocks[index].rounds { return rounds }
+        if routine.blocks[index].wodFormat == .emom {
+            var block = routine.blocks[index]
+            block.deriveEmomRoundsIfNeeded()
+            return block.rounds ?? 4
+        }
+        return 4
+    }
+
     @ViewBuilder
     private func wodBlock(index: Int) -> some View {
         Picker("Formato", selection: Binding(
@@ -801,6 +868,9 @@ struct DayEditorView: View {
                 }
                 if new == .amrap || new == .emom {
                     routine.blocks[index].timeCapMinutes = routine.blocks[index].timeCapMinutes ?? 12
+                }
+                if new == .emom {
+                    routine.blocks[index].deriveEmomRoundsIfNeeded()
                 }
             }
         )) {
@@ -825,9 +895,9 @@ struct DayEditorView: View {
         if routine.blocks[index].wodFormat == .forTime || routine.blocks[index].wodFormat == .deathBy
             || routine.blocks[index].wodFormat == .emom {
             Stepper(
-                "Rondas: \(routine.blocks[index].rounds ?? (routine.blocks[index].wodFormat == .emom ? 8 : 4))",
+                "Rondas: \(emomOrRFTRounds(at: index))",
                 value: Binding(
-                    get: { routine.blocks[index].rounds ?? (routine.blocks[index].wodFormat == .emom ? 8 : 4) },
+                    get: { emomOrRFTRounds(at: index) },
                     set: { routine.blocks[index].rounds = $0 }
                 ),
                 in: 1...30
@@ -886,10 +956,13 @@ struct DayEditorView: View {
 
         ForEach(Array(routine.blocks[index].movements.enumerated()), id: \.element.id) { mIndex, move in
             NavigationLink {
-                WODMovementEditor(movement: Binding(
-                    get: { routine.blocks[index].movements[mIndex] },
-                    set: { routine.blocks[index].movements[mIndex] = $0 }
-                ))
+                WODMovementEditor(
+                    movement: Binding(
+                        get: { routine.blocks[index].movements[mIndex] },
+                        set: { routine.blocks[index].movements[mIndex] = $0 }
+                    ),
+                    block: routine.blocks[index]
+                )
             } label: {
                 HStack(spacing: 12) {
                     if move.isRest {
@@ -950,19 +1023,30 @@ struct DayEditorView: View {
         if let id = move.exerciseId, let ex = store.state.exercises.first(where: { $0.id == id }) {
             return ex
         }
+        let canonical = CrossFitGlossary.canonicalName(for: move.name)
         if let match = store.state.exercises.first(where: {
             $0.name.localizedCaseInsensitiveCompare(move.name) == .orderedSame
+                || $0.name.localizedCaseInsensitiveCompare(canonical) == .orderedSame
         }) {
             return match
         }
-        return Exercise(name: move.name, muscleGroup: "WOD", isCustom: true)
+        return Exercise(name: canonical, muscleGroup: "WOD", isCustom: true)
     }
 }
 
 // MARK: - WOD movement editor
 
+/// Editor de movimiento WOD alineado con Apuntar: series con peso + reps + RIR.
 struct WODMovementEditor: View {
+    @Environment(GymbroStore.self) private var store
     @Binding var movement: WODMovement
+    /// Bloque padre para derivar las mismas series que Empezar/Apuntar.
+    var block: RoutineBlock? = nil
+
+    @State private var draftSets: [PlannedSet] = []
+    @State private var didSeedSets = false
+
+    private var weightStep: Double { store.state.settings.weightIncrementKg }
 
     var body: some View {
         Form {
@@ -974,10 +1058,32 @@ struct WODMovementEditor: View {
                 ), in: 15...300, step: 15)
             } else {
                 TextField("Nombre", text: $movement.name)
-                Stepper("Reps: \(movement.reps ?? 0)", value: Binding(
-                    get: { movement.reps ?? 0 },
-                    set: { movement.reps = $0 == 0 ? nil : $0 }
-                ), in: 0...200)
+
+                Section {
+                    ForEach(Array(draftSets.enumerated()), id: \.element.id) { index, _ in
+                        wodSetRow(index: index)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                if draftSets.count > 1 {
+                                    OGSwipeDeleteButton {
+                                        removeSet(at: index)
+                                    }
+                                }
+                            }
+                    }
+                    Button {
+                        addSet()
+                    } label: {
+                        Label("Añadir serie", systemImage: "plus")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(OG.accent)
+                    }
+                } header: {
+                    Text("Series al apuntar")
+                } footer: {
+                    Text("Peso · reps · RIR como en Apuntar. Si la pizarra no trae kg, puedes ponerlos aquí.")
+                }
+
                 Stepper("Metros: \(movement.distanceMeters ?? 0)", value: Binding(
                     get: { movement.distanceMeters ?? 0 },
                     set: { movement.distanceMeters = $0 == 0 ? nil : $0 }
@@ -986,7 +1092,10 @@ struct WODMovementEditor: View {
                     Text("Peso H/M (kg)")
                     TextField("50", text: Binding(
                         get: { movement.weightMaleKg.map { String(format: "%g", $0) } ?? "" },
-                        set: { movement.weightMaleKg = Double($0.replacingOccurrences(of: ",", with: ".")) }
+                        set: {
+                            movement.weightMaleKg = Double($0.replacingOccurrences(of: ",", with: "."))
+                            applyMovementWeightToEmptySets()
+                        }
                     ))
                     .ogKeyboardDone()
                     .multilineTextAlignment(.trailing)
@@ -1014,6 +1123,132 @@ struct WODMovementEditor: View {
         }
         .ogListChrome()
         .ogPinnedTransparentNav("Movimiento WOD")
+        .onAppear { seedSetsIfNeeded() }
+    }
+
+    private func seedSetsIfNeeded() {
+        guard !didSeedSets, !movement.isRest else { return }
+        didSeedSets = true
+        if let block {
+            draftSets = block.plannedSets(for: movement)
+        } else {
+            draftSets = movement.plannedSetsFromReps
+        }
+        if draftSets.isEmpty {
+            draftSets = [PlannedSet(targetReps: movement.reps ?? 10, targetWeightKg: movement.weightMaleKg)]
+        }
+    }
+
+    private func wodSetRow(index: Int) -> some View {
+        HStack(spacing: 8) {
+            OGRepeatStepper(
+                display: draftSets[index].targetWeightKg.map { String(format: "%g", $0) } ?? "—",
+                keyboard: .decimalPad,
+                onMinus: {
+                    let current = draftSets[index].targetWeightKg ?? 0
+                    let next = max(0, ((current - weightStep) * 10).rounded() / 10)
+                    draftSets[index].targetWeightKg = next > 0 ? next : nil
+                    writeSetsToMovement()
+                },
+                onPlus: {
+                    let current = draftSets[index].targetWeightKg ?? 0
+                    draftSets[index].targetWeightKg = ((current + weightStep) * 10).rounded() / 10
+                    writeSetsToMovement()
+                },
+                onCommitText: { text in
+                    let normalized = text.replacingOccurrences(of: ",", with: ".")
+                    if normalized.isEmpty {
+                        draftSets[index].targetWeightKg = nil
+                    } else if let parsed = Double(normalized) {
+                        draftSets[index].targetWeightKg = parsed > 0 ? ((parsed * 10).rounded() / 10) : nil
+                    }
+                    writeSetsToMovement()
+                }
+            )
+            .frame(maxWidth: .infinity)
+
+            OGRepeatStepper(
+                display: "\(draftSets[index].targetReps)",
+                keyboard: .numberPad,
+                onMinus: {
+                    draftSets[index].targetReps = max(1, draftSets[index].targetReps - 1)
+                    writeSetsToMovement()
+                },
+                onPlus: {
+                    draftSets[index].targetReps = min(200, draftSets[index].targetReps + 1)
+                    writeSetsToMovement()
+                },
+                onCommitText: { text in
+                    if let parsed = Int(text) {
+                        draftSets[index].targetReps = min(200, max(1, parsed))
+                        writeSetsToMovement()
+                    }
+                }
+            )
+            .frame(width: 88)
+
+            Menu {
+                Button("Sin RIR") {
+                    draftSets[index].targetRir = nil
+                    writeSetsToMovement()
+                }
+                ForEach(0...5, id: \.self) { rir in
+                    Button("\(rir)") {
+                        draftSets[index].targetRir = Double(rir)
+                        writeSetsToMovement()
+                    }
+                }
+            } label: {
+                Text(draftSets[index].targetRir.map { String(format: "%g", $0) } ?? "RIR")
+                    .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(draftSets[index].targetRir == nil ? OG.label3 : OG.label)
+                    .frame(width: 48, height: 36)
+                    .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+        }
+    }
+
+    private func addSet() {
+        guard draftSets.count < 20 else { return }
+        let last = draftSets.last
+        draftSets.append(
+            PlannedSet(
+                targetReps: last?.targetReps ?? movement.reps ?? 10,
+                targetWeightKg: last?.targetWeightKg ?? movement.weightMaleKg,
+                targetRir: last?.targetRir
+            )
+        )
+        writeSetsToMovement()
+    }
+
+    private func removeSet(at index: Int) {
+        guard draftSets.count > 1, draftSets.indices.contains(index) else { return }
+        draftSets.remove(at: index)
+        writeSetsToMovement()
+    }
+
+    private func applyMovementWeightToEmptySets() {
+        guard let kg = movement.weightMaleKg else { return }
+        for i in draftSets.indices where draftSets[i].targetWeightKg == nil {
+            draftSets[i].targetWeightKg = kg
+        }
+        writeSetsToMovement()
+    }
+
+    /// Persiste series explícitas (reps/peso/RIR) para que Apuntar/Empezar coincidan.
+    private func writeSetsToMovement() {
+        movement.explicitPlannedSets = draftSets
+        let repsList = draftSets.map(\.targetReps)
+        if repsList.count <= 1 {
+            movement.repScheme = nil
+            movement.reps = repsList.first
+        } else {
+            movement.repScheme = repsList
+            movement.reps = nil
+        }
+        if let kg = draftSets.compactMap(\.targetWeightKg).first {
+            movement.weightMaleKg = kg
+        }
     }
 }
 

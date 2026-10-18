@@ -1,6 +1,6 @@
 # Arquitectura Gymbro
 
-Última actualización: 2026-10-18 (equilibrio fatiga verde→rojo)
+Última actualización: 2026-10-18 (revisión pizarra = página «Añadir entreno»)
 
 ## Visión
 
@@ -74,7 +74,8 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 | `Catalog*.swift` | Seed gym / CrossFit / halterofilia / gimnasia + ES (`CatalogSpanish` 188/188: desc + guía entrenador); deporte en `sportTag`, grupo = músculo principal |
 | `StatsEngine` | Series de progreso, PRs, métricas diarias, filtros `ProgressTimeRange` |
 | `MuscleTaxonomy` / `MuscleMapEngine` | Carga + fatiga (vida media por slug BodyMap); niveles 0–4 verde→rojo; primario 1.0 / secundarios ~0.55–0.35 |
-| `BoardImportParser` | OCR texto → bloques WOD (reglas) |
+| `BoardImportParser` | OCR texto → secuencia fuerza+WOD; EMOM deriva `rounds` = intervalos÷estaciones |
+| `RoutineBlock.plannedSets(for:)` | Series al apuntar según formato (EMOM/RFT/Tabata/…) |
 | `SessionController` | Ciclo de vida de la sesión |
 | `ProgressionEngine` | Off / lineal / doble / Greyskull / triple |
 | `PlateMath` | 1RM Epley (`epleyOneRM`); preferencia `testedOneRMKg` por ejercicio |
@@ -124,7 +125,9 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 |---------|-----|
 | `BoardTextRecognizer` | Vision OCR |
 | `BoardAIImporter` | Foundation Models (Apple Intelligence) |
-| `BoardImportPipeline` | Local primero (skip IA si ≥2 bloques) → IA → fallback |
+| `BoardImportPipeline` | Local primero (skip IA si ≥2 bloques) → IA → fallback → enrich + rondas EMOM |
+| `OGRoutineBlockCard` | Cards+thumbs compartidas (preview día + revisión pizarra) |
+| `BoardScanReviewPayload` | Cierra `DayPlusSheet` y empuja `BoardImportReviewView` como página en Inicio («Añadir entreno») |
 | `RestLiveActivity` + widget | Timer de descanso en isla / lock screen |
 | `BodyMapView` + `BodyPaths.json` | Mapa muscular SVG |
 | `ProgressTrendCards` | Cardio, kcal, peso vs objetivo |

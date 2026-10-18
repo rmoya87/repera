@@ -3,7 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import UIKit
 
-/// Cámara nativa (`UIImagePickerController`). Galería: `PhotosPicker` en el caller.
+/// Cámara nativa (`UIImagePickerController`).
 struct CameraPicker: UIViewControllerRepresentable {
     @Binding var image: UIImage?
     @Environment(\.dismiss) private var dismiss
@@ -48,17 +48,56 @@ struct CameraPicker: UIViewControllerRepresentable {
     }
 }
 
-/// Materializa `UIImage` desde `PhotosPicker` (bytes HEIC/JPEG antes que decode genérico).
-enum BoardScanPhotoLoader {
-    @MainActor
-    static func loadUIImage(from item: PhotosPickerItem) async -> UIImage? {
-        BoardScanLog.info("PhotosPicker: load start")
-        if let data = try? await item.loadTransferable(type: Data.self),
-           let image = UIImage(data: data) {
-            BoardScanLog.image(image, step: "PhotosPicker")
-            return image
+/// Galería nativa (`PHPickerViewController`) en fullScreenCover — no usa
+/// `.photosPicker`, que redimensiona mal los sheets fitted al cerrar.
+struct LibraryPicker: UIViewControllerRepresentable {
+    @Binding var image: UIImage?
+    @Environment(\.dismiss) private var dismiss
+
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var config = PHPickerConfiguration(photoLibrary: .shared())
+        config.filter = .images
+        config.selectionLimit = 1
+        config.preferredAssetRepresentationMode = .current
+        let picker = PHPickerViewController(configuration: config)
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        let parent: LibraryPicker
+        init(_ parent: LibraryPicker) { self.parent = parent }
+
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            guard let provider = results.first?.itemProvider else {
+                BoardScanLog.info("LibraryPicker: cancel")
+                Task { @MainActor in parent.dismiss() }
+                return
+            }
+            BoardScanLog.step("photos.load", "PHPicker start")
+            if provider.canLoadObject(ofClass: UIImage.self) {
+                provider.loadObject(ofClass: UIImage.self) { object, error in
+                    if let error {
+                        BoardScanLog.error("LibraryPicker: \(error.localizedDescription)")
+                    }
+                    let image = object as? UIImage
+                    if let image {
+                        BoardScanLog.image(image, step: "photos.ready")
+                    } else {
+                        BoardScanLog.error("LibraryPicker: sin UIImage")
+                    }
+                    Task { @MainActor in
+                        self.parent.image = image
+                        self.parent.dismiss()
+                    }
+                }
+            } else {
+                BoardScanLog.error("LibraryPicker: provider no soporta UIImage")
+                Task { @MainActor in parent.dismiss() }
+            }
         }
-        BoardScanLog.error("PhotosPicker: no se pudo materializar UIImage")
-        return nil
     }
 }

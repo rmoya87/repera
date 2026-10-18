@@ -156,30 +156,35 @@ public struct SessionController: Sendable {
                         )
                     }
                 case .wod:
-                    for move in block.movements where !move.isRest {
+                    var resolved = block
+                    resolved.deriveEmomRoundsIfNeeded()
+                    for move in resolved.movements where !move.isRest {
                         let exercise: Exercise
+                        let canonical = CrossFitGlossary.canonicalName(for: move.name)
                         if let id = move.exerciseId, let ex = byId[id] {
                             exercise = ex
                         } else if let match = byId.values.first(where: {
                             $0.name.localizedCaseInsensitiveCompare(move.name) == .orderedSame
+                                || $0.name.localizedCaseInsensitiveCompare(canonical) == .orderedSame
                         }) {
                             exercise = match
                         } else {
-                            exercise = Exercise(name: move.name, muscleGroup: "WOD", isCustom: true)
+                            // Nombre canónico → miniaturas (`ExerciseArt.nameMap`) aunque no esté en catálogo.
+                            exercise = Exercise(name: canonical, muscleGroup: "WOD", isCustom: true)
                         }
                         sessionExercises.append(
                             SessionExercise(
                                 exercise: exercise,
-                                plannedSets: move.plannedSetsFromReps,
-                                blockId: block.id,
+                                plannedSets: resolved.plannedSets(for: move),
+                                blockId: resolved.id,
                                 blockKind: .wod,
-                                wodFormat: block.wodFormat,
-                                blockTimeCapMinutes: block.timeCapMinutes,
-                                blockIntervalSeconds: block.emomIntervalSeconds,
-                                blockRounds: block.rounds,
-                                blockHeader: block.headerLabel,
-                                blockWorkSeconds: block.workSeconds,
-                                blockRestSeconds: block.restSeconds
+                                wodFormat: resolved.wodFormat,
+                                blockTimeCapMinutes: resolved.timeCapMinutes,
+                                blockIntervalSeconds: resolved.emomIntervalSeconds,
+                                blockRounds: resolved.rounds,
+                                blockHeader: resolved.headerLabel,
+                                blockWorkSeconds: resolved.workSeconds,
+                                blockRestSeconds: resolved.restSeconds
                             )
                         )
                     }

@@ -259,8 +259,9 @@ extension View {
     /// Sheet tipo menú: alto = contenido (no pantalla completa).
     /// El contenido raíz debe tener tamaño intrínseco (VStack), no `List`/`NavigationStack` vacío.
     /// `expanded: true` → pantalla casi completa (p. ej. push a Favoritos).
-    func ogFittedSheet(expanded: Bool = false) -> some View {
-        modifier(OGFittedSheetModifier(expanded: expanded))
+    /// `freezeHeight: true` → deja de reaccionar a preferencias (p. ej. mientras hay galería).
+    func ogFittedSheet(expanded: Bool = false, freezeHeight: Bool = false) -> some View {
+        modifier(OGFittedSheetModifier(expanded: expanded, freezeHeight: freezeHeight))
     }
 
     /// Esquinas + fondo Liquid Glass del sheet (`.presentationBackground`); no duplicar en botones del `.toolbar`.
@@ -300,7 +301,9 @@ private struct OGFittedSheetHeightKey: PreferenceKey {
 
 private struct OGFittedSheetModifier: ViewModifier {
     var expanded: Bool
+    var freezeHeight: Bool = false
     @State private var contentHeight: CGFloat = 280
+    @State private var frozenHeight: CGFloat?
 
     private var maxHeight: CGFloat {
         let height = UIApplication.shared.connectedScenes
@@ -315,17 +318,40 @@ private struct OGFittedSheetModifier: ViewModifier {
         return (height * 0.9).rounded()
     }
 
+    private var activeHeight: CGFloat {
+        frozenHeight ?? contentHeight
+    }
+
     private var fittedDetent: PresentationDetent {
         // Margen para el drag indicator / safe area inferior.
-        let h = min(max(contentHeight + 28, 160), maxHeight)
+        let h = min(max(activeHeight + 28, 160), maxHeight)
         return .height(h)
     }
 
     func body(content: Content) -> some View {
         content
             .onPreferenceChange(OGFittedSheetHeightKey.self) { height in
-                guard height > 1, abs(height - contentHeight) > 1 else { return }
-                contentHeight = height
+                guard height > 1 else { return }
+                if freezeHeight {
+                    if frozenHeight == nil {
+                        frozenHeight = contentHeight > 1 ? contentHeight : height
+                    }
+                    return
+                }
+                if frozenHeight != nil { frozenHeight = nil }
+                guard abs(height - contentHeight) > 8 else { return }
+                var t = Transaction()
+                t.disablesAnimations = true
+                withTransaction(t) {
+                    contentHeight = height
+                }
+            }
+            .onChange(of: freezeHeight) { _, freeze in
+                if freeze {
+                    frozenHeight = contentHeight
+                } else {
+                    frozenHeight = nil
+                }
             }
             .presentationDetents(expanded ? [.large] : [fittedDetent])
             .presentationDragIndicator(.visible)

@@ -1,11 +1,36 @@
 import GymbroDomain
-import PhotosUI
 import SwiftUI
 import UIKit
 
 private enum DayPlusRoute: Hashable {
     case favorites
     case timer
+}
+
+/// Resultado del escaneo para abrir la página «Añadir entreno» (fuera del sheet).
+struct BoardScanReviewPayload: Identifiable, Hashable {
+    let id: UUID
+    var ocrText: String
+    var lines: [BoardImportLine]
+    var blocks: [RoutineBlock]
+    var source: BoardImportPipeline.Source
+    var targetDate: Date
+
+    init(
+        id: UUID = UUID(),
+        ocrText: String,
+        lines: [BoardImportLine],
+        blocks: [RoutineBlock],
+        source: BoardImportPipeline.Source,
+        targetDate: Date
+    ) {
+        self.id = id
+        self.ocrText = ocrText
+        self.lines = lines
+        self.blocks = blocks
+        self.source = source
+        self.targetDate = targetDate
+    }
 }
 
 /// Menú para dar de alta un entreno de un día concreto (no el plan semanal).
@@ -17,18 +42,15 @@ struct DayPlusSheet: View {
     var targetDate: Date = Calendar.current.startOfDay(for: Date())
     var onGoPlan: () -> Void = {}
     var onStartedWorkout: () -> Void
+    /// Tras escanear: el caller cierra el sheet y abre la página de revisión.
+    var onBoardReady: (BoardScanReviewPayload) -> Void = { _ in }
 
     @State private var showImageSourceDialog = false
     @State private var showCameraPicker = false
     @State private var showLibraryPicker = false
-    @State private var libraryPhotoItem: PhotosPickerItem?
     @State private var captured: UIImage?
-    @State private var reviewLines: [BoardImportLine] = []
-    @State private var reviewOCR = ""
-    @State private var reviewBlocks: [RoutineBlock] = []
-    @State private var reviewSource: BoardImportPipeline.Source = .localRules
-    @State private var showReview = false
     @State private var isReading = false
+    @State private var readingTask: Task<Void, Never>?
     @State private var errorMessage: String?
     @State private var showDayEditor = false
     @State private var path = NavigationPath()
@@ -66,51 +88,21 @@ struct DayPlusSheet: View {
                         StandaloneTimerView(embedsNavigation: false)
                     }
                 }
-                .confirmationDialog("Escanear pizarra", isPresented: $showImageSourceDialog, titleVisibility: .visible) {
-                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                        Button("Tomar foto") { showCameraPicker = true }
-                    }
-                    Button("Elegir de la galería") { showLibraryPicker = true }
-                    Button("Cancelar", role: .cancel) {}
+                .sheet(isPresented: $showImageSourceDialog) {
+                    BoardScanSourceSheet(
+                        onCamera: { showCameraPicker = true },
+                        onLibrary: { showLibraryPicker = true }
+                    )
                 }
                 .fullScreenCover(isPresented: $showCameraPicker, onDismiss: {
                     processCapturedImageIfNeeded()
                 }) {
                     CameraPicker(image: $captured).ignoresSafeArea()
                 }
-                .photosPicker(
-                    isPresented: $showLibraryPicker,
-                    selection: $libraryPhotoItem,
-                    matching: .images,
-                    photoLibrary: .shared()
-                )
-                .onChange(of: libraryPhotoItem) { _, item in
-                    guard let item else { return }
-                    Task { @MainActor in
-                        if let image = await BoardScanPhotoLoader.loadUIImage(from: item) {
-                            captured = image
-                            processCapturedImageIfNeeded()
-                        }
-                        libraryPhotoItem = nil
-                    }
-                }
-                .sheet(isPresented: $showReview) {
-                    BoardImportReviewView(
-                        lines: reviewLines,
-                        ocrText: reviewOCR,
-                        detectedBlocks: reviewBlocks,
-                        interpretSource: reviewSource,
-                        preferredWeekday: targetWeekday,
-                        preferredDate: dayStart
-                    ) { started in
-                        showReview = false
-                        if started {
-                            dismiss()
-                            onStartedWorkout()
-                        } else {
-                            dismiss()
-                        }
-                    }
+                .fullScreenCover(isPresented: $showLibraryPicker, onDismiss: {
+                    processCapturedImageIfNeeded()
+                }) {
+                    LibraryPicker(image: $captured).ignoresSafeArea()
                 }
                 .sheet(isPresented: $showDayEditor) {
                     DayEditorView(
@@ -131,7 +123,11 @@ struct DayPlusSheet: View {
                 }
         }
         .preferredColorScheme(.dark)
-        .ogFittedSheet(expanded: isPushed)
+        // Congelar alto solo con pickers a pantalla completa (no con «Leyendo…»).
+        .ogFittedSheet(
+            expanded: isPushed,
+            freezeHeight: showLibraryPicker || showCameraPicker
+        )
     }
 
     /// Menú con tamaño intrínseco (sin List) para que el sheet ajuste el alto.
@@ -193,11 +189,19 @@ struct DayPlusSheet: View {
                     ProgressView()
                     Text("Leyendo ejercicios…")
                         .foregroundStyle(OG.label2)
+                    Spacer(minLength: 0)
+                    Button("Cancelar") {
+                        readingTask?.cancel()
+                        readingTask = nil
+                        isReading = false
+                        captured = nil
+                        BoardScanLog.endPass(ok: false, detail: "cancel usuario")
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(OG.accent)
                 }
                 .padding(.horizontal, 4)
-            }
-
-            if let errorMessage {
+            } else if let errorMessage {
                 Text(errorMessage)
                     .font(.footnote)
                     .foregroundStyle(OG.red)
@@ -244,40 +248,75 @@ struct DayPlusSheet: View {
 
     private func processCapturedImageIfNeeded() {
         guard let image = captured else {
-            BoardScanLog.info("DayPlus processCaptured: nil")
+            BoardScanLog.info("DayPlus processCaptured: nil (dismiss sin foto)")
             return
         }
-        guard !isReading else { return }
-        Task { await runOCR(image) }
-    }
-
-    private func runOCR(_ image: UIImage) async {
+        guard !isReading else {
+            BoardScanLog.info("DayPlus processCaptured: skip (ya isReading)")
+            return
+        }
+        BoardScanLog.beginPass("DayPlus")
+        readingTask?.cancel()
+        let catalog = store.state.exercises.map { $0 }
         isReading = true
         errorMessage = nil
-        BoardScanLog.image(image, step: "DayPlus.runOCR.start")
+        readingTask = Task { @MainActor in
+            await self.executeBoardScan(image: image, catalog: catalog)
+            self.readingTask = nil
+        }
+    }
+
+    @MainActor
+    private func executeBoardScan(image: UIImage, catalog: [Exercise]) async {
         defer {
             isReading = false
             captured = nil
         }
         do {
-            let text = try await BoardTextRecognizer.recognize(in: image)
+            BoardScanLog.image(image, step: "DayPlus.input")
+            BoardScanLog.step("jpeg.prep", "start")
+            guard let jpeg = BoardTextRecognizer.preparedJPEGDataOnMainIfNeeded(from: image) else {
+                throw BoardTextRecognizer.RecognizerError.invalidImage
+            }
+            BoardScanLog.jpegPrepared(bytes: jpeg.count, path: "DayPlus")
+            try Task.checkCancellation()
+
+            BoardScanLog.step("vision", "start")
+            let text = try await BoardTextRecognizer.recognize(jpegData: jpeg)
             BoardScanLog.ocr(text)
-            let result = await BoardImportPipeline.interpret(
-                ocrText: text,
-                catalog: store.state.exercises
+            try Task.checkCancellation()
+
+            // Parse LITE síncrono — sin BoardImportParser / hilos / IA.
+            BoardScanLog.step("interpret", "start catalog=\(catalog.count)")
+            let result = BoardImportPipeline.interpretSync(ocrText: text, catalog: catalog)
+            BoardScanLog.step(
+                "interpret.done",
+                "blocks=\(result.blocks.count) lines=\(result.lines.count) source=\(result.source.rawValue)"
             )
+
             if result.blocks.isEmpty && result.lines.isEmpty {
                 errorMessage = "No encontré texto útil. Prueba más cerca, más luz o otra foto."
+                BoardScanLog.endPass(ok: false, detail: "sin bloques ni líneas")
                 return
             }
-            reviewOCR = result.ocrText
-            reviewBlocks = result.blocks
-            reviewLines = result.lines
-            reviewSource = result.source
-            showReview = true
+            // Cerrar modal y abrir página completa en Inicio («Añadir entreno»).
+            let payload = BoardScanReviewPayload(
+                ocrText: result.ocrText,
+                lines: result.lines,
+                blocks: result.blocks,
+                source: result.source,
+                targetDate: dayStart
+            )
+            BoardScanLog.step("nav.boardReview", "página (dismiss sheet)")
+            BoardScanLog.endPass(ok: true, detail: result.source.rawValue)
+            onBoardReady(payload)
+            dismiss()
+        } catch is CancellationError {
+            BoardScanLog.endPass(ok: false, detail: "cancelled")
         } catch {
-            BoardScanLog.error("DayPlus.runOCR: \(error.localizedDescription)")
+            BoardScanLog.error("DayPlus.scan: \(error.localizedDescription)")
             errorMessage = error.localizedDescription
+            BoardScanLog.endPass(ok: false, detail: error.localizedDescription)
         }
     }
 }
@@ -300,8 +339,12 @@ struct BoardImportReviewView: View {
 
     @State private var targetWeekday: Int = CalendarHelpers.isoWeekday()
     @State private var targetDate: Date = Calendar.current.startOfDay(for: Date())
-    @State private var blocks: [RoutineBlock] = []
+    @State private var draftRoutine: Routine = Routine(title: "Añadir entreno", blocks: [])
     @State private var didApplyPreferredDay = false
+    @State private var didSeedBlocks = false
+    @State private var showEditor = false
+
+    private var blocks: [RoutineBlock] { draftRoutine.blocks }
 
     var body: some View {
         Group {
@@ -316,59 +359,10 @@ struct BoardImportReviewView: View {
 
     private var reviewContent: some View {
         List {
-            Section {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(blocks.isEmpty
-                         ? "Revisa ejercicios detectados. Puedes quitar líneas o ajustar series/reps."
-                         : "Se detectaron \(blocks.count) bloque(s). Revisa formato y movimientos.")
-                        .font(.footnote)
-                        .foregroundStyle(OG.label2)
-                    Text(interpretSource == .appleIntelligence
-                         ? "Interpretado con Apple Intelligence (en el dispositivo)."
-                         : "Interpretado con análisis local (gratis · sin Apple Intelligence).")
-                        .font(.caption2)
-                        .foregroundStyle(OG.label3)
-                }
-                .listRowBackground(Color.clear)
-            }
-
             if !blocks.isEmpty {
-                ForEach(Array(blocks.enumerated()), id: \.element.id) { idx, wod in
-                    Section("Bloque \(idx + 1) · \(wod.headerLabel)") {
-                        ForEach(wod.movements) { move in
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(move.summaryLine)
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundStyle(OG.label)
-                                if let notes = move.notes, !notes.isEmpty {
-                                    Text(notes)
-                                        .font(.caption)
-                                        .foregroundStyle(OG.label3)
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                Section("Ejercicios detectados") {
-                    ForEach($lines) { $line in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Toggle(isOn: $line.isIncluded) {
-                                Text(line.matchedName ?? line.raw)
-                                    .foregroundStyle(OG.label)
-                            }
-                            .tint(OG.accent)
-                            Text(line.raw)
-                                .font(.caption)
-                                .foregroundStyle(OG.label3)
-                            HStack {
-                                Stepper("\(line.sets) series", value: $line.sets, in: 1...10)
-                                Stepper("\(line.reps) reps", value: $line.reps, in: 1...50)
-                            }
-                            .font(.caption)
-                            .foregroundStyle(OG.label2)
-                        }
-                        .padding(.vertical, 4)
+                Section {
+                    OGRoutineBlocksList(blocks: blocks, showsChevron: true) { _ in
+                        showEditor = true
                     }
                 }
             }
@@ -386,13 +380,11 @@ struct BoardImportReviewView: View {
                     }
                 } header: {
                     Text("Guardar entreno")
-                } footer: {
-                    Text("Se guarda como entreno suelto de \(CalendarHelpers.weekdayName(targetWeekday)) (aparece en Inicio · Entreno del día). No forma parte del plan semanal de Diario ni del historial hasta que lo termines.")
                 }
             }
         }
         .ogListChrome()
-        .ogPinnedTransparentNav("De la pizarra")
+        .ogPinnedTransparentNav("Añadir entreno")
         .toolbar {
             if embedsNavigationStack {
                 ToolbarItem(placement: .cancellationAction) {
@@ -402,13 +394,13 @@ struct BoardImportReviewView: View {
                     }
                 }
             }
-            ToolbarItemGroup(placement: .confirmationAction) {
-                if allowsSaveToDay {
-                    Button("Al \(CalendarHelpers.weekdayName(targetWeekday).prefix(3).lowercased())") {
+            if allowsSaveToDay {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
                         let day = targetWeekday
                         let saveDate = resolvedSaveDate(for: day)
                         targetDate = saveDate
-                        BoardScanLog.info("Review Al día weekday=\(day) date=\(saveDate)")
+                        BoardScanLog.info("Review Guardar weekday=\(day) date=\(saveDate)")
                         _ = store.saveBoardToDay(
                             weekday: day,
                             lines: lines,
@@ -418,64 +410,131 @@ struct BoardImportReviewView: View {
                         )
                         if embedsNavigationStack { dismiss() }
                         onDone(false)
+                    } label: {
+                        Label("Guardar", systemImage: "checkmark")
                     }
+                    .tint(OG.label)
                     .disabled(!canConfirm)
                 }
-                Button("Empezar") {
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button {
                     let ok = store.startSessionFromBoard(
                         lines: lines,
-                        ocrText: ocrText.isEmpty ? nil : ocrText
+                        ocrText: ocrText.isEmpty ? nil : ocrText,
+                        blocks: blocks.isEmpty ? nil : blocks
                     )
                     BoardScanLog.info("Review Empezar ok=\(ok)")
                     guard ok else { return }
                     if embedsNavigationStack { dismiss() }
                     onDone(true)
+                } label: {
+                    Label("Empezar", systemImage: "play.fill")
                 }
                 .fontWeight(.semibold)
+                .tint(OG.accent)
                 .disabled(!canConfirm)
             }
         }
-        .onAppear {
-            if !didApplyPreferredDay {
-                if let preferredDate {
-                    targetDate = Calendar.current.startOfDay(for: preferredDate)
-                    targetWeekday = CalendarHelpers.isoWeekday(for: targetDate)
-                } else if let preferredWeekday, (1...7).contains(preferredWeekday) {
-                    targetWeekday = preferredWeekday
-                    targetDate = resolvedSaveDate(for: preferredWeekday)
-                } else {
-                    targetDate = resolvedSaveDate(for: targetWeekday)
-                }
-                didApplyPreferredDay = true
-            }
-            if !detectedBlocks.isEmpty {
-                blocks = detectedBlocks
-            } else {
-                blocks = BoardImportParser.parseBlocks(
-                    ocrText: ocrText.isEmpty ? lines.map(\.raw).joined(separator: "\n") : ocrText,
-                    catalog: store.state.exercises
-                )
-            }
-            let testedOneRMs: [UUID: Double] = Dictionary(
-                uniqueKeysWithValues: store.state.exerciseLoadPrefs.compactMap { key, pref in
-                    guard let tested = pref.testedOneRMKg, tested > 0,
-                          let id = UUID(uuidString: key) else { return nil }
-                    return (id, tested)
-                }
+        .sheet(isPresented: $showEditor) {
+            DayEditorView(
+                routine: draftRoutine,
+                mode: .session,
+                onClose: { showEditor = false },
+                onApplyDraft: { edited in
+                    draftRoutine = edited
+                    showEditor = false
+                },
+                embedsNavigationStack: true,
+                usesPageCloseHeader: true
             )
-            blocks = LoadSuggestion.applyPercentLoads(
-                to: blocks,
-                workouts: store.state.workouts,
-                catalog: store.state.exercises,
-                incrementKg: store.state.settings.weightIncrementKg,
-                testedOneRMByExerciseId: testedOneRMs
-            )
-            BoardScanLog.info(
-                "Review onAppear: detectedBlocks=\(detectedBlocks.count) "
-                    + "blocks=\(blocks.count) lines=\(lines.count) ocr=\(ocrText.count)c "
-                    + "weekday=\(targetWeekday)"
-            )
+            .id(draftRoutine.id)
         }
+        .onAppear { seedIfNeeded() }
+    }
+
+    private func seedIfNeeded() {
+        if !didApplyPreferredDay {
+            if let preferredDate {
+                targetDate = Calendar.current.startOfDay(for: preferredDate)
+                targetWeekday = CalendarHelpers.isoWeekday(for: targetDate)
+            } else if let preferredWeekday, (1...7).contains(preferredWeekday) {
+                targetWeekday = preferredWeekday
+                targetDate = resolvedSaveDate(for: preferredWeekday)
+            } else {
+                targetDate = resolvedSaveDate(for: targetWeekday)
+            }
+            didApplyPreferredDay = true
+        }
+        guard !didSeedBlocks else {
+            BoardScanLog.step("review.seed", "skip (ya sembrado)")
+            return
+        }
+        didSeedBlocks = true
+        BoardScanLog.step(
+            "review.seed",
+            "detected=\(detectedBlocks.count) lines=\(lines.count) ocrChars=\(ocrText.count)"
+        )
+
+        // Solo bloques del pipeline (lite). No re-parsear con BoardImportParser (cuelga en device).
+        var seeded: [RoutineBlock]
+        if !detectedBlocks.isEmpty {
+            seeded = detectedBlocks
+            BoardScanLog.step("review.seed", "usando detectedBlocks")
+        } else if !ocrText.isEmpty {
+            seeded = BoardScanLiteParser.parse(ocrText: ocrText).blocks
+            BoardScanLog.step("review.seed", "lite re-parse blocks=\(seeded.count)")
+        } else {
+            seeded = []
+            BoardScanLog.step("review.seed", "sin bloques ni OCR")
+        }
+        // Fallback: líneas tipadas → un bloque de fuerza (sin BoardImportParser).
+        if seeded.isEmpty, lines.contains(where: \.isIncluded) {
+            var exercises: [RoutineExercise] = []
+            for line in lines where line.isIncluded {
+                let exerciseId: UUID
+                if let id = line.matchedExerciseId {
+                    exerciseId = id
+                } else {
+                    let name = (line.matchedName ?? line.raw).trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !name.isEmpty else { continue }
+                    let custom = Exercise(name: name, muscleGroup: "Custom", isCustom: true)
+                    store.state.exercises.append(custom)
+                    exerciseId = custom.id
+                }
+                let sets = (0..<max(1, line.sets)).map { _ in
+                    PlannedSet(targetReps: max(1, line.reps), targetWeightKg: line.weightKg)
+                }
+                exercises.append(RoutineExercise(exerciseId: exerciseId, plannedSets: sets))
+            }
+            if !exercises.isEmpty {
+                seeded = [.strength(title: "Fuerza", exercises: exercises)]
+            }
+            BoardScanLog.step("review.seed", "fallback lines→fuerza blocks=\(seeded.count)")
+        }
+        let testedOneRMs: [UUID: Double] = Dictionary(
+            uniqueKeysWithValues: store.state.exerciseLoadPrefs.compactMap { key, pref in
+                guard let tested = pref.testedOneRMKg, tested > 0,
+                      let id = UUID(uuidString: key) else { return nil }
+                return (id, tested)
+            }
+        )
+        seeded = LoadSuggestion.applyPercentLoads(
+            to: seeded,
+            workouts: store.state.workouts,
+            catalog: store.state.exercises,
+            incrementKg: store.state.settings.weightIncrementKg,
+            testedOneRMByExerciseId: testedOneRMs
+        )
+        for i in seeded.indices {
+            seeded[i].deriveEmomRoundsIfNeeded()
+        }
+        draftRoutine = Routine(title: "Añadir entreno", blocks: seeded, progression: .off)
+        BoardScanLog.blocksSummary(seeded, prefix: "review")
+        BoardScanLog.step(
+            "review.ready",
+            "blocks=\(seeded.count) weekday=\(targetWeekday) source=\(interpretSource.rawValue)"
+        )
     }
 
     /// Fecha del día elegido: respeta el día de Inicio si coincide; si no, el próximo ese weekday.
@@ -492,7 +551,11 @@ struct BoardImportReviewView: View {
     }
 
     private var canConfirm: Bool {
-        if !blocks.isEmpty { return true }
-        return lines.contains(where: \.isIncluded)
+        blocks.contains { block in
+            switch block.kind {
+            case .strength: return !block.exercises.isEmpty
+            case .wod: return !block.movements.filter { !$0.isRest }.isEmpty
+            }
+        } || lines.contains(where: \.isIncluded)
     }
 }

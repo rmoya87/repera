@@ -1,24 +1,24 @@
 # Funcionalidades Gymbro
 
-Última actualización: 2026-10-18 (Inicio: entrenos Gymbro en primer paint)
+Última actualización: 2026-10-19 (peso pizarra H>M; Editar WOD = peso+reps+RIR)
 
 ## Tabs
 
 ### Inicio (`HomeView`)
 
 - Topbar fijo arriba (`ogFixedTopBar`): «gymbro» + fecha debajo; avatar a la derecha → Ajustes.
-- Selector de semana / día (entrenos/actividades/kcal indexados por día; al tocar un día pinta al instante sin esperar HealthKit).
+- **Carrusel de días**: swipe horizontal (o chevrons) entre semanas; al cambiar de semana se conserva el weekday. Al tocar un día pinta al instante sin esperar HealthKit.
 - Card **Racha de N semanas** (como openGym `streakWeeks`): cuenta Gymbro **y** Apple Salud; toque → **Historial** unificado.
 - Métricas del día: tiempo, kcal (caché progresiva; refine en vivo solo para Hoy), ejercicios.
 - Lista de entrenos Gymbro del día + actividades externas de Salud (etiqueta «DÍA · hora» misma tipografía; chips min/kcal/ej./PR como Historial, alineados al título al reposo, carrusel hasta los bordes de la card).
-- Acciones: empezar, planificar día (`DayPlusSheet`), escanear pizarra.
+- Acciones: empezar, **Añadir entreno** (`DayPlusSheet`), escanear pizarra → revisión como **página** (no modal) titulada «Añadir entreno».
 - Swipe en filas de entreno: círculo rojo + papelera; **toda la card (chips incluidos)** se desliza. El gesto solo nace fuera del carrusel (sobre chips solo scroll); confirmación glass.
 
 ### Diario (`PlanView`)
 
 - Título arriba (`ogFixedTopBar`) + menú ⋯ en la misma fila (Programado).
 - Plan semanal por weekday.
-- Edición de rutinas / bloques (fuerza + WOD): modal con **check blanco en círculo verde** (sin X; swipe para cerrar).
+- Edición de rutinas / bloques (fuerza + WOD): modal con **check** (swipe para cerrar); desde Entreno → Editar, **volver** (sin X) + check.
 - Día → asignar rutina: sin X; selección con check blanco en círculo verde.
 - Favoritos de rutinas.
 - Overrides de día.
@@ -32,7 +32,7 @@
 - **Apuntar series** (log rápido): picker → modal de series (`QuickLogSheet`) → guardar (≠ Crear completo).
 - Pickers de ejercicio (`ExerciseCatalogSearchList`): índice/ranking off-main (mismo enfoque que Biblioteca); sin historial Sync en cada fila; prefetch de thumbs solo ventana visible.
 - Favoritos, timer standalone.
-- Cámara / galería → escáner de pizarra → revisión → guardar o empezar.
+- Cámara / galería → escáner de pizarra → página **Añadir entreno** (cards/thumbs) → toolbar **Guardar** / **Empezar** (iconos). Detalle en `docs/BOARD_SCAN.md`.
 
 ### Progreso (`StatsView`)
 

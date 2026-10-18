@@ -1,7 +1,7 @@
 import Foundation
 
 /// Línea detectada en una pizarra / TV (OCR).
-public struct BoardImportLine: Identifiable, Sendable, Equatable {
+public struct BoardImportLine: Identifiable, Sendable, Equatable, Hashable {
     public let id: UUID
     public var raw: String
     public var matchedExerciseId: UUID?
@@ -64,10 +64,9 @@ public enum BoardImportParser {
     ) -> Routine {
         let joined = ocrText ?? lines.map(\.raw).joined(separator: "\n")
         let blocks = parseBlocks(ocrText: joined, catalog: catalog)
-        // Bloque único "Desde pizarra" = salvamento sin cabeceras; si hay líneas tipadas, preferir fuerza clásica.
-        let onlyHeaderlessSalvage = blocks.count == 1
-            && blocks[0].title == "Desde pizarra"
-            && blocks[0].wodFormat == .chipper
+        // Bloque único "Añadir entreno" / legado "Desde pizarra" = salvamento sin cabeceras.
+        let salvageTitles: Set<String> = ["Añadir entreno", "Desde pizarra"]
+        let onlyHeaderlessSalvage = blocks.count == 1 && salvageTitles.contains(blocks[0].title)
         if !blocks.isEmpty, !(onlyHeaderlessSalvage && lines.contains(where: \.isIncluded)) {
             return Routine(title: title, weekday: nil, blocks: blocks, progression: .off)
         }
@@ -99,12 +98,23 @@ public enum BoardImportParser {
             .filter { !$0.isEmpty }
 
         var blocks: [RoutineBlock] = []
+        var orphanLines: [String] = []
         var index = 0
+
+        func flushOrphans() {
+            guard !orphanLines.isEmpty else { return }
+            if let strength = strengthBlockFromLines(orphanLines, catalog: catalog) {
+                blocks.append(strength)
+            }
+            orphanLines = []
+        }
+
         while index < lines.count {
             let line = lines[index]
 
             // Etiqueta de sección (Weightlifting / Metcon…): título + formato de la línea siguiente.
             if let sectionTitle = sectionLabelTitle(line) {
+                flushOrphans()
                 index += 1
                 if index < lines.count, let header = detectFormatHeader(lines[index]) {
                     index += 1
@@ -135,32 +145,58 @@ public enum BoardImportParser {
                 continue
             }
 
-            guard let header = detectFormatHeader(line) else {
+            if let header = detectFormatHeader(line) {
+                flushOrphans()
                 index += 1
+                let (block, consumed) = buildBlock(
+                    header: header,
+                    lines: lines,
+                    start: index,
+                    catalog: catalog
+                )
+                blocks.append(block)
+                index = consumed
                 continue
             }
+
+            // Ejercicios independientes (sin cabecera) → bloque de fuerza.
+            if !isNoise(line) {
+                orphanLines.append(line)
+            }
             index += 1
-            let (block, consumed) = buildBlock(
-                header: header,
-                lines: lines,
-                start: index,
-                catalog: catalog
-            )
-            blocks.append(block)
-            index = consumed
+        }
+        flushOrphans()
+
+        return blocks
+    }
+
+    /// Líneas sueltas / sin cabecera WOD → bloque de fuerza (series×reps) o strength tipado.
+    private static func strengthBlockFromLines(_ lines: [String], catalog: [Exercise]) -> RoutineBlock? {
+        let body = lines.filter { !isNoise($0) && sectionLabelTitle($0) == nil }
+        guard !body.isEmpty else { return nil }
+
+        var exercises: [RoutineExercise] = []
+        var allMatched = true
+        for line in body {
+            let parsed = parseLine(line)
+            guard let match = bestMatch(for: parsed.name, in: catalog) else {
+                allMatched = false
+                break
+            }
+            let planned = (0..<max(1, parsed.sets)).map { _ in
+                PlannedSet(targetReps: max(1, parsed.reps), targetWeightKg: parsed.weightKg)
+            }
+            exercises.append(RoutineExercise(exerciseId: match.id, plannedSets: planned))
         }
 
-        // Sin cabeceras tipadas: un bloque con todas las líneas legibles (no descartar el OCR).
-        if blocks.isEmpty {
-            let body = lines.filter { !isNoise($0) && sectionLabelTitle($0) == nil }
-            if !body.isEmpty {
-                var block = RoutineBlock.wod(format: .chipper, title: "Desde pizarra")
-                block.movements = flattenMovements(body, catalog: catalog)
-                block.wodNotes = body.joined(separator: "\n")
-                blocks.append(block)
-            }
+        if allMatched, !exercises.isEmpty {
+            return RoutineBlock.strength(title: "Añadir entreno", exercises: exercises)
         }
-        return blocks
+
+        var block = RoutineBlock.wod(format: .strength, title: "Añadir entreno")
+        block.movements = flattenMovements(body, catalog: catalog)
+        block.wodNotes = body.joined(separator: "\n")
+        return block
     }
 
     private static func mergeSection(_ section: String?, into header: HeaderInfo) -> HeaderInfo {
@@ -202,6 +238,7 @@ public enum BoardImportParser {
         block.emomIntervalSeconds = header.intervalSeconds ?? block.emomIntervalSeconds
         block.restBetweenRoundsSeconds = header.restBetween
         block.movements = flattenMovements(movementLines, catalog: catalog)
+        block.deriveEmomRoundsIfNeeded()
         var notesParts = [header.raw] + movementLines
         if !footnotes.isEmpty {
             notesParts.append(contentsOf: footnotes)
@@ -596,30 +633,16 @@ public enum BoardImportParser {
 
         var male: Double?
         var female: Double?
-        // #40/25kg o 40/25
-        if let wr = working.range(
-            of: #"#?\s*(\d+(?:[.,]\d+)?)\s*/\s*(\d+(?:[.,]\d+)?)\s*(?:kg|lb)?"#,
-            options: [.regularExpression, .caseInsensitive]
-        ) {
-            let token = String(working[wr])
-            let nums = token.split(separator: "/").compactMap {
-                Double(
-                    $0.trimmingCharacters(in: .whitespaces)
-                        .replacingOccurrences(of: "#", with: "")
-                        .replacingOccurrences(of: "kg", with: "", options: .caseInsensitive)
-                        .replacingOccurrences(of: "lb", with: "", options: .caseInsensitive)
-                        .replacingOccurrences(of: ",", with: ".")
-                )
-            }
-            if nums.count == 2 {
-                male = nums[0]
-                female = nums[1]
-            }
-            working.removeSubrange(wr)
+        // #40/25kg o 40/25 — mayor = hombre, menor = mujer.
+        if let pair = CrossFitGlossary.parseMaleFemaleWeights(in: working) {
+            male = pair.male
+            female = pair.female
+            working = pair.remaining
         }
 
-        // Esquema de series "4-4-3-3 PUSH PRESS" (no confundir con cabecera ladder 21-15-9).
+        // Ola "4-4-3-3 PUSH PRESS". Rango "5-10 HSPU" / "6-8 DB…" no es ola → lo deja parseMovementLine.
         var repScheme: [Int]?
+        var rangeHint: String?
         if let wave = working.range(
             of: #"^(\d+(?:\s*[-–]\s*\d+){1,})\s+"#,
             options: .regularExpression
@@ -627,8 +650,13 @@ public enum BoardImportParser {
             let token = String(working[wave])
             let nums = token.split { !$0.isNumber }.compactMap { Int($0) }
             if nums.count >= 2 {
-                repScheme = nums
-                working.removeSubrange(wave)
+                if WODMovement.isAscendingRepRange(nums) {
+                    rangeHint = nums.map(String.init).joined(separator: "-")
+                    // No quitar del working: parseMovementLine tipa reps + nota.
+                } else {
+                    repScheme = nums
+                    working.removeSubrange(wave)
+                }
             }
         }
 
@@ -663,49 +691,42 @@ public enum BoardImportParser {
         }
 
         return segments.enumerated().map { idx, segment in
-            var seg = segment
-            var reps: Int?
-            var meters: Int?
-            var calories: Int?
-            if let mr = seg.range(of: #"(\d+)\s*M\b"#, options: [.regularExpression, .caseInsensitive]) {
-                meters = firstInt(in: String(seg[mr]))
-                seg.removeSubrange(mr)
+            var parsed = CrossFitGlossary.parseMovementLine(segment)
+            // Si la línea padre traía ola 4-3-3-2, aplícala al primer segmento.
+            if idx == 0, let repScheme, parsed.repScheme == nil, !WODMovement.isAscendingRepRange(repScheme) {
+                parsed.repScheme = repScheme
+                parsed.reps = nil
             }
-            if let cr = seg.range(of: #"(\d+)\s*CAL\b"#, options: [.regularExpression, .caseInsensitive]) {
-                calories = firstInt(in: String(seg[cr]))
-                seg.removeSubrange(cr)
+            if parsed.reps == nil, parsed.distanceMeters == nil, parsed.calories == nil,
+               parsed.repScheme == nil, segments.count == 1, let complexMultiplier {
+                parsed.reps = complexMultiplier
             }
-            if repScheme == nil, let leading = seg.range(of: #"^\s*(\d+)\b"#, options: .regularExpression) {
-                reps = Int(seg[leading].trimmingCharacters(in: .whitespaces))
-                seg.removeSubrange(leading)
-            }
-            // Si no hay reps en el segmento y es un complejo con multiplicador, el ×N cuenta como series del bloque.
-            if reps == nil, segments.count == 1, let complexMultiplier {
-                reps = complexMultiplier
-            }
-            if reps == nil, let scheme = repScheme {
-                reps = scheme.first
+            // Cargas del padre (45/30 al final de línea) si el segmento no las trae.
+            if idx == 0 {
+                if parsed.weightMaleKg == nil { parsed.weightMaleKg = male }
+                if parsed.weightFemaleKg == nil { parsed.weightFemaleKg = female }
             }
 
-            seg = seg.trimmingCharacters(in: .whitespacesAndNewlines)
-            let expanded = CrossFitGlossary.expand(seg)
-            let match = bestMatch(for: expanded, in: catalog)
-                ?? bestMatch(for: seg, in: catalog)
+            let match = bestMatch(for: parsed.name, in: catalog)
 
             var movNotes = sharedNotes
+            if idx == 0, let rangeHint, parsed.equipmentNote?.contains(rangeHint) != true {
+                movNotes.append(rangeHint)
+            }
+            if let eq = parsed.equipmentNote { movNotes.append(eq) }
             if segments.count > 1 {
                 movNotes.insert("Parte \(idx + 1)/\(segments.count)", at: 0)
             }
 
             return WODMovement(
                 exerciseId: match?.id,
-                name: match?.name ?? expanded,
-                reps: meters == nil && calories == nil ? reps : nil,
-                repScheme: idx == 0 ? repScheme : nil,
-                distanceMeters: meters,
-                calories: calories,
-                weightMaleKg: idx == 0 ? male : nil,
-                weightFemaleKg: idx == 0 ? female : nil,
+                name: match?.name ?? parsed.name,
+                reps: parsed.reps,
+                repScheme: parsed.repScheme,
+                distanceMeters: parsed.distanceMeters,
+                calories: parsed.calories,
+                weightMaleKg: parsed.weightMaleKg,
+                weightFemaleKg: parsed.weightFemaleKg,
                 scaleAlternative: idx == segments.count - 1 ? scale : nil,
                 notes: movNotes.isEmpty ? nil : movNotes.joined(separator: " · ")
             )
@@ -776,12 +797,13 @@ public enum BoardImportParser {
     }
 
     private static func bestMatch(for name: String, in catalog: [Exercise]) -> Exercise? {
-        let cleaned = stripMovementModifiers(name)
+        guard !catalog.isEmpty else { return nil }
+        let cleaned = stripMovementModifiers(CrossFitGlossary.cleanMovementLabel(name))
         let candidates = [
+            CrossFitGlossary.normalize(CrossFitGlossary.canonicalName(for: name)),
             CrossFitGlossary.normalize(CrossFitGlossary.canonicalName(for: cleaned)),
             CrossFitGlossary.normalize(CrossFitGlossary.expand(cleaned)),
             CrossFitGlossary.normalize(cleaned),
-            CrossFitGlossary.normalize(CrossFitGlossary.canonicalName(for: name)),
         ].filter { !$0.isEmpty }
 
         for needle in candidates {
@@ -792,8 +814,11 @@ public enum BoardImportParser {
 
         var best: (Exercise, Int)?
         for needle in candidates {
+            // `hay.contains("")` es true para todo en Swift — no usar needles vacíos.
+            guard needle.count >= 2 else { continue }
             for ex in catalog {
                 let hay = CrossFitGlossary.normalize(ex.name)
+                guard hay.count >= 2 else { continue }
                 var score: Int?
                 if hay == needle {
                     score = 0
@@ -905,12 +930,35 @@ public enum CrossFitGlossary {
         "bfb": "Bar facing burpee",
         "ttb": "Toes to bar",
         "t2b": "Toes to bar",
+        "toes to bar": "Toes to bar",
+        "toes-to-bar": "Toes to bar",
+        "toes to bars": "Toes to bar",
         "kte": "Knees to elbows",
         "k2e": "Knees to elbows",
+        "knees to elbows": "Knees to elbows",
         "ctb": "Chest to bar",
         "c2b": "Chest to bar",
+        "chest to bar": "Chest to bar",
+        "chest-to-bar": "Chest to bar",
+        "devil press": "Devil press",
+        "devil presses": "Devil press",
+        "db devil press": "Devil press",
+        "ddb devil press": "Devil press",
         "hspu": "HSPU",
+        "kipping hspu": "HSPU",
+        "kipping hspus": "HSPU",
+        "strict hspu": "HSPU",
         "hsw": "Handstand walk",
+        "dominadas": "Dominadas",
+        "dominada": "Dominadas",
+        "kipping pull up": "Dominadas kipping",
+        "kipping pull-up": "Dominadas kipping",
+        "kipping pull ups": "Dominadas kipping",
+        "kipping dominadas": "Dominadas kipping",
+        "hang snatch db": "Arrancada colgante",
+        "db hang snatch": "Arrancada colgante",
+        "db alt hang snatch": "Arrancada colgante",
+        "alt hang snatch": "Arrancada colgante",
         "mu": "Muscle-up barra",
         "bmú": "Muscle-up barra",
         "rmu": "Muscle-up anillas",
@@ -950,6 +998,15 @@ public enum CrossFitGlossary {
         "ghd": "GHD sit-up",
         "afap": "lo más rápido posible",
         "run": "Cinta / carrera",
+        "runs": "Cinta / carrera",
+        "running": "Cinta / carrera",
+        "carrera": "Cinta / carrera",
+        "cinta": "Cinta / carrera",
+        "cinta carrera": "Cinta / carrera",
+        "cinta / carrera": "Cinta / carrera",
+        "cinta/carrera": "Cinta / carrera",
+        "jog": "Cinta / carrera",
+        "shuttle run": "Cinta / carrera",
 
         // Formatos (para reconocer cabeceras, no ejercicios)
         "amrap": "AMRAP",
@@ -959,6 +1016,222 @@ public enum CrossFitGlossary {
         "tabata": "Tabata",
         "chipper": "Chipper",
     ]
+
+    /// Equipo / modalidad en pizarra (no es el nombre del ejercicio).
+    /// Fuentes: glosarios CrossFit habituales (DDB=double dumbbell, etc.).
+    public static let equipmentAliases: [String: String] = [
+        "ddb": "Doble mancuerna",
+        "double db": "Doble mancuerna",
+        "double dumbbell": "Doble mancuerna",
+        "double dumbbells": "Doble mancuerna",
+        "sdb": "Mancuerna",
+        "single db": "Mancuerna",
+        "single dumbbell": "Mancuerna",
+        "db": "Mancuerna",
+        "dumbbell": "Mancuerna",
+        "dumbbells": "Mancuerna",
+        "dkb": "Doble kettlebell",
+        "double kb": "Doble kettlebell",
+        "double kettlebell": "Doble kettlebell",
+        "skb": "Kettlebell",
+        "single kb": "Kettlebell",
+        "single kettlebell": "Kettlebell",
+        "kb": "Kettlebell",
+        "kettlebell": "Kettlebell",
+        "kettlebells": "Kettlebell",
+        "bb": "Barra",
+        "barbell": "Barra",
+        "ab": "Air bike",
+        "assault bike": "Air bike",
+        "bike erg": "Air bike",
+        "rower": "Remo",
+        "ski erg": "SkiErg",
+    ]
+
+    /// Resultado tipado de una línea de movimiento de pizarra.
+    public struct ParsedMovementLine: Sendable, Equatable {
+        public var name: String
+        public var reps: Int?
+        public var repScheme: [Int]?
+        public var distanceMeters: Int?
+        public var calories: Int?
+        public var weightMaleKg: Double?
+        public var weightFemaleKg: Double?
+        public var equipmentNote: String?
+        public var isRest: Bool
+        public var restSeconds: Int?
+
+        public init(
+            name: String,
+            reps: Int? = nil,
+            repScheme: [Int]? = nil,
+            distanceMeters: Int? = nil,
+            calories: Int? = nil,
+            weightMaleKg: Double? = nil,
+            weightFemaleKg: Double? = nil,
+            equipmentNote: String? = nil,
+            isRest: Bool = false,
+            restSeconds: Int? = nil
+        ) {
+            self.name = name
+            self.reps = reps
+            self.repScheme = repScheme
+            self.distanceMeters = distanceMeters
+            self.calories = calories
+            self.weightMaleKg = weightMaleKg
+            self.weightFemaleKg = weightFemaleKg
+            self.equipmentNote = equipmentNote
+            self.isRest = isRest
+            self.restSeconds = restSeconds
+        }
+    }
+
+    /// Parsea «10 T2B», «200M RUN», «5 DDB DEVIL PRESS 20/12,5» → campos tipados.
+    public static func parseMovementLine(_ raw: String) -> ParsedMovementLine {
+        var working = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        working = working.replacingOccurrences(of: #"(?i)^(ODD|EVEN)\s*:\s*"#, with: "", options: .regularExpression)
+
+        let upper = working.uppercased()
+        if upper.contains("REST") || upper.contains("DESCANSO") {
+            let sec: Int
+            if let m = firstIntToken(in: working),
+               upper.contains("'") || upper.contains("MIN") {
+                sec = m * 60
+            } else {
+                sec = firstIntToken(in: working) ?? 60
+            }
+            return ParsedMovementLine(name: "REST", isRest: true, restSeconds: sec)
+        }
+
+        var scheme: [Int]?
+        var reps: Int?
+        var meters: Int?
+        var calories: Int?
+        var male: Double?
+        var female: Double?
+        var equipment: String?
+        var rangeNote: String?
+
+        // Onda 4-3-3-2 / 21-15-9 al inicio. Rango 5-10 / 6-8 → techo de reps (no ola).
+        if let wave = matchLeadingWave(working) {
+            if WODMovement.isAscendingRepRange(wave.scheme) {
+                rangeNote = wave.scheme.map(String.init).joined(separator: "-")
+                reps = wave.scheme[1]
+                working = wave.rest
+            } else {
+                scheme = wave.scheme
+                working = wave.rest
+            }
+        }
+
+        // Metros: 200M / 200 m / 200metros (antes que reps, para no confundir).
+        if let mr = working.range(
+            of: #"(\d+)\s*(?:m|metros?|meters?)\b"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) {
+            meters = firstIntToken(in: String(working[mr]))
+            working.removeSubrange(mr)
+        }
+
+        // Calorías: 10 CAL / 15 cals
+        if let cr = working.range(
+            of: #"(\d+)\s*cals?\b"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) {
+            calories = firstIntToken(in: String(working[cr]))
+            working.removeSubrange(cr)
+        }
+
+        // Carga M/F al final: 20/12,5 o 45/30. Siempre mayor = hombre, menor = mujer.
+        if let pair = parseMaleFemaleWeights(in: working) {
+            male = pair.male
+            female = pair.female
+            working = pair.remaining
+        }
+
+        // Equipo DDB / DB / DKB… (antes de canonicalizar el nombre).
+        let equipKeys = equipmentAliases.keys.sorted { $0.count > $1.count }
+        for key in equipKeys {
+            let pattern = #"\b"# + NSRegularExpression.escapedPattern(for: key) + #"\b"#
+            if working.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil {
+                equipment = equipmentAliases[key]
+                working = working.replacingOccurrences(
+                    of: pattern,
+                    with: " ",
+                    options: [.regularExpression, .caseInsensitive]
+                )
+                break
+            }
+        }
+
+        // Reps al inicio: «10 toes to bar» → reps=10, nombre sin el 10.
+        if scheme == nil, meters == nil, calories == nil,
+           let leading = working.range(of: #"^\s*(\d+)\b"#, options: .regularExpression) {
+            reps = Int(working[leading].trimmingCharacters(in: .whitespaces))
+            working.removeSubrange(leading)
+        }
+
+        working = cleanMovementLabel(working)
+        let name = canonicalName(for: working.isEmpty ? raw : working)
+        let noteParts = [rangeNote, equipment].compactMap { $0 }.filter { !$0.isEmpty }
+
+        return ParsedMovementLine(
+            name: name.isEmpty ? working : name,
+            reps: (meters == nil && calories == nil && scheme == nil) ? reps : nil,
+            repScheme: scheme,
+            distanceMeters: meters,
+            calories: calories,
+            weightMaleKg: male,
+            weightFemaleKg: female,
+            equipmentNote: noteParts.isEmpty ? nil : noteParts.joined(separator: " · ")
+        )
+    }
+
+    private static func matchLeadingWave(_ line: String) -> (scheme: [Int], rest: String)? {
+        guard let range = line.range(
+            of: #"^\s*(\d+(?:\s*[-–]\s*\d+){1,})\s+"#,
+            options: .regularExpression
+        ) else { return nil }
+        let raw = String(line[range]).trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = raw.split(whereSeparator: { $0 == "-" || $0 == "–" || $0 == " " })
+            .compactMap { Int($0) }
+        guard parts.count >= 2 else { return nil }
+        let rest = String(line[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !rest.isEmpty else { return nil }
+        return (parts, rest)
+    }
+
+    private static func firstIntToken(in text: String) -> Int? {
+        guard let r = text.range(of: #"(\d+)"#, options: .regularExpression) else { return nil }
+        return Int(text[r].filter(\.isNumber))
+    }
+
+    /// Extrae `20/12,5` o `12,5/20` → (male: 20, female: 12.5). El mayor es siempre hombre.
+    public static func parseMaleFemaleWeights(in text: String) -> (male: Double, female: Double, remaining: String)? {
+        guard let wr = text.range(
+            of: #"#?\s*(\d+(?:[.,]\d+)?)\s*/\s*(\d+(?:[.,]\d+)?)\s*(?:kg|lb)?"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) else { return nil }
+        let token = String(text[wr])
+        let nums = token.split(separator: "/").compactMap { part -> Double? in
+            let cleaned = part
+                .trimmingCharacters(in: .whitespaces)
+                .replacingOccurrences(of: "#", with: "")
+                .replacingOccurrences(of: "kg", with: "", options: .caseInsensitive)
+                .replacingOccurrences(of: "lb", with: "", options: .caseInsensitive)
+                .replacingOccurrences(of: ",", with: ".")
+                .trimmingCharacters(in: .whitespaces)
+            return Double(cleaned)
+        }
+        guard nums.count == 2 else { return nil }
+        let hi = max(nums[0], nums[1])
+        let lo = min(nums[0], nums[1])
+        var remaining = text
+        remaining.removeSubrange(wr)
+        remaining = remaining.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return (hi, lo, remaining)
+    }
 
     /// Expande abreviaturas sueltas y compuestos conocidos en una línea de movimiento.
     public static func expand(_ raw: String) -> String {
@@ -975,14 +1248,83 @@ public enum CrossFitGlossary {
 
     /// Nombre canónico para matching de catálogo.
     public static func canonicalName(for raw: String) -> String {
-        let n = normalize(raw)
+        let cleaned = cleanMovementLabel(raw)
+        let n = normalize(cleaned)
         if let exact = aliases[n] { return exact }
-        return expand(raw)
+        // Alias como palabra completa (no "mu" ⊂ "muerto"). Ej. "kipping hspu" → HSPU.
+        let ordered = aliases.keys.sorted { $0.count > $1.count }
+        for key in ordered {
+            guard key.count >= 2, let value = aliases[key], !value.isEmpty else { continue }
+            if n == key { return value }
+            let pattern = #"\b"# + NSRegularExpression.escapedPattern(for: key) + #"\b"#
+            if n.range(of: pattern, options: .regularExpression) != nil {
+                return value
+            }
+        }
+        let expanded = expand(cleaned)
+        let en = normalize(expanded)
+        if let exact = aliases[en] { return exact }
+        return expanded.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Quita ruido de pizarra: @RIR, @FQ, ondas 4-3-3-2, W.S., DB ALT, etc.
+    public static func cleanMovementLabel(_ raw: String) -> String {
+        var s = raw
+        // Notas tras @: @RIR 2-1, @FQ, @80%, @RX…
+        s = s.replacingOccurrences(
+            of: #"@\S+(?:\s+[\d./\-–]+)*"#,
+            with: " ",
+            options: [.regularExpression, .caseInsensitive]
+        )
+        // Ondas / rangos al inicio: 4-3-3-2 / 6-8 / 21-15-9
+        s = s.replacingOccurrences(
+            of: #"^\s*\d+(?:\s*[-–]\s*\d+)+\s+"#,
+            with: "",
+            options: .regularExpression
+        )
+        // Reps sueltas al inicio: "10 Dominadas"
+        s = s.replacingOccurrences(
+            of: #"^\s*\d+\s+"#,
+            with: "",
+            options: .regularExpression
+        )
+        let noise = [
+            #"\bw\.?\s*s\.?\b"#,
+            #"\bws\b"#,
+            #"\bddb\b"#,
+            #"\bsdb\b"#,
+            #"\bdkb\b"#,
+            #"\bskb\b"#,
+            #"\bdb\b"#,
+            #"\bdumbbells?\b"#,
+            #"\bmancuernas?\b"#,
+            #"\bkb\b"#,
+            #"\bkettlebells?\b"#,
+            #"\bbb\b"#,
+            #"\bbarbell\b"#,
+            #"\balt\b"#,
+            #"\balternat(?:e|ing|as?|os?)?\b"#,
+            #"\bweighted\b"#,
+            #"\bestrict[oa]?s?\b"#,
+            #"\bstrikt\b"#,
+        ]
+        for pattern in noise {
+            s = s.replacingOccurrences(of: pattern, with: " ", options: [.regularExpression, .caseInsensitive])
+        }
+        // Estilo kipping/butterfly delante de HSPU / pull-up: deja el movimiento.
+        s = s.replacingOccurrences(
+            of: #"\b(kipping|butterfly|strict)\s+(?=(hspu|pull|dominad|chin|muscle))"#,
+            with: "",
+            options: [.regularExpression, .caseInsensitive]
+        )
+        return s.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-•*|:/"))
     }
 
     public static func normalize(_ s: String) -> String {
         s.lowercased()
-            .folding(options: .diacriticInsensitive, locale: .current)
+            .folding(options: .diacriticInsensitive, locale: Locale(identifier: "en_US_POSIX"))
             .replacingOccurrences(of: #"[:\-_/]"#, with: " ", options: .regularExpression)
             .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)

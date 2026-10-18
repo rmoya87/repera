@@ -12,11 +12,16 @@ struct HomeView: View {
     var onGoPlan: () -> Void
     var onOpenStartHub: () -> Void
 
+    /// 0 = semana actual; negativo = pasadas; positivo = futuras. Carrusel horizontal.
     @State private var weekOffset = 0
+    /// Rango de páginas del carrusel (±1 año).
+    private static let weekCarouselRadius = 52
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: Date())
     /// Live refine for **today** only (HK query). Past days use bucket metrics — never wait on HealthKit to paint.
     @State private var todayHealthLive = HealthKitStore.DayMetrics()
     @State private var showCreatePlanForDay = false
+    /// Revisión de pizarra como página (fuera del sheet «Añadir entreno»).
+    @State private var boardReviewPayload: BoardScanReviewPayload?
     @State private var workoutPendingDelete: WorkoutSession?
     @State private var healthPendingDelete: HealthKitStore.ExternalActivity?
     @State private var openWorkoutId: UUID?
@@ -111,6 +116,7 @@ struct HomeView: View {
             }
             .onChange(of: weekOffset) { _, _ in
                 rebuildWeekChrome()
+                snapSelectedDayToVisibleWeek()
             }
             .onChange(of: health.isAuthorized) { _, authorized in
                 if authorized {
@@ -144,9 +150,33 @@ struct HomeView: View {
                     onStartedWorkout: {
                         showCreatePlanForDay = false
                         onOpenWorkout()
+                    },
+                    onBoardReady: { payload in
+                        showCreatePlanForDay = false
+                        // Empujar página tras cerrar el sheet.
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(280))
+                            boardReviewPayload = payload
+                        }
                     }
                 )
                 .preferredColorScheme(.dark)
+            }
+            .navigationDestination(item: $boardReviewPayload) { payload in
+                BoardImportReviewView(
+                    lines: payload.lines,
+                    ocrText: payload.ocrText,
+                    detectedBlocks: payload.blocks,
+                    interpretSource: payload.source,
+                    preferredWeekday: CalendarHelpers.isoWeekday(for: payload.targetDate),
+                    preferredDate: payload.targetDate,
+                    embedsNavigationStack: false
+                ) { started in
+                    boardReviewPayload = nil
+                    if started {
+                        onOpenWorkout()
+                    }
+                }
             }
             .navigationDestination(isPresented: Binding(
                 get: { openWorkoutId != nil },
@@ -250,36 +280,50 @@ struct HomeView: View {
         return OGCard {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    Button { weekOffset -= 1 } label: {
+                    Button {
+                        withAnimation(.snappy(duration: 0.25)) {
+                            weekOffset = max(weekOffset - 1, -Self.weekCarouselRadius)
+                        }
+                    } label: {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(OG.label2)
                             .frame(width: 30, height: 30)
                     }
+                    .disabled(weekOffset <= -Self.weekCarouselRadius)
                     Spacer()
                     Text(visibleWeekMonthTitle)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(OG.label2)
                     Spacer()
-                    Button { weekOffset += 1 } label: {
+                    Button {
+                        withAnimation(.snappy(duration: 0.25)) {
+                            weekOffset = min(weekOffset + 1, Self.weekCarouselRadius)
+                        }
+                    } label: {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(OG.label2)
                             .frame(width: 30, height: 30)
                     }
+                    .disabled(weekOffset >= Self.weekCarouselRadius)
                 }
 
-                HStack(alignment: .top, spacing: 2) {
-                    ForEach(cachedWeekDays, id: \.iso) { day in
-                        Button {
-                            selectedDay = day.date
-                        } label: {
-                            dayColumn(day)
-                        }
-                        .buttonStyle(.plain)
-                        .frame(maxWidth: .infinity)
+                // Carrusel: swipe horizontal entre semanas (misma fila de 7 días).
+                // `buildDays` se evalúa en el body de la página (TabView solo pide las visibles).
+                TabView(selection: $weekOffset) {
+                    ForEach(-Self.weekCarouselRadius...Self.weekCarouselRadius, id: \.self) { offset in
+                        WeekCarouselPage(
+                            selectedDay: $selectedDay,
+                            calendar: calendar,
+                            buildDays: { makeWeekDays(offset: offset) },
+                            dayDot: dayDot
+                        )
+                        .tag(offset)
                     }
                 }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .frame(height: 72)
 
                 dayEntrenoStack(workouts: workouts)
 
@@ -549,26 +593,16 @@ struct HomeView: View {
         showCreatePlanForDay = true
     }
 
-    private func dayColumn(_ day: DayCell) -> some View {
-        let selected = calendar.isDate(day.date, inSameDayAs: selectedDay)
-        return VStack(spacing: 0) {
-            Text(day.lbl)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(OG.label3)
-                .tracking(0.3)
-            Text("\(day.num)")
-                .font(.system(size: 17, weight: selected ? .semibold : .regular))
-                .foregroundStyle(selected ? OG.onAccent : OG.label)
-                .frame(width: 31, height: 31)
-                .background {
-                    if selected { Circle().fill(OG.accent) }
-                }
-                .padding(.vertical, 4)
-            Circle()
-                .fill(dayDot(day))
-                .frame(width: 5, height: 5)
+    /// Al cambiar de semana (swipe/chevrons), conservar el weekday ISO si está en la nueva semana.
+    private func snapSelectedDayToVisibleWeek() {
+        let wanted = CalendarHelpers.isoWeekday(for: selectedDay)
+        if let match = cachedWeekDays.first(where: {
+            CalendarHelpers.isoWeekday(for: $0.date) == wanted
+        }) {
+            selectedDay = match.date
+        } else if let first = cachedWeekDays.first {
+            selectedDay = first.date
         }
-        .padding(.vertical, 8)
     }
 
     private var dayActionRow: some View {
@@ -744,7 +778,7 @@ struct HomeView: View {
     }
 
     private func rebuildWeekChrome() {
-        let days = makeWeekDays()
+        let days = makeWeekDays(offset: weekOffset)
         cachedWeekDays = days
         if let first = days.first?.date, let last = days.last?.date {
             cachedWeekMonthTitle = SpanishDate.monthHeadline(from: first, to: last, calendar: calendar)
@@ -922,15 +956,60 @@ struct HomeView: View {
         var hasPlan: Bool
     }
 
+    /// Una página del carrusel semanal — el body solo corre cuando TabView la muestra.
+    private struct WeekCarouselPage: View {
+        @Binding var selectedDay: Date
+        var calendar: Calendar
+        var buildDays: () -> [DayCell]
+        var dayDot: (DayCell) -> Color
+
+        var body: some View {
+            let days = buildDays()
+            HStack(alignment: .top, spacing: 2) {
+                ForEach(days, id: \.iso) { day in
+                    Button {
+                        selectedDay = day.date
+                    } label: {
+                        dayColumn(day)
+                    }
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+
+        private func dayColumn(_ day: DayCell) -> some View {
+            let selected = calendar.isDate(day.date, inSameDayAs: selectedDay)
+            return VStack(spacing: 0) {
+                Text(day.lbl)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(OG.label3)
+                    .tracking(0.3)
+                Text("\(day.num)")
+                    .font(.system(size: 17, weight: selected ? .semibold : .regular))
+                    .foregroundStyle(selected ? OG.onAccent : OG.label)
+                    .frame(width: 31, height: 31)
+                    .background {
+                        if selected { Circle().fill(OG.accent) }
+                    }
+                    .padding(.vertical, 4)
+                Circle()
+                    .fill(dayDot(day))
+                    .frame(width: 5, height: 5)
+            }
+            .padding(.vertical, 8)
+        }
+    }
+
     private var visibleWeekMonthTitle: String { cachedWeekMonthTitle }
 
-    private func makeWeekDays() -> [DayCell] {
+    private func makeWeekDays(offset: Int) -> [DayCell] {
         let today = Date()
         let weekday = calendar.component(.weekday, from: today)
         let startOffset = store.state.settings.weekStartsOn == .monday
             ? (weekday == 1 ? -6 : 2 - weekday)
             : 1 - weekday
-        guard var start = calendar.date(byAdding: .day, value: startOffset + weekOffset * 7, to: today) else {
+        guard var start = calendar.date(byAdding: .day, value: startOffset + offset * 7, to: today) else {
             return []
         }
         start = calendar.startOfDay(for: start)

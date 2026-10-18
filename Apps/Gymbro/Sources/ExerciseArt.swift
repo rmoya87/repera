@@ -10,8 +10,46 @@ enum ExerciseArt {
     }
 
     static func imageName(forExerciseName name: String, muscleGroup: String) -> String? {
-        // No reutilizar por músculo ni mostrar héroes visualmente incorrectos.
-        guard let base = nameMap[name], !quarantinedHeroes.contains(base) else { return nil }
+        // Exacto → canónico (limpia OCR) → normalize → clave nameMap contenida (más larga gana).
+        if let base = acceptedHero(nameMap[name]) { return base }
+        let canonical = CrossFitGlossary.canonicalName(for: name)
+        if let base = acceptedHero(nameMap[canonical]) { return base }
+        let cleaned = CrossFitGlossary.cleanMovementLabel(name)
+        if cleaned != name, let base = acceptedHero(nameMap[cleaned]) { return base }
+
+        let needles = [name, canonical, cleaned]
+            .map(CrossFitGlossary.normalize)
+            .filter { !$0.isEmpty }
+        var needleSet = Set(needles)
+        for n in needles { needleSet.insert(n) }
+
+        for needle in needleSet {
+            for (key, base) in nameMap {
+                if CrossFitGlossary.normalize(key) == needle, let hit = acceptedHero(base) {
+                    return hit
+                }
+            }
+        }
+
+        // "W.S. Dominadas @RIR…" → contiene "dominadas"; "DB ALT Arrancada colgante" → colgante.
+        var best: (length: Int, base: String)?
+        let haystack = CrossFitGlossary.normalize(
+            [cleaned, canonical, name].first { !$0.isEmpty } ?? name
+        )
+        guard haystack.count >= 3 else { return nil }
+        for (key, base) in nameMap {
+            let nk = CrossFitGlossary.normalize(key)
+            guard nk.count >= 3, haystack.contains(nk) || nk.contains(haystack) else { continue }
+            guard let hit = acceptedHero(base) else { continue }
+            if best == nil || nk.count > best!.length {
+                best = (nk.count, hit)
+            }
+        }
+        return best?.base
+    }
+
+    private static func acceptedHero(_ base: String?) -> String? {
+        guard let base, !base.isEmpty, !quarantinedHeroes.contains(base) else { return nil }
         return base
     }
 
@@ -666,8 +704,8 @@ struct ExerciseThumb: View {
         .frame(width: size, height: size)
         .clipped()
         .clipShape(RoundedRectangle(cornerRadius: size * 0.2, style: .continuous))
-        .task(id: "\(exercise.id.uuidString)-\(Int(size))") {
-            fetched = nil
+        .task(id: "\(exercise.id.uuidString)-\(exercise.name)-\(Int(size))") {
+            // No vaciar `fetched` al reiniciar: en List el task se cancela a menudo.
             guard ExerciseArt.cachedThumb(for: exercise, pointSize: size) == nil else { return }
             let image = await ExerciseArt.loadThumb(for: exercise, pointSize: size)
             if Task.isCancelled { return }

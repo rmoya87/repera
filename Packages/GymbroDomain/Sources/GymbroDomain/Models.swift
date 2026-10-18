@@ -515,6 +515,8 @@ public struct WODMovement: Identifiable, Codable, Sendable, Hashable {
     /// Escala alternativa (ej. "100 SU" cuando el principal es "50 DU").
     public var scaleAlternative: String?
     public var notes: String?
+    /// Series editadas a mano (peso/RIR/reps). Si no es nil, manda sobre ola/rondas.
+    public var explicitPlannedSets: [PlannedSet]?
 
     public init(
         id: UUID = UUID(),
@@ -529,7 +531,8 @@ public struct WODMovement: Identifiable, Codable, Sendable, Hashable {
         isRest: Bool = false,
         restSeconds: Int? = nil,
         scaleAlternative: String? = nil,
-        notes: String? = nil
+        notes: String? = nil,
+        explicitPlannedSets: [PlannedSet]? = nil
     ) {
         self.id = id
         self.exerciseId = exerciseId
@@ -544,6 +547,31 @@ public struct WODMovement: Identifiable, Codable, Sendable, Hashable {
         self.restSeconds = restSeconds
         self.scaleAlternative = scaleAlternative
         self.notes = notes
+        self.explicitPlannedSets = explicitPlannedSets
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, exerciseId, name, reps, repScheme, distanceMeters, calories
+        case weightMaleKg, weightFemaleKg, isRest, restSeconds, scaleAlternative, notes
+        case explicitPlannedSets
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        exerciseId = try c.decodeIfPresent(UUID.self, forKey: .exerciseId)
+        name = try c.decode(String.self, forKey: .name)
+        reps = try c.decodeIfPresent(Int.self, forKey: .reps)
+        repScheme = try c.decodeIfPresent([Int].self, forKey: .repScheme)
+        distanceMeters = try c.decodeIfPresent(Int.self, forKey: .distanceMeters)
+        calories = try c.decodeIfPresent(Int.self, forKey: .calories)
+        weightMaleKg = try c.decodeIfPresent(Double.self, forKey: .weightMaleKg)
+        weightFemaleKg = try c.decodeIfPresent(Double.self, forKey: .weightFemaleKg)
+        isRest = try c.decodeIfPresent(Bool.self, forKey: .isRest) ?? false
+        restSeconds = try c.decodeIfPresent(Int.self, forKey: .restSeconds)
+        scaleAlternative = try c.decodeIfPresent(String.self, forKey: .scaleAlternative)
+        notes = try c.decodeIfPresent(String.self, forKey: .notes)
+        explicitPlannedSets = try c.decodeIfPresent([PlannedSet].self, forKey: .explicitPlannedSets)
     }
 
     public var summaryLine: String {
@@ -571,14 +599,60 @@ public struct WODMovement: Identifiable, Codable, Sendable, Hashable {
         return line
     }
 
-    /// Series planificadas: esquema 4-4-3-3 o una serie con `reps`.
+    /// `5-10` / `6-8` = rango de reps por ronda (no ola de series). `4-3-3-2` / `21-15-9` = ola.
+    public var isAscendingRepRange: Bool {
+        Self.isAscendingRepRange(repScheme)
+    }
+
+    public static func isAscendingRepRange(_ scheme: [Int]?) -> Bool {
+        guard let scheme, scheme.count == 2 else { return false }
+        let lo = scheme[0], hi = scheme[1]
+        return lo < hi && (hi - lo) <= 20
+    }
+
+    /// Series planificadas: esquema 4-3-3-2 o una serie con `reps` (rangos 5-10 → reps altas).
     public var plannedSetsFromReps: [PlannedSet] {
         let weight = weightMaleKg
-        if let scheme = repScheme, !scheme.isEmpty {
+        if let scheme = repScheme, !scheme.isEmpty, !isAscendingRepRange {
             return scheme.map { PlannedSet(targetReps: max(1, $0), targetWeightKg: weight) }
         }
-        let r = reps ?? (distanceMeters.map { max(1, $0 / 10) } ?? 10)
+        let r: Int
+        if let scheme = repScheme, isAscendingRepRange {
+            r = scheme[1] // techo del rango (5-10 → 10)
+        } else {
+            r = reps ?? (distanceMeters.map { max(1, $0 / 10) } ?? 10)
+        }
         return [PlannedSet(targetReps: max(1, r), targetWeightKg: weight)]
+    }
+
+    /// Expande un set base a `count` series idénticas (EMOM/RFT/Tabata…).
+    public func repeatingPlannedSets(count: Int) -> [PlannedSet] {
+        let base = plannedSetsFromReps
+        guard count > 1, base.count == 1, let template = base.first else { return base }
+        return (0..<count).map { _ in
+            PlannedSet(targetReps: template.targetReps, targetWeightKg: template.targetWeightKg, targetRir: template.targetRir)
+        }
+    }
+
+    /// Si la ola tiene menos series que `count`, completa repitiendo el último (p. ej. 4-3-3 → 4-3-3-3).
+    public func plannedSetsPadded(to count: Int) -> [PlannedSet] {
+        let base = plannedSetsFromReps
+        guard count > 0 else { return [] }
+        if base.isEmpty {
+            return (0..<count).map { _ in PlannedSet(targetReps: reps ?? 10, targetWeightKg: weightMaleKg) }
+        }
+        if base.count >= count {
+            return Array(base.prefix(count))
+        }
+        guard let last = base.last else { return base }
+        let pad = (0..<(count - base.count)).map { _ in
+            PlannedSet(
+                targetReps: last.targetReps,
+                targetWeightKg: last.targetWeightKg,
+                targetRir: last.targetRir
+            )
+        }
+        return base + pad
     }
 
     /// Copia con nuevo `id`.
@@ -595,7 +669,8 @@ public struct WODMovement: Identifiable, Codable, Sendable, Hashable {
             isRest: isRest,
             restSeconds: restSeconds,
             scaleAlternative: scaleAlternative,
-            notes: notes
+            notes: notes,
+            explicitPlannedSets: explicitPlannedSets?.map { $0.duplicatingContent() }
         )
     }
 }
@@ -748,6 +823,65 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
             return "Circuito"
         case .maxEffort:
             return "Max effort"
+        }
+    }
+
+    /// Estaciones del circuito (movimientos + rest) para derivar vueltas EMOM.
+    public var stationCount: Int {
+        max(1, movements.count)
+    }
+
+    /// Intervalos de reloj EMOM (minutos del cap ÷ intervalo), no confundir con `rounds` (vueltas).
+    public var emomTimerIntervals: Int? {
+        guard wodFormat == .emom || wodFormat == .circuit else { return nil }
+        let interval = max(1, emomIntervalSeconds ?? 60)
+        if let cap = timeCapMinutes, cap > 0 {
+            return max(1, (cap * 60) / interval)
+        }
+        return rounds
+    }
+
+    /// Deriva `rounds` en EMOM/circuito multi-estación cuando la cabecera no los fijó.
+    public mutating func deriveEmomRoundsIfNeeded() {
+        guard wodFormat == .emom || wodFormat == .circuit else { return }
+        guard rounds == nil else { return }
+        guard let total = emomTimerIntervals, total > 0 else { return }
+        let stations = stationCount
+        rounds = max(1, total / stations)
+    }
+
+    /// Series al apuntar / sesión para un movimiento WOD según formato del bloque.
+    public func plannedSets(for movement: WODMovement) -> [PlannedSet] {
+        guard !movement.isRest else { return [] }
+        // Series editadas (peso/RIR) mandan sobre ola/rondas.
+        if let explicit = movement.explicitPlannedSets, !explicit.isEmpty {
+            return explicit
+        }
+        let base = movement.plannedSetsFromReps
+        let emomRounds = max(1, rounds ?? 1)
+
+        // Ola explícita (4-3-3-2…). Si hay menos números que rondas EMOM → rellenar con el último.
+        if let scheme = movement.repScheme, !scheme.isEmpty, !movement.isAscendingRepRange {
+            if wodFormat == .emom || wodFormat == .circuit {
+                return movement.plannedSetsPadded(to: emomRounds)
+            }
+            return base
+        }
+        guard let format = wodFormat else { return base }
+
+        switch format {
+        case .emom, .circuit:
+            return movement.repeatingPlannedSets(count: emomRounds)
+        case .tabata:
+            let n = max(1, rounds ?? 8)
+            return movement.repeatingPlannedSets(count: n)
+        case .forTime, .roundsForQuality:
+            guard let n = rounds, n > 1 else { return base }
+            return movement.repeatingPlannedSets(count: n)
+        case .ladder:
+            return base
+        case .chipper, .afap, .buyInCashOut, .amrap, .partner, .deathBy, .maxEffort, .strength:
+            return base
         }
     }
 }
@@ -944,19 +1078,25 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         loggedSets.last?.weightKg ?? plannedSets.first?.targetWeightKg
     }
 
-    /// Intervalos previstos (EMOM 8' → 8; EVERY 2'×4 → 4).
+    /// Intervalos de reloj (EMOM 12' → 12; EVERY 2'×4 → 4). Preferir timeCap, no `blockRounds` (vueltas).
     public var plannedIntervals: Int? {
         guard let format = wodFormat else { return nil }
         switch format {
         case .emom:
-            if let blockRounds, blockRounds > 0 { return blockRounds }
-            let interval = blockIntervalSeconds ?? 60
-            if let cap = blockTimeCapMinutes, cap > 0, interval > 0 {
+            let interval = max(1, blockIntervalSeconds ?? 60)
+            if let cap = blockTimeCapMinutes, cap > 0 {
                 return max(1, (cap * 60) / interval)
             }
+            if let blockRounds, blockRounds > 0 { return blockRounds }
             return nil
+        case .circuit:
+            let interval = max(1, blockIntervalSeconds ?? 60)
+            if let cap = blockTimeCapMinutes, cap > 0 {
+                return max(1, (cap * 60) / interval)
+            }
+            return blockRounds
         case .amrap, .forTime, .afap, .chipper, .ladder, .tabata, .deathBy,
-             .partner, .buyInCashOut, .roundsForQuality, .circuit, .maxEffort, .strength:
+             .partner, .buyInCashOut, .roundsForQuality, .maxEffort, .strength:
             return blockRounds
         }
     }

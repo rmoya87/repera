@@ -463,14 +463,24 @@ final class GymbroStore: NSObject {
 
     /// Sesión freestyle desde OCR de pizarra/TV (sin progresión).
     @discardableResult
-    func startSessionFromBoard(lines: [BoardImportLine], ocrText: String? = nil) -> Bool {
+    func startSessionFromBoard(
+        lines: [BoardImportLine],
+        ocrText: String? = nil,
+        blocks: [RoutineBlock]? = nil
+    ) -> Bool {
         var catalog = state.exercises
-        let routine = BoardImportParser.buildRoutine(
-            title: "Desde pizarra",
+        var routine = BoardImportParser.buildRoutine(
+            title: "Añadir entreno",
             lines: lines,
             catalog: &catalog,
             ocrText: ocrText
         )
+        if let blocks, !blocks.isEmpty {
+            routine.blocks = blocks
+        }
+        for i in routine.blocks.indices {
+            routine.blocks[i].deriveEmomRoundsIfNeeded()
+        }
         state.exercises = catalog
         let movementCount = routine.blocks.reduce(0) { $0 + $1.movements.filter { !$0.isRest }.count }
         let hasWork = !routine.exercises.isEmpty || movementCount > 0 || routine.blocks.contains { !$0.exercises.isEmpty }
@@ -531,6 +541,9 @@ final class GymbroStore: NSObject {
         state.exercises = catalog
         if let blocks, !blocks.isEmpty {
             imported.blocks = blocks
+        }
+        for i in imported.blocks.indices {
+            imported.blocks[i].deriveEmomRoundsIfNeeded()
         }
         imported.weekday = nil
         imported.scheduledDate = date

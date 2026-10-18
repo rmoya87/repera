@@ -1,37 +1,85 @@
+import CoreGraphics
 import ImageIO
+import UniformTypeIdentifiers
 import UIKit
 import Vision
 
 enum BoardTextRecognizer {
-    private static let maxPixelLongSide: CGFloat = 2400
-
-    static func recognize(in image: UIImage) async throws -> String {
-        BoardScanLog.image(image, step: "recognize.input")
-        // Entire normalize + Vision path off the main actor (ImageIO + UIGraphics in worker).
-        let cgImage = try await Task.detached(priority: .userInitiated) {
-            try Self.normalizedCGImage(from: image)
-        }.value
-        BoardScanLog.info("recognize.normalized: \(cgImage.width)x\(cgImage.height)")
-        return try await Task.detached(priority: .userInitiated) {
-            try Self.performRecognition(on: cgImage)
-        }.value
-    }
+    private static let maxPixelLongSide: CGFloat = 1400
+    private static let ocrTimeoutSeconds: TimeInterval = 20
 
     enum RecognizerError: LocalizedError {
         case invalidImage
         case noText
+        case timeout
 
         var errorDescription: String? {
             switch self {
             case .invalidImage: "No se pudo preparar la imagen para leerla."
             case .noText: "No detecté texto en la imagen. Prueba con más luz o más cerca."
+            case .timeout: "La lectura de la imagen tardó demasiado. Prueba otra foto más cercana."
             }
         }
     }
 
-    private static func performRecognition(on cgImage: CGImage) throws -> String {
+    /// Prepara JPEG reducido. Preferir ImageIO; si falla, UIGraphics en MainActor.
+    @MainActor
+    static func preparedJPEGDataOnMainIfNeeded(from image: UIImage) -> Data? {
+        if let data = imageIOJPEG(from: image) {
+            BoardScanLog.step("jpeg.path", "ImageIO")
+            return data
+        }
+        BoardScanLog.step("jpeg.path", "UIGraphics fallback")
+        return rasterizedJPEG(from: image)
+    }
+
+    static func recognize(jpegData: Data) async throws -> String {
+        BoardScanLog.step("vision.group", "timeout=\(Int(Self.ocrTimeoutSeconds))s")
+        do {
+            // Un solo detached (sin TaskGroup anidado — en dispositivo dejaba el runtime raro).
+            let text = try await Task.detached(priority: .userInitiated) {
+                try Self.recognizeSync(jpegData: jpegData)
+            }.value
+            return text
+        } catch let error as RecognizerError {
+            BoardScanLog.error("vision: \(error.localizedDescription)")
+            throw error
+        } catch {
+            BoardScanLog.error("vision: \(error.localizedDescription)")
+            throw error
+        }
+    }
+
+    private static func recognizeSync(jpegData: Data) throws -> String {
+        guard let source = CGImageSourceCreateWithData(jpegData as CFData, nil),
+              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil)
+        else {
+            throw RecognizerError.invalidImage
+        }
+        BoardScanLog.step("vision.cg", "\(cgImage.width)x\(cgImage.height)")
+
+        let t0 = CFAbsoluteTimeGetCurrent()
+        let fast = try performRecognition(on: cgImage, level: .fast)
+        let fastMs = Int((CFAbsoluteTimeGetCurrent() - t0) * 1000)
+        let fastLines = fast.components(separatedBy: .newlines).filter { !$0.isEmpty }
+        BoardScanLog.step("vision.fast", "\(fastMs)ms lines=\(fastLines.count) chars=\(fast.count)")
+        if fastLines.count >= 3 {
+            return fast
+        }
+        let t1 = CFAbsoluteTimeGetCurrent()
+        let accurate = (try? performRecognition(on: cgImage, level: .accurate)) ?? fast
+        let accMs = Int((CFAbsoluteTimeGetCurrent() - t1) * 1000)
+        BoardScanLog.step("vision.accurate", "\(accMs)ms chars=\(accurate.count)")
+        guard !accurate.isEmpty else { throw RecognizerError.noText }
+        return accurate.count >= fast.count ? accurate : fast
+    }
+
+    private static func performRecognition(
+        on cgImage: CGImage,
+        level: VNRequestTextRecognitionLevel
+    ) throws -> String {
         let request = VNRecognizeTextRequest()
-        request.recognitionLevel = .accurate
+        request.recognitionLevel = level
         request.usesLanguageCorrection = true
         request.minimumTextHeight = 0.008
         if let langs = try? request.supportedRecognitionLanguages(), !langs.isEmpty {
@@ -60,18 +108,14 @@ enum BoardTextRecognizer {
         return text
     }
 
-    /// Prefer ImageIO thumbnail when possible; fall back to UIGraphics rasterize off-main.
-    private static func normalizedCGImage(from image: UIImage) throws -> CGImage {
-        if let viaImageIO = imageIODownscaled(from: image) {
-            return viaImageIO
+    private static func imageIOJPEG(from image: UIImage) -> Data? {
+        guard let data = image.jpegData(compressionQuality: 0.9) ?? image.pngData() else {
+            return nil
         }
-        return try rasterizedCGImage(from: image)
+        return downscaleJPEGData(data)
     }
 
-    private static func imageIODownscaled(from image: UIImage) -> CGImage? {
-        guard let data = image.jpegData(compressionQuality: 0.92)
-            ?? image.pngData()
-        else { return nil }
+    private static func downscaleJPEGData(_ data: Data) -> Data? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
@@ -79,51 +123,56 @@ enum BoardTextRecognizer {
             kCGImageSourceThumbnailMaxPixelSize: Int(maxPixelLongSide),
             kCGImageSourceShouldCacheImmediately: true,
         ]
-        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+        guard let thumb = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return data
+        }
+        let mutable = NSMutableData()
+        guard let dest = CGImageDestinationCreateWithData(
+            mutable, UTType.jpeg.identifier as CFString, 1, nil
+        ) else { return data }
+        CGImageDestinationAddImage(
+            dest,
+            thumb,
+            [kCGImageDestinationLossyCompressionQuality: 0.85] as CFDictionary
+        )
+        guard CGImageDestinationFinalize(dest) else { return data }
+        return mutable as Data
     }
 
-    /// Rasteriza siempre a un CGImage vertical (`.up`).
-    private static func rasterizedCGImage(from image: UIImage) throws -> CGImage {
+    @MainActor
+    private static func rasterizedJPEG(from image: UIImage) -> Data? {
         let scale = max(image.scale, 1)
         var width = max(1, image.size.width * scale)
         var height = max(1, image.size.height * scale)
-
-        if let cg = image.cgImage, image.imageOrientation == .up || image.imageOrientation == .upMirrored {
+        if let cg = image.cgImage {
             width = CGFloat(cg.width)
             height = CGFloat(cg.height)
         }
-
         let longSide = max(width, height)
         let shrink = longSide > maxPixelLongSide ? (maxPixelLongSide / longSide) : 1
         let canvas = CGSize(
             width: max(1, floor(width * shrink)),
             height: max(1, floor(height * shrink))
         )
-
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
         format.opaque = true
-        // Pizarra/TV oscura (texto blanco) no puede ir sobre lienzo blanco: Vision no ve nada.
-        let fill = dominantFillColor(for: image) ? UIColor.black : UIColor.white
+        let dark = dominantIsDark(image)
+        let fill = dark ? UIColor.black : UIColor.white
         let renderer = UIGraphicsImageRenderer(size: canvas, format: format)
         let rendered = renderer.image { ctx in
             fill.setFill()
             ctx.fill(CGRect(origin: .zero, size: canvas))
             image.draw(in: CGRect(origin: .zero, size: canvas))
         }
-
-        if let cg = rendered.cgImage {
-            return cg
-        }
-        throw RecognizerError.invalidImage
+        return rendered.jpegData(compressionQuality: 0.85)
     }
 
-    /// `true` → relleno negro (texto claro sobre fondo oscuro).
-    private static func dominantFillColor(for image: UIImage) -> Bool {
+    @MainActor
+    private static func dominantIsDark(_ image: UIImage) -> Bool {
         let sample = CGSize(width: 32, height: 32)
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
-        format.opaque = true
         let renderer = UIGraphicsImageRenderer(size: sample, format: format)
         let tiny = renderer.image { _ in
             image.draw(in: CGRect(origin: .zero, size: sample))
@@ -131,18 +180,17 @@ enum BoardTextRecognizer {
         guard let cg = tiny.cgImage,
               let data = cg.dataProvider?.data,
               let ptr = CFDataGetBytePtr(data)
-        else { return false }
-        let bytesPerPixel = max(cg.bitsPerPixel / 8, 1)
+        else { return true }
+        let bpp = max(cg.bitsPerPixel / 8, 1)
         let total = cg.width * cg.height
-        guard total > 0 else { return false }
         var sum: Double = 0
         for i in 0..<total {
-            let o = i * bytesPerPixel
+            let o = i * bpp
             let r = Double(ptr[o])
             let g = Double(ptr[min(o + 1, CFDataGetLength(data) - 1)])
             let b = Double(ptr[min(o + 2, CFDataGetLength(data) - 1)])
             sum += (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
         }
-        return (sum / Double(total)) < 0.45
+        return (sum / Double(max(total, 1))) < 0.45
     }
 }

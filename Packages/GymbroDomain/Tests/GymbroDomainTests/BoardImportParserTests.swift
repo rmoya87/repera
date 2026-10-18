@@ -101,6 +101,52 @@ struct BoardImportParserTests {
         #expect(CrossFitGlossary.canonicalName(for: "OHSQ") == "Overhead squat")
     }
 
+    @Test func glossaryCleansBoardNoiseForLookup() {
+        #expect(CrossFitGlossary.canonicalName(for: "W.S. Dominadas @RIR 2-1") == "Dominadas")
+        #expect(CrossFitGlossary.canonicalName(for: "KIPPING HSPU @FQ") == "HSPU")
+        #expect(CrossFitGlossary.canonicalName(for: "6-8 DB ALT Arrancada colgante") == "Arrancada colgante")
+    }
+
+    @Test func parseMovementLineSplitsRepsMetersEquipment() {
+        let t2b = CrossFitGlossary.parseMovementLine("10 toes to bar")
+        #expect(t2b.name == "Toes to bar")
+        #expect(t2b.reps == 10)
+        #expect(t2b.distanceMeters == nil)
+
+        let run = CrossFitGlossary.parseMovementLine("200M RUN")
+        #expect(run.name == "Cinta / carrera")
+        #expect(run.distanceMeters == 200)
+        #expect(run.reps == nil)
+
+        let cinta = CrossFitGlossary.parseMovementLine("200m cinta/carrera")
+        #expect(cinta.name == "Cinta / carrera")
+        #expect(cinta.distanceMeters == 200)
+
+        let ddb = CrossFitGlossary.parseMovementLine("5 DDB DEVIL PRESS 20/12,5")
+        #expect(ddb.name == "Devil press")
+        #expect(ddb.reps == 5)
+        #expect(ddb.equipmentNote == "Doble mancuerna")
+        #expect(ddb.weightMaleKg == 20)
+        #expect(ddb.weightFemaleKg == 12.5)
+
+        // Orden invertido: el mayor sigue siendo hombre.
+        let swapped = CrossFitGlossary.parseMovementLine("5 DEVIL PRESS 12,5/20")
+        #expect(swapped.weightMaleKg == 20)
+        #expect(swapped.weightFemaleKg == 12.5)
+    }
+
+    @Test func parseMovementLineTreats5to10AsRangeNotWave() {
+        let hspu = CrossFitGlossary.parseMovementLine("5-10 KIPPING HSPU @FQ")
+        #expect(hspu.name == "HSPU")
+        #expect(hspu.repScheme == nil)
+        #expect(hspu.reps == 10)
+        #expect(hspu.equipmentNote?.contains("5-10") == true)
+
+        let wave = CrossFitGlossary.parseMovementLine("4-3-3-2 W.S. PULL UPS @RIR 2-1")
+        #expect(wave.repScheme == [4, 3, 3, 2])
+        #expect(wave.name == "Dominadas")
+    }
+
     @Test func parsesWaveRepSchemeInsideEMOM() {
         let catalog = Catalog.seed()
         let text = """
@@ -120,6 +166,8 @@ struct BoardImportParserTests {
         #expect(blocks.count == 2)
         #expect(blocks[0].wodFormat == .emom)
         #expect(blocks[0].timeCapMinutes == 12)
+        // 3 estaciones (push, deadlift, rest) → 12/3 = 4 vueltas
+        #expect(blocks[0].rounds == 4)
         // 4-4-3-3 es movimiento, NO cabecera ladder
         #expect(blocks[0].title != "4-4-3-3 PUSH PRESS @7-8")
         let push = blocks[0].movements.first { !$0.isRest }
@@ -135,6 +183,53 @@ struct BoardImportParserTests {
         let thruster = blocks[1].movements.first { $0.name.localizedCaseInsensitiveContains("Thruster") }
         #expect(thruster?.exerciseId != nil)
         #expect(blocks[1].movements.filter { !$0.isRest }.count >= 4)
+    }
+
+    @Test func derivesEmomRoundsFromStations() {
+        let catalog = Catalog.seed()
+        let text = """
+        EMOM 12'
+        4-3-3-2 W.S. PULL UPS @RIR 2-1
+        5-10 KIPPING HSPU @FQ
+        1' REST
+
+        EMOM 8'
+        6-8 DB ALT HANG SNATCH @HEAVY
+        45\" MAX DU
+
+        AMRAP 12'
+        5 DDB DEVIL PRESS 20/12,5
+        10 T2B
+        200M RUN
+        """
+        let blocks = BoardImportParser.parseBlocks(ocrText: text, catalog: catalog)
+        #expect(blocks.count == 3)
+        #expect(blocks[0].wodFormat == .emom)
+        #expect(blocks[0].timeCapMinutes == 12)
+        #expect(blocks[0].rounds == 4)
+        #expect(blocks[0].emomTimerIntervals == 12)
+        #expect(blocks[1].wodFormat == .emom)
+        #expect(blocks[1].timeCapMinutes == 8)
+        #expect(blocks[1].rounds == 4)
+        #expect(blocks[2].wodFormat == .amrap)
+        #expect(blocks[2].timeCapMinutes == 12)
+    }
+
+    @Test func parsesOrphanStrengthThenWOD() {
+        let catalog = Catalog.seed()
+        let text = """
+        5x5 BACK SQUAT
+        3x8 BENCH PRESS
+
+        AMRAP 10'
+        10 THRUSTERS
+        10 PULL UPS
+        """
+        let blocks = BoardImportParser.parseBlocks(ocrText: text, catalog: catalog)
+        #expect(blocks.count >= 2)
+        let strength = blocks[0]
+        #expect(strength.kind == .strength || strength.wodFormat == .strength)
+        #expect(blocks.contains { $0.wodFormat == .amrap })
     }
 
     @Test func parsesExtendedBoardStructures() {

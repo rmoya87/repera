@@ -81,10 +81,7 @@ struct SessionPreviewView: View {
                     if routine.blocks.isEmpty {
                         flatExercises(routine)
                     } else {
-                        ForEach(routine.blocks) { block in
-                            blockCard(block)
-                                .ogCardListRow(top: 0, bottom: 8)
-                        }
+                        OGRoutineBlocksList(blocks: routine.blocks)
                     }
                 }
             } else if active == nil {
@@ -206,94 +203,11 @@ struct SessionPreviewView: View {
         .contentShape(Rectangle())
     }
 
-    private func blockCard(_ block: RoutineBlock) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(block.headerLabel)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(OG.accent)
-                Spacer()
-                if let cap = block.timeCapMinutes {
-                    Text("\(cap)'")
-                        .font(.system(size: 13, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(OG.label2)
-                }
-            }
-
-            if block.kind == .strength {
-                ForEach(block.exercises) { item in
-                    if let ex = store.state.exercises.first(where: { $0.id == item.exerciseId }) {
-                        exerciseRow(
-                            ex,
-                            detail: item.plannedSets.compactSummary
-                        )
-                    }
-                }
-            } else {
-                ForEach(block.movements.filter { !$0.isRest }) { move in
-                    exerciseRow(resolvedExercise(move), detail: moveDetail(move))
-                }
-            }
-        }
-        .padding(OG.pad)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
-    }
-
+    @ViewBuilder
     private func flatExercises(_ routine: Routine) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ForEach(routine.exercises) { item in
-                if let ex = store.state.exercises.first(where: { $0.id == item.exerciseId }) {
-                    exerciseRow(
-                        ex,
-                        detail: item.plannedSets.compactSummary
-                    )
-                }
-            }
-        }
-        .padding(OG.pad)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
-        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-        .listRowBackground(Color.clear)
-        .listRowSeparator(.hidden)
-    }
-
-    private func exerciseRow(_ exercise: Exercise, detail: String) -> some View {
-        HStack(spacing: 12) {
-            ExerciseThumb(exercise: exercise, size: 44)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(exercise.name)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(OG.label)
-                    .lineLimit(2)
-                Text(detail)
-                    .font(.system(size: 12))
-                    .foregroundStyle(OG.label3)
-            }
-            Spacer(minLength: 0)
-        }
-    }
-
-    private func resolvedExercise(_ move: WODMovement) -> Exercise {
-        if let id = move.exerciseId, let ex = store.state.exercises.first(where: { $0.id == id }) {
-            return ex
-        }
-        if let match = store.state.exercises.first(where: {
-            $0.name.localizedCaseInsensitiveCompare(move.name) == .orderedSame
-        }) {
-            return match
-        }
-        return Exercise(name: move.name, muscleGroup: "WOD", isCustom: true)
-    }
-
-    private func moveDetail(_ move: WODMovement) -> String {
-        var parts: [String] = []
-        if let reps = move.reps { parts.append("\(reps) reps") }
-        if let m = move.distanceMeters { parts.append("\(m) m") }
-        if let cal = move.calories { parts.append("\(cal) cal") }
-        if let w = move.weightMaleKg { parts.append(String(format: "%g kg", w)) }
-        return parts.isEmpty ? "Movimiento" : parts.joined(separator: " · ")
+        let synthetic = RoutineBlock.strength(title: "Ejercicios", exercises: routine.exercises)
+        OGRoutineBlockCard(block: synthetic)
+            .ogCardListRow(top: 0, bottom: 8)
     }
 }
 
@@ -319,10 +233,11 @@ struct LogFinalResultsView: View {
                 Text(routine.title)
                     .font(.system(size: 15, weight: .regular))
                     .foregroundStyle(OG.label2)
-                    .ogListPageHeaderRow()
-            } footer: {
-                Text("Inicio y fin sirven para tiempo, kcal y emparejar con Apple Salud. Si coincide la franja, mandan los datos de Salud.")
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: -14, leading: 0, bottom: 0, trailing: 0))
+                    .listRowSeparator(.hidden)
             }
+            .listSectionSpacing(4)
 
             Section {
                 DatePicker(
@@ -389,13 +304,11 @@ struct LogFinalResultsView: View {
             }
         }
         .ogListChrome()
+        .listSectionSpacing(8)
         .ogPinnedTransparentNav("Resultado final")
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                CloseToolbarButton(action: { dismiss() }, large: false)
-            }
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .confirmationAction) {
                 OGToolbarGlassButton(
                     systemName: "checkmark",
                     accessibilityLabel: "Guardar y terminar",
@@ -413,6 +326,10 @@ struct LogFinalResultsView: View {
                 blocks = Self.makeBlocks(routine: routine, catalog: store.state.exercises)
                 seedScheduleDefaults()
             }
+            let thumbs = blocks.flatMap { block in
+                block.exercises.map { resolvedCatalogExercise($0.exercise) }
+            }
+            ExerciseArt.prefetchThumbs(for: thumbs, pointSize: 48, limit: 24)
         }
         .onChange(of: startedAt) { _, newStart in
             if finishedAt <= newStart {
@@ -456,14 +373,36 @@ struct LogFinalResultsView: View {
     }
 
     private func exerciseHeaderRow(draft: DraftExercise) -> some View {
-        HStack(spacing: 12) {
-            ExerciseThumb(exercise: draft.exercise, size: 48)
-            Text(draft.exercise.name)
+        let exercise = resolvedCatalogExercise(draft.exercise)
+        return HStack(spacing: 12) {
+            ExerciseThumb(exercise: exercise, size: 48)
+            Text(exercise.name)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(OG.label)
                 .lineLimit(2)
             Spacer(minLength: 0)
         }
+    }
+
+    /// id → catálogo → canónico limpio (quita @RIR / W.S. / DB…) para arte y título.
+    private func resolvedCatalogExercise(_ exercise: Exercise) -> Exercise {
+        let canonical = CrossFitGlossary.canonicalName(for: exercise.name)
+        if let ex = store.state.exercises.first(where: { $0.id == exercise.id }) {
+            return ex
+        }
+        if let match = store.state.exercises.first(where: {
+            $0.name.localizedCaseInsensitiveCompare(exercise.name) == .orderedSame
+                || $0.name.localizedCaseInsensitiveCompare(canonical) == .orderedSame
+        }) {
+            return match
+        }
+        guard !canonical.isEmpty, canonical != exercise.name else { return exercise }
+        return Exercise(
+            id: exercise.id,
+            name: canonical,
+            muscleGroup: exercise.muscleGroup,
+            isCustom: exercise.isCustom
+        )
     }
 
     private func setStepperRow(set: Binding<DraftSet>) -> some View {

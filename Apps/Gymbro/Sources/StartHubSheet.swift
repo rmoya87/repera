@@ -1,5 +1,4 @@
 import GymbroDomain
-import PhotosUI
 import SwiftUI
 import UIKit
 
@@ -19,15 +18,16 @@ struct StartHubSheet: View {
     var onOpenedWorkout: () -> Void
 
     @State private var path = NavigationPath()
+    @State private var showImageSourceSheet = false
     @State private var showCameraPicker = false
     @State private var showLibraryPicker = false
-    @State private var libraryPhotoItem: PhotosPickerItem?
     @State private var captured: UIImage?
     @State private var reviewLines: [BoardImportLine] = []
     @State private var reviewOCR = ""
     @State private var reviewBlocks: [RoutineBlock] = []
     @State private var reviewSource: BoardImportPipeline.Source = .localRules
     @State private var isReading = false
+    @State private var readingTask: Task<Void, Never>?
     @State private var errorMessage: String?
 
     var body: some View {
@@ -122,15 +122,8 @@ struct StartHubSheet: View {
                         }
                     }
 
-                    Menu {
-                        if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                            Button("Tomar foto", systemImage: "camera") {
-                                showCameraPicker = true
-                            }
-                        }
-                        Button("Elegir de la galería", systemImage: "photo.on.rectangle") {
-                            showLibraryPicker = true
-                        }
+                    Button {
+                        showImageSourceSheet = true
                     } label: {
                         Label {
                             VStack(alignment: .leading, spacing: 2) {
@@ -209,6 +202,15 @@ struct StartHubSheet: View {
                             ProgressView()
                             Text("Leyendo pizarra…")
                                 .foregroundStyle(OG.label2)
+                            Spacer(minLength: 0)
+                            Button("Cancelar") {
+                                readingTask?.cancel()
+                                readingTask = nil
+                                isReading = false
+                                captured = nil
+                                BoardScanLog.endPass(ok: false, detail: "cancel usuario")
+                            }
+                            .font(.caption.weight(.semibold))
                         }
                     }
                 }
@@ -257,26 +259,21 @@ struct StartHubSheet: View {
                     }
                 }
             }
+            .sheet(isPresented: $showImageSourceSheet) {
+                BoardScanSourceSheet(
+                    onCamera: { showCameraPicker = true },
+                    onLibrary: { showLibraryPicker = true }
+                )
+            }
             .fullScreenCover(isPresented: $showCameraPicker, onDismiss: {
                 processCapturedImageIfNeeded()
             }) {
                 CameraPicker(image: $captured).ignoresSafeArea()
             }
-            .photosPicker(
-                isPresented: $showLibraryPicker,
-                selection: $libraryPhotoItem,
-                matching: .images,
-                photoLibrary: .shared()
-            )
-            .onChange(of: libraryPhotoItem) { _, item in
-                guard let item else { return }
-                Task { @MainActor in
-                    if let image = await BoardScanPhotoLoader.loadUIImage(from: item) {
-                        captured = image
-                        processCapturedImageIfNeeded()
-                    }
-                    libraryPhotoItem = nil
-                }
+            .fullScreenCover(isPresented: $showLibraryPicker, onDismiss: {
+                processCapturedImageIfNeeded()
+            }) {
+                LibraryPicker(image: $captured).ignoresSafeArea()
             }
         }
         .preferredColorScheme(.dark)
@@ -296,45 +293,67 @@ struct StartHubSheet: View {
     /// Dispara OCR al cerrar cámara/galería (no usar onChange de UIImage: no es Equatable fiable).
     private func processCapturedImageIfNeeded() {
         guard let image = captured else {
-            BoardScanLog.info("processCaptured: captured=nil tras dismiss")
+            BoardScanLog.info("StartHub processCaptured: nil (dismiss sin foto)")
             return
         }
         guard !isReading else {
-            BoardScanLog.info("processCaptured: ya leyendo, skip")
+            BoardScanLog.info("StartHub processCaptured: skip (ya isReading)")
             return
         }
-        Task { await runOCR(image) }
-    }
-
-    private func runOCR(_ image: UIImage) async {
+        BoardScanLog.beginPass("StartHub")
+        readingTask?.cancel()
+        let catalog = store.state.exercises.map { $0 }
         isReading = true
         errorMessage = nil
-        BoardScanLog.image(image, step: "runOCR.start")
+        readingTask = Task { @MainActor in
+            await self.executeBoardScan(image: image, catalog: catalog)
+            self.readingTask = nil
+        }
+    }
+
+    @MainActor
+    private func executeBoardScan(image: UIImage, catalog: [Exercise]) async {
         defer {
             isReading = false
             captured = nil
         }
         do {
-            let text = try await BoardTextRecognizer.recognize(in: image)
+            BoardScanLog.image(image, step: "StartHub.input")
+            BoardScanLog.step("jpeg.prep", "start")
+            guard let jpeg = BoardTextRecognizer.preparedJPEGDataOnMainIfNeeded(from: image) else {
+                throw BoardTextRecognizer.RecognizerError.invalidImage
+            }
+            BoardScanLog.jpegPrepared(bytes: jpeg.count, path: "StartHub")
+            try Task.checkCancellation()
+
+            BoardScanLog.step("vision", "start")
+            let text = try await BoardTextRecognizer.recognize(jpegData: jpeg)
             BoardScanLog.ocr(text)
-            let result = await BoardImportPipeline.interpret(
-                ocrText: text,
-                catalog: store.state.exercises
+            try Task.checkCancellation()
+
+            BoardScanLog.step("interpret", "start catalog=\(catalog.count)")
+            let result = BoardImportPipeline.interpretSync(ocrText: text, catalog: catalog)
+            BoardScanLog.step(
+                "interpret.done",
+                "blocks=\(result.blocks.count) lines=\(result.lines.count) source=\(result.source.rawValue)"
             )
             if result.blocks.isEmpty && result.lines.isEmpty {
-                BoardScanLog.error("OCR/pipeline vacío tras leer \(text.count) chars")
                 errorMessage = "No encontré texto útil. Prueba más cerca, más luz o otra foto."
+                BoardScanLog.endPass(ok: false, detail: "sin bloques ni líneas")
                 return
             }
             reviewOCR = result.ocrText
             reviewBlocks = result.blocks
             reviewLines = result.lines
             reviewSource = result.source
-            BoardScanLog.info("Navegando a revisión (\(result.source.rawValue))")
             path.append(StartHubRoute.boardReview)
+            BoardScanLog.endPass(ok: true, detail: result.source.rawValue)
+        } catch is CancellationError {
+            BoardScanLog.endPass(ok: false, detail: "cancelled")
         } catch {
-            BoardScanLog.error("runOCR: \(error.localizedDescription)")
+            BoardScanLog.error("StartHub.scan: \(error.localizedDescription)")
             errorMessage = error.localizedDescription
+            BoardScanLog.endPass(ok: false, detail: error.localizedDescription)
         }
     }
 }

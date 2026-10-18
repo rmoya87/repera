@@ -1,9 +1,9 @@
 import Foundation
 import GymbroDomain
 
-/// OCR → Apple Intelligence (si hay) → si no, parser local gratis.
+/// OCR → parser lite síncrono. Sin hilos, sin IA, sin BoardImportParser pesado.
 enum BoardImportPipeline {
-    enum Source: String, Sendable {
+    enum Source: String, Sendable, Hashable {
         case appleIntelligence
         case localRules
 
@@ -22,90 +22,31 @@ enum BoardImportPipeline {
         var source: Source
     }
 
+    /// Síncrono y barato. `async` solo para encajar en callers existentes.
     static func interpret(ocrText: String, catalog: [Exercise]) async -> Result {
-        // 1) Parser local primero: si ya hay ≥2 bloques con movimientos, no llamar a la IA.
-        let localBlocks = BoardImportParser.parseBlocks(ocrText: ocrText, catalog: catalog)
-        let localMovements = localBlocks.reduce(0) { $0 + $1.movements.filter { !$0.isRest }.count }
-        if localBlocks.count >= 2, localMovements >= 2 {
-            var lines = BoardImportParser.parse(ocrText: ocrText, catalog: catalog)
-            if lines.isEmpty {
-                lines = linesFrom(blocks: localBlocks, catalog: catalog, ocrText: ocrText)
-            }
-            BoardScanLog.parse(
-                blocks: localBlocks.count,
-                lines: lines.count,
-                movements: localMovements
-            )
-            BoardScanLog.info("Pipeline: fuente=localRules (skip IA · ≥2 bloques)")
-            return Result(ocrText: ocrText, blocks: localBlocks, lines: lines, source: .localRules)
-        }
+        interpretSync(ocrText: ocrText, catalog: catalog)
+    }
 
-        // 2) Mini-IA on-device si el dispositivo lo permite (gratis con Apple Intelligence).
-        if let aiBlocks = await BoardAIImporter.interpret(ocrText: ocrText), !aiBlocks.isEmpty {
-            let enriched = enrich(blocks: aiBlocks, catalog: catalog)
-            let lines = linesFrom(blocks: enriched, catalog: catalog, ocrText: ocrText)
-            BoardScanLog.parse(
-                blocks: enriched.count,
-                lines: lines.count,
-                movements: enriched.reduce(0) { $0 + $1.movements.filter { !$0.isRest }.count }
-            )
-            BoardScanLog.info("Pipeline: fuente=appleIntelligence")
-            return Result(ocrText: ocrText, blocks: enriched, lines: lines, source: .appleIntelligence)
-        }
-
-        // 3) Fallback gratis: reglas / regex (siempre disponible).
-        var lines = BoardImportParser.parse(ocrText: ocrText, catalog: catalog)
-        if lines.isEmpty, !localBlocks.isEmpty {
-            lines = linesFrom(blocks: localBlocks, catalog: catalog, ocrText: ocrText)
-        }
-        BoardScanLog.parse(
-            blocks: localBlocks.count,
-            lines: lines.count,
-            movements: localMovements
+    static func interpretSync(ocrText: String, catalog: [Exercise]) -> Result {
+        BoardScanLog.step("pipeline.start", "lite chars=\(ocrText.count) catalog=\(catalog.count)")
+        let t0 = CFAbsoluteTimeGetCurrent()
+        let parsed = BoardScanLiteParser.parse(ocrText: ocrText, catalog: catalog)
+        let ms = Int((CFAbsoluteTimeGetCurrent() - t0) * 1000)
+        BoardScanLog.step(
+            "pipeline.local",
+            "lite \(ms)ms blocks=\(parsed.blocks.count) lines=\(parsed.lines.count)"
         )
-        BoardScanLog.info("Pipeline: fuente=localRules")
-        return Result(ocrText: ocrText, blocks: localBlocks, lines: lines, source: .localRules)
-    }
-
-    private static func linesFrom(
-        blocks: [RoutineBlock],
-        catalog: [Exercise],
-        ocrText: String
-    ) -> [BoardImportLine] {
-        let fromBlocks = blocks.flatMap(\.movements).filter { !$0.isRest }.map { move in
-            BoardImportLine(
-                raw: move.summaryLine,
-                matchedExerciseId: move.exerciseId,
-                matchedName: move.name,
-                sets: 1,
-                reps: move.reps ?? 1
+        for (i, b) in parsed.blocks.enumerated() {
+            BoardScanLog.info(
+                "    lite[\(i)] \(b.headerLabel) fmt=\(b.wodFormat?.rawValue ?? "—") moves=\(b.movements.count)"
             )
         }
-        if !fromBlocks.isEmpty { return fromBlocks }
-        return BoardImportParser.parse(ocrText: ocrText, catalog: catalog)
-    }
-
-    /// Empareja movimientos AI con el catálogo local.
-    private static func enrich(blocks: [RoutineBlock], catalog: [Exercise]) -> [RoutineBlock] {
-        blocks.map { block in
-            var b = block
-            b.movements = block.movements.map { move in
-                guard !move.isRest else { return move }
-                var m = move
-                if m.exerciseId == nil {
-                    let match = catalog.first {
-                        CrossFitGlossary.normalize($0.name) == CrossFitGlossary.normalize(m.name)
-                    } ?? catalog.first {
-                        let hay = CrossFitGlossary.normalize($0.name)
-                        let needle = CrossFitGlossary.normalize(m.name)
-                        return hay.contains(needle) || needle.contains(hay)
-                    }
-                    m.exerciseId = match?.id
-                    if let match { m.name = match.name }
-                }
-                return m
-            }
-            return b
-        }
+        BoardScanLog.step("pipeline.done", "source=localRules (lite)")
+        return Result(
+            ocrText: ocrText,
+            blocks: parsed.blocks,
+            lines: parsed.lines,
+            source: .localRules
+        )
     }
 }
