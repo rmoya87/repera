@@ -44,10 +44,12 @@
 
 ### Center (`CenterView`)
 
-- Pestaña nativa dedicada a centros, clases y futuras reservas.
+- Pestaña nativa dedicada a centros y reservas, con selector **Clases · Citas**.
+- **Clases**: calendario grupal, plazas, reservas, lista de espera y saldo aplicable al gimnasio (pendiente de conexión).
+- **Citas**: agenda de disponibilidad para reservar sesiones **individuales** con entrenadores personales (pendiente de conexión); contrato, bono y reglas independientes de los de clases grupales.
 - **Estado real actual:** sin integración de sesiones Supabase en iOS ni tablas de clases/bonos desplegadas; no se inventan horarios ni cuotas.
 - Los centros vinculados, plazas, reservas confirmadas/espera y saldos se integrarán en esta vista cuando existan los endpoints autenticados y controles RLS.
-- Las reservas confirmadas deberán reflejarse también en **Inicio** al completar la integración. No está operativo todavía.
+- Las **clases y citas individuales confirmadas** deberán reflejarse también en **Inicio** al completar la integración. No está operativo todavía.
 
 ### Progreso (`StatsView`)
 

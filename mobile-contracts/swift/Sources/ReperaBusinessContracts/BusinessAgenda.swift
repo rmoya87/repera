@@ -3,7 +3,7 @@ import Foundation
 /// Repera Business wire contract shared by Swift and Kotlin clients.
 /// This is an ADDITIVE agenda overlay: it never replaces the athlete's LocalStore or iCloud JSON.
 public struct BusinessAgendaEvent: Codable, Sendable, Hashable, Identifiable {
-    public enum Kind: String, Codable, Sendable { case training, `class` }
+    public enum Kind: String, Codable, Sendable { case training, `class`, appointment }
     public let id: String
     public let kind: Kind
     public let date: String // yyyy-MM-dd in organization's timezone; not a UTC timestamp
@@ -28,7 +28,7 @@ public struct BusinessAgendaEvent: Codable, Sendable, Hashable, Identifiable {
     }
     /// External URLs cannot be injected into Repera deep-link navigation.
     public var isValidLink: Bool {
-        let allowed=["repera://diary/","repera://classes/","repera://today/","repera://passes/"]
+        let allowed=["repera://diary/","repera://classes/","repera://appointments/","repera://today/","repera://passes/"]
         return allowed.contains(where: { deepLink.hasPrefix($0) }) && !deepLink.contains("?") && !deepLink.contains("#")
     }
 }

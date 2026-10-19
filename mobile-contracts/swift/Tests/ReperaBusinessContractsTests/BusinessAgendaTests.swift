@@ -19,4 +19,30 @@ final class BusinessAgendaTests: XCTestCase {
         XCTAssertEqual(merged.count,2)
         XCTAssertEqual(merged.first(where:{$0.id=="x"})?.title,"Después")
     }
+
+    func testPersonalTrainingAppointmentOnTheSameDay() throws {
+        let json = """
+        {"schema_version":1,"org_id":"org","client_id":"c1","cursor":null,
+         "events":[{"id":"booking-pt-1","kind":"appointment","date":"2026-10-19",
+         "title":"Sesión individual","source":"professional","assignment_id":null,
+         "booking_id":"booking-pt-1","exercise_text":null,
+         "deep_link":"repera://appointments/appointment-1"}]}
+        """
+        let response = try JSONDecoder().decode(BusinessAgendaResponse.self, from: Data(json.utf8))
+        let appointment = try XCTUnwrap(response.events.first)
+        XCTAssertEqual(appointment.kind, .appointment)
+        XCTAssertEqual(appointment.bookingId, "booking-pt-1")
+        XCTAssertTrue(appointment.isValidLink)
+
+        let workout = BusinessAgendaEvent(
+            id: "local-overlay", kind: .training, date: "2026-10-19",
+            title: "Entrenamiento del coach", deepLink: "repera://diary/workout-1"
+        )
+        let merged = BusinessAgendaMerger.merge(existing: [workout], incoming: [appointment])
+        XCTAssertEqual(merged.count, 2)
+        XCTAssertFalse(BusinessAgendaEvent(
+            id: "wrong", kind: .appointment, date: "2026-10-19",
+            title: "No permitida", deepLink: "https://external.example/appointment"
+        ).isValidLink)
+    }
 }

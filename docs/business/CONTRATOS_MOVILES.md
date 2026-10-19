@@ -16,3 +16,9 @@ No sustituir `AppState` local ni el espejo iCloud de iOS. Supabase guardará pri
 
 ## Deep links (diseño)
 Requerir destino exacto y autorización vigente, con fallback seguro si no hay permisos: plan asignado, clase, reserva, cambio de horario y mensaje relevante. Ningún payload de push con secretos o datos clínicos.
+
+## Sesiones individuales en Center
+
+La agenda compartida v1 admite eventos `kind=appointment` junto a `training` y `class`. Los eventos individuales llevan `booking_id` cuando exista reserva y usan un enlace interno de la forma `repera://appointments/{appointmentId}` (no URL externa). El backend debe validar siempre propietario, vínculo profesional, estado de reserva y permisos de lectura al resolver el enlace.
+
+Las **clases** consumen los derechos del producto de clases y las **citas individuales** los del producto de entrenador personal. No convertir créditos de uno en otro silenciosamente. El backend debe ofrecer intervalos disponibles y reservas atómicas; ambos tipos de reserva se mostrarán de forma aditiva en Inicio, sin borrar rutinas locales o historial iCloud. Este contrato todavía no implica endpoints disponibles.

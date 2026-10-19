@@ -42,3 +42,14 @@ En la navegación del deportista: **Inicio / Diario / Center / Progreso / Ejerci
 **Dependencias no implementadas:** identidad Apple→Supabase y relación consentida, publicación de planes, eventos en agenda móvil, reservas transaccionales, catálogo de servicios y saldos, webhooks/pagos, notificaciones y deep links.
 
 **Decisiones de producto pendientes de validación:** qué hacer cuando el usuario tenga varios entrenadores y gimnasios; visibilidad de planes personales junto al plan profesional; cancelación/reembolso de reservas y bonos; qué significa «gestionar» (renovación, baja, cambio de plan, congelación) según contrato y normativa aplicable. Defaults seguros: agregación ordenada por centro, origen claramente etiquetado, no auto-compras, no publicar historial/Salud sin consentimiento, no prometer reintegro hasta transacción confirmada.
+
+## Confirmación de producto: Center → Clases y Citas (2026-10-19)
+
+- **Clases**: actividades grupales con aforo y lista de espera; reservas y cancelaciones gestionadas mediante transacciones servidor. Los permisos y créditos se comprueban en cada reserva.
+- **Citas**: sesiones **1:1** con entrenador personal (independiente o perteneciente a un centro), sobre huecos ofrecidos por el profesional. Cada cita ocupa un bloque de tiempo exclusivo del entrenador y, si aplica, de una sala. No hay lista de espera por defecto para citas 1:1.
+- **Contratos separados**: un bono de gimnasio no paga automáticamente una cita con entrenador ni viceversa. Los productos indican tipo de servicio, emisor, crédito/saldo, validez y condiciones particulares; el cliente puede pertenecer a varios centros y contratar distintos entrenadores.
+- **Inicio y Ajustes**: tanto citas confirmadas como clases confirmadas aparecen en el día de Inicio; Ajustes muestra contrato, sesiones restantes, renovaciones y caducidad por profesional/centro, sin confundirlo con Repera Pro.
+- **Concurrencia e idempotencia**: bloquear un hueco de entrenador y su eventual recurso físico, evitar doble reserva en franjas solapadas, reintentos seguros y prohibir saldo negativo. Las cancelaciones siguen reglas explícitas del emisor y actualizan el ledger en la misma transacción.
+- **Privacidad**: compartir reservas con el profesional/centro solo según vínculo autorizado. Nunca compartir historial local/HealthKit al confirmar una cita.
+
+**Estado actual:** selector Clases/Citas implementado en SwiftUI y contrato de agenda ampliado a `kind=appointment` en Swift/Kotlin; no hay disponibilidad ni reservas reales desplegadas en Supabase ni conectadas a iOS. La disponibilidad, las citas, la conciliación de bonos y las políticas de cancelación deberán tener pruebas backend y E2E antes de habilitar acciones de pago/reserva.

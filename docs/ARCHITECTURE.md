@@ -112,7 +112,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 
 ## Navegación (tabs)
 
-`RootTabView`: **Inicio · Diario · Center · Progreso · Ejercicios**. El antiguo `StartHubSheet` se presenta desde Inicio mediante +; el flujo de sesión y todas sus herramientas se conservan. `CenterView` es nativa y muestra estados vacíos auténticos hasta conectar datos profesionales.
+`RootTabView`: **Inicio · Diario · Center · Progreso · Ejercicios**. El antiguo `StartHubSheet` se presenta desde Inicio mediante +; el flujo de sesión y todas sus herramientas se conservan. `CenterView` es nativa, divide **Clases / Citas individuales** en un selector y muestra estados vacíos auténticos hasta conectar datos profesionales.
 
 - Flujo de entreno: overlay `NavigationStack` (`sessionPreview` → `workout`).
 - Tab bar: `minimize` solo con sesión activa; accessory **Continuar**.
