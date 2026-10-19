@@ -39,3 +39,7 @@ La organización se crea con `created_by=auth.uid()` y un trigger crea su primer
 
 ## Próximas migraciones
 Tablas de invitaciones con token de un solo uso; enlaces entrenador-cliente y consentimiento con revocación; sedes/salas; versión/asignación de planes; clases/aforo/reservas/espera/créditos; catálogo comercial B2B y pagos B2C separados, webhooks y auditoría. Definir idempotency keys y transacciones atómicas por operación.
+
+## Entrenamientos profesionales (20261019203258)
+
+Tabla `professional_training_sessions`: identificador, organización, cliente vinculado, coach emisor, fecha, título, instrucciones, prescripción JSON y estado. Solo se puede publicar mediante RPC validada e idempotente; la escritura directa está revocada. RLS permite lectura únicamente al atleta vinculado, al profesional asignado y al administrador del centro; no comparte workouts personales. `assign_coach_client` valida miembro con rol coach activo, cliente vinculado y gestor autorizado. `supabase/tests/professional_sessions_smoke.sql` prueba los límites.

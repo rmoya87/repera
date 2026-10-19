@@ -88,3 +88,19 @@ test('Booking and courtesy methods only hit protected Supabase routes',async()=>
  assert.ok(rpc.every(x=>x.options.headers.Authorization==='Bearer backend-jwt'));
  await assert.rejects(()=>api.grantCourtesyPass({orgId:userId,clientId:userId,kind:'paid',credits:1,validUntil:'2030-01-01'}),/inválido/);
 });
+
+test('Authenticated professional plan publication uses RPC with immutable idempotency key',async()=>{
+ const calls=[];
+ const api=new ReperaAuthAPI({publishableKey:key,storage:storage(),fetcher:async(url,options)=>{
+  calls.push({url,options});
+  if(url.includes('grant_type=password'))return response({access_token:'plan-jwt',refresh_token:'r1',expires_in:3600});
+  if(url.endsWith('/auth/v1/user'))return response({id:userId});
+  if(url.includes('/rpc/'))return response(userId);
+  return response([]);
+ }});
+ await api.signIn('a@example.test','12345678');
+ await api.publishProfessionalSession({orgId:userId,clientId:userId,date:'2026-10-21',title:'Fuerza A',instructions:'3x8',requestId:userId});
+ const req=calls.find(x=>x.url.endsWith('/rpc/publish_professional_session'));
+ assert.deepEqual(JSON.parse(req.options.body),{p_org:userId,p_client:userId,p_day:'2026-10-21',p_title:'Fuerza A',p_instructions:'3x8',p_request:userId});
+ assert.equal(req.options.headers.Authorization,'Bearer plan-jwt');
+});

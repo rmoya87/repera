@@ -72,6 +72,13 @@
 - Ajustes lee los centros vinculados y el saldo/caducidad reales de cada bono, separados de Repera Pro. No permite compra/facturación no verificada.
 - **Pendiente crítico**: compilar bajo Xcode iOS 27 y validar Apple OAuth provider, respuesta del SDK, errores de PostgREST, sesiones y flujos completos. Sin tests manuales reales, no declarar listo para producción.
 
+## Entrenamientos del entrenador — backend + web
+- Migración `20261019203258_business_professional_training_sessions` crea sesiones fechadas con RLS por cliente y entrenador autorizado, publicaciones idempotentes y cancelación restringida. La ficha del usuario solo se comparte si la invitación fue aceptada.
+- RPC `assign_coach_client` permite que owner/admin asigne un entrenador activo al cliente, sin escritura directa en tabla de relaciones.
+- Panel conectado: listar sesiones profesionales, publicar entrenamientos fechados y asignar entrenadores a clientes vinculados.
+- Smoke PostgreSQL `professional_sessions_smoke_pass`: owner publica, duplicado no se añade, deportista vinculado lee, deportista no puede suplantar al entrenador; 0 datos persistidos.
+- Pendiente editor semanal 1–52 semanas con bloques estructurados, versiones, histórico de cambios y entrega de entrenos completos ejecutables en iOS.
+
 ## PENDIENTE
 - Completar integración Auth extremo a extremo en navegador (confirmación de correo, dominios redirect, correo SMTP, refresh de sesión real, recuperación y logout en dispositivos).
 - Invitaciones, membresía administrada transaccionalmente y consentimientos.
