@@ -16,11 +16,12 @@ concurrency:
 jobs:
   domain-tests:
     name: ReperaDomain swift test
-    runs-on: macos-15
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v4
       - name: Swift tests (strict concurrency package)
         run: |
+          swift --version
           cd Packages/ReperaDomain
           swift test
 
@@ -56,7 +57,7 @@ jobs:
 
   xcode-build:
     name: XcodeGen + build + test
-    runs-on: macos-15
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v4
       - name: Select Xcode / require iOS 27 SDK
