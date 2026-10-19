@@ -13,6 +13,7 @@ struct SettingsView: View {
     @Environment(OnboardingStore.self) private var onboarding
     @Environment(WorkoutLocationTracker.self) private var location
     @Environment(\.openURL) private var openURL
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var goalText = ""
     @State private var exportURL: URL?
     @State private var showingImporter = false
@@ -101,15 +102,32 @@ struct SettingsView: View {
                 }
 
                 Button {
-                    Task { await store.refreshFromiCloud() }
+                    Task { await store.refreshFromiCloud(waitForUpload: true) }
                 } label: {
-                    if store.isSyncingiCloud {
-                        ProgressView()
-                    } else {
-                        Label("Sincronizar ahora", systemImage: "arrow.triangle.2.circlepath")
+                    HStack(spacing: 10) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .rotationEffect(
+                                .degrees(store.isSyncingiCloud && !reduceMotion ? 360 : 0),
+                                anchor: .center
+                            )
+                            .animation(
+                                store.isSyncingiCloud && !reduceMotion
+                                    ? .linear(duration: 0.9).repeatForever(autoreverses: false)
+                                    : nil,
+                                value: store.isSyncingiCloud
+                            )
+                            .accessibilityHidden(true)
+                        Text(store.isSyncingiCloud ? "Sincronizando…" : "Sincronizar ahora")
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .disabled(store.iCloudStatus == .signedOut || store.isSyncingiCloud)
+                .disabled(!appleAuth.isSignedIn || store.iCloudStatus != .available || store.isSyncingiCloud)
+
+                if let syncMessage = store.lastiCloudSyncMessage, !syncMessage.isEmpty {
+                    Text(syncMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
 
                 Button("Cerrar sesión", role: .destructive) {
                     confirmSignOut = true
@@ -509,19 +527,16 @@ struct SettingsView: View {
         } message: {
             Text(restoreMessage ?? "")
         }
-        .sheet(isPresented: $confirmSignOut) {
-            OGConfirmSheet(
-                systemImage: "person.crop.circle.badge.xmark",
-                title: "¿Cerrar sesión?",
-                message: "Volverás a la pantalla de Sign in with Apple. Tus datos locales se conservan.",
-                confirmTitle: "Cerrar sesión",
-                onConfirm: {
-                    appleAuth.signOut()
-                    onboarding.resetToSignIn()
-                    confirmSignOut = false
-                },
-                onCancel: { confirmSignOut = false }
-            )
+        .confirmationDialog("¿Cerrar sesión?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+            Button("Cerrar sesión", role: .destructive) {
+                confirmSignOut = false
+                subscriptions.dismissPaywall()
+                onboarding.resetToSignIn()
+                appleAuth.signOut()
+            }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Volverás a la pantalla inicial de login. Tus datos locales se conservan.")
         }
         .task {
             health.refreshAuthorizationStatus()
