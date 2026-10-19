@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-19 (Ajustes cuenta/iCloud, ubicación al Play, peso)
+Última actualización: 2026-10-19 (cierre de sesión, sincronización verificada de iCloud, ubicación y peso)
 
 ## Tabs
 
@@ -130,7 +130,7 @@
 
 - Topbar fijo transparente en Ajustes, Historial, Peso y Rotación (mismo patrón que Ejercicios).
 - Títulos de sección Form en gris encima de cada grupo.
-- **Cuenta:** Sign in with Apple, iCloud (copia de seguridad activa / estado), nombre, elegir foto, sincronizar, cerrar sesión.
+- **Cuenta:** Sign in with Apple, iCloud (copia de seguridad activa / estado), nombre y foto. «Sincronizar ahora» muestra icono girando y «Sincronizando…» hasta terminar la recuperación y confirmar la subida a iCloud (o informar del fallo / espera); no acepta toques duplicados. «Cerrar sesión» solicita confirmación, cierra la cuenta y regresa al login inicial sin borrar los datos locales.
 - **Repera Pro:** descubrir / estado activo, gestionar suscripción, restaurar compras (Debug: simulador de estados).
 - **Permisos y Apple Salud:** notificaciones, HealthKit (kcal/min; el peso va en Peso corporal), ubicación (+ enlace a Ajustes del sistema). Al dar **Play** se pide ubicación si aún está pendiente (`ensureWhenInUseAuthorized`) y se guarda el pin en la sesión activa.
 - **Peso corporal:** enlace **Peso** + objetivo; historial con origen **Propio** / **Salud** (`BodyWeightSource`).
