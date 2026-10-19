@@ -175,9 +175,15 @@ Incluye `BoardImportParserTests`, `LoadSuggestionTests`, sesión, progresión, w
 
 Guía manual: [TESTING_GUIDE.md](TESTING_GUIDE.md).
 
-## No vive aquí
+## Plataforma profesional (desarrollo separado dentro del monorepo)
 
-- Backend / auth multi-usuario
+- Primera migración Supabase del proyecto Repera aplicada con perfiles, organizaciones y RLS. No está integrada con el flujo actual Sign in with Apple ni con iCloud.
+- Plan, estado y pruebas: [docs/business/PLAN_MAESTRO.md](business/PLAN_MAESTRO.md), [docs/business/ESTADO_DESARROLLO.md](business/ESTADO_DESARROLLO.md), [docs/business/SEGURIDAD.md](business/SEGURIDAD.md).
+- El panel profesional web y Android nativo permanecen pendientes; el sitio `web/` continúa siendo **marketing** y sus ficheros de IONOS no se han cambiado.
+
+## No vive aquí todavía
+
+- Backend operativo conectado a las aplicaciones iOS/Android
 - Android
 - Coach / LLM en la nube (Foundation Models solo pizarra on-device)
 
