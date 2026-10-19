@@ -13,6 +13,7 @@ struct CenterView: View {
         var serviceKind: String { self == .classes ? "class" : "appointment" }
     }
     @State private var selectedSection: CenterSection = .classes
+    @State private var bookingPendingCancellation: BusinessBooking?
 
     var body: some View {
         NavigationStack {
@@ -119,7 +120,36 @@ struct CenterView: View {
                 }
             }
             .task { await business.refresh() }
+            .confirmationDialog(
+                "¿Cancelar la reserva?",
+                isPresented: Binding(
+                    get: { bookingPendingCancellation != nil },
+                    set: { if !$0 { bookingPendingCancellation = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                if let booking = bookingPendingCancellation {
+                    Button("Confirmar cancelación", role: .destructive) {
+                        bookingPendingCancellation = nil
+                        Task { await business.cancel(booking) }
+                    }
+                }
+            } message: {
+                Text(cancellationNotice)
+            }
         }
+    }
+
+    private var cancellationNotice: String {
+        guard let booking = bookingPendingCancellation,
+              let occurrence = business.occurrences.first(where: { $0.id == booking.occurrenceId }),
+              let startsAt = BusinessDataStore.date(occurrence.startsAt) else {
+            return "El centro aplicará su política de cancelación. Se comprobará el saldo real tras confirmar."
+        }
+        if startsAt > Date().addingTimeInterval(12 * 3600) {
+            return "Según la política provisional, recuperarás una sesión si cancelas con más de 12 horas de antelación. El servidor confirma el saldo."
+        }
+        return "Estás dentro de las últimas 12 horas: la política provisional NO devuelve la sesión utilizada. ¿Deseas cancelar de todos modos?"
     }
 
     @ViewBuilder
@@ -140,7 +170,7 @@ struct CenterView: View {
                     Label("Reservado · Aparece también en Inicio", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(OG.accent)
                     Button("Cancelar reserva", role: .destructive) {
-                        Task { await business.cancel(booking) }
+                        bookingPendingCancellation = booking
                     }
                     .disabled(business.isSubmitting)
                     Text("Política provisional: cancelaciones con más de 12 horas de antelación recuperan el crédito.")

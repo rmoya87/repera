@@ -131,12 +131,16 @@ final class BusinessDataStore {
     private(set) var availability: [UUID: BusinessAvailability] = [:]
     private(set) var trainingSessions: [BusinessProfessionalTrainingSession] = []
     private(set) var isLoading = false
+    @ObservationIgnored private var refreshRevision = 0
     private(set) var errorMessage: String?
     private(set) var isSubmitting = false
 
     private init() {}
 
     func clear() {
+        // Invalidate every in-flight response before clearing PII from a previous user.
+        refreshRevision &+= 1
+        isLoading = false
         centers = []
         invitations = []
         occurrences = []
@@ -154,8 +158,11 @@ final class BusinessDataStore {
             return
         }
         guard !isLoading else { return }
+        let revision = refreshRevision
         isLoading = true
-        defer { isLoading = false }
+        defer {
+            if refreshRevision == revision { isLoading = false }
+        }
         do {
             let user = try await client.auth.session.user
             let currentUser = user.id
@@ -200,6 +207,13 @@ final class BusinessDataStore {
                     counts[item.occurrenceId] = item
                 }
             }
+            // A logout, account change or superseding refresh must not resurrect old data.
+            guard revision == refreshRevision, BusinessAuthStore.shared.isConnected else { return }
+            let activeUserID = try? await client.auth.session.user.id
+            guard revision == refreshRevision,
+                  BusinessAuthStore.shared.isConnected,
+                  activeUserID == currentUser else { return }
+
             availability = counts
             centers = fetchedCenters
             invitations = fetchedInvitations.filter { $0.acceptedAt == nil && $0.cancelledAt == nil && (Self.date($0.expiresAt) ?? .distantPast) > Date() }
@@ -209,7 +223,8 @@ final class BusinessDataStore {
             trainingSessions = fetchedTrainingSessions.filter { ownedClientIds.contains($0.clientId) && $0.status == "scheduled" }.sorted { $0.scheduledDate < $1.scheduledDate }
             errorMessage = nil
         } catch {
-            // Do not display stale bookings or balances after an authorization/network failure.
+            // A failed request belonging to a prior session cannot reset the new session.
+            guard revision == refreshRevision else { return }
             clear()
             errorMessage = "No se han podido cargar tus centros y reservas. \(error.localizedDescription)"
         }

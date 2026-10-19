@@ -46,6 +46,9 @@ final class BusinessAuthStore {
               let boundHash = UserDefaults.standard.string(forKey: appleIdentityBindingKey),
               boundHash == Self.hashedNonce(appleUserID) else {
             isConnected = false
+            BusinessDataStore.shared.clear()
+            // A different Apple account must never reuse the previous SDK session.
+            try? await client.auth.signOut()
             return
         }
         do {
@@ -54,6 +57,7 @@ final class BusinessAuthStore {
             lastErrorMessage = nil
         } catch {
             isConnected = false
+            BusinessDataStore.shared.clear()
             // An existing Apple-only user may legitimately have no backend session yet.
             lastErrorMessage = nil
         }
@@ -89,6 +93,13 @@ final class BusinessAuthStore {
         }
         isConnecting = true
         defer { isConnecting = false }
+        // Revoking visibility first avoids showing a former athlete's center data.
+        isConnected = false
+        BusinessDataStore.shared.clear()
+        let nextBinding = Self.hashedNonce(credential.user)
+        if UserDefaults.standard.string(forKey: appleIdentityBindingKey) != nextBinding {
+            try? await client.auth.signOut()
+        }
         do {
             _ = try await client.auth.signInWithIdToken(
                 credentials: OpenIDConnectCredentials(
@@ -105,12 +116,15 @@ final class BusinessAuthStore {
         } catch {
             // Do not erase the Apple/iCloud login or past local workouts if networking fails.
             isConnected = false
+            BusinessDataStore.shared.clear()
             lastErrorMessage = "No se ha podido conectar con Repera Business: \(error.localizedDescription)"
         }
     }
 
     /// Sign out from business platform independently of the Apple/iCloud personal store.
     func signOut() async {
+        isConnected = false
+        BusinessDataStore.shared.clear()
         UserDefaults.standard.removeObject(forKey: appleIdentityBindingKey)
         if let client { try? await client.auth.signOut() }
         isConnected = false

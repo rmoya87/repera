@@ -33,3 +33,7 @@ Se ejecutó SQL como rol authenticated para dos usuarios Auth temporales, verifi
 ## Asociación de sesión Apple / Supabase en iOS (2026-10-19)
 
 `BusinessAuthStore` solo restaura una sesión Supabase si se corresponde con el identificador de Apple actual, comparando un hash SHA-256 persistido localmente. Al cerrar sesión se elimina la asociación; una identidad distinta no puede reusar por accidente tokens anteriores. Es un control local adicional a la verificación de identidad de Supabase y su RLS, no sustituye comprobaciones servidor. Pendiente de validar en TestFlight los cambios de cuenta, revocaciones y modo sin conexión.
+
+## Protección frente a respuestas tardías de sesión (2026-10-19)
+
+Al cerrar sesión o cambiar de identidad Apple, `BusinessDataStore.clear()` invalida las consultas asíncronas anteriores mediante un contador de revisión. Antes de publicar resultados de Supabase se comprueba que la revisión siga activa, que exista sesión profesional y que el identificador Auth coincida con el de inicio. `BusinessAuthStore` limpia los datos al desconectar y no reusa una sesión del SDK bajo otra cuenta Apple. Esto es una mitigación de exposición de datos en UI; no sustituye la RLS de servidor. Pendiente prueba XCTest con peticiones concurrentes y cambio de cuenta en dispositivo real.

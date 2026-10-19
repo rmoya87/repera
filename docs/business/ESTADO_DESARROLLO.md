@@ -96,6 +96,11 @@
 - El CI iOS preexistente falla en cuatro jobs incluso antes del primer paso (GitHub devuelve `steps: null`, `logs_url: null`, logs 404). Causa de infraestructura/cola por confirmar; **no son pruebas concluyentes de errores de Swift**.
 - El nuevo CI aporta diagnóstico independiente, pero sus checks tampoco sustituirán pruebas Supabase con tokens reales y E2E en iPhone.
 
+## Endurecimiento de sesión y cancelación
+- Limpieza de respuestas asíncronas obsoletas al salir/cambiar identidad Apple con `refreshRevision`, verificación de usuario Auth justo antes de presentar datos y sesión SDK cerrada si no coincide la identidad Apple local.
+- Cancelar reserva requiere confirmación nativa y expone el riesgo de perder el crédito cuando faltan 12h según la política provisional (la transacción servidor determina el resultado).
+- Pruebas Swift/iOS 27 sobre concurrencia, revocaciones y UX de cancelación pendientes; no dar por validadas sin Xcode.
+
 ## PENDIENTE
 - Completar integración Auth extremo a extremo en navegador (confirmación de correo, dominios redirect, correo SMTP, refresh de sesión real, recuperación y logout en dispositivos).
 - Invitaciones, membresía administrada transaccionalmente y consentimientos.

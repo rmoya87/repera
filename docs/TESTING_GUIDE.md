@@ -114,3 +114,10 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - Repetir con sesión iniciada y onboarding pendiente: sin zoom, estiramiento, flash negro ni salto de posición.
 - Girar a horizontal en dispositivo compatible: `scaleAspectFit` conserva la imagen entera, sin distorsión.
 - Instalar una compilación nueva (5 o posterior) para invalidar la captura de lanzamiento cacheada por iOS.
+
+## Cambio de cuenta durante sincronización profesional (pendiente de dispositivo)
+
+- [ ] Iniciar una consulta de Center/Diario con cuenta Apple A, salir e iniciar con B antes de terminar la respuesta: ninguna invitación, centro, bono o sesión de A debe volver a aparecer.
+- [ ] Cerrar sesión cuando una petición está en vuelo: la UI no repuebla datos de A.
+- [ ] Cancelar una reserva con menos de 12h: aparece confirmación avisando de la no devolución provisional de crédito; con más de 12h, explica la posible devolución y exige confirmación.
+- [ ] Tras un error de red o cambio de cuenta, el cliente nunca presenta aforo o créditos antiguos como disponibles.
