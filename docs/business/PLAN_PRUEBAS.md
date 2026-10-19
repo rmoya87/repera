@@ -3,9 +3,12 @@
 
 ## Ejecutadas sobre Supabase Repera
 - Consulta de proyecto: ACTIVE_HEALTHY, PostgreSQL 17.
-- Migraciones: versión `20261019190623`; tablas públicas: 8 y RLS todas true.
+- Migraciones: siete versiones `20261019190623`–`20261019210032`; tablas públicas: **16**, RLS todas true.
 - Advisors de seguridad: cero lints reportados.
 - `supabase/tests/rls_smoke.sql`: dos identidades simuladas en transacción, verificación de trigger, owner, RLS cross-tenant, permisos de rol y SQL de suplantación rechazado; ROLLBACK y 0 orgs persistidas.
+
+- SQL adicional probado: `clients_rls_smoke`, `invitation_rls_smoke`, `business_booking_smoke`, `professional_sessions_smoke` y `availability_rls_smoke`, usando usuarios temporales y ROLLBACK. Esto no sustituye pruebas de carga simultáneas ni Auth E2E.
+- El CI remoto falla antes de ejecutar los steps incluso para checks que no requieren Xcode. Su diagnóstico operativo se mantiene en `docs/business/RELEASE_GATE.md`.
 
 ## Próximas automatizaciones
 1. En CI de backend, aplicar todas las migraciones desde cero y verificar que el baseline se despliega sin depender del estado remoto.

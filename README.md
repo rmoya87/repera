@@ -79,7 +79,7 @@ Cold start: Splash nativo y pantalla de espera usan la misma UIImageView UIKit e
 ## No integrados aún en las apps
 
 - Android nativo: planificado, no implementado.
-- Backend Supabase de Repera: **siete migraciones aplicadas, 16 tablas públicas y RLS en las 16**, sin usuarios reales dados de alta. Panel profesional conectado a invitaciones, horarios, bonos de cortesía y entrenamientos fechados. iOS incluye puente Apple→Supabase y lectura de Center/Diario/Inicio/Ajustes, **pendiente compilar y validar con proveedor Apple y cuentas reales**. No hay Stripe, facturación, bonos de pago ni listas de espera. Ver [docs/business/ESTADO_DESARROLLO.md](docs/business/ESTADO_DESARROLLO.md).
+- Backend Supabase de Repera: **siete migraciones aplicadas, 16 tablas públicas y RLS en las 16**, sin usuarios reales dados de alta. Panel profesional conectado a invitaciones, horarios, bonos de cortesía y entrenamientos fechados. iOS incluye puente Apple→Supabase y lectura de Center/Diario/Inicio/Ajustes, **pendiente compilar y validar con proveedor Apple y cuentas reales**. No hay Stripe, facturación, bonos de pago ni listas de espera. Ver [estado real](docs/business/ESTADO_DESARROLLO.md) y [criterios y accesos necesarios para cerrar la entrega](docs/business/RELEASE_GATE.md).
 - Coach / tips con IA (sí hay Foundation Models on-device para pizarra)
 - SDK RevenueCat en Apple Watch
 
