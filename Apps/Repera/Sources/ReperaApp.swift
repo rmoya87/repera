@@ -8,6 +8,7 @@ struct ReperaApp: App {
     @State private var subscriptions = SubscriptionManager()
     @State private var appleAuth = AppleAuthStore.shared
     @State private var businessAuth = BusinessAuthStore.shared
+    @State private var businessData = BusinessDataStore.shared
     @State private var onboarding = OnboardingStore.shared
     @State private var locationTracker = WorkoutLocationTracker.shared
     @State private var wasBackgrounded = false
@@ -39,6 +40,7 @@ struct ReperaApp: App {
                 .environment(HealthKitStore.shared)
                 .environment(appleAuth)
                 .environment(businessAuth)
+                .environment(businessData)
                 .environment(onboarding)
                 .environment(locationTracker)
                 .preferredColorScheme(.dark)
@@ -74,7 +76,10 @@ struct ReperaApp: App {
                     }
 
                     if signedIn {
-                        Task(priority: .utility) { await businessAuth.restoreSession() }
+                        Task(priority: .utility) {
+                            await businessAuth.restoreSession()
+                            await businessData.refresh()
+                        }
                         await warmHealthAfterHydrate()
                     }
                 }

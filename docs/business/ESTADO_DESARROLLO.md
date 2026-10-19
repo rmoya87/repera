@@ -65,6 +65,13 @@
 - `ReperaApp` restaura la sesión profesional asíncronamente; al cerrar sesión también solicita cierre de Supabase.
 - **Falta compilar y ejecutar iOS 27/TestFlight**, configurar/verificar el proveedor Apple de Supabase, probar login real y sesiones; sin ello NO afirmar que todas las cuentas ya estén registradas.
 
+## Datos reales del deportista en iOS (implementación a validar)
+- `BusinessDataStore` consulta organizaciones vinculadas, invitaciones pendientes, horarios reales, pases y reservas de titular mediante el SDK Supabase y las políticas RLS.
+- `CenterView` muestra clases/citas reales, aceptación de invitaciones, reserva con bono compatible y cancelación mediante RPC transaccional (no opera sin sesión).
+- `HomeView` añade tarjetas de clases/citas **confirmadas** en el día seleccionado, sin alterar `ReperaStore`/iCloud/HealthKit.
+- Ajustes lee los centros vinculados y el saldo/caducidad reales de cada bono, separados de Repera Pro. No permite compra/facturación no verificada.
+- **Pendiente crítico**: compilar bajo Xcode iOS 27 y validar Apple OAuth provider, respuesta del SDK, errores de PostgREST, sesiones y flujos completos. Sin tests manuales reales, no declarar listo para producción.
+
 ## PENDIENTE
 - Completar integración Auth extremo a extremo en navegador (confirmación de correo, dominios redirect, correo SMTP, refresh de sesión real, recuperación y logout en dispositivos).
 - Invitaciones, membresía administrada transaccionalmente y consentimientos.

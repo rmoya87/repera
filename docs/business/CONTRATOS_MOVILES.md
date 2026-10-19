@@ -28,3 +28,9 @@ Requerir destino exacto y autorización vigente, con fallback seguro si no hay p
 La agenda compartida v1 admite eventos `kind=appointment` junto a `training` y `class`. Los eventos individuales llevan `booking_id` cuando exista reserva y usan un enlace interno de la forma `repera://appointments/{appointmentId}` (no URL externa). El backend debe validar siempre propietario, vínculo profesional, estado de reserva y permisos de lectura al resolver el enlace.
 
 Las **clases** consumen los derechos del producto de clases y las **citas individuales** los del producto de entrenador personal. No convertir créditos de uno en otro silenciosamente. El backend debe ofrecer intervalos disponibles y reservas atómicas; ambos tipos de reserva se mostrarán de forma aditiva en Inicio, sin borrar rutinas locales o historial iCloud. Este contrato todavía no implica endpoints disponibles.
+
+## Datos de servicios en iOS (implementación inicial)
+
+`BusinessDataStore.swift` consulta `organizations`, `organization_invitations`, `clients` (para filtrar las fichas del usuario), `service_occurrences`, `service_passes` y `service_bookings` directamente con la sesión Supabase autenticada. RLS sigue siendo la frontera de seguridad; la selección local adicional por `client_id` es para evitar mostrar reservas ajenas a un usuario que también administre un centro.
+
+`CenterView`: selección Clases/Citas, acciones aceptar invitación, reservar por bono compatible y cancelar; `HomeView`: reservas confirmadas del día; `SettingsView`: centros y saldos por tipo de servicio. La programación profesional en Diario y el histórico de entrenamientos permanecen sin sincronizar hasta publicar versiones de planes. No se suben entrenamientos privados.

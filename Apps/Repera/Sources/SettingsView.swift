@@ -11,6 +11,7 @@ struct SettingsView: View {
     @Environment(SubscriptionManager.self) private var subscriptions
     @Environment(AppleAuthStore.self) private var appleAuth
     @Environment(BusinessAuthStore.self) private var businessAuth
+    @Environment(BusinessDataStore.self) private var businessData
     @Environment(OnboardingStore.self) private var onboarding
     @Environment(WorkoutLocationTracker.self) private var location
     @Environment(\.openURL) private var openURL
@@ -123,8 +124,12 @@ struct SettingsView: View {
 
             Section {
                 LabeledContent("Repera Business", value: businessAuth.isConnected ? "Conectada" : "Sin conectar")
-                LabeledContent("Entrenador personal", value: "Sin cargar")
-                LabeledContent("Gimnasios y centros", value: "Sin cargar")
+                ForEach(businessData.centers) { center in
+                    LabeledContent(center.kind == "personal_trainer" ? "Entrenador" : "Centro", value: center.name)
+                }
+                if businessData.centers.isEmpty {
+                    LabeledContent("Centros vinculados", value: "Ninguno")
+                }
                 if !businessAuth.isConnected {
                     Button("Conectar cuenta Apple con Repera") {
                         Task { try? await appleAuth.signIn() }
@@ -136,7 +141,9 @@ struct SettingsView: View {
                             .foregroundStyle(OG.red)
                     }
                 }
-                Text("Conectarte permite identificarte en Supabase. La lista de centros y entrenadores aparecerá cuando se implemente su consulta desde la app. Tus entrenamientos personales permanecen privados en iCloud.")
+                Text("Solo se muestran vínculos aceptados y autorizados en Supabase. El historial personal sigue siendo privado en iCloud.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
@@ -144,9 +151,26 @@ struct SettingsView: View {
             }
 
             Section {
-                LabeledContent("Bonos y sesiones", value: "Sin sincronizar")
-                LabeledContent("Caducidades", value: "Sin sincronizar")
-                Text("Se mostrarán tus servicios contratados, sesiones disponibles, fecha de renovación y opciones de gestión cuando el centro habilite el contrato y su consulta segura. No se confunden con Repera Pro.")
+                if businessData.passes.isEmpty {
+                    LabeledContent("Bonos y sesiones", value: "Sin bonos activos")
+                } else {
+                    ForEach(businessData.passes) { pass in
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(businessData.centerName(pass.orgId))
+                                .font(.headline)
+                            Text(pass.kind == "appointment" ? "Sesiones de entrenador personal" : "Clases de gimnasio")
+                                .font(.subheadline)
+                            Text("\(pass.remainingCredits) de \(pass.totalCredits) sesiones disponibles")
+                                .foregroundStyle(OG.accent)
+                            if let end = BusinessDataStore.date(pass.validUntil) {
+                                Text("Caduca: \(end.formatted(date: .abbreviated, time: .omitted))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                Text("Los bonos mostrados están emitidos por el centro. La compra, renovación o cambio de contrato todavía se tramita con el profesional; Repera Pro es independiente.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
@@ -550,6 +574,7 @@ struct SettingsView: View {
                 confirmTitle: "Cerrar sesión",
                 onConfirm: {
                     appleAuth.signOut()
+                    businessData.clear()
                     Task { await businessAuth.signOut() }
                     onboarding.resetToSignIn()
                     confirmSignOut = false

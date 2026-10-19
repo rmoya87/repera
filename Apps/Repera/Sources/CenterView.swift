@@ -1,23 +1,17 @@
 import SwiftUI
 
-/// Entry point for the athlete's center and personal-training services.
-/// Availability, bookings and entitlements must come from authenticated Supabase data.
-/// Until that integration exists, do not show fictional slots or allow fake bookings.
+/// Center: real class and personal appointment availability from Supabase.
+/// Never invents slots or counts. All booking/credit mutations are server-side RPCs.
 struct CenterView: View {
+    @Environment(BusinessAuthStore.self) private var auth
+    @Environment(BusinessDataStore.self) private var business
+
     private enum CenterSection: String, CaseIterable, Identifiable {
-        case classes
-        case appointments
-
+        case classes, appointments
         var id: Self { self }
-
-        var title: String {
-            switch self {
-            case .classes: "Clases"
-            case .appointments: "Citas"
-            }
-        }
+        var title: String { self == .classes ? "Clases" : "Citas" }
+        var serviceKind: String { self == .classes ? "class" : "appointment" }
     }
-
     @State private var selectedSection: CenterSection = .classes
 
     var body: some View {
@@ -26,24 +20,56 @@ struct CenterView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     OGCardSectionTitle(title: "Mis centros y entrenadores")
 
-                    OGCard {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Image(systemName: "building.2")
-                                .font(.system(size: 34, weight: .medium))
-                                .foregroundStyle(OG.accent)
-
-                            Text("Tu espacio de entrenamiento")
-                                .font(.title3.weight(.semibold))
-                                .foregroundStyle(OG.label)
-
-                            Text("Aquí aparecerán tus centros y entrenadores personales cuando aceptes su invitación.")
-                                .font(.subheadline)
-                                .foregroundStyle(OG.label2)
+                    if !auth.isConnected {
+                        OGCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Label("Conecta tu cuenta para consultar tus centros", systemImage: "person.crop.circle.badge.questionmark")
+                                    .font(.headline)
+                                Text("En Ajustes puedes autorizar tu identidad Apple en Repera Business. Tus entrenamientos personales no se comparten.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(OG.label2)
+                                NavigationLink("Abrir Ajustes") { SettingsView() }
+                                    .foregroundStyle(OG.accent)
+                            }
+                        }
+                    } else {
+                        if business.isLoading {
+                            ProgressView("Sincronizando centros…").tint(OG.accent)
+                        }
+                        if let message = business.errorMessage {
+                            Text(message).foregroundStyle(OG.red).font(.footnote)
+                        }
+                        if business.centers.isEmpty && business.invitations.isEmpty {
+                            OGCard {
+                                Text("Todavía no perteneces a ningún centro. Tu entrenador o gimnasio puede invitarte al correo de tu cuenta.")
+                                    .foregroundStyle(OG.label2)
+                            }
+                        }
+                        ForEach(business.invitations) { invitation in
+                            OGCard {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Label("Invitación a un centro", systemImage: "envelope.badge")
+                                        .font(.headline)
+                                    Text("Perfil: \(invitation.invitedRole). Aceptar la invitación vinculará tu cuenta, pero no compartirá tu historial deportivo personal.")
+                                        .font(.footnote)
+                                        .foregroundStyle(OG.label2)
+                                    Button("Aceptar invitación") {
+                                        Task { await business.accept(invitation) }
+                                    }
+                                    .disabled(business.isSubmitting)
+                                    .foregroundStyle(OG.accent)
+                                }
+                            }
+                        }
+                        ForEach(business.centers) { center in
+                            OGCard {
+                                Label(center.name, systemImage: center.kind == "personal_trainer" ? "person.fill" : "building.2")
+                                    .font(.headline)
+                            }
                         }
                     }
 
                     OGCardSectionTitle(title: "Reservas")
-
                     Picker("Tipo de reserva", selection: $selectedSection) {
                         ForEach(CenterSection.allCases) { section in
                             Text(section.title).tag(section)
@@ -52,77 +78,92 @@ struct CenterView: View {
                     .pickerStyle(.segmented)
                     .accessibilityLabel("Clases o citas personales")
 
-                    switch selectedSection {
-                    case .classes:
-                        classesEmptyState
-                    case .appointments:
-                        appointmentsEmptyState
+                    let available = business.occurrences.filter {
+                        $0.kind == selectedSection.serviceKind
+                            && (BusinessDataStore.date($0.startsAt) ?? .distantPast) > Date()
+                    }
+
+                    if available.isEmpty {
+                        OGCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Label(selectedSection == .classes ? "Sin clases disponibles" : "Sin citas disponibles",
+                                      systemImage: "calendar.badge.clock")
+                                    .font(.headline)
+                                Text("Se mostrarán aquí los horarios reales que publique tu centro o entrenador.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(OG.label2)
+                            }
+                        }
+                    }
+                    ForEach(available) { occurrence in
+                        occurrenceCard(occurrence)
                     }
 
                     NavigationLink {
                         SettingsView()
                     } label: {
-                        Label("Ver mis centros, entrenadores y bonos", systemImage: "person.crop.circle")
-                            .font(.subheadline.weight(.semibold))
+                        Label("Ver centros, entrenadores y bonos", systemImage: "person.crop.circle")
                             .foregroundStyle(OG.accent)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.vertical, 10)
                     }
-                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, OG.pad)
                 .padding(.top, 12)
                 .padding(.bottom, 40)
             }
             .background(OG.bg)
-            .ogFixedTopBar("Center") { EmptyView() }
-        }
-    }
-
-    private var classesEmptyState: some View {
-        OGCard {
-            VStack(alignment: .leading, spacing: 12) {
-                Label("Clases del gimnasio", systemImage: "calendar")
-                    .font(.headline)
-                    .foregroundStyle(OG.label)
-
-                Text("Consulta el calendario, las plazas disponibles y la lista de espera de tus centros cuando estén sincronizados.")
-                    .font(.subheadline)
-                    .foregroundStyle(OG.label2)
-
-                Label("Las clases reservadas aparecerán en Inicio.", systemImage: "house")
-                    .font(.footnote)
-                    .foregroundStyle(OG.label2)
-
-                Text("Sin clases sincronizadas")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(OG.label2)
+            .ogFixedTopBar("Center") {
+                OGToolbarGlassButton(systemName: "arrow.clockwise", accessibilityLabel: "Actualizar Center") {
+                    Task { await business.refresh() }
+                }
             }
+            .task { await business.refresh() }
         }
     }
 
-    private var appointmentsEmptyState: some View {
+    @ViewBuilder
+    private func occurrenceCard(_ occurrence: BusinessOccurrence) -> some View {
         OGCard {
-            VStack(alignment: .leading, spacing: 12) {
-                Label("Sesiones con tu entrenador", systemImage: "calendar.badge.clock")
+            VStack(alignment: .leading, spacing: 10) {
+                Text(occurrence.title)
                     .font(.headline)
                     .foregroundStyle(OG.label)
-
-                Text("Cuando tu entrenador habilite su agenda, podrás elegir un horario libre para una sesión individual y consultar tus citas.")
+                Text(business.centerName(occurrence.orgId))
+                    .foregroundStyle(OG.label2)
                     .font(.subheadline)
-                    .foregroundStyle(OG.label2)
-
-                Label("Los bonos personales y las condiciones de cancelación se gestionan por separado de las clases del gimnasio.", systemImage: "ticket")
-                    .font(.footnote)
-                    .foregroundStyle(OG.label2)
-
-                Label("Las citas confirmadas aparecerán en Inicio.", systemImage: "house")
-                    .font(.footnote)
-                    .foregroundStyle(OG.label2)
-
-                Text("Sin citas sincronizadas")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(OG.label2)
+                if let start = BusinessDataStore.date(occurrence.startsAt) {
+                    Text(start.formatted(date: .abbreviated, time: .shortened))
+                        .font(.subheadline)
+                }
+                if let booking = business.booking(for: occurrence.id) {
+                    Label("Reservado · Aparece también en Inicio", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(OG.accent)
+                    Button("Cancelar reserva", role: .destructive) {
+                        Task { await business.cancel(booking) }
+                    }
+                    .disabled(business.isSubmitting)
+                    Text("Política provisional: cancelaciones con más de 12 horas de antelación recuperan el crédito.")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                } else {
+                    let wallets = business.availablePasses(for: occurrence)
+                    if wallets.isEmpty {
+                        Text("Necesitas un bono vigente de este servicio para reservar.")
+                            .font(.footnote)
+                            .foregroundStyle(OG.label2)
+                    } else {
+                        ForEach(wallets) { pass in
+                            Button {
+                                Task { await business.book(occurrence, using: pass) }
+                            } label: {
+                                Label("Reservar · \(pass.remainingCredits) sesiones disponibles", systemImage: "checkmark.circle")
+                                    .foregroundStyle(OG.accent)
+                            }
+                            .disabled(business.isSubmitting)
+                        }
+                    }
+                }
             }
         }
     }

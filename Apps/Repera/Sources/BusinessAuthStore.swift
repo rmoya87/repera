@@ -19,6 +19,8 @@ final class BusinessAuthStore {
     @ObservationIgnored
     private let client: SupabaseClient?
 
+    var apiClient: SupabaseClient? { client }
+
     private init() {
         let urlString = Bundle.main.object(forInfoDictionaryKey: "ReperaSupabaseURL") as? String
         let key = Bundle.main.object(forInfoDictionaryKey: "ReperaSupabasePublishableKey") as? String
@@ -87,6 +89,7 @@ final class BusinessAuthStore {
             )
             isConnected = true
             lastErrorMessage = nil
+            await BusinessDataStore.shared.refresh()
         } catch {
             // Do not erase the Apple/iCloud login or past local workouts if networking fails.
             isConnected = false

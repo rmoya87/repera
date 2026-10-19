@@ -177,6 +177,9 @@ Incluye `BoardImportParserTests`, `LoadSuggestionTests`, sesión, progresión, w
 
 Guía manual: [TESTING_GUIDE.md](TESTING_GUIDE.md).
 
+## Datos reales de Centro/bonos en iOS
+`BusinessDataStore.swift` es un overlay `@Observable` alimentado por Supabase SDK autenticado. `CenterView` lee Clases/Citas, bonos y reservas para ofrecer acciones RPC; `HomeView` integra reservas confirmadas; Ajustes muestra los centros y saldos. No se fusiona con el JSON local ni iCloud. Pendiente de compilación iOS 27/E2E y disponibilidad de datos reales de prueba.
+
 ## Puente de identidad iOS/Repera Business
 `BusinessAuthStore.swift` usa SDK `supabase-swift` (2.55.4 exacta). Tras autorización Apple con nonce SHA-256, intenta obtener una sesión Supabase sin interferir con `AppleAuthStore`, `ReperaStore` local ni sincronización iCloud. Ajustes permite reconectar usuarios previos. NO hay envío automático de entrenamientos privados ni agenda móvil real hasta completar APIs y pruebas E2E.
 

@@ -5,6 +5,7 @@ import SwiftUI
 struct HomeView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(HealthKitStore.self) private var health
+    @Environment(BusinessDataStore.self) private var businessData
     var onOpenWorkout: () -> Void
     var onStart: () -> Void
     /// Abre el preview / inicio de un entreno concreto (p. ej. suelto del viernes).
@@ -70,11 +71,52 @@ struct HomeView: View {
         )
     }
 
+    /// Confirmed external reservations live beside local workouts, without modifying ReperaStore.
+    @ViewBuilder
+    private var confirmedBusinessBookingsCard: some View {
+        let todayBookings = businessData.bookings.filter { booking in
+            guard booking.status == "booked",
+                  let occurrence = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }),
+                  let begins = BusinessDataStore.date(occurrence.startsAt) else { return false }
+            return Calendar.current.isDate(begins, inSameDayAs: selectedDay)
+        }
+        if !todayBookings.isEmpty {
+            OGCardSectionTitle(title: "Reservas confirmadas")
+            OGCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(todayBookings) { booking in
+                        if let occurrence = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }) {
+                            HStack(spacing: 12) {
+                                Image(systemName: occurrence.kind == "class" ? "figure.group" : "person.crop.circle")
+                                    .foregroundStyle(OG.accent)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(occurrence.title).font(.headline)
+                                    Text(businessData.centerName(occurrence.orgId))
+                                        .font(.caption)
+                                        .foregroundStyle(OG.label2)
+                                    if let start = BusinessDataStore.date(occurrence.startsAt) {
+                                        Text(start.formatted(date: .omitted, time: .shortened))
+                                            .font(.footnote)
+                                            .foregroundStyle(OG.label2)
+                                    }
+                                }
+                                Spacer()
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(OG.accent)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     weekAndDayCard
+                    confirmedBusinessBookingsCard
                     streakCard
                 }
                 .padding(.horizontal, OG.pad)
