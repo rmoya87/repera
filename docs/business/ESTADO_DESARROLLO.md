@@ -4,7 +4,7 @@
 ## IMPLEMENTADO (verificado en Supabase Repera)
 - Proyecto `uvzgujlrqohreoucirms` conectado y sano; PostgreSQL 17.
 - Primera migración real: `20261019190623_business_foundation_secure` (registro en `supabase_migrations.schema_migrations`).
-- Tablas públicas: profiles, organizations, organization_memberships, exercises, routines, routine_exercises, workouts y workout_sets. RLS activado en las ocho.
+- Tablas públicas: profiles, organizations, organization_memberships, exercises, routines, routine_exercises, workouts, workout_sets, clients y staff_client_assignments. RLS activado en las **diez**.
 - Trigger de perfil con usuario de Auth; trigger para incorporar propietario al crear una organización.
 - Acceso de miembros y managers con helper privado y validación de sesión; rol global no modificable por cliente.
 - Primer smoke test transaccional RLS superado: dos usuarios de prueba, aislamiento y autorización negativa; ROLLBACK sin datos persistentes.
@@ -27,8 +27,8 @@
 - Compilación Xcode iOS 27, UI tests y TestFlight: **no ejecutadas desde el conector**; no marcar como probado.
 
 ## PROBADO
-- `list_tables`: 8 tablas RLS=true.
-- `list_migrations`: baseline registrada.
+- `list_tables`: 10 tablas RLS=true (dos migraciones de Repera, sin datos reales de cliente).
+- `list_migrations`: baseline `20261019190623` y migración de clientes `20261019193414` registradas.
 - `get_advisors(security)`: 0 lints al terminar.
 - SQL de comprobación: `rls_smoke_pass`, organizaciones persistentes de prueba = 0.
 - Estas pruebas NO constituyen auditoría integral ni validan la integración web/iOS.
@@ -40,7 +40,7 @@
 ## Lanzadores locales añadidos (2026-10-19)
 - `Repera-Business.command`: doble clic en Mac, Python 3, servidor loopback y apertura automática de la demo profesional (sin datos reales).
 - `Repera-iOS.command`: doble clic en Mac, comprueba Xcode/XcodeGen/SDK iOS 27, intenta compilar, instalar y arrancar la app en Simulator.
-- **Pruebas de ejecución en macOS con iOS 27 pendientes**: el conector GitHub no proporciona entorno Xcode ni simulador. Los scripts no demuestran que CI o builds sean correctos.
+- **Pruebas de ejecución**: sintaxis de ambos scripts verificada con `bash -n`; servidor del lanzador Business probado con HTTP en `127.0.0.1` y ruta demo correcta. Lanzador iOS pendiente de ejecutar en Mac con Xcode + SDK iOS 27; ninguno demuestra por sí solo que CI/builds nativos sean correctos.
 - **No merge a main**: servicios clave incompletos (Apple→Supabase, invitaciones, planes profesionales, reservas, citas, contratos/bonos, cobros) y 4 jobs de CI fallidos en el último commit comprobado.
 
 ## PENDIENTE
@@ -51,11 +51,11 @@
 - Agenda y reservas grupales o citas 1:1 reales del deportista en Inicio/Center, contratos/sesiones/caducidades reales en Ajustes: todavía NO integrados.
 - CI específico de migraciones y pruebas RLS sobre una base limpia, comprobación por usuarios reales.
 - CI iOS heredado activado en PR #5: se observan fallos en varios checks del workflow; el conector no ha proporcionado pasos ni logs suficientes para atribuirlos al código o al entorno. No declarar CI superado.
-- Revisión del prototipo local Repera Business v0.2 y sus 37 supuestas pruebas: archivos fuente no accesibles en este contexto.
+- Código fuente del prototipo Business v0.2 presente en `web/console/` y contratos Swift/Kotlin. El usuario informa 37 pruebas JS/2 Swift/3 Kotlin anteriores; los tests agregados después requieren nueva ejecución completa.
 - Validación manual iOS 27 (requiere Xcode/SDK), rendimiento y seguridad ofensiva.
 
 ## BLOQUEADO / requiere coordinación
-- Material v0.2: ZIP y dos documentos enlazados a rutas sandbox de otro chat, no disponibles aquí.
+- El ZIP original de v0.2 de otra conversación no es accesible aquí; **su contenido fuente relevante sí está incorporado a esta rama**. Las diferencias exactas con aquel ZIP no pueden verificarse sin volver a adjuntarlo.
 - La configuración final de precios B2B, fiscalidad y productos Stripe no está aprobada.
 - No se ha publicado panel web ni se han modificado datos iCloud.
 

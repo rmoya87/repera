@@ -29,7 +29,7 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 |------|---------|
 | **Inicio** | Semana/día, métricas Salud, entrenos + externos, avatar→Ajustes, planificar / pizarra |
 | **Diario** | Vista de planificación del entrenador (sin sincronización todavía) + planificación personal/rutinas conservadas |
-| **Center** | Vista nativa de centros y clases con estado vacío real (reservas no conectadas aún) |
+| **Center** | Selector Clases/Citas personales con estados vacíos reales; reservas todavía no conectadas |
 | **Crear desde Inicio** | Botón +: entreno libre, **Apuntar series**, favoritos, timer, foto pizarra/TV (sin pestaña propia) |
 | **Progreso** | Gratis: esta semana + teaser; Pro: periodos, deltas, cardio/kcal/peso, heatmap, equilibrio |
 | **Ejercicios** | Biblioteca + ficha; evolución completa = Pro (Gratis: última sesión + PR) |
@@ -79,7 +79,7 @@ Cold start: Splash nativo y pantalla de espera usan la misma UIImageView UIKit e
 ## No integrados aún en las apps
 
 - Android nativo: planificado, no implementado.
-- Backend Supabase de Repera: primera migración segura de identidad/organizaciones/RLS aplicada el 2026-10-19; **sin integración de login con iOS ni panel profesional todavía**. Ver [docs/business/ESTADO_DESARROLLO.md](docs/business/ESTADO_DESARROLLO.md).
+- Backend Supabase de Repera: dos migraciones seguras aplicadas (identidad/organizaciones/clientes; 10 tablas con RLS). El panel profesional ya dispone de acceso con correo, gestión básica de empresas y fichas; **faltan login Apple↔Supabase iOS, contratos, reservas, planificaciones y pagos reales**. Ver [docs/business/ESTADO_DESARROLLO.md](docs/business/ESTADO_DESARROLLO.md).
 - Coach / tips con IA (sí hay Foundation Models on-device para pizarra)
 - SDK RevenueCat en Apple Watch
 

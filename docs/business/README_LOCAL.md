@@ -1,6 +1,6 @@
 # Repera Business — entorno de desarrollo local v0.2
 
-**Estado real:** plataforma en construcción. Esta versión es un **prototipo funcional offline**, no el producto completo ni una versión de producción. Los nombres, ingresos y reservas son ficticios. Las credenciales y la integración con iOS/Android/Stripe/Supabase real NO se han conectado.
+**Estado real:** plataforma en construcción. El modo `?demo=1` es un **prototipo funcional offline**, no el producto completo. Sus nombres, ingresos y reservas son ficticios; no pongas datos personales reales. El modo `/console/` sin parámetros cuenta con login Supabase real y gestión básica de empresas/clientes, pero **no** está integrado con las reservas, pagos y apps móviles de Repera.
 
 ## Lanzadores macOS de doble clic (rama de desarrollo)
 
