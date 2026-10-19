@@ -66,6 +66,15 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 
 ## Pizarra
 
+- [ ] Foto con EMOM 8’ @6-8 + 2 HIGH HSQ SNATCH → ejercicio correcto.
+- [ ] Foto con EVERY 2’ X 4 + 4-3-3-2 BACK SQUAT @6-8 → fuerza: 4 series de 4/3/3/2; conservar la indicación de RPE, sin inventar RIR.
+- [ ] Foto con 4 RFT (TC 12’) + POWER SNATCH 40/25 + BOB + BACK RACK R. LUNGES 40/25 + 1’ REST → cuatro movimientos, orden intacto, pesos M/F, 4 rondas, cap 12' y descanso de 60 s.
+- [ ] Buscar Back Squat/sentadilla, power snatch/arrancada, high hsq snatch/arrancada colgante y lunges/zancadas; resultados pertinentes con imágenes o placeholder explícito.
+- [ ] En editor: Crear WOD, Elegir WOD, Añadir ejercicio, Añadir movimiento libre → push de derecha a izquierda, topbar con volver y título debajo. Volver preserva formulario existente.
+- [ ] JPG presentes en bundle tanto como ExerciseArt/<nombre>.jpg como aplanados en raíz: miniaturas visibles en picker y al configurar entreno.
+- [ ] TestFlight: ver mensual/anual con precios Apple, completar compra sandbox, restaurar, cancelar, comprobar Pro tras relanzar y denegación tras caducar. Sin tarjetas/cargos reales y sin habilitar Pro por compra pendiente.
+- [ ] ASC primera suscripción: confirmar que ambas se envían a revisión con una nueva versión y tienen localizaciones, disponibilidad, precios y contrato de pago configurados.
+
 - [ ] Pizarra con ≥2 bloques claros → «Análisis local» sin espera larga de IA.
 - [ ] Imagen oscura (TV) → OCR legible (lienzo negro).
 
