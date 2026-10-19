@@ -185,7 +185,19 @@ final class SubscriptionManager {
         do {
             let previous = snapshot
             let source = offeringProvider ?? provider
-            var next = try await source.purchase(productID: productID)
+            var next: CommercialSnapshot
+            do {
+                next = try await source.purchase(productID: productID)
+            } catch EntitlementError.productUnavailable where !(source is StoreKitEntitlementProvider) {
+                // RevenueCat could not resolve this product before starting a purchase.
+                // Use native StoreKit for the same App Store Connect product ID.
+                next = try await StoreKitEntitlementProvider().purchase(productID: productID)
+            }
+            if !next.grantsProAccess {
+                // RevenueCat customerInfo may lag behind the verified Apple transaction.
+                let apple = await StoreKitEntitlementProvider().refresh()
+                if apple.grantsProAccess { next = apple }
+            }
             next = mergedVerifiedCache(next, from: previous)
             applySnapshot(next)
             if snapshot.grantsProAccess {
