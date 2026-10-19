@@ -104,7 +104,7 @@ struct CenterView: View {
     private var appointmentsEmptyState: some View {
         OGCard {
             VStack(alignment: .leading, spacing: 12) {
-                Label("Sesiones con tu entrenador", systemImage: "person.crop.circle.badge.clock")
+                Label("Sesiones con tu entrenador", systemImage: "calendar.badge.clock")
                     .font(.headline)
                     .foregroundStyle(OG.label)
 

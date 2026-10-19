@@ -22,7 +22,7 @@
 - Diario abre en vista Entrenador (sin agenda remota simulada); planificación personal y rutinas quedan en pestañas secundarias del mismo Diario.
 - Center es una pantalla nativa con selector **Clases / Citas**, estados vacíos reales por modalidad y acceso a Ajustes; no muestra horarios ni permite reservar todavía.
 - Ajustes separa «Mis centros y entrenadores» y «Servicios contratados», ambos con estado Sin sincronizar; Repera Pro se mantiene independiente.
-- Contrato móvil de agenda ampliado con `appointment` y `repera://appointments/{id}` en Swift y Kotlin, con pruebas de contrato añadidas (pendientes de ejecutar con toolchains nativas).
+- Contrato móvil de agenda ampliado con `appointment` y `repera://appointments/{id}` en Swift y Kotlin, con pruebas de contrato añadidas: Kotlin JVM 6 comprobaciones ejecutadas correctamente; sintaxis Swift del contrato verificada con swiftc -parse. La suite XCTest completa agotó el tiempo del entorno y permanece sin validar.
 - Pendiente: conectar Sign in with Apple con Supabase Auth y construir APIs de invitación/programación/clases/contratos, incorporarlas a Inicio/Diario/Center y mostrar saldos reales.
 - Compilación Xcode iOS 27, UI tests y TestFlight: **no ejecutadas desde el conector**; no marcar como probado.
 
