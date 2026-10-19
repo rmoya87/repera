@@ -83,9 +83,12 @@ enum BoardScanLiteParser {
                     format: everyCircuit ? .emom : header.format,
                     title: header.title
                 )
-                wod.timeCapMinutes = header.timeCapMinutes
-                    ?? (everyCircuit && header.rounds != nil && header.intervalSeconds != nil
-                        ? (header.rounds! * header.intervalSeconds! / 60) : nil)
+                if everyCircuit, let rounds = header.rounds,
+                   let seconds = header.intervalSeconds {
+                    wod.timeCapMinutes = header.timeCapMinutes ?? (rounds * seconds / 60)
+                } else {
+                    wod.timeCapMinutes = header.timeCapMinutes
+                }
                 wod.rounds = header.rounds ?? wod.rounds
                 wod.emomIntervalSeconds = header.intervalSeconds ?? wod.emomIntervalSeconds
                 // La intensidad de cabecera (p. ej. EMOM 8' @6-8) se
