@@ -2,6 +2,19 @@
 
 **Estado real:** plataforma en construcción. Esta versión es un **prototipo funcional offline**, no el producto completo ni una versión de producción. Los nombres, ingresos y reservas son ficticios. Las credenciales y la integración con iOS/Android/Stripe/Supabase real NO se han conectado.
 
+## Lanzadores macOS de doble clic (rama de desarrollo)
+
+Hay dos archivos ejecutables (`100755`) en la **raíz del repositorio**:
+
+- **`Repera-Business.command`**: doble clic en Finder → levanta un servidor en `127.0.0.1`, puerto libre, y abre automáticamente `/console/?demo=1` en el navegador. Solo sirve la carpeta `web/`, no comparte archivos del repositorio ni expone el puerto a la red. Necesita Python 3. La ventana Terminal debe permanecer abierta mientras uses el panel.
+- **`Repera-iOS.command`**: doble clic → comprueba Xcode/iOS 27/XcodeGen/Python 3, genera el proyecto con XcodeGen, compila el target **Repera** e intenta instalarlo y abrirlo en un simulador de iPhone con iOS 27. Necesita el SDK y un simulador instalados. **No equivale a un binario macOS nativo**; la app es iOS y se abre dentro de Simulator.
+
+Si Finder impide abrir un script procedente de Internet, usa el diálogo de apertura de macOS para scripts de confianza. En una copia Git que no preserve el bit ejecutable: `chmod +x Repera-Business.command Repera-iOS.command`.
+
+**Modo conectado** (solo para profesionales): cambia manualmente la URL abierta a `http://127.0.0.1:<puerto>/console/`, sin `?demo=1`. Los datos reales dependen de Supabase Auth y sus políticas; no confundas modo conectado con la demo. La URL localhost debe estar autorizada en los redirect URLs de Supabase si se comprueba registro por correo/recuperación.
+
+**No hay todavía binario de producto terminado** ni firma/distribución TestFlight validada; los scripts facilitan pruebas locales. No fusionar `main` mientras CI iOS y seguridad E2E no estén validados.
+
 ## Arranque web en 20 segundos
 
 ```bash
@@ -9,7 +22,7 @@ cd web
 python3 -m http.server 8080
 ```
 
-Abre `http://localhost:8080/console/`. No necesita instalar JavaScript, Node, Postgres ni Docker. En el navegador los datos se conservan en `localStorage`. Puedes volver al estado inicial desde **Configuración → Restablecer datos de ejemplo**. No introduzcas datos personales reales.
+Abre `http://localhost:8080/console/?demo=1` para la demostración. La ruta `/console/` sin query carga el acceso autenticado real a Supabase. No necesita instalar JavaScript, Node, Postgres ni Docker para la demo. En el navegador los datos se conservan en `localStorage`. Puedes volver al estado inicial desde **Configuración → Restablecer datos de ejemplo**. No introduzcas datos personales reales.
 
 ## Recorrido de prueba sugerido
 

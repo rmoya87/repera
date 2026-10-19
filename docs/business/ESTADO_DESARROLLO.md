@@ -37,6 +37,12 @@
 - Cinco pruebas de lógica de autenticación ejecutadas en V8 aislado; no sustituyen `node --test` ni prueba de navegador real.
 - JavaScript / Swift / Kotlin de v0.2: el usuario informa 37/2/3 pruebas superadas; este paso no ha reproducido todas esas suites ni el CI iOS.
 
+## Lanzadores locales añadidos (2026-10-19)
+- `Repera-Business.command`: doble clic en Mac, Python 3, servidor loopback y apertura automática de la demo profesional (sin datos reales).
+- `Repera-iOS.command`: doble clic en Mac, comprueba Xcode/XcodeGen/SDK iOS 27, intenta compilar, instalar y arrancar la app en Simulator.
+- **Pruebas de ejecución en macOS con iOS 27 pendientes**: el conector GitHub no proporciona entorno Xcode ni simulador. Los scripts no demuestran que CI o builds sean correctos.
+- **No merge a main**: servicios clave incompletos (Apple→Supabase, invitaciones, planes profesionales, reservas, citas, contratos/bonos, cobros) y 4 jobs de CI fallidos en el último commit comprobado.
+
 ## PENDIENTE
 - Completar integración Auth extremo a extremo en navegador (confirmación de correo, dominios redirect, correo SMTP, refresh de sesión real, recuperación y logout en dispositivos).
 - Invitaciones, membresía administrada transaccionalmente y consentimientos.

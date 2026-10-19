@@ -41,6 +41,14 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 | **Watch** | Confirmar → conteo → **+1 serie** / log rápido (sin límites Pro en v1) |
 | **Monetización** | StoreKit + RevenueCat; ver [docs/MONETIZATION.md](docs/MONETIZATION.md) |
 
+## Arranque rápido en Mac (doble clic)
+
+- [`Repera-Business.command`](Repera-Business.command): ejecuta localmente la demostración profesional en navegador; requiere Python 3 y permanece abierta una ventana Terminal. Los datos son ficticios.
+- [`Repera-iOS.command`](Repera-iOS.command): intenta compilar y lanzar la app en Simulator; requiere macOS, Xcode con iOS 27, XcodeGen y un simulador compatible.
+- Ambos lanzadores están en la raíz del repositorio; si clonas por Git, se conserva el permiso de ejecución. No se ha generado todavía una aplicación macOS firmada ni un paquete iOS listo para distribución.
+
+**Estado:** el flujo deportista↔entrenador↔centro no está conectado completamente y el CI sigue fallando; `main` no debe recibir la rama Business sin revisión y pruebas.
+
 ## Arranque
 
 ```bash
