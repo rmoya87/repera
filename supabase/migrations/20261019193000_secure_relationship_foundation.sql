@@ -16,8 +16,10 @@ grant select on public.organizations, public.organization_members, public.client
 drop policy if exists profiles_select_own_or_staff on public.profiles;
 drop policy if exists workouts_owner_all on public.workouts;
 drop policy if exists workout_sets_via_workout on public.workout_sets;
+drop policy if exists exercises_select_authenticated on public.exercises;
 drop policy if exists routines_owner_all on public.routines;
 drop policy if exists routine_exercises_via_routine on public.routine_exercises;
+create policy exercises_catalog_or_owned on public.exercises for select to authenticated using(is_system or owner_id=(select auth.uid()));
 create policy profile_read_scoped on public.profiles for select to authenticated using(id=(select auth.uid()) or exists(select 1 from public.client_relationships r where r.athlete_id=profiles.id and r.coach_id=(select auth.uid()) and r.status='active' and r.service='personal_training' and (r.valid_from is null or r.valid_from<=now()) and (r.valid_until is null or r.valid_until>now())));
 create policy workouts_read_scoped on public.workouts for select to authenticated using(owner_id=(select auth.uid()) or exists(select 1 from public.client_relationships r where r.athlete_id=workouts.owner_id and r.coach_id=(select auth.uid()) and r.status='active' and r.service='personal_training' and r.share_workout_history and (r.valid_from is null or r.valid_from<=now()) and (r.valid_until is null or r.valid_until>now())));
 create policy workouts_write_own on public.workouts for all to authenticated using(owner_id=(select auth.uid())) with check(owner_id=(select auth.uid()));
@@ -25,4 +27,13 @@ create policy workout_sets_read_scoped on public.workout_sets for select to auth
 create policy workout_sets_write_own on public.workout_sets for all to authenticated using(exists(select 1 from public.workouts w where w.id=workout_id and w.owner_id=(select auth.uid()))) with check(exists(select 1 from public.workouts w where w.id=workout_id and w.owner_id=(select auth.uid())));
 create policy routines_owner on public.routines for all to authenticated using(owner_id=(select auth.uid())) with check(owner_id=(select auth.uid()));
 create policy routine_exercises_owner on public.routine_exercises for all to authenticated using(exists(select 1 from public.routines r where r.id=routine_id and r.owner_id=(select auth.uid()))) with check(exists(select 1 from public.routines r where r.id=routine_id and r.owner_id=(select auth.uid())));
+-- Explicit grants: new Supabase projects may not auto-expose SQL-created tables.
+revoke all on public.profiles, public.exercises, public.routines, public.routine_exercises, public.workouts, public.workout_sets, public.organizations, public.organization_members, public.client_relationships from anon;
+grant select on public.profiles to authenticated;
+revoke update on public.profiles from authenticated;
+grant update (display_name) on public.profiles to authenticated;
+grant select,insert,update,delete on public.exercises, public.routines, public.routine_exercises, public.workouts, public.workout_sets to authenticated;
+grant select,insert,update,delete on public.organizations, public.organization_members, public.client_relationships, public.profiles, public.exercises, public.routines, public.routine_exercises, public.workouts, public.workout_sets to service_role;
+-- Old helper is now unused by RLS; remove public execution of SECURITY DEFINER function.
+revoke execute on function public.current_role() from public, anon, authenticated;
 commit;
