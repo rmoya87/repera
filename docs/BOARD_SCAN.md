@@ -46,7 +46,7 @@ Reglas + glosario CrossFit (`CrossFitGlossary`).
 Soporta entre otros:
 
 - Secciones: Weightlifting / Metcon / Strength / … fusionadas con el formato siguiente.
-- El parser de dominio admite formatos adicionales (EMOM, E2MOM, AMRAP, RFT, ladder, etc.). El escáner activo usa un subconjunto tipado y seguro: EMOM, AMRAP, Every × N como fuerza, RFT/For Time y Tabata; formatos no detectados se conservan como movimientos de fuerza.
+- El parser de dominio admite formatos adicionales (EMOM, E2MOM, AMRAP, RFT, ladder, etc.). El escáner activo usa un subconjunto tipado y seguro: EMOM, AMRAP, Every × N como fuerza si contiene un solo movimiento, o intervalo EMOM si agrupa varios, RFT/For Time y Tabata; formatos no detectados se conservan como movimientos de fuerza.
 - Movimientos (`CrossFitGlossary.parseMovementLine`): `10 toes to bar` → reps=10 + Toes to bar; `200M RUN` / `200m cinta/carrera` → 200 m + Cinta/carrera; `5 DDB DEVIL PRESS 20/12,5` → reps + Devil press + nota «Doble mancuerna» + kg M/F.
 - Equipo en nota (no en el nombre): DDB/SDB/DKB/SKB/DB/KB/BB (glosarios CrossFit habituales).
 - El parser completo soporta además `%` 1RM, complejos `+`, Sets y demás reglas; no atribuir esas capacidades a la ruta lite sin pruebas de integración.
