@@ -44,7 +44,13 @@ enum BoardScanLiteParser {
             let parsed = group.body.map { movement(from: $0) }
             let notes = ([header.title] + group.body).joined(separator: "\n")
 
-            if header.format == .strength {
+            // Every N' × M de un solo levantamiento se importa como fuerza.
+            // Si el mismo intervalo agrupa varios movimientos, sí es un WOD
+            // cronometrado (mantener este caso para no romper circuitos).
+            let everyCircuit = header.format == .strength
+                && header.intervalSeconds != nil
+                && parsed.filter({ !$0.isRest }).count > 1
+            if header.format == .strength && !everyCircuit {
                 // EVERY 2' × 4 con 4-3-3-2 es FUERZA, no un EMOM.
                 // Si falta un ejercicio del catálogo, conservarlo como WOD de
                 // fuerza editable: nunca descartarlo ni fingir que hizo match.
@@ -73,8 +79,13 @@ enum BoardScanLiteParser {
                     blocks.append(fallback)
                 }
             } else {
-                var wod = RoutineBlock.wod(format: header.format, title: header.title)
+                var wod = RoutineBlock.wod(
+                    format: everyCircuit ? .emom : header.format,
+                    title: header.title
+                )
                 wod.timeCapMinutes = header.timeCapMinutes
+                    ?? (everyCircuit && header.rounds != nil && header.intervalSeconds != nil
+                        ? (header.rounds! * header.intervalSeconds! / 60) : nil)
                 wod.rounds = header.rounds ?? wod.rounds
                 wod.emomIntervalSeconds = header.intervalSeconds ?? wod.emomIntervalSeconds
                 // La intensidad de cabecera (p. ej. EMOM 8' @6-8) se
