@@ -2,7 +2,7 @@
 Última actualización: 2026-10-19.
 
 **Proyecto autorizado:** `uvzgujlrqohreoucirms` (eu-west-1, PostgreSQL 17).
-**Migraciones aplicadas:** `20261019190623_business_foundation_secure`, `20261019193414_business_clients_scoped`, `20261019201141_business_org_invitations_consent` y `20261019201248_business_invitation_private_rpc`.
+**Migraciones aplicadas:** `20261019190623_business_foundation_secure`, `20261019193414_business_clients_scoped`, `20261019201141_business_org_invitations_consent` y `20261019201248_business_invitation_private_rpc`, `20261019201914_business_services_booking_wallets`, `20261019203258_business_professional_training_sessions` y `20261019210032_business_service_availability`.
 La migración antigua `20261015120000_init_repera.sql` **no se aplicó** y fue sustituida en esta rama; no volver a ejecutarla desde `main`.
 
 ## Tablas implantadas
@@ -43,3 +43,7 @@ Tablas de invitaciones con token de un solo uso; enlaces entrenador-cliente y co
 ## Entrenamientos profesionales (20261019203258)
 
 Tabla `professional_training_sessions`: identificador, organización, cliente vinculado, coach emisor, fecha, título, instrucciones, prescripción JSON y estado. Solo se puede publicar mediante RPC validada e idempotente; la escritura directa está revocada. RLS permite lectura únicamente al atleta vinculado, al profesional asignado y al administrador del centro; no comparte workouts personales. `assign_coach_client` valida miembro con rol coach activo, cliente vinculado y gestor autorizado. `supabase/tests/professional_sessions_smoke.sql` prueba los límites.
+
+## Aforo real (20261019210032)
+
+`public.get_service_availability(p_org)` expone únicamente `occurrence_id`, plazas reservadas y capacidad para miembros activos de una organización. Utiliza wrapper `SECURITY INVOKER` y comprobación privada del rol; no devuelve datos de otras reservas. El recuento no sustituye `book_service_occurrence`, que revalida aforo en la transacción. La aplicación bloquea la reserva cuando el RPC no retorna información suficiente. Smoke: `supabase/tests/availability_rls_smoke.sql`.

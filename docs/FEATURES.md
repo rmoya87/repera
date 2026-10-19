@@ -47,7 +47,7 @@
 - Pestaña nativa dedicada a centros y reservas, con selector **Clases · Citas**.
 - **Clases**: horarios grupales, saldo de bono, reservas/cancelaciones por RPC segura cuando existe sesión Supabase. Lista de espera aún pendiente.
 - **Citas**: horarios de sesiones individuales ofrecidas por entrenadores, reservas/cancelaciones y bono independiente del de clases; pendiente validación real iOS/Apple Auth.
-- **Estado real actual:** seis migraciones Supabase desplegadas; consulta iOS nativa desde `BusinessDataStore` implementada pero sin validación compilada/Apple OAuth E2E. No muestra horarios ni cuotas ficticios.
+- **Estado real actual:** siete migraciones Supabase desplegadas; consulta iOS nativa desde `BusinessDataStore` implementada pero sin validación compilada/Apple OAuth E2E. No muestra horarios ni cuotas ficticios.
 - Los centros vinculados, plazas, reservas confirmadas/espera y saldos se integrarán en esta vista cuando existan los endpoints autenticados y controles RLS.
 - Las **clases y citas individuales confirmadas** deberán reflejarse también en **Inicio** al completar la integración. No está operativo todavía.
 

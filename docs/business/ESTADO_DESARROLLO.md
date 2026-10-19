@@ -27,8 +27,8 @@
 - Compilación Xcode iOS 27, UI tests y TestFlight: **no ejecutadas desde el conector**; no marcar como probado.
 
 ## PROBADO
-- `list_tables`: 16 tablas públicas, RLS=true en las 16. `list_migrations`: 6 versiones aplicadas en Supabase Repera.
-- `get_advisors(security)`: 0 advertencias después de desplegar las seis migraciones. Las funciones privilegiadas operan dentro de `private`, con wrappers públicos INVOKER.
+- `list_tables`: 16 tablas públicas, RLS=true en las 16. `list_migrations`: 7 versiones aplicadas en Supabase Repera.
+- `get_advisors(security)`: 0 advertencias después de desplegar las siete migraciones. Las funciones privilegiadas operan dentro de `private`, con wrappers públicos INVOKER.
 - `get_advisors(security)`: 0 lints al terminar.
 - SQL de comprobación: `rls_smoke_pass`, organizaciones persistentes de prueba = 0.
 - Estas pruebas NO constituyen auditoría integral ni validan la integración web/iOS.

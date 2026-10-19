@@ -56,7 +56,7 @@ En la navegación del deportista: **Inicio / Diario / Center / Progreso / Ejerci
 
 ## Actualización técnica comprobada 2026-10-19
 
-- Supabase Repera (no Cafesito): 6 migraciones reales; 16 tablas `public` con RLS; advisor de seguridad sin lints; pruebas SQL transaccionales con identidades aisladas y ROLLBACK.
+- Supabase Repera (no Cafesito): 7 migraciones reales; 16 tablas `public` con RLS; advisor de seguridad sin lints; pruebas SQL transaccionales con identidades aisladas y ROLLBACK.
 - Invitaciones consentidas, alta/vinculación de cliente, asignación de entrenador, prescripción simple por día, clases/citas con capacidad y prevención de solape, bonos de cortesía separados, reservas idempotentes y ledger reversible.
 - Panel web conectado (correo), con módulos operativos de invitaciones, clientes, horarios, cortesías y publicaciones simples; la demo sigue aislada.
 - iOS nativo 27: inicio de sesión Apple→Supabase preparado con SDK oficial y nonce, lectura de centros, sesiones, citas y bonos en Center/Inicio/Diario/Ajustes. **No hay build TestFlight/Xcode validada ni registro real de usuario**.
