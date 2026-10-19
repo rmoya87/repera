@@ -101,6 +101,12 @@
 - Cancelar reserva requiere confirmación nativa y expone el riesgo de perder el crédito cuando faltan 12h según la política provisional (la transacción servidor determina el resultado).
 - Pruebas Swift/iOS 27 sobre concurrencia, revocaciones y UX de cancelación pendientes; no dar por validadas sin Xcode.
 
+## Reparación de CI iOS 27 (2026-10-19)
+- Workflow `.github/workflows/ios27-ci.yml`: cambia el job de build de `macos-15` a `xcode-27` (imagen GitHub GA publicada 15/10/2026, con SDK iOS 27/watchOS 27 y Apple Silicon). Ya no fuerza el Xcode antiguo desde `/Applications/Xcode.app`.
+- Compila iOS con destino genérico y sin firma para desacoplar errores de Swift de la disponibilidad de simulador; Watch utiliza `-target ReperaWatch` directamente para no depender de un scheme autogenerado.
+- Añade validación `swiftc -frontend -parse` de fuentes, selección explícita de simulador iOS 27 para tests y logs/xcresult como artifacts.
+- **Pendiente confirmar**: que el ejecutor de GitHub Actions admita jobs (los fallos anteriores a cada step también ocurren en `main`) y que Xcode 27 compile/reproduzca las pruebas. No se ha validado localmente un build Apple: este entorno es Linux.
+
 ## PENDIENTE
 - Completar integración Auth extremo a extremo en navegador (confirmación de correo, dominios redirect, correo SMTP, refresh de sesión real, recuperación y logout en dispositivos).
 - Invitaciones, membresía administrada transaccionalmente y consentimientos.

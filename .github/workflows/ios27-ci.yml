@@ -56,57 +56,80 @@ jobs:
 
   xcode-build:
     name: XcodeGen + build + test
-    runs-on: macos-15
+    # Xcode 27 GA image includes iOS 27 and watchOS 27 SDKs.
+    runs-on: xcode-27
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - name: Select Xcode / require iOS 27 SDK
+      - name: Select Xcode 27 and require both simulator SDKs
+        shell: bash
         run: |
-          ls /Applications | grep -i Xcode || true
-          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer || true
+          set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode_27.app/Contents/Developer
           xcodebuild -version
-          xcodebuild -showsdks | tee /tmp/sdks.txt
-          grep -q "iphoneos27\|iphonesimulator27\|iOS 27" /tmp/sdks.txt \
-            || (echo "iOS 27 SDK missing on runner — fail closed (J28-020)" && exit 1)
+          xcodebuild -showsdks | tee "$RUNNER_TEMP/repera-sdks.txt"
+          grep -Eq 'iphonesimulator27([.]|$)' "$RUNNER_TEMP/repera-sdks.txt" \
+            || { echo "::error::iOS 27 Simulator SDK missing on xcode-27 runner"; exit 1; }
+          grep -Eq 'watchsimulator27([.]|$)' "$RUNNER_TEMP/repera-sdks.txt" \
+            || { echo "::error::watchOS 27 Simulator SDK missing on xcode-27 runner"; exit 1; }
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate project
-        run: xcodegen generate
-      - name: Build Repera (iOS Simulator)
+        run: xcodegen generate --spec project.yml
+      - name: Parse Swift sources with Xcode 27 compiler
+        shell: bash
         run: |
-          DEST=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone 17e/{print $2; exit}')
-          if [ -z "$DEST" ]; then
-            DEST=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/{print $2; exit}')
+          set -euo pipefail
+          find Apps Packages mobile-contracts/swift -name '*.swift' -print0 \
+            | xargs -0 xcrun swiftc -frontend -parse
+      - name: Build Repera (iOS 27 Simulator)
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -project Repera.xcodeproj -scheme Repera \
+            -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/ReperaDerivedData" \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee "$RUNNER_TEMP/repera-ios-build.log"
+      - name: Build ReperaWatch (watchOS 27 Simulator)
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -project Repera.xcodeproj -target ReperaWatch \
+            -configuration Debug -sdk watchsimulator \
+            -destination 'generic/platform=watchOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee "$RUNNER_TEMP/repera-watch-build.log"
+      - name: UI tests (iOS 27 simulator, scheme Repera)
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST="$(xcrun simctl list devices available -j | python3 -c '
+          import json,sys
+          d=json.load(sys.stdin)["devices"]
+          choices=[x for runtime,devices in d.items() if "iOS-27" in runtime
+                     for x in devices if x.get("isAvailable", True) and x["name"].startswith("iPhone")]
+          choices.sort(key=lambda x: ("iPhone 17e" not in x["name"], x["name"]))
+          print(choices[0]["udid"] if choices else "")
+          ')"
+          if [[ -z "$DEST" ]]; then
+            echo "::error::No available iOS 27 iPhone simulator"
+            xcrun simctl list devices available
+            exit 1
           fi
-          echo "Using simulator $DEST"
-          xcodebuild -scheme Repera \
+          echo "Selected iOS 27 simulator: $DEST"
+          xcodebuild -project Repera.xcodeproj -scheme Repera \
             -destination "platform=iOS Simulator,id=$DEST" \
-            -quiet build
-      - name: Build ReperaWatch
-        run: |
-          DEST=$(xcrun simctl list devices available | awk -F '[()]' '/Apple Watch Series 12/{print $2; exit}')
-          if [ -z "$DEST" ]; then
-            DEST=$(xcrun simctl list devices available | awk -F '[()]' '/Apple Watch/{print $2; exit}')
-          fi
-          echo "Using watch simulator $DEST"
-          xcodebuild -scheme ReperaWatch \
-            -destination "platform=watchOS Simulator,id=$DEST" \
-            -quiet build
-      - name: UI tests (scheme Repera — fail hard)
-        run: |
-          DEST=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone 17e/{print $2; exit}')
-          if [ -z "$DEST" ]; then
-            DEST=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/{print $2; exit}')
-          fi
-          echo "Using simulator $DEST"
-          # project.yml wires ReperaUITests into scheme Repera — never invent ReperaUITests scheme.
-          xcodebuild -scheme Repera \
-            -destination "platform=iOS Simulator,id=$DEST" \
-            -resultBundlePath /tmp/ReperaUITests.xcresult \
-            test
+            -derivedDataPath "$RUNNER_TEMP/ReperaDerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/ReperaUITests.xcresult" \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | tee "$RUNNER_TEMP/repera-ui-tests.log"
       - name: Upload xcresult
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: repera-ui-xcresult
-          path: /tmp/ReperaUITests.xcresult
+          path: |
+            ${{ runner.temp }}/ReperaUITests.xcresult
+            ${{ runner.temp }}/repera-ios-build.log
+            ${{ runner.temp }}/repera-watch-build.log
+            ${{ runner.temp }}/repera-ui-tests.log
           if-no-files-found: ignore
