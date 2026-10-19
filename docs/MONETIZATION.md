@@ -51,8 +51,8 @@ Al perder Pro: **no se borran** rutinas, ejercicios ni entrenos; solo se bloquea
 
 | Qué | Valor |
 |-----|--------|
-| Producto mensual | `repera_pro_monthly` |
-| Producto anual | `repera_pro_annual` |
+| Producto mensual | `com.app.repera.premium.monthly` |
+| Producto anual | `com.app.repera.premium.yearly` |
 | Entitlement RevenueCat | `pro` |
 | Offering | `default` |
 | Bundle iOS | `com.app.repera` |
@@ -72,8 +72,8 @@ Checklist del propietario:
 
 1. **App Store Connect** → app `com.app.repera` → Suscripciones.
 2. Grupo «Repera Pro» con:
-   - `repera_pro_monthly` (1 mes) — intro: 14 días gratis (elegibles).
-   - `repera_pro_annual` (1 año) — intro opcional: 29,99 € primer año.
+   - `com.app.repera.premium.monthly` (1 mes) — intro: 14 días gratis (elegibles).
+   - `com.app.repera.premium.yearly` (1 año) — intro opcional: 29,99 € primer año.
 3. **RevenueCat** → proyecto iOS → API key pública Apple → pegar en `RevenueCatPublicAPIKey`.
 4. Products con los mismos IDs → Entitlement `pro` → Offering `default` (anual destacado + mensual).
 5. Paid Applications Agreement + impuestos / banking activos.
