@@ -11,6 +11,7 @@ final class SubscriptionManager {
     /// Cache estable: las vistas que solo leen Pro no se invalidan por cuotas/conteos.
     private(set) var isPro = false
     private(set) var offerings = CommercialOfferings.empty
+    private(set) var isLoadingOfferings = false
     private(set) var isRefreshing = false
     private(set) var lastErrorMessage: String?
     private(set) var purchaseInFlight = false
@@ -23,6 +24,8 @@ final class SubscriptionManager {
     private(set) var customExerciseCount = 0
 
     @ObservationIgnored private var provider: any EntitlementProviding
+    /// The catalog and the purchase must use the same provider.
+    @ObservationIgnored private var offeringProvider: (any EntitlementProviding)?
     @ObservationIgnored private var didStart = false
     @ObservationIgnored private var lastForegroundRefreshAt: Date?
 
@@ -132,28 +135,46 @@ final class SubscriptionManager {
     }
 
     func loadOfferings() async {
+        guard !isLoadingOfferings else { return }
+        isLoadingOfferings = true
+        lastErrorMessage = nil
+        defer { isLoadingOfferings = false }
+        // Never retain an old catalog's purchasing route after a retry.
+        offeringProvider = nil
         do {
-            var loaded = try await provider.offerings()
-            // Si RevenueCat no trae paquetes, cae a StoreKit puro (precios Apple).
-            if loaded.packages.isEmpty, !(provider is StoreKitEntitlementProvider) {
+            let loaded = try await provider.offerings()
+            if !loaded.packages.isEmpty {
+                offerings = loaded
+                offeringProvider = provider
+                return
+            }
+            // RevenueCat may have no configured offering while Apple products exist.
+            // Fallback must switch both the catalog AND the purchasing route.
+            if !(provider is StoreKitEntitlementProvider) {
                 let storeKit = StoreKitEntitlementProvider()
                 let fallback = try await storeKit.offerings()
                 if !fallback.packages.isEmpty {
-                    loaded = fallback
+                    offerings = fallback
+                    offeringProvider = storeKit
+                    return
                 }
             }
             offerings = loaded
         } catch {
-            // Último recurso: StoreKit directo.
             do {
-                offerings = try await StoreKitEntitlementProvider().offerings()
+                let storeKit = StoreKitEntitlementProvider()
+                let fallback = try await storeKit.offerings()
+                offerings = fallback
+                if !fallback.packages.isEmpty {
+                    offeringProvider = storeKit
+                    return
+                }
             } catch {
-                offerings = CommercialOfferings(
-                    packages: [],
-                    unavailableReason: error.localizedDescription
-                )
+                offerings = CommercialOfferings(packages: [], unavailableReason: error.localizedDescription)
             }
         }
+        lastErrorMessage = offerings.unavailableReason
+            ?? "No se pudieron cargar los planes. Comprueba las suscripciones en App Store Connect."
     }
 
     func purchase(productID: String) async -> Bool {
@@ -163,7 +184,8 @@ final class SubscriptionManager {
         defer { purchaseInFlight = false }
         do {
             let previous = snapshot
-            var next = try await provider.purchase(productID: productID)
+            let source = offeringProvider ?? provider
+            var next = try await source.purchase(productID: productID)
             next = mergedVerifiedCache(next, from: previous)
             applySnapshot(next)
             if snapshot.grantsProAccess {
@@ -175,6 +197,7 @@ final class SubscriptionManager {
                 paywall.dismiss()
                 return true
             }
+            lastErrorMessage = "Apple no ha confirmado todavía la suscripción. Comprueba el estado de la compra o inténtalo de nuevo."
             return false
         } catch EntitlementError.userCancelled {
             return false
@@ -196,7 +219,20 @@ final class SubscriptionManager {
         defer { purchaseInFlight = false }
         do {
             let previous = snapshot
-            var next = try await provider.restore()
+            let source = offeringProvider ?? provider
+            var next: CommercialSnapshot
+            do {
+                next = try await source.restore()
+            } catch {
+                // A StoreKit-verified purchase remains restorable even if
+                // RevenueCat is unavailable or its offering is not configured.
+                guard !(source is StoreKitEntitlementProvider) else { throw error }
+                next = try await StoreKitEntitlementProvider().restore()
+            }
+            if !next.grantsProAccess && !(source is StoreKitEntitlementProvider) {
+                let storeKit = await StoreKitEntitlementProvider().refresh()
+                if storeKit.grantsProAccess { next = storeKit }
+            }
             next = mergedVerifiedCache(next, from: previous)
             applySnapshot(next)
             if snapshot.grantsProAccess {
@@ -217,6 +253,14 @@ final class SubscriptionManager {
         defer { isRefreshing = false }
         let previous = snapshot
         var next = await provider.refresh()
+        // A failed/missing RevenueCat entitlement must not hide a verified
+        // Apple subscription, including one purchased via the StoreKit fallback.
+        #if canImport(RevenueCat)
+        if provider is RevenueCatEntitlementProvider && !next.grantsProAccess {
+            let storeKit = await StoreKitEntitlementProvider().refresh()
+            if storeKit.grantsProAccess { next = storeKit }
+        }
+        #endif
         // Offline: si el provider devolvió unknown, conservar Pro verificado.
         if next.status == .unknown, previous.grantsProAccess || previous.lastVerifiedProStatus != nil {
             next.lastVerifiedProStatus = previous.lastVerifiedProStatus ?? previous.status
