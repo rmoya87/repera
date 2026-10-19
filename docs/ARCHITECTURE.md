@@ -133,7 +133,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 ## Datos y sync
 
 - Estado: `AppState` Codable → JSON local (`Application Support/Repera`) + espejo iCloud Documents.
-- Bootstrap: `LaunchWarmup` solapa catálogo + `HealthDiskCache` + `app_state` con el primer frame. `ReperaStore` arranca con shell vacío; tras pintar: hydrate (reutiliza warm) → merge catálogo off-main → validar Sign in with Apple / onboarding → iCloud. Sin onboarding completo no se muestra `RootTabView`. LaunchScreen: imageset `Splash` PNG centrado con ratio 473∶1024 (sin estirar) sobre `#002E24`. Detalle en `docs/PERFORMANCE.md`.
+- Bootstrap: `LaunchWarmup` solapa catálogo + `HealthDiskCache` + `app_state` con el primer frame. `ReperaStore` arranca con shell vacío; tras pintar: hydrate (reutiliza warm) → merge catálogo off-main → validar Sign in with Apple / onboarding → iCloud. Sin onboarding completo no se muestra `RootTabView`. LaunchScreen: `Splash` PNG 473∶1024 en `UIImageView.scaleAspectFit` fijada a los cuatro bordes sobre `#002E24`; durante la validación de sesión, `LaunchSplashView` usa la misma vista UIKit y los mismos límites para evitar saltos de escala al pasar del lanzamiento nativo a SwiftUI. Detalle en `docs/PERFORMANCE.md`.
 - `WorkoutSession` puede llevar `locationPin` y `routePoints` (Codable, migrable); el detalle prioriza ruta Salud → ruta propia → pin.
 - Conflictos: `syncRevision` + `lastWriterDeviceId` (`SyncConflictResolver`); fallback a `updatedAt` para docs legacy.
 - I/O: actor `AppStatePersistence` (encode/write atómicos, coalescing); fachada `LocalStore` en MainActor.

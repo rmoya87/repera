@@ -16,19 +16,16 @@
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Splash" translatesAutoresizingMaskIntoConstraints="NO" id="Splash-IV">
-                                <rect key="frame" x="0.0" y="0.0" width="393" height="851"/>
+                                <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                             </imageView>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
                         <color key="backgroundColor" red="0.000" green="0.180" blue="0.141" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
-                            <constraint firstItem="Splash-IV" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="cX"/>
-                            <constraint firstItem="Splash-IV" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="cY"/>
-                            <constraint firstItem="Splash-IV" firstAttribute="width" secondItem="Splash-IV" secondAttribute="height" multiplier="473:1024" id="cAspect"/>
-                            <constraint firstItem="Splash-IV" firstAttribute="width" secondItem="Ze5-6b-2t3" secondAttribute="width" priority="750" id="cWEq"/>
-                            <constraint firstItem="Splash-IV" firstAttribute="height" secondItem="Ze5-6b-2t3" secondAttribute="height" priority="750" id="cHEq"/>
-                            <constraint firstItem="Splash-IV" firstAttribute="width" relation="lessThanOrEqual" secondItem="Ze5-6b-2t3" secondAttribute="width" id="cWMax"/>
-                            <constraint firstItem="Splash-IV" firstAttribute="height" relation="lessThanOrEqual" secondItem="Ze5-6b-2t3" secondAttribute="height" id="cHMax"/>
+                            <constraint firstItem="Splash-IV" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top" id="cTop"/>
+                            <constraint firstItem="Splash-IV" firstAttribute="leading" secondItem="Ze5-6b-2t3" secondAttribute="leading" id="cLeading"/>
+                            <constraint firstItem="Splash-IV" firstAttribute="trailing" secondItem="Ze5-6b-2t3" secondAttribute="trailing" id="cTrailing"/>
+                            <constraint firstItem="Splash-IV" firstAttribute="bottom" secondItem="Ze5-6b-2t3" secondAttribute="bottom" id="cBottom"/>
                         </constraints>
                     </view>
                 </viewController>

@@ -85,3 +85,10 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] Avatar Inicio → Ajustes con botón volver.
 - [ ] Historial / Peso / Rotación: topbar fijo transparente (como Ejercicios) + volver del sistema.
 - [ ] No existe entrada Coach.
+
+## Splash de lanzamiento (regresión)
+
+- En iPhone pequeño y grande, cerrar por completo y abrir en vertical: personaje y logo mantienen la misma forma y tamaño relativo del LaunchScreen a la pantalla de espera.
+- Repetir con sesión iniciada y onboarding pendiente: sin zoom, estiramiento, flash negro ni salto de posición.
+- Girar a horizontal en dispositivo compatible: `scaleAspectFit` conserva la imagen entera, sin distorsión.
+- Instalar una compilación nueva (5 o posterior) para invalidar la captura de lanzamiento cacheada por iOS.

@@ -1,5 +1,6 @@
 import ReperaDomain
 import SwiftUI
+import UIKit
 
 @main
 struct ReperaApp: App {
@@ -22,14 +23,10 @@ struct ReperaApp: App {
         WindowGroup {
             Group {
                 if !authReady {
-                    // Same proportions as LaunchScreen: green canvas + Splash AspectFit (never stretched).
-                    ZStack {
-                        Color(red: 0, green: 0.180, blue: 0.141)
-                        Image("Splash")
-                            .resizable()
-                            .scaledToFit()
-                    }
-                    .ignoresSafeArea()
+                    // Use exactly the UIKit scaling/layout of LaunchScreen.storyboard.
+                    LaunchSplashView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .ignoresSafeArea()
                 } else if onboarding.isComplete && appleAuth.isSignedIn {
                     RootTabView()
                 } else {
@@ -161,4 +158,31 @@ struct ReperaApp: App {
             )
         }
     }
+}
+
+
+/// Matches LaunchScreen.storyboard: one UIKit image view, AspectFit and full-screen bounds.
+/// Avoids a SwiftUI vs. UIKit sizing jump while the session is validated.
+private struct LaunchSplashView: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        let canvas = UIView()
+        canvas.backgroundColor = UIColor(red: 0, green: 0.180, blue: 0.141, alpha: 1)
+        canvas.isUserInteractionEnabled = false
+
+        let splash = UIImageView(image: UIImage(named: "Splash"))
+        splash.contentMode = .scaleAspectFit
+        splash.clipsToBounds = true
+        splash.translatesAutoresizingMaskIntoConstraints = false
+        canvas.addSubview(splash)
+
+        NSLayoutConstraint.activate([
+            splash.topAnchor.constraint(equalTo: canvas.topAnchor),
+            splash.leadingAnchor.constraint(equalTo: canvas.leadingAnchor),
+            splash.trailingAnchor.constraint(equalTo: canvas.trailingAnchor),
+            splash.bottomAnchor.constraint(equalTo: canvas.bottomAnchor)
+        ])
+        return canvas
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {}
 }
