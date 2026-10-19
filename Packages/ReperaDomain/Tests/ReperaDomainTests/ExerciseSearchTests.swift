@@ -90,6 +90,28 @@ final class ExerciseSearchTests: XCTestCase {
         XCTAssertEqual(viaDocs.map(\.displayName), viaList.map(\.name))
     }
 
+    func testBilingualMovementNamesAndAbbreviations() {
+        let catalog = Catalog.seed()
+        let searches: [(String, String)] = [
+            ("back squat", "Sentadilla"),
+            ("sentadilla trasera", "Sentadilla"),
+            ("power snatch", "Arrancada de potencia"),
+            ("arrancada de potencia", "Arrancada de potencia"),
+            ("high hsq snatch", "Arrancada colgante completa"),
+            ("back rack r. lunges", "Zancadas inversas con barra"),
+            ("walking lunge", "Walking lunge"),
+            ("zancadas caminando", "Walking lunge"),
+            ("deadlift", "Peso muerto"),
+            ("peso muerto", "Peso muerto"),
+        ]
+        for (query, expectedName) in searches {
+            XCTAssertTrue(
+                ExerciseSearch.ranked(catalog, query: query).contains { $0.name == expectedName },
+                "No encuentra \\(expectedName) al buscar \\(query)"
+            )
+        }
+    }
+
     func testRankPerfUnder2ms() {
         var catalog: [Exercise] = []
         catalog.reserveCapacity(220)
