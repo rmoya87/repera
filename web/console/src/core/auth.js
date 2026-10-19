@@ -108,6 +108,46 @@ export class ReperaAuthAPI {
   if(!/^[0-9a-f-]{36}$/i.test(id||''))throw Error('Invitación inválida');
   return this.#authorized('rpc/cancel_org_invitation',{method:'POST',body:{p_invitation_id:id}});
  }
+ async serviceOccurrences(orgId){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
+  return this.#authorized('service_occurrences?select=id,org_id,kind,title,starts_at,ends_at,capacity,status,coach_user_id&org_id=eq.'+orgId+'&order=starts_at.asc&limit=100');
+ }
+ async servicePasses(orgId){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
+  return this.#authorized('service_passes?select=id,org_id,client_id,kind,total_credits,remaining_credits,valid_until,status,issuance_type&org_id=eq.'+orgId+'&order=created_at.desc');
+ }
+ async serviceBookings(orgId){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
+  return this.#authorized('service_bookings?select=id,org_id,client_id,occurrence_id,status,booked_at&org_id=eq.'+orgId+'&order=booked_at.desc&limit=300');
+ }
+ async addServiceOccurrence({orgId,coachId,kind,title,start,end,capacity}){
+  title=String(title||'').trim();
+  const begins=new Date(start),ends=new Date(end);
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||!/^[0-9a-f-]{36}$/i.test(coachId||'')
+     ||!['class','appointment'].includes(kind)||title.length<2||title.length>120
+     ||!Number.isFinite(begins.getTime())||!Number.isFinite(ends.getTime())||ends<=begins
+     ||begins<=new Date()||ends-begins>12*3600*1000||!Number.isInteger(capacity)
+     ||capacity<1||capacity>200||(kind==='appointment'&&capacity!==1))
+      throw Error('Horario, entrenador, tipo o aforo inválido');
+  return this.#authorized('service_occurrences?select=id,title,kind,starts_at',{method:'POST',prefer:'return=representation',
+   body:{org_id:orgId,coach_user_id:coachId,kind,title,starts_at:begins.toISOString(),ends_at:ends.toISOString(),capacity}});
+ }
+ async grantCourtesyPass({orgId,clientId,kind,credits,validUntil}){
+  const until=new Date(validUntil);
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||!/^[0-9a-f-]{36}$/i.test(clientId||'')
+    ||!['class','appointment'].includes(kind)||!Number.isInteger(credits)||credits<1||credits>1000
+    ||!Number.isFinite(until.getTime())||until<=new Date())throw Error('Bono de cortesía inválido');
+  return this.#authorized('rpc/grant_complimentary_pass',{method:'POST',
+   body:{p_org:orgId,p_client:clientId,p_kind:kind,p_credits:credits,p_valid_until:until.toISOString()}});
+ }
+ async bookService({occurrenceId,passId,requestId}){
+  if(![occurrenceId,passId,requestId].every(x=>/^[0-9a-f-]{36}$/i.test(x||'')))throw Error('Reserva inválida');
+  return this.#authorized('rpc/book_service_occurrence',{method:'POST',body:{p_occurrence:occurrenceId,p_pass:passId,p_request:requestId}});
+ }
+ async cancelService({bookingId,requestId}){
+  if(![bookingId,requestId].every(x=>/^[0-9a-f-]{36}$/i.test(x||'')))throw Error('Cancelación inválida');
+  return this.#authorized('rpc/cancel_service_booking',{method:'POST',body:{p_booking:bookingId,p_request:requestId}});
+ }
  async memberships(){
   return this.#authorized('organization_memberships?select=organization_id,user_id,role,status');
  }

@@ -68,3 +68,23 @@ test('Invitations use JWT with restricted RPC signatures and never forge members
  assert.ok(!captures.some(x=>x.url.includes('organization_memberships')&&x.options.method==='POST'));
  await assert.rejects(()=>api.issueInvitation({orgId:userId,email:'a@example.com',role:'owner'}),/Invitación inválida/);
 });
+
+test('Booking and courtesy methods only hit protected Supabase routes',async()=>{
+ const calls=[];
+ const api=new ReperaAuthAPI({publishableKey:key,storage:storage(),fetcher:async(url,options)=>{
+  calls.push({url,options});
+  if(url.includes('grant_type=password'))return response({access_token:'backend-jwt',refresh_token:'refresh-backend',expires_in:3600});
+  if(url.endsWith('/auth/v1/user'))return response({id:userId});
+  if(url.includes('rpc/'))return response(userId);
+  return response([]);
+ }});
+ await api.signIn('owner@example.test','pass-123456');
+ await api.bookService({occurrenceId:userId,passId:userId,requestId:userId});
+ await api.cancelService({bookingId:userId,requestId:userId});
+ const rpc=calls.filter(x=>x.url.includes('/rpc/'));
+ assert.equal(rpc.length,2);
+ assert.deepEqual(JSON.parse(rpc[0].options.body),{p_occurrence:userId,p_pass:userId,p_request:userId});
+ assert.deepEqual(JSON.parse(rpc[1].options.body),{p_booking:userId,p_request:userId});
+ assert.ok(rpc.every(x=>x.options.headers.Authorization==='Bearer backend-jwt'));
+ await assert.rejects(()=>api.grantCourtesyPass({orgId:userId,clientId:userId,kind:'paid',credits:1,validUntil:'2030-01-01'}),/inválido/);
+});

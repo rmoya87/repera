@@ -50,6 +50,14 @@
 - SQL real en transacción: `invitation_rls_smoke_pass`, adversario no accede ni acepta, aceptación válida crea vínculo y no permite reutilizar; ROLLBACK, 0 datos de prueba persistidos.
 - Panel profesional autenticado: emisión de invitaciones de miembro y aceptación desde la propia cuenta Supabase con correo confirmado; **sin entrega de emails automática ni conexión Apple→Supabase iOS todavía**.
 
+## Servicios y reservas con crédito (backend en construcción)
+- Migración incremental `20261019201914_business_services_booking_wallets`: 4 nuevas tablas con RLS: `service_occurrences`, `service_passes`, `service_bookings`, `service_credit_ledger`.
+- Clases grupales con aforo, citas 1:1 con exclusividad de entrenador, reservas atómicas (bloqueo de plaza y bono), petición idempotente, saldos separados para clases/citas, devolución de crédito al cancelar con al menos 12 horas de antelación (regla provisional).
+- Emisión de **bonos de cortesía** por owner/admin exclusivamente, sin confundirlos con pagos o derechos adquiridos. Los pagos reales y facturas están pendientes.
+- SQL smoke `business_booking_smoke_pass`: horario sin solapes, doble petición no duplica, bonos separados, doble reserva denegada, cancelación devuelve 1 crédito; ROLLBACK (0 reservas persistentes). Advisors de seguridad: 0 lints.
+- Panel conectado: vista de horarios reales, alta de clases y citas por propietario/admin, emisión explícita de bonos de cortesía a clientes que aceptaron la invitación; consulta de balances y reservas del centro.
+- No hay todavía reserva nativa desde iOS, bonos de pago, facturación, listas de espera ni confirmaciones push.
+
 ## PENDIENTE
 - Completar integración Auth extremo a extremo en navegador (confirmación de correo, dominios redirect, correo SMTP, refresh de sesión real, recuperación y logout en dispositivos).
 - Invitaciones, membresía administrada transaccionalmente y consentimientos.

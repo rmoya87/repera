@@ -28,5 +28,14 @@ Funciones de trigger y helper en esquema `private`: `handle_new_user`, `bootstra
 ## Invariantes
 La organización se crea con `created_by=auth.uid()` y un trigger crea su primer propietario; UNIQUE(organization_id,user_id) evita duplicidad. Desde el cliente no se puede insertar/editar miembros. RLS en las ocho tablas. Ningún usuario/organización de prueba quedó persistido.
 
+## Servicios reales (migración 20261019201914)
+- `service_occurrences`: clase o cita 1:1, entrenador, inicio/fin, aforo, estado. Trigger comprueba rol activo y evita solapamientos simultáneos de entrenador.
+- `service_passes`: bonos de cortesía separados por tipo de servicio (clase/cita), cliente vinculado, validez y créditos disponibles.
+- `service_bookings`: reserva con identidad verificada, petición idempotente y estado.
+- `service_credit_ledger`: concesión manual, consumo y devolución auditable; no refleja ingresos.
+- RPCs publicadas como wrappers SECURITY INVOKER hacia funciones privadas: `grant_complimentary_pass`, `book_service_occurrence`, `cancel_service_booking`.
+- La política provisional devuelve un crédito si la cancelación ocurre más de 12 h antes del evento; confirmar norma y excepciones con el negocio antes de cobros o producción.
+- Suite de pruebas SQL real: `supabase/tests/business_booking_smoke.sql`. Concurrencia simultánea cliente-cliente requiere ensayo e2e paralelo adicional.
+
 ## Próximas migraciones
 Tablas de invitaciones con token de un solo uso; enlaces entrenador-cliente y consentimiento con revocación; sedes/salas; versión/asignación de planes; clases/aforo/reservas/espera/créditos; catálogo comercial B2B y pagos B2C separados, webhooks y auditoría. Definir idempotency keys y transacciones atómicas por operación.
