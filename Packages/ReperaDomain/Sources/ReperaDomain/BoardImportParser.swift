@@ -232,12 +232,35 @@ public enum BoardImportParser {
             index += 1
         }
 
+        let movements = flattenMovements(movementLines, catalog: catalog)
+        // «Every 2' × 4» con un solo ejercicio 4-3-3-2 es fuerza por series,
+        // no un circuito EMOM. El esfuerzo RPE original se conserva en notas.
+        if header.format == .emom,
+           (header.raw.uppercased().hasPrefix("EVERY ") || header.raw.uppercased().hasPrefix("CADA ")),
+           movements.count == 1, let movement = movements.first,
+           !movement.isRest, let exerciseID = movement.exerciseId,
+           let scheme = movement.repScheme, scheme.count == header.rounds {
+            let notes = ([header.raw] + movementLines + footnotes).joined(separator: "\n")
+            let rir = midpointRIR(from: movement.notes)
+            let sets = scheme.map {
+                PlannedSet(targetReps: $0, targetWeightKg: movement.weightMaleKg, targetRir: rir)
+            }
+            var strength = RoutineBlock.strength(
+                title: header.title,
+                exercises: [RoutineExercise(exerciseId: exerciseID, plannedSets: sets)]
+            )
+            strength.emomIntervalSeconds = header.intervalSeconds
+            strength.timeCapMinutes = header.timeCapMinutes
+            strength.wodNotes = notes
+            return (strength, index)
+        }
+
         var block = RoutineBlock.wod(format: header.format, title: header.title)
         block.timeCapMinutes = header.timeCapMinutes
         block.rounds = header.rounds ?? block.rounds
         block.emomIntervalSeconds = header.intervalSeconds ?? block.emomIntervalSeconds
         block.restBetweenRoundsSeconds = header.restBetween
-        block.movements = flattenMovements(movementLines, catalog: catalog)
+        block.movements = movements
         block.deriveEmomRoundsIfNeeded()
         var notesParts = [header.raw] + movementLines
         if !footnotes.isEmpty {
@@ -731,6 +754,17 @@ public enum BoardImportParser {
                 notes: movNotes.isEmpty ? nil : movNotes.joined(separator: " · ")
             )
         }
+    }
+
+    private static func midpointRIR(from notes: String?) -> Double? {
+        guard let notes,
+              let found = notes.range(of: #"RPE\\s*(\\d+(?:[.,]\\d+)?)\\s*[-–]\\s*(\\d+(?:[.,]\\d+)?)"#,
+                                      options: .regularExpression) else { return nil }
+        let values = String(notes[found])
+            .split { !$0.isNumber && $0 != "." && $0 != "," }
+            .compactMap { Double($0.replacingOccurrences(of: ",", with: ".")) }
+        guard values.count == 2 else { return nil }
+        return Effort.toRIR(value: (values[0] + values[1]) / 2, unit: .rpe)
     }
 
     private static func firstInt(in text: String) -> Int? {
