@@ -17,6 +17,9 @@
 
 ### Diario (`PlanView`)
 
+- Selector **Entrenador · Personal · Rutinas**. Entrenador es la vista inicial y muestra un estado vacío transparente hasta que exista vinculación y agenda de servidor. No muestra asignaciones simuladas.
+- La programación personal, sus rutinas y sus herramientas siguen disponibles en **Personal** y **Rutinas**, sin eliminar datos locales ni del historial.
+
 - Título arriba (`ogFixedTopBar`) + menú ⋯ en la misma fila (Programado).
 - Plan semanal por weekday.
 - Edición de rutinas / bloques (fuerza + WOD): modal con **check** (swipe para cerrar); desde Entreno → Editar, **volver** (sin X) + check.
@@ -28,7 +31,9 @@
 - **Copiar semana pasada**: clona entrenos sueltos de la semana ISO anterior a la actual (nuevos IDs).
 - **Editor de ejercicio** (`RoutineExerciseEditor`): card **Referencia** con última sesión (series + TOP) y **carga sugerida** (kg grande) según reps + RIR de la 1.ª serie (Epley / 1RM·e1RM); **Aplicar** rellena pesos; **Copiar última sesión** clona series.
 
-### Crear (`StartHubSheet`)
+### Herramientas de Crear desde Inicio (`StartHubSheet`)
+
+- Ya no existe la pestaña Crear. El botón + de la barra de **Inicio** abre las mismas herramientas nativas dentro de una hoja; la tarjeta «Añadir entreno» del día conserva su flujo propio.
 
 - Título arriba (`ogFixedTopBar`), sin franja vacía encima.
 - **Crear mi entreno**: sesión completa (bloques, WOD, pizarra). No asigna día del plan (solo Diario).
@@ -36,6 +41,13 @@
 - Pickers de ejercicio (`ExerciseCatalogSearchList`): índice/ranking off-main (mismo enfoque que Biblioteca); sin historial Sync en cada fila; prefetch de thumbs solo ventana visible.
 - Favoritos, timer standalone.
 - Cámara / galería → escáner de pizarra → página **Añadir entreno** (cards/thumbs) → toolbar **Guardar** / **Empezar** (iconos). Detalle en `docs/BOARD_SCAN.md`.
+
+### Center (`CenterView`)
+
+- Pestaña nativa dedicada a centros, clases y futuras reservas.
+- **Estado real actual:** sin integración de sesiones Supabase en iOS ni tablas de clases/bonos desplegadas; no se inventan horarios ni cuotas.
+- Los centros vinculados, plazas, reservas confirmadas/espera y saldos se integrarán en esta vista cuando existan los endpoints autenticados y controles RLS.
+- Las reservas confirmadas deberán reflejarse también en **Inicio** al completar la integración. No está operativo todavía.
 
 ### Progreso (`StatsView`)
 
@@ -116,6 +128,11 @@
 - Empareja con sesiones Repera por UUID / solape temporal (no se duplican en Historial).
 - Borrar entreno en app → intenta borrar workout en Salud.
 - **Caché en disco** del último snapshot (actividades/FC/kcal): al abrir la app se muestran datos al instante; HealthKit actualiza en segundo plano (anclado + observers).
+
+## Ajustes: centros, entrenadores y contratos
+
+- Secciones nativas de **Mis centros y entrenadores** y **Servicios contratados**: muestran explícitamente «Sin sincronizar» hasta conectar Sign in with Apple a Supabase y crear los contratos compartidos. Nunca presentan saldos simulados.
+- Repera Pro (Apple/RevenueCat) sigue independiente del bono/cuota pagado al gimnasio o entrenador.
 
 ## Onboarding (primer acceso y usuarios existentes)
 

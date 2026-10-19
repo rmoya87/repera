@@ -28,8 +28,9 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 | Área | Incluye |
 |------|---------|
 | **Inicio** | Semana/día, métricas Salud, entrenos + externos, avatar→Ajustes, planificar / pizarra |
-| **Diario** | Plan semanal, rutinas, WOD, favoritos, **copiar semana pasada** |
-| **Crear** | Entreno libre, **Apuntar series**, favoritos, timer, foto pizarra/TV |
+| **Diario** | Vista de planificación del entrenador (sin sincronización todavía) + planificación personal/rutinas conservadas |
+| **Center** | Vista nativa de centros y clases con estado vacío real (reservas no conectadas aún) |
+| **Crear desde Inicio** | Botón +: entreno libre, **Apuntar series**, favoritos, timer, foto pizarra/TV (sin pestaña propia) |
 | **Progreso** | Gratis: esta semana + teaser; Pro: periodos, deltas, cardio/kcal/peso, heatmap, equilibrio |
 | **Ejercicios** | Biblioteca + ficha; evolución completa = Pro (Gratis: última sesión + PR) |
 | **Sesión** | Series, WU/drop/rest-pause, RIR/RPE, discos, menú ⋯, Live Activity descanso |

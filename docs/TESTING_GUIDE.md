@@ -4,6 +4,16 @@
 
 Checklist manual por feature. Preferible dispositivo real para Live Activity y Watch.
 
+## Navegación deportista (2026-10-19)
+
+- [ ] La barra muestra **Inicio · Diario · Center · Progreso · Ejercicios** (sin pestaña Crear).
+- [ ] **Inicio → +** abre todas las acciones antiguas: crear entreno, apuntar series, favoritos, temporizador y escanear pizarra; iniciar/continuar entreno conserva la navegación.
+- [ ] **Inicio → Añadir entreno** conserva su sheet por día y **Crear plan** abre Diario en «Personal».
+- [ ] **Diario** abre en «Entrenador» con estado vacío honesto; «Personal» y «Rutinas» conservan datos y acciones del usuario.
+- [ ] **Center** muestra estado sin clases sincronizadas, no inventa disponibilidad ni permite registrar una reserva ficticia.
+- [ ] **Ajustes** separa centros/entrenadores, servicios externos y el plan «Repera Pro» de Apple.
+- [ ] Con futuro backend: validar reservas, devolución de crédito, caducidad, notificaciones, varios centros y revocación, sin borrar historial local.
+
 ## Monetización (Gratis / Pro)
 
 Detalle: [MONETIZATION.md](MONETIZATION.md).
@@ -21,7 +31,7 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 
 ## Log rápido (Apuntar series)
 
-- [ ] **Crear → Apuntar series** → elige ejercicio → modal de series → guardar → aparece en Inicio / Historial.
+- [ ] **Inicio → + → Apuntar series** → elige ejercicio → modal de series → guardar → aparece en Inicio / Historial.
 - [ ] Racha en Inicio con Salud autorizada → Historial lista Repera **y** entrenos de Salud (sin duplicar vinculados).
 - [ ] Distinto de **Crear mi entreno**: no pide bloques/WOD.
 - [ ] **Ficha ejercicio → +** → mismo modal de series (no abre sesión completa).

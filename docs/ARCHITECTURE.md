@@ -112,10 +112,12 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 
 ## Navegación (tabs)
 
-`RootTabView`: **Inicio · Diario · Crear · Progreso · Ejercicios**.
+`RootTabView`: **Inicio · Diario · Center · Progreso · Ejercicios**. El antiguo `StartHubSheet` se presenta desde Inicio mediante +; el flujo de sesión y todas sus herramientas se conservan. `CenterView` es nativa y muestra estados vacíos auténticos hasta conectar datos profesionales.
 
 - Flujo de entreno: overlay `NavigationStack` (`sessionPreview` → `workout`).
 - Tab bar: `minimize` solo con sesión activa; accessory **Continuar**.
+
+La pestaña Diario prioriza **Entrenador** y conserva **Personal · Rutinas** como alternativas sin sobrescribir almacenamiento local. Ajustes agrupa relaciones profesionales y contratos con estados «Sin sincronizar» hasta disponer de APIs y sesión Supabase móvil verificadas.
 
 ## UI / design system
 

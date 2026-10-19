@@ -30,3 +30,15 @@ Dos clientes compitiendo por una plaza; reservas repetidas; créditos agotados/c
 
 ## Decisiones pendientes
 Diseño de consentimientos y retención; política de sincronización Android; proveedor de emails de invitación; pagos/fiscalidad/IVA; límites y tarifas comerciales; entorno staging antes de desplegar operaciones económicas; seguridad y estrategia de despliegue de panel profesional.
+
+## Experiencia móvil aprobada (2026-10-19)
+
+En la navegación del deportista: **Inicio / Diario / Center / Progreso / Ejercicios**.
+- **Inicio:** resumen personal del día más planes prescritos y clases confirmadas. Botón + abre herramientas antes incluidas en Crear. No ocultar entrenamiento libre ni logs.
+- **Diario:** planificación que publica el entrenador personal como vista principal; mantener acceso a «Personal» y «Rutinas». En ausencia de entrenador conectado, estado vacío honesto sin perder datos previos.
+- **Center:** catálogo y calendario de clases del gimnasio o gimnasios vinculados; confirmar/anular reserva, espera, horarios y cupos reales. Las reservas confirmadas se reflejan en Inicio.
+- **Ajustes:** varias afiliaciones/entrenadores y detalle de productos externos contratados (bonos, sesiones usadas/disponibles, vencimiento, suspensión y próxima renovación); gestión del contrato mediante operaciones autorizadas. Repera Pro de Apple permanece separado.
+
+**Dependencias no implementadas:** identidad Apple→Supabase y relación consentida, publicación de planes, eventos en agenda móvil, reservas transaccionales, catálogo de servicios y saldos, webhooks/pagos, notificaciones y deep links.
+
+**Decisiones de producto pendientes de validación:** qué hacer cuando el usuario tenga varios entrenadores y gimnasios; visibilidad de planes personales junto al plan profesional; cancelación/reembolso de reservas y bonos; qué significa «gestionar» (renovación, baja, cambio de plan, congelación) según contrato y normativa aplicable. Defaults seguros: agregación ordenada por centro, origen claramente etiquetado, no auto-compras, no publicar historial/Salud sin consentimiento, no prometer reintegro hasta transacción confirmada.

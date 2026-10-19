@@ -9,15 +9,17 @@ enum WorkoutFlowRoute: Hashable {
     case workout
 }
 
-/// Menú principal: Inicio · Diario · + · Progreso · Ejercicios
+/// Menú principal: Inicio · Diario (entrenador/personal) · Center · Progreso · Ejercicios
 struct RootTabView: View {
     @Environment(ReperaStore.self) private var store
     @State private var tab: AppTab = .home
+    @State private var planSection: DiarioSection = .coach
+    @State private var showStartHub = false
     @State private var flowPath: [WorkoutFlowRoute] = []
     @State private var previewRoutine: Routine?
 
     enum AppTab: Hashable {
-        case home, plan, create, stats, exercises
+        case home, plan, center, stats, exercises
     }
 
     var body: some View {
@@ -28,20 +30,17 @@ struct RootTabView: View {
                         onOpenWorkout: openWorkout,
                         onStart: openTodayPreview,
                         onStartRoutine: openRoutinePreview,
-                        onGoPlan: { tab = .plan },
-                        onOpenStartHub: { tab = .create }
+                        onGoPlan: { planSection = .schedule; tab = .plan },
+                        onOpenStartHub: { showStartHub = true }
                     )
                 }
 
                 SwiftUI.Tab("Diario", systemImage: "calendar", value: AppTab.plan) {
-                    PlanView()
+                    PlanView(section: $planSection)
                 }
 
-                SwiftUI.Tab("Crear", systemImage: "plus", value: AppTab.create) {
-                    StartHubSheet(
-                        onGoPlan: { tab = .plan },
-                        onOpenedWorkout: openWorkout
-                    )
+                SwiftUI.Tab("Center", systemImage: "building.2", value: AppTab.center) {
+                    CenterView()
                 }
 
                 SwiftUI.Tab("Progreso", systemImage: "chart.bar", value: AppTab.stats) {
@@ -73,6 +72,22 @@ struct RootTabView: View {
                 .transition(.move(edge: .trailing))
                 .zIndex(1)
             }
+        }
+        .sheet(isPresented: $showStartHub) {
+            // The former Crear tab remains available from Inicio, without losing tools.
+            StartHubSheet(
+                onGoPlan: {
+                    showStartHub = false
+                    planSection = .schedule
+                    tab = .plan
+                },
+                onOpenedWorkout: {
+                    showStartHub = false
+                    openWorkout()
+                }
+            )
+            .presentationDetents([.large])
+            .ogSheetCorners()
         }
         .animation(.easeInOut(duration: 0.32), value: flowPath.isEmpty)
         .preferredColorScheme(.dark)
@@ -178,7 +193,7 @@ struct RootTabView: View {
             return
         }
         guard let today = store.routineForToday() else {
-            tab = .create
+            showStartHub = true
             return
         }
         openRoutinePreview(today)

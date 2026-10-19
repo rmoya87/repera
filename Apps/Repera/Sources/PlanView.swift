@@ -1,7 +1,8 @@
 import ReperaDomain
 import SwiftUI
 
-private enum DiarioSection: String, CaseIterable, Identifiable {
+enum DiarioSection: String, CaseIterable, Identifiable {
+    case coach
     case schedule
     case routines
 
@@ -9,17 +10,18 @@ private enum DiarioSection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .schedule: return "Programado"
+        case .coach: return "Entrenador"
+        case .schedule: return "Personal"
         case .routines: return "Rutinas"
         }
     }
 }
 
-/// Diario: Programado (días → asignación) y Rutinas (plantillas reutilizables).
+/// Diario: planificación profesional (pendiente de sincronización) y planificación personal intacta.
 struct PlanView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(SubscriptionManager.self) private var subscriptions
-    @State private var section: DiarioSection = .schedule
+    @Binding var section: DiarioSection
     @State private var editing: Routine?
     @State private var isCreating = false
     @State private var confirmClearSchedule = false
@@ -41,6 +43,8 @@ struct PlanView: View {
                 }
 
                 switch section {
+                case .coach:
+                    coachScheduleContent
                 case .schedule:
                     scheduleContent
                 case .routines:
@@ -152,6 +156,28 @@ struct PlanView: View {
                      ? "No había entrenos sueltos en la semana ISO anterior."
                      : "Se añadieron \(n) entreno\(n == 1 ? "" : "s") a esta semana.")
             }
+        }
+    }
+
+    // MARK: - Planificación de entrenadores
+
+    @ViewBuilder
+    private var coachScheduleContent: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Planificación de tu entrenador", systemImage: "person.fill.checkmark")
+                    .font(.headline)
+                    .foregroundStyle(OG.label)
+
+                Text("Cuando aceptes la invitación de tu entrenador y se active la sincronización profesional, aquí aparecerán los entrenamientos que te asigne.")
+                    .font(.subheadline)
+                    .foregroundStyle(OG.label2)
+
+                Text("Mientras tanto, puedes seguir entrenando con tus rutinas actuales desde «Personal» y «Rutinas». No se borrará tu historial.")
+                    .font(.footnote)
+                    .foregroundStyle(OG.label2)
+            }
+            .padding(.vertical, 12)
         }
     }
 

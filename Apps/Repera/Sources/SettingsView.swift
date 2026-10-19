@@ -121,6 +121,26 @@ struct SettingsView: View {
             }
 
             Section {
+                LabeledContent("Entrenador personal", value: "Sin sincronizar")
+                LabeledContent("Gimnasios y centros", value: "Sin sincronizar")
+                Text("Aquí aparecerán los profesionales y centros con los que hayas aceptado una vinculación. Tu cuenta Apple todavía no está conectada a las relaciones profesionales de Supabase.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Mis centros y entrenadores")
+            }
+
+            Section {
+                LabeledContent("Bonos y sesiones", value: "Sin sincronizar")
+                LabeledContent("Caducidades", value: "Sin sincronizar")
+                Text("Se mostrarán tus servicios contratados, sesiones disponibles, fecha de renovación y opciones de gestión cuando el centro habilite el contrato y su consulta segura. No se confunden con Repera Pro.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Servicios contratados")
+            }
+
+            Section {
                 if subscriptions.isPro {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {

@@ -83,6 +83,12 @@ struct HomeView: View {
             }
             .background(OG.bg)
             .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay)) {
+                OGToolbarGlassButton(
+                    systemName: "plus",
+                    accessibilityLabel: "Crear entreno, apuntar series o escanear pizarra",
+                    appliesGlass: true,
+                    action: onOpenStartHub
+                )
                 NavigationLink {
                     SettingsView()
                 } label: {

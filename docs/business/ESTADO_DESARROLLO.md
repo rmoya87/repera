@@ -17,6 +17,14 @@
 - La clave de navegador es `sb_publishable_` pública, y el código rechaza otro proyecto Supabase; no existe service_role en el cliente.
 - No se ha desplegado la consola en IONOS. Auth configurado en producción (SMTP, redirects, Confirm email) aún necesita verificación E2E.
 
+## CAMBIO DE EXPERIENCIA iOS (implementación parcial)
+- Barra nativa iOS: `Inicio · Diario · Center · Progreso · Ejercicios`; el hub «Crear» sigue accesible desde + de Inicio.
+- Diario abre en vista Entrenador (sin agenda remota simulada); planificación personal y rutinas quedan en pestañas secundarias del mismo Diario.
+- Center es una pantalla nativa con estado vacío real y acceso a Ajustes; no muestra horarios ni permite reservar todavía.
+- Ajustes separa «Mis centros y entrenadores» y «Servicios contratados», ambos con estado Sin sincronizar; Repera Pro se mantiene independiente.
+- Pendiente: conectar Sign in with Apple con Supabase Auth y construir APIs de invitación/programación/clases/contratos, incorporarlas a Inicio/Diario/Center y mostrar saldos reales.
+- Compilación Xcode iOS 27, UI tests y TestFlight: **no ejecutadas desde el conector**; no marcar como probado.
+
 ## PROBADO
 - `list_tables`: 8 tablas RLS=true.
 - `list_migrations`: baseline registrada.
@@ -33,6 +41,7 @@
 - Invitaciones, membresía administrada transaccionalmente y consentimientos.
 - Asignaciones deportivas compartidas / versiones; reservas / aforo y créditos; Stripe.
 - Web profesional real, Android, deep links, push, observabilidad, e2e.
+- Agenda y reservas reales del deportista en Inicio/Center, contratos/sesiones/caducidades reales en Ajustes: todavía NO integrados.
 - CI específico de migraciones y pruebas RLS sobre una base limpia, comprobación por usuarios reales.
 - CI iOS heredado activado en PR #5: se observan fallos en varios checks del workflow; el conector no ha proporcionado pasos ni logs suficientes para atribuirlos al código o al entorno. No declarar CI superado.
 - Revisión del prototipo local Repera Business v0.2 y sus 37 supuestas pruebas: archivos fuente no accesibles en este contexto.
