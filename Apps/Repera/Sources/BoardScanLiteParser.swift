@@ -155,11 +155,11 @@ enum BoardScanLiteParser {
             return Header(title: line, format: .amrap, cap: mins)
         }
         // 4 RFT (TC 12') → 4 rondas, límite 12 min. El primer 4 NO es el time cap.
-        if upper.range(of: #"^\\d+\\s*RFT\\b"#, options: .regularExpression) != nil ||
+        if upper.range(of: #"^\d+\s*RFT\b"#, options: .regularExpression) != nil ||
            upper.hasPrefix("RFT") || upper.contains("FOR TIME") {
-            let rounds = upper.range(of: #"^\\d+\\s*RFT\\b"#, options: .regularExpression)
+            let rounds = upper.range(of: #"^\d+\s*RFT\b"#, options: .regularExpression)
                 .flatMap { firstInt(String(upper[$0])) }
-            let timeCap = upper.range(of: #"(?:TC|TIME\\s*CAP|CAP)\\s*[:=]?\\s*\\d+"#,
+            let timeCap = upper.range(of: #"(?:TC|TIME\s*CAP|CAP)\s*[:=]?\s*\d+"#,
                                       options: .regularExpression)
                 .flatMap { firstInt(String(upper[$0]).filter { $0.isNumber }) }
             return Header(title: line, format: .forTime, cap: timeCap, rounds: rounds)
@@ -168,7 +168,7 @@ enum BoardScanLiteParser {
             return Header(title: line, format: .tabata, cap: nil)
         }
         // Every 2' x 4 / Every 2 min x 4. Conserva el intervalo y las cuatro series.
-        if let match = upper.range(of: #"^(?:EVERY|CADA)\\s+\\d+\\s*(?:'|MIN(?:UTES?)?)?\\s*X\\s*\\d+"#,
+        if let match = upper.range(of: #"^(?:EVERY|CADA)\s+\d+\s*(?:'|MIN(?:UTES?)?)?\s*X\s*\d+"#,
                                    options: .regularExpression) {
             let values = String(upper[match]).split { !$0.isNumber }.compactMap { Int($0) }
             if values.count == 2 {
@@ -191,7 +191,7 @@ enum BoardScanLiteParser {
     /// y empleamos el punto medio RPE 7 (≈ RIR 3) como objetivo editable de fuerza.
     private static func rpeMidpointRIR(from notes: String?) -> Double? {
         guard let notes,
-              let match = notes.range(of: #"RPE\\s*(\\d+(?:[.,]\\d+)?)\\s*[-–]\\s*(\\d+(?:[.,]\\d+)?)"#,
+              let match = notes.range(of: #"RPE\s*(\d+(?:[.,]\d+)?)\s*[-–]\s*(\d+(?:[.,]\d+)?)"#,
                                       options: .regularExpression) else { return nil }
         let numbers = String(notes[match]).split { !$0.isNumber && $0 != "." && $0 != "," }
             .compactMap { Double($0.replacingOccurrences(of: ",", with: ".")) }
@@ -202,7 +202,7 @@ enum BoardScanLiteParser {
     private static func movement(from line: String) -> WODMovement {
         var working = line
         var notes: [String] = []
-        if let rpe = working.range(of: #"@\\s*\\d+(?:[.,]\\d+)?\\s*[-–]\\s*\\d+(?:[.,]\\d+)?"#,
+        if let rpe = working.range(of: #"@\s*\d+(?:[.,]\d+)?\s*[-–]\s*\d+(?:[.,]\d+)?"#,
                                    options: .regularExpression) {
             notes.append("RPE " + String(working[rpe]).replacingOccurrences(of: "@", with: "").trimmingCharacters(in: .whitespaces))
             working.removeSubrange(rpe)
