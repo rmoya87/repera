@@ -16,22 +16,8 @@ final class BoardScanStressTests: XCTestCase {
             "10 T2B",
             "200M RUN",
         ]
-        let data = try Data(contentsOf: URL(fileURLWithPath: "/tmp/repera-parser-bench/exercises.json"))
-        struct E: Decodable {
-            let id: UUID; let name: String; let muscleGroup: String; let isCustom: Bool
-            let equipment: String?; let catalogId: String?; let targetMuscle: String?
-            let secondaryMuscles: [String]?; let bodyPart: String?; let detailDescription: String?
-            let instructions: [String]?; let primaryRegions: [String]?; let secondaryRegions: [String]?
-            let isFavorite: Bool?
-        }
-        let catalog = try JSONDecoder().decode([E].self, from: data).map {
-            Exercise(id: $0.id, name: $0.name, muscleGroup: $0.muscleGroup, equipment: $0.equipment,
-                     isCustom: $0.isCustom, catalogId: $0.catalogId, targetMuscle: $0.targetMuscle,
-                     secondaryMuscles: $0.secondaryMuscles ?? [], bodyPart: $0.bodyPart,
-                     detailDescription: $0.detailDescription, instructions: $0.instructions ?? [],
-                     primaryRegions: $0.primaryRegions ?? [], secondaryRegions: $0.secondaryRegions ?? [],
-                     isFavorite: $0.isFavorite ?? false)
-        }
+        // Catálogo real reproducible en Mac local y GitHub Actions.
+        let catalog = Catalog.seed()
         for (i, line) in lines.enumerated() {
             let t0 = CFAbsoluteTimeGetCurrent()
             let blocks = BoardImportParser.parseBlocks(ocrText: line, catalog: catalog)
