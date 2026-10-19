@@ -32,6 +32,82 @@ public enum ExerciseSearch {
         "chestpress": "banca",
     ]
 
+    /// Traducciones de frases completas: se prueban además del texto original.
+    /// No sustituyen los nombres reales; una búsqueda exacta sigue siendo prioritaria.
+    private static let bilingualPhrases: [String: String] = [
+        "back squat": "sentadilla",
+        "sentadilla trasera": "back squat",
+        "sentadilla con barra": "back squat",
+        "squat": "sentadilla",
+        "squats": "sentadilla",
+        "power snatch": "arrancada de potencia",
+        "arrancada de potencia": "power snatch",
+        "snatch": "arrancada",
+        "arrancada": "snatch",
+        "high hang squat snatch": "arrancada colgante completa",
+        "high hsq snatch": "arrancada colgante completa",
+        "deadlift": "peso muerto",
+        "peso muerto": "deadlift",
+        "bench press": "press banca",
+        "press banca": "bench press",
+        "walking lunge": "zancadas",
+        "zancadas caminando": "walking lunge",
+        "lunges": "zancadas",
+        "lunge": "zancadas",
+        "zancadas": "lunges",
+        "reverse lunges": "zancadas",
+        "barbell reverse lunges": "zancadas inversas con barra",
+        "back rack r lunges": "zancadas inversas con barra",
+        "zancadas inversas con barra": "back rack reverse lunges",
+        "front rack lunge": "zancadas rack frontal",
+        "zancadas rack frontal": "front rack lunge",
+        "pull ups": "dominadas",
+        "pull up": "dominadas",
+        "dominadas": "pull ups",
+        "overhead squat": "sentadilla overhead",
+        "sentadilla overhead": "overhead squat",
+    ]
+
+    /// Traducción parcial para consultas largas que no coinciden con una frase.
+    private static let bilingualTokens: [String: String] = [
+        "squat": "sentadilla", "squats": "sentadilla",
+        "lunges": "zancadas", "lunge": "zancadas",
+        "snatch": "arrancada", "clean": "cargada",
+        "deadlift": "peso muerto", "deadlifts": "peso muerto",
+        "zancada": "lunges", "zancadas": "lunges",
+        "sentadilla": "squat", "arrancada": "snatch",
+        "cargada": "clean", "potencia": "power", "power": "potencia",
+        "jump": "salto", "salto": "jump",
+    ]
+
+    private static func queryCandidates(_ raw: String) -> [[String]] {
+        let original = tokens(from: raw)
+        guard !original.isEmpty else { return [] }
+        var variants = [original]
+        let key = normalize(raw)
+        if let alias = bilingualPhrases[key] ?? CrossFitGlossary.aliases[key] {
+            let synonym = tokens(from: alias)
+            if !synonym.isEmpty && !variants.contains(synonym) { variants.append(synonym) }
+        }
+        let translated = original.map { bilingualTokens[$0] ?? $0 }
+        if translated != original && !variants.contains(translated) {
+            variants.append(translated)
+        }
+        return variants
+    }
+
+    private static func searchScore(_ document: Document, variants: [[String]]) -> Int {
+        // Una coincidencia literal exacta tiene prioridad sobre una traducción.
+        guard let first = variants.first else { return 0 }
+        var best = score(document, tokens: first, phrase: first.joined(separator: " "))
+        if best == Weight.exactName { return best }
+        for variant in variants.dropFirst() {
+            let translated = score(document, tokens: variant, phrase: variant.joined(separator: " "))
+            best = max(best, min(translated, Weight.namePrefixPhrase - 1))
+        }
+        return best
+    }
+
     /// Flat set for O(1) `isMuscleToken` (avoids scanning all alias arrays).
     private static let allMuscleTokens: Set<String> = {
         var set = Set(muscleAliases.keys)
@@ -145,12 +221,11 @@ public enum ExerciseSearch {
                 $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending
             }
         }
-        let qTokens = tokens(from: q)
-        guard !qTokens.isEmpty else { return [] }
-        let phrase = qTokens.joined(separator: " ")
+        let variants = queryCandidates(q)
+        guard !variants.isEmpty else { return [] }
         return documents
             .map { document -> (doc: Document, score: Int) in
-                (document, score(document, tokens: qTokens, phrase: phrase))
+                (document, searchScore(document, variants: variants))
             }
             .filter { $0.score > 0 }
             .sorted { lhs, rhs in
@@ -161,9 +236,8 @@ public enum ExerciseSearch {
     }
 
     public static func score(_ document: Document, query: String) -> Int {
-        let qTokens = tokens(from: query)
-        guard !qTokens.isEmpty else { return 0 }
-        return score(document, tokens: qTokens, phrase: qTokens.joined(separator: " "))
+        let variants = queryCandidates(query)
+        return searchScore(document, variants: variants)
     }
 
     // MARK: - Scoring
