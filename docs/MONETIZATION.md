@@ -63,7 +63,7 @@ Primera suscripción renovable: Apple exige enviarla con una versión nueva de l
 
 - SPM: `https://github.com/RevenueCat/purchases-ios-spm` (producto `RevenueCat`), declarado en `project.yml`.
 - Clave pública: Info.plist / XcodeGen `RevenueCatPublicAPIKey` (`appl_…`).
-- Sin clave válida: la app compila, permanece en Gratis, no compra productos ficticios, paywall muestra «compras no disponibles».
+- Sin clave RevenueCat válida, la app utiliza directamente StoreKit 2 y puede comprar los productos reales de App Store Connect. Si Apple no devuelve productos, el paywall informa de la indisponibilidad; nunca simula una compra ni concede Pro por pulsar un botón.
 - Debug: sección «Debug Pro» en Ajustes (solo `#if DEBUG`) + `DebugEntitlementProvider`.
 
 ## 5–8. App Store Connect / productos / entitlement / offerings
@@ -85,7 +85,7 @@ Solo la oferta introductoria de Apple. No hay contador local de 14 días. Si el 
 
 ## 10. Restaurar / gestionar
 
-- Paywall y Ajustes → «Restaurar compras» (`Purchases.restorePurchases`).
+- Paywall y Ajustes → «Restaurar compras» (`AppStore.sync()` con StoreKit 2, o `Purchases.restorePurchases()` si RevenueCat está configurado).
 - «Gestionar suscripción» → `https://apps.apple.com/account/subscriptions`.
 
 ## 11. Offline
