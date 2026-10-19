@@ -29,6 +29,8 @@ struct ReperaApp: App {
                         .ignoresSafeArea()
                 } else if onboarding.isComplete && appleAuth.isSignedIn {
                     RootTabView()
+                        // A fresh navigation tree for every authenticated account.
+                        .id(appleAuth.userID)
                 } else {
                     OnboardingFlowView()
                 }
@@ -86,11 +88,20 @@ struct ReperaApp: App {
                         // Real return from background — not the initial launch `.active`.
                         Task {
                             guard store.isHydrated else { return }
-                            await store.refreshFromiCloud()
+                            if appleAuth.isSignedIn {
+                                await store.refreshFromiCloud()
+                            }
                             await refreshHealthOnForeground(forceProgressiveIfNeeded: true)
                             await subscriptions.refreshOnForeground()
                             wireSubscriptionGates()
                         }
+                    }
+                }
+                .onChange(of: appleAuth.isSignedIn) { _, signedIn in
+                    // A session revoked outside Ajustes must also return to the login.
+                    if !signedIn && authReady {
+                        subscriptions.dismissPaywall()
+                        onboarding.resetToSignIn()
                     }
                 }
                 .onChange(of: store.state.syncRevision) { _, _ in
