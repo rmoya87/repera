@@ -94,7 +94,7 @@
               "locale" : "es_ES"
             }
           ],
-          "productID" : "repera_pro_monthly",
+          "productID" : "com.app.repera.premium.monthly",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "Repera Pro Monthly",
           "type" : "RecurringSubscription"
@@ -124,7 +124,7 @@
               "locale" : "es_ES"
             }
           ],
-          "productID" : "repera_pro_annual",
+          "productID" : "com.app.repera.premium.yearly",
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "Repera Pro Annual",
           "type" : "RecurringSubscription"
