@@ -876,6 +876,19 @@ public enum CrossFitGlossary {
         "tu": "Triples de comba",
         "triple unders": "Triples de comba",
 
+        // Movimientos habituales de pizarra con abreviaturas de posición.
+        // R. = reverse: no confundir con walking lunges ni front rack lunges.
+        "back squat": "Sentadilla",
+        "high hsq snatch": "Arrancada colgante completa",
+        "high hang squat snatch": "Arrancada colgante completa",
+        "high hang sq snatch": "Arrancada colgante completa",
+        "back rack r lunges": "Zancadas inversas con barra",
+        "back rack reverse lunges": "Zancadas inversas con barra",
+        "back rack reverse lunge": "Zancadas inversas con barra",
+        "rear rack reverse lunges": "Zancadas inversas con barra",
+        "barbell reverse lunges": "Zancadas inversas con barra",
+        "power snatches": "Arrancada de potencia",
+
         // Cargadas / arrancadas
         "hsc": "Cargada colgante completa",
         "hang squat clean": "Cargada colgante completa",
