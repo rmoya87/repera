@@ -8,7 +8,7 @@ Checklist manual por feature. Preferible dispositivo real para Live Activity y W
 
 Detalle: [MONETIZATION.md](MONETIZATION.md).
 
-- [ ] Sin `RevenueCatPublicAPIKey` → app en Gratis; paywall indica compras no disponibles.
+- [ ] Sin `RevenueCatPublicAPIKey` → StoreKit 2 carga productos reales de App Store Connect; si Apple no los ofrece, mostrar motivo en el paywall, sin conceder Pro.
 - [ ] Debug → Ajustes → Debug Pro: simular Free / Pro mensual / anual / trial / gracia / caducada / offline.
 - [ ] Crear 4ª rutina biblioteca → paywall; editar/borrar las 3 existentes OK.
 - [ ] Crear 6º ejercicio custom → paywall; catálogo seed sin límite.
