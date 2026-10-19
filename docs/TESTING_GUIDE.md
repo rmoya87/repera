@@ -1,6 +1,6 @@
 # Guía de pruebas — Repera
 
-Última actualización: 2026-10-19 (monetización Freemium / Pro)
+Última actualización: 2026-10-19 (flujo Pro TestFlight Sandbox e interfaz iOS 27)
 
 Checklist manual por feature. Preferible dispositivo real para Live Activity y Watch.
 
@@ -8,7 +8,7 @@ Checklist manual por feature. Preferible dispositivo real para Live Activity y W
 
 Detalle: [MONETIZATION.md](MONETIZATION.md).
 
-- [ ] Sin `RevenueCatPublicAPIKey` → app en Gratis; paywall indica compras no disponibles.
+- [ ] Sin `RevenueCatPublicAPIKey` pero con productos en App Store Connect → paywall carga planes desde StoreKit 2 y abre compra Sandbox en TestFlight.
 - [ ] Debug → Ajustes → Debug Pro: simular Free / Pro mensual / anual / trial / gracia / caducada / offline.
 - [ ] Crear 4ª rutina biblioteca → paywall; editar/borrar las 3 existentes OK.
 - [ ] Crear 6º ejercicio custom → paywall; catálogo seed sin límite.
@@ -16,7 +16,12 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] Ficha ejercicio Gratis: última sesión + teaser; Pro: evolución completa.
 - [ ] Progreso Gratis: solo «Esta semana»; periodos Pro abren paywall sin cambiar rango.
 - [ ] WOD: registro libre; historial completo = Pro.
-- [ ] Restaurar compras (sandbox) y gestionar suscripción (enlace Apple).
+- [ ] TestFlight: abrir paywall desde onboarding, Ajustes o un límite Gratis; cargar precios reales mensual y anual (bundle `com.app.repera`, IDs `repera_pro_monthly` / `repera_pro_annual`).
+- [ ] Pulsar «Continuar con Repera Pro» → sale la hoja nativa Apple Sandbox; tras validar la transacción, Pro se activa inmediatamente sin tener que reiniciar.
+- [ ] Cancelar compra no concede Pro ni muestra error falso; compra pendiente o fallida explica el motivo; reintento no crea compras superpuestas.
+- [ ] Con catálogo vacío, botón «Volver a cargar planes» visible e informativo, no CTA mudo o bloqueado.
+- [ ] Cerrar paywall: X roja del sistema en barra superior, **un solo círculo**, mismo tamaño y patrón que `SessionPreviewView` (`CloseToolbarButton(large: false)`).
+- [ ] Restaurar compras (sandbox) y gestionar suscripción (enlace Apple); relanzar TestFlight y comprobar acceso Pro verificado.
 - [ ] Import JSON no activa Pro; export sigue incluyendo datos deportivos.
 
 ## Log rápido (Apuntar series)
