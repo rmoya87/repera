@@ -16,6 +16,21 @@ final class ExerciseSearchTests: XCTestCase {
         )
     }
 
+    func testEnglishSpanishMovementQueries() {
+        let catalog = [
+            exercise(name: "Sentadilla", muscle: "Piernas"),
+            exercise(name: "Arrancada de potencia", muscle: "Piernas", equipment: "Barra"),
+            exercise(name: "Arrancada colgante completa", muscle: "Piernas", equipment: "Barra"),
+            exercise(name: "Back rack reverse lunge", muscle: "Piernas", equipment: "Barra"),
+            exercise(name: "Walking lunge", muscle: "Piernas"),
+        ]
+        XCTAssertEqual(ExerciseSearch.ranked(catalog, query: "back squat").first?.name, "Sentadilla")
+        XCTAssertEqual(ExerciseSearch.ranked(catalog, query: "power snatch").first?.name, "Arrancada de potencia")
+        XCTAssertEqual(ExerciseSearch.ranked(catalog, query: "high hsq snatch").first?.name, "Arrancada colgante completa")
+        XCTAssertEqual(ExerciseSearch.ranked(catalog, query: "zancadas caminando").first?.name, "Walking lunge")
+        XCTAssertEqual(ExerciseSearch.ranked(catalog, query: "zancadas inversas con barra").first?.name, "Back rack reverse lunge")
+    }
+
     func testPressDeBancaFindsPressBanca() {
         let ex = exercise(name: "Press banca", muscle: "Pecho", equipment: "Barra")
         XCTAssertTrue(ExerciseSearch.matches(ex, query: "press de banca"))
