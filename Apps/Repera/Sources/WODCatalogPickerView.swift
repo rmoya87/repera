@@ -64,6 +64,7 @@ struct WODCatalogPickerView: View {
             .ogListChrome()
             .searchable(text: $query, prompt: "Buscar WOD")
             .ogPinnedTransparentNav("Elegir WOD")
+            .toolbar(.visible, for: .navigationBar)
             .toolbar {
                 if embedsNavigationStack {
                     ToolbarItem(placement: .cancellationAction) {
