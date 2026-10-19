@@ -531,8 +531,8 @@ struct SettingsView: View {
             Button("Cerrar sesión", role: .destructive) {
                 confirmSignOut = false
                 subscriptions.dismissPaywall()
-                onboarding.resetToSignIn()
                 appleAuth.signOut()
+                onboarding.resetToSignIn()
             }
             Button("Cancelar", role: .cancel) {}
         } message: {
