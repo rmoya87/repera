@@ -131,6 +131,10 @@
 - `CrossFitGlossary.canonicalName` ahora conserva la variante explícita `Bar facing burpee`, evitando que el alias parcial `burpee` degrade un movimiento específico cuando la pizarra incluye `8 BOB`. Test de regresión agregado junto al importador real.
 - Con Xcode 27 la última ejecución obtuvo 75 XCTest verdes y 68/69 pruebas Swift Testing verdes; la única pendiente era esta variante, corregida y pendiente de nueva verificación.
 
+## Error de tipado SwiftUI `PlanView.swift` resuelto en código
+- Logs reales Xcode 27: `setWODFormat` era una función `Void` decorada erróneamente con `@ViewBuilder`, mientras que `wodBlock(index:) -> some View` construía múltiples vistas sin ese atributo. Se ha movido `@ViewBuilder` a `wodBlock`. 
+- Pendiente nueva compilación de iOS/watchOS después de este cambio; no se declara verde hasta comprobar resultados.
+
 ## PENDIENTE
 - Completar integración Auth extremo a extremo en navegador (confirmación de correo, dominios redirect, correo SMTP, refresh de sesión real, recuperación y logout en dispositivos).
 - Invitaciones, membresía administrada transaccionalmente y consentimientos.

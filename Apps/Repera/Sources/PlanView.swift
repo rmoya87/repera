@@ -997,7 +997,6 @@ struct DayEditorView: View {
         return 4
     }
 
-    @ViewBuilder
     private func setWODFormat(_ format: WODFormat, at index: Int) {
         routine.blocks[index].wodFormat = format
         if format == .tabata {
@@ -1017,6 +1016,7 @@ struct DayEditorView: View {
         }
     }
 
+    @ViewBuilder
     private func wodBlock(index: Int) -> some View {
         Button {
             selectFormatForBlock = routine.blocks[index].id
