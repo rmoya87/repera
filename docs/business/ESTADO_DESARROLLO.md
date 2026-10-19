@@ -23,6 +23,7 @@
 - Asignaciones deportivas compartidas / versiones; reservas / aforo y créditos; Stripe.
 - Web profesional real, Android, deep links, push, observabilidad, e2e.
 - CI específico de migraciones y pruebas RLS sobre una base limpia, comprobación por usuarios reales.
+- CI iOS heredado activado en PR #5: se observan fallos en varios checks del workflow; el conector no ha proporcionado pasos ni logs suficientes para atribuirlos al código o al entorno. No declarar CI superado.
 - Revisión del prototipo local Repera Business v0.2 y sus 37 supuestas pruebas: archivos fuente no accesibles en este contexto.
 - Validación manual iOS 27 (requiere Xcode/SDK), rendimiento y seguridad ofensiva.
 
