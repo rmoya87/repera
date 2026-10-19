@@ -66,8 +66,9 @@ final class BusinessAuthStore {
     /// A short-lived, secure random nonce prevents Apple ID token replay.
     nonisolated static func makeNonce() -> String {
         var data = [UInt8](repeating: 0, count: 32)
-        let result = data.withUnsafeMutableBytes { bytes in
-            SecRandomCopyBytes(kSecRandomDefault, bytes.count, bytes.baseAddress)
+        let result = data.withUnsafeMutableBytes { bytes -> OSStatus in
+            guard let address = bytes.baseAddress else { return errSecParam }
+            return SecRandomCopyBytes(kSecRandomDefault, bytes.count, address)
         }
         precondition(result == errSecSuccess, "No se ha podido generar un nonce seguro.")
         return Data(data).map { String(format: "%02x", $0) }.joined()
