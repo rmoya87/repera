@@ -129,7 +129,7 @@ StoreKit Configuration: adjuntar `ReperaProducts.storekit` al scheme Repera **so
 
 ## 15. Producción
 
-1. Sustituir `YOUR_REVENUECAT_PUBLIC_API_KEY` por `appl_…`.
-2. Verificar offering `default` y entitlement `pro` en dashboard.
-3. Probar sandbox mensual, anual, restore, caducidad.
+1. Configurar las suscripciones reales en App Store Connect; la clave `appl_…` de RevenueCat es **opcional** si se opta por StoreKit 2 directo.
+2. Si se habilita RevenueCat, verificar offering `default` y entitlement `pro` en dashboard.
+3. Probar Sandbox mensual, anual, restauración, cancelación y caducidad antes de publicar la build.
 4. Confirmar que Release **no** muestra Debug Pro ni desbloquea por preferencia local.
