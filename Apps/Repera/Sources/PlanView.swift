@@ -683,7 +683,7 @@ struct DayEditorView: View {
                 pickMovementForBlock = nil
             }
         }
-        .navigationDestination(isPresented: $showRoutinePicker) {
+        .sheet(isPresented: $showRoutinePicker) {
             RoutineImportPickerSheet(
                 routines: importableRoutines,
                 onPick: { source in
@@ -692,7 +692,6 @@ struct DayEditorView: View {
                 },
                 onCancel: { showRoutinePicker = false }
             )
-            .ogPinnedTransparentNav("Añadir rutina")
         }
         .navigationDestination(isPresented: $showWODCatalog) {
             WODCatalogPickerView(embedsNavigationStack: false) { template in
