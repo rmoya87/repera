@@ -77,7 +77,19 @@ enum BoardScanLiteParser {
                 wod.timeCapMinutes = header.timeCapMinutes
                 wod.rounds = header.rounds ?? wod.rounds
                 wod.emomIntervalSeconds = header.intervalSeconds ?? wod.emomIntervalSeconds
-                wod.movements = parsed.map { resolved($0, index: index) }
+                // La intensidad de cabecera (p. ej. EMOM 8' @6-8) se
+                // aplica a los movimientos del bloque, no se pierde en notas.
+                let headerIntensity = intensityNote(in: header.title)
+                wod.movements = parsed.map { movement in
+                    var item = resolved(movement, index: index)
+                    if !item.isRest, let headerIntensity,
+                       !(item.notes ?? "").contains("RPE") {
+                        item.notes = [item.notes, headerIntensity]
+                            .compactMap { $0 }.filter { !$0.isEmpty }
+                            .joined(separator: " · ")
+                    }
+                    return item
+                }
                 wod.wodNotes = notes
                 wod.deriveEmomRoundsIfNeeded()
                 blocks.append(wod)
@@ -192,12 +204,7 @@ enum BoardScanLiteParser {
     // MARK: - Movimientos
 
     private static func movement(from line: String) -> WODMovement {
-        let intensity = line.range(of: #"@\s*\d+(?:[.,]\d+)?\s*[-–]\s*\d+(?:[.,]\d+)?"#,
-                                   options: .regularExpression)
-        let rpeNote = intensity.map {
-            "RPE " + String(line[$0]).replacingOccurrences(of: "@", with: "")
-                .trimmingCharacters(in: .whitespaces)
-        }
+        let rpeNote = intensityNote(in: line)
         let parsed = CrossFitGlossary.parseMovementLine(line)
         if parsed.isRest {
             return WODMovement(name: "REST", isRest: true, restSeconds: parsed.restSeconds)
@@ -214,6 +221,16 @@ enum BoardScanLiteParser {
             weightFemaleKg: parsed.weightFemaleKg,
             notes: notes.isEmpty ? nil : notes
         )
+    }
+
+    private static func intensityNote(in text: String) -> String? {
+        guard let range = text.range(
+            of: #"@\s*\d+(?:[.,]\d+)?\s*[-–]\s*\d+(?:[.,]\d+)?"#,
+            options: .regularExpression
+        ) else { return nil }
+        return "RPE " + String(text[range])
+            .replacingOccurrences(of: "@", with: "")
+            .trimmingCharacters(in: .whitespaces)
     }
 
     private static func resolved(_ movement: WODMovement, index: [String: Exercise]) -> WODMovement {
