@@ -19,6 +19,7 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 | [docs/ios27-modernization/](docs/ios27-modernization/) | Canvas modernización iOS 27 |
 | [docs/decisions/](docs/decisions/) | ADRs (persistencia, timers, nav, HK, arte) |
 | [AGENTS.md](AGENTS.md) | Instrucciones para agentes Cursor |
+| [docs/business/PLAN_MAESTRO.md](docs/business/PLAN_MAESTRO.md) | Plataforma profesional, seguridad, fases y seguimiento |
 
 > **Obligatorio:** cualquier cambio de comportamiento debe actualizar estos docs (ver `MAINTENANCE.md` y la regla Cursor `update-docs-on-change`).
 
@@ -66,10 +67,10 @@ Cold start: Splash nativo y pantalla de espera usan la misma UIImageView UIKit e
 | RevenueCat API key | `RevenueCatPublicAPIKey` en Info.plist (pública `appl_…`) |
 | Productos | `repera_pro_monthly` / `repera_pro_annual` · entitlement `pro` |
 
-## Fuera de alcance (por ahora)
+## No integrados aún en las apps
 
-- Cliente Android
-- Backend social / multi-usuario (sí hay Sign in with Apple + iCloud)
+- Android nativo: planificado, no implementado.
+- Backend Supabase de Repera: primera migración segura de identidad/organizaciones/RLS aplicada el 2026-10-19; **sin integración de login con iOS ni panel profesional todavía**. Ver [docs/business/ESTADO_DESARROLLO.md](docs/business/ESTADO_DESARROLLO.md).
 - Coach / tips con IA (sí hay Foundation Models on-device para pizarra)
 - SDK RevenueCat en Apple Watch
 
