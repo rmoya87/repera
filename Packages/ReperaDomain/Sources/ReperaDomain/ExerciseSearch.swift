@@ -151,7 +151,10 @@ public enum ExerciseSearch {
         // Una consulta puede estar en inglés aunque el nombre del catálogo sea español
         // (o viceversa). Mantener el ranking original y evaluar también su nombre canónico.
         let canonical = CrossFitGlossary.canonicalName(for: q)
-        let alternativeTokens = normalize(canonical) == normalize(q) ? [] : tokens(from: canonical)
+        let resolvedTokens = canonical == q ? qTokens : tokens(from: canonical)
+        // Stop words and aliases can produce an identical search despite different
+        // raw strings (e.g. "press de banca" → "press banca"). Never score twice.
+        let alternativeTokens = resolvedTokens == qTokens ? [] : resolvedTokens
         let alternativePhrase = alternativeTokens.joined(separator: " ")
         return documents
             .map { document -> (doc: Document, score: Int) in
@@ -176,9 +179,8 @@ public enum ExerciseSearch {
         guard !qTokens.isEmpty else { return 0 }
         let direct = score(document, tokens: qTokens, phrase: qTokens.joined(separator: " "))
         let canonical = CrossFitGlossary.canonicalName(for: query)
-        guard normalize(canonical) != normalize(query) else { return direct }
-        let alt = tokens(from: canonical)
-        guard !alt.isEmpty else { return direct }
+        let alt = canonical == query ? qTokens : tokens(from: canonical)
+        guard !alt.isEmpty, alt != qTokens else { return direct }
         let translated = score(document, tokens: alt, phrase: alt.joined(separator: " "))
         return max(direct, translated > 0 ? translated - 1 : 0)
     }
@@ -197,14 +199,23 @@ public enum ExerciseSearch {
         var best = 0
 
         if name.hasPrefix(phrase) {
-            best = max(best, Weight.namePrefixPhrase - name.count * Weight.lengthPenaltyPerChar)
+            let prefixScore = Weight.namePrefixPhrase - name.count * Weight.lengthPenaltyPerChar
+            // Prefix outranks the strongest token/contained-phrase match for
+            // ordinary exercise names; skip repeated Unicode scans entirely.
+            if prefixScore >= Weight.nameContainsPhrase + Weight.coverageScale {
+                return prefixScore
+            }
+            best = prefixScore
         }
         if name.contains(phrase) {
             let coverage = Int((Double(phrase.count) / Double(max(name.count, 1))) * Double(Weight.coverageScale))
-            best = max(
-                best,
-                Weight.nameContainsPhrase - name.count * Weight.lengthPenaltyPerChar + coverage
-            )
+            let phraseScore = Weight.nameContainsPhrase - name.count * Weight.lengthPenaltyPerChar + coverage
+            // Ordered-token score cannot exceed 7_000 + 500. When phrase
+            // dominates, computing all token matches is redundant.
+            if phraseScore >= Weight.allTokensInNameOrdered + Weight.coverageScale {
+                return max(best, phraseScore)
+            }
+            best = max(best, phraseScore)
         }
 
         let tokensInName = qTokens.filter { name.contains($0) }

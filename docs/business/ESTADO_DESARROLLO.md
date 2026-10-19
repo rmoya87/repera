@@ -123,6 +123,10 @@
 - Los logs de Xcode 27 mostraron `actool: AppIcon did not have any applicable content` porque el comando global `-sdk iphonesimulator` forzaba al target `ReperaWatch` (integrado en la scheme iOS) a compilar con iconos de iPhone; actool ejecutaba `--platform iphonesimulator` sobre `Assets.xcassets` de Apple Watch. Se retira ese flag y se deja que los targets seleccionen automáticamente iOS Simulator y watchOS Simulator según su plataforma.
 - No se han inventado ni sustituido iconos de Watch; se mantiene el catálogo real del proyecto. Pendiente validación de build posterior con CI.
 
+## Buscador de ejercicios optimizado para test de rendimiento
+- La búsqueda `ExerciseSearch.rankedDocuments` evita puntuar el mismo criterio dos veces cuando los alias o las palabras vacías dan tokens idénticos, y devuelve resultados inmediatamente al encontrar coincidencia de prefijo/frase claramente superior al resto de pesos. No se ha elevado el límite del test (<3 ms).
+- Última medición Xcode 27 previa: 74/75 pruebas de dominio correctas, test de ranking 6,27 ms fallido. Pendiente nueva ejecución y medición.
+
 ## PENDIENTE
 - Completar integración Auth extremo a extremo en navegador (confirmación de correo, dominios redirect, correo SMTP, refresh de sesión real, recuperación y logout en dispositivos).
 - Invitaciones, membresía administrada transaccionalmente y consentimientos.
