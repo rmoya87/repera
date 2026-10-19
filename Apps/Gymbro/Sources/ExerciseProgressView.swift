@@ -32,6 +32,19 @@ struct ExerciseEvolutionPanel: View {
     @State private var selectedPoint: ExerciseProgressPoint?
     @State private var editingTope = false
     @State private var topeDraft = ""
+    @State private var didSeedMetric = false
+
+    private var exercise: Exercise? {
+        store.state.exercises.first { $0.id == exerciseId }
+    }
+
+    private var loggingStyle: ExerciseLoggingStyle {
+        exercise?.loggingStyle ?? .loadAndReps
+    }
+
+    private var availableMetrics: [ExerciseProgressMetric] {
+        ExerciseProgressMetric.available(for: loggingStyle)
+    }
 
     private var history: ExerciseHistorySummary {
         store.cachedHistory(for: exerciseId)
@@ -45,6 +58,10 @@ struct ExerciseEvolutionPanel: View {
         loadPref.testedOneRMKg.flatMap { $0 > 0 ? $0 : nil }
     }
 
+    private var isStrengthProgress: Bool {
+        loggingStyle == .loadAndReps
+    }
+
     private var points: [ExerciseProgressPoint] {
         StatsEngine.exerciseProgressSeries(
             exerciseId: exerciseId,
@@ -55,7 +72,7 @@ struct ExerciseEvolutionPanel: View {
     }
 
     private var showsOneRMCeiling: Bool {
-        testedOneRMKg != nil && (metric == .topSet || metric == .estimatedOneRM)
+        isStrengthProgress && testedOneRMKg != nil && (metric == .topSet || metric == .estimatedOneRM)
     }
 
     var body: some View {
@@ -68,7 +85,7 @@ struct ExerciseEvolutionPanel: View {
                     Divider().opacity(0.35)
 
                     Picker("Métrica", selection: $metric) {
-                        ForEach(ExerciseProgressMetric.allCases) { m in
+                        ForEach(availableMetrics) { m in
                             Text(m.title).tag(m)
                         }
                     }
@@ -88,36 +105,82 @@ struct ExerciseEvolutionPanel: View {
         }
         .onChange(of: metric) { _, _ in selectedPoint = points.last }
         .onChange(of: range) { _, _ in selectedPoint = points.last }
-        .onAppear { selectedPoint = points.last }
+        .onAppear {
+            seedMetricIfNeeded()
+            selectedPoint = points.last
+        }
+    }
+
+    private func seedMetricIfNeeded() {
+        guard !didSeedMetric else { return }
+        didSeedMetric = true
+        if !availableMetrics.contains(metric), let first = availableMetrics.first {
+            metric = first
+        }
     }
 
     // MARK: - Summary
 
     private var summaryTiles: some View {
         let h = history
-        // Fila de 3 + fila de 2: mismos bordes izq/dcha (mismo spacing, ancho flexible).
         return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                topeOneRMTile
-                evoTile(
-                    "Máx.",
-                    h.maxWeightKg.map { "\($0.formatted(.number.precision(.fractionLength(0)))) kg" } ?? "—"
-                )
-                evoTile(
-                    "e1RM",
-                    h.estimatedOneRM.map { "\($0.formatted(.number.precision(.fractionLength(0)))) kg" } ?? "—"
-                )
-            }
-            HStack(spacing: 10) {
-                evoTile("Reps máx.", h.bestReps.map(String.init) ?? "—")
-                evoTile("Veces", h.hasData ? "\(h.timesPerformed)" : "—")
-            }
-            if !h.hasData, testedOneRMKg == nil {
-                Text("Pulsa Tope 1RM para fijar tu máxima, o entrena para ver la curva.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(OG.label3)
+            if isStrengthProgress {
+                HStack(spacing: 10) {
+                    topeOneRMTile
+                    evoTile(
+                        "Máx.",
+                        h.maxWeightKg.map { "\($0.formatted(.number.precision(.fractionLength(0)))) kg" } ?? "—"
+                    )
+                    evoTile(
+                        "e1RM",
+                        h.estimatedOneRM.map { "\($0.formatted(.number.precision(.fractionLength(0)))) kg" } ?? "—"
+                    )
+                }
+                HStack(spacing: 10) {
+                    evoTile("Reps máx.", h.bestReps.map(String.init) ?? "—")
+                    evoTile("Veces", h.hasData ? "\(h.timesPerformed)" : "—")
+                }
+                if !h.hasData, testedOneRMKg == nil {
+                    Text("Pulsa Tope 1RM para fijar tu máxima, o entrena para ver la curva.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(OG.label3)
+                }
+            } else {
+                HStack(spacing: 10) {
+                    if loggingStyle == .machineWork {
+                        evoTile("Cal máx.", h.bestCalories.map { "\($0)" } ?? "—")
+                        evoTile("m máx.", h.bestMeters.map { "\($0)" } ?? "—")
+                    } else {
+                        evoTile("Reps máx.", h.bestReps.map(String.init) ?? "—")
+                        evoTile(
+                            "Tiempo",
+                            h.bestDurationSeconds.map(formatDuration) ?? "—"
+                        )
+                    }
+                    evoTile("Veces", h.hasData ? "\(h.timesPerformed)" : "—")
+                }
+                if loggingStyle == .machineWork || loggingStyle == .repsAndTime {
+                    HStack(spacing: 10) {
+                        evoTile(
+                            "Mejor tiempo",
+                            h.bestDurationSeconds.map(formatDuration) ?? "—"
+                        )
+                        evoTile("Última", h.lastQuantityLabel ?? "—")
+                    }
+                }
+                if !h.hasData {
+                    Text("Entrena este ejercicio para ver cal, metros o reps.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(OG.label3)
+                }
             }
         }
+    }
+
+    private func formatDuration(_ seconds: Int) -> String {
+        let m = seconds / 60
+        let s = seconds % 60
+        return s == 0 ? "\(m):00" : String(format: "%d:%02d", m, s)
     }
 
     /// Tope editable: toque → teclado; también sube solo si el e1RM lo supera.
@@ -285,6 +348,18 @@ struct ExerciseEvolutionPanel: View {
             parts.append("~\(point.value.formatted(.number.precision(.fractionLength(0...1)))) kg")
         case .effort:
             parts.append("RIR \(point.value.formatted(.number.precision(.fractionLength(0...1))))")
+        case .bestQuantity, .totalQuantity:
+            let qty = Int(point.value.rounded())
+            switch point.quantityUnit {
+            case .calories: parts.append("\(qty) cal")
+            case .meters: parts.append("\(qty) m")
+            case .reps, .none: parts.append("\(qty)")
+            }
+            if let sec = point.durationSeconds, sec > 0 {
+                parts.append(formatDuration(sec))
+            }
+        case .duration:
+            parts.append(formatDuration(Int(point.value.rounded())))
         }
         if let rir = point.rir, metric != .effort {
             parts.append("RIR \(String(format: "%g", rir))")
@@ -306,18 +381,26 @@ struct ExerciseEvolutionPanel: View {
         return VStack(alignment: .leading, spacing: 10) {
             if h.hasData {
                 VStack(alignment: .leading, spacing: 6) {
-                    if let w = h.maxWeightKg, let r = h.repsAtMaxWeight {
+                    if isStrengthProgress, let w = h.maxWeightKg, let r = h.repsAtMaxWeight {
                         sessionMetaRow("Mejor serie", "\(r) × \(w.formatted(.number.precision(.fractionLength(0...1)))) kg")
                     }
-                    if let tested, let e1 = h.estimatedOneRM, e1 > 0 {
+                    if !isStrengthProgress, let cal = h.bestCalories {
+                        sessionMetaRow("Mejor cal", "\(cal)")
+                    }
+                    if !isStrengthProgress, let meters = h.bestMeters {
+                        sessionMetaRow("Mejor distancia", "\(meters) m")
+                    }
+                    if isStrengthProgress, let tested, let e1 = h.estimatedOneRM, e1 > 0 {
                         let pct = e1 / tested * 100
                         sessionMetaRow("% del tope", "\(pct.formatted(.number.precision(.fractionLength(0...0))))%")
                     }
                     if let date = h.lastDate {
-                        let last = [
-                            h.lastReps.map { "\($0) reps" },
+                        let lastBits: [String?] = [
+                            h.lastQuantityLabel,
                             h.lastWeightKg.map { "\($0.formatted(.number.precision(.fractionLength(1)))) kg" },
-                        ].compactMap { $0 }.joined(separator: " · ")
+                            h.lastDurationSeconds.map(formatDuration),
+                        ]
+                        let last = lastBits.compactMap { $0 }.joined(separator: " · ")
                         sessionMetaRow("Última", "\(SpanishDate.short(date))" + (last.isEmpty ? "" : " · \(last)"))
                     }
                 }

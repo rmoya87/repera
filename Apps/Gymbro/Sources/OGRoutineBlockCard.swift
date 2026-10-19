@@ -80,7 +80,7 @@ struct OGRoutineBlockCard: View {
         if let id = move.exerciseId, let ex = store.state.exercises.first(where: { $0.id == id }) {
             return ex
         }
-        let canonical = CrossFitGlossary.canonicalName(for: move.name)
+        let canonical = CrossFitGlossary.resolveCatalogName(move.name, notes: move.notes)
         if let match = store.state.exercises.first(where: {
             $0.name.localizedCaseInsensitiveCompare(move.name) == .orderedSame
                 || $0.name.localizedCaseInsensitiveCompare(canonical) == .orderedSame

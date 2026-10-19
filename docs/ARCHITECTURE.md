@@ -1,6 +1,6 @@
 # Arquitectura Gymbro
 
-Última actualización: 2026-10-18 (revisión pizarra = página «Añadir entreno»)
+Última actualización: 2026-10-19 (detalle WOD: displayBlockHeader + wodResults)
 
 ## Visión
 
@@ -60,6 +60,8 @@ Fuente de verdad de la UI: ejercicios, rutinas, sesiones, peso corporal, favorit
 
 Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Alimenta Progreso con **caché diaria** de FC/kcal (hasta 360d); la UI promedia a semana/mes solo al pintar. Sync de peso: 1 muestra/día.
 
+**kcal sin Watch:** si Salud no aporta energía activa, `estimateActiveEnergyKcal` (MET × peso corporal + volumen kg + reps/cardio cronometrado). `GymbroStore.estimateSessionKcal` usa duración de sesión / WOD / series; al guardar se escribe **kcal provisionales al instante** y HealthKit refina después.
+
 **Arranque rápido (local-first):**
 - Snapshot JSON en Application Support (`HealthDiskCache`) con actividades + FC/kcal + ancla `HKQueryAnchor`.
 - Hidrata en `init` → Inicio pinta puntos/kcal al instante; luego refresh en background.
@@ -70,11 +72,13 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 
 | Módulo | Responsabilidad |
 |--------|-----------------|
-| `Models.swift` | `Exercise`, `Routine`, `RoutineBlock`, `WODMovement`, `WorkoutSession`, `AppState`… |
+| `Models.swift` | `Exercise`, `Routine`, `RoutineBlock`, `WODMovement`, `WorkoutSession`, `AppState`…; `ExerciseLoggingStyle` (load / reps / comba / `machineWork` Cal·m) + `LoggedSet.quantityUnit` |
 | `Catalog*.swift` | Seed gym / CrossFit / halterofilia / gimnasia + ES (`CatalogSpanish` 188/188: desc + guía entrenador); deporte en `sportTag`, grupo = músculo principal |
+| `CatalogWODs.swift` | Benchmarks conocidos (`WODTemplate` → `RoutineBlock` con `wodTemplateId`) |
+| `WODBlockResult` / `WODResultCapture` | Score por bloque (reps AMRAP / tiempo For Time / series); `WorkoutSession.wodResults` |
 | `StatsEngine` | Series de progreso, PRs, métricas diarias, filtros `ProgressTimeRange` |
 | `MuscleTaxonomy` / `MuscleMapEngine` | Carga + fatiga (vida media por slug BodyMap); niveles 0–4 verde→rojo; primario 1.0 / secundarios ~0.55–0.35 |
-| `BoardImportParser` | OCR texto → secuencia fuerza+WOD; EMOM deriva `rounds` = intervalos÷estaciones |
+| `BoardImportParser` / `CrossFitGlossary` | OCR texto → fuerza+WOD; equipo DB → variante mancuerna (`resolveCatalogName` / `preferEquipmentVariant`) |
 | `RoutineBlock.plannedSets(for:)` | Series al apuntar según formato (EMOM/RFT/Tabata/…) |
 | `SessionController` | Ciclo de vida de la sesión |
 | `ProgressionEngine` | Off / lineal / doble / Greyskull / triple |

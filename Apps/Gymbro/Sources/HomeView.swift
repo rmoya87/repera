@@ -23,6 +23,7 @@ struct HomeView: View {
     /// Revisión de pizarra como página (fuera del sheet «Añadir entreno»).
     @State private var boardReviewPayload: BoardScanReviewPayload?
     @State private var workoutPendingDelete: WorkoutSession?
+    @State private var routinePendingDelete: Routine?
     @State private var healthPendingDelete: HealthKitStore.ExternalActivity?
     @State private var openWorkoutId: UUID?
     @State private var openHealthActivityId: UUID?
@@ -212,6 +213,26 @@ struct HomeView: View {
                     onCancel: { workoutPendingDelete = nil }
                 )
             }
+            .sheet(item: $routinePendingDelete) { routine in
+                OGConfirmSheet(
+                    title: "¿Borrar entreno?",
+                    message: routine.isOneOff
+                        ? "Se eliminará «\(routine.title)» de este día."
+                        : "Se quitará «\(routine.title)» de este día. La plantilla seguirá en Rutinas.",
+                    confirmTitle: "Borrar entreno",
+                    onConfirm: {
+                        if routine.isOneOff {
+                            store.deleteRoutine(routine.id)
+                        } else {
+                            store.assignRoutine(routine.id, toWeekday: nil)
+                        }
+                        routinePendingDelete = nil
+                        rebuildWeekChrome()
+                        rebuildStreakChrome()
+                    },
+                    onCancel: { routinePendingDelete = nil }
+                )
+            }
             .sheet(item: $healthPendingDelete) { activity in
                 OGConfirmSheet(
                     title: "¿Eliminar registro?",
@@ -358,8 +379,11 @@ struct HomeView: View {
                 ForEach(workouts) { session in
                     dayWorkoutCard(session)
                 }
+            } else if let planned = plannedRoutineForSelectedDay {
+                // Planificado (aún sin registro): swipe borrar como en entrenos pasados.
+                plannedDayCard(planned)
             } else if !hasCompletedActivity {
-                // Sin registros → plan o día de descanso.
+                // Día libre → añadir.
                 dayActionRow
             }
 
@@ -394,6 +418,51 @@ struct HomeView: View {
             .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+
+    /// Entreno planificado del día (aún sin sesión hecha): mismo swipe de borrar que los registros.
+    private func plannedDayCard(_ routine: Routine) -> some View {
+        let isToday = calendar.isDateInToday(selectedDay)
+        return registerCardWithChipsOverlay(
+            open: { onStartRoutine(routine) },
+            accessibilityHint: "Toca para abrir el entreno. Desliza para borrarlo de este día.",
+            deleteLabel: "Borrar entreno del día",
+            onDelete: { routinePendingDelete = routine },
+            title: {
+                HStack(alignment: .top, spacing: 12) {
+                    ZStack {
+                        Circle().fill(todayIconBg)
+                        Image(systemName: todayIcon)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(todayIconFg)
+                    }
+                    .frame(width: 44, height: 44)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(dayLabelWithTime(isToday: isToday, time: selectedDayTimeLabel))
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(OG.label3)
+                            .tracking(0.3)
+                        Text(routine.title)
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundStyle(OG.label)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(.horizontal, Self.registerCardPad)
+            },
+            chips: {
+                let blockCount = routine.blocks.count
+                if blockCount > 0 {
+                    registerChip("\(blockCount) bloq.", icon: "square.stack.3d.up")
+                }
+                if let wod = routine.blocks.first(where: { $0.kind == .wod }) {
+                    registerChip(wod.headerLabel, icon: "timer")
+                }
+            }
+        )
     }
 
     private func dayWorkoutCard(_ session: WorkoutSession) -> some View {
@@ -882,17 +951,36 @@ struct HomeView: View {
         return "moon.fill"
     }
 
+    /// Minutos del chip: inicio→fin del registro (no el time-cap usado solo para estimar kcal).
     private func sessionMinutes(_ session: WorkoutSession) -> Double {
-        session.durationMinutes
+        if let start = session.startedAt {
+            let end = session.finishedAt ?? start.addingTimeInterval(60)
+            let wall = max(0, end.timeIntervalSince(start) / 60)
+            if wall > 0 { return wall }
+        }
+        return session.durationMinutes
     }
 
+    /// Tile del día: max(energía activa Salud del día, suma de chips del día).
+    /// Así un estimado Gymbro (aún no en Salud) no desaparece del total.
     private func healthKcal(for workouts: [WorkoutSession], durationMin: Double) -> Double? {
         let fromSessions = workouts.compactMap(\.appleActiveEnergyKcal).reduce(0, +)
-        if fromSessions > 0 { return fromSessions }
-        if let hk = dayHealth.activeEnergyKcal, hk > 0 { return hk }
-        if calendar.isDateInToday(selectedDay), let hk = health.activeEnergyTodayKcal, hk > 0 {
-            return hk
+        let fromExternal = healthActivities.compactMap(\.activeEnergyKcal).reduce(0, +)
+        let fromCards = fromSessions + fromExternal
+
+        let fromHealth: Double? = {
+            if let hk = dayHealth.activeEnergyKcal, hk > 0 { return hk }
+            if calendar.isDateInToday(selectedDay), let hk = health.activeEnergyTodayKcal, hk > 0 {
+                return hk
+            }
+            return nil
+        }()
+
+        if let hk = fromHealth, fromCards > 0 {
+            return max(hk, fromCards)
         }
+        if let hk = fromHealth { return hk }
+        if fromCards > 0 { return fromCards }
         guard durationMin > 0 else { return nil }
         let volume = workouts.reduce(0.0) { $0 + $1.totalVolumeKg }
         return durationMin * 7.5 + volume * 0.02

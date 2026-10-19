@@ -2,6 +2,11 @@ import Foundation
 import GymbroDomain
 import Observation
 
+enum WorkoutClockEndReason: Equatable, Sendable {
+    case countdownFinished
+    case userFinished
+}
+
 /// Session-scoped WOD / block clock. Wall-clock dates are the source of truth —
 /// survives `WorkoutView.onDisappear`; only stop on exercise change / session end / explicit close.
 @Observable
@@ -15,6 +20,11 @@ final class WorkoutClockCoordinator {
     private(set) var title = ""
     private(set) var subtitle = ""
     private(set) var exercise: Exercise?
+    /// Motivo de fin pendiente de consumir por la UI (AMRAP cap / For Time stop).
+    private(set) var pendingEndReason: WorkoutClockEndReason?
+    private(set) var pendingElapsedSeconds: Int = 0
+    /// Cap original en countdown (para AMRAP al completar).
+    private var configuredCapSeconds: Int = 0
 
     private(set) var intervalIndex = 0
     private(set) var totalIntervals = 0
@@ -71,6 +81,11 @@ final class WorkoutClockCoordinator {
         return "Pausar"
     }
 
+    /// True cuando el usuario puede marcar fin en count-up (For Time).
+    var canFinishByUser: Bool {
+        isCountingUp && hasStarted && !isPreCountdown && !isIntervalMode
+    }
+
     func configure(
         exercise: Exercise,
         title: String,
@@ -86,6 +101,7 @@ final class WorkoutClockCoordinator {
         haptic: Bool
     ) {
         stop(keepVisible: false)
+        clearPendingEnd()
         self.exercise = exercise
         self.title = title
         self.subtitle = subtitle
@@ -101,6 +117,7 @@ final class WorkoutClockCoordinator {
         self.hapticEnabled = haptic
         self.hasStarted = false
         self.isRunning = false
+        self.configuredCapSeconds = countingUp ? 0 : max(0, initialCountdown)
         if countingUp {
             pausedCountUpElapsed = 0
             countUpAnchor = nil
@@ -109,6 +126,28 @@ final class WorkoutClockCoordinator {
             phaseEndDate = nil
         }
         isVisible = true
+    }
+
+    /// Termina un cronómetro count-up (For Time) y publica el elapsed.
+    func finishByUser() {
+        guard canFinishByUser else { return }
+        let elapsed = max(0, displaySeconds)
+        pendingElapsedSeconds = elapsed
+        pendingEndReason = .userFinished
+        RestFeedback.restComplete(sound: soundEnabled, haptic: hapticEnabled)
+        stop(keepVisible: false)
+    }
+
+    func consumePendingEnd() -> (WorkoutClockEndReason, Int)? {
+        guard let reason = pendingEndReason else { return nil }
+        let elapsed = pendingElapsedSeconds
+        clearPendingEnd()
+        return (reason, elapsed)
+    }
+
+    func clearPendingEnd() {
+        pendingEndReason = nil
+        pendingElapsedSeconds = 0
     }
 
     func handlePrimary() {
@@ -226,6 +265,7 @@ final class WorkoutClockCoordinator {
             isCountingUp = false
             isIntervalMode = false
             isTabata = false
+            configuredCapSeconds = 0
             exercise = nil
             title = ""
             subtitle = ""
@@ -283,7 +323,14 @@ final class WorkoutClockCoordinator {
         isRunning = false
         phaseEndDate = nil
         pausedRemaining = 0
+        if !isIntervalMode, !isCountingUp {
+            pendingElapsedSeconds = max(configuredCapSeconds, intervalLength)
+            pendingEndReason = .countdownFinished
+        }
         RestFeedback.restComplete(sound: soundEnabled, haptic: hapticEnabled)
+        if pendingEndReason != nil {
+            isVisible = false
+        }
     }
 
     private func scheduleFeedback() {

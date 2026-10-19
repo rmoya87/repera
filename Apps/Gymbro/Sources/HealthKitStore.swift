@@ -1182,6 +1182,19 @@ final class HealthKitStore {
         }
     }
 
+    /// kcal de un workout de Salud **ajeno** (Watch / otra app). `nil` si es nuestro o no hay energía.
+    /// Sirve para no tratar como «verdad Apple» las kcal que Gymbro escribió mal (p. ej. 2 kcal ambiente).
+    func externalWorkoutEnergyKcal(uuid: UUID) async -> Double? {
+        guard let workout = await fetchWorkout(uuid: uuid) else { return nil }
+        let sourceId = workout.sourceRevision.source.bundleIdentifier
+        if sourceId == Bundle.main.bundleIdentifier { return nil }
+        guard let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
+              let burned = workout.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie()),
+              burned > 0
+        else { return nil }
+        return burned
+    }
+
     private func fetchRoutes(for workout: HKWorkout) async -> [HKWorkoutRoute] {
         let byWorkout = HKQuery.predicateForObjects(from: workout)
         let byDate = HKQuery.predicateForSamples(
@@ -1413,12 +1426,12 @@ final class HealthKitStore {
         var savedUUID = apple.existingWorkoutUUID
 
         if let existing = apple.existingWorkout {
-            // Misma franja que Watch/Salud → horarios y duración de Apple.
+            // Entreno Apple en la franja → mandan sus kcal / horarios.
             resolvedStart = existing.startDate
             resolvedEnd = existing.endDate
             duration = max(60, existing.duration)
             if kcal <= 0 {
-                // Salud sin kcal: estimamos / usamos fallback y lo escribimos como samples.
+                // Workout sin energía: estimación de la app + sample.
                 let ours = fallbackKcal ?? Self.estimateActiveEnergyKcal(
                     durationMinutes: duration / 60,
                     volumeKg: 0
@@ -1430,13 +1443,13 @@ final class HealthKitStore {
             }
             await discardLocalBuilder()
         } else {
-            // No hay entreno Apple en la franja → usamos nuestros tiempos y escribimos el workout.
-            if kcal <= 0 {
-                kcal = fallbackKcal ?? Self.estimateActiveEnergyKcal(
-                    durationMinutes: duration / 60,
-                    volumeKg: 0
-                )
-            }
+            // Sin workout Apple: kcal del entreno (estimación), no la energía ambiente del intervalo
+            // (p. ej. 2 kcal de movimiento diario → no sustituye a un AMRAP).
+            let ours = fallbackKcal ?? Self.estimateActiveEnergyKcal(
+                durationMinutes: duration / 60,
+                volumeKg: 0
+            )
+            kcal = ours > 0 ? ours : max(0, kcal)
             savedUUID = await saveStrengthWorkout(
                 title: title,
                 start: resolvedStart,
@@ -1461,9 +1474,38 @@ final class HealthKitStore {
         )
     }
 
-    /// Estimación local cuando Salud no aporta kcal (se envía a HealthKit como complemento).
-    static func estimateActiveEnergyKcal(durationMinutes: Double, volumeKg: Double) -> Double {
-        max(0, durationMinutes * 7.5 + volumeKg * 0.02)
+    /// Estimación local cuando Salud/Watch no aportan kcal (se escribe en HealthKit como complemento).
+    /// - MET ≈ 5.5 fuerza con carga, ≈ 7–8 metcon, ≈ 9 comba/bike/cardio puro.
+    /// - Fórmula MET estándar: `kcal/min = MET × 3.5 × kg / 200`.
+    /// - `metOverride`: p. ej. 8.0 para WOD mixto (EMOM/AMRAP) sin disparar a 9 todo el bloque.
+    static func estimateActiveEnergyKcal(
+        durationMinutes: Double,
+        volumeKg: Double,
+        bodyWeightKg: Double? = nil,
+        totalReps: Int = 0,
+        timedCardioSeconds: Int = 0,
+        metOverride: Double? = nil
+    ) -> Double {
+        let minutes = max(1, durationMinutes)
+        let bw = max(40, min(180, bodyWeightKg ?? 75))
+        let met: Double
+        if let metOverride {
+            met = metOverride
+        } else if timedCardioSeconds >= 30, volumeKg < 1 {
+            met = 9.0
+        } else if volumeKg >= 50 {
+            met = 5.5
+        } else if totalReps > 0 {
+            met = 7.0
+        } else {
+            met = 5.0
+        }
+        let fromTime = (met * 3.5 * bw / 200.0) * minutes
+        let fromVolume = volumeKg * 0.02
+        // Solo si el reloj es corto: tope 20 % del tiempo para no inflar WOD largos.
+        let rawReps = volumeKg < 1 ? Double(max(0, totalReps)) * 0.08 : 0
+        let fromReps = min(rawReps, fromTime * 0.2)
+        return max(0, (fromTime + fromVolume + fromReps).rounded())
     }
 
     func discardLiveTracking() async {

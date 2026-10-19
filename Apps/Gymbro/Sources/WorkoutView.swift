@@ -25,15 +25,32 @@ struct WorkoutView: View {
     @State private var notesDraft = ""
     /// Filas editables del ejercicio actual (objetivo por serie + check para registrar).
     @State private var liveSets: [LiveSetRow] = []
+    /// Unidad Cal/m para erg/bike del ejercicio actual.
+    @State private var liveQuantityUnit: ExerciseQuantityUnit = .reps
     @State private var setCompletionPulse = 0
     @State private var restStartedPulse = 0
+    @State private var pendingWODConfirm: PendingWODConfirm?
 
     private struct LiveSetRow: Identifiable, Equatable {
         let id: UUID
         var weightKg: Double?
+        var deficitCm: Int?
+        var durationSeconds: Int?
         var reps: Int
         var rir: Double?
         var completed: Bool
+    }
+
+    private struct PendingWODConfirm: Identifiable {
+        let id = UUID()
+        let blockId: UUID
+        let format: WODFormat
+        let capture: WODResultCapture
+        var totalReps: Int
+        var elapsedSeconds: Int
+        var roundsCompleted: Int
+        let wodTemplateId: String?
+        let title: String
     }
 
     var body: some View {
@@ -135,6 +152,41 @@ struct WorkoutView: View {
         .sheet(isPresented: $showNotes) {
             workoutNotesSheet
         }
+        .sheet(item: $pendingWODConfirm) { pending in
+            WODResultConfirmSheet(
+                title: pending.title,
+                capture: pending.capture,
+                totalReps: Binding(
+                    get: { pendingWODConfirm?.totalReps ?? pending.totalReps },
+                    set: { pendingWODConfirm?.totalReps = $0 }
+                ),
+                elapsedSeconds: Binding(
+                    get: { pendingWODConfirm?.elapsedSeconds ?? pending.elapsedSeconds },
+                    set: { pendingWODConfirm?.elapsedSeconds = $0 }
+                ),
+                roundsCompleted: Binding(
+                    get: { pendingWODConfirm?.roundsCompleted ?? pending.roundsCompleted },
+                    set: { pendingWODConfirm?.roundsCompleted = $0 }
+                ),
+                onSave: {
+                    guard let current = pendingWODConfirm else { return }
+                    store.applyWODResult(
+                        WODBlockResult(
+                            id: current.blockId,
+                            format: current.format,
+                            totalReps: current.capture == .totalReps ? current.totalReps : nil,
+                            elapsedSeconds: current.capture == .elapsedTime ? current.elapsedSeconds : nil,
+                            roundsCompleted: current.roundsCompleted > 0 ? current.roundsCompleted : nil,
+                            wodTemplateId: current.wodTemplateId
+                        )
+                    )
+                    pendingWODConfirm = nil
+                },
+                onCancel: { pendingWODConfirm = nil }
+            )
+            .presentationDetents([.medium, .large])
+            .ogFittedSheet()
+        }
         .onAppear {
             prefill()
             bootstrapQuickLogIfNeeded()
@@ -142,6 +194,11 @@ struct WorkoutView: View {
         .onChange(of: store.state.activeSession?.currentIndex) { _, _ in
             prefill()
             store.workoutClock.stop()
+            store.workoutClock.clearPendingEnd()
+        }
+        .onChange(of: store.workoutClock.pendingEndReason) { _, reason in
+            guard reason != nil else { return }
+            presentWODConfirmIfNeeded()
         }
         .onDisappear {
             // Rest + WOD clocks are owned by GymbroStore — do not stop on view disappear.
@@ -330,7 +387,28 @@ struct WorkoutView: View {
     }
 
     private func liveSetRow(index: Int, row: LiveSetRow, step: Double, current: SessionExercise) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        let style = current.exercise.loggingStyle
+        let loadField = current.exercise.loadField
+        let maxReps = style.quantityCap
+        let qtyStep: Int = {
+            if style == .machineWork, liveQuantityUnit == .meters { return 50 }
+            if style == .repsAndTime { return 5 }
+            return 1
+        }()
+        let qtyLabel: String = {
+            if style == .machineWork { return liveQuantityUnit.shortLabel }
+            return current.exercise.quantityFieldLabel
+        }()
+        return VStack(alignment: .leading, spacing: 6) {
+            if index == 0, style == .machineWork, current.exercise.allowsCalorieOrDistanceToggle {
+                Picker("Unidad", selection: $liveQuantityUnit) {
+                    Text("Cal").tag(ExerciseQuantityUnit.calories)
+                    Text("Metros").tag(ExerciseQuantityUnit.meters)
+                }
+                .pickerStyle(.segmented)
+                .disabled(row.completed && liveSets.contains(where: \.completed))
+            }
+
             HStack(spacing: 8) {
                 Text("\(index + 1)")
                     .font(.system(size: 13, weight: .bold).monospacedDigit())
@@ -338,45 +416,90 @@ struct WorkoutView: View {
                     .frame(width: 28, height: 28)
                     .background(OG.surface2, in: Circle())
 
-                OGRepeatStepper(
-                    display: row.weightKg.map { String(format: "%g", $0) } ?? "—",
-                    enabled: !row.completed,
-                    keyboard: .decimalPad,
-                    onMinus: { bumpLiveWeight(at: index, delta: -step) },
-                    onPlus: { bumpLiveWeight(at: index, delta: step) },
-                    onCommitText: { text in
-                        commitLiveWeightText(at: index, text: text)
+                switch style {
+                case .loadAndReps:
+                    if loadField == .deficitCm {
+                        OGRepeatStepper(
+                            display: row.deficitCm.map(String.init) ?? "0",
+                            enabled: !row.completed,
+                            keyboard: .numberPad,
+                            onMinus: { bumpLiveDeficit(at: index, delta: -1) },
+                            onPlus: { bumpLiveDeficit(at: index, delta: 1) },
+                            onCommitText: { text in
+                                if let value = Int(text.filter(\.isNumber)) {
+                                    setLiveDeficit(at: index, cm: min(60, max(0, value)))
+                                }
+                            }
+                        )
+                        .frame(maxWidth: .infinity)
+                        .accessibilityLabel("Déficit cm")
+                    } else {
+                        OGRepeatStepper(
+                            display: row.weightKg.map { String(format: "%g", $0) } ?? "—",
+                            enabled: !row.completed,
+                            keyboard: .decimalPad,
+                            onMinus: { bumpLiveWeight(at: index, delta: -step) },
+                            onPlus: { bumpLiveWeight(at: index, delta: step) },
+                            onCommitText: { text in
+                                commitLiveWeightText(at: index, text: text)
+                            }
+                        )
+                        .frame(maxWidth: .infinity)
+                        .accessibilityLabel(
+                            Exercise.loadStepperTitle(
+                                name: current.exercise.name,
+                                equipment: current.exercise.equipment
+                            )
+                        )
                     }
-                )
-                .frame(maxWidth: .infinity)
+                case .repsAndTime, .machineWork:
+                    OGRepeatStepper(
+                        display: DurationText.format(row.durationSeconds),
+                        enabled: !row.completed,
+                        keyboard: .numbersAndPunctuation,
+                        onMinus: { bumpLiveDuration(at: index, delta: -5) },
+                        onPlus: { bumpLiveDuration(at: index, delta: 5) },
+                        onCommitText: { text in
+                            commitLiveDurationText(at: index, text: text)
+                        }
+                    )
+                    .frame(maxWidth: .infinity)
+                    .accessibilityLabel("Tiempo")
+                case .repsOnly:
+                    EmptyView()
+                }
 
                 OGRepeatStepper(
                     display: "\(row.reps)",
                     enabled: !row.completed,
                     keyboard: .numberPad,
-                    onMinus: { bumpLiveReps(at: index, delta: -1) },
-                    onPlus: { bumpLiveReps(at: index, delta: 1) },
+                    onMinus: { bumpLiveReps(at: index, delta: -qtyStep) },
+                    onPlus: { bumpLiveReps(at: index, delta: qtyStep) },
                     onCommitText: { text in
                         if let value = Int(text), value > 0 {
-                            setLiveReps(at: index, reps: min(50, value))
+                            setLiveReps(at: index, reps: min(maxReps, value))
                         }
                     }
                 )
-                .frame(width: 96)
+                .frame(width: style == .repsOnly ? nil : 96)
+                .frame(maxWidth: style == .repsOnly ? .infinity : nil)
+                .accessibilityLabel(qtyLabel)
 
-                Menu {
-                    Button("Sin RIR") { setLiveRir(at: index, rir: nil) }
-                    ForEach(0...5, id: \.self) { value in
-                        Button("\(value)") { setLiveRir(at: index, rir: Double(value)) }
+                if style.usesRIR {
+                    Menu {
+                        Button("Sin RIR") { setLiveRir(at: index, rir: nil) }
+                        ForEach(0...5, id: \.self) { value in
+                            Button("\(value)") { setLiveRir(at: index, rir: Double(value)) }
+                        }
+                    } label: {
+                        Text(row.rir.map { String(format: "%g", $0) } ?? "RIR")
+                            .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(row.rir == nil ? OG.label3 : OG.label)
+                            .frame(width: 48, height: 36)
+                            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
-                } label: {
-                    Text(row.rir.map { String(format: "%g", $0) } ?? "RIR")
-                        .font(.system(size: 12, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(row.rir == nil ? OG.label3 : OG.label)
-                        .frame(width: 48, height: 36)
-                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .disabled(row.completed)
                 }
-                .disabled(row.completed)
 
                 Button {
                     if row.completed {
@@ -401,13 +524,31 @@ struct WorkoutView: View {
 
 
     private func rebuildLiveSets(from current: SessionExercise) {
+        syncLiveQuantityUnit(from: current)
         var rows: [LiveSetRow] = []
         let planned = current.plannedSets
         let logged = current.loggedSets
         let total = max(planned.count, logged.count)
+        let style = current.exercise.loggingStyle
+        let defaultQty: Int = {
+            switch style {
+            case .machineWork: return liveQuantityUnit == .meters ? 500 : 15
+            case .repsAndTime: return 50
+            default: return 8
+            }
+        }()
 
+        let loadField = current.exercise.loadField
         if total == 0 {
-            liveSets = [LiveSetRow(id: UUID(), weightKg: nil, reps: 8, rir: nil, completed: false)]
+            liveSets = [LiveSetRow(
+                id: UUID(),
+                weightKg: nil,
+                deficitCm: loadField == .deficitCm ? 0 : nil,
+                durationSeconds: style.usesDuration ? 60 : nil,
+                reps: defaultQty,
+                rir: nil,
+                completed: false
+            )]
             return
         }
 
@@ -418,6 +559,8 @@ struct WorkoutView: View {
                     LiveSetRow(
                         id: s.id,
                         weightKg: s.weightKg,
+                        deficitCm: s.deficitCm,
+                        durationSeconds: s.durationSeconds,
                         reps: s.reps,
                         rir: s.rir,
                         completed: true
@@ -425,10 +568,16 @@ struct WorkoutView: View {
                 )
             } else {
                 let p = planned[i]
+                let plannedDeficit: Int? = {
+                    guard loadField == .deficitCm else { return nil }
+                    return p.targetWeightKg.map { Int($0.rounded()) } ?? 0
+                }()
                 rows.append(
                     LiveSetRow(
                         id: p.id,
-                        weightKg: p.targetWeightKg,
+                        weightKg: loadField == .weightKg ? p.targetWeightKg : nil,
+                        deficitCm: plannedDeficit,
+                        durationSeconds: style.usesDuration ? 60 : nil,
                         reps: max(1, p.targetReps),
                         rir: p.targetRir,
                         completed: false
@@ -439,14 +588,39 @@ struct WorkoutView: View {
         liveSets = rows
     }
 
+    private func syncLiveQuantityUnit(from current: SessionExercise) {
+        if let unit = current.loggedSets.compactMap(\.quantityUnit).last {
+            liveQuantityUnit = unit
+        } else {
+            liveQuantityUnit = current.exercise.defaultQuantityUnit
+        }
+    }
+
     private func addLiveSet(from current: SessionExercise) {
         let last = liveSets.last
+        let style = current.exercise.loggingStyle
+        let defaultQty: Int = {
+            switch style {
+            case .machineWork: return liveQuantityUnit == .meters ? 500 : 15
+            case .repsAndTime: return 50
+            default: return 8
+            }
+        }()
+        let loadField = current.exercise.loadField
         liveSets.append(
             LiveSetRow(
                 id: UUID(),
-                weightKg: last?.weightKg ?? current.plannedSets.last?.targetWeightKg,
-                reps: last?.reps ?? current.plannedSets.last?.targetReps ?? 8,
-                rir: last?.rir ?? current.plannedSets.last?.targetRir,
+                weightKg: loadField == .weightKg
+                    ? (last?.weightKg ?? current.plannedSets.last?.targetWeightKg)
+                    : nil,
+                deficitCm: loadField == .deficitCm
+                    ? (last?.deficitCm ?? current.plannedSets.last?.targetWeightKg.map { Int($0.rounded()) } ?? 0)
+                    : nil,
+                durationSeconds: style.usesDuration
+                    ? (last?.durationSeconds ?? 60)
+                    : nil,
+                reps: last?.reps ?? current.plannedSets.last?.targetReps ?? defaultQty,
+                rir: style.usesRIR ? (last?.rir ?? current.plannedSets.last?.targetRir) : nil,
                 completed: false
             )
         )
@@ -457,6 +631,17 @@ struct WorkoutView: View {
         let current = liveSets[index].weightKg ?? 0
         let next = max(0, ((current + delta) * 10).rounded() / 10)
         liveSets[index].weightKg = next > 0 ? next : nil
+    }
+
+    private func bumpLiveDeficit(at index: Int, delta: Int) {
+        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        let current = liveSets[index].deficitCm ?? 0
+        liveSets[index].deficitCm = min(60, max(0, current + delta))
+    }
+
+    private func setLiveDeficit(at index: Int, cm: Int) {
+        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        liveSets[index].deficitCm = cm
     }
 
     private func commitLiveWeightText(at index: Int, text: String) {
@@ -470,14 +655,27 @@ struct WorkoutView: View {
         liveSets[index].weightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
     }
 
+    private func bumpLiveDuration(at index: Int, delta: Int) {
+        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        let current = liveSets[index].durationSeconds ?? 0
+        liveSets[index].durationSeconds = max(0, current + delta)
+    }
+
+    private func commitLiveDurationText(at index: Int, text: String) {
+        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        liveSets[index].durationSeconds = DurationText.parse(text)
+    }
+
     private func bumpLiveReps(at index: Int, delta: Int) {
         guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
-        liveSets[index].reps = min(50, max(1, liveSets[index].reps + delta))
+        let cap = store.state.activeSession?.currentExercise?.exercise.loggingStyle.quantityCap ?? 50
+        liveSets[index].reps = min(cap, max(1, liveSets[index].reps + delta))
     }
 
     private func setLiveReps(at index: Int, reps: Int) {
         guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
-        liveSets[index].reps = min(50, max(1, reps))
+        let cap = store.state.activeSession?.currentExercise?.exercise.loggingStyle.quantityCap ?? 50
+        liveSets[index].reps = min(cap, max(1, reps))
     }
 
     private func setLiveRir(at index: Int, rir: Double?) {
@@ -492,13 +690,26 @@ struct WorkoutView: View {
         guard nextPending == index else { return }
         let row = liveSets[index]
         guard row.reps > 0 else { return }
+        let style = current.exercise.loggingStyle
+        let loadField = current.exercise.loadField
+        let weight: Double? = {
+            guard loadField == .weightKg, let w = row.weightKg, w > 0 else { return nil }
+            return w
+        }()
+        let deficit: Int? = {
+            guard loadField == .deficitCm, let d = row.deficitCm, d > 0 else { return nil }
+            return d
+        }()
         store.logSet(
             reps: row.reps,
-            weightKg: row.weightKg,
+            weightKg: weight,
+            deficitCm: deficit,
+            durationSeconds: style.usesDuration ? row.durationSeconds : nil,
+            quantityUnit: style == .machineWork ? liveQuantityUnit : nil,
             phase: .work,
             kind: .straight,
-            rir: row.rir,
-            toFailure: row.rir == 0,
+            rir: style.usesRIR ? row.rir : nil,
+            toFailure: style.usesRIR && row.rir == 0,
             drops: [],
             clusters: []
         )
@@ -698,9 +909,54 @@ struct WorkoutView: View {
                 primaryTitle: clock.primaryTitle,
                 onPrimary: { clock.handlePrimary() },
                 onClose: { clock.stop() },
-                onSkip: clock.isIntervalMode ? { clock.skipInterval() } : nil
+                onSkip: clock.isIntervalMode ? { clock.skipInterval() } : nil,
+                onFinish: clock.canFinishByUser ? { clock.finishByUser() } : nil,
+                showFinish: clock.canFinishByUser
             )
         }
+    }
+
+    private func presentWODConfirmIfNeeded() {
+        guard let (reason, elapsed) = store.workoutClock.consumePendingEnd() else { return }
+        guard let current = store.state.activeSession?.currentExercise else { return }
+        guard let format = current.wodFormat else { return }
+        let capture = format.resultCapture
+        guard capture == .totalReps || capture == .elapsedTime else { return }
+        let blockId = current.blockId ?? current.id
+        let templateId = store.state.activeSession.flatMap { session -> String? in
+            guard let rid = session.routineId,
+                  let routine = store.state.routines.first(where: { $0.id == rid }),
+                  let block = routine.blocks.first(where: { $0.id == blockId })
+            else { return nil }
+            return block.wodTemplateId
+        }
+        switch capture {
+        case .totalReps:
+            pendingWODConfirm = PendingWODConfirm(
+                blockId: blockId,
+                format: format,
+                capture: capture,
+                totalReps: 0,
+                elapsedSeconds: elapsed,
+                roundsCompleted: 0,
+                wodTemplateId: templateId,
+                title: current.blockHeader ?? format.displayName
+            )
+        case .elapsedTime:
+            pendingWODConfirm = PendingWODConfirm(
+                blockId: blockId,
+                format: format,
+                capture: capture,
+                totalReps: 0,
+                elapsedSeconds: max(1, elapsed),
+                roundsCompleted: current.blockRounds ?? 0,
+                wodTemplateId: templateId,
+                title: current.blockHeader ?? format.displayName
+            )
+        case .perMovementSets:
+            break
+        }
+        _ = reason
     }
 
     /// Reloj a pantalla completa para cualquier tipo de bloque (EMOM, AMRAP, fuerza…).
@@ -747,7 +1003,7 @@ struct WorkoutView: View {
                 sound: sound,
                 haptic: haptic
             )
-        case .amrap, .forTime, .chipper, .afap, .deathBy, .maxEffort:
+        case .amrap, .deathBy, .maxEffort:
             let mins = current.blockTimeCapMinutes ?? 12
             let seconds = max(60, mins * 60)
             store.workoutClock.configure(
@@ -759,6 +1015,19 @@ struct WorkoutView: View {
                 intervalLength: seconds,
                 totalIntervals: 0,
                 initialCountdown: seconds,
+                sound: sound,
+                haptic: haptic
+            )
+        case .forTime, .chipper, .afap:
+            store.workoutClock.configure(
+                exercise: current.exercise,
+                title: current.exercise.name,
+                subtitle: subtitleDefault ?? format?.displayName ?? "For Time",
+                countingUp: true,
+                intervalMode: false,
+                intervalLength: 0,
+                totalIntervals: 0,
+                initialCountdown: 0,
                 sound: sound,
                 haptic: haptic
             )

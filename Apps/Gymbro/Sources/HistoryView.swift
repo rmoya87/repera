@@ -414,17 +414,28 @@ struct WorkoutDetailView: View {
                 }
 
                 ForEach(groupedExercises(session), id: \.id) { group in
-                    ForEach(Array(group.indices.enumerated()), id: \.element) { offset, exIndex in
-                        if session.exercises.indices.contains(exIndex) {
-                            Section {
-                                exerciseCard(exIndex: exIndex, exercise: session.exercises[exIndex])
+                    Section {
+                        if let result = group.wodResult {
+                            wodResultCard(result)
+                                .ogCardListRow()
+                        }
+                        if group.showsMovementsAsPrescription {
+                            wodMovementsCard(session: session, indices: group.indices)
+                                .ogCardListRow()
+                        } else {
+                            ForEach(group.indices, id: \.self) { exIndex in
+                                if session.exercises.indices.contains(exIndex) {
+                                    exerciseCard(
+                                        exIndex: exIndex,
+                                        exercise: session.exercises[exIndex],
+                                        hideScoreArtifact: group.wodResult
+                                    )
                                     .ogCardListRow()
-                            } header: {
-                                if offset == 0 {
-                                    blockSectionHeader(group.header)
                                 }
                             }
                         }
+                    } header: {
+                        blockSectionHeader(group.header)
                     }
                 }
 
@@ -481,11 +492,21 @@ struct WorkoutDetailView: View {
     }
 
     private func summaryCard(_ session: WorkoutSession) -> some View {
-        let kcal = healthExtras?.activeEnergyKcal ?? session.appleActiveEnergyKcal
+        // Misma fuente que Inicio: kcal guardadas en la sesión (estimación o Apple sync).
+        // `healthExtras` a veces trae energía ambiente / sample viejo y pisa el valor correcto.
+        let kcal = session.appleActiveEnergyKcal ?? healthExtras?.activeEnergyKcal
+        let minutes: Double = {
+            if let start = session.startedAt {
+                let end = session.finishedAt ?? start.addingTimeInterval(60)
+                let wall = max(0, end.timeIntervalSince(start) / 60)
+                if wall > 0 { return wall }
+            }
+            return session.durationMinutes
+        }()
         return HStack(spacing: 10) {
             summaryTile(
                 title: "Tiempo",
-                value: session.durationMinutes > 0 ? "\(Int(session.durationMinutes.rounded()))′" : "—",
+                value: minutes > 0 ? "\(Int(minutes.rounded()))′" : "—",
                 icon: "clock.fill",
                 tint: OG.blue
             )
@@ -556,25 +577,65 @@ struct WorkoutDetailView: View {
         var id: String
         var header: String
         var indices: [Int]
+        var wodResult: WODBlockResult?
+        /// AMRAP / For Time: lista de movimientos + score, no series inventadas.
+        var showsMovementsAsPrescription: Bool
     }
 
     private func groupedExercises(_ session: WorkoutSession) -> [ExerciseGroup] {
         var order: [String] = []
-        var map: [String: (header: String, indices: [Int])] = [:]
+        var map: [String: (sample: SessionExercise, indices: [Int])] = [:]
         for (idx, ex) in session.exercises.enumerated() {
             let key = ex.blockId?.uuidString ?? "solo-\(idx)"
-            let header = ex.blockHeader
-                ?? (ex.blockKind == .wod ? (ex.wodFormat?.displayName ?? "WOD") : nil)
-                ?? session.title
             if map[key] == nil {
                 order.append(key)
-                map[key] = (header, [])
+                map[key] = (ex, [])
             }
             map[key]?.indices.append(idx)
         }
         return order.compactMap { key in
             guard let value = map[key] else { return nil }
-            return ExerciseGroup(id: key, header: value.header, indices: value.indices)
+            let sample = value.sample
+            let blockId = sample.blockId
+            let result = blockId.flatMap { id in session.wodResults.first(where: { $0.id == id }) }
+            let scoreCapture = sample.usesBlockScoreResult
+            let header = sample.displayBlockHeader
+            return ExerciseGroup(
+                id: key,
+                header: header,
+                indices: value.indices,
+                wodResult: result ?? inferredResult(for: sample, indices: value.indices, session: session),
+                showsMovementsAsPrescription: scoreCapture && !isEditing
+            )
+        }
+    }
+
+    /// Entrenos antiguos: el score AMRAP se metió como 1 serie en el 1.er movimiento.
+    private func inferredResult(
+        for sample: SessionExercise,
+        indices: [Int],
+        session: WorkoutSession
+    ) -> WODBlockResult? {
+        guard sample.usesBlockScoreResult else { return nil }
+        guard let blockId = sample.blockId else { return nil }
+        if session.wodResults.contains(where: { $0.id == blockId }) { return nil }
+        switch sample.wodFormat?.resultCapture {
+        case .totalReps:
+            guard let firstIdx = indices.first,
+                  session.exercises.indices.contains(firstIdx),
+                  let only = session.exercises[firstIdx].loggedSets.first,
+                  session.exercises[firstIdx].loggedSets.count == 1,
+                  only.weightKg == nil
+            else { return nil }
+            return WODBlockResult(
+                id: blockId,
+                format: sample.wodFormat,
+                totalReps: only.reps
+            )
+        case .elapsedTime:
+            return nil
+        default:
+            return nil
         }
     }
 
@@ -585,8 +646,70 @@ struct WorkoutDetailView: View {
             .textCase(nil)
     }
 
-    private func exerciseCard(exIndex: Int, exercise: SessionExercise) -> some View {
+    private func wodResultCard(_ result: WODBlockResult) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: result.elapsedSeconds != nil ? "stopwatch.fill" : "number.circle.fill")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(OG.accent)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Resultado")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(OG.label3)
+                Text(result.summaryLabel)
+                    .font(.system(size: 22, weight: .bold).monospacedDigit())
+                    .foregroundStyle(OG.label)
+            }
+            Spacer(minLength: 0)
+            if let format = result.format {
+                Text(format.displayName)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(OG.label2)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(OG.surface2, in: Capsule())
+            }
+        }
+        .padding(OG.pad)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+    }
+
+    private func wodMovementsCard(session: WorkoutSession, indices: [Int]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
+            Text("Movimientos")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(OG.label3)
+            ForEach(indices, id: \.self) { exIndex in
+                if session.exercises.indices.contains(exIndex) {
+                    let exercise = session.exercises[exIndex]
+                    HStack(spacing: 12) {
+                        ExerciseThumb(exercise: exercise.exercise, size: 40)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(exercise.exercise.name)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(OG.label)
+                                .lineLimit(2)
+                            Text(exercise.prescriptionSummaryLine)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(OG.label2)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+        }
+        .padding(OG.pad)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+    }
+
+    private func exerciseCard(
+        exIndex: Int,
+        exercise: SessionExercise,
+        hideScoreArtifact: WODBlockResult? = nil
+    ) -> some View {
+        let visibleSets = visibleLoggedSets(for: exercise, hideScoreArtifact: hideScoreArtifact)
+        return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 ExerciseThumb(exercise: exercise.exercise, size: 48)
                 Text(exercise.exercise.name)
@@ -596,14 +719,16 @@ struct WorkoutDetailView: View {
                 Spacer(minLength: 0)
             }
 
-            if exercise.loggedSets.isEmpty {
-                Text("Sin series")
+            if visibleSets.isEmpty {
+                Text(isEditing ? "Sin series" : (exercise.usesBlockScoreResult ? exercise.prescriptionSummaryLine : "Sin series"))
                     .font(.system(size: 13))
                     .foregroundStyle(OG.label3)
             } else {
-                ForEach(Array(exercise.loggedSets.enumerated()), id: \.element.id) { setIndex, set in
+                ForEach(Array(visibleSets.enumerated()), id: \.element.id) { setIndex, set in
                     if isEditing {
-                        editableSetRow(exIndex: exIndex, setIndex: setIndex, set: set)
+                        if let realIndex = exercise.loggedSets.firstIndex(where: { $0.id == set.id }) {
+                            editableSetRow(exIndex: exIndex, setIndex: realIndex, set: set)
+                        }
                     } else {
                         readOnlySetRow(setIndex: setIndex, set: set)
                     }
@@ -615,28 +740,37 @@ struct WorkoutDetailView: View {
         .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
     }
 
+    private func visibleLoggedSets(
+        for exercise: SessionExercise,
+        hideScoreArtifact: WODBlockResult?
+    ) -> [LoggedSet] {
+        guard let result = hideScoreArtifact,
+              let total = result.totalReps,
+              exercise.loggedSets.count == 1,
+              let only = exercise.loggedSets.first,
+              only.weightKg == nil,
+              only.reps == total
+        else { return exercise.loggedSets }
+        return []
+    }
+
     private func readOnlySetRow(setIndex: Int, set: LoggedSet) -> some View {
         HStack(spacing: 10) {
             Text("S\(setIndex + 1)")
                 .font(.system(size: 12, weight: .bold).monospacedDigit())
                 .foregroundStyle(OG.label3)
                 .frame(width: 28, alignment: .leading)
-            Text(setSummary(set))
+            Text(set.displaySummaryLine)
                 .font(.system(size: 15, weight: .medium).monospacedDigit())
                 .foregroundStyle(OG.label)
             Spacer(minLength: 0)
-            if let rir = set.rir {
+            if let rir = set.rir, !set.isMachineQuantity {
                 Text("RIR \(rir)")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label3)
             }
         }
         .padding(.vertical, 4)
-    }
-
-    private func setSummary(_ set: LoggedSet) -> String {
-        let weight = set.weightKg.map { String(format: "%g kg", $0) } ?? "PC"
-        return "\(weight) × \(set.reps)"
     }
 
     private func editableSetRow(exIndex: Int, setIndex: Int, set: LoggedSet) -> some View {

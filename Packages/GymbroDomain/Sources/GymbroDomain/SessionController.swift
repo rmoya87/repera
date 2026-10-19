@@ -44,6 +44,9 @@ public struct SessionController: Sendable {
     public mutating func logSet(
         reps: Int,
         weightKg: Double?,
+        deficitCm: Int? = nil,
+        durationSeconds: Int? = nil,
+        quantityUnit: ExerciseQuantityUnit? = nil,
         phase: SetPhase = .work,
         kind: SetKind = .straight,
         rir: Double? = nil,
@@ -55,6 +58,9 @@ public struct SessionController: Sendable {
         let set = LoggedSet(
             reps: reps,
             weightKg: weightKg,
+            deficitCm: deficitCm,
+            durationSeconds: durationSeconds,
+            quantityUnit: quantityUnit,
             phase: phase,
             kind: kind,
             rir: rir,
@@ -160,7 +166,7 @@ public struct SessionController: Sendable {
                     resolved.deriveEmomRoundsIfNeeded()
                     for move in resolved.movements where !move.isRest {
                         let exercise: Exercise
-                        let canonical = CrossFitGlossary.canonicalName(for: move.name)
+                        let canonical = CrossFitGlossary.resolveCatalogName(move.name, notes: move.notes)
                         if let id = move.exerciseId, let ex = byId[id] {
                             exercise = ex
                         } else if let match = byId.values.first(where: {

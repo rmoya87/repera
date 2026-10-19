@@ -1,6 +1,6 @@
 # Escáner de pizarra / TV
 
-Última actualización: 2026-10-19 (Añadir entreno sin textos de detección)
+Última actualización: 2026-10-19 (DB hang snatch → Snatch mancuerna)
 
 ## Objetivo
 
@@ -78,7 +78,8 @@ Editar movimiento WOD (`WODMovementEditor`): mismas series derivadas que Apuntar
 
 - Tras escanear desde el sheet **Añadir entreno** (Inicio → +), se cierra el modal y se abre una **página** en el `NavigationStack` de Inicio: título **«Añadir entreno»** (`BoardImportReviewView` + `ogPinnedTransparentNav`).
 - Desde la pestaña Crear (`StartHubSheet`) el push es en el mismo stack (también página, no sheet).
-- `OGRoutineBlockCard` / `OGRoutineBlocksList`: mismas cards con miniaturas que `SessionPreviewView` (tocar card → editor). Nombres OCR/WOD se resuelven con `CrossFitGlossary` → catálogo/`ExerciseArt`.
+- `OGRoutineBlockCard` / `OGRoutineBlocksList`: mismas cards con miniaturas que `SessionPreviewView` (tocar card → editor). Nombres OCR/WOD se resuelven con `CrossFitGlossary.resolveCatalogName` → catálogo/`ExerciseArt`.
+- Equipo (`DB`/`DDB`/`KB`/`BB` → notes): `preferEquipmentVariant` elige el ejercicio de catálogo (p. ej. thruster→Thruster mancuernas, snatch→Snatch mancuerna/kettlebell, clean→Clean mancuerna, press banca→Press mancuernas). 1 vs 2 mancuernas queda en la nota; Guardar/Empezar **no** re-parsean con `BoardImportParser` si el draft ya trae bloques (evita freeze).
 - Toolbar: **Guardar** (`checkmark`, tint neutro) y **Empezar** (`play.fill`, accent); sin botón Editar.
 - Guardar / Empezar usan los bloques del draft (incl. rondas derivadas).
 

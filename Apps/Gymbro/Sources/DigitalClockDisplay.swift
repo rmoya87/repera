@@ -149,6 +149,9 @@ struct BlockTimerScreen: View {
     var onPrimary: () -> Void
     var onClose: () -> Void
     var onSkip: (() -> Void)?
+    /// For Time count-up: botón Terminar.
+    var onFinish: (() -> Void)? = nil
+    var showFinish: Bool = false
 
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
@@ -315,6 +318,18 @@ struct BlockTimerScreen: View {
                     .background(.white, in: Capsule())
             }
             .buttonStyle(.plain)
+
+            if showFinish, let onFinish {
+                Button(action: onFinish) {
+                    Text("Terminar")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 48)
+                        .background(OG.accent, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
 
             if let onSkip, isRunning {
                 Button("Saltar", action: onSkip)

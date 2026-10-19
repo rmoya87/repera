@@ -138,7 +138,76 @@ final class GymbroStore: NSObject {
             }
             LaunchTiming.span("bootstrap.catalogMerge", from: t0)
             await completeInitialRemoteSync()
+            await recalculateStoredSessionKcalIfNeeded()
         }
+    }
+
+    private static let sessionKcalRecalcDefaultsKey = "gymbro.recalcSessionKcal.v2026_10_19d"
+
+    /// Una vez: recalcula kcal de entrenos ya guardados con la fórmula corregida.
+    /// Si hay workout externo de Apple/Watch con energía, se mantiene; si no, estimación de la app.
+    /// La duración mostrada sigue siendo inicio→fin (p. ej. 1 h); los time caps solo afectan al estimado de kcal.
+    @MainActor
+    private func recalculateStoredSessionKcalIfNeeded() async {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: Self.sessionKcalRecalcDefaultsKey) else { return }
+        guard !state.workouts.isEmpty else {
+            defaults.set(true, forKey: Self.sessionKcalRecalcDefaultsKey)
+            return
+        }
+
+        var changed = false
+        let health = HealthKitStore.shared
+        for i in state.workouts.indices {
+            var session = state.workouts[i]
+            let start = session.startedAt
+                ?? session.finishedAt?.addingTimeInterval(-60 * 60)
+                ?? Date().addingTimeInterval(-60 * 60)
+            let end = max(
+                session.finishedAt ?? start.addingTimeInterval(60),
+                start.addingTimeInterval(60)
+            )
+            let wallSec = max(60, end.timeIntervalSince(start))
+            let estimated = estimateSessionKcal(session, start: start, end: end)
+
+            var resolved = estimated
+            if let uuid = session.healthKitWorkoutUUID,
+               let apple = await health.externalWorkoutEnergyKcal(uuid: uuid) {
+                resolved = apple
+            }
+
+            let previousKcal = session.appleActiveEnergyKcal ?? 0
+            let previousDuration = session.appleDurationSeconds ?? 0
+            let kcalChanged = abs(previousKcal - resolved) >= 0.5 || previousKcal <= 0
+            let durationChanged = abs(previousDuration - wallSec) >= 1
+            guard kcalChanged || durationChanged else { continue }
+
+            if kcalChanged {
+                session.appleActiveEnergyKcal = resolved > 0 ? resolved : nil
+            }
+            // Siempre reloj de pared (inicio/fin que puso el usuario), no time caps.
+            session.appleDurationSeconds = wallSec
+            state.workouts[i] = session
+            changed = true
+        }
+
+        defaults.set(true, forKey: Self.sessionKcalRecalcDefaultsKey)
+        if changed {
+            state.updatedAt = Date()
+            persistWorkouts(immediate: true)
+        }
+    }
+
+    /// Suma de time caps por bloque (EMOM 12 + EMOM 8 + AMRAP 12 → 32).
+    private func programmedWODMinutes(_ session: WorkoutSession) -> Double? {
+        var seen = Set<UUID>()
+        var sum = 0
+        for ex in session.exercises {
+            guard let blockId = ex.blockId, seen.insert(blockId).inserted else { continue }
+            guard let cap = ex.blockTimeCapMinutes, cap > 0 else { continue }
+            sum += cap
+        }
+        return sum > 0 ? Double(sum) : nil
     }
 
     /// Enrich + append missing seed rows off the MainActor (string compares over hundreds of exercises).
@@ -468,20 +537,24 @@ final class GymbroStore: NSObject {
         ocrText: String? = nil,
         blocks: [RoutineBlock]? = nil
     ) -> Bool {
-        var catalog = state.exercises
-        var routine = BoardImportParser.buildRoutine(
-            title: "Añadir entreno",
-            lines: lines,
-            catalog: &catalog,
-            ocrText: ocrText
-        )
+        // Si la revisión ya trae bloques (LiteParser), no re-parsear con BoardImportParser (cuelga la UI).
+        var routine: Routine
         if let blocks, !blocks.isEmpty {
-            routine.blocks = blocks
+            routine = Routine(title: "Añadir entreno", weekday: nil, blocks: blocks, progression: .off)
+            BoardScanLog.info("startSessionFromBoard: usando \(blocks.count) bloques del draft (sin re-parse)")
+        } else {
+            var catalog = state.exercises
+            routine = BoardImportParser.buildRoutine(
+                title: "Añadir entreno",
+                lines: lines,
+                catalog: &catalog,
+                ocrText: ocrText
+            )
+            state.exercises = catalog
         }
         for i in routine.blocks.indices {
             routine.blocks[i].deriveEmomRoundsIfNeeded()
         }
-        state.exercises = catalog
         let movementCount = routine.blocks.reduce(0) { $0 + $1.movements.filter { !$0.isRest }.count }
         let hasWork = !routine.exercises.isEmpty || movementCount > 0 || routine.blocks.contains { !$0.exercises.isEmpty }
         BoardScanLog.info(
@@ -531,16 +604,20 @@ final class GymbroStore: NSObject {
     ) -> Routine {
         let calendar = Calendar.current
         let date = calendar.startOfDay(for: onDate ?? Self.dateForISOWeekday(weekday))
-        var catalog = state.exercises
-        var imported = BoardImportParser.buildRoutine(
-            title: planName,
-            lines: lines,
-            catalog: &catalog,
-            ocrText: ocrText
-        )
-        state.exercises = catalog
+        // Draft de revisión ya parseado (LiteParser): no volver a BoardImportParser (freeze en MainActor).
+        var imported: Routine
         if let blocks, !blocks.isEmpty {
-            imported.blocks = blocks
+            imported = Routine(title: planName, weekday: nil, blocks: blocks, progression: .off)
+            BoardScanLog.info("saveBoardToDay: usando \(blocks.count) bloques del draft (sin re-parse)")
+        } else {
+            var catalog = state.exercises
+            imported = BoardImportParser.buildRoutine(
+                title: planName,
+                lines: lines,
+                catalog: &catalog,
+                ocrText: ocrText
+            )
+            state.exercises = catalog
         }
         for i in imported.blocks.indices {
             imported.blocks[i].deriveEmomRoundsIfNeeded()
@@ -609,36 +686,133 @@ final class GymbroStore: NSObject {
         let end = session.finishedAt ?? Date()
         restCoordinator.endForSessionClose()
         state.activeSession = nil
-        // Clearing active session only — workout row lands after HK finish (or discard).
         persist()
         pushActiveToWatch(immediate: true)
 
         if save {
-            let volume = session.totalVolumeKg
-            let fallbackKcal = HealthKitStore.estimateActiveEnergyKcal(
-                durationMinutes: max(1, end.timeIntervalSince(start) / 60),
-                volumeKg: volume
-            )
+            // Provisional al instante (sin esperar Salud/Watch); HK refina después.
+            let fallbackKcal = estimateSessionKcal(session, start: start, end: end)
+            session.appleActiveEnergyKcal = fallbackKcal
+            session.appleDurationSeconds = max(60, end.timeIntervalSince(start))
+            upsertWorkout(session)
+            advanceRotationIfNeeded(finishedRoutineId: finishedRoutineId)
+            persistWorkouts()
+
+            let sessionId = session.id
+            let title = session.title
             Task {
                 let apple = await HealthKitStore.shared.finishWorkout(
-                    sessionId: session.id,
-                    title: session.title,
+                    sessionId: sessionId,
+                    title: title,
                     start: start,
                     end: end,
                     fallbackKcal: fallbackKcal
                 )
-                session.startedAt = apple.startedAt
-                session.finishedAt = apple.finishedAt
-                session.appleActiveEnergyKcal = apple.kcal
-                session.appleDurationSeconds = apple.durationSeconds
-                session.healthKitWorkoutUUID = apple.workoutUUID
-                upsertWorkout(session)
-                advanceRotationIfNeeded(finishedRoutineId: finishedRoutineId)
-                persistWorkouts()
+                if var updated = state.workouts.first(where: { $0.id == sessionId }) {
+                    updated.startedAt = apple.startedAt
+                    updated.finishedAt = apple.finishedAt
+                    updated.appleActiveEnergyKcal = apple.kcal
+                    updated.appleDurationSeconds = apple.durationSeconds
+                    updated.healthKitWorkoutUUID = apple.workoutUUID
+                    upsertWorkout(updated)
+                    persistWorkouts()
+                }
             }
         } else {
             Task { await HealthKitStore.shared.discardLiveTracking() }
         }
+    }
+
+    /// kcal locales cuando Watch/Salud no aportan: MET × peso + volumen (+ reps solo si el tiempo es corto).
+    func estimateSessionKcal(_ session: WorkoutSession, start: Date, end: Date) -> Double {
+        var durationMin = max(1, end.timeIntervalSince(start) / 60)
+        if let wodElapsed = session.wodResults.compactMap(\.elapsedSeconds).max(), wodElapsed > 30 {
+            durationMin = max(durationMin, Double(wodElapsed) / 60)
+        }
+        // WOD multi-bloque: el reloj de pared (apuntar 1 h) no es el trabajo real → time caps (12+8+12=32).
+        if let programmed = programmedWODMinutes(session), programmed >= 5 {
+            durationMin = min(durationMin, programmed + 5)
+            if durationMin < programmed * 0.5 {
+                durationMin = programmed
+            }
+        } else {
+            let hasWODScore = session.wodResults.contains {
+                ($0.totalReps ?? 0) > 0 || ($0.roundsCompleted ?? 0) > 0 || ($0.elapsedSeconds ?? 0) > 30
+            }
+            if hasWODScore, durationMin <= 2 {
+                let caps = session.exercises.compactMap(\.blockTimeCapMinutes).filter { $0 > 0 }
+                if let cap = caps.max() {
+                    durationMin = Double(cap)
+                }
+            }
+        }
+        let sets = session.exercises.flatMap(\.loggedSets)
+        // Tiempo de comba/máquina ya va dentro del EMOM/AMRAP; no sumar encima del reloj.
+        let timedCardio = sets.compactMap(\.durationSeconds).reduce(0, +)
+        // Solo reps reales (comba/PC); cal/metros no cuentan como «reps» en el boost.
+        let totalReps = sets
+            .filter { $0.quantityUnit != .calories && $0.quantityUnit != .meters }
+            .reduce(0) { $0 + $1.reps }
+        let machineDisplayCals = sets
+            .filter { $0.quantityUnit == .calories }
+            .reduce(0) { $0 + $1.reps }
+        let hasMachineWork = sets.contains {
+            $0.quantityUnit == .calories || $0.quantityUnit == .meters
+        }
+        let isMetcon = programmedWODMinutes(session) != nil
+            || session.wodResults.isEmpty == false
+            || timedCardio >= 30
+            || hasMachineWork
+        let bw = state.bodyWeights.sorted { $0.date > $1.date }.first?.weightKg
+        let estimated = HealthKitStore.estimateActiveEnergyKcal(
+            durationMinutes: durationMin,
+            volumeKg: session.totalVolumeKg,
+            bodyWeightKg: bw,
+            // Con duración de bloque fiable, el MET×tiempo basta (evitar 800+ por suma de reps).
+            totalReps: durationMin >= 10 ? 0 : totalReps,
+            timedCardioSeconds: isMetcon ? max(timedCardio, 30) : timedCardio,
+            metOverride: isMetcon ? 8.0 : nil
+        )
+        // Calorías de consola (bike/Ski/remo) como suelo mínimo del estimado de sesión.
+        return max(estimated, Double(machineDisplayCals))
+    }
+
+    func toggleWODTemplateFavorite(_ templateId: String) {
+        var settings = state.settings
+        if let idx = settings.favoriteWODTemplateIds.firstIndex(of: templateId) {
+            settings.favoriteWODTemplateIds.remove(at: idx)
+        } else {
+            settings.favoriteWODTemplateIds.append(templateId)
+        }
+        updateSettings(settings)
+    }
+
+    func isWODTemplateFavorite(_ templateId: String) -> Bool {
+        state.settings.favoriteWODTemplateIds.contains(templateId)
+    }
+
+    /// Rutina efímera desde plantilla de catálogo (play / apuntar desde Biblioteca).
+    func routineFromWODTemplate(_ template: WODTemplate) -> Routine {
+        Routine(
+            title: template.name,
+            weekday: nil,
+            blocks: [template.makeBlock()],
+            progression: .off
+        )
+    }
+
+    /// Aplica un score WOD (AMRAP / For Time) a la sesión activa.
+    /// El marcador vive en `wodResults`; no se inventan series en el primer movimiento.
+    func applyWODResult(_ result: WODBlockResult) {
+        guard var session = state.activeSession else { return }
+        session.wodResults.removeAll { $0.id == result.id }
+        session.wodResults.append(result)
+        if result.totalReps != nil || result.elapsedSeconds != nil {
+            for i in session.exercises.indices where session.exercises[i].blockId == result.id {
+                session.exercises[i].isCompleted = true
+            }
+        }
+        state.activeSession = session
     }
 
     /// Guarda un entreno ya terminado a partir de resultados apuntados (sin seguir la sesión en vivo).
@@ -648,7 +822,8 @@ final class GymbroStore: NSObject {
         exercises: [SessionExercise],
         notes: String? = nil,
         startedAt: Date = Date(),
-        finishedAt: Date = Date()
+        finishedAt: Date = Date(),
+        wodResults: [WODBlockResult] = []
     ) -> WorkoutSession {
         var session = SessionController.from(routine: routine, exercises: state.exercises)
         // Emparejar por posición (mismo orden que el plan).
@@ -661,6 +836,13 @@ final class GymbroStore: NSObject {
                 .reduce(0) { $0 + $1.reps }
             session.exercises[i].isCompleted = !draft.loggedSets.isEmpty
         }
+        session.wodResults = wodResults
+        for result in wodResults {
+            guard result.totalReps != nil || result.elapsedSeconds != nil else { continue }
+            for i in session.exercises.indices where session.exercises[i].blockId == result.id {
+                session.exercises[i].isCompleted = true
+            }
+        }
         session.phase = .finished
         let safeStart = startedAt
         let safeEnd = max(finishedAt, startedAt.addingTimeInterval(60))
@@ -668,15 +850,13 @@ final class GymbroStore: NSObject {
         session.finishedAt = safeEnd
         let trimmed = notes?.trimmingCharacters(in: .whitespacesAndNewlines)
         session.notes = (trimmed?.isEmpty == false) ? trimmed : nil
+        let fallbackKcal = estimateSessionKcal(session, start: safeStart, end: safeEnd)
+        session.appleActiveEnergyKcal = fallbackKcal
+        session.appleDurationSeconds = max(60, safeEnd.timeIntervalSince(safeStart))
         upsertWorkout(session)
         advanceRotationIfNeeded(finishedRoutineId: routine.id)
         persistWorkouts()
 
-        let volume = session.totalVolumeKg
-        let fallbackKcal = HealthKitStore.estimateActiveEnergyKcal(
-            durationMinutes: max(1, safeEnd.timeIntervalSince(safeStart) / 60),
-            volumeKg: volume
-        )
         let sessionId = session.id
         let title = session.title
         Task {
@@ -758,6 +938,9 @@ final class GymbroStore: NSObject {
     func logSet(
         reps: Int,
         weightKg: Double?,
+        deficitCm: Int? = nil,
+        durationSeconds: Int? = nil,
+        quantityUnit: ExerciseQuantityUnit? = nil,
         phase: SetPhase = .work,
         kind: SetKind = .straight,
         rir: Double? = nil,
@@ -769,6 +952,9 @@ final class GymbroStore: NSObject {
             $0.logSet(
                 reps: reps,
                 weightKg: weightKg,
+                deficitCm: deficitCm,
+                durationSeconds: durationSeconds,
+                quantityUnit: quantityUnit,
                 phase: phase,
                 kind: kind,
                 rir: rir,
@@ -825,16 +1011,15 @@ final class GymbroStore: NSObject {
                 return (t?.isEmpty == false) ? t : nil
             }()
         )
-        upsertWorkout(session)
+        var saved = session
+        let fallbackKcal = estimateSessionKcal(saved, start: start, end: now)
+        saved.appleActiveEnergyKcal = fallbackKcal
+        saved.appleDurationSeconds = max(60, now.timeIntervalSince(start))
+        upsertWorkout(saved)
         persistWorkouts()
 
-        let volume = session.totalVolumeKg
-        let fallbackKcal = HealthKitStore.estimateActiveEnergyKcal(
-            durationMinutes: max(1, now.timeIntervalSince(start) / 60),
-            volumeKg: volume
-        )
-        let sessionId = session.id
-        let title = session.title
+        let sessionId = saved.id
+        let title = saved.title
         Task {
             let apple = await HealthKitStore.shared.finishWorkout(
                 sessionId: sessionId,
@@ -853,7 +1038,7 @@ final class GymbroStore: NSObject {
                 persistWorkouts()
             }
         }
-        return session
+        return saved
     }
 
     /// Actualiza un entreno ya terminado (detalle / edición desde Inicio).

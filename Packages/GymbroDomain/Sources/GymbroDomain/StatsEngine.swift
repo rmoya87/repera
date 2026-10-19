@@ -113,9 +113,14 @@ public enum StatsEngine {
         var maxWeight: Double = 0
         var maxWeightReps = 0
         var bestReps = 0
+        var bestCalories = 0
+        var bestMeters = 0
+        var bestDurationSeconds = 0
         var lastDate: Date?
         var lastWeight: Double?
         var lastReps: Int?
+        var lastQuantityUnit: ExerciseQuantityUnit?
+        var lastDurationSeconds: Int?
         var times = 0
         var best1RM: Double = 0
 
@@ -133,9 +138,21 @@ public enum StatsEngine {
                 lastDate = date
                 lastWeight = work.last?.weightKg
                 lastReps = work.last?.reps
+                lastQuantityUnit = work.last?.quantityUnit
+                lastDurationSeconds = work.last?.durationSeconds
             }
             for set in work {
-                bestReps = max(bestReps, set.reps)
+                switch set.quantityUnit {
+                case .calories:
+                    bestCalories = max(bestCalories, set.reps)
+                case .meters:
+                    bestMeters = max(bestMeters, set.reps)
+                case .reps, .none:
+                    bestReps = max(bestReps, set.reps)
+                }
+                if let sec = set.durationSeconds {
+                    bestDurationSeconds = max(bestDurationSeconds, sec)
+                }
                 if let w = set.weightKg, w > 0 {
                     let e1 = w * (1 + Double(set.reps) / 30.0)
                     if e1 > best1RM {
@@ -155,9 +172,14 @@ public enum StatsEngine {
             repsAtMaxWeight: maxWeight > 0 ? maxWeightReps : nil,
             estimatedOneRM: best1RM > 0 ? best1RM : nil,
             bestReps: bestReps > 0 ? bestReps : nil,
+            bestCalories: bestCalories > 0 ? bestCalories : nil,
+            bestMeters: bestMeters > 0 ? bestMeters : nil,
+            bestDurationSeconds: bestDurationSeconds > 0 ? bestDurationSeconds : nil,
             lastDate: lastDate,
             lastWeightKg: lastWeight,
-            lastReps: lastReps
+            lastReps: lastReps,
+            lastQuantityUnit: lastQuantityUnit,
+            lastDurationSeconds: lastDurationSeconds
         )
     }
 }
@@ -168,9 +190,14 @@ public struct ExerciseHistorySummary: Sendable, Equatable {
     public var repsAtMaxWeight: Int?
     public var estimatedOneRM: Double?
     public var bestReps: Int?
+    public var bestCalories: Int?
+    public var bestMeters: Int?
+    public var bestDurationSeconds: Int?
     public var lastDate: Date?
     public var lastWeightKg: Double?
     public var lastReps: Int?
+    public var lastQuantityUnit: ExerciseQuantityUnit?
+    public var lastDurationSeconds: Int?
 
     public init(
         timesPerformed: Int = 0,
@@ -178,21 +205,42 @@ public struct ExerciseHistorySummary: Sendable, Equatable {
         repsAtMaxWeight: Int? = nil,
         estimatedOneRM: Double? = nil,
         bestReps: Int? = nil,
+        bestCalories: Int? = nil,
+        bestMeters: Int? = nil,
+        bestDurationSeconds: Int? = nil,
         lastDate: Date? = nil,
         lastWeightKg: Double? = nil,
-        lastReps: Int? = nil
+        lastReps: Int? = nil,
+        lastQuantityUnit: ExerciseQuantityUnit? = nil,
+        lastDurationSeconds: Int? = nil
     ) {
         self.timesPerformed = timesPerformed
         self.maxWeightKg = maxWeightKg
         self.repsAtMaxWeight = repsAtMaxWeight
         self.estimatedOneRM = estimatedOneRM
         self.bestReps = bestReps
+        self.bestCalories = bestCalories
+        self.bestMeters = bestMeters
+        self.bestDurationSeconds = bestDurationSeconds
         self.lastDate = lastDate
         self.lastWeightKg = lastWeightKg
         self.lastReps = lastReps
+        self.lastQuantityUnit = lastQuantityUnit
+        self.lastDurationSeconds = lastDurationSeconds
     }
 
     public var hasData: Bool { timesPerformed > 0 }
+
+    public var lastQuantityLabel: String? {
+        guard let reps = lastReps else { return nil }
+        switch lastQuantityUnit {
+        case .calories: return "\(reps) cal"
+        case .meters: return "\(reps) m"
+        case .reps, .none:
+            if lastWeightKg != nil { return "\(reps) reps" }
+            return "\(reps)"
+        }
+    }
 }
 
 // MARK: - Progreso por ejercicio (estilo openGym)
@@ -201,6 +249,12 @@ public enum ExerciseProgressMetric: String, CaseIterable, Sendable, Identifiable
     case topSet
     case estimatedOneRM
     case effort
+    /// Mejor cal / m / reps de la sesión (según unidad apuntada).
+    case bestQuantity
+    /// Suma de cal / m / reps de la sesión.
+    case totalQuantity
+    /// Segundos totales de series con duración.
+    case duration
 
     public var id: String { rawValue }
 
@@ -209,6 +263,23 @@ public enum ExerciseProgressMetric: String, CaseIterable, Sendable, Identifiable
         case .topSet: return "Top set"
         case .estimatedOneRM: return "1RM est."
         case .effort: return "Esfuerzo"
+        case .bestQuantity: return "Mejor"
+        case .totalQuantity: return "Total"
+        case .duration: return "Tiempo"
+        }
+    }
+
+    /// Métricas útiles según estilo de apunte del ejercicio.
+    public static func available(for style: ExerciseLoggingStyle) -> [ExerciseProgressMetric] {
+        switch style {
+        case .loadAndReps:
+            return [.topSet, .estimatedOneRM, .effort]
+        case .repsOnly:
+            return [.bestQuantity, .totalQuantity]
+        case .repsAndTime:
+            return [.bestQuantity, .totalQuantity, .duration]
+        case .machineWork:
+            return [.bestQuantity, .totalQuantity, .duration]
         }
     }
 }
@@ -247,13 +318,25 @@ public struct ExerciseProgressPoint: Identifiable, Sendable, Equatable {
     public var weightKg: Double?
     public var reps: Int?
     public var rir: Double?
+    public var quantityUnit: ExerciseQuantityUnit?
+    public var durationSeconds: Int?
 
-    public init(date: Date, value: Double, weightKg: Double? = nil, reps: Int? = nil, rir: Double? = nil) {
+    public init(
+        date: Date,
+        value: Double,
+        weightKg: Double? = nil,
+        reps: Int? = nil,
+        rir: Double? = nil,
+        quantityUnit: ExerciseQuantityUnit? = nil,
+        durationSeconds: Int? = nil
+    ) {
         self.date = date
         self.value = value
         self.weightKg = weightKg
         self.reps = reps
         self.rir = rir
+        self.quantityUnit = quantityUnit
+        self.durationSeconds = durationSeconds
     }
 }
 
@@ -278,21 +361,33 @@ public struct ExerciseLastSession: Sendable, Equatable {
         public var weightKg: Double?
         public var reps: Int
         public var rir: Double?
+        public var durationSeconds: Int?
+        public var quantityUnit: ExerciseQuantityUnit?
 
-        public init(id: UUID = UUID(), weightKg: Double?, reps: Int, rir: Double?) {
+        public init(
+            id: UUID = UUID(),
+            weightKg: Double?,
+            reps: Int,
+            rir: Double?,
+            durationSeconds: Int? = nil,
+            quantityUnit: ExerciseQuantityUnit? = nil
+        ) {
             self.id = id
             self.weightKg = weightKg
             self.reps = reps
             self.rir = rir
+            self.durationSeconds = durationSeconds
+            self.quantityUnit = quantityUnit
         }
 
         public var line: String {
-            let w = weightKg.map { String(format: "%g", $0) } ?? "—"
-            var s = "\(w)×\(reps)"
-            if let rir {
-                s += " · RIR \(String(format: "%g", rir))"
-            }
-            return s
+            LoggedSet(
+                reps: reps,
+                weightKg: weightKg,
+                durationSeconds: durationSeconds,
+                quantityUnit: quantityUnit,
+                rir: rir
+            ).displaySummaryLine
         }
     }
 
@@ -369,6 +464,41 @@ extension StatsEngine {
                 points.append(
                     ExerciseProgressPoint(date: date, value: avg, weightKg: top, reps: nil, rir: avg)
                 )
+            case .bestQuantity:
+                guard let best = work.max(by: { $0.reps < $1.reps }) else { continue }
+                points.append(
+                    ExerciseProgressPoint(
+                        date: date,
+                        value: Double(best.reps),
+                        weightKg: best.weightKg,
+                        reps: best.reps,
+                        rir: best.rir,
+                        quantityUnit: best.quantityUnit,
+                        durationSeconds: best.durationSeconds
+                    )
+                )
+            case .totalQuantity:
+                let total = work.reduce(0) { $0 + $1.reps }
+                guard total > 0 else { continue }
+                let unit = work.compactMap(\.quantityUnit).first
+                points.append(
+                    ExerciseProgressPoint(
+                        date: date,
+                        value: Double(total),
+                        reps: total,
+                        quantityUnit: unit
+                    )
+                )
+            case .duration:
+                let totalSec = work.compactMap(\.durationSeconds).reduce(0, +)
+                guard totalSec > 0 else { continue }
+                points.append(
+                    ExerciseProgressPoint(
+                        date: date,
+                        value: Double(totalSec),
+                        durationSeconds: totalSec
+                    )
+                )
             }
         }
         return points
@@ -395,7 +525,9 @@ extension StatsEngine {
                         id: $0.id,
                         weightKg: $0.weightKg,
                         reps: $0.reps,
-                        rir: $0.rir
+                        rir: $0.rir,
+                        durationSeconds: $0.durationSeconds,
+                        quantityUnit: $0.quantityUnit
                     )
                 }
             )
@@ -423,14 +555,7 @@ extension StatsEngine {
             let work = ex.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
             guard !work.isEmpty else { continue }
 
-            let lines = work.map { set -> String in
-                let w = set.weightKg.map { String(format: "%g", $0) } ?? "—"
-                var line = "\(w)×\(set.reps)"
-                if let rir = set.rir {
-                    line += " (RIR \(String(format: "%g", rir)))"
-                }
-                return line
-            }
+            let lines = work.map(\.displaySummaryLine)
             rows.append(
                 ExerciseSessionSnapshot(
                     id: workout.id,

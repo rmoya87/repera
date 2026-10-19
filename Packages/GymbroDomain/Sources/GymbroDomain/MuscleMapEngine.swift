@@ -71,9 +71,13 @@ public enum MuscleMapEngine {
             for entry in workout.exercises {
                 let hardSets = entry.loggedSets.reduce(0.0) { partial, set in
                     guard set.reps > 0 else { return partial }
-                    if set.isWarmup { return partial + (hardOnly ? 0 : 0.25) }
-                    if Effort.isHard(rir: set.rir) { return partial + 1.0 }
-                    return hardOnly ? partial : partial + 0.7
+                    if hardOnly {
+                        // Solo fuerza «dura» (RIR); cardio/máquina no entra en este filtro.
+                        if set.isWarmup || set.isMachineQuantity { return partial }
+                        if set.weightKg == nil, set.durationSeconds != nil { return partial }
+                        return Effort.isHard(rir: set.rir) ? partial + 1.0 : partial
+                    }
+                    return partial + set.fatigueSetEquivalent
                 }
                 guard hardSets > 0 else { continue }
                 let capped = min(hardSets, 12)

@@ -27,6 +27,9 @@ public struct AppSettings: Codable, Sendable, Equatable {
     public var profileAvatarJPEG: Data?
     public var profileDisplayName: String?
 
+    /// IDs de `CatalogWODs` marcados como favoritos.
+    public var favoriteWODTemplateIds: [String]
+
     public init(
         weightUnit: WeightUnit = .kg,
         weekStartsOn: WeekStart = .monday,
@@ -41,7 +44,8 @@ public struct AppSettings: Codable, Sendable, Equatable {
         restSoundEnabled: Bool = true,
         restHapticEnabled: Bool = true,
         profileAvatarJPEG: Data? = nil,
-        profileDisplayName: String? = nil
+        profileDisplayName: String? = nil,
+        favoriteWODTemplateIds: [String] = []
     ) {
         self.weightUnit = weightUnit
         self.weekStartsOn = weekStartsOn
@@ -57,13 +61,14 @@ public struct AppSettings: Codable, Sendable, Equatable {
         self.restHapticEnabled = restHapticEnabled
         self.profileAvatarJPEG = profileAvatarJPEG
         self.profileDisplayName = profileDisplayName
+        self.favoriteWODTemplateIds = favoriteWODTemplateIds
     }
 
     enum CodingKeys: String, CodingKey {
         case weightUnit, weekStartsOn, defaultRestSeconds, bodyWeightGoalKg
         case defaultProgression, weightIncrementKg, barbellKg, ownedPlatesKg, effortUnit
         case scheduleMode, restSoundEnabled, restHapticEnabled
-        case profileAvatarJPEG, profileDisplayName
+        case profileAvatarJPEG, profileDisplayName, favoriteWODTemplateIds
     }
 
     public init(from decoder: Decoder) throws {
@@ -82,6 +87,83 @@ public struct AppSettings: Codable, Sendable, Equatable {
         restHapticEnabled = try c.decodeIfPresent(Bool.self, forKey: .restHapticEnabled) ?? true
         profileAvatarJPEG = try c.decodeIfPresent(Data.self, forKey: .profileAvatarJPEG)
         profileDisplayName = try c.decodeIfPresent(String.self, forKey: .profileDisplayName)
+        favoriteWODTemplateIds = try c.decodeIfPresent([String].self, forKey: .favoriteWODTemplateIds) ?? []
+    }
+}
+
+/// Cómo se apuntan series de un ejercicio (UI de peso / tiempo / reps).
+/// Unidad de la cantidad apuntada (reps genéricas, calorías de máquina o metros).
+public enum ExerciseQuantityUnit: String, Codable, Sendable, Hashable {
+    case reps
+    case calories
+    case meters
+
+    public var shortLabel: String {
+        switch self {
+        case .reps: return "Reps"
+        case .calories: return "Cal"
+        case .meters: return "m"
+        }
+    }
+}
+
+/// Campo de carga opcional: lastre (kg) o déficit HSPU (cm).
+public enum ExerciseLoadField: String, Codable, Sendable, Hashable {
+    case none
+    case weightKg
+    case deficitCm
+
+    public var stepperTitle: String {
+        switch self {
+        case .none: return ""
+        case .weightKg: return "Peso (kg)"
+        case .deficitCm: return "Déficit (cm)"
+        }
+    }
+
+    public var shortUnit: String {
+        switch self {
+        case .none: return ""
+        case .weightKg: return "kg"
+        case .deficitCm: return "cm"
+        }
+    }
+}
+
+public enum ExerciseLoggingStyle: String, Codable, Sendable, Hashable {
+    /// Barra, mancuernas, KB con carga: kg + reps. También dominadas con lastre / HSPU con déficit.
+    case loadAndReps
+    /// Gimnasia / peso corporal: solo reps (sin kg).
+    case repsOnly
+    /// Comba: veces (dobles) + tiempo de la serie.
+    case repsAndTime
+    /// Erg / bike / carrera: tiempo + cal o metros (sin kg).
+    case machineWork
+
+    public var usesDuration: Bool {
+        switch self {
+        case .repsAndTime, .machineWork: return true
+        case .loadAndReps, .repsOnly: return false
+        }
+    }
+
+    public var usesLoad: Bool { self == .loadAndReps }
+
+    public var usesRIR: Bool {
+        switch self {
+        case .loadAndReps, .repsOnly: return true
+        case .repsAndTime, .machineWork: return false
+        }
+    }
+
+    /// Techo del stepper de cantidad (reps / cal / m).
+    public var quantityCap: Int {
+        switch self {
+        case .machineWork: return 100_000
+        case .repsAndTime: return 999
+        case .repsOnly: return 99
+        case .loadAndReps: return 50
+        }
     }
 }
 
@@ -103,6 +185,209 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
     public var isFavorite: Bool
     /// Origen deportivo (CrossFit, Halterofilia, Gimnasia). Independiente del grupo muscular.
     public var sportTag: String?
+
+    /// Métrica de log según equipo / nombre (comba → veces+tiempo; erg → cal/m; PC → solo reps).
+    public var loggingStyle: ExerciseLoggingStyle {
+        Self.loggingStyle(name: name, equipment: equipment, targetMuscle: targetMuscle, muscleGroup: muscleGroup)
+    }
+
+    /// Lastre (kg), déficit HSPU (cm) o ninguno.
+    public var loadField: ExerciseLoadField {
+        Self.loadField(name: name, equipment: equipment, targetMuscle: targetMuscle, muscleGroup: muscleGroup)
+    }
+
+    /// Etiqueta de cantidad: «Veces» (comba), Cal/m (máquina) o Reps.
+    public var quantityFieldLabel: String {
+        Self.quantityFieldLabel(name: name, equipment: equipment, style: loggingStyle, unit: defaultQuantityUnit)
+    }
+
+    /// Unidad por defecto al apuntar (bike/Ski → cal; remoerg/carrera → m).
+    public var defaultQuantityUnit: ExerciseQuantityUnit {
+        Self.defaultQuantityUnit(name: name, equipment: equipment)
+    }
+
+    /// Bike / Ski / remoerg permiten cambiar Cal ↔ m; carrera suele ser solo metros.
+    public var allowsCalorieOrDistanceToggle: Bool {
+        Self.allowsCalorieOrDistanceToggle(name: name, equipment: equipment)
+    }
+
+    public static func loggingStyle(
+        name: String,
+        equipment: String?,
+        targetMuscle: String? = nil,
+        muscleGroup: String? = nil
+    ) -> ExerciseLoggingStyle {
+        let n = normalizeExerciseToken(name)
+        let eq = normalizeExerciseToken(equipment ?? "")
+        let target = (targetMuscle ?? "").lowercased()
+        let group = (muscleGroup ?? "").lowercased()
+
+        if isJumpRope(name: n, equipment: eq) {
+            return .repsAndTime
+        }
+
+        if isMachineCardio(name: n, equipment: eq) {
+            return .machineWork
+        }
+
+        // Dominadas / muscle-up / HSPU: permiten lastre o déficit (no solo reps).
+        if isPullOrMuscleUp(name: n) || isHSPU(name: n) {
+            return .loadAndReps
+        }
+
+        if eq.contains("peso corporal")
+            || eq.isEmpty && (target.contains("cardiovascular") || group == "cardio") {
+            return .repsOnly
+        }
+
+        // Nombres típicos sin equipo en ficha custom.
+        if n.contains("toes to") || n.contains("burpee") || n.contains("box jump")
+            || n.contains("salto al caj") || n.contains("sit-up") || n.contains("air squat")
+            || n.contains("pistol") || n.contains("hollow") || n.contains("l-sit")
+            || (n.contains("handstand") && !isHSPU(name: n)) {
+            return .repsOnly
+        }
+
+        return .loadAndReps
+    }
+
+    public static func loadField(
+        name: String,
+        equipment: String? = nil,
+        targetMuscle: String? = nil,
+        muscleGroup: String? = nil
+    ) -> ExerciseLoadField {
+        let n = normalizeExerciseToken(name)
+        let style = loggingStyle(
+            name: name,
+            equipment: equipment,
+            targetMuscle: targetMuscle,
+            muscleGroup: muscleGroup
+        )
+        guard style == .loadAndReps else { return .none }
+        if isHSPU(name: n) { return .deficitCm }
+        return .weightKg
+    }
+
+    public static func quantityFieldLabel(
+        name: String,
+        equipment: String? = nil,
+        style: ExerciseLoggingStyle? = nil,
+        unit: ExerciseQuantityUnit? = nil
+    ) -> String {
+        let resolved = style ?? loggingStyle(name: name, equipment: equipment)
+        switch resolved {
+        case .repsAndTime:
+            return "Veces"
+        case .machineWork:
+            return (unit ?? defaultQuantityUnit(name: name, equipment: equipment)).shortLabel
+        case .loadAndReps, .repsOnly:
+            return "Reps"
+        }
+    }
+
+    public static func loadStepperTitle(
+        name: String,
+        equipment: String? = nil,
+        targetMuscle: String? = nil,
+        muscleGroup: String? = nil
+    ) -> String {
+        let n = normalizeExerciseToken(name)
+        switch loadField(name: name, equipment: equipment, targetMuscle: targetMuscle, muscleGroup: muscleGroup) {
+        case .none: return ""
+        case .deficitCm: return "Déficit (cm)"
+        case .weightKg:
+            return isPullOrMuscleUp(name: n) ? "Lastre (kg)" : "Peso (kg)"
+        }
+    }
+
+    public static func defaultQuantityUnit(name: String, equipment: String? = nil) -> ExerciseQuantityUnit {
+        let n = normalizeExerciseToken(name)
+        let eq = normalizeExerciseToken(equipment ?? "")
+        guard isMachineCardio(name: n, equipment: eq) else { return .reps }
+        // Carrera / shuttle → metros. Bike / Ski → calorías. Remoerg → metros (también admite cal).
+        if isRunLike(name: n) { return .meters }
+        if isErgRow(name: n) { return .meters }
+        if isBikeOrSki(name: n) { return .calories }
+        return .calories
+    }
+
+    public static func allowsCalorieOrDistanceToggle(name: String, equipment: String? = nil) -> Bool {
+        let n = normalizeExerciseToken(name)
+        let eq = normalizeExerciseToken(equipment ?? "")
+        guard isMachineCardio(name: n, equipment: eq) else { return false }
+        // Carrera casi siempre es distancia; bike/ski/remoerg admiten cal o m en WODs.
+        return !isRunLike(name: n)
+    }
+
+    private static func normalizeExerciseToken(_ raw: String) -> String {
+        raw.lowercased()
+            .folding(options: .diacriticInsensitive, locale: Locale(identifier: "en_US_POSIX"))
+    }
+
+    private static func isJumpRope(name n: String, equipment eq: String) -> Bool {
+        eq.contains("comba")
+            || (n.contains("doble") && n.contains("comba"))
+            || (n.contains("simple") && n.contains("comba"))
+            || (n.contains("triple") && n.contains("comba"))
+            || n.contains("double under")
+            || n.contains("single under")
+            || n.contains("triple under")
+            || n.hasPrefix("du ") || n == "du" || n.hasPrefix("su ")
+    }
+
+    private static func isPullOrMuscleUp(name n: String) -> Bool {
+        n.contains("dominad") || n.contains("pull-up") || n.contains("pull up")
+            || n.contains("pullup") || n.contains("chin-up") || n.contains("chin up")
+            || n.contains("muscle-up") || n.contains("muscle up") || n.contains("muscleup")
+            || n == "mu" || n.hasPrefix("mu ")
+    }
+
+    private static func isHSPU(name n: String) -> Bool {
+        n.contains("hspu")
+            || (n.contains("handstand") && (n.contains("push") || n.contains("press") || n.contains("fond")))
+            || n.contains("pino flex") || n.contains("fondos en pino")
+    }
+
+    /// Air bike, Echo, SkiErg, remoergómetro, cinta — no remos de fuerza (barra/DB/polea…).
+    private static func isMachineCardio(name n: String, equipment eq: String) -> Bool {
+        if isBikeOrSki(name: n) { return true }
+        if isErgRow(name: n) { return true }
+        if isRunLike(name: n) { return true }
+        // Equipo genérico «Máquina» + cardio en nombre corto poco fiable; no marcar remo de fuerza.
+        if eq.contains("trineo") && (n.contains("sled") || n.contains("trineo")) {
+            return true
+        }
+        return false
+    }
+
+    private static func isBikeOrSki(name n: String) -> Bool {
+        n.contains("air bike") || n.contains("echo bike") || n.contains("assault")
+            || n.contains("fan bike") || n.contains("wattbike")
+            || n.contains("skierg") || n.contains("ski erg") || n.contains("ski-erg")
+    }
+
+    private static func isErgRow(name n: String) -> Bool {
+        if n.contains("rower") || n.contains("concept2") || n.contains("remoerg") {
+            return true
+        }
+        // «Remo máquina» / «Remo» suelto (WOD). Excluir remos de fuerza.
+        if n.contains("remo") {
+            let strength =
+                n.contains("mancuern") || n.contains("barra") || n.contains("sentado")
+                || n.contains("menton") || n.contains("invert") || n.contains("anilla")
+                || n.contains("polea") || n.contains("landmine") || n.contains("seal")
+                || n.contains("pendlay") || n.contains("t-bar") || n.contains("t bar")
+            if strength { return false }
+            return n == "remo" || n.contains("maquina") || n.contains("erg") || n.hasPrefix("remo ")
+        }
+        return false
+    }
+
+    private static func isRunLike(name n: String) -> Bool {
+        n.contains("cinta") || n.contains("carrera") || n.contains("shuttle")
+            || n.contains("run ") || n.hasSuffix(" run") || n == "run" || n.contains("running")
+    }
 
     public init(
         id: UUID = UUID(),
@@ -282,8 +567,15 @@ private enum PlannedSetSummary {
 
 public struct LoggedSet: Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
+    /// Cantidad: reps, calorías o metros según `quantityUnit`.
     public var reps: Int
     public var weightKg: Double?
+    /// Déficit de HSPU en cm (no cuenta como volumen).
+    public var deficitCm: Int?
+    /// Duración de la serie/intervalo (comba, bike, carrera…).
+    public var durationSeconds: Int?
+    /// Interpreta `reps` como Cal / m cuando el estilo es máquina.
+    public var quantityUnit: ExerciseQuantityUnit?
     public var completedAt: Date
     public var phase: SetPhase
     public var kind: SetKind
@@ -297,6 +589,9 @@ public struct LoggedSet: Identifiable, Codable, Sendable, Hashable {
         id: UUID = UUID(),
         reps: Int,
         weightKg: Double? = nil,
+        deficitCm: Int? = nil,
+        durationSeconds: Int? = nil,
+        quantityUnit: ExerciseQuantityUnit? = nil,
         completedAt: Date = Date(),
         phase: SetPhase = .work,
         kind: SetKind = .straight,
@@ -307,6 +602,9 @@ public struct LoggedSet: Identifiable, Codable, Sendable, Hashable {
     ) {
         self.id = id
         self.weightKg = weightKg
+        self.deficitCm = deficitCm
+        self.durationSeconds = durationSeconds
+        self.quantityUnit = quantityUnit
         self.completedAt = completedAt
         self.phase = phase
         self.kind = kind
@@ -332,14 +630,68 @@ public struct LoggedSet: Identifiable, Codable, Sendable, Hashable {
     public var countsForProgression: Bool { phase == .work }
 
     public var volumeKg: Double {
+        // Cal/metros / déficit cm no aportan volumen en kg.
+        if quantityUnit == .calories || quantityUnit == .meters { return 0 }
+        if deficitCm != nil { return 0 }
         let main = Double(reps) * (weightKg ?? 0)
         // Drops add volume; rest-pause clusters are a breakdown of `reps` (no double count).
         let extra = drops.reduce(0.0) { $0 + Double($1.reps) * ($1.weightKg ?? 0) }
         return main + extra
     }
 
+    public var isMachineQuantity: Bool {
+        quantityUnit == .calories || quantityUnit == .meters
+    }
+
+    /// Línea compacta: `80×5`, `10 cm × 8`, `50 veces · 1:00`, `15 cal · 1:00`.
+    public var displaySummaryLine: String {
+        if let unit = quantityUnit, unit != .reps {
+            var parts: [String] = ["\(reps) \(unit.shortLabel)"]
+            if let sec = durationSeconds, sec > 0 {
+                parts.append(Self.formatClock(sec))
+            }
+            return parts.joined(separator: " · ")
+        }
+        if let sec = durationSeconds, sec > 0, weightKg == nil, deficitCm == nil {
+            // Comba / intervalos: veces + tiempo.
+            return "\(reps) veces · \(Self.formatClock(sec))"
+        }
+        if let deficit = deficitCm {
+            var line = "\(deficit) cm × \(reps)"
+            if let rir { line += " (RIR \(String(format: "%g", rir)))" }
+            return line
+        }
+        let w = weightKg.map { String(format: "%g", $0) } ?? "—"
+        var line = "\(w)×\(reps)"
+        if let sec = durationSeconds, sec > 0 {
+            line += " · \(Self.formatClock(sec))"
+        }
+        if let rir {
+            line += " (RIR \(String(format: "%g", rir)))"
+        }
+        return line
+    }
+
+    private static func formatClock(_ sec: Int) -> String {
+        let m = sec / 60
+        let s = sec % 60
+        return s == 0 ? "\(m):00" : String(format: "%d:%02d", m, s)
+    }
+
+    /// Equivalente en «series duras» para fatiga: erg/cardio escala por minutos.
+    public var fatigueSetEquivalent: Double {
+        if isWarmup { return 0.25 }
+        if isMachineQuantity || durationSeconds != nil && weightKg == nil {
+            let minutes = Double(max(durationSeconds ?? 60, 30)) / 60.0
+            return min(3.0, max(0.5, minutes))
+        }
+        if Effort.isHard(rir: rir) { return 1.0 }
+        return 0.7
+    }
+
     enum CodingKeys: String, CodingKey {
-        case id, reps, weightKg, completedAt, phase, kind, rir, toFailure, drops, clusters
+        case id, reps, weightKg, deficitCm, durationSeconds, quantityUnit
+        case completedAt, phase, kind, rir, toFailure, drops, clusters
     }
 
     public init(from decoder: Decoder) throws {
@@ -347,6 +699,9 @@ public struct LoggedSet: Identifiable, Codable, Sendable, Hashable {
         id = try c.decode(UUID.self, forKey: .id)
         reps = try c.decode(Int.self, forKey: .reps)
         weightKg = try c.decodeIfPresent(Double.self, forKey: .weightKg)
+        deficitCm = try c.decodeIfPresent(Int.self, forKey: .deficitCm)
+        durationSeconds = try c.decodeIfPresent(Int.self, forKey: .durationSeconds)
+        quantityUnit = try c.decodeIfPresent(ExerciseQuantityUnit.self, forKey: .quantityUnit)
         completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt) ?? Date()
         phase = try c.decodeIfPresent(SetPhase.self, forKey: .phase) ?? .work
         kind = try c.decodeIfPresent(SetKind.self, forKey: .kind) ?? .straight
@@ -496,6 +851,69 @@ public enum WODFormat: String, Codable, Sendable, Hashable, CaseIterable {
         case .maxEffort: return ["FIND A HEAVY", "MAX REPS 2'", "MAX LOAD"]
         }
     }
+
+    /// Cómo se apunta el resultado del bloque (play / Apuntar).
+    public var resultCapture: WODResultCapture {
+        switch self {
+        case .amrap, .deathBy, .maxEffort:
+            return .totalReps
+        case .forTime, .chipper, .afap, .ladder:
+            return .elapsedTime
+        case .emom, .tabata, .circuit, .partner, .buyInCashOut, .roundsForQuality, .strength:
+            return .perMovementSets
+        }
+    }
+}
+
+/// Cómo se captura el score de un WOD.
+public enum WODResultCapture: String, Codable, Sendable, Hashable {
+    case totalReps
+    case elapsedTime
+    case perMovementSets
+}
+
+/// Resultado de un bloque WOD (AMRAP reps, For Time tiempo…).
+public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
+    public var id: UUID
+    public var format: WODFormat?
+    public var totalReps: Int?
+    public var elapsedSeconds: Int?
+    public var roundsCompleted: Int?
+    public var wodTemplateId: String?
+
+    public init(
+        id: UUID,
+        format: WODFormat? = nil,
+        totalReps: Int? = nil,
+        elapsedSeconds: Int? = nil,
+        roundsCompleted: Int? = nil,
+        wodTemplateId: String? = nil
+    ) {
+        self.id = id
+        self.format = format
+        self.totalReps = totalReps
+        self.elapsedSeconds = elapsedSeconds
+        self.roundsCompleted = roundsCompleted
+        self.wodTemplateId = wodTemplateId
+    }
+
+    public var summaryLabel: String {
+        if let elapsedSeconds {
+            let m = elapsedSeconds / 60
+            let s = elapsedSeconds % 60
+            return String(format: "%d:%02d", m, s)
+        }
+        if let totalReps {
+            if let roundsCompleted {
+                return "\(roundsCompleted) rondas + \(totalReps) reps"
+            }
+            return "\(totalReps) reps"
+        }
+        if let roundsCompleted {
+            return "\(roundsCompleted) rondas"
+        }
+        return "—"
+    }
 }
 
 /// Movimiento dentro de un WOD (reps, carga M/F, metros, descanso…).
@@ -610,7 +1028,7 @@ public struct WODMovement: Identifiable, Codable, Sendable, Hashable {
         return lo < hi && (hi - lo) <= 20
     }
 
-    /// Series planificadas: esquema 4-3-3-2 o una serie con `reps` (rangos 5-10 → reps altas).
+    /// Series planificadas: esquema 4-3-3-2 o una serie con reps / cal / metros.
     public var plannedSetsFromReps: [PlannedSet] {
         let weight = weightMaleKg
         if let scheme = repScheme, !scheme.isEmpty, !isAscendingRepRange {
@@ -620,9 +1038,17 @@ public struct WODMovement: Identifiable, Codable, Sendable, Hashable {
         if let scheme = repScheme, isAscendingRepRange {
             r = scheme[1] // techo del rango (5-10 → 10)
         } else {
-            r = reps ?? (distanceMeters.map { max(1, $0 / 10) } ?? 10)
+            // Cal y metros van enteros al target (no dividir metros/10).
+            r = calories ?? distanceMeters ?? reps ?? 10
         }
         return [PlannedSet(targetReps: max(1, r), targetWeightKg: weight)]
+    }
+
+    /// Unidad prescrita del movimiento WOD (cal / m / reps).
+    public var prescribedQuantityUnit: ExerciseQuantityUnit {
+        if calories != nil { return .calories }
+        if distanceMeters != nil { return .meters }
+        return Exercise.defaultQuantityUnit(name: name)
     }
 
     /// Expande un set base a `count` series idénticas (EMOM/RFT/Tabata…).
@@ -693,6 +1119,8 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
     /// Descanso entre rondas (RFT).
     public var restBetweenRoundsSeconds: Int?
     public var wodNotes: String?
+    /// ID estable del catálogo de benchmarks (`CatalogWODs`), si viene de plantilla.
+    public var wodTemplateId: String?
 
     public init(
         id: UUID = UUID(),
@@ -707,7 +1135,8 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
         workSeconds: Int? = nil,
         restSeconds: Int? = nil,
         restBetweenRoundsSeconds: Int? = nil,
-        wodNotes: String? = nil
+        wodNotes: String? = nil,
+        wodTemplateId: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -722,12 +1151,13 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
         self.restSeconds = restSeconds
         self.restBetweenRoundsSeconds = restBetweenRoundsSeconds
         self.wodNotes = wodNotes
+        self.wodTemplateId = wodTemplateId
     }
 
     enum CodingKeys: String, CodingKey {
         case id, title, kind, exercises, movements, wodFormat, timeCapMinutes
         case emomIntervalSeconds, rounds, workSeconds, restSeconds
-        case restBetweenRoundsSeconds, wodNotes
+        case restBetweenRoundsSeconds, wodNotes, wodTemplateId
     }
 
     public init(from decoder: Decoder) throws {
@@ -745,6 +1175,7 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
         restSeconds = try c.decodeIfPresent(Int.self, forKey: .restSeconds)
         restBetweenRoundsSeconds = try c.decodeIfPresent(Int.self, forKey: .restBetweenRoundsSeconds)
         wodNotes = try c.decodeIfPresent(String.self, forKey: .wodNotes)
+        wodTemplateId = try c.decodeIfPresent(String.self, forKey: .wodTemplateId)
     }
 
     public static func strength(title: String = "Bloque", exercises: [RoutineExercise] = []) -> RoutineBlock {
@@ -765,7 +1196,8 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
             workSeconds: workSeconds,
             restSeconds: restSeconds,
             restBetweenRoundsSeconds: restBetweenRoundsSeconds,
-            wodNotes: wodNotes
+            wodNotes: wodNotes,
+            wodTemplateId: wodTemplateId
         )
     }
 
@@ -1101,6 +1533,79 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         }
     }
 
+    /// Cabecera de bloque regenerada desde el formato (evita cabeceras viejas tipo EMOM en un AMRAP).
+    public var displayBlockHeader: String {
+        if blockKind == .strength || wodFormat == nil || wodFormat == .strength {
+            return blockHeader ?? "Fuerza"
+        }
+        guard let format = wodFormat else {
+            return blockHeader ?? "WOD"
+        }
+        switch format {
+        case .amrap:
+            return "AMRAP \(blockTimeCapMinutes ?? 12)'"
+        case .emom:
+            let mins = blockTimeCapMinutes ?? plannedIntervals ?? blockRounds ?? 10
+            let interval = blockIntervalSeconds ?? 60
+            if interval != 60 {
+                let every = max(1, interval / 60)
+                if let rounds = blockRounds ?? plannedIntervals {
+                    return "Every \(every)' × \(rounds)"
+                }
+                return "Every \(every)'"
+            }
+            return "EMOM \(mins)'"
+        case .forTime:
+            if let rounds = blockRounds {
+                return "\(rounds) RFT (TC \(blockTimeCapMinutes ?? 12)')"
+            }
+            return "For Time (TC \(blockTimeCapMinutes ?? 12)')"
+        case .tabata:
+            return "Tabata \(blockWorkSeconds ?? 20)/\(blockRestSeconds ?? 10) ×\(blockRounds ?? 8)"
+        case .chipper:
+            return "Chipper"
+        case .deathBy:
+            return "Muerte por"
+        case .afap:
+            return "AFAP"
+        case .ladder:
+            return blockHeader?.isEmpty == false ? blockHeader! : "Ladder"
+        case .partner:
+            return "Partner"
+        case .buyInCashOut:
+            return blockHeader?.isEmpty == false ? blockHeader! : "Buy-in / Cash-out"
+        case .roundsForQuality:
+            if let rounds = blockRounds { return "\(rounds) RFQ" }
+            return "Rounds for Quality"
+        case .circuit:
+            return "Circuito"
+        case .maxEffort:
+            return "Max effort"
+        case .strength:
+            return blockHeader ?? "Fuerza"
+        }
+    }
+
+    /// El score del bloque vive en `WorkoutSession.wodResults` (AMRAP / For Time…), no en series por movimiento.
+    public var usesBlockScoreResult: Bool {
+        switch wodFormat?.resultCapture {
+        case .totalReps, .elapsedTime: return true
+        default: return false
+        }
+    }
+
+    /// Línea de prescripción (p. ej. `21 reps`, `15 cal`) para listar movimientos de un WOD con score.
+    public var prescriptionSummaryLine: String {
+        if let first = plannedSets.first {
+            let reps = first.targetReps
+            if let kg = first.targetWeightKg, kg > 0 {
+                return "\(reps) @ \(kg.formatted(.number.precision(.fractionLength(0...1)))) kg"
+            }
+            if reps > 0 { return "\(reps) reps" }
+        }
+        return exercise.name
+    }
+
     /// Etiqueta de tiempo/estructura para la cola (EMOM 8', 4×8, TC 12'…).
     public var queueTimeLabel: String {
         let sets = plannedSets.count
@@ -1111,27 +1616,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
             if let setsReps, let cap = blockTimeCapMinutes { return "\(setsReps) · \(cap)'" }
             return setsReps ?? (blockTimeCapMinutes.map { "\($0)'" } ?? "—")
         }
-        if let header = blockHeader, !header.isEmpty { return header }
-        if let format = wodFormat {
-            switch format {
-            case .emom:
-                let mins = blockTimeCapMinutes ?? plannedIntervals ?? blockRounds ?? 10
-                let interval = blockIntervalSeconds ?? 60
-                return interval == 60 ? "EMOM \(mins)'" : "Every \(interval)s"
-            case .amrap:
-                return "AMRAP \(blockTimeCapMinutes ?? 12)'"
-            case .tabata:
-                let w = blockWorkSeconds ?? 20
-                let r = blockRestSeconds ?? 10
-                return "Tabata \(w)/\(r)"
-            case .forTime, .chipper, .afap, .deathBy, .ladder, .partner,
-                 .buyInCashOut, .roundsForQuality, .circuit, .maxEffort, .strength:
-                if let cap = blockTimeCapMinutes { return "TC \(cap)'" }
-                if let rounds = blockRounds { return "\(rounds) rondas" }
-                return format.displayName
-            }
-        }
-        return setsReps ?? "—"
+        return displayBlockHeader
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1186,6 +1671,8 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     public var appleDurationSeconds: TimeInterval?
     /// UUID del `HKWorkout` guardado en Salud (si aplica).
     public var healthKitWorkoutUUID: UUID?
+    /// Scores de bloques WOD (AMRAP reps, For Time tiempo…).
+    public var wodResults: [WODBlockResult]
 
     public init(
         id: UUID = UUID(),
@@ -1199,7 +1686,8 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         notes: String? = nil,
         appleActiveEnergyKcal: Double? = nil,
         appleDurationSeconds: TimeInterval? = nil,
-        healthKitWorkoutUUID: UUID? = nil
+        healthKitWorkoutUUID: UUID? = nil,
+        wodResults: [WODBlockResult] = []
     ) {
         self.id = id
         self.title = title
@@ -1213,12 +1701,14 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         self.appleActiveEnergyKcal = appleActiveEnergyKcal
         self.appleDurationSeconds = appleDurationSeconds
         self.healthKitWorkoutUUID = healthKitWorkoutUUID
+        self.wodResults = wodResults
     }
 
     enum CodingKeys: String, CodingKey {
         case id, title, routineId, exercises, currentIndex, phase
         case startedAt, finishedAt, notes
         case appleActiveEnergyKcal, appleDurationSeconds, healthKitWorkoutUUID
+        case wodResults
     }
 
     public init(from decoder: Decoder) throws {
@@ -1235,6 +1725,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         appleActiveEnergyKcal = try c.decodeIfPresent(Double.self, forKey: .appleActiveEnergyKcal)
         appleDurationSeconds = try c.decodeIfPresent(TimeInterval.self, forKey: .appleDurationSeconds)
         healthKitWorkoutUUID = try c.decodeIfPresent(UUID.self, forKey: .healthKitWorkoutUUID)
+        wodResults = try c.decodeIfPresent([WODBlockResult].self, forKey: .wodResults) ?? []
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -1251,6 +1742,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         try c.encodeIfPresent(appleActiveEnergyKcal, forKey: .appleActiveEnergyKcal)
         try c.encodeIfPresent(appleDurationSeconds, forKey: .appleDurationSeconds)
         try c.encodeIfPresent(healthKitWorkoutUUID, forKey: .healthKitWorkoutUUID)
+        try c.encode(wodResults, forKey: .wodResults)
     }
 
     public var currentExercise: SessionExercise? {

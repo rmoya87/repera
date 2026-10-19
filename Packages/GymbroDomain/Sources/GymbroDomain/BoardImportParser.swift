@@ -955,10 +955,35 @@ public enum CrossFitGlossary {
         "kipping pull-up": "Dominadas kipping",
         "kipping pull ups": "Dominadas kipping",
         "kipping dominadas": "Dominadas kipping",
-        "hang snatch db": "Arrancada colgante",
-        "db hang snatch": "Arrancada colgante",
-        "db alt hang snatch": "Arrancada colgante",
+        "hang snatch db": "Snatch mancuerna",
+        "db hang snatch": "Snatch mancuerna",
+        "db alt hang snatch": "Snatch mancuerna",
+        "alt hang snatch db": "Snatch mancuerna",
         "alt hang snatch": "Arrancada colgante",
+        "dumbbell hang snatch": "Snatch mancuerna",
+        "db snatch": "Snatch mancuerna",
+        "dumbbell snatch": "Snatch mancuerna",
+        "snatch mancuerna": "Snatch mancuerna",
+        "snatch db": "Snatch mancuerna",
+        "db thruster": "Thruster mancuernas",
+        "ddb thruster": "Thruster mancuernas",
+        "dumbbell thruster": "Thruster mancuernas",
+        "db clean": "Clean mancuerna",
+        "ddb clean": "Clean mancuerna",
+        "dumbbell clean": "Clean mancuerna",
+        "db hang clean": "Clean mancuerna",
+        "kb thruster": "Thruster kettlebell",
+        "kettlebell thruster": "Thruster kettlebell",
+        "kb snatch": "Snatch kettlebell",
+        "kettlebell snatch": "Snatch kettlebell",
+        "kb clean": "Clean kettlebell",
+        "kettlebell clean": "Clean kettlebell",
+        "db press": "Press mancuernas",
+        "dumbbell press": "Press mancuernas",
+        "db bench": "Press mancuernas",
+        "db bench press": "Press mancuernas",
+        "db row": "Remo mancuerna",
+        "dumbbell row": "Remo mancuerna",
         "mu": "Muscle-up barra",
         "bmú": "Muscle-up barra",
         "rmu": "Muscle-up anillas",
@@ -1172,7 +1197,11 @@ public enum CrossFitGlossary {
         }
 
         working = cleanMovementLabel(working)
-        let name = canonicalName(for: working.isEmpty ? raw : working)
+        let canonical = canonicalName(for: working.isEmpty ? raw : working)
+        let name = preferEquipmentVariant(
+            name: canonical.isEmpty ? working : canonical,
+            equipment: equipment
+        )
         let noteParts = [rangeNote, equipment].compactMap { $0 }.filter { !$0.isEmpty }
 
         return ParsedMovementLine(
@@ -1185,6 +1214,106 @@ public enum CrossFitGlossary {
             weightFemaleKg: female,
             equipmentNote: noteParts.isEmpty ? nil : noteParts.joined(separator: " · ")
         )
+    }
+
+    /// Nombre de catálogo/arte teniendo en cuenta notas de equipo (p. ej. DB → Snatch mancuerna).
+    public static func resolveCatalogName(_ rawName: String, notes: String? = nil) -> String {
+        preferEquipmentVariant(name: canonicalName(for: rawName), equipment: notes)
+    }
+
+    /// Redirige al ejercicio de catálogo según equipo (1/2 mancuernas, KB, barra…).
+    /// La nota de equipo (`Mancuerna` vs `Doble mancuerna`) se conserva aparte en `notes`.
+    public static func preferEquipmentVariant(name: String, equipment: String?) -> String {
+        guard let equipment, !equipment.isEmpty else { return name }
+        let eq = normalize(equipment)
+        let kind = equipmentKind(from: eq)
+        guard kind != .unknown else { return name }
+        let n = normalize(name)
+
+        switch kind {
+        case .dumbbell, .doubleDumbbell:
+            if isSnatchFamily(n) { return "Snatch mancuerna" }
+            if isCleanFamily(n) { return "Clean mancuerna" }
+            if n.contains("thruster") { return "Thruster mancuernas" }
+            if n.contains("devil") { return "Devil press" }
+            if n.contains("man maker") || n.contains("manmaker") { return "Man maker" }
+            if n.contains("farmer") { return "Farmer carry" }
+            // Solo press de banca; push/strict press no tienen variante DB en catálogo.
+            if n.contains("press banca") || n == "bench press"
+                || (n.contains("bench") && n.contains("press"))
+                || n == "press mancuernas" {
+                return "Press mancuernas"
+            }
+            if n.contains("remo") && !n.contains("erg") { return "Remo mancuerna" }
+            if n.contains("dumbbell row") || (n.hasSuffix(" row") && !n.contains("rower")) {
+                return "Remo mancuerna"
+            }
+            if n.contains("curl") { return "Curl mancuernas" }
+            return name
+        case .kettlebell, .doubleKettlebell:
+            if isSnatchFamily(n) { return "Snatch kettlebell" }
+            if isCleanFamily(n) { return "Clean kettlebell" }
+            if n.contains("thruster") { return "Thruster kettlebell" }
+            if n.contains("swing") { return n.contains("american") ? "Swing americano" : "Swing kettlebell" }
+            if n.contains("goblet") || (n.contains("sentadilla") && n.contains("goblet")) {
+                return "Goblet squat"
+            }
+            if n.contains("turkish") || n.contains("get up") || n.contains("get-up") {
+                return "Turkish get-up"
+            }
+            return name
+        case .barbell:
+            // Si el nombre ya es variante DB/KB, vuelve a la versión de barra cuando el OCR marca BB.
+            if n.contains("snatch mancuerna") || n.contains("snatch kettlebell") { return "Arrancada" }
+            if n.contains("clean mancuerna") || n.contains("clean kettlebell") { return "Cargada" }
+            if n.contains("thruster mancuern") || n.contains("thruster kettlebell") { return "Thruster" }
+            if n.contains("press mancuern") { return "Press banca" }
+            return name
+        case .unknown:
+            return name
+        }
+    }
+
+    private enum EquipmentKind {
+        case dumbbell
+        case doubleDumbbell
+        case kettlebell
+        case doubleKettlebell
+        case barbell
+        case unknown
+    }
+
+    private static func equipmentKind(from eq: String) -> EquipmentKind {
+        if eq.contains("doble mancuerna") || eq.contains("double dumbbell") || eq == "ddb" {
+            return .doubleDumbbell
+        }
+        if eq.contains("mancuerna") || eq.contains("dumbbell") || eq == "db" || eq.contains("sdb") {
+            return .dumbbell
+        }
+        if eq.contains("doble kettlebell") || eq.contains("double kettlebell") || eq == "dkb" {
+            return .doubleKettlebell
+        }
+        if eq.contains("kettlebell") || eq == "kb" || eq.contains("skb") {
+            return .kettlebell
+        }
+        if eq.contains("barra") || eq.contains("barbell") || eq == "bb" {
+            return .barbell
+        }
+        return .unknown
+    }
+
+    private static func isSnatchFamily(_ n: String) -> Bool {
+        n.contains("arrancada") || n.contains("hang snatch") || n == "snatch"
+            || n.hasSuffix(" snatch") || n.contains("snatch mancuerna") || n.contains("snatch kettlebell")
+    }
+
+    private static func isCleanFamily(_ n: String) -> Bool {
+        // No tocar C&J / clean and jerk.
+        if n.contains("envion") || n.contains("jerk") || n.contains("c&j") || n.contains("clean and") {
+            return false
+        }
+        return n.contains("cargada") || n.contains("hang clean") || n == "clean"
+            || n.hasSuffix(" clean") || n.contains("clean mancuerna") || n.contains("clean kettlebell")
     }
 
     private static func matchLeadingWave(_ line: String) -> (scheme: [Int], rest: String)? {
@@ -1248,11 +1377,22 @@ public enum CrossFitGlossary {
 
     /// Nombre canónico para matching de catálogo.
     public static func canonicalName(for raw: String) -> String {
+        // Antes de quitar ruido (DB/ALT…): compuestos con equipo (`db hang snatch` → Snatch mancuerna).
+        let rawNorm = normalize(raw)
+        if let exact = aliases[rawNorm] { return exact }
+        let ordered = aliases.keys.sorted { $0.count > $1.count }
+        for key in ordered {
+            guard key.count >= 4, let value = aliases[key], !value.isEmpty else { continue }
+            let pattern = #"\b"# + NSRegularExpression.escapedPattern(for: key) + #"\b"#
+            if rawNorm.range(of: pattern, options: .regularExpression) != nil {
+                return value
+            }
+        }
+
         let cleaned = cleanMovementLabel(raw)
         let n = normalize(cleaned)
         if let exact = aliases[n] { return exact }
         // Alias como palabra completa (no "mu" ⊂ "muerto"). Ej. "kipping hspu" → HSPU.
-        let ordered = aliases.keys.sorted { $0.count > $1.count }
         for key in ordered {
             guard key.count >= 2, let value = aliases[key], !value.isEmpty else { continue }
             if n == key { return value }

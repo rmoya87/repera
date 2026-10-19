@@ -20,7 +20,9 @@ struct StatsView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
+                // VStack (no Lazy): LazyVStack al final del scroll reciclaba charts/heatmap y
+                // al subir el offset saltaba otra vez hacia abajo.
+                VStack(alignment: .leading, spacing: 12) {
                     tilesGrid
 
                     if health.isAuthorized {

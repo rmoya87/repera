@@ -1,6 +1,6 @@
 # Funcionalidades Gymbro
 
-Última actualización: 2026-10-19 (peso pizarra H>M; Editar WOD = peso+reps+RIR)
+Última actualización: 2026-10-19 (Progreso: scroll sin salto al final)
 
 ## Tabs
 
@@ -9,16 +9,19 @@
 - Topbar fijo arriba (`ogFixedTopBar`): «gymbro» + fecha debajo; avatar a la derecha → Ajustes.
 - **Carrusel de días**: swipe horizontal (o chevrons) entre semanas; al cambiar de semana se conserva el weekday. Al tocar un día pinta al instante sin esperar HealthKit.
 - Card **Racha de N semanas** (como openGym `streakWeeks`): cuenta Gymbro **y** Apple Salud; toque → **Historial** unificado.
-- Métricas del día: tiempo, kcal (caché progresiva; refine en vivo solo para Hoy), ejercicios.
+- Métricas del día: tiempo; **kcal = max(energía activa del día en Salud, suma de chips Gymbro+Salud del día)**. Por entreno: kcal guardadas en sesión (Apple/Watch o estimado por time caps del WOD); **tiempo mostrado = inicio→fin** (p. ej. 60′ si así lo apuntaste). Detalle de entreno usa la misma kcal de sesión (no pisa con samples viejos de Salud). Recalc al arrancar (v2026_10_19d).
 - Lista de entrenos Gymbro del día + actividades externas de Salud (etiqueta «DÍA · hora» misma tipografía; chips min/kcal/ej./PR como Historial, alineados al título al reposo, carrusel hasta los bordes de la card).
 - Acciones: empezar, **Añadir entreno** (`DayPlusSheet`), escanear pizarra → revisión como **página** (no modal) titulada «Añadir entreno».
 - Swipe en filas de entreno: círculo rojo + papelera; **toda la card (chips incluidos)** se desliza. El gesto solo nace fuera del carrusel (sobre chips solo scroll); confirmación glass.
+- También en **entrenos planificados** del día (aún sin registro): swipe borra el suelto o quita la plantilla del weekday (igual que desde el detalle).
 
 ### Diario (`PlanView`)
 
 - Título arriba (`ogFixedTopBar`) + menú ⋯ en la misma fila (Programado).
 - Plan semanal por weekday.
 - Edición de rutinas / bloques (fuerza + WOD): modal con **check** (swipe para cerrar); desde Entreno → Editar, **volver** (sin X) + check.
+- **Elegir WOD**: catálogo seed de benchmarks conocidos (`CatalogWODs`: Fran, Cindy, Murph…). Detalle con miniaturas de movimientos, tiempo típico y músculos → Usar.
+- **Crear WOD**: formato vacío (AMRAP, EMOM, RFT…) como antes.
 - Día → asignar rutina: sin X; selección con check blanco en círculo verde.
 - Favoritos de rutinas.
 - Overrides de día.
@@ -45,10 +48,10 @@
 - **Cardio / calorías / tiles / heatmap / músculo / PRs / peso:** un `ProgressSnapshot` por periodo (`ProgressDataEngine` off-main); `ProgressViewModel` cachea por periodo+revisión y cancela preps obsoletas.
 - Selector de periodo responde al toque; si hay caché, pinta al instante; si no, loader solo en gráficas.
 - Agregación: día (hoy/semana), media semanal (mes/90/180), media mensual (360); Charts ≤48 pts.
-- Calorías: días con dato; Salud o fallback Gymbro/externos.
+- Calorías: por día **max(energía activa Salud, chips Gymbro+externos)** — misma regla que Inicio; total de gráfica = `summary.totalKcal`.
 - Salud: caché diaria ≤360d; match de sesiones indexado; sin sobrescribir ventanas grandes con refrescos cortos.
 - Heatmap (tiempo/volumen precalculados), equilibrio (all/hard precalculados), progreso por ejercicio y PRs; enlace a historial.
-- `LazyVStack` en el scroll de Progreso.
+- `VStack` en el scroll de Progreso (evita salto al subir desde el final por reciclado de LazyVStack).
 - Equilibrio: mapa coloreado por **fatiga retenida** (`MuscleMapEngine`, vida media por músculo) — gris → verde → amarillo → naranja → rojo (Recuperado→Fatigado). Incluye entrenos Gymbro **y** Apple Salud (`HealthMuscleMapper`: correr, tenis/raqueta, bici, natación, HIIT, deportes de equipo, etc.). Barras = series del periodo; color de barra = fatiga. Toggle Todas/Duras.
 
 ### Ejercicios (`LibraryView`)
@@ -65,7 +68,8 @@
 - Cada frame debe mantener persona, proporciones, vestimenta, orientación, equipo y cámara. En suspensión (cuelgue, barra/anillas, salto) **no debe existir sombra/óvalo de suelo**. En apoyo sí puede aparecer uno suave.
 - Captions de fase (carrusel): una acción por frase, preferiblemente 8–16 palabras, alineada al frame. Debajo, guía **Cómo hacerlo** con tono de entrenador (setup, ejecución, respiración, error típico, estándar/progresión). Sin notas editoriales (`imagen:`).
 - QA: inventario por stem en `docs/EXERCISE_ART_AUDIT.csv`; auditoría reproducible con `.venv-art/bin/python scripts/audit_exercise_art.py`. Estados: `FAIL` (defecto confirmado), `WARN` (revisar), `PENDING_VISUAL_QA` (sin aprobar visualmente). No confundir existencia en disco con veredicto OK.
-- Filtro / orden: alfabético, músculo, deporte, favoritos (modal).
+- Filtro / orden: alfabético, músculo, deporte, favoritos, **WODs** (modal).
+- Modo **WODs**: lista de benchmarks (`CatalogWODs`; favoritos arriba) con detalle: movimientos con **miniatura**, músculo, tiempo típico, progresión (`wodResults` por `wodTemplateId`). Topbar: **play** (empezar ya), **+** (apuntar resultado), **★** (`AppSettings.favoriteWODTemplateIds`).
 - **Músculo** = grupo anatómico (Pecho, Piernas…). CrossFit / Halterofilia / Gimnasia no son grupos musculares: van en **Deporte** (`sportTag`) y el ejercicio se asigna al músculo principal para métricas.
 - Ficha: descripción + guía **Cómo hacerlo** (tono entrenador: setup, ejecución, error típico, estándar) para los **188**. Con carrusel, N captions de fase + coaching debajo.
 - Alta de ejercicio custom.
@@ -75,7 +79,7 @@
 
 - Topbar fijo transparente: nombre del ejercicio + favorito / **+** en toolbar.
 - **+** abre modal de series (`QuickLogSheet`: series, nota, guardar / cancelar = X), sin sesión completa.
-- **Evolución** en la ficha: tiles 3+2 · tabs + gráfica · resumen (mejor/%/última) + fila **Historial** → listado completo del ejercicio (estilo historial global, abre el entreno).
+- **Evolución** en la ficha: fuerza → Tope/e1RM/top set; comba/erg → Mejor/Total/Tiempo (cal·m·reps) · gráfica · resumen + **Historial** (líneas `15 cal · 1:00`, no `—×15`).
 - Steppers numéricos (`OGRepeatStepper`): ± fiables en scroll; toque en el número → teclado con **intro** (confirma y cierra; el pad puro de Apple no tiene return).
 - **Músculos y equipo**: subsecciones (Músculo / También / Equipo / Deporte); chips con `OGFlowLayout` a todo el ancho de la card.
 - Arte **edge-to-edge**; pie de foto del paso actual si hay carrusel.
@@ -86,6 +90,10 @@
 - Preview (`SessionPreviewView`) → `WorkoutView`.
 - **Apuntar series**: UI plana; **Terminar** = círculo verde + check blanco (mismo estilo topbar).
 - Series planificadas / logueadas, superseries, WOD clocks.
+- **Play WOD por modalidad**: AMRAP → countdown al cap → confirmar **rondas + reps**; For Time / chipper / AFAP → cronómetro count-up → **Terminar** → confirmar tiempo; EMOM/Tabata → intervalos (series por movimiento).
+- **Apuntar resultado** (`LogFinalResultsView`): misma captura (rondas+reps / tiempo / series) según `WODFormat.resultCapture`. Scores en `WODBlockResult` / `WorkoutSession.wodResults`. En series por movimiento: **cabeceras de columna** (Veces/Tiempo, Lastre/Reps, Déficit/Reps, Tiempo/Cal…) encima de los steppers; comba reparte **Veces | Tiempo** a ancho igual.
+- AMRAP: primero **Rondas** (completas), luego **Reps** (ronda incompleta), p. ej. 12 + 5. `OGRepeatStepper` editable a mano.
+- Estilo de apunte por ejercicio (`ExerciseLoggingStyle`): comba → **veces + tiempo** (p. ej. 50 dobles en 1:00); Air bike / Echo / SkiErg / remoerg / cinta → **tiempo + Cal o m**; dominadas/muscle-up → **lastre kg** (0 = sin lastre) + reps; HSPU → **déficit cm** + reps; resto PC → solo reps; barra/DB/KB → kg + reps. `LoggedSet.deficitCm` / `quantityUnit` / `durationSeconds`.
 - Menú **⋯**: favorito, nota, eliminar entrenamiento (sin guardar).
 - Sesión en curso: swipe rojo (solo icono) para descartar.
 - Borrar un entreno guardado también lo elimina de Apple Salud.
@@ -98,7 +106,9 @@
 
 - Workouts externos → muestras diarias + estímulo muscular (`HealthMuscleMapper`) que alimenta **equilibrio/fatiga** y el heatmap; también en **Historial** (junto a Gymbro) y en la racha de Inicio.
 - FC por día (min/avg/max) para gráfica Cardio.
-- Energía activa diaria para gráfica Calorías.
+- Energía activa diaria para gráfica Calorías (fusionada con estimados Gymbro como en Inicio).
+- **Sin Apple Watch / sin kcal de Salud:** estimación local MET (≈5.5 fuerza con carga, ≈7 metcon/PC, ≈9 cardio cronometrado) × peso corporal + volumen + reps; calorías de consola (bike/Ski) como **suelo** del estimado; se guarda al terminar y se escribe en Salud como complemento.
+- **Fatiga muscular:** series de máquina/cardio aportan estímulo por duración (no como reps de fuerza); el filtro «Duras» las excluye.
 - Empareja con sesiones Gymbro por UUID / solape temporal (no se duplican en Historial).
 - Borrar entreno en app → intenta borrar workout en Salud.
 - **Caché en disco** del último snapshot (actividades/FC/kcal): al abrir la app se muestran datos al instante; HealthKit actualiza en segundo plano (anclado + observers).
@@ -110,6 +120,7 @@
 - iCloud (nombre, foto, sync).
 - Apple Salud (conectar / estado).
 - Historial de entrenos (Gymbro + Apple Salud, agrupado por día; hora a la derecha del título; chips en **una sola línea** alineados al título al reposo, carrusel hasta los bordes de la fila si no caben).
+- **Detalle de entreno:** resumen Tiempo/Kcal alineado con Inicio (kcal de sesión; tiempo = inicio→fin). Bloques WOD con cabecera según formato (`AMRAP 20'`, `For Time`, `EMOM…`); score en tarjeta; movimientos como prescripción. EMOM/Tabata/fuerza: series por ejercicio.
 - **Peso corporal** (misma sección): pesajes + objetivo; un valor por día; sync Salud (muestra más reciente del día).
 - Unidades, modo de plan / rotación, semana, descanso, esfuerzo, progresión, incremento.
 - Export/import JSON, CSV Strong/Hevy, borrar datos.

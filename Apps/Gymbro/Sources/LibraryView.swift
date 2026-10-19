@@ -6,6 +6,7 @@ private enum ExerciseBrowseMode: String, CaseIterable, Identifiable, Sendable {
     case muscle
     case sport
     case favorites
+    case wods
 
     var id: String { rawValue }
 
@@ -15,6 +16,7 @@ private enum ExerciseBrowseMode: String, CaseIterable, Identifiable, Sendable {
         case .muscle: return "Músculo"
         case .sport: return "Deporte"
         case .favorites: return "Favoritos"
+        case .wods: return "WODs"
         }
     }
 
@@ -24,6 +26,7 @@ private enum ExerciseBrowseMode: String, CaseIterable, Identifiable, Sendable {
         case .muscle: return "figure.strengthtraining.traditional"
         case .sport: return "sportscourt"
         case .favorites: return "star.fill"
+        case .wods: return "timer"
         }
     }
 }
@@ -61,13 +64,19 @@ struct LibraryView: View {
 
     var body: some View {
         NavigationStack {
-            LibraryExerciseList(
-                sections: cachedSections,
-                zoomNamespace: exerciseZoomNamespace,
-                reduceMotion: reduceMotion,
-                onToggleFavorite: { store.toggleFavorite($0) },
-                onDelete: { store.deleteExercise($0) }
-            )
+            Group {
+                if browseMode == .wods {
+                    wodsList
+                } else {
+                    LibraryExerciseList(
+                        sections: cachedSections,
+                        zoomNamespace: exerciseZoomNamespace,
+                        reduceMotion: reduceMotion,
+                        onToggleFavorite: { store.toggleFavorite($0) },
+                        onDelete: { store.deleteExercise($0) }
+                    )
+                }
+            }
             .ogListChrome()
             .scrollDismissesKeyboard(.interactively)
             // Only mute list diff animations — do not disable keyboard / focus transitions.
@@ -79,15 +88,19 @@ struct LibraryView: View {
                 await applySectionsCancelable(reason: query.isEmpty ? "browse" : "query")
             }
             .onChange(of: browseMode) { _, _ in
-                prefetchVisibleThumbs()
+                if browseMode != .wods {
+                    prefetchVisibleThumbs()
+                }
             }
             .onAppear {
-                prefetchVisibleThumbs()
+                if browseMode != .wods {
+                    prefetchVisibleThumbs()
+                }
             }
             .onDisappear {
                 ExerciseArt.cancelThumbPrefetch()
             }
-            .navigationTitle("Ejercicios")
+            .navigationTitle(browseMode == .wods ? "WODs" : "Ejercicios")
             .navigationBarTitleDisplayMode(.inline)
             .ogTransparentNav()
             .toolbar {
@@ -99,12 +112,14 @@ struct LibraryView: View {
                         showFilter = true
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    OGToolbarGlassButton(
-                        systemName: "plus",
-                        accessibilityLabel: "Nuevo ejercicio"
-                    ) {
-                        showingAdd = true
+                if browseMode != .wods {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        OGToolbarGlassButton(
+                            systemName: "plus",
+                            accessibilityLabel: "Nuevo ejercicio"
+                        ) {
+                            showingAdd = true
+                        }
                     }
                 }
             }
@@ -112,7 +127,7 @@ struct LibraryView: View {
             .searchable(
                 text: $query,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Nombre, músculo o equipo"
+                prompt: browseMode == .wods ? "Nombre o formato" : "Nombre, músculo o equipo"
             )
             .navigationDestination(for: UUID.self) { id in
                 ExerciseDetailView(exerciseId: id, onOpenedWorkout: onOpenedWorkout)
@@ -122,6 +137,16 @@ struct LibraryView: View {
                         enabled: !reduceMotion
                     ))
             }
+            .navigationDestination(for: String.self) { templateId in
+                if let template = CatalogWODs.template(id: templateId) {
+                    WODTemplateDetailView(
+                        template: template,
+                        history: wodHistory(for: templateId),
+                        showSessionActions: true,
+                        onOpenedWorkout: onOpenedWorkout
+                    )
+                }
+            }
             .sheet(isPresented: $showFilter) {
                 filterSheet
             }
@@ -130,6 +155,78 @@ struct LibraryView: View {
                     .ogSheetCorners()
             }
         }
+    }
+
+    private var wodsList: some View {
+        List {
+            ForEach(filteredWODTemplates) { template in
+                NavigationLink(value: template.id) {
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Text(template.name)
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(OG.label)
+                                if store.isWODTemplateFavorite(template.id) {
+                                    Image(systemName: "star.fill")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(OG.yellow)
+                                }
+                            }
+                            Text(template.formatLabel)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(OG.accent)
+                            if !template.muscles.isEmpty {
+                                Text(template.musclesLabel)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(OG.label3)
+                                    .lineLimit(1)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                        VStack(alignment: .trailing, spacing: 4) {
+                            if let typical = template.typicalLabel {
+                                Text(typical)
+                                    .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                                    .foregroundStyle(OG.label2)
+                            }
+                            let hist = wodHistory(for: template.id)
+                            if let best = hist.first {
+                                Text(best.summaryLabel)
+                                    .font(.system(size: 12, weight: .medium).monospacedDigit())
+                                    .foregroundStyle(OG.accent)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+
+    private var filteredWODTemplates: [WODTemplate] {
+        CatalogWODs.search(query).sorted { a, b in
+            let fa = store.isWODTemplateFavorite(a.id)
+            let fb = store.isWODTemplateFavorite(b.id)
+            if fa != fb { return fa && !fb }
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        }
+    }
+
+    private func wodHistory(for templateId: String) -> [WODBlockResult] {
+        store.state.workouts
+            .flatMap(\.wodResults)
+            .filter { $0.wodTemplateId == templateId }
+            .sorted { lhs, rhs in
+                // Mejor For Time = menor tiempo; mejor AMRAP = más reps.
+                if let le = lhs.elapsedSeconds, let re = rhs.elapsedSeconds {
+                    return le < re
+                }
+                if let lr = lhs.totalReps, let rr = rhs.totalReps {
+                    return lr > rr
+                }
+                return false
+            }
     }
 
     private var addExerciseSheet: some View {
@@ -350,7 +447,7 @@ struct LibraryView: View {
             return [LibrarySectionModel(key: "flat", title: nil, items: rows)]
         }
         switch browseMode {
-        case .alphabetical, .favorites:
+        case .alphabetical, .favorites, .wods:
             return [LibrarySectionModel(key: "flat", title: nil, items: rows)]
         case .muscle:
             return Dictionary(grouping: rows, by: { exercisesById[$0.id]?.muscleGroup ?? "" })

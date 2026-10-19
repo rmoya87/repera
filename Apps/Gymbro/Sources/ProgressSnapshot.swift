@@ -146,12 +146,20 @@ enum ProgressDataEngine {
         )
         if Task.isCancelled { return nil }
 
-        let summary = StatsEngine.progressHealthSummary(
+        let baseSummary = StatsEngine.progressHealthSummary(
             workouts: input.workouts,
             external: externalSamples,
             range: range,
             weekStartsOnMonday: monday,
             now: now
+        )
+        // Kcal alineadas con Inicio / gráfica Calorías (max Salud día vs chips).
+        let summary = ProgressHealthSummary(
+            averageMinutes: baseSummary.averageMinutes,
+            totalKcal: charts.caloriesTotal,
+            averageCardioMinutes: baseSummary.averageCardioMinutes,
+            volumeKg: baseSummary.volumeKg,
+            sessionCount: baseSummary.sessionCount
         )
         let prevWorkouts = StatsEngine.filterWorkoutsInPreviousPeriod(
             input.workouts,
@@ -162,7 +170,7 @@ enum ProgressDataEngine {
         let prevExternal = externalSamples.filter {
             range.containsInPreviousPeriod($0.date, now: now, weekStartsOnMonday: monday)
         }
-        let previousSummary = StatsEngine.progressHealthSummary(
+        let basePrevious = StatsEngine.progressHealthSummary(
             workouts: prevWorkouts,
             external: prevExternal,
             range: range,
@@ -170,6 +178,31 @@ enum ProgressDataEngine {
             now: now,
             applyRangeFilter: false
         )
+        let previousSummary: ProgressHealthSummary? = {
+            guard let bounds = range.previousPeriodBounds(
+                now: now,
+                weekStartsOnMonday: monday
+            ) else {
+                return basePrevious
+            }
+            let prevEnergy = input.energyDays.filter {
+                range.containsInPreviousPeriod($0.date, now: now, weekStartsOnMonday: monday)
+            }
+            let prevKcal = ProgressChartBuilder.mergedDailyCalories(
+                energyDays: prevEnergy,
+                workouts: prevWorkouts,
+                external: prevExternal,
+                start: bounds.start,
+                endExclusive: bounds.end
+            ).reduce(0.0) { $0 + $1.value }
+            return ProgressHealthSummary(
+                averageMinutes: basePrevious.averageMinutes,
+                totalKcal: prevKcal,
+                averageCardioMinutes: basePrevious.averageCardioMinutes,
+                volumeKg: basePrevious.volumeKg,
+                sessionCount: basePrevious.sessionCount
+            )
+        }()
         if Task.isCancelled { return nil }
 
         let streak = StatsEngine.consecutiveWeekStreak(

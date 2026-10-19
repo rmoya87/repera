@@ -31,6 +31,8 @@ struct ActivityHeatmapView: View {
     var onMetricChange: ((HeatmapMetric) -> Void)? = nil
 
     @State private var grid: HeatmapGrid = .empty
+    /// Evita re-scroll horizontal cada vez que el heatmap reaparece en el ScrollView padre.
+    @State private var didScrollToEnd = false
 
     private var preparedGrid: HeatmapGrid? {
         switch metric {
@@ -99,6 +101,7 @@ struct ActivityHeatmapView: View {
         .onAppear { applyPreparedOrRebuild() }
         .onChange(of: metric) { _, _ in applyPreparedOrRebuild() }
         .onChange(of: dataRevision) { _, _ in applyPreparedOrRebuild() }
+        .onChange(of: range) { _, _ in didScrollToEnd = false }
         .task(id: rebuildKey) {
             if preparedGrid != nil {
                 applyPreparedOrRebuild()
@@ -150,7 +153,11 @@ struct ActivityHeatmapView: View {
                         canvas.id("hm-end")
                     }
                 }
-                .onAppear { proxy.scrollTo("hm-end", anchor: .trailing) }
+                .onAppear {
+                    guard !didScrollToEnd else { return }
+                    didScrollToEnd = true
+                    proxy.scrollTo("hm-end", anchor: .trailing)
+                }
             }
         } else {
             HStack(alignment: .top, spacing: layout.gap) {

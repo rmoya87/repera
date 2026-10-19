@@ -452,6 +452,8 @@ struct DayEditorView: View {
     @State private var pickExerciseForBlock: UUID?
     @State private var pickMovementForBlock: UUID?
     @State private var showRoutinePicker = false
+    @State private var showWODCatalog = false
+    @State private var showCreateWODFormat = false
     @State private var saveAsFavorite = false
 
     var body: some View {
@@ -552,14 +554,15 @@ struct DayEditorView: View {
                 } label: {
                     Label("Añadir bloque", systemImage: "square.stack.3d.up")
                 }
-                Menu {
-                    ForEach(WODFormat.allCases, id: \.self) { format in
-                        Button(format.displayName) {
-                            routine.blocks.append(.wod(format: format))
-                        }
-                    }
+                Button {
+                    showWODCatalog = true
                 } label: {
-                    Label("Añadir WOD", systemImage: "timer")
+                    Label("Elegir WOD", systemImage: "list.bullet.rectangle.portrait")
+                }
+                Button {
+                    showCreateWODFormat = true
+                } label: {
+                    Label("Crear WOD", systemImage: "timer")
                 }
                 if !importableRoutines.isEmpty {
                     Button {
@@ -571,9 +574,9 @@ struct DayEditorView: View {
             } footer: {
                 switch mode {
                 case .session:
-                    Text("Bloques de fuerza (series/reps) y WODs (AMRAP, EMOM, RFT, Tabata…). También puedes pegar una rutina existente.")
+                    Text("Elegir WOD usa benchmarks conocidos (Fran, Cindy…). Crear WOD parte de un formato vacío. También puedes pegar una rutina existente.")
                 case .oneOff, .plan, .favorite:
-                    Text("Añadir rutina copia los bloques de una plantilla. AMRAP / EMOM / RFT / Tabata se configuran en cada WOD.")
+                    Text("Elegir WOD copia un benchmark. Crear WOD / Añadir rutina para formatos libres o plantillas propias.")
                 }
             }
         }
@@ -627,6 +630,25 @@ struct DayEditorView: View {
                 },
                 onCancel: { showRoutinePicker = false }
             )
+        }
+        .sheet(isPresented: $showWODCatalog) {
+            WODCatalogPickerView { template in
+                routine.blocks.append(template.makeBlock())
+                if routine.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    || routine.title == "Entreno"
+                    || routine.title == "Nuevo entreno" {
+                    routine.title = template.name
+                }
+                showWODCatalog = false
+            }
+        }
+        .confirmationDialog("Formato del WOD", isPresented: $showCreateWODFormat, titleVisibility: .visible) {
+            ForEach(WODFormat.allCases, id: \.self) { format in
+                Button(format.displayName) {
+                    routine.blocks.append(.wod(format: format))
+                }
+            }
+            Button("Cancelar", role: .cancel) {}
         }
     }
 
@@ -1036,7 +1058,7 @@ struct DayEditorView: View {
 
 // MARK: - WOD movement editor
 
-/// Editor de movimiento WOD alineado con Apuntar: series con peso + reps + RIR.
+/// Editor de movimiento WOD alineado con Apuntar: series según estilo (kg / tiempo / reps).
 struct WODMovementEditor: View {
     @Environment(GymbroStore.self) private var store
     @Binding var movement: WODMovement
@@ -1047,6 +1069,26 @@ struct WODMovementEditor: View {
     @State private var didSeedSets = false
 
     private var weightStep: Double { store.state.settings.weightIncrementKg }
+
+    private var loggingStyle: ExerciseLoggingStyle {
+        let catalogName = CrossFitGlossary.resolveCatalogName(movement.name, notes: movement.notes)
+        if let match = store.state.exercises.first(where: {
+            $0.name.localizedCaseInsensitiveCompare(catalogName) == .orderedSame
+        }) {
+            return match.loggingStyle
+        }
+        return Exercise.loggingStyle(name: catalogName, equipment: movement.notes)
+    }
+
+    private var resolvedLoadField: ExerciseLoadField {
+        let catalogName = CrossFitGlossary.resolveCatalogName(movement.name, notes: movement.notes)
+        if let match = store.state.exercises.first(where: {
+            $0.name.localizedCaseInsensitiveCompare(catalogName) == .orderedSame
+        }) {
+            return match.loadField
+        }
+        return Exercise.loadField(name: catalogName, equipment: movement.notes)
+    }
 
     var body: some View {
         Form {
@@ -1081,31 +1123,57 @@ struct WODMovementEditor: View {
                 } header: {
                     Text("Series al apuntar")
                 } footer: {
-                    Text("Peso · reps · RIR como en Apuntar. Si la pizarra no trae kg, puedes ponerlos aquí.")
+                    switch loggingStyle {
+                    case .repsAndTime:
+                        Text("Comba: veces (dobles) · tiempo de la serie.")
+                    case .machineWork:
+                        Text("Máquina / carrera: prescribe calorías y/o metros (sin kilos).")
+                    case .repsOnly:
+                        Text("Solo reps (peso corporal).")
+                    case .loadAndReps:
+                        if resolvedLoadField == .deficitCm {
+                            Text("HSPU: déficit (cm) · reps. 0 = sin déficit.")
+                        } else {
+                            Text("Peso/lastre · reps · RIR. Dominadas: lastre 0 = sin lastre.")
+                        }
+                    }
                 }
 
-                Stepper("Metros: \(movement.distanceMeters ?? 0)", value: Binding(
-                    get: { movement.distanceMeters ?? 0 },
-                    set: { movement.distanceMeters = $0 == 0 ? nil : $0 }
-                ), in: 0...5000, step: 50)
-                HStack {
-                    Text("Peso H/M (kg)")
-                    TextField("50", text: Binding(
-                        get: { movement.weightMaleKg.map { String(format: "%g", $0) } ?? "" },
-                        set: {
-                            movement.weightMaleKg = Double($0.replacingOccurrences(of: ",", with: "."))
-                            applyMovementWeightToEmptySets()
-                        }
-                    ))
-                    .ogKeyboardDone()
-                    .multilineTextAlignment(.trailing)
-                    Text("/")
-                    TextField("35", text: Binding(
-                        get: { movement.weightFemaleKg.map { String(format: "%g", $0) } ?? "" },
-                        set: { movement.weightFemaleKg = Double($0.replacingOccurrences(of: ",", with: ".")) }
-                    ))
-                    .ogKeyboardDone()
-                    .multilineTextAlignment(.trailing)
+                if loggingStyle == .machineWork {
+                    Stepper("Calorías: \(movement.calories ?? 0)", value: Binding(
+                        get: { movement.calories ?? 0 },
+                        set: { movement.calories = $0 == 0 ? nil : $0 }
+                    ), in: 0...500, step: 1)
+                    Stepper("Metros: \(movement.distanceMeters ?? 0)", value: Binding(
+                        get: { movement.distanceMeters ?? 0 },
+                        set: { movement.distanceMeters = $0 == 0 ? nil : $0 }
+                    ), in: 0...20_000, step: 50)
+                } else {
+                    Stepper("Metros: \(movement.distanceMeters ?? 0)", value: Binding(
+                        get: { movement.distanceMeters ?? 0 },
+                        set: { movement.distanceMeters = $0 == 0 ? nil : $0 }
+                    ), in: 0...5000, step: 50)
+                }
+                if loggingStyle == .loadAndReps {
+                    HStack {
+                        Text("Peso H/M (kg)")
+                        TextField("50", text: Binding(
+                            get: { movement.weightMaleKg.map { String(format: "%g", $0) } ?? "" },
+                            set: {
+                                movement.weightMaleKg = Double($0.replacingOccurrences(of: ",", with: "."))
+                                applyMovementWeightToEmptySets()
+                            }
+                        ))
+                        .ogKeyboardDone()
+                        .multilineTextAlignment(.trailing)
+                        Text("/")
+                        TextField("35", text: Binding(
+                            get: { movement.weightFemaleKg.map { String(format: "%g", $0) } ?? "" },
+                            set: { movement.weightFemaleKg = Double($0.replacingOccurrences(of: ",", with: ".")) }
+                        ))
+                        .ogKeyboardDone()
+                        .multilineTextAlignment(.trailing)
+                    }
                 }
                 TextField("Escala alternativa (ej. 100 SU)", text: Binding(
                     get: { movement.scaleAlternative ?? "" },
@@ -1140,70 +1208,117 @@ struct WODMovementEditor: View {
     }
 
     private func wodSetRow(index: Int) -> some View {
-        HStack(spacing: 8) {
-            OGRepeatStepper(
-                display: draftSets[index].targetWeightKg.map { String(format: "%g", $0) } ?? "—",
-                keyboard: .decimalPad,
-                onMinus: {
-                    let current = draftSets[index].targetWeightKg ?? 0
-                    let next = max(0, ((current - weightStep) * 10).rounded() / 10)
-                    draftSets[index].targetWeightKg = next > 0 ? next : nil
-                    writeSetsToMovement()
-                },
-                onPlus: {
-                    let current = draftSets[index].targetWeightKg ?? 0
-                    draftSets[index].targetWeightKg = ((current + weightStep) * 10).rounded() / 10
-                    writeSetsToMovement()
-                },
-                onCommitText: { text in
-                    let normalized = text.replacingOccurrences(of: ",", with: ".")
-                    if normalized.isEmpty {
-                        draftSets[index].targetWeightKg = nil
-                    } else if let parsed = Double(normalized) {
-                        draftSets[index].targetWeightKg = parsed > 0 ? ((parsed * 10).rounded() / 10) : nil
-                    }
-                    writeSetsToMovement()
+        let style = loggingStyle
+        let maxReps = style.quantityCap
+        let qtyLabel: String = {
+            switch style {
+            case .machineWork: return movement.prescribedQuantityUnit.shortLabel
+            case .repsAndTime: return "Veces"
+            default: return "Reps"
+            }
+        }()
+        let qtyStep: Int = {
+            if style == .machineWork, movement.prescribedQuantityUnit == .meters { return 50 }
+            if style == .repsAndTime { return 5 }
+            return 1
+        }()
+        return HStack(spacing: 8) {
+            if style == .loadAndReps {
+                if resolvedLoadField == .deficitCm {
+                    OGRepeatStepper(
+                        display: draftSets[index].targetWeightKg.map { String(format: "%.0f", $0) } ?? "0",
+                        keyboard: .numberPad,
+                        onMinus: {
+                            let current = draftSets[index].targetWeightKg ?? 0
+                            let next = max(0, current - 1)
+                            draftSets[index].targetWeightKg = next > 0 ? next : nil
+                            writeSetsToMovement()
+                        },
+                        onPlus: {
+                            let current = draftSets[index].targetWeightKg ?? 0
+                            draftSets[index].targetWeightKg = min(60, current + 1)
+                            writeSetsToMovement()
+                        },
+                        onCommitText: { text in
+                            if let parsed = Int(text.filter(\.isNumber)) {
+                                let v = min(60, max(0, parsed))
+                                draftSets[index].targetWeightKg = v > 0 ? Double(v) : nil
+                            }
+                            writeSetsToMovement()
+                        }
+                    )
+                    .frame(maxWidth: .infinity)
+                    .accessibilityLabel("Déficit cm")
+                } else {
+                    OGRepeatStepper(
+                        display: draftSets[index].targetWeightKg.map { String(format: "%g", $0) } ?? "—",
+                        keyboard: .decimalPad,
+                        onMinus: {
+                            let current = draftSets[index].targetWeightKg ?? 0
+                            let next = max(0, ((current - weightStep) * 10).rounded() / 10)
+                            draftSets[index].targetWeightKg = next > 0 ? next : nil
+                            writeSetsToMovement()
+                        },
+                        onPlus: {
+                            let current = draftSets[index].targetWeightKg ?? 0
+                            draftSets[index].targetWeightKg = ((current + weightStep) * 10).rounded() / 10
+                            writeSetsToMovement()
+                        },
+                        onCommitText: { text in
+                            let normalized = text.replacingOccurrences(of: ",", with: ".")
+                            if normalized.isEmpty {
+                                draftSets[index].targetWeightKg = nil
+                            } else if let parsed = Double(normalized) {
+                                draftSets[index].targetWeightKg = parsed > 0 ? ((parsed * 10).rounded() / 10) : nil
+                            }
+                            writeSetsToMovement()
+                        }
+                    )
+                    .frame(maxWidth: .infinity)
                 }
-            )
-            .frame(maxWidth: .infinity)
+            }
 
             OGRepeatStepper(
                 display: "\(draftSets[index].targetReps)",
                 keyboard: .numberPad,
                 onMinus: {
-                    draftSets[index].targetReps = max(1, draftSets[index].targetReps - 1)
+                    draftSets[index].targetReps = max(1, draftSets[index].targetReps - qtyStep)
                     writeSetsToMovement()
                 },
                 onPlus: {
-                    draftSets[index].targetReps = min(200, draftSets[index].targetReps + 1)
+                    draftSets[index].targetReps = min(maxReps, draftSets[index].targetReps + qtyStep)
                     writeSetsToMovement()
                 },
                 onCommitText: { text in
                     if let parsed = Int(text) {
-                        draftSets[index].targetReps = min(200, max(1, parsed))
+                        draftSets[index].targetReps = min(maxReps, max(1, parsed))
                         writeSetsToMovement()
                     }
                 }
             )
-            .frame(width: 88)
+            .frame(width: style == .loadAndReps ? 88 : nil)
+            .frame(maxWidth: style == .loadAndReps ? nil : .infinity)
+            .accessibilityLabel(qtyLabel)
 
-            Menu {
-                Button("Sin RIR") {
-                    draftSets[index].targetRir = nil
-                    writeSetsToMovement()
-                }
-                ForEach(0...5, id: \.self) { rir in
-                    Button("\(rir)") {
-                        draftSets[index].targetRir = Double(rir)
+            if style.usesRIR {
+                Menu {
+                    Button("Sin RIR") {
+                        draftSets[index].targetRir = nil
                         writeSetsToMovement()
                     }
+                    ForEach(0...5, id: \.self) { rir in
+                        Button("\(rir)") {
+                            draftSets[index].targetRir = Double(rir)
+                            writeSetsToMovement()
+                        }
+                    }
+                } label: {
+                    Text(draftSets[index].targetRir.map { String(format: "%g", $0) } ?? "RIR")
+                        .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(draftSets[index].targetRir == nil ? OG.label3 : OG.label)
+                        .frame(width: 48, height: 36)
+                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
-            } label: {
-                Text(draftSets[index].targetRir.map { String(format: "%g", $0) } ?? "RIR")
-                    .font(.system(size: 13, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(draftSets[index].targetRir == nil ? OG.label3 : OG.label)
-                    .frame(width: 48, height: 36)
-                    .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }
     }
@@ -1239,7 +1354,21 @@ struct WODMovementEditor: View {
     private func writeSetsToMovement() {
         movement.explicitPlannedSets = draftSets
         let repsList = draftSets.map(\.targetReps)
-        if repsList.count <= 1 {
+        if loggingStyle == .machineWork {
+            // En erg la cantidad de la 1.ª serie alimenta cal o metros prescritos.
+            let qty = repsList.first
+            switch movement.prescribedQuantityUnit {
+            case .calories:
+                movement.calories = qty
+                if movement.distanceMeters == nil { movement.reps = nil }
+            case .meters:
+                movement.distanceMeters = qty
+                if movement.calories == nil { movement.reps = nil }
+            case .reps:
+                movement.reps = qty
+            }
+            movement.repScheme = repsList.count > 1 ? repsList : nil
+        } else if repsList.count <= 1 {
             movement.repScheme = nil
             movement.reps = repsList.first
         } else {

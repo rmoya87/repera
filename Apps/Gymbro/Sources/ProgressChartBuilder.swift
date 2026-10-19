@@ -61,12 +61,10 @@ enum ProgressChartBuilder {
         let hrAgg = aggregateHeartRate(hrRaw, granularity: granularity, weekStartsOnMonday: weekStartsOnMonday)
         let hrPlot = downsample(hrAgg, maxCount: maxPlotPoints)
 
-        let kcalDaily = mergeCalories(
-            energyRaw: energyRaw,
+        let kcalDaily = mergedDailyCalories(
+            energyDays: energyRaw,
             workouts: workouts,
             external: external,
-            range: range,
-            weekStartsOnMonday: weekStartsOnMonday,
             start: start,
             endExclusive: endExclusive
         )
@@ -101,44 +99,56 @@ enum ProgressChartBuilder {
         )
     }
 
-    private static func mergeCalories(
-        energyRaw: [HealthKitStore.DailyActiveEnergyPoint],
+    /// Misma regla que Inicio: por día `max(energía activa Salud, suma chips Gymbro + externos)`.
+    static func mergedDailyCalories(
+        energyDays: [HealthKitStore.DailyActiveEnergyPoint],
         workouts: [WorkoutSession],
         external: [ExternalDaySample],
-        range: ProgressTimeRange,
-        weekStartsOnMonday: Bool,
         start: Date,
         endExclusive: Date
     ) -> [ProgressDayPoint] {
         let df = dayKeyFormatter
         let cal = Calendar.current
+
         var healthByDay: [String: (date: Date, kcal: Double)] = [:]
-        for day in energyRaw {
+        for day in energyDays {
             let dayStart = cal.startOfDay(for: day.date)
+            guard dayStart >= start, dayStart < endExclusive else { continue }
             let key = df.string(from: dayStart)
             let prev = healthByDay[key]?.kcal ?? 0
-            healthByDay[key] = (dayStart, prev + day.kcal)
+            healthByDay[key] = (dayStart, prev + max(0, day.kcal))
         }
 
-        let fromApp = StatsEngine.dailyMetricSeries(
-            workouts: workouts,
-            external: external,
-            metric: .activeEnergyKcal,
-            range: range,
-            weekStartsOnMonday: weekStartsOnMonday
-        )
+        var cardsByDay: [String: (date: Date, kcal: Double)] = [:]
+        for workout in workouts {
+            guard let raw = workout.finishedAt ?? workout.startedAt else { continue }
+            let dayStart = cal.startOfDay(for: raw)
+            guard dayStart >= start, dayStart < endExclusive else { continue }
+            let key = df.string(from: dayStart)
+            let add = max(0, workout.appleActiveEnergyKcal ?? 0)
+            guard add > 0 else { continue }
+            let prev = cardsByDay[key]?.kcal ?? 0
+            cardsByDay[key] = (dayStart, prev + add)
+        }
+        for sample in external {
+            let dayStart = cal.startOfDay(for: sample.date)
+            guard dayStart >= start, dayStart < endExclusive else { continue }
+            let key = df.string(from: dayStart)
+            let add = max(0, sample.activeEnergyKcal)
+            guard add > 0 else { continue }
+            let prev = cardsByDay[key]?.kcal ?? 0
+            cardsByDay[key] = (dayStart, prev + add)
+        }
 
         var buckets: [String: ProgressDayPoint] = [:]
-        for (key, row) in healthByDay where row.kcal > 0 {
-            buckets[key] = ProgressDayPoint(dayKey: key, date: row.date, value: row.kcal)
+        for key in Set(healthByDay.keys).union(cardsByDay.keys) {
+            let health = healthByDay[key]?.kcal ?? 0
+            let cards = cardsByDay[key]?.kcal ?? 0
+            let value = max(health, cards)
+            guard value > 0 else { continue }
+            let date = healthByDay[key]?.date ?? cardsByDay[key]?.date ?? start
+            buckets[key] = ProgressDayPoint(dayKey: key, date: date, value: value)
         }
-        for p in fromApp where p.value > 0 {
-            if buckets[p.dayKey] == nil {
-                buckets[p.dayKey] = p
-            }
-        }
-        _ = start
-        _ = endExclusive
         return buckets.values.sorted { $0.date < $1.date }
     }
 

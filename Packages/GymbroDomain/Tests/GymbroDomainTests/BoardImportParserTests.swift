@@ -107,6 +107,30 @@ struct BoardImportParserTests {
         #expect(CrossFitGlossary.canonicalName(for: "6-8 DB ALT Arrancada colgante") == "Arrancada colgante")
     }
 
+    @Test func dbHangSnatchMapsToDumbbellSnatch() {
+        let line = CrossFitGlossary.parseMovementLine("6-8 DB ALT HANG SNATCH")
+        #expect(line.name == "Snatch mancuerna")
+        #expect(line.equipmentNote?.localizedCaseInsensitiveContains("mancuerna") == true)
+        #expect(CrossFitGlossary.canonicalName(for: "db hang snatch") == "Snatch mancuerna")
+        #expect(CrossFitGlossary.resolveCatalogName("Arrancada colgante", notes: "Mancuerna") == "Snatch mancuerna")
+    }
+
+    @Test func equipmentVariantsMapToCatalogExercises() {
+        #expect(CrossFitGlossary.resolveCatalogName("Thruster", notes: "Mancuerna") == "Thruster mancuernas")
+        #expect(CrossFitGlossary.resolveCatalogName("Thruster", notes: "Doble mancuerna") == "Thruster mancuernas")
+        #expect(CrossFitGlossary.resolveCatalogName("Thruster", notes: "Kettlebell") == "Thruster kettlebell")
+        #expect(CrossFitGlossary.resolveCatalogName("Cargada", notes: "Mancuerna") == "Clean mancuerna")
+        #expect(CrossFitGlossary.resolveCatalogName("Arrancada", notes: "Kettlebell") == "Snatch kettlebell")
+        #expect(CrossFitGlossary.resolveCatalogName("Press banca", notes: "Mancuerna") == "Press mancuernas")
+        #expect(CrossFitGlossary.resolveCatalogName("Snatch mancuerna", notes: "Barra") == "Arrancada")
+        #expect(CrossFitGlossary.canonicalName(for: "db thruster") == "Thruster mancuernas")
+        #expect(CrossFitGlossary.canonicalName(for: "kb snatch") == "Snatch kettlebell")
+
+        let thruster = CrossFitGlossary.parseMovementLine("10 DB THRUSTER 20/12,5")
+        #expect(thruster.name == "Thruster mancuernas")
+        #expect(thruster.equipmentNote?.localizedCaseInsensitiveContains("mancuerna") == true)
+    }
+
     @Test func parseMovementLineSplitsRepsMetersEquipment() {
         let t2b = CrossFitGlossary.parseMovementLine("10 toes to bar")
         #expect(t2b.name == "Toes to bar")
