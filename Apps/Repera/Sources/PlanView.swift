@@ -1176,13 +1176,17 @@ struct DayEditorView: View {
         if let id = move.exerciseId, let ex = store.state.exercises.first(where: { $0.id == id }) {
             return ex
         }
-        let canonical = CrossFitGlossary.canonicalName(for: move.name)
+        let canonical = CrossFitGlossary.resolveCatalogName(move.name, notes: move.notes)
+        let rawCanonical = CrossFitGlossary.canonicalName(for: move.name)
         if let match = store.state.exercises.first(where: {
             $0.name.localizedCaseInsensitiveCompare(move.name) == .orderedSame
                 || $0.name.localizedCaseInsensitiveCompare(canonical) == .orderedSame
+                || $0.name.localizedCaseInsensitiveCompare(rawCanonical) == .orderedSame
         }) {
             return match
         }
+        // Mantiene una identidad visual coherente incluso si el ejercicio
+        // importado todavía no tiene ID en el catálogo del usuario.
         return Exercise(name: canonical, muscleGroup: "WOD", isCustom: true)
     }
 }
