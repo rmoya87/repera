@@ -6,11 +6,15 @@ Este documento es el criterio operativo para cerrar `feat/repera-business-platfo
 de extremo a extremo. Ninguna operación de CI o scripts locales puede declarar listo el producto
 si falla alguno de estos puntos.
 
+## Comprobaciones locales con doble clic
+
+En un Mac con copia de la rama, abre `Repera-Verificar.command`. Ejecuta Node tests, Swift tests, el generador de canvas, XcodeGen y builds iOS/watchOS (cuando los SDK estén instalados). Escribe los registros bajo `$TMPDIR/Repera-Preflight-AAAA...`. Si falta una herramienta o falla alguna prueba, sale con error. **Incluso todos los tests locales correctos NO equivalen a autorización de merge:** faltan Auth Apple real, pagos, pruebas de concurrencia y revisión E2E. La ejecución no realiza `git push`, pagos ni cambios en Supabase.
+
 ## 1. Dependencias externas de la cuenta del propietario
 
 | Servicio | Acción necesaria | Cómo verificar sin compartir secretos |
 | --- | --- | --- |
-| GitHub Actions | Diagnosticar los jobs que fallan antes de ejecutar pasos. Revisar facturación, límites/runners y permisos en el repositorio y en la cuenta. | Deben aparecer pasos y logs descargables; los jobs de iOS, arte, panel Business y SQL deben terminar verdes. En los intentos del 19/10 hasta el commit base de main fallan en 2–9 s sin `steps` ni logs. |
+| GitHub Actions | Diagnosticar los jobs que fallan antes de ejecutar pasos. Abrir Settings → Billing & licensing → Budgets/Actions y revisar medio de pago, presupuesto y límites de consumo; después comprobar runners/permisos del repo. La facturación bloqueada es una **hipótesis**, no un diagnóstico confirmado de esta cuenta. | Deben aparecer pasos y logs descargables; los jobs de iOS, arte, panel Business y SQL deben terminar verdes. En los intentos del 19/10 hasta el commit base de main fallan en 2–9 s sin `steps` ni logs. |
 | Apple Developer / App Store Connect | Confirmar App ID `com.app.repera`, Sign in with Apple, permisos del equipo y perfiles, certificados de firma, SKU/plan Repera Pro en sandbox y acceso a TestFlight. | Login real Apple con relay privado, reinicio/restauración de sesión, login desde un segundo dispositivo; compra sandbox y restauración. **Nunca enviar claves o archivos .p8 por el chat o Git.** |
 | Supabase Repera | Configurar proveedor Apple (ID Token nativo), SMTP y redirects del panel web, separar staging de producción antes de pruebas de pago. | Cuentas nuevas creadas realmente en Auth, invitación aceptada desde iOS y el panel; RLS negativa con dos tenants y tres usuarios. |
 | Stripe | Conectar y verificar cuenta de Repera para B2B y estrategia Connect para pagos B2C de profesionales. Acordar productos, IVA, renovaciones y comisiones. | Webhooks de test firmados, eventos idempotentes, conciliación real sin saldo inventado; secretos guardados en gestor seguro, jamás en clientes públicos. |
