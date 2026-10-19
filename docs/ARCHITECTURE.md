@@ -177,6 +177,9 @@ Incluye `BoardImportParserTests`, `LoadSuggestionTests`, sesión, progresión, w
 
 Guía manual: [TESTING_GUIDE.md](TESTING_GUIDE.md).
 
+## Planificación profesional sincronizada en iOS
+`BusinessDataStore` lee `professional_training_sessions` de clientes vinculados (doble control: RLS del servidor + filtro local). `PlanView` en modo Entrenador lista títulos, fechas e instrucciones del coach y `HomeView` muestra la programación del día, sin alterar las rutinas/series JSON privadas de iCloud. El editor de bloques/series profesionales avanzado no está conectado todavía.
+
 ## Datos reales de Centro/bonos en iOS
 `BusinessDataStore.swift` es un overlay `@Observable` alimentado por Supabase SDK autenticado. `CenterView` lee Clases/Citas, bonos y reservas para ofrecer acciones RPC; `HomeView` integra reservas confirmadas; Ajustes muestra los centros y saldos. No se fusiona con el JSON local ni iCloud. Pendiente de compilación iOS 27/E2E y disponibilidad de datos reales de prueba.
 

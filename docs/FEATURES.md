@@ -17,7 +17,7 @@
 
 ### Diario (`PlanView`)
 
-- Selector **Entrenador · Personal · Rutinas**. Entrenador es la vista inicial y muestra un estado vacío transparente hasta que exista vinculación y agenda de servidor. No muestra asignaciones simuladas.
+- Selector **Entrenador · Personal · Rutinas**. Entrenador es la vista inicial y muestra sesiones reales publicadas en Supabase tras vinculación con el profesional; si no hay datos, presenta un estado vacío honesto. No muestra asignaciones simuladas.
 - La programación personal, sus rutinas y sus herramientas siguen disponibles en **Personal** y **Rutinas**, sin eliminar datos locales ni del historial.
 
 - Título arriba (`ogFixedTopBar`) + menú ⋯ en la misma fila (Programado).

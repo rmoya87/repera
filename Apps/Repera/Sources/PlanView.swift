@@ -21,6 +21,7 @@ enum DiarioSection: String, CaseIterable, Identifiable {
 struct PlanView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(SubscriptionManager.self) private var subscriptions
+    @Environment(BusinessDataStore.self) private var businessData
     @Binding var section: DiarioSection
     @State private var editing: Routine?
     @State private var isCreating = false
@@ -164,20 +165,45 @@ struct PlanView: View {
     @ViewBuilder
     private var coachScheduleContent: some View {
         Section {
-            VStack(alignment: .leading, spacing: 10) {
-                Label("Planificación de tu entrenador", systemImage: "person.fill.checkmark")
-                    .font(.headline)
-                    .foregroundStyle(OG.label)
+            if businessData.trainingSessions.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("Planificación de tu entrenador", systemImage: "person.fill.checkmark")
+                        .font(.headline)
+                        .foregroundStyle(OG.label)
 
-                Text("Cuando aceptes la invitación de tu entrenador y se active la sincronización profesional, aquí aparecerán los entrenamientos que te asigne.")
-                    .font(.subheadline)
-                    .foregroundStyle(OG.label2)
+                    Text("Aquí aparecerán los entrenamientos que publique tu entrenador después de aceptar su invitación.")
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label2)
 
-                Text("Mientras tanto, puedes seguir entrenando con tus rutinas actuales desde «Personal» y «Rutinas». No se borrará tu historial.")
-                    .font(.footnote)
-                    .foregroundStyle(OG.label2)
+                    Text("Tu programación personal sigue disponible en «Personal» y «Rutinas»; los entrenamientos registrados nunca se borran.")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                }
+                .padding(.vertical, 12)
+            } else {
+                ForEach(businessData.trainingSessions) { session in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(session.scheduledDate)
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(OG.accent)
+                        Text(session.title)
+                            .font(.headline)
+                            .foregroundStyle(OG.label)
+                        Text(businessData.centerName(session.orgId))
+                            .font(.subheadline)
+                            .foregroundStyle(OG.label2)
+                        if !session.instructions.isEmpty {
+                            Text(session.instructions)
+                                .font(.body)
+                                .foregroundStyle(OG.label)
+                        }
+                        Text("Programación enviada por tu entrenador. Los resultados personales permanecen en tu historial privado.")
+                            .font(.footnote)
+                            .foregroundStyle(OG.label2)
+                    }
+                    .padding(.vertical, 7)
+                }
             }
-            .padding(.vertical, 12)
         }
     }
 

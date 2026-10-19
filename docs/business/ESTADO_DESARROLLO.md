@@ -79,6 +79,12 @@
 - Smoke PostgreSQL `professional_sessions_smoke_pass`: owner publica, duplicado no se añade, deportista vinculado lee, deportista no puede suplantar al entrenador; 0 datos persistidos.
 - Pendiente editor semanal 1–52 semanas con bloques estructurados, versiones, histórico de cambios y entrega de entrenos completos ejecutables en iOS.
 
+## Entrega móvil de planificación profesional (lectura)
+- `BusinessDataStore` lee `professional_training_sessions` y filtra por `client_id` del deportista autenticado, además de RLS del servidor.
+- `Diario → Entrenador` muestra los entrenamientos fechados y las instrucciones publicadas; `Inicio` presenta los asignados al día elegido, sin eliminar rutinas personales.
+- La prescripción todavía es de texto libre; no hay importación automática a un `Routine` ejecutable con bloques/series ni captura de resultados vinculada al entrenador. Se mantiene separado el historial privado local/iCloud.
+- Pendiente compilación iOS 27, prueba de autorización real con Apple, push, versionado avanzado y flujos de edición/cancelación completos.
+
 ## PENDIENTE
 - Completar integración Auth extremo a extremo en navegador (confirmación de correo, dominios redirect, correo SMTP, refresh de sesión real, recuperación y logout en dispositivos).
 - Invitaciones, membresía administrada transaccionalmente y consentimientos.

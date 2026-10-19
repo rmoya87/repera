@@ -78,6 +78,25 @@ struct BusinessBooking: Decodable, Identifiable {
         case occurrenceId = "occurrence_id"
     }
 }
+struct BusinessProfessionalTrainingSession: Decodable, Identifiable {
+    let id: UUID
+    let orgId: UUID
+    let clientId: UUID
+    let coachUserId: UUID
+    let scheduledDate: String  // yyyy-MM-dd, date-only (never UTC-shifted)
+    let title: String
+    let instructions: String
+    let status: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, instructions, status
+        case orgId = "org_id"
+        case clientId = "client_id"
+        case coachUserId = "coach_user_id"
+        case scheduledDate = "scheduled_date"
+    }
+}
+
 private struct BusinessClientLink: Decodable {
     let id: UUID
     let userId: UUID?
@@ -98,6 +117,7 @@ final class BusinessDataStore {
     private(set) var occurrences: [BusinessOccurrence] = []
     private(set) var passes: [BusinessPass] = []
     private(set) var bookings: [BusinessBooking] = []
+    private(set) var trainingSessions: [BusinessProfessionalTrainingSession] = []
     private(set) var isLoading = false
     private(set) var errorMessage: String?
     private(set) var isSubmitting = false
@@ -110,6 +130,7 @@ final class BusinessDataStore {
         occurrences = []
         passes = []
         bookings = []
+        trainingSessions = []
         errorMessage = nil
     }
 
@@ -150,11 +171,16 @@ final class BusinessDataStore {
                 .from("service_bookings")
                 .select("id,org_id,client_id,occurrence_id,status")
                 .execute().value
+            let fetchedTrainingSessions: [BusinessProfessionalTrainingSession] = try await client
+                .from("professional_training_sessions")
+                .select("id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,status")
+                .execute().value
             centers = fetchedCenters
             invitations = fetchedInvitations.filter { $0.acceptedAt == nil && $0.cancelledAt == nil && (Self.date($0.expiresAt) ?? .distantPast) > Date() }
             occurrences = fetchedOccurrences.filter { $0.status == "active" }
             passes = fetchedPasses.filter { ownedClientIds.contains($0.clientId) }
             bookings = fetchedBookings.filter { ownedClientIds.contains($0.clientId) }
+            trainingSessions = fetchedTrainingSessions.filter { ownedClientIds.contains($0.clientId) && $0.status == "scheduled" }.sorted { $0.scheduledDate < $1.scheduledDate }
             errorMessage = nil
         } catch {
             // Do not display stale bookings or balances after an authorization/network failure.
@@ -167,6 +193,15 @@ final class BusinessDataStore {
         let precise = ISO8601DateFormatter()
         precise.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return precise.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+    }
+
+    static func localDayKey(_ date: Date) -> String {
+        let fmt = DateFormatter()
+        fmt.calendar = Calendar(identifier: .gregorian)
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.timeZone = .current
+        fmt.dateFormat = "yyyy-MM-dd"
+        return fmt.string(from: date)
     }
 
     func centerName(_ id: UUID) -> String {

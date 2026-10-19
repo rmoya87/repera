@@ -71,6 +71,35 @@ struct HomeView: View {
         )
     }
 
+    /// Read-only professional plan for the selected day (never overwrites personal routines).
+    @ViewBuilder
+    private var professionalSessionsForSelectedDay: some View {
+        let selected = BusinessDataStore.localDayKey(selectedDay)
+        let published = businessData.trainingSessions.filter { $0.scheduledDate == selected }
+        if !published.isEmpty {
+            OGCardSectionTitle(title: "Planificado por tu entrenador")
+            OGCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(published) { session in
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(session.title)
+                                .font(.headline)
+                                .foregroundStyle(OG.label)
+                            Text(businessData.centerName(session.orgId))
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                            if !session.instructions.isEmpty {
+                                Text(session.instructions)
+                                    .font(.footnote)
+                                    .foregroundStyle(OG.label)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// Confirmed external reservations live beside local workouts, without modifying ReperaStore.
     @ViewBuilder
     private var confirmedBusinessBookingsCard: some View {
@@ -116,6 +145,7 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     weekAndDayCard
+                    professionalSessionsForSelectedDay
                     confirmedBusinessBookingsCard
                     streakCard
                 }
