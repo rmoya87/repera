@@ -722,6 +722,7 @@ struct DayEditorView: View {
             }
             .ogListChrome()
             .ogPinnedTransparentNav("Tipo de WOD")
+            .toolbar(.visible, for: .navigationBar)
         }
         .navigationDestination(isPresented: Binding(
             get: { selectFormatForBlock != nil },
@@ -755,6 +756,7 @@ struct DayEditorView: View {
             }
             .ogListChrome()
             .ogPinnedTransparentNav("Formato del WOD")
+            .toolbar(.visible, for: .navigationBar)
         }
     }
 
@@ -1818,6 +1820,7 @@ struct ExercisePickerView: View {
             if embedsNavigationStack { dismiss() }
         }
         .ogPinnedTransparentNav("Ejercicio")
+        .toolbar(.visible, for: .navigationBar)
         .toolbar {
             if embedsNavigationStack {
                 ToolbarItem(placement: .topBarLeading) {
