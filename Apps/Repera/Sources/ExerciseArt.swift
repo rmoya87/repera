@@ -588,6 +588,7 @@ enum ExerciseArt {
         "Bear crawl": "art_cf_bear",
         "Broad jump": "art_cf_broad",
         "Walking lunge": "art_cf_walk_lunge",
+        "Back rack reverse lunge": "art_zancadas",
         "Front rack lunge": "art_cf_fr_lunge",
         "Bar facing burpee": "art_cf_bfb",
         "Strict press": "art_cf_strict_press",
