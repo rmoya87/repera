@@ -121,3 +121,7 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] Cerrar sesión cuando una petición está en vuelo: la UI no repuebla datos de A.
 - [ ] Cancelar una reserva con menos de 12h: aparece confirmación avisando de la no devolución provisional de crédito; con más de 12h, explica la posible devolución y exige confirmación.
 - [ ] Tras un error de red o cambio de cuenta, el cliente nunca presenta aforo o créditos antiguos como disponibles.
+
+## UI tests en simulador limpio (2026-10-19)
+
+`ReperaSmokeUITests` arranca la app Debug con `--repera-ui-test-tabs` y `REPERA_UI_TEST_MODE=1` para acceder únicamente al contenedor de pestañas sin cuenta Apple del runner. La compilación Release **no** reconoce este modo. Los tests comprueban `Inicio · Diario · Center · Progreso · Ejercicios` y navegación a Ejercicios. El login real con Apple debe probarse en otro escenario E2E con cuenta y TestFlight, nunca se simula como superado.

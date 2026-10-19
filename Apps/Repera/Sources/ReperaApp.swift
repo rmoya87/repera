@@ -15,6 +15,18 @@ struct ReperaApp: App {
     @State private var authReady = false
     @Environment(\.scenePhase) private var scenePhase
 
+    /// UI smoke tests run on clean simulators without an Apple ID. Only Debug
+    /// builds launched explicitly from the test process may reveal the tab shell.
+    /// Production/Release builds always require a valid Apple identity.
+    private var uiTestTabShell: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.arguments.contains("--repera-ui-test-tabs")
+            && ProcessInfo.processInfo.environment["REPERA_UI_TEST_MODE"] == "1"
+        #else
+        return false
+        #endif
+    }
+
     init() {
         // Parallel disk/catalog warm before first frame / HealthKitStore.init.
         LaunchWarmup.start()
@@ -29,7 +41,7 @@ struct ReperaApp: App {
                     LaunchSplashView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .ignoresSafeArea()
-                } else if onboarding.isComplete && appleAuth.isSignedIn {
+                } else if uiTestTabShell || (onboarding.isComplete && appleAuth.isSignedIn) {
                     RootTabView()
                 } else {
                     OnboardingFlowView()
