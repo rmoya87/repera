@@ -64,6 +64,17 @@ struct BusinessPass: Decodable, Identifiable {
         case validUntil = "valid_until"
     }
 }
+struct BusinessAvailability: Decodable {
+    let occurrenceId: UUID
+    let reserved: Int
+    let capacity: Int
+
+    enum CodingKeys: String, CodingKey {
+        case occurrenceId = "occurrence_id"
+        case reserved, capacity
+    }
+}
+
 struct BusinessBooking: Decodable, Identifiable {
     let id: UUID
     let orgId: UUID
@@ -117,6 +128,7 @@ final class BusinessDataStore {
     private(set) var occurrences: [BusinessOccurrence] = []
     private(set) var passes: [BusinessPass] = []
     private(set) var bookings: [BusinessBooking] = []
+    private(set) var availability: [UUID: BusinessAvailability] = [:]
     private(set) var trainingSessions: [BusinessProfessionalTrainingSession] = []
     private(set) var isLoading = false
     private(set) var errorMessage: String?
@@ -130,6 +142,7 @@ final class BusinessDataStore {
         occurrences = []
         passes = []
         bookings = []
+        availability = [:]
         trainingSessions = []
         errorMessage = nil
     }
@@ -175,6 +188,19 @@ final class BusinessDataStore {
                 .from("professional_training_sessions")
                 .select("id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,status")
                 .execute().value
+            // Capacity counts are authorized by org membership, never exposing
+            // the identities or bookings of other athletes.
+            var counts: [UUID: BusinessAvailability] = [:]
+            for center in fetchedCenters {
+                let occupancy: [BusinessAvailability] = try await client
+                    .rpc("get_service_availability",
+                         params: ["p_org": center.id.uuidString])
+                    .execute().value
+                for item in occupancy {
+                    counts[item.occurrenceId] = item
+                }
+            }
+            availability = counts
             centers = fetchedCenters
             invitations = fetchedInvitations.filter { $0.acceptedAt == nil && $0.cancelledAt == nil && (Self.date($0.expiresAt) ?? .distantPast) > Date() }
             occurrences = fetchedOccurrences.filter { $0.status == "active" }
@@ -210,6 +236,11 @@ final class BusinessDataStore {
 
     func booking(for occurrenceId: UUID) -> BusinessBooking? {
         bookings.first { $0.occurrenceId == occurrenceId && $0.status == "booked" }
+    }
+
+    func remainingPlaces(for occurrence: BusinessOccurrence) -> Int? {
+        guard let item = availability[occurrence.id] else { return nil }
+        return max(0, item.capacity - item.reserved)
     }
 
     func availablePasses(for occurrence: BusinessOccurrence) -> [BusinessPass] {

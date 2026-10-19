@@ -85,6 +85,12 @@
 - La prescripción todavía es de texto libre; no hay importación automática a un `Routine` ejecutable con bloques/series ni captura de resultados vinculada al entrenador. Se mantiene separado el historial privado local/iCloud.
 - Pendiente compilación iOS 27, prueba de autorización real con Apple, push, versionado avanzado y flujos de edición/cancelación completos.
 
+## Aforo real protegido para el deportista
+- RPC `get_service_availability`: solo miembros activos consultan identificador, plazas reservadas y capacidad de su organización (no muestra clientes ajenos).
+- `BusinessDataStore` consulta aforo y `CenterView` distingue disponible, completo o aforo desconocido. Se deshabilitan reservas a ciegas, sin sustituir las comprobaciones transaccionales definitivas del backend.
+- Smoke de seguridad SQL superado: propietario lee, tercero denegado, ROLLBACK, cero datos persistidos.
+- Pendiente verificar iOS 27 compilado y concurrencia real en dispositivos; sin lista de espera.
+
 ## PENDIENTE
 - Completar integración Auth extremo a extremo en navegador (confirmación de correo, dominios redirect, correo SMTP, refresh de sesión real, recuperación y logout en dispositivos).
 - Invitaciones, membresía administrada transaccionalmente y consentimientos.

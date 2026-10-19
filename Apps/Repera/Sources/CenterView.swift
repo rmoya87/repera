@@ -146,7 +146,19 @@ struct CenterView: View {
                     Text("Política provisional: cancelaciones con más de 12 horas de antelación recuperan el crédito.")
                         .font(.footnote)
                         .foregroundStyle(OG.label2)
-                } else {
+                } else if let places = business.remainingPlaces(for: occurrence), places == 0 {
+                    Label("Completo", systemImage: "xmark.circle")
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label2)
+                    Text("No quedan plazas. La lista de espera aún no está habilitada.")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                } else if let places = business.remainingPlaces(for: occurrence) {
+                    Text(occurrence.kind == "appointment"
+                         ? "Horario disponible"
+                         : "\(places) plaza\(places == 1 ? "" : "s") disponible\(places == 1 ? "" : "s")")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
                     let wallets = business.availablePasses(for: occurrence)
                     if wallets.isEmpty {
                         Text("Necesitas un bono vigente de este servicio para reservar.")
@@ -163,6 +175,10 @@ struct CenterView: View {
                             .disabled(business.isSubmitting)
                         }
                     }
+                } else {
+                    Text("El aforo no está sincronizado. Actualiza Center antes de reservar.")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
                 }
             }
         }

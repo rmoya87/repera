@@ -22,6 +22,7 @@ Checklist manual por feature. Preferible dispositivo real para Live Activity y W
 - [ ] Manager publica clase y cita; ofrece bono de cortesía por tipo; atleta reserva cada modalidad con el bono correcto, sin saldos negativos.
 - [ ] Cancelar a más y menos de 12h; comprobar política provisional y ledger; no emitir facturas/pagos ficticios.
 - [ ] Dos deportistas reservan la última plaza simultáneamente desde dispositivos diferentes; verificar exactamente una reserva.
+- [ ] Center muestra «Completo» si aforo=reservas, sin filtrar información de otras personas ni ofrecer botón Reservar; si falla RPC, deshabilita la reserva.
 - [ ] Modo avión, token caducado, Apple ocultar correo, sesión revocada y eliminación/revocación del vínculo.
 - [ ] Ejecutar build/UITests con Xcode e iOS 27 y revisar todo el CI antes de merge.
 
