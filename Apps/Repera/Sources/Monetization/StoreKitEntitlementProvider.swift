@@ -25,7 +25,11 @@ final class StoreKitEntitlementProvider: EntitlementProviding, @unchecked Sendab
         switch result {
         case .success(let verification):
             let transaction = try checkVerified(verification)
+            // The verified transaction itself is authoritative. currentEntitlements
+            // can lag behind the purchase callback in TestFlight's sandbox.
+            let purchased = snapshotFromVerifiedTransaction(transaction)
             await transaction.finish()
+            if purchased.grantsProAccess { return purchased }
             return await snapshotFromCurrentEntitlements()
         case .userCancelled:
             throw EntitlementError.userCancelled
@@ -63,6 +67,32 @@ final class StoreKitEntitlementProvider: EntitlementProviding, @unchecked Sendab
     }
 
     // MARK: - Helpers
+
+    private func snapshotFromVerifiedTransaction(_ transaction: Transaction) -> CommercialSnapshot {
+        guard productIDs.contains(transaction.productID),
+              transaction.revocationDate == nil,
+              !transaction.isUpgraded,
+              transaction.expirationDate.map({ $0 > Date() }) ?? true else {
+            return CommercialSnapshot(status: .free, isConfigured: true)
+        }
+        let status: ReperaDomain.SubscriptionStatus
+        if transaction.offer?.type == .introductory {
+            status = .trial
+        } else if transaction.productID == CommercialConfig.monthlyProductID {
+            status = .proMonthly
+        } else {
+            status = .proAnnual
+        }
+        return CommercialSnapshot(
+            status: status,
+            lastVerifiedProStatus: status,
+            lastVerifiedProAt: Date(),
+            expirationDate: transaction.expirationDate,
+            activeProductID: transaction.productID,
+            isConfigured: true,
+            lastRefreshFailedOffline: false
+        )
+    }
 
     private func snapshotFromCurrentEntitlements() async -> CommercialSnapshot {
         var activeProductID: String?
