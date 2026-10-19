@@ -25,6 +25,7 @@ enum PersistenceError: Error, Equatable, Sendable {
     case writeFailed
     case cloudNotReady
     case cloudUnavailable
+    case cloudUploadPending
     case corruptDocument
 }
 
@@ -290,6 +291,27 @@ actor AppStatePersistence {
         if error != nil || !wrote {
             throw PersistenceError.writeFailed
         }
+    }
+
+    /// iCloud Documents finishes uploading asynchronously after a coordinated write.
+    /// Only the system's uploaded flag confirms the requested cloud copy reached iCloud.
+    func waitForCloudUpload(at url: URL) async -> Bool {
+        for _ in 0..<45 {
+            if Task.isCancelled { return false }
+            if let values = try? url.resourceValues(forKeys: [
+                .ubiquitousItemIsUploadedKey,
+                .ubiquitousItemUploadingErrorKey,
+            ]) {
+                if values.ubiquitousItemUploadingError != nil { return false }
+                if values.ubiquitousItemIsUploaded == true { return true }
+            }
+            do {
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+            } catch {
+                return false
+            }
+        }
+        return false
     }
 
     func encode(_ state: AppState) -> Data? {
@@ -558,24 +580,39 @@ final class LocalStore {
         }
     }
 
-    func pushToiCloudIfSafe(_ state: AppState) async {
+    /// Returns true only if the write succeeded; manual sync can additionally wait for
+    /// the iCloud upload confirmation (not merely the coordinated local file write).
+    @discardableResult
+    func pushToiCloudIfSafe(_ state: AppState, waitForUpload: Bool = false) async -> Bool {
         await withCloudSerial { [self] in
             let status = await self.persistence.iCloudStatus()
             self.iCloudStatus = status
-            guard status == .available, let url = await self.persistence.iCloudDocumentsURL() else { return }
+            guard status == .available, let url = await self.persistence.iCloudDocumentsURL() else {
+                self.lastPersistenceError = .cloudUnavailable
+                return false
+            }
             let readiness = await self.persistence.cloudReadiness(at: url)
             guard readiness != .notDownloaded else {
                 self.lastPersistenceError = .cloudNotReady
                 await self.persistence.startCloudDownloadIfNeeded(at: url)
-                return
+                return false
             }
             do {
                 try await self.persistence.writeCloud(at: url, state: state)
+                if waitForUpload {
+                    guard await self.persistence.waitForCloudUpload(at: url) else {
+                        self.lastPersistenceError = .cloudUploadPending
+                        return false
+                    }
+                }
+                self.lastPersistenceError = nil
+                return true
             } catch let error as PersistenceError {
                 self.lastPersistenceError = error
             } catch {
                 self.lastPersistenceError = .writeFailed
             }
+            return false
         }
     }
 
