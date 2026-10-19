@@ -4,8 +4,8 @@ import Foundation
 enum CommercialConfig {
     static let entitlementID = "pro"
     static let offeringID = "default"
-    static let monthlyProductID = "repera_pro_monthly"
-    static let annualProductID = "repera_pro_annual"
+    static let monthlyProductID = "com.app.repera.premium.monthly"
+    static let annualProductID = "com.app.repera.premium.yearly"
 
     /// Clave pública del SDK (`appl_…`). Proviene de Info.plist / xcconfig — nunca hardcodear secretos.
     static var publicAPIKey: String? {
