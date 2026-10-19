@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-19 (ubicación al Play + peso source)
+Última actualización: 2026-10-19 (autenticación, sincronización iCloud, ubicación y peso)
 
 ## Visión
 
