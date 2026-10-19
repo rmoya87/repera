@@ -82,6 +82,7 @@ public enum CatalogSpanish {
         "Sentadilla frontal": "Sentadilla frontal: barra en rack frontal, torso vertical; énfasis en cuádriceps.",
         "Prensa": "Prensa de piernas: empujas la plataforma. Cuádriceps y glúteos con trayectoria guiada.",
         "Zancadas": "Zancadas: paso adelante o caminando; trabajo unilateral de piernas y estabilidad.",
+        "Zancadas inversas con barra": "Zancada hacia atrás con barra apoyada en la parte alta de la espalda, manteniendo tronco estable.",
         "Extensión de cuádriceps": "Extensión de cuádriceps en máquina: aísla la cara anterior del muslo.",
         "Curl femoral": "Curl femoral en máquina: flexión de rodilla para isquiotibiales.",
         "Elevación de gemelos": "Elevación de gemelos de pie o en máquina: extensión de tobillo.",
