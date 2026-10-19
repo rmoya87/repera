@@ -758,7 +758,7 @@ public enum BoardImportParser {
 
     private static func midpointRIR(from notes: String?) -> Double? {
         guard let notes,
-              let found = notes.range(of: #"RPE\\s*(\\d+(?:[.,]\\d+)?)\\s*[-–]\\s*(\\d+(?:[.,]\\d+)?)"#,
+              let found = notes.range(of: #"RPE\s*(\d+(?:[.,]\d+)?)\s*[-–]\s*(\d+(?:[.,]\d+)?)"#,
                                       options: .regularExpression) else { return nil }
         let values = String(notes[found])
             .split { !$0.isNumber && $0 != "." && $0 != "," }
