@@ -1375,6 +1375,15 @@ public enum CatalogSpanish {
             "Error típico: barra que se adelanta por falta de movilidad o core flojo.",
             "Usa stick/barra ligera hasta que el fondo sea estable.",
         ],
+        "Zancadas inversas con barra": [
+            "Coloca la barra sobre la espalda alta, como en una sentadilla trasera, con el abdomen firme y los hombros estables.",
+            "Desde la posición de pie, da un paso hacia atrás suficientemente largo para bajar sin perder el equilibrio ni inclinar el tronco.",
+            "Flexiona ambas rodillas con control hasta acercar la rodilla trasera al suelo, conservando el apoyo completo del pie delantero.",
+            "Empuja el suelo con la pierna delantera para volver a la posición inicial; alterna piernas si así lo indica el entrenamiento.",
+            "Inhala al preparar cada repetición y exhala al incorporarte; evita que la rodilla delantera se desplace hacia dentro.",
+            "Error típico: confundir esta zancada inversa con la caminando o con front rack; la barra permanece detrás del cuello.",
+            "Estándar: extensión completa al subir, control del tronco y profundidad equivalente en ambas piernas; reduce la carga si no lo mantienes.",
+        ],
         "Front rack lunge": [
             "Barra en rack frontal, codos altos; da un paso y baja a zancada (rodilla trasera cerca del suelo).",
             "Torso vertical; empuja para volver; alterna o camina.",
