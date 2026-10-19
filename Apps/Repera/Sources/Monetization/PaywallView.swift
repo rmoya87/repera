@@ -230,9 +230,8 @@ struct PaywallView: View {
     private func reloadProducts() async {
         isPreparing = true
         defer { isPreparing = false }
-        if mode == .onboarding {
-            subscriptions.paywall.present(.onboarding)
-        }
+        // Onboarding renders this paywall in place. Do not mark the sheet coordinator
+        // presented, or it can reappear when the user finishes the free onboarding.
         await subscriptions.start()
         await subscriptions.loadOfferings()
         if selectedProductID == nil
