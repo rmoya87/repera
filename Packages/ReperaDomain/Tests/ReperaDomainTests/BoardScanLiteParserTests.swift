@@ -45,7 +45,7 @@ struct BoardScanLiteParserTests {
         #expect(rft.movements[0].weightMaleKg == 40)
         #expect(rft.movements[0].weightFemaleKg == 25)
         #expect(rft.movements[1].name == "Bar facing burpee")
-        #expect(rft.movements[2].name == "Back rack reverse lunge")
+        #expect(rft.movements[2].name == "Zancadas inversas con barra")
         #expect(rft.movements[2].exerciseId != nil)
         #expect(rft.movements[2].weightMaleKg == 40)
         #expect(rft.movements[2].weightFemaleKg == 25)

@@ -109,7 +109,7 @@ public enum ExerciseSearch {
         "reverse lunges": "zancadas",
         "barbell reverse lunges": "zancadas inversas con barra",
         "back rack r lunges": "zancadas inversas con barra",
-        "zancadas inversas con barra": "back rack reverse lunges",
+        "zancadas inversas con barra": "back rack reverse lunge",
         "front rack lunge": "zancadas rack frontal",
         "zancadas rack frontal": "front rack lunge",
         "pull ups": "dominadas",
