@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-19 (splash LaunchScreen → Splash PNG)
+Última actualización: 2026-10-19 (ubicación al Play + peso source)
 
 ## Visión
 
@@ -60,7 +60,8 @@ Fuente de verdad de la UI: ejercicios, rutinas, sesiones, peso corporal, favorit
 - Gates freemium: `featureAccess` inyectado desde `SubscriptionManager`; `saveRoutine` / `addCustomExercise` / `ProgressionEngine` respetan la política.
 - El entitlement Pro **no** forma parte de `AppState` / JSON exportable.
 
-- Peso corporal: **un entry por día** (`dedupeBodyWeightsByDay` / `syncBodyWeightWithHealth`).
+- Peso corporal: **un entry por día** (`dedupeBodyWeightsByDay` / `syncBodyWeightWithHealth`) con `BodyWeightSource` (manual / health).
+- Ubicación: al empezar sesión (`beginLocationTracking`) → `ensureWhenInUseAuthorized` (modal si `.notDetermined`) → pin en `activeSession.locationPin`; ruta GPS solo si el entreno parece outdoor.
 - Quick log: `startQuickLog` / `logQuickSets`.
 - Borrado de entreno: limpia estado local y, si hay UUID, HealthKit.
 
@@ -68,7 +69,7 @@ Fuente de verdad de la UI: ejercicios, rutinas, sesiones, peso corporal, favorit
 
 Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Alimenta Progreso con **caché diaria** de FC/kcal (hasta 360d); la UI promedia a semana/mes solo al pintar. Sync de peso: 1 muestra/día.
 
-**kcal sin Watch:** si Salud no aporta energía activa, `estimateActiveEnergyKcal` (MET × peso corporal + volumen kg + reps/cardio cronometrado). `ReperaStore.estimateSessionKcal` usa duración de sesión / WOD / series; al guardar se escribe **kcal provisionales al instante** y HealthKit refina después.
+**kcal al guardar:** provisionales al instante (`estimateSessionKcal` / MET). `HealthKitStore.finishWorkout` solo adopta kcal de Watch/Salud si `shouldTrustAppleWorkoutEnergy` (≥30 kcal y no ridículas vs el estimado); samples ambiente en la misma hora (p. ej. 2 kcal) **no** pisan el entreno. Sin workout creíble se escribe el estimado en Salud.
 
 **Arranque rápido (local-first):**
 - Snapshot JSON en Application Support (`HealthDiskCache`) con actividades + FC/kcal + ancla `HKQueryAnchor`.
@@ -132,7 +133,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 ## Datos y sync
 
 - Estado: `AppState` Codable → JSON local (`Application Support/Repera`) + espejo iCloud Documents.
-- Bootstrap: `LaunchWarmup` solapa catálogo + `HealthDiskCache` + `app_state` con el primer frame. `ReperaStore` arranca con shell vacío; tras pintar: hydrate (reutiliza warm) → merge catálogo off-main → validar Sign in with Apple / onboarding → iCloud. Sin onboarding completo no se muestra `RootTabView`. LaunchScreen: imageset `Splash` PNG (mascota + wordmark, sin deformar) + AspectFit sobre `#002E24`. Detalle en `docs/PERFORMANCE.md`.
+- Bootstrap: `LaunchWarmup` solapa catálogo + `HealthDiskCache` + `app_state` con el primer frame. `ReperaStore` arranca con shell vacío; tras pintar: hydrate (reutiliza warm) → merge catálogo off-main → validar Sign in with Apple / onboarding → iCloud. Sin onboarding completo no se muestra `RootTabView`. LaunchScreen: imageset `Splash` PNG centrado con ratio 473∶1024 (sin estirar) sobre `#002E24`. Detalle en `docs/PERFORMANCE.md`.
 - `WorkoutSession` puede llevar `locationPin` y `routePoints` (Codable, migrable); el detalle prioriza ruta Salud → ruta propia → pin.
 - Conflictos: `syncRevision` + `lastWriterDeviceId` (`SyncConflictResolver`); fallback a `updatedAt` para docs legacy.
 - I/O: actor `AppStatePersistence` (encode/write atómicos, coalescing); fachada `LocalStore` en MainActor.

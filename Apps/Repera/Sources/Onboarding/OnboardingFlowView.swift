@@ -211,9 +211,7 @@ struct OnboardingPermissionsStep: View {
                 statusText: locationLabel,
                 isDone: location.isAuthorized
             ) {
-                location.requestWhenInUse()
-                // Pequeña espera para que el diálogo actualice el estado.
-                try? await Task.sleep(nanoseconds: 500_000_000)
+                _ = await location.ensureWhenInUseAuthorized()
                 location.refreshStatus()
             }
 

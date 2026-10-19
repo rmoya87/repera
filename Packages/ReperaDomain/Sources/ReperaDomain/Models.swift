@@ -1828,15 +1828,48 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     }
 }
 
+/// Origen del valor de peso corporal.
+public enum BodyWeightSource: String, Codable, Sendable, Hashable {
+    case manual
+    case health
+
+    public var displayName: String {
+        switch self {
+        case .manual: return "Propio"
+        case .health: return "Salud"
+        }
+    }
+}
+
 public struct BodyWeightEntry: Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var date: Date
     public var weightKg: Double
+    /// `.manual` = apuntado en Repera; `.health` = importado de Apple Salud.
+    public var source: BodyWeightSource
 
-    public init(id: UUID = UUID(), date: Date = Date(), weightKg: Double) {
+    public init(
+        id: UUID = UUID(),
+        date: Date = Date(),
+        weightKg: Double,
+        source: BodyWeightSource = .manual
+    ) {
         self.id = id
         self.date = date
         self.weightKg = weightKg
+        self.source = source
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, date, weightKg, source
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        date = try c.decode(Date.self, forKey: .date)
+        weightKg = try c.decode(Double.self, forKey: .weightKg)
+        source = try c.decodeIfPresent(BodyWeightSource.self, forKey: .source) ?? .manual
     }
 }
 

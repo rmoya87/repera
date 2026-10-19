@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-19 (splash LaunchScreen → Splash PNG)
+Última actualización: 2026-10-19 (Ajustes cuenta/iCloud, ubicación al Play, peso)
 
 ## Tabs
 
@@ -9,7 +9,7 @@
 - Topbar fijo arriba (`ogFixedTopBar`): «repera» + fecha debajo; avatar a la derecha → Ajustes.
 - **Carrusel de días**: swipe horizontal (o chevrons) entre semanas; al cambiar de semana se conserva el weekday. Al tocar un día pinta al instante sin esperar HealthKit.
 - Card **Racha de N semanas** (como openGym `streakWeeks`): cuenta Repera **y** Apple Salud; toque → **Historial** unificado.
-- Métricas del día: tiempo; **kcal = max(energía activa del día en Salud, suma de chips Repera+Salud del día)**. Por entreno: kcal guardadas en sesión (Apple/Watch o estimado por time caps del WOD); **tiempo mostrado = inicio→fin** (p. ej. 60′ si así lo apuntaste). Detalle de entreno usa la misma kcal de sesión (no pisa con samples viejos de Salud). Recalc al arrancar (v2026_10_19d).
+- Métricas del día: tiempo; **kcal = max(energía activa del día en Salud, suma de chips Repera+Salud del día)**. Por entreno: kcal de sesión = Watch/Salud **solo si la energía es creíble**; si en la franja solo hay ambiente (p. ej. 2 kcal), manda el **estimado Repera** (MET / time caps). **Tiempo mostrado = inicio→fin**. Detalle alineado con Inicio. Recalc al arrancar (v2026_10_19e).
 - Lista de entrenos Repera del día + actividades externas de Salud (etiqueta «DÍA · hora» misma tipografía; chips min/kcal/**nota**/PR como Historial; tile del día «Nota» en lugar de nº de ejercicios). Notas recalculadas al arrancar si cambia la fórmula (`sessionReviewFormulaVersion`).
 - Acciones: empezar, **Añadir entreno** (`DayPlusSheet`), escanear pizarra → revisión como **página** (no modal) titulada «Añadir entreno».
 - Swipe en filas de entreno: círculo rojo + papelera; **toda la card (chips incluidos)** se desliza. El gesto solo nace fuera del carrusel (sobre chips solo scroll); confirmación glass.
@@ -111,7 +111,7 @@
 - Workouts externos → muestras diarias + estímulo muscular (`HealthMuscleMapper`) que alimenta **equilibrio/fatiga** y el heatmap; también en **Historial** (junto a Repera) y en la racha de Inicio.
 - FC por día (min/avg/max) para gráfica Cardio.
 - Energía activa diaria para gráfica Calorías (fusionada con estimados Repera como en Inicio).
-- **Sin Apple Watch / sin kcal de Salud:** estimación local MET (≈5.5 fuerza con carga, ≈7 metcon/PC, ≈9 cardio cronometrado) × peso corporal + volumen + reps; calorías de consola (bike/Ski) como **suelo** del estimado; se guarda al terminar y se escribe en Salud como complemento.
+- **Sin Apple Watch / kcal ambiente trivial:** estimación local MET (≈5.5 fuerza con carga, ≈7 metcon/PC, ≈9 cardio cronometrado) × peso corporal + volumen + reps; calorías de consola (bike/Ski) como **suelo** del estimado. Al terminar, el estimado del entreno gana frente a energía activa suelta de la franja; Watch/otra app solo si la energía es creíble.
 - **Fatiga muscular:** series de máquina/cardio aportan estímulo por duración (no como reps de fuerza); el filtro «Duras» las excluye.
 - Empareja con sesiones Repera por UUID / solape temporal (no se duplican en Historial).
 - Borrar entreno en app → intenta borrar workout en Salud.
@@ -124,25 +124,24 @@
 - Plan Pro del onboarding: precios y cargos desde StoreKit / App Store Connect (RevenueCat si hay API key).
 - Sin iCloud del sistema: usable en local; aviso para activarlo y poder recuperar tras reinstalar.
 - Denegar permisos no bloquea el avance; se pueden reintentar en Ajustes.
-- LaunchScreen: imageset `Splash` (PNG en asset catalog) + `scaleAspectFit` sobre verde `#002E24`; el sistema solo resuelve imágenes del catálogo en el launch storyboard.
+- LaunchScreen: imageset `Splash` (PNG en asset catalog) centrado con constraint de aspecto 473∶1024 (no anclado a 4 bordes; evita el estirado del snapshot de SpringBoard) sobre verde `#002E24`.
 
 ## Ajustes
 
 - Topbar fijo transparente en Ajustes, Historial, Peso y Rotación (mismo patrón que Ejercicios).
 - Títulos de sección Form en gris encima de cada grupo.
-- **Cuenta:** estado Sign in with Apple / cerrar sesión (vuelve al gate de login).
+- **Cuenta:** Sign in with Apple, iCloud (copia de seguridad activa / estado), nombre, elegir foto, sincronizar, cerrar sesión.
 - **Repera Pro:** descubrir / estado activo, gestionar suscripción, restaurar compras (Debug: simulador de estados).
-- iCloud (nombre, foto, sync).
-- **Permisos y Apple Salud:** notificaciones, HealthKit, ubicación (+ enlace a Ajustes del sistema).
+- **Permisos y Apple Salud:** notificaciones, HealthKit (kcal/min; el peso va en Peso corporal), ubicación (+ enlace a Ajustes del sistema). Al dar **Play** se pide ubicación si aún está pendiente (`ensureWhenInUseAuthorized`) y se guarda el pin en la sesión activa.
+- **Peso corporal:** enlace **Peso** + objetivo; historial con origen **Propio** / **Salud** (`BodyWeightSource`).
+- **Entrenamiento:** Historial de entrenos + unidades, modo de plan / rotación, semana, descanso, esfuerzo, progresión, incremento.
+- Export/import JSON, CSV Strong/Hevy, borrar datos.
 
 ## Monetización
 
 Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom, 4 escaneos/mes; Pro vía RevenueCat entitlement `pro`.
 - Historial de entrenos (Repera + Apple Salud, agrupado por día; hora a la derecha del título; chips en **una sola línea** alineados al título al reposo, carrusel hasta los bordes de la fila si no caben).
 - **Detalle de entreno:** resumen Tiempo/Kcal alineado con Inicio (kcal de sesión; tiempo = inicio→fin). Sección **Ubicación / Recorrido**: pin del gym (GPS al empezar), ruta propia outdoor o ruta de Salud si hay ≥2 puntos. Sección **Salud**: kcal activa = `session.appleActiveEnergyKcal` (misma que el resumen), no un sample ambiente del intervalo. Sección **Resultado** (`SessionReview`): nota + texto; detalle desplegable. Bloques WOD con cabecera según formato (`AMRAP 20'`, `For Time`, `EMOM…`); score en tarjeta; movimientos como prescripción. EMOM/Tabata/fuerza: series por ejercicio.
-- **Peso corporal** (misma sección): pesajes + objetivo; un valor por día; sync Salud (muestra más reciente del día).
-- Unidades, modo de plan / rotación, semana, descanso, esfuerzo, progresión, incremento.
-- Export/import JSON, CSV Strong/Hevy, borrar datos.
 
 ## Temporizador
 

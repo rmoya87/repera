@@ -153,10 +153,10 @@ final class ReperaStore: NSObject {
         }
     }
 
-    private static let sessionKcalRecalcDefaultsKey = "repera.recalcSessionKcal.v2026_10_19d"
+    private static let sessionKcalRecalcDefaultsKey = "repera.recalcSessionKcal.v2026_10_19e"
 
     /// Una vez: recalcula kcal de entrenos ya guardados con la fórmula corregida.
-    /// Si hay workout externo de Apple/Watch con energía, se mantiene; si no, estimación de la app.
+    /// Watch/Salud externo solo si la energía es creíble; ambiente trivial (p. ej. 2 kcal) → estimado Repera.
     /// La duración mostrada sigue siendo inicio→fin (p. ej. 1 h); los time caps solo afectan al estimado de kcal.
     @MainActor
     private func recalculateStoredSessionKcalIfNeeded() async {
@@ -183,7 +183,8 @@ final class ReperaStore: NSObject {
 
             var resolved = estimated
             if let uuid = session.healthKitWorkoutUUID,
-               let apple = await health.externalWorkoutEnergyKcal(uuid: uuid) {
+               let apple = await health.externalWorkoutEnergyKcal(uuid: uuid),
+               HealthKitStore.shouldTrustAppleWorkoutEnergy(apple, sessionEstimate: estimated) {
                 resolved = apple
             }
 
@@ -618,8 +619,8 @@ final class ReperaStore: NSObject {
         let trackRoute = WorkoutLocationTracker.shouldTrackRoute(for: session)
         Task {
             let tracker = WorkoutLocationTracker.shared
-            tracker.refreshStatus()
-            guard tracker.isAuthorized else { return }
+            // Si aún no se pidió permiso, el modal del sistema sale aquí (Play / empezar).
+            guard await tracker.ensureWhenInUseAuthorized() else { return }
             if let pin = await tracker.capturePin() {
                 if var active = state.activeSession, active.id == sessionID {
                     active.locationPin = pin
@@ -1023,7 +1024,7 @@ final class ReperaStore: NSObject {
         body(&ctrl)
         state.activeSession = ctrl.session
         if ctrl.session.phase == .finished {
-            // Misma ruta que Terminar: Apple Salud / Watch mandan kcal y tiempo.
+            // Misma ruta que Terminar (estimado Repera si Salud solo tiene ambiente).
             endActiveSession(save: true)
         } else {
             pushActiveToWatch()
@@ -1775,14 +1776,18 @@ final class ReperaStore: NSObject {
 
     // MARK: - Body weight
 
-    /// Un pesaje por día calendario: si ya hay uno ese día, lo actualiza.
+    /// Un peso por día calendario: si ya hay uno ese día, lo actualiza (origen propio).
     func addBodyWeight(_ kg: Double, date: Date = Date(), syncToHealth: Bool = true) {
         let cal = Calendar.current
         if let idx = state.bodyWeights.firstIndex(where: { cal.isDate($0.date, inSameDayAs: date) }) {
             state.bodyWeights[idx].date = date
             state.bodyWeights[idx].weightKg = kg
+            state.bodyWeights[idx].source = .manual
         } else {
-            state.bodyWeights.insert(BodyWeightEntry(date: date, weightKg: kg), at: 0)
+            state.bodyWeights.insert(
+                BodyWeightEntry(date: date, weightKg: kg, source: .manual),
+                at: 0
+            )
         }
         state.bodyWeights.sort { $0.date > $1.date }
         persist()
@@ -1796,7 +1801,7 @@ final class ReperaStore: NSObject {
         persist()
     }
 
-    /// Colapsa varios pesajes del mismo día dejando el más reciente.
+    /// Colapsa varios pesos del mismo día dejando el más reciente.
     @discardableResult
     private func dedupeBodyWeightsByDay() -> Bool {
         let before = state.bodyWeights.count
@@ -1854,10 +1859,14 @@ final class ReperaStore: NSObject {
                 {
                     state.bodyWeights[idx].date = sample.date
                     state.bodyWeights[idx].weightKg = sample.kg
+                    state.bodyWeights[idx].source = .health
                     changed = true
                 }
             } else {
-                state.bodyWeights.insert(BodyWeightEntry(date: sample.date, weightKg: sample.kg), at: 0)
+                state.bodyWeights.insert(
+                    BodyWeightEntry(date: sample.date, weightKg: sample.kg, source: .health),
+                    at: 0
+                )
                 changed = true
             }
         }

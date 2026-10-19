@@ -46,16 +46,7 @@ struct SettingsView: View {
                     }
                     Spacer(minLength: 0)
                 }
-                Button("Cerrar sesión", role: .destructive) {
-                    confirmSignOut = true
-                }
-            } header: {
-                Text("Cuenta")
-            } footer: {
-                Text("Sign in with Apple identifica tu cuenta. Los datos se guardan en el dispositivo y se sincronizan con iCloud cuando está disponible.")
-            }
 
-            Section {
                 HStack(spacing: 14) {
                     iCloudAvatarBadge
                     VStack(alignment: .leading, spacing: 4) {
@@ -72,7 +63,7 @@ struct SettingsView: View {
                             )
                         )
                         .font(.headline)
-                        Text(iCloudLabel)
+                        Text(iCloudBackupLabel)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -119,8 +110,14 @@ struct SettingsView: View {
                     }
                 }
                 .disabled(store.iCloudStatus == .signedOut || store.isSyncingiCloud)
+
+                Button("Cerrar sesión", role: .destructive) {
+                    confirmSignOut = true
+                }
             } header: {
-                Text("iCloud")
+                Text("Cuenta")
+            } footer: {
+                Text("Sign in with Apple identifica tu cuenta. Con iCloud activo hay copia de seguridad y sync entre dispositivos.")
             }
 
             Section {
@@ -248,9 +245,6 @@ struct SettingsView: View {
                     if let minutes = health.workoutMinutesToday {
                         LabeledContent("minutos hoy", value: "\(Int(minutes.rounded()))")
                     }
-                    if let kg = health.latestWeightKg {
-                        LabeledContent("Peso Salud", value: "\(kg.formatted(.number.precision(.fractionLength(1)))) kg")
-                    }
                 } else {
                     Button {
                         Task {
@@ -282,13 +276,15 @@ struct SettingsView: View {
                     detail: location.isAuthorized ? "Permitida" : "Pendiente o denegada",
                     symbol: "location.fill"
                 ) {
-                    location.requestWhenInUse()
-                    location.refreshStatus()
-                    if !location.isAuthorized,
-                       location.authorizationStatus == .denied
-                        || location.authorizationStatus == .restricted,
-                       let url = URL(string: UIApplication.openSettingsURLString) {
-                        openURL(url)
+                    Task {
+                        let ok = await location.ensureWhenInUseAuthorized()
+                        location.refreshStatus()
+                        if !ok,
+                           location.authorizationStatus == .denied
+                            || location.authorizationStatus == .restricted,
+                           let url = URL(string: UIApplication.openSettingsURLString) {
+                            openURL(url)
+                        }
                     }
                 }
 
@@ -309,21 +305,17 @@ struct SettingsView: View {
 
             Section {
                 NavigationLink {
-                    HistoryView()
-                } label: {
-                    Label("Historial", systemImage: "clock")
-                }
-            }
-
-            Section {
-                NavigationLink {
                     BodyWeightListView()
                 } label: {
                     HStack {
-                        Label("Pesajes", systemImage: "scalemass")
+                        Label("Peso", systemImage: "scalemass")
                         Spacer()
                         if let latest = store.state.bodyWeights.first {
                             Text("\(latest.weightKg.formatted(.number.precision(.fractionLength(1)))) kg")
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        } else if let kg = health.latestWeightKg {
+                            Text("\(kg.formatted(.number.precision(.fractionLength(1)))) kg")
                                 .foregroundStyle(.secondary)
                                 .monospacedDigit()
                         }
@@ -346,6 +338,11 @@ struct SettingsView: View {
                     }
                     .fontWeight(.semibold)
                 }
+                if let latest = store.state.bodyWeights.first {
+                    LabeledContent("Último", value: "\(latest.weightKg.formatted(.number.precision(.fractionLength(1)))) kg · \(latest.source.displayName)")
+                } else if let kg = health.latestWeightKg {
+                    LabeledContent("Último", value: "\(kg.formatted(.number.precision(.fractionLength(1)))) kg · Salud")
+                }
                 if let goal = store.state.settings.bodyWeightGoalKg,
                    let latest = store.state.bodyWeights.first {
                     let delta = latest.weightKg - goal
@@ -363,7 +360,7 @@ struct SettingsView: View {
             } header: {
                 Text("Peso corporal")
             } footer: {
-                Text("Un pesaje por día. El objetivo se muestra en Progreso como línea de meta.")
+                Text("Un peso por día. El objetivo se muestra en Progreso como línea de meta. Los valores de Apple Salud aparecen en el historial.")
             }
             .onAppear {
                 if let g = store.state.settings.bodyWeightGoalKg {
@@ -372,6 +369,11 @@ struct SettingsView: View {
             }
 
             Section("Entrenamiento") {
+                NavigationLink {
+                    HistoryView()
+                } label: {
+                    Label("Historial", systemImage: "clock")
+                }
                 Picker("Unidad", selection: Binding(
                     get: { store.state.settings.weightUnit },
                     set: {
@@ -533,7 +535,7 @@ struct SettingsView: View {
             OGConfirmSheet(
                 systemImage: "trash.circle.fill",
                 title: "¿Borrar datos?",
-                message: "Se borran rutinas, entrenos y pesajes. El catálogo de ejercicios se mantiene.",
+                message: "Se borran rutinas, entrenos y pesos. El catálogo de ejercicios se mantiene.",
                 confirmTitle: "Borrar todo",
                 onConfirm: {
                     store.resetUserData()
@@ -629,7 +631,7 @@ struct SettingsView: View {
         }
     }
 
-    private var iCloudLabel: String {
+    private var iCloudBackupLabel: String {
         switch store.iCloudStatus {
         case .available: "Copia de seguridad activa"
         case .signedOut: "Inicia sesión en iCloud"

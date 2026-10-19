@@ -1418,7 +1418,7 @@ final class HealthKitStore {
         var workoutUUID: UUID?
     }
 
-    /// Cierra el entreno: si hay franja similar en Salud, manda Apple; si falta algo, lo complementamos y lo enviamos.
+    /// Cierra el entreno: Watch/Salud con energía real mandan; si solo hay ambiente (p. ej. 2 kcal), manda el estimado Repera.
     func finishWorkout(
         sessionId: UUID,
         title: String,
@@ -1432,34 +1432,55 @@ final class HealthKitStore {
         var resolvedStart = start
         var resolvedEnd = safeEnd
         var duration = max(60, safeEnd.timeIntervalSince(start))
-        var kcal = apple.kcal
+        let ours = fallbackKcal ?? Self.estimateActiveEnergyKcal(
+            durationMinutes: duration / 60,
+            volumeKg: 0
+        )
+        var kcal = ours > 0 ? ours : max(0, apple.kcal)
         var savedUUID = apple.existingWorkoutUUID
 
         if let existing = apple.existingWorkout {
-            // Entreno Apple en la franja → mandan sus kcal / horarios.
-            resolvedStart = existing.startDate
-            resolvedEnd = existing.endDate
-            duration = max(60, existing.duration)
-            if kcal <= 0 {
-                // Workout sin energía: estimación de la app + sample.
-                let ours = fallbackKcal ?? Self.estimateActiveEnergyKcal(
-                    durationMinutes: duration / 60,
-                    volumeKg: 0
-                )
-                if ours > 0 {
-                    kcal = ours
-                    await saveActiveEnergySample(kcal: ours, start: resolvedStart, end: resolvedEnd)
+            let sourceId = existing.sourceRevision.source.bundleIdentifier
+            let isOurs = sourceId == Bundle.main.bundleIdentifier
+            let trustApple = !isOurs
+                && Self.shouldTrustAppleWorkoutEnergy(apple.kcal, sessionEstimate: ours)
+
+            if trustApple {
+                // Watch / otra app con energía creíble → sus kcal y horarios.
+                resolvedStart = existing.startDate
+                resolvedEnd = existing.endDate
+                duration = max(60, existing.duration)
+                kcal = apple.kcal
+                savedUUID = existing.uuid
+                await discardLocalBuilder()
+            } else if isOurs {
+                // Workout nuestro previo (a veces con kcal ambiente mal guardadas) → estimado Repera.
+                resolvedStart = start
+                resolvedEnd = safeEnd
+                duration = max(60, safeEnd.timeIntervalSince(start))
+                kcal = ours > 0 ? ours : max(0, apple.kcal)
+                savedUUID = existing.uuid
+                if kcal > 0, apple.kcal + 0.5 < kcal {
+                    await saveActiveEnergySample(kcal: kcal, start: resolvedStart, end: resolvedEnd)
                 }
+                await discardLocalBuilder()
+            } else {
+                // Solape con actividad trivial / ambiente → no pisa el entreno Repera.
+                resolvedStart = start
+                resolvedEnd = safeEnd
+                duration = max(60, safeEnd.timeIntervalSince(start))
+                kcal = ours > 0 ? ours : max(0, apple.kcal)
+                savedUUID = await saveStrengthWorkout(
+                    title: title,
+                    start: resolvedStart,
+                    end: resolvedEnd,
+                    activeEnergyKcal: kcal,
+                    preferBuilder: liveBuilder
+                )
             }
-            await discardLocalBuilder()
         } else {
-            // Sin workout Apple: kcal del entreno (estimación), no la energía ambiente del intervalo
-            // (p. ej. 2 kcal de movimiento diario → no sustituye a un AMRAP).
-            let ours = fallbackKcal ?? Self.estimateActiveEnergyKcal(
-                durationMinutes: duration / 60,
-                volumeKg: 0
-            )
-            kcal = ours > 0 ? ours : max(0, kcal)
+            // Sin HKWorkout: estimado del entreno, no la energía ambiente del intervalo.
+            kcal = ours > 0 ? ours : max(0, apple.kcal)
             savedUUID = await saveStrengthWorkout(
                 title: title,
                 start: resolvedStart,
@@ -1482,6 +1503,19 @@ final class HealthKitStore {
             durationSeconds: duration,
             workoutUUID: savedUUID
         )
+    }
+
+    /// Energía de Salud/Watch creíble frente al estimado del entreno.
+    /// Descarta samples ambiente (p. ej. 2 kcal de movimiento diario en la misma hora).
+    nonisolated static func shouldTrustAppleWorkoutEnergy(
+        _ appleKcal: Double,
+        sessionEstimate: Double
+    ) -> Bool {
+        guard appleKcal >= 30 else { return false }
+        if sessionEstimate >= 100, appleKcal < sessionEstimate * 0.15 {
+            return false
+        }
+        return true
     }
 
     /// Estimación local cuando Salud/Watch no aportan kcal (se escribe en HealthKit como complemento).
@@ -1526,7 +1560,7 @@ final class HealthKitStore {
         liveDurationSeconds = nil
     }
 
-    // MARK: - Apple como fuente de verdad
+    // MARK: - Métricas Apple (Watch creíble; ambiente no pisa el entreno)
 
     private struct AppleMetrics {
         var kcal: Double
@@ -1535,7 +1569,7 @@ final class HealthKitStore {
         var existingWorkout: HKWorkout?
     }
 
-    /// Prioriza un `HKWorkout` del Watch/Salud en franja similar; si no, suma energía activa del intervalo.
+    /// Detecta `HKWorkout` en franja similar o suma energía activa del intervalo (puede ser ambiente).
     private func resolveAppleMetrics(from start: Date, to end: Date) async -> AppleMetrics {
         if let workout = await overlappingWorkout(from: start, to: end) {
             var kcal: Double = 0

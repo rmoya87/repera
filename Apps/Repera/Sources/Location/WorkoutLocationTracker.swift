@@ -17,6 +17,7 @@ final class WorkoutLocationTracker: NSObject {
     private var trackingSessionID: UUID?
     private var lastAccepted: CLLocation?
     private var pointCounter = 0
+    private var authContinuations: [CheckedContinuation<Bool, Never>] = []
 
     private let minDistanceMeters: CLLocationDistance = 8
     private let maxRoutePoints = 400
@@ -46,6 +47,32 @@ final class WorkoutLocationTracker: NSObject {
         refreshStatus()
         guard authorizationStatus == .notDetermined else { return }
         manager.requestWhenInUseAuthorization()
+    }
+
+    /// Pide el modal del sistema si hace falta y espera la respuesta (p. ej. al dar Play).
+    func ensureWhenInUseAuthorized() async -> Bool {
+        refreshStatus()
+        if isAuthorized { return true }
+        switch authorizationStatus {
+        case .denied, .restricted:
+            return false
+        case .notDetermined:
+            return await withCheckedContinuation { cont in
+                authContinuations.append(cont)
+                manager.requestWhenInUseAuthorization()
+            }
+        default:
+            return isAuthorized
+        }
+    }
+
+    private func finishAuthWaiters() {
+        let granted = isAuthorized
+        let waiters = authContinuations
+        authContinuations.removeAll()
+        for cont in waiters {
+            cont.resume(returning: granted)
+        }
     }
 
     /// Heurística: carrera / bici / caminata / outdoor en título o nombres de ejercicio.
@@ -129,6 +156,10 @@ extension WorkoutLocationTracker: CLLocationManagerDelegate {
         let status = manager.authorizationStatus
         Task { @MainActor in
             authorizationStatus = status
+            // Evita colgar el Play si el sistema no vuelve a llamar tras notDetermined.
+            if status != .notDetermined {
+                finishAuthWaiters()
+            }
         }
     }
 

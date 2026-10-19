@@ -24,7 +24,7 @@ struct BodyWeightListView: View {
             } header: {
                 Text("Registrar")
             } footer: {
-                Text("Un pesaje por día. Si ya hay uno hoy, se actualiza.")
+                Text("Un peso por día. Si ya hay uno hoy, se actualiza.")
             }
 
             Section {
@@ -64,8 +64,13 @@ struct BodyWeightListView: View {
             Section {
                 ForEach(store.state.bodyWeights) { entry in
                     HStack {
-                        Text(entry.date.formatted(date: .abbreviated, time: .omitted))
-                            .foregroundStyle(OG.label)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(entry.date.formatted(date: .abbreviated, time: .omitted))
+                                .foregroundStyle(OG.label)
+                            Text(entry.source.displayName)
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                        }
                         Spacer()
                         Text("\(entry.weightKg.formatted(.number.precision(.fractionLength(1)))) kg")
                             .monospacedDigit()
@@ -79,6 +84,8 @@ struct BodyWeightListView: View {
                 }
             } header: {
                 Text("Historial")
+            } footer: {
+                Text("Propio = guardado en Repera. Salud = importado de Apple Salud.")
             }
         }
         .ogListChrome()

@@ -22,13 +22,14 @@ struct ReperaApp: App {
         WindowGroup {
             Group {
                 if !authReady {
-                    // Continuity with LaunchScreen (asset catalog `Splash`) while auth/onboarding gate resolves.
-                    Image("Splash")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color(red: 0, green: 0.180, blue: 0.141))
-                        .ignoresSafeArea()
+                    // Same proportions as LaunchScreen: green canvas + Splash AspectFit (never stretched).
+                    ZStack {
+                        Color(red: 0, green: 0.180, blue: 0.141)
+                        Image("Splash")
+                            .resizable()
+                            .scaledToFit()
+                    }
+                    .ignoresSafeArea()
                 } else if onboarding.isComplete && appleAuth.isSignedIn {
                     RootTabView()
                 } else {
