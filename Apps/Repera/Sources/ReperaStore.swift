@@ -409,16 +409,31 @@ final class ReperaStore: NSObject {
         }
     }
 
-    func refreshFromiCloud(isInitial: Bool = false) async {
+    /// Manual sync keeps the activity visible until the iCloud transfer confirms completion
+    /// or fails. Automatic recovery may finish after its coordinated write as before.
+    func refreshFromiCloud(isInitial: Bool = false, waitForUpload: Bool = false) async {
+        // A second tap / foreground refresh must not end the first sync's spinner early.
+        guard !isSyncingiCloud else { return }
         isSyncingiCloud = true
         defer { isSyncingiCloud = false }
+        lastiCloudSyncMessage = nil
+
+        if waitForUpload {
+            // Commit unsaved local edits before selecting the remote/local winner.
+            await store.persistAndFlush(state)
+            guard store.lastPersistenceError == nil else {
+                reportICloudSyncFailure("No se pudo guardar la copia local.")
+                return
+            }
+        }
+
         await store.refreshICloudStatusAsync()
         iCloudStatus = store.iCloudStatus
         syncPhase = .awaitingRemote
 
         guard iCloudStatus == .available else {
             allowRemoteUpload = iCloudStatus != .temporarilyUnavailable
-            syncPhase = iCloudStatus == .signedOut ? .offline : .offline
+            syncPhase = .offline
             lastiCloudSyncMessage = iCloudStatus == .signedOut
                 ? "Inicia sesión en iCloud"
                 : "iCloud no disponible aún"
@@ -429,7 +444,22 @@ final class ReperaStore: NSObject {
             return
         }
 
-        let outcome = await store.recoverFromiCloud(local: state)
+        var outcome = await store.recoverFromiCloud(local: state)
+        if waitForUpload {
+            // A manual request must wait for a pending iCloud download instead of saying
+            // the sync finished while the remote document is still a stub.
+            for _ in 0..<20 {
+                guard case .waitingForDownload = outcome else { break }
+                do {
+                    try await Task.sleep(nanoseconds: 500_000_000)
+                } catch {
+                    reportICloudSyncFailure("Sincronización interrumpida.")
+                    return
+                }
+                outcome = await store.recoverFromiCloud(local: state)
+            }
+        }
+
         syncPhase = store.syncPhase
         iCloudStatus = store.iCloudStatus
 
@@ -439,7 +469,15 @@ final class ReperaStore: NSObject {
             stripSeededDemoPlanIfNeeded()
             _ = enrichCatalogMetadata()
             // Metadata merges stay local until the next user edit bumps revision.
-            store.persistLocal(state, immediate: true)
+            if waitForUpload {
+                await store.persistAndFlush(state)
+                guard store.lastPersistenceError == nil else {
+                    reportICloudSyncFailure("No se pudo guardar la copia recuperada.")
+                    return
+                }
+            } else {
+                store.persistLocal(state, immediate: true)
+            }
             catalogEpoch &+= 1
             workoutsEpoch &+= 1
             publishSessionChrome()
@@ -448,7 +486,11 @@ final class ReperaStore: NSObject {
         case .keptLocal(let shouldUpload):
             allowRemoteUpload = true
             if shouldUpload {
-                await store.pushToiCloudIfSafe(state)
+                let didUpload = await store.pushToiCloudIfSafe(state, waitForUpload: waitForUpload)
+                guard didUpload else {
+                    reportICloudSyncFailure("No se pudo completar la copia en iCloud.")
+                    return
+                }
                 lastiCloudSyncMessage = "Copia en iCloud actualizada"
             } else {
                 lastiCloudSyncMessage = "Usando copia local"
@@ -456,15 +498,21 @@ final class ReperaStore: NSObject {
         case .noRemoteDocument:
             // True first install (or empty container): safe to upload local seed/catalog.
             allowRemoteUpload = true
-            await store.pushToiCloudIfSafe(state)
+            let didUpload = await store.pushToiCloudIfSafe(state, waitForUpload: waitForUpload)
+            guard didUpload else {
+                reportICloudSyncFailure("No se pudo completar la copia en iCloud.")
+                return
+            }
             lastiCloudSyncMessage = isInitial
                 ? "Primera copia subida a iCloud"
                 : "Copia en iCloud actualizada"
             syncPhase = .ready
         case .waitingForDownload:
             allowRemoteUpload = false
-            lastiCloudSyncMessage = "Descargando datos de iCloud…"
-            syncPhase = .awaitingRemote
+            lastiCloudSyncMessage = waitForUpload
+                ? "iCloud sigue descargando los datos. Vuelve a intentarlo."
+                : "Descargando datos de iCloud…"
+            syncPhase = waitForUpload ? .failed(lastiCloudSyncMessage!) : .awaitingRemote
             if isInitial {
                 scheduleCloudDownloadRetry()
             }
@@ -480,6 +528,26 @@ final class ReperaStore: NSObject {
                 ? "Inicia sesión en iCloud"
                 : "iCloud no disponible aún"
         }
+    }
+
+    private func reportICloudSyncFailure(_ fallback: String) {
+        let message: String
+        switch store.lastPersistenceError {
+        case .cloudUploadPending:
+            message = "La copia sigue pendiente de subida a iCloud. Reinténtalo cuando tengas conexión."
+        case .cloudNotReady:
+            message = "iCloud sigue descargando datos. No se ha sobrescrito la copia remota."
+        case .cloudUnavailable:
+            message = "iCloud no está disponible."
+        case .writeFailed, .encodeFailed, .decodeFailed:
+            message = fallback
+        case .corruptDocument:
+            message = "La copia de iCloud no se puede leer."
+        case nil:
+            message = fallback
+        }
+        lastiCloudSyncMessage = message
+        syncPhase = .failed(message)
     }
 
     /// Borra entrenos, rutinas y peso; mantiene el catálogo de ejercicios.
