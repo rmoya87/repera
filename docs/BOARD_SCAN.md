@@ -1,6 +1,6 @@
 # Escáner de pizarra / TV
 
-Última actualización: 2026-10-19 (bundle `com.app.repera`)
+Última actualización: 2026-10-19 (lectura de pizarra en tres bloques, iOS 27)
 
 ## Objetivo
 
@@ -15,29 +15,24 @@ Entrada cámara/galería: modal `BoardScanSourceSheet`. Flujo anti-cuelgue:
 
 Causa del cuelgue: `BoardImportParser` + concurrencia (GCD/Thread/semáforo) no reanudaban la continuation en dispositivo. El lite parser con la pizarra de prueba produce 3 bloques en <1 ms.
 
-## Pipeline
+## Pipeline actual en la app
 
 ```
 UIImage
-  → BoardTextRecognizer (Vision OCR)
-  → BoardImportPipeline
-       ├─ 1) BoardImportParser local; si ≥2 bloques con movimientos → **skip IA**
-       ├─ 2) BoardAIImporter (Foundation Models) si hace falta y hay AI
-       └─ 3) Fallback localRules
-  → LoadSuggestion.applyPercentLoads (% → kg vía e1RM)
-  → deriveEmomRoundsIfNeeded (EMOM/circuito)
-  → BoardImportReviewView (cards + thumbs = SessionPreview)
-  → Editar (DayEditorView sobre draft) opcional
-  → ReperaStore.saveBoardToDay / startSessionFromBoard
-  → SessionController.from → plannedSets por formato
+  → BoardTextRecognizer (Vision OCR ES+EN)
+  → BoardImportPipeline.interpretSync
+  → BoardScanLiteParser (lineal: cabeceras → series/movimientos → catálogo)
+  → BoardImportReviewView (editar/guardar/empezar)
 ```
 
-| Fuente | Cuándo | Coste |
-|--------|--------|--------|
-| `localRules` | Parser fuerte (≥2 bloques) o IA no disponible / fallo | Gratis siempre |
-| `appleIntelligence` | Parser débil y `SystemLanguageModel` disponible | Gratis on-device |
+La ruta activa **no** ejecuta `BoardImportParser.parseBlocks` ni Foundation Models: es intencional para evitar bloqueos observados en iPhone. `BoardImportParser` sigue disponible para reglas completas y tests de dominio, pero no se usa en el flujo de cámara.
 
-La fuente queda en el log (`interpret.done`); la UI de revisión solo muestra los bloques.
+Regresión del 19/10/2026: pizarra con tres bloques:
+1. `EMOM 8’ @6-8`: 8 minutos, 2 High Hang Squat Snatch por estación; intensidad original conservada.
+2. `EVERY 2’ X 4` + `4-3-3-2 BACK SQUAT @6-8`: **bloque de fuerza** con series 4, 3, 3 y 2; la cadencia y el RPE quedan en notas, nunca convertidos arbitrariamente en RIR.
+3. `4 RFT (TC 12’)`: 4 rondas, cap 12 min, 6 Power Snatch 40/25, 8 BOB (Bar facing burpee), 10 Back Rack Reverse Lunges 40/25 y descanso de 60 s.
+
+El catálogo resuelve abreviaturas en inglés y español. Una variante no encontrada no debe descartarse: se conserva como movimiento WOD editable. El emparejamiento local utiliza mapa indexado de nombres/canónicos, no comparación difusa por ejercicio; si se añaden nuevos alias, actualizarlos en `CrossFitGlossary`. En fuerza, se asigna `targetRir` **solo** cuando se identifica explícitamente `@RIR N`; `@6-8` no significa RIR y se mantiene como nota.
 
 ## OCR (`BoardTextRecognizer`)
 
@@ -51,10 +46,10 @@ Reglas + glosario CrossFit (`CrossFitGlossary`).
 Soporta entre otros:
 
 - Secciones: Weightlifting / Metcon / Strength / … fusionadas con el formato siguiente.
-- Formatos: EMOM, Every 90s For 12min, EVERY 2'×N, E2MOM, AMRAP, For Time (Nmin Cap), RFT, ladder, partner, tabata, chipper…
+- El parser de dominio admite formatos adicionales (EMOM, E2MOM, AMRAP, RFT, ladder, etc.). El escáner activo usa un subconjunto tipado y seguro: EMOM, AMRAP, Every × N como fuerza, RFT/For Time y Tabata; formatos no detectados se conservan como movimientos de fuerza.
 - Movimientos (`CrossFitGlossary.parseMovementLine`): `10 toes to bar` → reps=10 + Toes to bar; `200M RUN` / `200m cinta/carrera` → 200 m + Cinta/carrera; `5 DDB DEVIL PRESS 20/12,5` → reps + Devil press + nota «Doble mancuerna» + kg M/F.
 - Equipo en nota (no en el nombre): DDB/SDB/DKB/SKB/DB/KB/BB (glosarios CrossFit habituales).
-- También: cal, `#40/25kg`, `%` 1RM, `Sets 1-2:…`, complejos `+`, rest, Round N.
+- El parser completo soporta además `%` 1RM, complejos `+`, Sets y demás reglas; no atribuir esas capacidades a la ruta lite sin pruebas de integración.
 - Multi-bloque en una sola captura.
 - **Ejercicios sueltos** (sin cabecera) → bloque de fuerza antes del siguiente WOD.
 - **EMOM multi-estación:** si la cabecera no fija `rounds`, se deriva `vueltas = intervalos_reloj ÷ estaciones` (rest cuenta como estación). Ej. EMOM 12' + 3 estaciones → 4 vueltas. El reloj sigue usando el time cap (12 intervalos de 60s), no las vueltas.
