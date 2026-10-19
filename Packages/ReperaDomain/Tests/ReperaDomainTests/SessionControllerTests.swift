@@ -117,7 +117,10 @@ final class SessionControllerTests: XCTestCase {
         let routine = Routine(title: "T", blocks: [rft, chipper])
         let session = SessionController.from(routine: routine, exercises: [])
         XCTAssertEqual(session.exercises.first { $0.exercise.name == "Burpee" }?.plannedSets.count, 4)
-        XCTAssertEqual(session.exercises.first { $0.exercise.name == "Run" }?.plannedSets.count, 1)
+        // Run se normaliza al nombre canónico del catálogo en español.
+        XCTAssertEqual(session.exercises.first {
+            $0.exercise.name == CrossFitGlossary.canonicalName(for: "Run")
+        }?.plannedSets.count, 1)
     }
 
     func testWaveSchemeNotMultipliedAgain() {
