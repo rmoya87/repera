@@ -95,6 +95,38 @@ struct BoardImportParserTests {
         #expect(blocks[2].movements.last?.scaleAlternative != nil)
     }
 
+    @Test func recognizesReperaScreenshotMovements() {
+        let catalog = Catalog.seed()
+        let blocks = BoardImportParser.parseBlocks(
+            ocrText: """
+            EMOM 8’ @6-8
+            2 HIGH HSQ SNATCH
+
+            EVERY 2’ X 4
+            4-3-3-2 BACK SQUAT @6-8
+
+            4 RFT (TC 12’)
+            6 POWER SNATCH 40/25
+            8 BOB
+            10 BACK RACK R. LUNGES 40/25
+            1’ REST
+            """,
+            catalog: catalog
+        )
+        #expect(blocks.count == 3)
+        #expect(blocks[0].movements.first?.name == "Arrancada colgante completa")
+        #expect(blocks[1].movements.first?.repScheme == [4, 3, 3, 2])
+        #expect(blocks[1].movements.first?.name == "Sentadilla")
+        #expect(blocks[2].rounds == 4)
+        #expect(blocks[2].timeCapMinutes == 12)
+        #expect(blocks[2].movements.count == 4)
+        #expect(blocks[2].movements[2].name == "Zancadas inversas con barra")
+        #expect(blocks[2].movements[2].exerciseId != nil)
+        #expect(blocks[2].movements[2].weightMaleKg == 40)
+        #expect(blocks[2].movements[2].weightFemaleKg == 25)
+        #expect(blocks[2].movements[3].restSeconds == 60)
+    }
+
     @Test func glossaryExpandsDU() {
         let expanded = CrossFitGlossary.expand("50 DU")
         #expect(expanded.lowercased().contains("doble") || expanded.lowercased().contains("comba"))

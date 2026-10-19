@@ -42,9 +42,11 @@ struct PaywallView: View {
             .toolbar {
                 if mode == .sheet {
                     ToolbarItem(placement: .topBarTrailing) {
-                        CloseToolbarButton {
+                        // La toolbar nativa aporta su propio contenedor glass.
+                        // Evita dibujar un segundo círculo alrededor de la X.
+                        CloseToolbarButton(action: {
                             subscriptions.dismissPaywall()
-                        }
+                        }, large: false)
                     }
                 }
             }

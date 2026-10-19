@@ -17,6 +17,7 @@ final class StoreKitEntitlementProvider: EntitlementProviding, @unchecked Sendab
     }
 
     func purchase(productID: String) async throws -> CommercialSnapshot {
+        guard productIDs.contains(productID) else { throw EntitlementError.productUnavailable }
         let products = try await Product.products(for: [productID])
         guard let product = products.first else {
             throw EntitlementError.productUnavailable

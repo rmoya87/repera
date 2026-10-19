@@ -21,7 +21,7 @@
 - Plan semanal por weekday.
 - Edición de rutinas / bloques (fuerza + WOD): modal con **check** (swipe para cerrar); desde Entreno → Editar, **volver** (sin X) + check.
 - **Elegir WOD**: catálogo seed de benchmarks conocidos (`CatalogWODs`: Fran, Cindy, Murph…). Detalle con miniaturas de movimientos, tiempo típico y músculos → Usar.
-- **Crear WOD**: formato vacío (AMRAP, EMOM, RFT…) como antes.
+- **Crear WOD**: formato vacío (AMRAP, EMOM, RFT…) en página push con volver arriba y título large debajo; también los selectores de ejercicio/movimiento y la creación de movimiento libre son páginas push.
 - Día → asignar rutina: sin X; selección con check blanco en círculo verde.
 - Favoritos de rutinas.
 - Overrides de día.
@@ -33,7 +33,7 @@
 - Título arriba (`ogFixedTopBar`), sin franja vacía encima.
 - **Crear mi entreno**: sesión completa (bloques, WOD, pizarra). No asigna día del plan (solo Diario).
 - **Apuntar series** (log rápido): picker → modal de series (`QuickLogSheet`) → guardar (≠ Crear completo).
-- Pickers de ejercicio (`ExerciseCatalogSearchList`): índice/ranking off-main (mismo enfoque que Biblioteca); sin historial Sync en cada fila; prefetch de thumbs solo ventana visible.
+- Pickers de ejercicio (`ExerciseCatalogSearchList`): búsqueda bilingüe ES/EN, nombres alternativos y abreviaturas CrossFit; índice/ranking off-main, prefetch de miniaturas solo de la ventana visible. El cargador encuentra JPG incluso si Xcode los copia a la raíz del bundle.
 - Favoritos, timer standalone.
 - Cámara / galería → escáner de pizarra → página **Añadir entreno** (cards/thumbs) → toolbar **Guardar** / **Empezar** (iconos). Detalle en `docs/BOARD_SCAN.md`.
 

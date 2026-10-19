@@ -82,6 +82,7 @@ public enum CatalogSpanish {
         "Sentadilla frontal": "Sentadilla frontal: barra en rack frontal, torso vertical; énfasis en cuádriceps.",
         "Prensa": "Prensa de piernas: empujas la plataforma. Cuádriceps y glúteos con trayectoria guiada.",
         "Zancadas": "Zancadas: paso adelante o caminando; trabajo unilateral de piernas y estabilidad.",
+        "Zancadas inversas con barra": "Zancada hacia atrás con barra apoyada en la parte alta de la espalda, manteniendo tronco estable.",
         "Extensión de cuádriceps": "Extensión de cuádriceps en máquina: aísla la cara anterior del muslo.",
         "Curl femoral": "Curl femoral en máquina: flexión de rodilla para isquiotibiales.",
         "Elevación de gemelos": "Elevación de gemelos de pie o en máquina: extensión de tobillo.",
@@ -1373,6 +1374,15 @@ public enum CatalogSpanish {
             "Sube sin perder el bloqueo; termina de pie con control.",
             "Error típico: barra que se adelanta por falta de movilidad o core flojo.",
             "Usa stick/barra ligera hasta que el fondo sea estable.",
+        ],
+        "Zancadas inversas con barra": [
+            "Coloca la barra sobre la espalda alta, como en una sentadilla trasera, con el abdomen firme y los hombros estables.",
+            "Desde la posición de pie, da un paso hacia atrás suficientemente largo para bajar sin perder el equilibrio ni inclinar el tronco.",
+            "Flexiona ambas rodillas con control hasta acercar la rodilla trasera al suelo, conservando el apoyo completo del pie delantero.",
+            "Empuja el suelo con la pierna delantera para volver a la posición inicial; alterna piernas si así lo indica el entrenamiento.",
+            "Inhala al preparar cada repetición y exhala al incorporarte; evita que la rodilla delantera se desplace hacia dentro.",
+            "Error típico: confundir esta zancada inversa con la caminando o con front rack; la barra permanece detrás del cuello.",
+            "Estándar: extensión completa al subir, control del tronco y profundidad equivalente en ambas piernas; reduce la carga si no lo mantienes.",
         ],
         "Front rack lunge": [
             "Barra en rack frontal, codos altos; da un paso y baja a zancada (rodilla trasera cerca del suelo).",

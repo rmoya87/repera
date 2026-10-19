@@ -458,6 +458,7 @@ struct DayEditorView: View {
     var usesPageCloseHeader: Bool = false
     @State private var pickExerciseForBlock: UUID?
     @State private var pickMovementForBlock: UUID?
+    @State private var createFreeMovementForBlock: UUID?
     @State private var showRoutinePicker = false
     @State private var showWODCatalog = false
     @State private var showCreateWODFormat = false
@@ -601,12 +602,10 @@ struct DayEditorView: View {
             confirmTitle: confirmTitle,
             onConfirm: confirm
         ))
-        .sheet(item: Binding(
-            get: { pickExerciseForBlock.map { IDBox(id: $0) } },
-            set: { pickExerciseForBlock = $0?.id }
-        )) { box in
-            ExercisePickerView { exercise in
-                if let idx = routine.blocks.firstIndex(where: { $0.id == box.id }) {
+        // Pickers de creación: push nativo horizontal con volver en topbar.
+        .navigationDestination(item: $pickExerciseForBlock) { blockID in
+            ExercisePickerView(embedsNavigationStack: false) { exercise in
+                if let idx = routine.blocks.firstIndex(where: { $0.id == blockID }) {
                     let sets = (0..<3).map { _ in PlannedSet(targetReps: 8, targetWeightKg: nil) }
                     routine.blocks[idx].exercises.append(
                         RoutineExercise(exerciseId: exercise.id, plannedSets: sets)
@@ -615,17 +614,22 @@ struct DayEditorView: View {
                 pickExerciseForBlock = nil
             }
         }
-        .sheet(item: Binding(
-            get: { pickMovementForBlock.map { IDBox(id: $0) } },
-            set: { pickMovementForBlock = $0?.id }
-        )) { box in
-            ExercisePickerView { exercise in
-                if let idx = routine.blocks.firstIndex(where: { $0.id == box.id }) {
+        .navigationDestination(item: $pickMovementForBlock) { blockID in
+            ExercisePickerView(embedsNavigationStack: false) { exercise in
+                if let idx = routine.blocks.firstIndex(where: { $0.id == blockID }) {
                     routine.blocks[idx].movements.append(
                         WODMovement(exerciseId: exercise.id, name: exercise.name, reps: 10)
                     )
                 }
                 pickMovementForBlock = nil
+            }
+        }
+        .navigationDestination(item: $createFreeMovementForBlock) { blockID in
+            FreeWODMovementCreatePage { movement in
+                if let idx = routine.blocks.firstIndex(where: { $0.id == blockID }) {
+                    routine.blocks[idx].movements.append(movement)
+                }
+                createFreeMovementForBlock = nil
             }
         }
         .sheet(isPresented: $showRoutinePicker) {
@@ -638,8 +642,8 @@ struct DayEditorView: View {
                 onCancel: { showRoutinePicker = false }
             )
         }
-        .sheet(isPresented: $showWODCatalog) {
-            WODCatalogPickerView { template in
+        .navigationDestination(isPresented: $showWODCatalog) {
+            WODCatalogPickerView(embedsNavigationStack: false) { template in
                 routine.blocks.append(template.makeBlock())
                 if routine.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     || routine.title == "Entreno"
@@ -649,13 +653,11 @@ struct DayEditorView: View {
                 showWODCatalog = false
             }
         }
-        .confirmationDialog("Formato del WOD", isPresented: $showCreateWODFormat, titleVisibility: .visible) {
-            ForEach(WODFormat.allCases, id: \.self) { format in
-                Button(format.displayName) {
-                    routine.blocks.append(.wod(format: format))
-                }
+        .navigationDestination(isPresented: $showCreateWODFormat) {
+            WODFormatPickerPage { format in
+                routine.blocks.append(.wod(format: format))
+                showCreateWODFormat = false
             }
-            Button("Cancelar", role: .cancel) {}
         }
     }
 
@@ -829,8 +831,6 @@ struct DayEditorView: View {
             ?? subscriptions.canCreateLibraryRoutine(isNew: true)
         subscriptions.presentPaywall(decision.paywallContext, feature: .unlimitedRoutines)
     }
-
-    private struct IDBox: Identifiable { var id: UUID }
 
     @ViewBuilder
     private func strengthBlock(index: Int) -> some View {
@@ -1047,9 +1047,7 @@ struct DayEditorView: View {
             )
         }
         Button("Añadir movimiento libre") {
-            routine.blocks[index].movements.append(
-                WODMovement(name: "Movimiento", reps: 10)
-            )
+            createFreeMovementForBlock = routine.blocks[index].id
         }
 
         TextField("Notas / texto del WOD", text: Binding(
@@ -1683,25 +1681,114 @@ private struct PlannedSetConfigRow: View {
 struct ExercisePickerView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    var embedsNavigationStack = true
     var onPick: (Exercise) -> Void
 
     var body: some View {
-        NavigationStack {
-            ExerciseCatalogSearchList(
-                exercises: store.state.exercises,
-                prompt: "Buscar ejercicio"
-            ) { exercise in
-                onPick(exercise)
-                dismiss()
+        Group {
+            if embedsNavigationStack {
+                NavigationStack { pickerContent }
+            } else {
+                pickerContent
             }
-            .ogPinnedTransparentNav("Ejercicio")
-            .toolbar {
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private var pickerContent: some View {
+        ExerciseCatalogSearchList(
+            exercises: store.state.exercises,
+            prompt: "Buscar ejercicio"
+        ) { exercise in
+            onPick(exercise)
+            if embedsNavigationStack { dismiss() }
+        }
+        .ogPinnedTransparentNav("Elegir ejercicio")
+        .toolbar {
+            if embedsNavigationStack {
                 ToolbarItem(placement: .topBarLeading) {
                     CloseToolbarButton(action: { dismiss() }, large: false)
                 }
             }
         }
-        .preferredColorScheme(.dark)
+    }
+}
+
+/// Alta de un movimiento libre como página push; se valida antes de añadirlo.
+private struct FreeWODMovementCreatePage: View {
+    @Environment(\.dismiss) private var dismiss
+    var onCreate: (WODMovement) -> Void
+
+    @State private var name = ""
+    @State private var repsText = "10"
+    @State private var maleWeightText = ""
+    @State private var femaleWeightText = ""
+
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var body: some View {
+        Form {
+            Section("Movimiento") {
+                TextField("Nombre", text: $name)
+                    .textInputAutocapitalization(.words)
+                    .autocorrectionDisabled()
+                TextField("Repeticiones", text: $repsText)
+                    .keyboardType(.numberPad)
+            }
+            Section("Carga opcional · kg") {
+                TextField("Carga masculina", text: $maleWeightText)
+                    .keyboardType(.decimalPad)
+                TextField("Carga femenina", text: $femaleWeightText)
+                    .keyboardType(.decimalPad)
+            }
+        }
+        .ogListChrome()
+        .ogPinnedTransparentNav("Nuevo movimiento")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Añadir") {
+                    guard let reps = Int(repsText), reps > 0 else { return }
+                    let movement = WODMovement(
+                        name: trimmedName,
+                        reps: reps,
+                        weightMaleKg: Double(maleWeightText.replacingOccurrences(of: ",", with: ".")),
+                        weightFemaleKg: Double(femaleWeightText.replacingOccurrences(of: ",", with: "."))
+                    )
+                    onCreate(movement)
+                    dismiss()
+                }
+                .disabled(trimmedName.isEmpty || (Int(repsText) ?? 0) <= 0)
+            }
+        }
+    }
+}
+
+/// Selección del formato como subpágina, nunca confirmationDialog.
+private struct WODFormatPickerPage: View {
+    var onPick: (WODFormat) -> Void
+
+    var body: some View {
+        List {
+            ForEach(WODFormat.allCases, id: \.self) { format in
+                Button {
+                    onPick(format)
+                } label: {
+                    HStack {
+                        Text(format.displayName)
+                            .foregroundStyle(OG.label)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(OG.label3)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .ogListChrome()
+        .ogPinnedTransparentNav("Tipo de WOD")
     }
 }
 

@@ -51,19 +51,19 @@ Al perder Pro: **no se borran** rutinas, ejercicios ni entrenos; solo se bloquea
 
 | Qué | Valor |
 |-----|--------|
-| Producto mensual | `repera_pro_monthly` |
-| Producto anual | `repera_pro_annual` |
+| Producto mensual | `com.app.repera.premium.monthly` (Apple ID `6824535885`) |
+| Producto anual | `com.app.repera.premium.yearly` (Apple ID `6824536935`) |
 | Entitlement RevenueCat | `pro` |
 | Offering | `default` |
 | Bundle iOS | `com.app.repera` |
 
-Precios UI: **siempre** desde App Store Connect vía StoreKit (`Product.displayPrice`) o RevenueCat (que lee el mismo catálogo). Sin importes hardcodeados en producción. Si falta `RevenueCatPublicAPIKey`, `StoreKitEntitlementProvider` consulta StoreKit directamente (scheme con `ReperaProducts.storekit` o sandbox ASC). Objetivos ES: 5,99 €/mes · 39,99 €/año · intro anual 29,99 € (si Apple la ofrece) · trial 14 días vía oferta introductoria real.
+Primera suscripción renovable: Apple exige enviarla con una versión nueva de la app a revisión. Los productos deben tener metadatos/precios/comercialización configurados y el contrato de aplicaciones de pago activo. En TestFlight las compras usan sandbox; el archivo `.storekit` solo sirve para pruebas locales de Xcode, y sus precios/ofertas no acreditan los definidos en ASC.\n\nPrecios UI: **siempre** desde App Store Connect vía StoreKit (`Product.displayPrice`) o RevenueCat (que lee el mismo catálogo). Sin importes hardcodeados en producción. Si falta `RevenueCatPublicAPIKey`, `StoreKitEntitlementProvider` consulta StoreKit directamente (scheme con `ReperaProducts.storekit` o sandbox ASC). Objetivos ES: 5,99 €/mes · 39,99 €/año · intro anual 29,99 € (si Apple la ofrece) · trial 14 días vía oferta introductoria real.
 
 ## 4. RevenueCat
 
 - SPM: `https://github.com/RevenueCat/purchases-ios-spm` (producto `RevenueCat`), declarado en `project.yml`.
 - Clave pública: Info.plist / XcodeGen `RevenueCatPublicAPIKey` (`appl_…`).
-- Sin clave válida: la app compila, permanece en Gratis, no compra productos ficticios, paywall muestra «compras no disponibles».
+- Sin clave RevenueCat válida, la app utiliza directamente StoreKit 2 y puede comprar los productos reales de App Store Connect. Si Apple no devuelve productos, el paywall informa de la indisponibilidad; nunca simula una compra ni concede Pro por pulsar un botón.
 - Debug: sección «Debug Pro» en Ajustes (solo `#if DEBUG`) + `DebugEntitlementProvider`.
 
 ## 5–8. App Store Connect / productos / entitlement / offerings
@@ -85,7 +85,7 @@ Solo la oferta introductoria de Apple. No hay contador local de 14 días. Si el 
 
 ## 10. Restaurar / gestionar
 
-- Paywall y Ajustes → «Restaurar compras» (`Purchases.restorePurchases`).
+- Paywall y Ajustes → «Restaurar compras» (`AppStore.sync()` con StoreKit 2, o `Purchases.restorePurchases()` si RevenueCat está configurado).
 - «Gestionar suscripción» → `https://apps.apple.com/account/subscriptions`.
 
 ## 11. Offline

@@ -512,6 +512,8 @@ enum ExerciseArt {
         "Prensa": "art_prensa",
         "Extensión de cuádriceps": "art_extension_cuad",
         "Zancadas": "art_zancadas",
+        // Fallback provisional del patrón de zancada hasta tener arte específico con barra.
+        "Zancadas inversas con barra": "art_zancadas",
         "Sentadilla búlgara": "art_bulgara",
         "Paso lateral con banda": "art_paso_banda",
         "Elevación de gemelos": "art_gemelos",
