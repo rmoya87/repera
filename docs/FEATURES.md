@@ -45,9 +45,9 @@
 ### Center (`CenterView`)
 
 - Pestaña nativa dedicada a centros y reservas, con selector **Clases · Citas**.
-- **Clases**: calendario grupal, plazas, reservas, lista de espera y saldo aplicable al gimnasio (pendiente de conexión).
-- **Citas**: agenda de disponibilidad para reservar sesiones **individuales** con entrenadores personales (pendiente de conexión); contrato, bono y reglas independientes de los de clases grupales.
-- **Estado real actual:** sin integración de sesiones Supabase en iOS ni tablas de clases/bonos desplegadas; no se inventan horarios ni cuotas.
+- **Clases**: horarios grupales, saldo de bono, reservas/cancelaciones por RPC segura cuando existe sesión Supabase. Lista de espera aún pendiente.
+- **Citas**: horarios de sesiones individuales ofrecidas por entrenadores, reservas/cancelaciones y bono independiente del de clases; pendiente validación real iOS/Apple Auth.
+- **Estado real actual:** seis migraciones Supabase desplegadas; consulta iOS nativa desde `BusinessDataStore` implementada pero sin validación compilada/Apple OAuth E2E. No muestra horarios ni cuotas ficticios.
 - Los centros vinculados, plazas, reservas confirmadas/espera y saldos se integrarán en esta vista cuando existan los endpoints autenticados y controles RLS.
 - Las **clases y citas individuales confirmadas** deberán reflejarse también en **Inicio** al completar la integración. No está operativo todavía.
 
@@ -133,7 +133,7 @@
 
 ## Ajustes: centros, entrenadores y contratos
 
-- Secciones nativas de **Mis centros y entrenadores** y **Servicios contratados**: muestran explícitamente «Sin sincronizar» hasta conectar Sign in with Apple a Supabase y crear los contratos compartidos. Nunca presentan saldos simulados.
+- Secciones nativas de **Mis centros y entrenadores** y **Servicios contratados**: consultan organizaciones vinculadas y bonos de cortesía reales cuando hay sesión Supabase; sin sesión, muestran un estado sin datos. El plan Repera Pro es independiente; los contratos de pago todavía no están implementados.
 - Repera Pro (Apple/RevenueCat) sigue independiente del bono/cuota pagado al gimnasio o entrenador.
 
 ## Onboarding (primer acceso y usuarios existentes)

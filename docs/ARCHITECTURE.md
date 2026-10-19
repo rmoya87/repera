@@ -188,9 +188,9 @@ Guía manual: [TESTING_GUIDE.md](TESTING_GUIDE.md).
 
 ## Plataforma profesional (desarrollo separado dentro del monorepo)
 
-- Primera migración Supabase del proyecto Repera aplicada con perfiles, organizaciones y RLS. No está integrada con el flujo actual Sign in with Apple ni con iCloud.
+- Seis migraciones Supabase en el proyecto Repera: identidad, relaciones consentidas, bonos, reservas y sesiones profesionales, con RLS. El puente nativo Apple está escrito y pendiente de validar en dispositivo y proveedor Supabase; no hay intercambio de historial deportivo con iCloud.
 - Plan, estado y pruebas: [docs/business/PLAN_MAESTRO.md](business/PLAN_MAESTRO.md), [docs/business/ESTADO_DESARROLLO.md](business/ESTADO_DESARROLLO.md), [docs/business/SEGURIDAD.md](business/SEGURIDAD.md).
-- El panel profesional web y Android nativo permanecen pendientes; el sitio `web/` continúa siendo **marketing** y sus ficheros de IONOS no se han cambiado.
+- El panel profesional autenticado vive en `web/console`, con algunas operaciones reales y otras pendientes; el sitio `web/` de IONOS sigue siendo **marketing** y su empaquetado no incluye la consola. Android nativo no está implementado.
 
 ## No vive aquí todavía
 

@@ -28,8 +28,8 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 | Área | Incluye |
 |------|---------|
 | **Inicio** | Semana/día, métricas Salud, entrenos + externos, avatar→Ajustes, planificar / pizarra |
-| **Diario** | Vista de planificación del entrenador (sin sincronización todavía) + planificación personal/rutinas conservadas |
-| **Center** | Selector Clases/Citas personales con estados vacíos reales; reservas todavía no conectadas |
+| **Diario** | Sesiones profesionales fechadas consultadas desde Supabase + planificación personal/rutinas conservadas; ejecución estructurada pendiente |
+| **Center** | Selector Clases/Citas con lectura de horarios reales, reservas y cancelaciones mediante Supabase cuando haya sesión y bono disponible; E2E pendiente |
 | **Crear desde Inicio** | Botón +: entreno libre, **Apuntar series**, favoritos, timer, foto pizarra/TV (sin pestaña propia) |
 | **Progreso** | Gratis: esta semana + teaser; Pro: periodos, deltas, cardio/kcal/peso, heatmap, equilibrio |
 | **Ejercicios** | Biblioteca + ficha; evolución completa = Pro (Gratis: última sesión + PR) |
@@ -79,7 +79,7 @@ Cold start: Splash nativo y pantalla de espera usan la misma UIImageView UIKit e
 ## No integrados aún en las apps
 
 - Android nativo: planificado, no implementado.
-- Backend Supabase de Repera: dos migraciones seguras aplicadas (identidad/organizaciones/clientes; 10 tablas con RLS). El panel profesional ya dispone de acceso con correo, gestión básica de empresas y fichas; **faltan login Apple↔Supabase iOS, contratos, reservas, planificaciones y pagos reales**. Ver [docs/business/ESTADO_DESARROLLO.md](docs/business/ESTADO_DESARROLLO.md).
+- Backend Supabase de Repera: **seis migraciones aplicadas, 16 tablas públicas y RLS en las 16**, sin usuarios reales dados de alta. Panel profesional conectado a invitaciones, horarios, bonos de cortesía y entrenamientos fechados. iOS incluye puente Apple→Supabase y lectura de Center/Diario/Inicio/Ajustes, **pendiente compilar y validar con proveedor Apple y cuentas reales**. No hay Stripe, facturación, bonos de pago ni listas de espera. Ver [docs/business/ESTADO_DESARROLLO.md](docs/business/ESTADO_DESARROLLO.md).
 - Coach / tips con IA (sí hay Foundation Models on-device para pizarra)
 - SDK RevenueCat en Apple Watch
 

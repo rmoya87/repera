@@ -4,7 +4,7 @@
 ## IMPLEMENTADO (verificado en Supabase Repera)
 - Proyecto `uvzgujlrqohreoucirms` conectado y sano; PostgreSQL 17.
 - Primera migración real: `20261019190623_business_foundation_secure` (registro en `supabase_migrations.schema_migrations`).
-- Tablas públicas: profiles, organizations, organization_memberships, exercises, routines, routine_exercises, workouts, workout_sets, clients y staff_client_assignments. RLS activado en las **diez**.
+- Tablas públicas implantadas: **16**, todas con RLS. Incluyen identity/MVP personal, clientes, invitaciones, sesiones/bonos/reservas y planes de entrenamiento profesionales.
 - Trigger de perfil con usuario de Auth; trigger para incorporar propietario al crear una organización.
 - Acceso de miembros y managers con helper privado y validación de sesión; rol global no modificable por cliente.
 - Primer smoke test transaccional RLS superado: dos usuarios de prueba, aislamiento y autorización negativa; ROLLBACK sin datos persistentes.
@@ -19,16 +19,16 @@
 
 ## CAMBIO DE EXPERIENCIA iOS (implementación parcial)
 - Barra nativa iOS: `Inicio · Diario · Center · Progreso · Ejercicios`; el hub «Crear» sigue accesible desde + de Inicio.
-- Diario abre en vista Entrenador (sin agenda remota simulada); planificación personal y rutinas quedan en pestañas secundarias del mismo Diario.
-- Center es una pantalla nativa con selector **Clases / Citas**, estados vacíos reales por modalidad y acceso a Ajustes; no muestra horarios ni permite reservar todavía.
-- Ajustes separa «Mis centros y entrenadores» y «Servicios contratados», ambos con estado Sin sincronizar; Repera Pro se mantiene independiente.
+- Diario abre en vista Entrenador (sesiones profesionales reales si existen, estado vacío si no); planificación personal y rutinas intactas en pestañas secundarias.
+- Center es pantalla nativa con selector Clases/Citas, consulta real del backend y botones de reserva/cancelación mediante RPC, sujetos a sesión Apple→Supabase y bono válido; integración iOS pendiente de pruebas en dispositivo.
+- Ajustes separa centros/entrenadores y bonos reales obtenidos del backend, con sesiones restantes y vencimiento; Repera Pro se mantiene independiente.
 - Contrato móvil de agenda ampliado con `appointment` y `repera://appointments/{id}` en Swift y Kotlin, con pruebas de contrato añadidas: Kotlin JVM 6 comprobaciones ejecutadas correctamente; sintaxis Swift del contrato verificada con swiftc -parse. La suite XCTest completa agotó el tiempo del entorno y permanece sin validar.
-- Pendiente: conectar Sign in with Apple con Supabase Auth y construir APIs de invitación/programación/clases/contratos, incorporarlas a Inicio/Diario/Center y mostrar saldos reales.
+- Pendiente: verificar en dispositivos el puente Sign in with Apple ↔ Supabase y flujos completos, añadir contratos de pago/facturación, ciclos de plan avanzados, lista de espera y notificaciones.
 - Compilación Xcode iOS 27, UI tests y TestFlight: **no ejecutadas desde el conector**; no marcar como probado.
 
 ## PROBADO
-- `list_tables`: 10 tablas RLS=true (dos migraciones de Repera, sin datos reales de cliente).
-- `list_migrations`: baseline `20261019190623` y migración de clientes `20261019193414` registradas.
+- `list_tables`: 16 tablas públicas, RLS=true en las 16. `list_migrations`: 6 versiones aplicadas en Supabase Repera.
+- `get_advisors(security)`: 0 advertencias después de desplegar las seis migraciones. Las funciones privilegiadas operan dentro de `private`, con wrappers públicos INVOKER.
 - `get_advisors(security)`: 0 lints al terminar.
 - SQL de comprobación: `rls_smoke_pass`, organizaciones persistentes de prueba = 0.
 - Estas pruebas NO constituyen auditoría integral ni validan la integración web/iOS.
@@ -41,7 +41,7 @@
 - `Repera-Business.command`: doble clic en Mac, Python 3, servidor loopback y apertura automática de la demo profesional (sin datos reales).
 - `Repera-iOS.command`: doble clic en Mac, comprueba Xcode/XcodeGen/SDK iOS 27, intenta compilar, instalar y arrancar la app en Simulator.
 - **Pruebas de ejecución**: sintaxis de ambos scripts verificada con `bash -n`; servidor del lanzador Business probado con HTTP en `127.0.0.1` y ruta demo correcta. Lanzador iOS pendiente de ejecutar en Mac con Xcode + SDK iOS 27; ninguno demuestra por sí solo que CI/builds nativos sean correctos.
-- **No merge a main**: servicios clave incompletos (Apple→Supabase, invitaciones, planes profesionales, reservas, citas, contratos/bonos, cobros) y 4 jobs de CI fallidos en el último commit comprobado.
+- **No merge a main**: funcionalidades esenciales sin validar E2E (Apple Auth, iOS, reserva real bajo concurrencia), pagos/facturación/lista de espera/planes avanzados pendientes y cuatro jobs CI fallidos.
 
 ## Vinculación consentida — backend y panel (2026-10-19)
 - Esquema incremental `20261019201141_business_org_invitations_consent` añade invitaciones por correo verificado y rol permitido (no owner), caducidad a 14 días, cancelación, protección multiempresa y aceptación explícita.
@@ -90,7 +90,7 @@
 - Invitaciones, membresía administrada transaccionalmente y consentimientos.
 - Asignaciones deportivas compartidas / versiones; reservas / aforo y créditos; Stripe.
 - Web profesional real, Android, deep links, push, observabilidad, e2e.
-- Agenda y reservas grupales o citas 1:1 reales del deportista en Inicio/Center, contratos/sesiones/caducidades reales en Ajustes: todavía NO integrados.
+- Agenda y reservas iOS codificadas para Supabase, pero **sin build ni prueba E2E**; siguen pendientes su validación, contratos comerciales pagados, emisiones automáticas tras pago, clases recurrentes y reglas configurables de cancelación.
 - CI específico de migraciones y pruebas RLS sobre una base limpia, comprobación por usuarios reales.
 - CI iOS heredado activado en PR #5: se observan fallos en varios checks del workflow; el conector no ha proporcionado pasos ni logs suficientes para atribuirlos al código o al entorno. No declarar CI superado.
 - Código fuente del prototipo Business v0.2 presente en `web/console/` y contratos Swift/Kotlin. El usuario informa 37 pruebas JS/2 Swift/3 Kotlin anteriores; los tests agregados después requieren nueva ejecución completa.

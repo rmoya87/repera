@@ -15,11 +15,11 @@ Monorepositorio rmoya87/repera. Backend exclusivo Supabase uvzgujlrqohreoucirms 
 |---|---|---|---|
 | 0 Auditoría | Repo, migraciones, Supabase, CI | PARCIAL | Revisar prototipo v0.2 adjunto cuando esté accesible |
 | 1 Identidad y seguridad | Auth, roles y RLS | PARCIAL | Autenticación real web/móvil, pruebas de aislamiento y ciclo de sesiones |
-| 2 Organizaciones | Clientes, entrenadores, invitaciones | PENDIENTE | Consentimiento explícito, revocación y operaciones transaccionales |
-| 3 Web profesional | Panel conectado y usable | PENDIENTE | Sin datos simulados en módulos declarados completos |
-| 4 Programación | Ejercicios, planes, grupos, versiones | PENDIENTE | Assign/revoke idempotente, contratos móviles comprobados |
-| 5 Clases | Reservas, aforo, espera, créditos | PENDIENTE | Última plaza y concurrencia verificadas |
-| 6 Móvil | iOS existente y Android nativo | PENDIENTE | Compatibilidad, deep links y modo offline |
+| 2 Organizaciones | Clientes, entrenadores, invitaciones | PARCIAL | Consentimiento explícito, revocación y operaciones transaccionales |
+| 3 Web profesional | Panel conectado y usable | PARCIAL | Sin datos simulados en módulos declarados completos |
+| 4 Programación | Ejercicios, planes, grupos, versiones | PARCIAL | Assign/revoke idempotente, contratos móviles comprobados |
+| 5 Clases | Reservas, aforo, espera, créditos | PARCIAL | Última plaza y concurrencia verificadas |
+| 6 Móvil | iOS existente y Android nativo | PARCIAL | Compatibilidad, deep links y modo offline |
 | 7 Notificaciones | Push y sincronización | PENDIENTE | Deep links exactos y deduplicación |
 | 8 Facturación | B2B/B2C y Stripe | PENDIENTE | Webhooks idempotentes, impuestos y conciliación |
 | 9 Admin | Repera operaciones | PENDIENTE | Trazas y permisos restringidos |
@@ -53,3 +53,13 @@ En la navegación del deportista: **Inicio / Diario / Center / Progreso / Ejerci
 - **Privacidad**: compartir reservas con el profesional/centro solo según vínculo autorizado. Nunca compartir historial local/HealthKit al confirmar una cita.
 
 **Estado actual:** selector Clases/Citas implementado en SwiftUI y contrato de agenda ampliado a `kind=appointment` en Swift/Kotlin; no hay disponibilidad ni reservas reales desplegadas en Supabase ni conectadas a iOS. La disponibilidad, las citas, la conciliación de bonos y las políticas de cancelación deberán tener pruebas backend y E2E antes de habilitar acciones de pago/reserva.
+
+## Actualización técnica comprobada 2026-10-19
+
+- Supabase Repera (no Cafesito): 6 migraciones reales; 16 tablas `public` con RLS; advisor de seguridad sin lints; pruebas SQL transaccionales con identidades aisladas y ROLLBACK.
+- Invitaciones consentidas, alta/vinculación de cliente, asignación de entrenador, prescripción simple por día, clases/citas con capacidad y prevención de solape, bonos de cortesía separados, reservas idempotentes y ledger reversible.
+- Panel web conectado (correo), con módulos operativos de invitaciones, clientes, horarios, cortesías y publicaciones simples; la demo sigue aislada.
+- iOS nativo 27: inicio de sesión Apple→Supabase preparado con SDK oficial y nonce, lectura de centros, sesiones, citas y bonos en Center/Inicio/Diario/Ajustes. **No hay build TestFlight/Xcode validada ni registro real de usuario**.
+- Bloqueos de salida: activar y comprobar el proveedor Apple del proyecto, compilar iOS 27 y Watch con SDK compatible, CI actual fallido, E2E y concurrencia multi-sesión, facturación fiscal y Stripe, membresías de pago, listas de espera, planes completos 1–52 semanas/plantillas/versiones, push, Android nativo, despliegue profesional IONOS y cumplimiento legal.
+- La política de cancelación de créditos es **provisional** (12h) y necesita parametrización por tipo de producto y confirmación legal/comercial antes de habilitar pagos.
+- No fusionar el borrador de PR en `main` mientras no estén cumplidos los criterios de aceptación.
