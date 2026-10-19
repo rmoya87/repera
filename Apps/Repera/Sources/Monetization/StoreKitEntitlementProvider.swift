@@ -27,7 +27,10 @@ final class StoreKitEntitlementProvider: EntitlementProviding, @unchecked Sendab
             let transaction = try checkVerified(verification)
             // The verified transaction itself is authoritative. currentEntitlements
             // can lag behind the purchase callback in TestFlight's sandbox.
-            let purchased = snapshotFromVerifiedTransaction(transaction)
+            let purchased = snapshotFromVerifiedTransaction(
+                transaction,
+                isFreeTrial: product.subscription?.introductoryOffer?.paymentMode == .freeTrial
+            )
             await transaction.finish()
             if purchased.grantsProAccess { return purchased }
             return await snapshotFromCurrentEntitlements()
@@ -54,7 +57,7 @@ final class StoreKitEntitlementProvider: EntitlementProviding, @unchecked Sendab
         guard !products.isEmpty else {
             return CommercialOfferings(
                 packages: [],
-                unavailableReason: "No hay productos StoreKit. Revisa App Store Connect o el archivo ReperaProducts.storekit del scheme."
+                unavailableReason: "Apple no ha devuelto los planes de Repera Pro. Comprueba en App Store Connect el bundle com.app.repera, los productos repera_pro_monthly y repera_pro_annual y el acuerdo de aplicaciones de pago."
             )
         }
         let packages = products.compactMap(Self.mapProduct(_:))
@@ -68,7 +71,10 @@ final class StoreKitEntitlementProvider: EntitlementProviding, @unchecked Sendab
 
     // MARK: - Helpers
 
-    private func snapshotFromVerifiedTransaction(_ transaction: Transaction) -> CommercialSnapshot {
+    private func snapshotFromVerifiedTransaction(
+        _ transaction: Transaction,
+        isFreeTrial: Bool
+    ) -> CommercialSnapshot {
         guard productIDs.contains(transaction.productID),
               transaction.revocationDate == nil,
               !transaction.isUpgraded,
@@ -76,7 +82,7 @@ final class StoreKitEntitlementProvider: EntitlementProviding, @unchecked Sendab
             return CommercialSnapshot(status: .free, isConfigured: true)
         }
         let status: ReperaDomain.SubscriptionStatus
-        if transaction.offer?.type == .introductory {
+        if isFreeTrial && transaction.offer?.type == .introductory {
             status = .trial
         } else if transaction.productID == CommercialConfig.monthlyProductID {
             status = .proMonthly
@@ -101,11 +107,15 @@ final class StoreKitEntitlementProvider: EntitlementProviding, @unchecked Sendab
 
         for await result in Transaction.currentEntitlements {
             guard let transaction = try? checkVerified(result) else { continue }
-            guard productIDs.contains(transaction.productID) else { continue }
+            guard productIDs.contains(transaction.productID),
+                  transaction.revocationDate == nil,
+                  !transaction.isUpgraded else { continue }
             if let exp = transaction.expirationDate, exp < Date() { continue }
             activeProductID = transaction.productID
             expiration = transaction.expirationDate
+            // Only the configured monthly intro is a free trial; annual intro is discounted.
             isTrial = transaction.offer?.type == .introductory
+                && transaction.productID == CommercialConfig.monthlyProductID
         }
 
         guard let activeProductID else {
