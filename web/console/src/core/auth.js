@@ -83,6 +83,15 @@ export class ReperaAuthAPI {
  async organizations(){
   return this.#authorized('organizations?select=id,name,slug,kind,created_at&order=created_at.desc');
  }
+ async clients(orgId){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
+  return this.#authorized('clients?select=id,org_id,name,email,status,created_at&org_id=eq.'+encodeURIComponent(orgId)+'&order=created_at.desc');
+ }
+ async addClient({orgId,name,email,userId}){
+  name=String(name||'').trim();email=String(email||'').trim().toLowerCase();
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||name.length<2||name.length>120||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw Error('Revisa los datos del cliente');
+  return this.#authorized('clients?select=id,name,email,status',{method:'POST',prefer:'return=representation',body:{org_id:orgId,name,email,status:'lead',created_by:userId}});
+ }
  async memberships(){
   return this.#authorized('organization_memberships?select=organization_id,user_id,role,status');
  }
