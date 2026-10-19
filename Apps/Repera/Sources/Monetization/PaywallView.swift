@@ -16,6 +16,7 @@ struct PaywallView: View {
 
     @State private var selectedProductID: String?
     @State private var showError = false
+    @State private var isPreparing = true
 
     private var context: PaywallContext {
         mode == .onboarding ? .onboarding : subscriptions.paywall.context
@@ -39,26 +40,20 @@ struct PaywallView: View {
                 .padding(.bottom, 28)
             }
             .background(OG.bg)
+            .ogTransparentNav()
             .toolbar {
                 if mode == .sheet {
                     ToolbarItem(placement: .topBarTrailing) {
-                        CloseToolbarButton {
-                            subscriptions.dismissPaywall()
-                        }
+                        CloseToolbarButton(
+                            action: { subscriptions.dismissPaywall() },
+                            large: false
+                        )
                     }
                 }
             }
             .task {
-                if mode == .onboarding {
-                    subscriptions.paywall.present(.onboarding)
-                }
-                // Siempre refresca ofertas desde Apple/RevenueCat (precios localizados).
-                await subscriptions.start()
-                await subscriptions.loadOfferings()
-                if selectedProductID == nil
-                    || !packages.contains(where: { $0.productID == selectedProductID }) {
-                    selectedProductID = annual?.productID ?? monthly?.productID
-                }
+                // Real Apple prices and sandbox products, never fictitious purchases.
+                await reloadProducts()
             }
             .onChange(of: packages.map(\.productID)) { _, _ in
                 if selectedProductID == nil
@@ -121,13 +116,21 @@ struct PaywallView: View {
         if packages.isEmpty {
             OGCard {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Compras no disponibles")
-                        .font(.headline)
-                        .foregroundStyle(OG.label)
-                    Text(subscriptions.offerings.unavailableReason
-                         ?? "Configura RevenueCat y App Store Connect para activar Repera Pro.")
-                        .font(.footnote)
-                        .foregroundStyle(OG.label2)
+                    if isPreparing || subscriptions.isLoadingOfferings {
+                        ProgressView("Cargando planes de Apple…")
+                            .tint(OG.accent)
+                    } else {
+                        Text("Planes no disponibles")
+                            .font(.headline)
+                            .foregroundStyle(OG.label)
+                        Text(subscriptions.offerings.unavailableReason
+                             ?? "No se han encontrado suscripciones para esta app en App Store Connect.")
+                            .font(.footnote)
+                            .foregroundStyle(OG.label2)
+                        Text("En TestFlight las compras se prueban con Sandbox. Los productos deben existir en App Store Connect.")
+                            .font(.caption)
+                            .foregroundStyle(OG.label3)
+                    }
                 }
             }
         } else {
@@ -192,6 +195,12 @@ struct PaywallView: View {
 
     private var primaryCTA: some View {
         let title: String = {
+            if isPreparing || subscriptions.isLoadingOfferings {
+                return "Cargando planes…"
+            }
+            if packages.isEmpty {
+                return "Volver a cargar planes"
+            }
             if let id = selectedProductID,
                let pkg = packages.first(where: { $0.productID == id }),
                pkg.hasFreeTrial {
@@ -200,21 +209,10 @@ struct PaywallView: View {
             return "Continuar con Repera Pro"
         }()
         return Button {
-            Task {
-                guard let id = selectedProductID else { return }
-                let ok = await subscriptions.purchase(productID: id)
-                if ok {
-                    if mode == .sheet {
-                        subscriptions.dismissPaywall()
-                    }
-                    onPurchaseSuccess?()
-                } else if subscriptions.lastErrorMessage != nil {
-                    showError = true
-                }
-            }
+            Task { await handlePrimaryAction() }
         } label: {
-            HStack {
-                if subscriptions.purchaseInFlight {
+            HStack(spacing: 10) {
+                if isPreparing || subscriptions.isLoadingOfferings || subscriptions.purchaseInFlight {
                     ProgressView().tint(OG.onAccent)
                 }
                 Text(title)
@@ -225,8 +223,43 @@ struct PaywallView: View {
             .foregroundStyle(OG.onAccent)
             .background(OG.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
-        .disabled(selectedProductID == nil || subscriptions.purchaseInFlight || packages.isEmpty)
+        .disabled(isPreparing || subscriptions.isLoadingOfferings || subscriptions.purchaseInFlight)
         .accessibilityLabel(title)
+    }
+
+    private func reloadProducts() async {
+        isPreparing = true
+        defer { isPreparing = false }
+        if mode == .onboarding {
+            subscriptions.paywall.present(.onboarding)
+        }
+        await subscriptions.start()
+        await subscriptions.loadOfferings()
+        if selectedProductID == nil
+            || !packages.contains(where: { $0.productID == selectedProductID }) {
+            selectedProductID = annual?.productID ?? monthly?.productID
+        }
+    }
+
+    private func handlePrimaryAction() async {
+        guard !subscriptions.purchaseInFlight else { return }
+        guard let id = selectedProductID,
+              packages.contains(where: { $0.productID == id }) else {
+            await reloadProducts()
+            if packages.isEmpty {
+                showError = true
+            }
+            return
+        }
+        let purchased = await subscriptions.purchase(productID: id)
+        if purchased {
+            if mode == .sheet {
+                subscriptions.dismissPaywall()
+            }
+            onPurchaseSuccess?()
+        } else if subscriptions.lastErrorMessage != nil {
+            showError = true
+        }
     }
 
     private var secondaryActions: some View {
