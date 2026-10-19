@@ -134,7 +134,11 @@ final class SubscriptionManager {
     func loadOfferings() async {
         do {
             var loaded = try await provider.offerings()
-            // Si RevenueCat no trae paquetes, cae a StoreKit puro (precios Apple).
+            let allowedIDs: Set<String> = [CommercialConfig.monthlyProductID, CommercialConfig.annualProductID]
+            // RevenueCat puede seguir exponiendo paquetes de pruebas antiguas. No
+            // presentarlos en TestFlight si sus IDs no existen en App Store Connect.
+            loaded.packages.removeAll { !allowedIDs.contains($0.productID) }
+            // Si faltan los paquetes reales en RevenueCat, consulta StoreKit 2.
             if loaded.packages.isEmpty, !(provider is StoreKitEntitlementProvider) {
                 let storeKit = StoreKitEntitlementProvider()
                 let fallback = try await storeKit.offerings()
@@ -157,6 +161,10 @@ final class SubscriptionManager {
     }
 
     func purchase(productID: String) async -> Bool {
+        guard [CommercialConfig.monthlyProductID, CommercialConfig.annualProductID].contains(productID) else {
+            lastErrorMessage = "La suscripción seleccionada no coincide con App Store Connect."
+            return false
+        }
         guard !purchaseInFlight else { return false }
         purchaseInFlight = true
         lastErrorMessage = nil
