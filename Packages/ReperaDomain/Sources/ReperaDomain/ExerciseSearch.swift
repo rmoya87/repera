@@ -148,9 +148,17 @@ public enum ExerciseSearch {
         let qTokens = tokens(from: q)
         guard !qTokens.isEmpty else { return [] }
         let phrase = qTokens.joined(separator: " ")
+        // Una consulta puede estar en inglés aunque el nombre del catálogo sea español
+        // (o viceversa). Mantener el ranking original y evaluar también su nombre canónico.
+        let canonical = CrossFitGlossary.canonicalName(for: q)
+        let alternativeTokens = normalize(canonical) == normalize(q) ? [] : tokens(from: canonical)
+        let alternativePhrase = alternativeTokens.joined(separator: " ")
         return documents
             .map { document -> (doc: Document, score: Int) in
-                (document, score(document, tokens: qTokens, phrase: phrase))
+                let direct = score(document, tokens: qTokens, phrase: phrase)
+                let translated = alternativeTokens.isEmpty ? 0 :
+                    score(document, tokens: alternativeTokens, phrase: alternativePhrase)
+                return (document, max(direct, translated > 0 ? translated - 1 : 0))
             }
             .filter { $0.score > 0 }
             .sorted { lhs, rhs in
@@ -163,7 +171,13 @@ public enum ExerciseSearch {
     public static func score(_ document: Document, query: String) -> Int {
         let qTokens = tokens(from: query)
         guard !qTokens.isEmpty else { return 0 }
-        return score(document, tokens: qTokens, phrase: qTokens.joined(separator: " "))
+        let direct = score(document, tokens: qTokens, phrase: qTokens.joined(separator: " "))
+        let canonical = CrossFitGlossary.canonicalName(for: query)
+        guard normalize(canonical) != normalize(query) else { return direct }
+        let alt = tokens(from: canonical)
+        guard !alt.isEmpty else { return direct }
+        let translated = score(document, tokens: alt, phrase: alt.joined(separator: " "))
+        return max(direct, translated > 0 ? translated - 1 : 0)
     }
 
     // MARK: - Scoring
