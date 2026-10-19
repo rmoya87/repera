@@ -1,0 +1,61 @@
+name: Repera Business checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'web/console/**'
+      - 'supabase/**'
+      - 'docs/business/**'
+      - '.github/workflows/repera-business-ci.yml'
+  push:
+    branches: [main, feat/repera-business-platform]
+    paths:
+      - 'web/console/**'
+      - 'supabase/**'
+      - 'docs/business/**'
+      - '.github/workflows/repera-business-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  web-console:
+    name: Business console tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run browser-independent Node tests
+        working-directory: web/console
+        run: npm test
+
+  migration-integrity:
+    name: Business SQL and docs integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate migration and smoke-test inventory
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          migrations = sorted(Path('supabase/migrations').glob('*.sql'))
+          assert len(migrations) >= 7, f'Expected at least 7 versioned migrations; got {len(migrations)}'
+          assert len({p.name.split('_')[0] for p in migrations}) == len(migrations), 'Duplicate migration version'
+          for p in migrations:
+              assert p.read_text().strip(), f'Empty migration: {p}'
+          tests = list(Path('supabase/tests').glob('*smoke.sql'))
+          assert len(tests) >= 4, 'Smoke tests missing'
+          required = [
+              'docs/business/ESTADO_DESARROLLO.md',
+              'docs/business/SEGURIDAD.md',
+              'docs/business/BASE_DATOS.md',
+          ]
+          for p in required:
+              assert Path(p).is_file(), f'Documentation missing: {p}'
+          print(f'Found {len(migrations)} migrations and {len(tests)} SQL smoke files.')
+          PY

@@ -91,6 +91,11 @@
 - Smoke de seguridad SQL superado: propietario lee, tercero denegado, ROLLBACK, cero datos persistidos.
 - Pendiente verificar iOS 27 compilado y concurrencia real en dispositivos; sin lista de espera.
 
+## CI de negocio separado del runner iOS
+- `.github/workflows/repera-business-ci.yml`: Node 22 ejecuta las pruebas de `web/console`; otro job comprueba inventario de migraciones, smoke SQL y docs.
+- El CI iOS preexistente falla en cuatro jobs incluso antes del primer paso (GitHub devuelve `steps: null`, `logs_url: null`, logs 404). Causa de infraestructura/cola por confirmar; **no son pruebas concluyentes de errores de Swift**.
+- El nuevo CI aporta diagnóstico independiente, pero sus checks tampoco sustituirán pruebas Supabase con tokens reales y E2E en iPhone.
+
 ## PENDIENTE
 - Completar integración Auth extremo a extremo en navegador (confirmación de correo, dominios redirect, correo SMTP, refresh de sesión real, recuperación y logout en dispositivos).
 - Invitaciones, membresía administrada transaccionalmente y consentimientos.
