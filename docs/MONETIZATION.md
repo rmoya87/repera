@@ -1,6 +1,6 @@
 # Monetización — Repera Gratis / Repera Pro
 
-Última actualización: 2026-10-19 (precios StoreKit/ASC en onboarding + RevenueCat)
+Última actualización: 2026-10-19 (paywall nativo, compras verificadas en TestFlight y recuperación StoreKit)
 
 ## 1. Arquitectura
 
@@ -9,7 +9,7 @@ SwiftUI (paywall, Settings, gates en vistas)
         ↓
 SubscriptionManager (@Observable)  ·  PaywallCoordinator
         ↓
-EntitlementProviding  →  RevenueCat / Debug / Unconfigured
+EntitlementProviding  →  StoreKit 2 / RevenueCat / Debug
         ↓
 FeatureAccessPolicy (ReperaDomain)  ←  FreeUsageStore (cuotas)
         ↓
@@ -63,7 +63,7 @@ Precios UI: **siempre** desde App Store Connect vía StoreKit (`Product.displayP
 
 - SPM: `https://github.com/RevenueCat/purchases-ios-spm` (producto `RevenueCat`), declarado en `project.yml`.
 - Clave pública: Info.plist / XcodeGen `RevenueCatPublicAPIKey` (`appl_…`).
-- Sin clave válida: la app compila, permanece en Gratis, no compra productos ficticios, paywall muestra «compras no disponibles».
+- Sin clave válida: la app usa StoreKit 2 directamente; si los productos existen en App Store Connect puede comprar en TestFlight/producción sin RevenueCat. Si no existen, permanece en Gratis y el paywall explica la indisponibilidad.
 - Debug: sección «Debug Pro» en Ajustes (solo `#if DEBUG`) + `DebugEntitlementProvider`.
 
 ## 5–8. App Store Connect / productos / entitlement / offerings
@@ -85,7 +85,7 @@ Solo la oferta introductoria de Apple. No hay contador local de 14 días. Si el 
 
 ## 10. Restaurar / gestionar
 
-- Paywall y Ajustes → «Restaurar compras» (`Purchases.restorePurchases`).
+- Paywall y Ajustes → «Restaurar compras» (RevenueCat o StoreKit 2, con alternativa StoreKit si RevenueCat falla).
 - «Gestionar suscripción» → `https://apps.apple.com/account/subscriptions`.
 
 ## 11. Offline
@@ -117,7 +117,15 @@ xcodegen generate
 
 Debug: Ajustes → Debug Pro → simular Free/Pro/Trial/gracia/caducada/offline.
 
-StoreKit Configuration: adjuntar `ReperaProducts.storekit` al scheme Repera.
+StoreKit Configuration: adjuntar `ReperaProducts.storekit` al scheme Repera **solo para pruebas locales desde Xcode**; TestFlight ignora ese archivo y obtiene los productos de App Store Connect. El paywall permite recargar el catálogo, muestra un error comprensible si está vacío y mantiene consistente el proveedor de catálogo y compra. La X de la barra usa `CloseToolbarButton(large: false)` para que iOS 27 aplique Liquid Glass una sola vez.
+
+## Pruebas de compra TestFlight (Sandbox)
+
+- Instalar la build desde TestFlight: las transacciones de prueba son reales en Sandbox Apple y **no generan cobros**; no activar Pro con un interruptor simulado en Release.
+- Revisar en App Store Connect los productos **repera_pro_monthly** y **repera_pro_annual** dentro del bundle **com.app.repera**, con nombre, localización, precio y acuerdo de aplicaciones de pago firmado. Sin estos productos, StoreKit no puede abrir la hoja de Apple y el paywall muestra el motivo.
+- Si se utiliza RevenueCat, verificar el offering `default`, entitlement `pro` y clave pública, o utilizar StoreKit 2 directo como alternativa (sin mezclar catálogo de un proveedor con compra de otro).
+- Validar: cargar planes → pulsar «Continuar con Repera Pro» → hoja de compra nativa Apple/Sandbox → aprobar → acceso Pro concedido a partir de transacción verificada; también probar cancelación, pendiente, error, restauración y relanzamiento.
+- Para cambiar tasas de renovación o restablecer pruebas, usar una cuenta Sandbox en Ajustes del sistema → Desarrollador → Cuenta Sandbox; la guía de Apple explica los requisitos de acceso.
 
 ## 15. Producción
 
