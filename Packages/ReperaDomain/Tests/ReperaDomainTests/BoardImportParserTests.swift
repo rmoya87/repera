@@ -167,7 +167,7 @@ struct BoardImportParserTests {
         #expect(work[0].weightFemaleKg == 25)
         #expect(CrossFitGlossary.canonicalName(for: "Bar facing burpee") == "Bar facing burpee")
         #expect(work[1].name == "Bar facing burpee")
-        #expect(work[2].name == "Back rack reverse lunge")
+        #expect(work[2].name == "Zancadas inversas con barra")
         #expect(work[2].exerciseId != nil)
         #expect(rft.movements.last?.restSeconds == 60)
     }

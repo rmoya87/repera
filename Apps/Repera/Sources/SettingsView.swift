@@ -25,6 +25,7 @@ struct SettingsView: View {
     @State private var restoreMessage: String?
     @State private var notificationsStatus: UNAuthorizationStatus = .notDetermined
     @State private var confirmSignOut = false
+    @State private var appleConnectionError: String?
 
     var body: some View {
         @Bindable var store = store
@@ -132,7 +133,15 @@ struct SettingsView: View {
                 }
                 if !businessAuth.isConnected {
                     Button("Conectar cuenta Apple con Repera") {
-                        Task { try? await appleAuth.signIn() }
+                        Task {
+                            do {
+                                // signIn already requests a nonce-bound Apple ID token
+                                // and forwards it to BusinessAuthStore.connect.
+                                try await appleAuth.signIn()
+                            } catch {
+                                appleConnectionError = error.localizedDescription
+                            }
+                        }
                     }
                     .disabled(appleAuth.isSigningIn || businessAuth.isConnecting)
                     if let error = businessAuth.lastErrorMessage {
@@ -140,10 +149,13 @@ struct SettingsView: View {
                             .font(.footnote)
                             .foregroundStyle(OG.red)
                     }
+                    if let appleConnectionError {
+                        Text(appleConnectionError)
+                            .font(.footnote)
+                            .foregroundStyle(OG.red)
+                    }
                 }
                 Text("Solo se muestran vínculos aceptados y autorizados en Supabase. El historial personal sigue siendo privado en iCloud.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
