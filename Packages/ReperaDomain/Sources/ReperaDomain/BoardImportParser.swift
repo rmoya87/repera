@@ -352,8 +352,13 @@ public enum BoardImportParser {
     }
 
     private static func detectFormatHeader(_ line: String) -> HeaderInfo? {
-        let upper = line.uppercased()
+        // Vision OCR y pizarras usan comillas tipográficas (’ / ′ / ‘).
+        // Normalizarlas antes del análisis de cadencias y time caps.
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "’", with: "'")
+            .replacingOccurrences(of: "′", with: "'")
+            .replacingOccurrences(of: "‘", with: "'")
+        let upper = trimmed.uppercased()
         guard !trimmed.isEmpty else { return nil }
 
         // EVERY 90S FOR 12MIN (8 SERIES)  /  CADA 90\" PARA 12'
@@ -584,7 +589,8 @@ public enum BoardImportParser {
 
     /// Una línea → uno o más movimientos (complejos con `+` se parten para emparejar el catálogo).
     private static func parseWODMovementLine(_ line: String, catalog: [Exercise]) -> [WODMovement] {
-        var working = line
+        var working = line.replacingOccurrences(of: "’", with: "'")
+            .replacingOccurrences(of: "′", with: "'")
         var scale: String?
         var notes: [String] = []
 
@@ -1130,6 +1136,9 @@ public enum CrossFitGlossary {
     /// Parsea «10 T2B», «200M RUN», «5 DDB DEVIL PRESS 20/12,5» → campos tipados.
     public static func parseMovementLine(_ raw: String) -> ParsedMovementLine {
         var working = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "’", with: "'")
+            .replacingOccurrences(of: "′", with: "'")
+            .replacingOccurrences(of: "‘", with: "'")
         working = working.replacingOccurrences(of: #"(?i)^(ODD|EVEN)\s*:\s*"#, with: "", options: .regularExpression)
 
         let upper = working.uppercased()
