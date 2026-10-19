@@ -148,20 +148,24 @@ public enum ExerciseSearch {
         let qTokens = tokens(from: q)
         guard !qTokens.isEmpty else { return [] }
         let phrase = qTokens.joined(separator: " ")
-        // Una consulta puede estar en inglés aunque el nombre del catálogo sea español
-        // (o viceversa). Mantener el ranking original y evaluar también su nombre canónico.
-        let canonical = CrossFitGlossary.canonicalName(for: q)
+        let directResults = documents.map { document in
+            (doc: document, score: score(document, tokens: qTokens, phrase: phrase))
+        }
+        // For strong direct matches ("press de banca"), costly OCR-oriented
+        // glossary expansion cannot increase the ranking. Preserve bilingual
+        // results for known exact aliases ("back squat" → "Sentadilla") even if
+        // a direct English exercise also matches.
+        let explicitAlias = CrossFitGlossary.aliases[normalize(q)]
+        let hasStrongDirect = directResults.contains { $0.score >= Weight.allTokensInNameOrdered + Weight.coverageScale }
+        let canonical = explicitAlias ?? (hasStrongDirect ? q : CrossFitGlossary.canonicalName(for: q))
         let resolvedTokens = canonical == q ? qTokens : tokens(from: canonical)
-        // Stop words and aliases can produce an identical search despite different
-        // raw strings (e.g. "press de banca" → "press banca"). Never score twice.
         let alternativeTokens = resolvedTokens == qTokens ? [] : resolvedTokens
         let alternativePhrase = alternativeTokens.joined(separator: " ")
-        return documents
-            .map { document -> (doc: Document, score: Int) in
-                let direct = score(document, tokens: qTokens, phrase: phrase)
-                let translated = alternativeTokens.isEmpty ? 0 :
-                    score(document, tokens: alternativeTokens, phrase: alternativePhrase)
-                return (document, max(direct, translated > 0 ? translated - 1 : 0))
+        return directResults
+            .map { result -> (doc: Document, score: Int) in
+                guard !alternativeTokens.isEmpty else { return result }
+                let translated = score(result.doc, tokens: alternativeTokens, phrase: alternativePhrase)
+                return (result.doc, max(result.score, translated > 0 ? translated - 1 : 0))
             }
             .filter { $0.score > 0 }
             .sorted { lhs, rhs in
@@ -178,7 +182,9 @@ public enum ExerciseSearch {
         let qTokens = tokens(from: query)
         guard !qTokens.isEmpty else { return 0 }
         let direct = score(document, tokens: qTokens, phrase: qTokens.joined(separator: " "))
-        let canonical = CrossFitGlossary.canonicalName(for: query)
+        let knownAlias = CrossFitGlossary.aliases[normalize(query)]
+        let canonical = knownAlias ?? (direct >= Weight.allTokensInNameOrdered + Weight.coverageScale
+            ? query : CrossFitGlossary.canonicalName(for: query))
         let alt = canonical == query ? qTokens : tokens(from: canonical)
         guard !alt.isEmpty, alt != qTokens else { return direct }
         let translated = score(document, tokens: alt, phrase: alt.joined(separator: " "))
