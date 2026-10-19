@@ -177,6 +177,9 @@ Incluye `BoardImportParserTests`, `LoadSuggestionTests`, sesión, progresión, w
 
 Guía manual: [TESTING_GUIDE.md](TESTING_GUIDE.md).
 
+## Puente de identidad iOS/Repera Business
+`BusinessAuthStore.swift` usa SDK `supabase-swift` (2.55.4 exacta). Tras autorización Apple con nonce SHA-256, intenta obtener una sesión Supabase sin interferir con `AppleAuthStore`, `ReperaStore` local ni sincronización iCloud. Ajustes permite reconectar usuarios previos. NO hay envío automático de entrenamientos privados ni agenda móvil real hasta completar APIs y pruebas E2E.
+
 ## Plataforma profesional (desarrollo separado dentro del monorepo)
 
 - Primera migración Supabase del proyecto Repera aplicada con perfiles, organizaciones y RLS. No está integrada con el flujo actual Sign in with Apple ni con iCloud.

@@ -10,6 +10,7 @@ struct SettingsView: View {
     @Environment(HealthKitStore.self) private var health
     @Environment(SubscriptionManager.self) private var subscriptions
     @Environment(AppleAuthStore.self) private var appleAuth
+    @Environment(BusinessAuthStore.self) private var businessAuth
     @Environment(OnboardingStore.self) private var onboarding
     @Environment(WorkoutLocationTracker.self) private var location
     @Environment(\.openURL) private var openURL
@@ -121,9 +122,21 @@ struct SettingsView: View {
             }
 
             Section {
-                LabeledContent("Entrenador personal", value: "Sin sincronizar")
-                LabeledContent("Gimnasios y centros", value: "Sin sincronizar")
-                Text("Aquí aparecerán los profesionales y centros con los que hayas aceptado una vinculación. Tu cuenta Apple todavía no está conectada a las relaciones profesionales de Supabase.")
+                LabeledContent("Repera Business", value: businessAuth.isConnected ? "Conectada" : "Sin conectar")
+                LabeledContent("Entrenador personal", value: "Sin cargar")
+                LabeledContent("Gimnasios y centros", value: "Sin cargar")
+                if !businessAuth.isConnected {
+                    Button("Conectar cuenta Apple con Repera") {
+                        Task { try? await appleAuth.signIn() }
+                    }
+                    .disabled(appleAuth.isSigningIn || businessAuth.isConnecting)
+                    if let error = businessAuth.lastErrorMessage {
+                        Text(error)
+                            .font(.footnote)
+                            .foregroundStyle(OG.red)
+                    }
+                }
+                Text("Conectarte permite identificarte en Supabase. La lista de centros y entrenadores aparecerá cuando se implemente su consulta desde la app. Tus entrenamientos personales permanecen privados en iCloud.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
@@ -537,6 +550,7 @@ struct SettingsView: View {
                 confirmTitle: "Cerrar sesión",
                 onConfirm: {
                     appleAuth.signOut()
+                    Task { await businessAuth.signOut() }
                     onboarding.resetToSignIn()
                     confirmSignOut = false
                 },

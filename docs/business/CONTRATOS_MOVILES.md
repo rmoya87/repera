@@ -5,6 +5,12 @@ Estado: propuesta; **no hay integración móvil publicada**.
 ## Principio
 No sustituir `AppState` local ni el espejo iCloud de iOS. Supabase guardará principalmente identidad, organizaciones, relaciones, planes **compartidos** y asignaciones; no transferir automáticamente sesiones/series/salud. Android usará solución local-first y sync nativo a definir sin perder interoperabilidad.
 
+## Implementación inicial Apple → Supabase (2026-10-19)
+- `BusinessAuthStore.swift`: usa supabase-swift 2.55.4, Sign in with Apple nativo con nonce aleatorio/hash SHA-256, y sesión administrada por el SDK. Solo conecta a `uvzgujlrqohreoucirms.supabase.co` con clave pública.
+- La primera autorización Apple intenta registrar/iniciar Supabase sin bloquear el modo local cuando no hay red o el provider falla. Usuarios previos: reconectar en Ajustes para intercambiar un ID token actualizado.
+- Estado de conexión en Ajustes y logout complementario. Aún no se sincroniza agenda, membresías ni historial personal.
+- Riesgos por verificar: Apple provider en Supabase, cuentas de correo oculto, duplicados identitarios, token inválido/nonce, renovación de sesiones, revocación, login TestFlight y cambios de credenciales.
+
 ## Identidad
 `auth.uid()` vincula sesión Supabase a `profiles.id`. Sign in with Apple existente **no equivale automáticamente** a una sesión Supabase; diseñar e implementar puente de identidad seguro (OAuth/ID token y sesión) sin almacenar credenciales en texto plano. Android tendrá proveedor compatibles de Auth sin suplantación.
 

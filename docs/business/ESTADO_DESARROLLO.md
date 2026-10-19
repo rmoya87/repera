@@ -58,6 +58,13 @@
 - Panel conectado: vista de horarios reales, alta de clases y citas por propietario/admin, emisión explícita de bonos de cortesía a clientes que aceptaron la invitación; consulta de balances y reservas del centro.
 - No hay todavía reserva nativa desde iOS, bonos de pago, facturación, listas de espera ni confirmaciones push.
 
+## Puente Apple → Supabase en iOS (pendiente de compilación/E2E)
+- SDK oficial `supabase-swift` versión exacta 2.55.4, llave `sb_publishable_` pública específica del proyecto Repera.
+- `BusinessAuthStore`: valida project URL, usa nonce aleatorio generado por SecureRandom y SHA-256 para el ID token Apple; `signInWithIdToken` del SDK intercambia identidad por sesión Supabase.
+- El onboarding mantiene la sesión Apple e iCloud aunque Supabase no esté disponible; no se copian historiales privados. Las cuentas Apple existentes pueden reautorizarse desde Ajustes para obtener token fresco.
+- `ReperaApp` restaura la sesión profesional asíncronamente; al cerrar sesión también solicita cierre de Supabase.
+- **Falta compilar y ejecutar iOS 27/TestFlight**, configurar/verificar el proveedor Apple de Supabase, probar login real y sesiones; sin ello NO afirmar que todas las cuentas ya estén registradas.
+
 ## PENDIENTE
 - Completar integración Auth extremo a extremo en navegador (confirmación de correo, dominios redirect, correo SMTP, refresh de sesión real, recuperación y logout en dispositivos).
 - Invitaciones, membresía administrada transaccionalmente y consentimientos.
