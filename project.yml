@@ -84,7 +84,7 @@ targets:
       path: Apps/Repera/Resources/Info.plist
       properties:
         CFBundleDisplayName: Repera
-        # Clave pública RevenueCat (`appl_…`). Sustituir en ASC / xcconfig; vacío = modo gratis.
+        # Clave pública opcional de RevenueCat (`appl_…`); ausente = StoreKit 2 directo.
         RevenueCatPublicAPIKey: YOUR_REVENUECAT_PUBLIC_API_KEY
         UILaunchStoryboardName: LaunchScreen
         UISupportedInterfaceOrientations:
