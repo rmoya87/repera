@@ -43,6 +43,13 @@
 - **Pruebas de ejecución**: sintaxis de ambos scripts verificada con `bash -n`; servidor del lanzador Business probado con HTTP en `127.0.0.1` y ruta demo correcta. Lanzador iOS pendiente de ejecutar en Mac con Xcode + SDK iOS 27; ninguno demuestra por sí solo que CI/builds nativos sean correctos.
 - **No merge a main**: servicios clave incompletos (Apple→Supabase, invitaciones, planes profesionales, reservas, citas, contratos/bonos, cobros) y 4 jobs de CI fallidos en el último commit comprobado.
 
+## Vinculación consentida — backend y panel (2026-10-19)
+- Esquema incremental `20261019201141_business_org_invitations_consent` añade invitaciones por correo verificado y rol permitido (no owner), caducidad a 14 días, cancelación, protección multiempresa y aceptación explícita.
+- Esquema incremental `20261019201248_business_invitation_private_rpc` mueve todas las operaciones privilegiadas al esquema `private` y deja solo wrappers INVOKER en API pública; advisors de seguridad: 0 lints.
+- Al aceptar, crea o reactiva membresía y vincula la ficha del deportista **solo** tras consentimiento. No se transfieren datos personales de Salud, entrenamientos o iCloud.
+- SQL real en transacción: `invitation_rls_smoke_pass`, adversario no accede ni acepta, aceptación válida crea vínculo y no permite reutilizar; ROLLBACK, 0 datos de prueba persistidos.
+- Panel profesional autenticado: emisión de invitaciones de miembro y aceptación desde la propia cuenta Supabase con correo confirmado; **sin entrega de emails automática ni conexión Apple→Supabase iOS todavía**.
+
 ## PENDIENTE
 - Completar integración Auth extremo a extremo en navegador (confirmación de correo, dominios redirect, correo SMTP, refresh de sesión real, recuperación y logout en dispositivos).
 - Invitaciones, membresía administrada transaccionalmente y consentimientos.

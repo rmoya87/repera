@@ -46,3 +46,25 @@ test('Alta con correo a confirmar no falsifica sesión; rechaza ID/slug inválid
  assert.equal(await client.token(),null);
  await assert.rejects(()=>client.createOrganization({name:'X',slug:'invalid',kind:'gym',userId}),/Comprueba/);
 });
+
+test('Invitations use JWT with restricted RPC signatures and never forge membership rows',async()=>{
+ const captures=[];
+ const api=new ReperaAuthAPI({publishableKey:key,storage:storage(),fetcher:async(url,options)=>{
+  captures.push({url,options});
+  if(url.includes('grant_type=password'))return response({access_token:'inv-jwt',refresh_token:'refresh-token',expires_in:3600});
+  if(url.endsWith('/auth/v1/user'))return response({id:userId,email:'owner@example.test'});
+  if(url.includes('issue_org_invitation'))return response('00000000-0000-4000-a000-000000000999');
+  if(url.includes('accept_org_invitation'))return response(userId);
+  if(url.includes('/organization_invitations?'))return response([]);
+  throw Error('Unexpected request '+url);
+ }});
+ await api.signIn('owner@example.test','pass-123456');
+ assert.deepEqual(await api.invitations(),[]);
+ await api.issueInvitation({orgId:userId,email:'ATHLETE@EXAMPLE.COM',role:'athlete'});
+ await api.acceptInvitation(userId);
+ const issue=captures.find(x=>x.url.endsWith('/rpc/issue_org_invitation'));
+ assert.deepEqual(JSON.parse(issue.options.body),{p_org:userId,p_email:'athlete@example.com',p_role:'athlete'});
+ assert.equal(issue.options.headers.Authorization,'Bearer inv-jwt');
+ assert.ok(!captures.some(x=>x.url.includes('organization_memberships')&&x.options.method==='POST'));
+ await assert.rejects(()=>api.issueInvitation({orgId:userId,email:'a@example.com',role:'owner'}),/Invitación inválida/);
+});

@@ -2,7 +2,7 @@
 Última actualización: 2026-10-19.
 
 ## Controles implantados
-- RLS en **todas las ocho** tablas publicadas, política explícita `TO authenticated` y predicados de propietario / membresía.
+- RLS en **todas las once** tablas publicadas, política explícita `TO authenticated` y predicados de propietario / membresía.
 - `profiles.role` no depende de `raw_user_meta_data` y la API solo dispone de UPDATE(display_name); no autoascenso.
 - Todas las funciones SECURITY DEFINER del baseline viven en esquema **private** con `search_path=''`; no se publica una función privilegiada en `public`.
 - Helper de membresía solo devuelve booleano asociado a `auth.uid()`, exige membresía activa, y no expone filas privadas.
@@ -15,6 +15,13 @@ Atleta autenticado: solo perfil y contenido propio; si es miembro activo, consul
 
 ## Pruebas realizadas
 Se ejecutó SQL como rol authenticated para dos usuarios Auth temporales, verificando: alta perfil, incorporación automática owner, lectura owner, aislamiento de B frente a A, imposibilidad de INSERT suplantando otro usuario, rol global/membresía sin escritura cliente. ROLLBACK confirmó 0 orgs persistidas. Test reproducible en `supabase/tests/rls_smoke.sql`.
+
+## Invitaciones, aceptación y privilegios
+- Invitaciones visibles exclusivamente para owner/admin y destinatario con correo confirmado; expiración 14 días; roles permitidos: admin, coach, reception y athlete (jamás owner).
+- La membresía no se crea hasta la aceptación autenticada con email confirmado. La ficha del atleta solo se vincula entonces; sin transferencia del historial.
+- Mutaciones exclusivas de RPC con validación de org y actor, no por escritura directa.
+- Funciones expuestas en `public` operan como **invoker** y llaman a lógica `SECURITY DEFINER` del esquema privado. `get_advisors(security)` después de corregir privilegios: 0 lints.
+- SQL smoke: owner emite, destinatario acepta, extraño no puede aceptar/emitir, rechazo de repetición; los datos se revierten por ROLLBACK.
 
 ## Riesgos y pruebas pendientes
 - Acceso explícito entrenador-deportista, consentimientos, borrado/retención GDPR, autorización por relación.

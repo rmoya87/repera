@@ -92,6 +92,22 @@ export class ReperaAuthAPI {
   if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||name.length<2||name.length>120||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw Error('Revisa los datos del cliente');
   return this.#authorized('clients?select=id,name,email,status',{method:'POST',prefer:'return=representation',body:{org_id:orgId,name,email,status:'lead',created_by:userId}});
  }
+ async invitations(){
+  return this.#authorized('organization_invitations?select=id,organization_id,email,invited_role,expires_at,accepted_at,cancelled_at,created_at&order=created_at.desc');
+ }
+ async issueInvitation({orgId,email,role}){
+  email=String(email||'').trim().toLowerCase();
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!['admin','coach','reception','athlete'].includes(role))throw Error('Invitación inválida');
+  return this.#authorized('rpc/issue_org_invitation',{method:'POST',body:{p_org:orgId,p_email:email,p_role:role}});
+ }
+ async acceptInvitation(id){
+  if(!/^[0-9a-f-]{36}$/i.test(id||''))throw Error('Invitación inválida');
+  return this.#authorized('rpc/accept_org_invitation',{method:'POST',body:{p_invitation_id:id}});
+ }
+ async cancelInvitation(id){
+  if(!/^[0-9a-f-]{36}$/i.test(id||''))throw Error('Invitación inválida');
+  return this.#authorized('rpc/cancel_org_invitation',{method:'POST',body:{p_invitation_id:id}});
+ }
  async memberships(){
   return this.#authorized('organization_memberships?select=organization_id,user_id,role,status');
  }
