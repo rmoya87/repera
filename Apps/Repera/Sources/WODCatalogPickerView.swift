@@ -4,6 +4,7 @@ import SwiftUI
 /// Lista de WODs conocidos + detalle (movimientos, tiempo medio, músculos).
 struct WODCatalogPickerView: View {
     @Environment(\.dismiss) private var dismiss
+    var embedsNavigationStack = true
     var onPick: (WODTemplate) -> Void
 
     @State private var query = ""
@@ -14,8 +15,18 @@ struct WODCatalogPickerView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            List {
+        Group {
+            if embedsNavigationStack {
+                NavigationStack { pickerContent }
+            } else {
+                pickerContent
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private var pickerContent: some View {
+        List {
                 ForEach(templates) { template in
                     Button {
                         selected = template
@@ -52,21 +63,20 @@ struct WODCatalogPickerView: View {
             }
             .ogListChrome()
             .searchable(text: $query, prompt: "Buscar WOD")
-            .navigationTitle("Elegir WOD")
-            .navigationBarTitleDisplayMode(.inline)
+            .ogPinnedTransparentNav("Elegir WOD")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    CloseToolbarButton { dismiss() }
+                if embedsNavigationStack {
+                    ToolbarItem(placement: .cancellationAction) {
+                        CloseToolbarButton { dismiss() }
+                    }
                 }
             }
             .navigationDestination(item: $selected) { template in
                 WODTemplateDetailView(template: template) {
                     onPick(template)
-                    dismiss()
+                    if embedsNavigationStack { dismiss() }
                 }
             }
-        }
-        .preferredColorScheme(.dark)
     }
 }
 
