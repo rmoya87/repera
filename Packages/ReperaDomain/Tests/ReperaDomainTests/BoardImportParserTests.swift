@@ -132,6 +132,7 @@ struct BoardImportParserTests {
         #expect(work.count == 3)
         #expect(work[0].weightMaleKg == 40)
         #expect(work[0].weightFemaleKg == 25)
+        #expect(CrossFitGlossary.canonicalName(for: "Bar facing burpee") == "Bar facing burpee")
         #expect(work[1].name == "Bar facing burpee")
         #expect(work[2].name == "Back rack reverse lunge")
         #expect(work[2].exerciseId != nil)

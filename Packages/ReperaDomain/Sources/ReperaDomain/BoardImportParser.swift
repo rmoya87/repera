@@ -965,6 +965,7 @@ public enum CrossFitGlossary {
         "push jer": "Push jerk",
         "pj": "Push jerk",
         "split jerk": "Split jerk",
+        "bar facing burpee": "Bar facing burpee",
         "burpee over the bar": "Bar facing burpee",
         "burpees over the bar": "Bar facing burpee",
         "burpee over bar": "Bar facing burpee",
