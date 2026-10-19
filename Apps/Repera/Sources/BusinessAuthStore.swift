@@ -13,6 +13,7 @@ final class BusinessAuthStore {
     static let shared = BusinessAuthStore()
 
     private(set) var isConnected = false
+    private let appleIdentityBindingKey = "repera.business.appleIdentityHash.v1"
     private(set) var lastErrorMessage: String?
     private(set) var isConnecting = false
 
@@ -38,6 +39,13 @@ final class BusinessAuthStore {
         guard let client else {
             isConnected = false
             lastErrorMessage = "Supabase Repera no está configurado en esta compilación."
+            return
+        }
+        // Do not revive the previous Supabase session under a different Apple account.
+        guard let appleUserID = AppleAuthStore.shared.userID,
+              let boundHash = UserDefaults.standard.string(forKey: appleIdentityBindingKey),
+              boundHash == Self.hashedNonce(appleUserID) else {
+            isConnected = false
             return
         }
         do {
@@ -87,6 +95,8 @@ final class BusinessAuthStore {
                     nonce: rawNonce
                 )
             )
+            // Never persist raw Apple user ID; bind the reusable SDK session locally.
+            UserDefaults.standard.set(Self.hashedNonce(credential.user), forKey: appleIdentityBindingKey)
             isConnected = true
             lastErrorMessage = nil
             await BusinessDataStore.shared.refresh()
@@ -99,6 +109,7 @@ final class BusinessAuthStore {
 
     /// Sign out from business platform independently of the Apple/iCloud personal store.
     func signOut() async {
+        UserDefaults.standard.removeObject(forKey: appleIdentityBindingKey)
         if let client { try? await client.auth.signOut() }
         isConnected = false
         lastErrorMessage = nil

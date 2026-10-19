@@ -29,3 +29,7 @@ Se ejecutó SQL como rol authenticated para dos usuarios Auth temporales, verifi
 - Estructura de webhooks con verificación de firma, idempotencia y audit logs.
 - Evitar DELETE/UPDATE no autorizados por grants en futuros esquemas.
 - Separar staging y producción y repetir advisors después de cada migración.
+
+## Asociación de sesión Apple / Supabase en iOS (2026-10-19)
+
+`BusinessAuthStore` solo restaura una sesión Supabase si se corresponde con el identificador de Apple actual, comparando un hash SHA-256 persistido localmente. Al cerrar sesión se elimina la asociación; una identidad distinta no puede reusar por accidente tokens anteriores. Es un control local adicional a la verificación de identidad de Supabase y su RLS, no sustituye comprobaciones servidor. Pendiente de validar en TestFlight los cambios de cuenta, revocaciones y modo sin conexión.
