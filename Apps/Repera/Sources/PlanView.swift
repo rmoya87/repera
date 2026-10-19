@@ -1792,25 +1792,36 @@ private struct PlannedSetConfigRow: View {
 struct ExercisePickerView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    var embedsNavigationStack: Bool = true
     var onPick: (Exercise) -> Void
 
     var body: some View {
-        NavigationStack {
-            ExerciseCatalogSearchList(
-                exercises: store.state.exercises,
-                prompt: "Buscar ejercicio"
-            ) { exercise in
-                onPick(exercise)
-                dismiss()
+        Group {
+            if embedsNavigationStack {
+                NavigationStack { exerciseContent }
+            } else {
+                exerciseContent
             }
-            .ogPinnedTransparentNav("Ejercicio")
-            .toolbar {
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private var exerciseContent: some View {
+        ExerciseCatalogSearchList(
+            exercises: store.state.exercises,
+            prompt: "Buscar ejercicio"
+        ) { exercise in
+            onPick(exercise)
+            if embedsNavigationStack { dismiss() }
+        }
+        .ogPinnedTransparentNav("Ejercicio")
+        .toolbar {
+            if embedsNavigationStack {
                 ToolbarItem(placement: .topBarLeading) {
                     CloseToolbarButton(action: { dismiss() }, large: false)
                 }
             }
         }
-        .preferredColorScheme(.dark)
     }
 }
 
