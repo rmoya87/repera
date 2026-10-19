@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-19 (autenticación, sincronización iCloud, ubicación y peso)
+Última actualización: 2026-10-19 (compras Pro TestFlight, autenticación, sincronización iCloud, ubicación y peso)
 
 ## Visión
 
@@ -104,7 +104,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 
 | Archivo | Rol |
 |---------|-----|
-| `SubscriptionManager` | Estado comercial observable, ofertas, compra/restore, paywall |
+| `SubscriptionManager` | Estado comercial observable, catálogo y compra con el mismo proveedor; alternativa StoreKit 2 y verificación de derechos Apple en TestFlight; restore y paywall |
 | `RevenueCatEntitlementProvider` | CustomerInfo → `CommercialSnapshot` |
 | `FreeUsageStore` | Cuota escáner (`free_usage.json`, fuera del JSON deportivo) |
 | `PaywallView` / `ProTeaserCard` | UI comercial Liquid Glass |
