@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-19 (cierre de sesión, sincronización verificada de iCloud, ubicación y peso)
+Última actualización: 2026-10-19 (compra Pro TestFlight, cierre de sesión, sincronización iCloud, ubicación y peso)
 
 ## Tabs
 
@@ -121,7 +121,7 @@
 
 - Wizard full-screen antes de las tabs: **Sign in with Apple** (obligatorio, CTA en español) → **Gratis o Pro** → **permisos** (notificaciones, Salud, ubicación).
 - Mascota Repera: saludo en login (`MascotWelcome`), thumbs-up en permisos (`MascotPermissions`); plan Pro usa `MascotHero` (PNG con fondo transparente). En permisos, tras conceder, el CTA pasa de «Permitir» a «Hecho».
-- Plan Pro del onboarding: precios y cargos desde StoreKit / App Store Connect (RevenueCat si hay API key).
+- Plan Pro del onboarding: precios y compras nativas desde StoreKit 2 / App Store Connect (RevenueCat si hay API key). En TestFlight usa Apple Sandbox sin cobros. Si no carga productos ofrece reintentar y muestra el motivo; transacción verificada activa Pro. La X del paywall en la barra superior usa un único círculo Liquid Glass del sistema (iOS 27).
 - Sin iCloud del sistema: usable en local; aviso para activarlo y poder recuperar tras reinstalar.
 - Denegar permisos no bloquea el avance; se pueden reintentar en Ajustes.
 - LaunchScreen: imageset `Splash` (PNG en asset catalog) centrado con constraint de aspecto 473∶1024 (no anclado a 4 bordes; evita el estirado del snapshot de SpringBoard) sobre verde `#002E24`.
