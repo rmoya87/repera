@@ -64,7 +64,7 @@ Cold start: Splash nativo y pantalla de espera usan la misma UIImageView UIKit e
 | iCloud | `iCloud.com.app.repera` |
 | Team | ver `project.yml` |
 | RevenueCat API key | `RevenueCatPublicAPIKey` en Info.plist (pública `appl_…`) |
-| Productos | `repera_pro_monthly` / `repera_pro_annual` · entitlement `pro` |
+| Productos | `com.app.repera.premium.monthly` / `com.app.repera.premium.yearly` · entitlement `pro` |
 
 ## Fuera de alcance (por ahora)
 
