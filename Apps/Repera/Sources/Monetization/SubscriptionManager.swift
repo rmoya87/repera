@@ -226,6 +226,7 @@ final class SubscriptionManager {
     }
 
     func restorePurchases() async -> Bool {
+        guard !purchaseInFlight else { return false }
         purchaseInFlight = true
         lastErrorMessage = nil
         defer { purchaseInFlight = false }
