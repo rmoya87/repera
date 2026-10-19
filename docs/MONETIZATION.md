@@ -51,13 +51,13 @@ Al perder Pro: **no se borran** rutinas, ejercicios ni entrenos; solo se bloquea
 
 | Qué | Valor |
 |-----|--------|
-| Producto mensual | `repera_pro_monthly` |
-| Producto anual | `repera_pro_annual` |
+| Producto mensual | `com.app.repera.premium.monthly` (Apple ID `6824535885`) |
+| Producto anual | `com.app.repera.premium.yearly` (Apple ID `6824536935`) |
 | Entitlement RevenueCat | `pro` |
 | Offering | `default` |
 | Bundle iOS | `com.app.repera` |
 
-Precios UI: **siempre** desde App Store Connect vía StoreKit (`Product.displayPrice`) o RevenueCat (que lee el mismo catálogo). Sin importes hardcodeados en producción. Si falta `RevenueCatPublicAPIKey`, `StoreKitEntitlementProvider` consulta StoreKit directamente (scheme con `ReperaProducts.storekit` o sandbox ASC). Objetivos ES: 5,99 €/mes · 39,99 €/año · intro anual 29,99 € (si Apple la ofrece) · trial 14 días vía oferta introductoria real.
+Primera suscripción renovable: Apple exige enviarla con una versión nueva de la app a revisión. Los productos deben tener metadatos/precios/comercialización configurados y el contrato de aplicaciones de pago activo. En TestFlight las compras usan sandbox; el archivo `.storekit` solo sirve para pruebas locales de Xcode, y sus precios/ofertas no acreditan los definidos en ASC.\n\nPrecios UI: **siempre** desde App Store Connect vía StoreKit (`Product.displayPrice`) o RevenueCat (que lee el mismo catálogo). Sin importes hardcodeados en producción. Si falta `RevenueCatPublicAPIKey`, `StoreKitEntitlementProvider` consulta StoreKit directamente (scheme con `ReperaProducts.storekit` o sandbox ASC). Objetivos ES: 5,99 €/mes · 39,99 €/año · intro anual 29,99 € (si Apple la ofrece) · trial 14 días vía oferta introductoria real.
 
 ## 4. RevenueCat
 
