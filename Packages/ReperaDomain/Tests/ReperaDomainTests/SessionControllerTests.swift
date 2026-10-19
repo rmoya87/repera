@@ -117,7 +117,8 @@ final class SessionControllerTests: XCTestCase {
         let routine = Routine(title: "T", blocks: [rft, chipper])
         let session = SessionController.from(routine: routine, exercises: [])
         XCTAssertEqual(session.exercises.first { $0.exercise.name == "Burpee" }?.plannedSets.count, 4)
-        XCTAssertEqual(session.exercises.first { $0.exercise.name == "Run" }?.plannedSets.count, 1)
+        // Identificar el bloque, no el texto canónico ("Run" puede localizarse a "Correr").
+        XCTAssertEqual(session.exercises.first { $0.blockId == chipper.id }?.plannedSets.count, 1)
     }
 
     func testWaveSchemeNotMultipliedAgain() {

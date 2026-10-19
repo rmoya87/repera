@@ -112,6 +112,13 @@
 - Panel Business: 42/44 tests pasaban; los dos fallos no eran fallos de Auth sino fixtures con `refresh_token: 'r1'` (2 caracteres), rechazados correctamente por el código. Se corrigen los fixtures a refresh tokens sintéticos válidos de más de 2 caracteres.
 - Compilación Xcode 27 iniciada y lectura de logs en curso; no se declara superada hasta conocer el resultado.
 
+## Correcciones de tests de dominio tras logs Swift 6.4
+- Eliminada la dependencia rota de `/tmp/repera-parser-bench/exercises.json` en dos pruebas de parsing: usan `Catalog.seed()` embarcado en Repera. No se eliminan pruebas.
+- El catálogo ha crecido de 188 a 189 con `Back rack reverse lunge`: descripción y siete instrucciones técnicas en español añadidas; la aserción protege mínimo de 188 sin impedir nuevos movimientos.
+- El test Chipper valida identificación de bloque y número de series, en lugar de depender del nombre localizado `Run`/ `Correr`.
+- Se evita un `localizedStandardCompare` caro en cada empate de ranking del buscador: usa la clave de nombre normalizada y precomputada, preservando orden por puntuación; test de rendimiento <3ms debe volver a medirse en CI Xcode 27.
+- Validación Swift 6.4 con CI todavía necesaria; las modificaciones siguen en rama.
+
 ## PENDIENTE
 - Completar integración Auth extremo a extremo en navegador (confirmación de correo, dominios redirect, correo SMTP, refresh de sesión real, recuperación y logout en dispositivos).
 - Invitaciones, membresía administrada transaccionalmente y consentimientos.

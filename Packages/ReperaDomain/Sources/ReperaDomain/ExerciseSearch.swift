@@ -163,7 +163,10 @@ public enum ExerciseSearch {
             .filter { $0.score > 0 }
             .sorted { lhs, rhs in
                 if lhs.score != rhs.score { return lhs.score > rhs.score }
-                return lhs.doc.displayName.localizedStandardCompare(rhs.doc.displayName) == .orderedAscending
+                // Cached, diacritic-folded sort key avoids expensive Foundation
+                // localized collations for every tie while typing a search query.
+                if lhs.doc.name != rhs.doc.name { return lhs.doc.name < rhs.doc.name }
+                return lhs.doc.displayName < rhs.doc.displayName
             }
             .map(\.doc)
     }
