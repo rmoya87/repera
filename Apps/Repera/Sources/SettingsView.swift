@@ -188,11 +188,6 @@ struct SettingsView: View {
                     }
                 }
                 .disabled(subscriptions.purchaseInFlight)
-                if !CommercialConfig.isConfigured {
-                    Text("Compras no configuradas en este build (falta RevenueCatPublicAPIKey).")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
             } header: {
                 Text("Repera Pro")
             }
