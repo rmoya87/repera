@@ -31,8 +31,8 @@ test('Sesión real, orgs RLS, alta propietaria y logout local (sin falsos roles)
 test('Renovación serializada y sesión caducada sin mezclar tokens',async()=>{
  let clock=1_000_000,refreshes=0;
  const client=new ReperaAuthAPI({publishableKey:key,storage:storage(),clock:()=>clock,fetcher:async(url)=>{
-  if(url.includes('grant_type=password'))return response({access_token:'initial',refresh_token:'r1',expires_in:100});
-  if(url.includes('grant_type=refresh_token')){refreshes++;return response({access_token:'renewed',refresh_token:'r2',expires_in:3600});}
+  if(url.includes('grant_type=password'))return response({access_token:'initial',refresh_token:'refresh-1',expires_in:100});
+  if(url.includes('grant_type=refresh_token')){refreshes++;return response({access_token:'renewed',refresh_token:'refresh-2',expires_in:3600});}
   if(url.endsWith('/auth/v1/user'))return response({id:userId});
   return response([]);
  }});
@@ -93,7 +93,7 @@ test('Authenticated professional plan publication uses RPC with immutable idempo
  const calls=[];
  const api=new ReperaAuthAPI({publishableKey:key,storage:storage(),fetcher:async(url,options)=>{
   calls.push({url,options});
-  if(url.includes('grant_type=password'))return response({access_token:'plan-jwt',refresh_token:'r1',expires_in:3600});
+  if(url.includes('grant_type=password'))return response({access_token:'plan-jwt',refresh_token:'refresh-plan',expires_in:3600});
   if(url.endsWith('/auth/v1/user'))return response({id:userId});
   if(url.includes('/rpc/'))return response(userId);
   return response([]);

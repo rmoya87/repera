@@ -16,13 +16,15 @@ concurrency:
 jobs:
   domain-tests:
     name: ReperaDomain swift test
-    runs-on: macos-15
+    # ReperaDomain requires swift-tools-version 6.4, older macOS images provide 6.1.
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v4
       - name: Swift tests (strict concurrency package)
         run: |
-          cd Packages/ReperaDomain
-          swift test
+          sudo xcode-select -s /Applications/Xcode_27.app/Contents/Developer
+          swift --version
+          swift test --package-path Packages/ReperaDomain
 
   canvas:
     name: Modernization canvas

@@ -107,6 +107,11 @@
 - Añade validación `swiftc -frontend -parse` de fuentes, selección explícita de simulador iOS 27 para tests y logs/xcresult como artifacts.
 - **Pendiente confirmar**: que el ejecutor de GitHub Actions admita jobs (los fallos anteriores a cada step también ocurren en `main`) y que Xcode 27 compile/reproduzca las pruebas. No se ha validado localmente un build Apple: este entorno es Linux.
 
+## Diagnóstico real obtenido al reactivar CI
+- El runner de GitHub ya ejecuta steps. Dos jobs de ReperaDomain fallaban por desajuste reproducido: `swift-tools-version: 6.4` frente a Swift 6.1 (macos-15) y 6.3.3 (macos-latest/macOS 26). Se pasa la prueba de dominio y caption al runner `xcode-27` y se selecciona expresamente la toolchain.
+- Panel Business: 42/44 tests pasaban; los dos fallos no eran fallos de Auth sino fixtures con `refresh_token: 'r1'` (2 caracteres), rechazados correctamente por el código. Se corrigen los fixtures a refresh tokens sintéticos válidos de más de 2 caracteres.
+- Compilación Xcode 27 iniciada y lectura de logs en curso; no se declara superada hasta conocer el resultado.
+
 ## PENDIENTE
 - Completar integración Auth extremo a extremo en navegador (confirmación de correo, dominios redirect, correo SMTP, refresh de sesión real, recuperación y logout en dispositivos).
 - Invitaciones, membresía administrada transaccionalmente y consentimientos.
