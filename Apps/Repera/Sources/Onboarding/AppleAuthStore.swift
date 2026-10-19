@@ -79,6 +79,8 @@ final class AppleAuthStore: NSObject {
         let provider = ASAuthorizationAppleIDProvider()
         let request = provider.createRequest()
         request.requestedScopes = [.fullName, .email]
+        let rawNonce = BusinessAuthStore.makeNonce()
+        request.nonce = BusinessAuthStore.hashedNonce(rawNonce)
 
         let controller = ASAuthorizationController(authorizationRequests: [request])
         controller.delegate = self
@@ -93,6 +95,7 @@ final class AppleAuthStore: NSObject {
             throw AppleAuthError.invalidCredential
         }
         apply(credential: credential)
+        await BusinessAuthStore.shared.connect(credential: credential, rawNonce: rawNonce)
     }
 
     /// Aplica el credential ya obtenido por `SignInWithAppleButton`.

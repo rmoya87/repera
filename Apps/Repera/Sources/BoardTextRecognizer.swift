@@ -63,15 +63,36 @@ enum BoardTextRecognizer {
         let fastMs = Int((CFAbsoluteTimeGetCurrent() - t0) * 1000)
         let fastLines = fast.components(separatedBy: .newlines).filter { !$0.isEmpty }
         BoardScanLog.step("vision.fast", "\(fastMs)ms lines=\(fastLines.count) chars=\(fast.count)")
-        if fastLines.count >= 3 {
+        // En pizarras multi-bloque, «fast» suele leer todas las líneas pero
+        // confunde abreviaturas críticas (HSQ, RFT, lunges, 40/25).
+        // Priorizar «accurate» solo ahí; mantener la ruta rápida en fotos simples.
+        let complexBoard = isMultiBlockBoard(fastLines)
+        if fastLines.count >= 3 && !complexBoard {
             return fast
         }
         let t1 = CFAbsoluteTimeGetCurrent()
         let accurate = (try? performRecognition(on: cgImage, level: .accurate)) ?? fast
         let accMs = Int((CFAbsoluteTimeGetCurrent() - t1) * 1000)
-        BoardScanLog.step("vision.accurate", "\(accMs)ms chars=\(accurate.count)")
+        BoardScanLog.step("vision.accurate", "\(accMs)ms chars=\(accurate.count) complex=\(complexBoard)")
         guard !accurate.isEmpty else { throw RecognizerError.noText }
-        return accurate.count >= fast.count ? accurate : fast
+        // Nunca seleccionar OCR por la longitud del texto: más caracteres ≠
+        // mayor precisión. En pizarras multi-bloque prevalece Vision accurate.
+        return complexBoard ? accurate : (accurate.count >= fast.count ? accurate : fast)
+    }
+
+    private static func isMultiBlockBoard(_ lines: [String]) -> Bool {
+        let count = lines.reduce(0) { total, line in
+            let normalized = line.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            let header = normalized.hasPrefix("EMOM")
+                || normalized.hasPrefix("AMRAP")
+                || normalized.hasPrefix("EVERY ")
+                || normalized.hasPrefix("CADA ")
+                || normalized.hasPrefix("FOR TIME")
+                || normalized.hasPrefix("RFT")
+                || normalized.range(of: #"^\d+\s*RFT\b"#, options: .regularExpression) != nil
+            return total + (header ? 1 : 0)
+        }
+        return count >= 2
     }
 
     private static func performRecognition(

@@ -281,7 +281,10 @@ public enum ExerciseSearch {
             .filter { $0.score > 0 }
             .sorted { lhs, rhs in
                 if lhs.score != rhs.score { return lhs.score > rhs.score }
-                return lhs.doc.displayName.localizedStandardCompare(rhs.doc.displayName) == .orderedAscending
+                // Cached, diacritic-folded sort key avoids expensive Foundation
+                // localized collations for every tie while typing a search query.
+                if lhs.doc.name != rhs.doc.name { return lhs.doc.name < rhs.doc.name }
+                return lhs.doc.displayName < rhs.doc.displayName
             }
             .map(\.doc)
     }
@@ -305,14 +308,23 @@ public enum ExerciseSearch {
         var best = 0
 
         if name.hasPrefix(phrase) {
-            best = max(best, Weight.namePrefixPhrase - name.count * Weight.lengthPenaltyPerChar)
+            let prefixScore = Weight.namePrefixPhrase - name.count * Weight.lengthPenaltyPerChar
+            // Prefix outranks the strongest token/contained-phrase match for
+            // ordinary exercise names; skip repeated Unicode scans entirely.
+            if prefixScore >= Weight.nameContainsPhrase + Weight.coverageScale {
+                return prefixScore
+            }
+            best = prefixScore
         }
         if name.contains(phrase) {
             let coverage = Int((Double(phrase.count) / Double(max(name.count, 1))) * Double(Weight.coverageScale))
-            best = max(
-                best,
-                Weight.nameContainsPhrase - name.count * Weight.lengthPenaltyPerChar + coverage
-            )
+            let phraseScore = Weight.nameContainsPhrase - name.count * Weight.lengthPenaltyPerChar + coverage
+            // Ordered-token score cannot exceed 7_000 + 500. When phrase
+            // dominates, computing all token matches is redundant.
+            if phraseScore >= Weight.allTokensInNameOrdered + Weight.coverageScale {
+                return max(best, phraseScore)
+            }
+            best = max(best, phraseScore)
         }
 
         let tokensInName = qTokens.filter { name.contains($0) }

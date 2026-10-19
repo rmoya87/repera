@@ -112,10 +112,12 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 
 ## Navegación (tabs)
 
-`RootTabView`: **Inicio · Diario · Crear · Progreso · Ejercicios**.
+`RootTabView`: **Inicio · Diario · Center · Progreso · Ejercicios**. El antiguo `StartHubSheet` se presenta desde Inicio mediante +; el flujo de sesión y todas sus herramientas se conservan. `CenterView` es nativa, divide **Clases / Citas individuales** en un selector y muestra estados vacíos auténticos hasta conectar datos profesionales.
 
 - Flujo de entreno: overlay `NavigationStack` (`sessionPreview` → `workout`).
 - Tab bar: `minimize` solo con sesión activa; accessory **Continuar**.
+
+La pestaña Diario prioriza **Entrenador** y conserva **Personal · Rutinas** como alternativas sin sobrescribir almacenamiento local. Ajustes agrupa relaciones profesionales y contratos con estados «Sin sincronizar» hasta disponer de APIs y sesión Supabase móvil verificadas.
 
 ## UI / design system
 
@@ -175,9 +177,24 @@ Incluye `BoardImportParserTests`, `LoadSuggestionTests`, sesión, progresión, w
 
 Guía manual: [TESTING_GUIDE.md](TESTING_GUIDE.md).
 
-## No vive aquí
+## Planificación profesional sincronizada en iOS
+`BusinessDataStore` lee `professional_training_sessions` de clientes vinculados (doble control: RLS del servidor + filtro local). `PlanView` en modo Entrenador lista títulos, fechas e instrucciones del coach y `HomeView` muestra la programación del día, sin alterar las rutinas/series JSON privadas de iCloud. El editor de bloques/series profesionales avanzado no está conectado todavía.
 
-- Backend / auth multi-usuario
+## Datos reales de Centro/bonos en iOS
+`BusinessDataStore.swift` es un overlay `@Observable` alimentado por Supabase SDK autenticado. `CenterView` lee Clases/Citas, bonos y reservas para ofrecer acciones RPC; `HomeView` integra reservas confirmadas; Ajustes muestra los centros y saldos. No se fusiona con el JSON local ni iCloud. Pendiente de compilación iOS 27/E2E y disponibilidad de datos reales de prueba.
+
+## Puente de identidad iOS/Repera Business
+`BusinessAuthStore.swift` usa SDK `supabase-swift` (2.55.4 exacta). Tras autorización Apple con nonce SHA-256, intenta obtener una sesión Supabase sin interferir con `AppleAuthStore`, `ReperaStore` local ni sincronización iCloud. Ajustes permite reconectar usuarios previos. NO hay envío automático de entrenamientos privados ni agenda móvil real hasta completar APIs y pruebas E2E.
+
+## Plataforma profesional (desarrollo separado dentro del monorepo)
+
+- Seis migraciones Supabase en el proyecto Repera: identidad, relaciones consentidas, bonos, reservas y sesiones profesionales, con RLS. El puente nativo Apple está escrito y pendiente de validar en dispositivo y proveedor Supabase; no hay intercambio de historial deportivo con iCloud.
+- Plan, estado y pruebas: [docs/business/PLAN_MAESTRO.md](business/PLAN_MAESTRO.md), [docs/business/ESTADO_DESARROLLO.md](business/ESTADO_DESARROLLO.md), [docs/business/SEGURIDAD.md](business/SEGURIDAD.md).
+- El panel profesional autenticado vive en `web/console`, con algunas operaciones reales y otras pendientes; el sitio `web/` de IONOS sigue siendo **marketing** y su empaquetado no incluye la consola. Android nativo no está implementado.
+
+## No vive aquí todavía
+
+- Backend operativo conectado a las aplicaciones iOS/Android
 - Android
 - Coach / LLM en la nube (Foundation Models solo pizarra on-device)
 

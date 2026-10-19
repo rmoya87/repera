@@ -57,6 +57,8 @@ Al perder Pro: **no se borran** rutinas, ejercicios ni entrenos; solo se bloquea
 | Offering | `default` |
 | Bundle iOS | `com.app.repera` |
 
+**TestFlight / App Store Connect (19/10/2026):** ambas suscripciones se muestran como «En preparación para el envío», grupo «Repera PRO». Los IDs numéricos de Apple son referencias del dashboard, nunca parámetros de `Product.products(for:)`, RevenueCat o compra. La primera suscripción renovable requiere envío junto a una versión nueva de la app para revisión; mientras tanto, probar en sandbox de TestFlight si Apple devuelve los productos. Comprobar que RevenueCat usa los nuevos IDs (no los antiguos `repera_pro_...`) y que el entitlement `pro` se activa solo tras transacción verificada. Probar compra mensual, anual, cancelación, restauración, expiración y nuevo inicio de sesión; no inferir aprobación de las capturas.
+
 Primera suscripción renovable: Apple exige enviarla con una versión nueva de la app a revisión. Los productos deben tener metadatos/precios/comercialización configurados y el contrato de aplicaciones de pago activo. En TestFlight las compras usan sandbox; el archivo `.storekit` solo sirve para pruebas locales de Xcode, y sus precios/ofertas no acreditan los definidos en ASC.\n\nPrecios UI: **siempre** desde App Store Connect vía StoreKit (`Product.displayPrice`) o RevenueCat (que lee el mismo catálogo). Sin importes hardcodeados en producción. Si falta `RevenueCatPublicAPIKey`, `StoreKitEntitlementProvider` consulta StoreKit directamente (scheme con `ReperaProducts.storekit` o sandbox ASC). Objetivos ES: 5,99 €/mes · 39,99 €/año · intro anual 29,99 € (si Apple la ofrece) · trial 14 días vía oferta introductoria real.
 
 ## 4. RevenueCat
@@ -72,8 +74,8 @@ Checklist del propietario:
 
 1. **App Store Connect** → app `com.app.repera` → Suscripciones.
 2. Grupo «Repera Pro» con:
-   - `repera_pro_monthly` (1 mes) — intro: 14 días gratis (elegibles).
-   - `repera_pro_annual` (1 año) — intro opcional: 29,99 € primer año.
+   - `com.app.repera.premium.monthly` (1 mes) — intro: 14 días gratis (elegibles).
+   - `com.app.repera.premium.yearly` (1 año) — intro opcional: 29,99 € primer año.
 3. **RevenueCat** → proyecto iOS → API key pública Apple → pegar en `RevenueCatPublicAPIKey`.
 4. Products con los mismos IDs → Entitlement `pro` → Offering `default` (anual destacado + mensual).
 5. Paid Applications Agreement + impuestos / banking activos.

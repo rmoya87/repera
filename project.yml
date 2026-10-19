@@ -13,6 +13,9 @@ packages:
   RevenueCat:
     url: https://github.com/RevenueCat/purchases-ios-spm
     from: 5.0.0
+  Supabase:
+    url: https://github.com/supabase/supabase-swift.git
+    exactVersion: 2.55.4
 
 settings:
   BASE_SDK: iphoneos
@@ -70,6 +73,8 @@ targets:
       - package: ReperaDomain
       - package: RevenueCat
         product: RevenueCat
+      - package: Supabase
+        product: Supabase
       - target: ReperaWatch
         embed: true
       - target: ReperaRestWidget
@@ -86,6 +91,8 @@ targets:
         CFBundleDisplayName: Repera
         # Clave pública RevenueCat (`appl_…`). Sustituir en ASC / xcconfig; vacío = modo gratis.
         RevenueCatPublicAPIKey: YOUR_REVENUECAT_PUBLIC_API_KEY
+        ReperaSupabaseURL: https://uvzgujlrqohreoucirms.supabase.co
+        ReperaSupabasePublishableKey: sb_publishable_uY9c82Ur7VK4VOo9n2zCEg_PmywmLbA
         UILaunchStoryboardName: LaunchScreen
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

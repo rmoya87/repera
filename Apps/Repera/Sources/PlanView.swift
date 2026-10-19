@@ -1,7 +1,8 @@
 import ReperaDomain
 import SwiftUI
 
-private enum DiarioSection: String, CaseIterable, Identifiable {
+enum DiarioSection: String, CaseIterable, Identifiable {
+    case coach
     case schedule
     case routines
 
@@ -9,17 +10,19 @@ private enum DiarioSection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .schedule: return "Programado"
+        case .coach: return "Entrenador"
+        case .schedule: return "Personal"
         case .routines: return "Rutinas"
         }
     }
 }
 
-/// Diario: Programado (días → asignación) y Rutinas (plantillas reutilizables).
+/// Diario: planificación profesional (pendiente de sincronización) y planificación personal intacta.
 struct PlanView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(SubscriptionManager.self) private var subscriptions
-    @State private var section: DiarioSection = .schedule
+    @Environment(BusinessDataStore.self) private var businessData
+    @Binding var section: DiarioSection
     @State private var editing: Routine?
     @State private var isCreating = false
     @State private var confirmClearSchedule = false
@@ -41,6 +44,8 @@ struct PlanView: View {
                 }
 
                 switch section {
+                case .coach:
+                    coachScheduleContent
                 case .schedule:
                     scheduleContent
                 case .routines:
@@ -151,6 +156,53 @@ struct PlanView: View {
                 Text(n == 0
                      ? "No había entrenos sueltos en la semana ISO anterior."
                      : "Se añadieron \(n) entreno\(n == 1 ? "" : "s") a esta semana.")
+            }
+        }
+    }
+
+    // MARK: - Planificación de entrenadores
+
+    @ViewBuilder
+    private var coachScheduleContent: some View {
+        Section {
+            if businessData.trainingSessions.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("Planificación de tu entrenador", systemImage: "person.fill.checkmark")
+                        .font(.headline)
+                        .foregroundStyle(OG.label)
+
+                    Text("Aquí aparecerán los entrenamientos que publique tu entrenador después de aceptar su invitación.")
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label2)
+
+                    Text("Tu programación personal sigue disponible en «Personal» y «Rutinas»; los entrenamientos registrados nunca se borran.")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                }
+                .padding(.vertical, 12)
+            } else {
+                ForEach(businessData.trainingSessions) { session in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(session.scheduledDate)
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(OG.accent)
+                        Text(session.title)
+                            .font(.headline)
+                            .foregroundStyle(OG.label)
+                        Text(businessData.centerName(session.orgId))
+                            .font(.subheadline)
+                            .foregroundStyle(OG.label2)
+                        if !session.instructions.isEmpty {
+                            Text(session.instructions)
+                                .font(.body)
+                                .foregroundStyle(OG.label)
+                        }
+                        Text("Programación enviada por tu entrenador. Los resultados personales permanecen en tu historial privado.")
+                            .font(.footnote)
+                            .foregroundStyle(OG.label2)
+                    }
+                    .padding(.vertical, 7)
+                }
             }
         }
     }
@@ -462,6 +514,7 @@ struct DayEditorView: View {
     @State private var showRoutinePicker = false
     @State private var showWODCatalog = false
     @State private var showCreateWODFormat = false
+    @State private var selectFormatForBlock: UUID?
     @State private var saveAsFavorite = false
 
     var body: some View {
@@ -896,30 +949,39 @@ struct DayEditorView: View {
         return 4
     }
 
+    private func setWODFormat(_ format: WODFormat, at index: Int) {
+        routine.blocks[index].wodFormat = format
+        if format == .tabata {
+            routine.blocks[index].workSeconds = routine.blocks[index].workSeconds ?? 20
+            routine.blocks[index].restSeconds = routine.blocks[index].restSeconds ?? 10
+            routine.blocks[index].rounds = routine.blocks[index].rounds ?? 8
+        }
+        if format == .forTime {
+            routine.blocks[index].rounds = routine.blocks[index].rounds ?? 4
+            routine.blocks[index].timeCapMinutes = routine.blocks[index].timeCapMinutes ?? 12
+        }
+        if format == .amrap || format == .emom {
+            routine.blocks[index].timeCapMinutes = routine.blocks[index].timeCapMinutes ?? 12
+        }
+        if format == .emom {
+            routine.blocks[index].deriveEmomRoundsIfNeeded()
+        }
+    }
+
     @ViewBuilder
     private func wodBlock(index: Int) -> some View {
-        Picker("Formato", selection: Binding(
-            get: { routine.blocks[index].wodFormat ?? .amrap },
-            set: { new in
-                routine.blocks[index].wodFormat = new
-                if new == .tabata {
-                    routine.blocks[index].workSeconds = routine.blocks[index].workSeconds ?? 20
-                    routine.blocks[index].restSeconds = routine.blocks[index].restSeconds ?? 10
-                    routine.blocks[index].rounds = routine.blocks[index].rounds ?? 8
-                }
-                if new == .forTime {
-                    routine.blocks[index].rounds = routine.blocks[index].rounds ?? 4
-                    routine.blocks[index].timeCapMinutes = routine.blocks[index].timeCapMinutes ?? 12
-                }
-                if new == .amrap || new == .emom {
-                    routine.blocks[index].timeCapMinutes = routine.blocks[index].timeCapMinutes ?? 12
-                }
-                if new == .emom {
-                    routine.blocks[index].deriveEmomRoundsIfNeeded()
-                }
+        Button {
+            selectFormatForBlock = routine.blocks[index].id
+        } label: {
+            HStack {
+                Text("Formato")
+                Spacer()
+                Text((routine.blocks[index].wodFormat ?? .amrap).displayName)
+                    .foregroundStyle(OG.label2)
+                Image(systemName: "chevron.right")
+                    .font(.footnote)
+                    .foregroundStyle(OG.label3)
             }
-        )) {
-            ForEach(WODFormat.allCases, id: \.self) { Text($0.displayName).tag($0) }
         }
 
         if let format = routine.blocks[index].wodFormat {
@@ -1066,13 +1128,17 @@ struct DayEditorView: View {
         if let id = move.exerciseId, let ex = store.state.exercises.first(where: { $0.id == id }) {
             return ex
         }
-        let canonical = CrossFitGlossary.canonicalName(for: move.name)
+        let canonical = CrossFitGlossary.resolveCatalogName(move.name, notes: move.notes)
+        let rawCanonical = CrossFitGlossary.canonicalName(for: move.name)
         if let match = store.state.exercises.first(where: {
             $0.name.localizedCaseInsensitiveCompare(move.name) == .orderedSame
                 || $0.name.localizedCaseInsensitiveCompare(canonical) == .orderedSame
+                || $0.name.localizedCaseInsensitiveCompare(rawCanonical) == .orderedSame
         }) {
             return match
         }
+        // Mantiene una identidad visual coherente incluso si el ejercicio
+        // importado todavía no tiene ID en el catálogo del usuario.
         return Exercise(name: canonical, muscleGroup: "WOD", isCustom: true)
     }
 }

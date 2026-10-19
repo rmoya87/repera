@@ -48,11 +48,14 @@ jobs:
 
   domain:
     name: ReperaDomain caption tests
-    runs-on: macos-latest
+    # swift-tools-version: 6.4 requires the Xcode 27 runner.
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v4
       - name: Swift toolchain
-        run: swift --version
+        run: |
+          sudo xcode-select -s /Applications/Xcode_27.app/Contents/Developer
+          swift --version
       - name: Run domain unit tests
         run: swift test --package-path Packages/ReperaDomain
 

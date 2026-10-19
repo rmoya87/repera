@@ -4,6 +4,28 @@
 
 Checklist manual por feature. Preferible dispositivo real para Live Activity y Watch.
 
+## Navegación deportista (2026-10-19)
+
+- [ ] La barra muestra **Inicio · Diario · Center · Progreso · Ejercicios** (sin pestaña Crear).
+- [ ] **Inicio → +** abre todas las acciones antiguas: crear entreno, apuntar series, favoritos, temporizador y escanear pizarra; iniciar/continuar entreno conserva la navegación.
+- [ ] **Inicio → Añadir entreno** conserva su sheet por día y **Crear plan** abre Diario en «Personal».
+- [ ] **Diario** abre en «Entrenador» con sesiones profesionales recibidas tras invitación/Apple Auth, o estado vacío sin vinculaciones; «Personal» y «Rutinas» conservan todos los datos y acciones.
+- [ ] **Center** muestra selector **Clases · Citas** y los horarios reales publicados por un centro. Sin datos, muestra un estado vacío; con bono válido, reserva mediante RPC. Comprobar aforo, citas solapadas, cancelación y devolución en PostgreSQL.
+- [ ] **Ajustes** separa centros/entrenadores, servicios externos y el plan «Repera Pro» de Apple.
+- [ ] Con futuro backend: validar reservas grupales y citas 1:1, evitar solapes de entrenador/sala, doble reserva de la última plaza, saldo y caducidad separados, devolución de crédito, notificaciones, varios centros y revocación, sin borrar historial local.
+
+## E2E profesional / Apple Auth (pendiente de ejecutar en iOS 27)
+- [ ] Configurar Apple provider para bundle `com.app.repera` en Supabase Repera, luego validar registro/login en dispositivo y restauración de sesión tras reinicio.
+- [ ] Cambiar entre dos identidades Apple: ningún centro, invitación, bono o reserva debe filtrarse entre cuentas.
+- [ ] Owner crea empresa e invita un atleta; atleta acepta desde iOS; aparece centro en Ajustes.
+- [ ] Entrenador publica sesión fechada; aparece en Diario e Inicio del atleta, pero no en la cuenta de un tercero ni sustituye la planificación personal.
+- [ ] Manager publica clase y cita; ofrece bono de cortesía por tipo; atleta reserva cada modalidad con el bono correcto, sin saldos negativos.
+- [ ] Cancelar a más y menos de 12h; comprobar política provisional y ledger; no emitir facturas/pagos ficticios.
+- [ ] Dos deportistas reservan la última plaza simultáneamente desde dispositivos diferentes; verificar exactamente una reserva.
+- [ ] Center muestra «Completo» si aforo=reservas, sin filtrar información de otras personas ni ofrecer botón Reservar; si falla RPC, deshabilita la reserva.
+- [ ] Modo avión, token caducado, Apple ocultar correo, sesión revocada y eliminación/revocación del vínculo.
+- [ ] Ejecutar build/UITests con Xcode e iOS 27 y revisar todo el CI antes de merge.
+
 ## Monetización (Gratis / Pro)
 
 Detalle: [MONETIZATION.md](MONETIZATION.md).
@@ -21,7 +43,7 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 
 ## Log rápido (Apuntar series)
 
-- [ ] **Crear → Apuntar series** → elige ejercicio → modal de series → guardar → aparece en Inicio / Historial.
+- [ ] **Inicio → + → Apuntar series** → elige ejercicio → modal de series → guardar → aparece en Inicio / Historial.
 - [ ] Racha en Inicio con Salud autorizada → Historial lista Repera **y** entrenos de Salud (sin duplicar vinculados).
 - [ ] Distinto de **Crear mi entreno**: no pide bloques/WOD.
 - [ ] **Ficha ejercicio → +** → mismo modal de series (no abre sesión completa).
@@ -101,3 +123,14 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - Repetir con sesión iniciada y onboarding pendiente: sin zoom, estiramiento, flash negro ni salto de posición.
 - Girar a horizontal en dispositivo compatible: `scaleAspectFit` conserva la imagen entera, sin distorsión.
 - Instalar una compilación nueva (5 o posterior) para invalidar la captura de lanzamiento cacheada por iOS.
+
+## Cambio de cuenta durante sincronización profesional (pendiente de dispositivo)
+
+- [ ] Iniciar una consulta de Center/Diario con cuenta Apple A, salir e iniciar con B antes de terminar la respuesta: ninguna invitación, centro, bono o sesión de A debe volver a aparecer.
+- [ ] Cerrar sesión cuando una petición está en vuelo: la UI no repuebla datos de A.
+- [ ] Cancelar una reserva con menos de 12h: aparece confirmación avisando de la no devolución provisional de crédito; con más de 12h, explica la posible devolución y exige confirmación.
+- [ ] Tras un error de red o cambio de cuenta, el cliente nunca presenta aforo o créditos antiguos como disponibles.
+
+## UI tests en simulador limpio (2026-10-19)
+
+`ReperaSmokeUITests` arranca la app Debug con `--repera-ui-test-tabs` y `REPERA_UI_TEST_MODE=1` para acceder únicamente al contenedor de pestañas sin cuenta Apple del runner. La compilación Release **no** reconoce este modo. Los tests comprueban `Inicio · Diario · Center · Progreso · Ejercicios` y navegación a Ejercicios. El login real con Apple debe probarse en otro escenario E2E con cuenta y TestFlight, nunca se simula como superado.

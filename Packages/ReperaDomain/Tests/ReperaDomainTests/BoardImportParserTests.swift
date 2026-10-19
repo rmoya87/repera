@@ -127,6 +127,51 @@ struct BoardImportParserTests {
         #expect(blocks[2].movements[3].restSeconds == 60)
     }
 
+
+    @Test func importsReperaUserBoardWithTimedStrengthAndReverseLunge() {
+        let catalog = Catalog.seed()
+        let board = """
+        EMOM 8' @6-8
+        2 HIGH HSQ SNATCH
+
+        EVERY 2' X 4
+        4-3-3-2 BACK SQUAT @6-8
+
+        4 RFT (TC 12')
+        6 POWER SNATCH 40/25
+        8 BOB
+        10 BACK RACK R. LUNGES 40/25
+        1' REST
+        """
+        let blocks = BoardImportParser.parseBlocks(ocrText: board, catalog: catalog)
+        #expect(blocks.count == 3)
+        #expect(blocks[0].wodFormat == .emom)
+        #expect(blocks[0].timeCapMinutes == 8)
+        #expect(blocks[0].movements.first?.exerciseId != nil)
+
+        let strength = blocks[1]
+        #expect(strength.kind == .strength)
+        #expect(strength.emomIntervalSeconds == 120)
+        #expect(strength.exercises.count == 1)
+        #expect(strength.exercises.first?.plannedSets.map(\.targetReps) == [4, 3, 3, 2])
+        #expect(strength.exercises.first?.plannedSets.first?.targetRir == 3)
+        #expect(strength.wodNotes?.contains("@6-8") == true)
+
+        let rft = blocks[2]
+        #expect(rft.wodFormat == .forTime)
+        #expect(rft.rounds == 4)
+        #expect(rft.timeCapMinutes == 12)
+        let work = rft.movements.filter { !$0.isRest }
+        #expect(work.count == 3)
+        #expect(work[0].weightMaleKg == 40)
+        #expect(work[0].weightFemaleKg == 25)
+        #expect(CrossFitGlossary.canonicalName(for: "Bar facing burpee") == "Bar facing burpee")
+        #expect(work[1].name == "Bar facing burpee")
+        #expect(work[2].name == "Back rack reverse lunge")
+        #expect(work[2].exerciseId != nil)
+        #expect(rft.movements.last?.restSeconds == 60)
+    }
+
     @Test func glossaryExpandsDU() {
         let expanded = CrossFitGlossary.expand("50 DU")
         #expect(expanded.lowercased().contains("doble") || expanded.lowercased().contains("comba"))

@@ -19,6 +19,7 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 | [docs/ios27-modernization/](docs/ios27-modernization/) | Canvas modernización iOS 27 |
 | [docs/decisions/](docs/decisions/) | ADRs (persistencia, timers, nav, HK, arte) |
 | [AGENTS.md](AGENTS.md) | Instrucciones para agentes Cursor |
+| [docs/business/PLAN_MAESTRO.md](docs/business/PLAN_MAESTRO.md) | Plataforma profesional, seguridad, fases y seguimiento |
 
 > **Obligatorio:** cualquier cambio de comportamiento debe actualizar estos docs (ver `MAINTENANCE.md` y la regla Cursor `update-docs-on-change`).
 
@@ -27,8 +28,9 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 | Área | Incluye |
 |------|---------|
 | **Inicio** | Semana/día, métricas Salud, entrenos + externos, avatar→Ajustes, planificar / pizarra |
-| **Diario** | Plan semanal, rutinas, WOD, favoritos, **copiar semana pasada** |
-| **Crear** | Entreno libre, **Apuntar series**, favoritos, timer, foto pizarra/TV |
+| **Diario** | Sesiones profesionales fechadas consultadas desde Supabase + planificación personal/rutinas conservadas; ejecución estructurada pendiente |
+| **Center** | Selector Clases/Citas con lectura de horarios reales, reservas y cancelaciones mediante Supabase cuando haya sesión y bono disponible; E2E pendiente |
+| **Crear desde Inicio** | Botón +: entreno libre, **Apuntar series**, favoritos, timer, foto pizarra/TV (sin pestaña propia) |
 | **Progreso** | Gratis: esta semana + teaser; Pro: periodos, deltas, cardio/kcal/peso, heatmap, equilibrio |
 | **Ejercicios** | Biblioteca + ficha; evolución completa = Pro (Gratis: última sesión + PR) |
 | **Sesión** | Series, WU/drop/rest-pause, RIR/RPE, discos, menú ⋯, Live Activity descanso |
@@ -38,6 +40,14 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 | **Datos** | JSON local + iCloud Documents; CSV Strong/Hevy (sin entitlement en el JSON) |
 | **Watch** | Confirmar → conteo → **+1 serie** / log rápido (sin límites Pro en v1) |
 | **Monetización** | StoreKit + RevenueCat; ver [docs/MONETIZATION.md](docs/MONETIZATION.md) |
+
+## Arranque rápido en Mac (doble clic)
+
+- [`Repera-Business.command`](Repera-Business.command): ejecuta localmente la demostración profesional en navegador; requiere Python 3 y permanece abierta una ventana Terminal. Los datos son ficticios.
+- [`Repera-iOS.command`](Repera-iOS.command): intenta compilar y lanzar la app en Simulator; requiere macOS, Xcode con iOS 27, XcodeGen y un simulador compatible.
+- Ambos lanzadores están en la raíz del repositorio; si clonas por Git, se conserva el permiso de ejecución. No se ha generado todavía una aplicación macOS firmada ni un paquete iOS listo para distribución.
+
+**Estado:** el flujo deportista↔entrenador↔centro no está conectado completamente y el CI sigue fallando; `main` no debe recibir la rama Business sin revisión y pruebas.
 
 ## Arranque
 
@@ -66,10 +76,10 @@ Cold start: Splash nativo y pantalla de espera usan la misma UIImageView UIKit e
 | RevenueCat API key | `RevenueCatPublicAPIKey` en Info.plist (pública `appl_…`) |
 | Productos | `com.app.repera.premium.monthly` / `com.app.repera.premium.yearly` · entitlement `pro` |
 
-## Fuera de alcance (por ahora)
+## No integrados aún en las apps
 
-- Cliente Android
-- Backend social / multi-usuario (sí hay Sign in with Apple + iCloud)
+- Android nativo: planificado, no implementado.
+- Backend Supabase de Repera: **siete migraciones aplicadas, 16 tablas públicas y RLS en las 16**, sin usuarios reales dados de alta. Panel profesional conectado a invitaciones, horarios, bonos de cortesía y entrenamientos fechados. iOS incluye puente Apple→Supabase y lectura de Center/Diario/Inicio/Ajustes, **pendiente compilar y validar con proveedor Apple y cuentas reales**. No hay Stripe, facturación, bonos de pago ni listas de espera. Ver [estado real](docs/business/ESTADO_DESARROLLO.md) y [criterios y accesos necesarios para cerrar la entrega](docs/business/RELEASE_GATE.md).
 - Coach / tips con IA (sí hay Foundation Models on-device para pizarra)
 - SDK RevenueCat en Apple Watch
 

@@ -249,6 +249,7 @@ public enum CatalogSpanish {
         "Air squat": "Sentadilla sin carga.",
         "Jumping squat": "Sentadilla con salto.",
         "Jumping lunge": "Zancada con salto alterno.",
+        "Back rack reverse lunge": "Zancada inversa con barra apoyada en la espalda alta (back rack): da un paso atrás y baja la rodilla de forma controlada, manteniendo el tronco estable. Trabajo unilateral de cuádriceps, glúteos y equilibrio.",
         "GHD sit-up": "GHD sit-up: ejecuta el movimiento con rango completo, core firme y control.",
         "GHD back extension": "Extensión de espalda en GHD.",
         "Sit-up": "Sit-up completo (hombros pasan la cadera).",
@@ -832,6 +833,15 @@ public enum CatalogSpanish {
             "Error típico: aterrizaje rígido o caer sentado. Prioriza recepción atlética.",
             "Mide distancia o marca. No es un burpee: no hace falta pecho al suelo.",
             "Progresión: saltos cortos técnicos → máximos.",
+        ],
+        "Back rack reverse lunge": [
+            "Ajusta la barra sobre los trapecios (back rack) con las manos equidistantes, hombros activos y abdomen firme antes de dar el primer paso atrás.",
+            "Da un paso hacia atrás suficientemente largo para apoyar la punta del pie y repartir la carga: el pie delantero debe permanecer plano y estable.",
+            "Inhala y desciende con control hasta acercar la rodilla trasera al suelo; mantén la columna neutra y la rodilla delantera alineada con los dedos del pie.",
+            "Empuja el suelo con el pie delantero y exhala al volver a la posición de inicio; alterna las piernas solo si así lo indica la programación.",
+            "Error típico: inclinar demasiado el torso, dejar caer la rodilla de atrás de golpe o perder el equilibrio por separar poco los pies.",
+            "Estándar: cadera y rodilla se extienden por completo al terminar cada repetición, sin apoyar la barra sobre el cuello ni permitir que el talón delantero se levante.",
+            "Si no puedes mantener el equilibrio, practica primero reverse lunges sin carga y después con barra vacía; progresión: carga ligera y repeticiones simétricas por pierna.",
         ],
         "Walking lunge": [
             "Zancadas caminando: paso adelante, baja rodilla trasera, empuja y da el siguiente paso.",

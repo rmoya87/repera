@@ -171,6 +171,10 @@ final class SubscriptionManager {
     }
 
     func purchase(productID: String) async -> Bool {
+        guard [CommercialConfig.monthlyProductID, CommercialConfig.annualProductID].contains(productID) else {
+            lastErrorMessage = "La suscripción seleccionada no coincide con App Store Connect."
+            return false
+        }
         guard !purchaseInFlight else { return false }
         purchaseInFlight = true
         lastErrorMessage = nil

@@ -10,6 +10,8 @@ struct SettingsView: View {
     @Environment(HealthKitStore.self) private var health
     @Environment(SubscriptionManager.self) private var subscriptions
     @Environment(AppleAuthStore.self) private var appleAuth
+    @Environment(BusinessAuthStore.self) private var businessAuth
+    @Environment(BusinessDataStore.self) private var businessData
     @Environment(OnboardingStore.self) private var onboarding
     @Environment(WorkoutLocationTracker.self) private var location
     @Environment(\.openURL) private var openURL
@@ -118,6 +120,61 @@ struct SettingsView: View {
                 Text("Cuenta")
             } footer: {
                 Text("Sign in with Apple identifica tu cuenta. Con iCloud activo hay copia de seguridad y sync entre dispositivos.")
+            }
+
+            Section {
+                LabeledContent("Repera Business", value: businessAuth.isConnected ? "Conectada" : "Sin conectar")
+                ForEach(businessData.centers) { center in
+                    LabeledContent(center.kind == "personal_trainer" ? "Entrenador" : "Centro", value: center.name)
+                }
+                if businessData.centers.isEmpty {
+                    LabeledContent("Centros vinculados", value: "Ninguno")
+                }
+                if !businessAuth.isConnected {
+                    Button("Conectar cuenta Apple con Repera") {
+                        Task { try? await appleAuth.signIn() }
+                    }
+                    .disabled(appleAuth.isSigningIn || businessAuth.isConnecting)
+                    if let error = businessAuth.lastErrorMessage {
+                        Text(error)
+                            .font(.footnote)
+                            .foregroundStyle(OG.red)
+                    }
+                }
+                Text("Solo se muestran vínculos aceptados y autorizados en Supabase. El historial personal sigue siendo privado en iCloud.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Mis centros y entrenadores")
+            }
+
+            Section {
+                if businessData.passes.isEmpty {
+                    LabeledContent("Bonos y sesiones", value: "Sin bonos activos")
+                } else {
+                    ForEach(businessData.passes) { pass in
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(businessData.centerName(pass.orgId))
+                                .font(.headline)
+                            Text(pass.kind == "appointment" ? "Sesiones de entrenador personal" : "Clases de gimnasio")
+                                .font(.subheadline)
+                            Text("\(pass.remainingCredits) de \(pass.totalCredits) sesiones disponibles")
+                                .foregroundStyle(OG.accent)
+                            if let end = BusinessDataStore.date(pass.validUntil) {
+                                Text("Caduca: \(end.formatted(date: .abbreviated, time: .omitted))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                Text("Los bonos mostrados están emitidos por el centro. La compra, renovación o cambio de contrato todavía se tramita con el profesional; Repera Pro es independiente.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Servicios contratados")
             }
 
             Section {
@@ -517,6 +574,8 @@ struct SettingsView: View {
                 confirmTitle: "Cerrar sesión",
                 onConfirm: {
                     appleAuth.signOut()
+                    businessData.clear()
+                    Task { await businessAuth.signOut() }
                     onboarding.resetToSignIn()
                     confirmSignOut = false
                 },

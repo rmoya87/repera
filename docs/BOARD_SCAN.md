@@ -56,6 +56,30 @@ Soporta entre otros:
 
 Limitación: no es comprensión general; formatos muy raros dependen de la IA o de añadir patrones + tests.
 
+## Regresión WOD 19/10/2026
+
+Ejemplo real para comprobar OCR y parsing:
+
+```text
+EMOM 8' @6-8
+2 HIGH HSQ SNATCH
+
+EVERY 2' X 4
+4-3-3-2 BACK SQUAT @6-8
+
+4 RFT (TC 12')
+6 POWER SNATCH 40/25
+8 BOB
+10 BACK RACK R. LUNGES 40/25
+1' REST
+```
+
+- Bloque 1: EMOM de 8 min, arranca desde hang alto; el esfuerzo de cabecera se conserva en el texto original.
+- Bloque 2: fuerza (4 series, 4-3-3-2 reps) con intervalo 120 s; @6-8 es RPE, se conserva la prescripción y el objetivo editable es RIR 3 (punto medio).
+- Bloque 3: 4 RFT, límite 12 min, 6 power snatch 40/25, 8 burpees sobre barra, 10 zancadas inversas con barra en espalda 40/25 y descanso 60 s.
+- El bloque EVERY con un único movimiento escalonado pasa a `.strength` si se ha podido emparejar el ID del ejercicio. Los EVERY multiestación siguen como `.emom`.
+- El glosario distingue back rack reverse lunge de front rack lunge. La búsqueda permite ES/EN y abreviaturas; si falta un ID, conservar el nombre sin inventarlo.
+
 ## Series al apuntar (`RoutineBlock.plannedSets(for:)`)
 
 | Formato | Series por movimiento |
@@ -105,7 +129,7 @@ cd Packages/ReperaDomain && swift test --filter BoardImportParserTests
 cd Packages/ReperaDomain && swift test --filter SessionControllerTests
 ```
 
-Incluye EMOM 12' multi-estación → 4 rondas, fuerza+AMRAP, expansión de series en sesión.
+Incluye EMOM 12' multi-estación → 4 rondas, fuerza+AMRAP, expansión de series en sesión y prueba de regresión del WOD de octubre. La ruta activa es `BoardScanLiteParser`; hace falta además prueba manual con la captura original.
 
 ## Logs
 

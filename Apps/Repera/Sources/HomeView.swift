@@ -5,6 +5,7 @@ import SwiftUI
 struct HomeView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(HealthKitStore.self) private var health
+    @Environment(BusinessDataStore.self) private var businessData
     var onOpenWorkout: () -> Void
     var onStart: () -> Void
     /// Abre el preview / inicio de un entreno concreto (p. ej. suelto del viernes).
@@ -70,11 +71,82 @@ struct HomeView: View {
         )
     }
 
+    /// Read-only professional plan for the selected day (never overwrites personal routines).
+    @ViewBuilder
+    private var professionalSessionsForSelectedDay: some View {
+        let selected = BusinessDataStore.localDayKey(selectedDay)
+        let published = businessData.trainingSessions.filter { $0.scheduledDate == selected }
+        if !published.isEmpty {
+            OGCardSectionTitle(title: "Planificado por tu entrenador")
+            OGCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(published) { session in
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(session.title)
+                                .font(.headline)
+                                .foregroundStyle(OG.label)
+                            Text(businessData.centerName(session.orgId))
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                            if !session.instructions.isEmpty {
+                                Text(session.instructions)
+                                    .font(.footnote)
+                                    .foregroundStyle(OG.label)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Confirmed external reservations live beside local workouts, without modifying ReperaStore.
+    @ViewBuilder
+    private var confirmedBusinessBookingsCard: some View {
+        let todayBookings = businessData.bookings.filter { booking in
+            guard booking.status == "booked",
+                  let occurrence = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }),
+                  let begins = BusinessDataStore.date(occurrence.startsAt) else { return false }
+            return Calendar.current.isDate(begins, inSameDayAs: selectedDay)
+        }
+        if !todayBookings.isEmpty {
+            OGCardSectionTitle(title: "Reservas confirmadas")
+            OGCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(todayBookings) { booking in
+                        if let occurrence = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }) {
+                            HStack(spacing: 12) {
+                                Image(systemName: occurrence.kind == "class" ? "figure.group" : "person.crop.circle")
+                                    .foregroundStyle(OG.accent)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(occurrence.title).font(.headline)
+                                    Text(businessData.centerName(occurrence.orgId))
+                                        .font(.caption)
+                                        .foregroundStyle(OG.label2)
+                                    if let start = BusinessDataStore.date(occurrence.startsAt) {
+                                        Text(start.formatted(date: .omitted, time: .shortened))
+                                            .font(.footnote)
+                                            .foregroundStyle(OG.label2)
+                                    }
+                                }
+                                Spacer()
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(OG.accent)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     weekAndDayCard
+                    professionalSessionsForSelectedDay
+                    confirmedBusinessBookingsCard
                     streakCard
                 }
                 .padding(.horizontal, OG.pad)
@@ -83,6 +155,12 @@ struct HomeView: View {
             }
             .background(OG.bg)
             .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay)) {
+                OGToolbarGlassButton(
+                    systemName: "plus",
+                    accessibilityLabel: "Crear entreno, apuntar series o escanear pizarra",
+                    appliesGlass: true,
+                    action: onOpenStartHub
+                )
                 NavigationLink {
                     SettingsView()
                 } label: {

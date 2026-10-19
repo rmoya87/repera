@@ -1,4 +1,3 @@
-import Foundation
 import ReperaDomain
 
 /// Analizador local y lineal para fotos de pizarra.
