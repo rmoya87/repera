@@ -458,6 +458,7 @@ struct DayEditorView: View {
     var usesPageCloseHeader: Bool = false
     @State private var pickExerciseForBlock: UUID?
     @State private var pickMovementForBlock: UUID?
+    @State private var createFreeMovementForBlock: UUID?
     @State private var showRoutinePicker = false
     @State private var showWODCatalog = false
     @State private var showCreateWODFormat = false
@@ -621,6 +622,14 @@ struct DayEditorView: View {
                     )
                 }
                 pickMovementForBlock = nil
+            }
+        }
+        .navigationDestination(item: $createFreeMovementForBlock) { blockID in
+            FreeWODMovementCreatePage { movement in
+                if let idx = routine.blocks.firstIndex(where: { $0.id == blockID }) {
+                    routine.blocks[idx].movements.append(movement)
+                }
+                createFreeMovementForBlock = nil
             }
         }
         .sheet(isPresented: $showRoutinePicker) {
@@ -1038,9 +1047,7 @@ struct DayEditorView: View {
             )
         }
         Button("Añadir movimiento libre") {
-            routine.blocks[index].movements.append(
-                WODMovement(name: "Movimiento", reps: 10)
-            )
+            createFreeMovementForBlock = routine.blocks[index].id
         }
 
         TextField("Notas / texto del WOD", text: Binding(
@@ -1702,6 +1709,57 @@ struct ExercisePickerView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     CloseToolbarButton(action: { dismiss() }, large: false)
                 }
+            }
+        }
+    }
+}
+
+/// Alta de un movimiento libre como página push; se valida antes de añadirlo.
+private struct FreeWODMovementCreatePage: View {
+    @Environment(\.dismiss) private var dismiss
+    var onCreate: (WODMovement) -> Void
+
+    @State private var name = ""
+    @State private var repsText = "10"
+    @State private var maleWeightText = ""
+    @State private var femaleWeightText = ""
+
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var body: some View {
+        Form {
+            Section("Movimiento") {
+                TextField("Nombre", text: $name)
+                    .textInputAutocapitalization(.words)
+                    .autocorrectionDisabled()
+                TextField("Repeticiones", text: $repsText)
+                    .keyboardType(.numberPad)
+            }
+            Section("Carga opcional · kg") {
+                TextField("Carga masculina", text: $maleWeightText)
+                    .keyboardType(.decimalPad)
+                TextField("Carga femenina", text: $femaleWeightText)
+                    .keyboardType(.decimalPad)
+            }
+        }
+        .ogListChrome()
+        .ogPinnedTransparentNav("Nuevo movimiento")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Añadir") {
+                    guard let reps = Int(repsText), reps > 0 else { return }
+                    let movement = WODMovement(
+                        name: trimmedName,
+                        reps: reps,
+                        weightMaleKg: Double(maleWeightText.replacingOccurrences(of: ",", with: ".")),
+                        weightFemaleKg: Double(femaleWeightText.replacingOccurrences(of: ",", with: "."))
+                    )
+                    onCreate(movement)
+                    dismiss()
+                }
+                .disabled(trimmedName.isEmpty || (Int(repsText) ?? 0) <= 0)
             }
         }
     }
