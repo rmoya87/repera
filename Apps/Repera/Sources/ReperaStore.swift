@@ -509,10 +509,11 @@ final class ReperaStore: NSObject {
             syncPhase = .ready
         case .waitingForDownload:
             allowRemoteUpload = false
-            lastiCloudSyncMessage = waitForUpload
+            let message = waitForUpload
                 ? "iCloud sigue descargando los datos. Vuelve a intentarlo."
                 : "Descargando datos de iCloud…"
-            syncPhase = waitForUpload ? .failed(lastiCloudSyncMessage!) : .awaitingRemote
+            lastiCloudSyncMessage = message
+            syncPhase = waitForUpload ? .failed(message) : .awaitingRemote
             if isInitial {
                 scheduleCloudDownloadRetry()
             }
