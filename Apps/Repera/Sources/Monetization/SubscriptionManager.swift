@@ -134,11 +134,20 @@ final class SubscriptionManager {
     func loadOfferings() async {
         do {
             var loaded = try await provider.offerings()
-            // Si RevenueCat no trae paquetes, cae a StoreKit puro (precios Apple).
+            // No ofrecer IDs antiguos: RevenueCat puede tener un offering no actualizado.
+            let validIDs: Set<String> = [
+                CommercialConfig.monthlyProductID, CommercialConfig.annualProductID,
+            ]
+            loaded.packages = loaded.packages.filter { validIDs.contains($0.productID) }
+            // Si el catálogo de RevenueCat aún no se ha configurado, comprar y
+            // verificar también con StoreKit. Nunca mezclar productos de StoreKit
+            // con un proveedor de compra diferente.
             if loaded.packages.isEmpty, !(provider is StoreKitEntitlementProvider) {
                 let storeKit = StoreKitEntitlementProvider()
                 let fallback = try await storeKit.offerings()
                 if !fallback.packages.isEmpty {
+                    provider = storeKit
+                    applySnapshot(await storeKit.refresh())
                     loaded = fallback
                 }
             }
@@ -146,7 +155,12 @@ final class SubscriptionManager {
         } catch {
             // Último recurso: StoreKit directo.
             do {
-                offerings = try await StoreKitEntitlementProvider().offerings()
+                let storeKit = StoreKitEntitlementProvider()
+                offerings = try await storeKit.offerings()
+                if !offerings.packages.isEmpty {
+                    provider = storeKit
+                    applySnapshot(await storeKit.refresh())
+                }
             } catch {
                 offerings = CommercialOfferings(
                     packages: [],
