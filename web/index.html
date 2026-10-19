@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Repera — App de entrenamiento para iPhone y Apple Watch</title>
+  <meta name="description" content="Repera: entrena gratis en iPhone y Apple Watch. Local-first con iCloud y Apple Salud. Repera Pro añade evolución, estadísticas y escaneos ilimitados.">
+  <meta name="keywords" content="Repera, entrenamiento, CrossFit, Apple Watch, gym, rutinas, WOD, iPhone, local-first">
+  <meta name="author" content="Repera">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#000000">
+  <meta name="color-scheme" content="dark">
+  <link rel="canonical" href="https://repera.app/">
+  <link rel="icon" href="assets/icon.png" type="image/png" sizes="180x180">
+  <link rel="apple-touch-icon" href="assets/icon.png">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:site_name" content="Repera">
+  <meta property="og:title" content="Repera — Entrena como siempre">
+  <meta property="og:description" content="App nativa local-first para iPhone y Apple Watch. Gratis para entrenar; Pro para evolucionar.">
+  <meta property="og:url" content="https://repera.app/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://repera.app/assets/mascot-hero.png">
+  <meta property="og:image:alt" content="Mascota de Repera celebrando con mancuernas">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Repera — Entrena como siempre">
+  <meta name="twitter:description" content="App nativa local-first para iPhone y Apple Watch.">
+  <meta name="twitter:image" content="https://repera.app/assets/mascot-hero.png">
+  <link rel="stylesheet" href="css/site.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://repera.app/#org",
+        "name": "Repera",
+        "url": "https://repera.app/",
+        "logo": "https://repera.app/assets/icon.png"
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://repera.app/#website",
+        "url": "https://repera.app/",
+        "name": "Repera",
+        "publisher": { "@id": "https://repera.app/#org" },
+        "inLanguage": "es-ES"
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "Repera",
+        "operatingSystem": "iOS 27+, watchOS 27+",
+        "applicationCategory": "HealthApplication",
+        "offers": [
+          {
+            "@type": "Offer",
+            "name": "Repera Gratis",
+            "price": "0",
+            "priceCurrency": "EUR"
+          },
+          {
+            "@type": "Offer",
+            "name": "Repera Pro mensual",
+            "price": "5.99",
+            "priceCurrency": "EUR",
+            "description": "Precio orientativo España. El importe final lo muestra App Store."
+          },
+          {
+            "@type": "Offer",
+            "name": "Repera Pro anual",
+            "price": "39.99",
+            "priceCurrency": "EUR",
+            "description": "Precio orientativo España. El importe final lo muestra App Store."
+          }
+        ],
+        "url": "https://repera.app/",
+        "image": "https://repera.app/assets/mascot-hero.png",
+        "description": "App de entrenamiento local-first para iPhone y Apple Watch."
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+  <header class="site-header">
+    <div class="wrap nav">
+      <a class="brand" href="index.html" aria-label="Repera inicio">
+        <img src="assets/icon.png" width="28" height="28" alt="">
+        repera
+      </a>
+      <nav aria-label="Principal">
+        <ul class="nav-links">
+          <li><a href="#como">Cómo funciona</a></li>
+          <li><a href="#para-quien">Para quién</a></li>
+          <li><a href="#funciones">Funciones</a></li>
+          <li><a href="#planes">Planes</a></li>
+          <li><a href="#precios">Precios</a></li>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a class="btn btn-primary" href="#descargar">Descargar</a></li>
+        </ul>
+      </nav>
+      <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="menu-movil" aria-label="Abrir menú">
+        ☰
+      </button>
+    </div>
+    <div class="wrap nav-drawer" id="menu-movil" data-nav-drawer>
+      <ul>
+        <li><a href="#como">Cómo funciona</a></li>
+        <li><a href="#para-quien">Para quién</a></li>
+        <li><a href="#funciones">Funciones</a></li>
+        <li><a href="#watch">Apple Watch</a></li>
+        <li><a href="#planes">Planes</a></li>
+        <li><a href="#precios">Precios</a></li>
+        <li><a href="faq.html">FAQ</a></li>
+        <li><a href="privacy.html">Privacidad</a></li>
+        <li><a href="terms.html">Términos</a></li>
+        <li><a href="#descargar">Descargar</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main id="contenido">
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <p class="hero-brand is-visible" data-reveal>re<span>pera</span></p>
+          <h1 class="is-visible" data-reveal>Entrena como siempre. Descubre hasta dónde puedes llegar.</h1>
+          <p class="lede is-visible" data-reveal>
+            App nativa para iPhone y Apple Watch. Local-first, con iCloud y Apple Salud.
+            Sin cuentas obligatorias. Entrena gratis; desbloquea tu evolución con Repera Pro.
+          </p>
+          <div class="btn-row is-visible" id="descargar" data-reveal>
+            <a class="btn btn-primary" href="https://apps.apple.com/app/id0000000000" rel="noopener noreferrer">
+              Descargar en App Store
+            </a>
+            <span class="btn btn-disabled" title="Disponible próximamente" aria-disabled="true">
+              Google Play · Próximamente
+            </span>
+          </div>
+          <p class="tiny is-visible" style="margin-top: 1rem;" data-reveal>
+            iOS 27+ · watchOS 27+ · Android en preparación
+          </p>
+        </div>
+        <div class="hero-visual is-visible" data-reveal>
+          <img src="assets/mascot-hero.png" alt="Mascota de Repera celebrando con mancuernas" width="1024" height="1024" fetchpriority="high" decoding="async">
+        </div>
+      </div>
+    </section>
+
+    <section class="section--tight" aria-label="Pilares">
+      <div class="wrap strip">
+        <div class="strip-item" data-reveal>
+          <strong>Local-first</strong>
+          <p>Tus entrenos viven en el dispositivo y se sincronizan con iCloud. Sin servidor social.</p>
+        </div>
+        <div class="strip-item" data-reveal>
+          <strong>iPhone + Watch</strong>
+          <p>Registra series en el gym desde el reloj y continúa en el teléfono.</p>
+        </div>
+        <div class="strip-item" data-reveal>
+          <strong>Apple Salud</strong>
+          <p>Calorías, tiempo y actividad externa alimentan tu progreso — solo con tu permiso.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="como">
+      <div class="wrap">
+        <div class="section-head" data-reveal>
+          <p class="eyebrow">Empieza en minutos</p>
+          <h2>Cómo funciona</h2>
+          <p class="lede">Tres pasos. Sin registro web ni cuentas obligatorias.</p>
+        </div>
+        <div class="steps">
+          <article class="step" data-reveal>
+            <h3>Descarga Repera</h3>
+            <p>Instálala desde App Store. Abre y empieza: tus datos quedan en el iPhone (y en iCloud si lo activas).</p>
+          </article>
+          <article class="step" data-reveal>
+            <h3>Entrena a tu manera</h3>
+            <p>Planifica el diario, crea un entreno, apunta series o escanea la pizarra del box.</p>
+          </article>
+          <article class="step" data-reveal>
+            <h3>Mira tu progreso</h3>
+            <p>Con Gratis ves la semana. Con Pro, evolución por ejercicio, estadísticas y mapa muscular.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="para-quien">
+      <div class="wrap">
+        <div class="section-head" data-reveal>
+          <p class="eyebrow">Audiencia</p>
+          <h2>Hecha para quien entrena de verdad</h2>
+          <p class="lede">No es una red social ni un coach genérico. Es tu libreta de gym, con Watch y Salud.</p>
+        </div>
+        <div class="audience-grid">
+          <article class="audience-card" data-reveal>
+            <h3>Fuerza y hipertrofia</h3>
+            <p>Series, kilos, RIR/RPE y evolución por ejercicio cuando pasas a Pro.</p>
+          </article>
+          <article class="audience-card" data-reveal>
+            <h3>Box y CrossFit</h3>
+            <p>WOD benchmarks, escáner de pizarra y marcas históricas con Pro.</p>
+          </article>
+          <article class="audience-card" data-reveal>
+            <h3>Quien odia las cuentas</h3>
+            <p>Local-first: entrenas sin registro obligatorio. Tus datos, tu dispositivo.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="funciones">
+      <div class="wrap">
+        <div class="section-head" data-reveal>
+          <p class="eyebrow">Producto</p>
+          <h2>Todo lo que necesitas para entrenar</h2>
+          <p class="lede">De la pizarra del box a la ficha del ejercicio: fuerza, CrossFit y el día a día del gym.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature" data-reveal>
+            <div class="icon" aria-hidden="true">⌂</div>
+            <h3>Inicio</h3>
+            <p>Semana, día, racha y entrenos Repera junto a actividades de Apple Salud.</p>
+          </article>
+          <article class="feature" data-reveal>
+            <div class="icon" aria-hidden="true">▦</div>
+            <h3>Diario y rutinas</h3>
+            <p>Plan semanal, plantillas reutilizables, WOD benchmarks y favoritos.</p>
+          </article>
+          <article class="feature" data-reveal>
+            <div class="icon" aria-hidden="true">▣</div>
+            <h3>Escáner de pizarra</h3>
+            <p>Foto de la TV o la pizarra → bloques listos para revisar, guardar o empezar.</p>
+          </article>
+          <article class="feature" data-reveal>
+            <div class="icon" aria-hidden="true">↗</div>
+            <h3>Progreso</h3>
+            <p>Actividad, cardio, kcal, peso, mapa muscular y récords — completo con Pro.</p>
+          </article>
+          <article class="feature" data-reveal>
+            <div class="icon" aria-hidden="true">◎</div>
+            <h3>Ejercicios</h3>
+            <p>Catálogo amplio, técnica, %→kg, discos y evolución por movimiento.</p>
+          </article>
+          <article class="feature" data-reveal>
+            <div class="icon" aria-hidden="true">⌚</div>
+            <h3>Apple Watch</h3>
+            <p>Confirma el ejercicio, cuenta reps y apunta series sin sacar el teléfono.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="watch">
+      <div class="wrap split">
+        <div data-reveal>
+          <p class="eyebrow">En el gym</p>
+          <h2>Diseñado para el Watch</h2>
+          <p class="lede">Menos pantallas, más series. La companion app acompaña la sesión activa del iPhone.</p>
+          <ul>
+            <li>Confirma el ejercicio actual</li>
+            <li>Cuenta repeticiones con el movimiento del reloj</li>
+            <li>Apunta +1 serie o un log rápido</li>
+            <li>Sincroniza con el iPhone vía Watch Connectivity</li>
+          </ul>
+        </div>
+        <div class="split-media" data-reveal>
+          <img src="assets/mascot-watch.png" alt="Mascota de Repera mirando el Apple Watch" width="1024" height="1024" loading="lazy" decoding="async">
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="confianza">
+      <div class="wrap">
+        <div class="section-head" data-reveal>
+          <p class="eyebrow">Privacidad</p>
+          <h2>Tus datos, en tu dispositivo</h2>
+          <p class="lede">Sin backend social obligatorio. Salud solo con permiso. Nada de publicidad con tus métricas.</p>
+        </div>
+        <div class="trust-grid">
+          <div class="trust-card" data-reveal>
+            <strong>Sin cuenta forzada</strong>
+            <p>Entrenar no requiere registro en Repera. Restaura compras con tu Apple ID.</p>
+          </div>
+          <div class="trust-card" data-reveal>
+            <strong>iCloud opcional</strong>
+            <p>Sincroniza entre tus dispositivos Apple cuando tú lo actives.</p>
+          </div>
+          <div class="trust-card" data-reveal>
+            <strong>Apple Salud</strong>
+            <p>No usamos HealthKit para anuncios ni tracking comercial.</p>
+          </div>
+          <div class="trust-card" data-reveal>
+            <strong>Exporta y borra</strong>
+            <p>Exporta JSON o limpia datos desde Ajustes. Cancelar Pro no borra entrenos.</p>
+          </div>
+        </div>
+        <p class="tiny" style="margin-top:1.25rem" data-reveal>
+          Más detalle en la <a href="privacy.html">Política de privacidad</a>.
+        </p>
+      </div>
+    </section>
+
+    <section class="section" id="planes">
+      <div class="wrap">
+        <div class="section-head" data-reveal>
+          <p class="eyebrow">Planes</p>
+          <h2>Gratis para entrenar. Pro para evolucionar.</h2>
+          <p class="lede">Repera Gratis es una app completa de registro. Pro desbloquea el análisis y quita los límites.</p>
+        </div>
+        <div class="compare">
+          <div class="plan-card" data-reveal>
+            <h3>Repera Gratis</h3>
+            <p class="muted">Para registrar entrenamientos sin fricción.</p>
+            <ul>
+              <li>Entrenamientos, series, pesos, RIR/RPE y WOD ilimitados</li>
+              <li>Catálogo, timers, Watch, Salud e iCloud</li>
+              <li>Historial general de sesiones y exportación de tus datos</li>
+              <li class="is-limit">Hasta 3 rutinas reutilizables</li>
+              <li class="is-limit">Hasta 5 ejercicios personalizados</li>
+              <li class="is-limit">4 escaneos de pizarra al mes</li>
+              <li class="is-limit">Progreso de esta semana + última sesión por ejercicio</li>
+            </ul>
+          </div>
+          <div class="plan-card plan-card--pro" data-reveal>
+            <h3>Repera Pro <span class="badge">Recomendado</span></h3>
+            <p class="muted">Para ver cómo progresas de verdad.</p>
+            <ul>
+              <li>Todo lo de Gratis</li>
+              <li>Rutinas, ejercicios custom y escaneos ilimitados</li>
+              <li>Historial y evolución completa por ejercicio</li>
+              <li>Estadísticas, periodos largos y mapa muscular</li>
+              <li>Marcas y comparativas históricas de WOD</li>
+              <li>Progresión avanzada al empezar la sesión</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="precios">
+      <div class="wrap">
+        <div class="section-head" data-reveal>
+          <p class="eyebrow">Suscripción</p>
+          <h2>Precios de Repera Pro</h2>
+          <p class="lede">Suscripciones autorrenovables a través de App Store (y Google Play cuando esté disponible).</p>
+        </div>
+        <div class="pricing-grid">
+          <div class="price-card" data-reveal>
+            <p class="eyebrow" style="margin:0">Mensual</p>
+            <p class="amount">5,99&nbsp;€ <small>/ mes</small></p>
+            <p class="muted">Facturación mensual. Cancela cuando quieras.</p>
+          </div>
+          <div class="price-card price-card--featured" data-reveal>
+            <p class="eyebrow" style="margin:0">Anual <span class="badge">Mejor valor</span></p>
+            <p class="amount">39,99&nbsp;€ <small>/ año</small></p>
+            <p class="muted">Equivale a menos de 3,35&nbsp;€/mes. Oferta introductoria 29,99&nbsp;€ el primer año si Apple te la muestra.</p>
+            <p class="muted" style="margin-top:0.75rem">Prueba gratuita de 14 días para usuarios elegibles (gestionada por Apple).</p>
+          </div>
+        </div>
+        <div class="price-note" data-reveal>
+          <p><strong style="color:var(--label)">Precio final en tu tienda.</strong> Los importes de esta página son orientativos para España. Apple o Google muestran el precio localizado en tu país y moneda en el momento de la compra.</p>
+          <p>La suscripción se renueva automáticamente salvo que la canceles al menos 24 horas antes del fin del periodo. Gestiona o cancela en la cuenta de Apple (o Google Play). Más detalle en la <a href="faq.html">FAQ</a> y los <a href="terms.html">Términos</a>.</p>
+        </div>
+        <div class="btn-row" data-reveal>
+          <a class="btn btn-primary" href="https://apps.apple.com/app/id0000000000" rel="noopener noreferrer">Probar en App Store</a>
+          <a class="btn btn-ghost" href="faq.html">Preguntas sobre la suscripción</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta-band" aria-labelledby="cta-title">
+      <div class="wrap" data-reveal>
+        <h2 id="cta-title">Listo para el próximo entreno</h2>
+        <p class="lede">Descarga Repera, apunta tu sesión y decide más tarde si quieres Pro.</p>
+        <div class="btn-row">
+          <a class="btn btn-primary" href="https://apps.apple.com/app/id0000000000" rel="noopener noreferrer">App Store</a>
+          <span class="btn btn-disabled" aria-disabled="true">Google Play · Próximamente</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-grid">
+      <div>
+        <a class="brand" href="index.html">
+          <img src="assets/icon.png" width="28" height="28" alt="">
+          repera
+        </a>
+        <p class="muted" style="margin-top:0.75rem;max-width:22rem;font-size:0.9375rem;">
+          Entrenamiento local-first para iPhone y Apple Watch. Android en camino.
+        </p>
+      </div>
+      <div>
+        <h3>Producto</h3>
+        <ul>
+          <li><a href="#como">Cómo funciona</a></li>
+          <li><a href="#para-quien">Para quién</a></li>
+          <li><a href="#funciones">Funciones</a></li>
+          <li><a href="#planes">Gratis y Pro</a></li>
+          <li><a href="#precios">Precios</a></li>
+          <li><a href="faq.html">FAQ</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Legal y cuenta</h3>
+        <ul>
+          <li><a href="privacy.html">Privacidad</a></li>
+          <li><a href="terms.html">Términos de uso</a></li>
+          <li><a href="#" data-cookie-open>Preferencias de cookies</a></li>
+          <li><a href="https://apps.apple.com/account/subscriptions" rel="noopener noreferrer">Gestionar suscripción (Apple)</a></li>
+          <li><a href="https://play.google.com/store/account/subscriptions" rel="noopener noreferrer">Gestionar suscripción (Google)</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="wrap footer-copy">
+      <p>© <span id="y"></span> Repera. Todos los derechos reservados. Apple, App Store y Apple Watch son marcas de Apple Inc. Google Play es marca de Google LLC.</p>
+    </div>
+  </footer>
+
+  <div class="cookie-banner" data-cookie-banner role="dialog" aria-labelledby="cookie-title" aria-live="polite" hidden>
+    <div class="cookie-inner">
+      <p id="cookie-title">
+        <strong>Cookies y privacidad.</strong>
+        Usamos almacenamiento local esencial para recordar tu elección.
+        Las cookies o scripts de analítica opcionales solo se activan si los aceptas.
+        <a href="privacy.html#cookies">Más información</a>.
+      </p>
+      <div class="cookie-actions">
+        <button type="button" class="btn btn-ghost" data-cookie-reject>Solo esenciales</button>
+        <button type="button" class="btn btn-ghost" data-cookie-customize>Configurar</button>
+        <button type="button" class="btn btn-primary" data-cookie-accept>Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="cookie-panel" data-cookie-panel role="dialog" aria-labelledby="cookie-panel-title" hidden>
+    <h2 id="cookie-panel-title">Preferencias</h2>
+    <p class="muted" style="margin:0;font-size:0.9rem">Elige qué categorías permitir. Las esenciales no se pueden desactivar.</p>
+    <fieldset>
+      <div class="cookie-option">
+        <label for="cookie-necessary">Esenciales</label>
+        <input id="cookie-necessary" type="checkbox" checked disabled>
+        <p>Necesarias para el sitio y para guardar esta preferencia.</p>
+      </div>
+      <div class="cookie-option">
+        <label for="cookie-analytics">Analítica</label>
+        <input id="cookie-analytics" name="analytics" type="checkbox">
+        <p>Ayuda a mejorar el sitio. Desactivada por defecto. Hoy no cargamos proveedores terceros hasta que configures uno.</p>
+      </div>
+    </fieldset>
+    <div class="cookie-actions">
+      <button type="button" class="btn btn-ghost" data-cookie-close>Cerrar</button>
+      <button type="button" class="btn btn-primary" data-cookie-save>Guardar</button>
+    </div>
+  </div>
+
+  <script src="js/site.js" defer></script>
+</body>
+</html>

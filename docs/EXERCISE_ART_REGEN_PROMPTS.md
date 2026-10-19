@@ -1,4 +1,4 @@
-# GYMBRO — PROMPTS INDIVIDUALES PARA REGENERACIÓN DE ARTE
+# REPERA — PROMPTS INDIVIDUALES PARA REGENERACIÓN DE ARTE
 
 > Fuente: auditoría vigente en rama `fix/exercise-art-audit-20261017` · 2026-10-17.
 >
@@ -13,9 +13,9 @@
 ## PROMPT MAESTRO (aplicado íntegramente a cada stem)
 
 ```text
-You are the dedicated art director and movement illustrator for GYMBRO. Produce exactly ONE finished square exercise image PER requested STEM, NOT a collage or infographic. This is an individual output asset used directly in an iOS exercise library.
+You are the dedicated art director and movement illustrator for REPERA. Produce exactly ONE finished square exercise image PER requested STEM, NOT a collage or infographic. This is an individual output asset used directly in an iOS exercise library.
 
-CANONICAL REFERENCE (must be provided to the image AI): Apps/Gymbro/Resources/ExerciseArt/art_ab_wheel.jpg. When available provide also the original hero and a GOOD existing sibling frame for the same exercise as visual reference; reference appearance and equipment, NEVER repeat an incorrect pose.
+CANONICAL REFERENCE (must be provided to the image AI): Apps/Repera/Resources/ExerciseArt/art_ab_wheel.jpg. When available provide also the original hero and a GOOD existing sibling frame for the same exercise as visual reference; reference appearance and equipment, NEVER repeat an incorrect pose.
 
 SUBJECT: same ONE athletic adult male in every image and every sequence: flat clean anatomical/vector style, medium-gray skin/silhouette and musculature, featureless face (no realistic facial traits), short solid charcoal hair, BARE SHIRTLESS TORSO ALWAYS, dark charcoal athletic shorts, gray trainers. Constant age, height, limb lengths, musculature and head proportions; nothing on the torso, no knee pads, belts, gloves or decorative accessories unless exercise equipment mechanically requires them.
 
@@ -29,7 +29,7 @@ HIGHLIGHT: neon lime ONLY as FLAT FILLED areas on the specific active muscles of
 
 SHADOW: supported feet/hands/bench may have subtle low-opacity charcoal oval underneath ACTUAL contacts; NO ground oval, fake ground or floor shadow AT ALL when fully airborne, hanging from bar, on suspended rings or in unsupported high-bar support.
 
-OUTPUT: create ONE standalone JPG for the exact specified STEM. Save under Apps/Gymbro/Resources/ExerciseArt/<stem>.jpg at 1024×1024 and a matching 192×192 JPG thumb under Apps/Gymbro/Resources/ExerciseArt/thumbs/<stem>.jpg. Do NOT output posters, grids, title text, a montage, a watermark or a single file combining multiple stages. Verify visually and export BOTH sizes using scripts/export_generated_art.py, e.g. .venv-art/bin/python scripts/export_generated_art.py /path/generated.jpg <stem>. Once generated confirm readable JPG, correct dimensions, same person/equipment and captions matching frames.
+OUTPUT: create ONE standalone JPG for the exact specified STEM. Save under Apps/Repera/Resources/ExerciseArt/<stem>.jpg at 1024×1024 and a matching 192×192 JPG thumb under Apps/Repera/Resources/ExerciseArt/thumbs/<stem>.jpg. Do NOT output posters, grids, title text, a montage, a watermark or a single file combining multiple stages. Verify visually and export BOTH sizes using scripts/export_generated_art.py, e.g. .venv-art/bin/python scripts/export_generated_art.py /path/generated.jpg <stem>. Once generated confirm readable JPG, correct dimensions, same person/equipment and captions matching frames.
 ```
 
 ## PROMPTS INDIVIDUALES — copiar y pegar uno a uno
@@ -49,7 +49,7 @@ Los siguientes prompts **son autónomos**: cada uno vuelve a incluir el contrato
 **Problema:** Aperturas con lime en abdominales en lugar de músculos pectorales
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_aperturas image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_aperturas image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Aperturas. ASSET NAME: art_aperturas. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: lying supine on bench, dumbbells opened to chest level, elbows softly bent; show a true dumbbell chest fly.
@@ -59,7 +59,7 @@ LIME MUSCLE FILL: pectoralis major and anterior deltoids; nothing else highlight
 CONTACT / SHADOW RULE: floor shadow only under bench. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_aperturas; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Aperturas con lime en abdominales en lugar de músculos pectorales.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_aperturas.jpg 1024x1024 and matching thumbs/art_aperturas.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_aperturas.jpg 1024x1024 and matching thumbs/art_aperturas.jpg 192x192.
 ```
 
 #### `art_aperturas_1` — FAIL
@@ -69,7 +69,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_aperturas.jpg 1024
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Cierra el arco: mancuernas casi juntas sobre el esternón, codos blandos.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_aperturas image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_aperturas image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Aperturas. ASSET NAME: art_aperturas_1. FRAME: step 1 of 2.
 EXACT JOINT/GEAR POSE: Cierra el arco: mancuernas casi juntas sobre el esternón, codos blandos..
@@ -80,7 +80,7 @@ CONTACT / SHADOW RULE: floor shadow only under bench. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_aperturas; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Pectorales no iluminados; lime en abdominales durante apertura.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Cierra el arco: mancuernas casi juntas sobre el esternón, codos blandos..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_aperturas_1.jpg 1024x1024 and matching thumbs/art_aperturas_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_aperturas_1.jpg 1024x1024 and matching thumbs/art_aperturas_1.jpg 192x192.
 ```
 
 #### `art_aperturas_2` — FAIL
@@ -90,7 +90,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_aperturas_1.jpg 10
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Abre en arco amplio hasta estirar el pecho, mancuernas a la altura del torso.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_aperturas image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_aperturas image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Aperturas. ASSET NAME: art_aperturas_2. FRAME: step 2 of 2.
 EXACT JOINT/GEAR POSE: Abre en arco amplio hasta estirar el pecho, mancuernas a la altura del torso..
@@ -101,7 +101,7 @@ CONTACT / SHADOW RULE: floor shadow only under bench. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_aperturas; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Pectorales no iluminados; lime en abdominales durante apertura.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Abre en arco amplio hasta estirar el pecho, mancuernas a la altura del torso..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_aperturas_2.jpg 1024x1024 and matching thumbs/art_aperturas_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_aperturas_2.jpg 1024x1024 and matching thumbs/art_aperturas_2.jpg 192x192.
 ```
 
 
@@ -118,7 +118,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_aperturas_2.jpg 10
 **Problema:** No tiene defecto confirmado; rehacer para coherencia con los frames modificados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_bulgara image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_bulgara image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Sentadilla búlgara. ASSET NAME: art_bulgara. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: front foot grounded, rear instep supported on a bench behind, dumbbells hanging by both sides, controlled split squat.
@@ -127,7 +127,7 @@ LOCKED CAMERA AND LATERALITY: fixed lateral side view; front leg always LEFT thr
 LIME MUSCLE FILL: front quadriceps and gluteus maximus; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: soft oval at grounded foot and bench. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_bulgara; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_bulgara.jpg 1024x1024 and matching thumbs/art_bulgara.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_bulgara.jpg 1024x1024 and matching thumbs/art_bulgara.jpg 192x192.
 ```
 
 #### `art_bulgara_1` — CONTINUIDAD
@@ -137,7 +137,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_bulgara.jpg 1024x1
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Pie trasero en banco, torso erguido.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_bulgara image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_bulgara image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Sentadilla búlgara. ASSET NAME: art_bulgara_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Pie trasero en banco, torso erguido..
@@ -147,7 +147,7 @@ LIME MUSCLE FILL: front quadriceps and gluteus maximus; nothing else highlighted
 CONTACT / SHADOW RULE: soft oval at grounded foot and bench. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_bulgara; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Pie trasero en banco, torso erguido..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_bulgara_1.jpg 1024x1024 and matching thumbs/art_bulgara_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_bulgara_1.jpg 1024x1024 and matching thumbs/art_bulgara_1.jpg 192x192.
 ```
 
 #### `art_bulgara_2` — CONTINUIDAD
@@ -157,7 +157,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_bulgara_1.jpg 1024
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Baja a media profundidad sobre la pierna delantera.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_bulgara image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_bulgara image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Sentadilla búlgara. ASSET NAME: art_bulgara_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Baja a media profundidad sobre la pierna delantera..
@@ -167,7 +167,7 @@ LIME MUSCLE FILL: front quadriceps and gluteus maximus; nothing else highlighted
 CONTACT / SHADOW RULE: soft oval at grounded foot and bench. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_bulgara; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Baja a media profundidad sobre la pierna delantera..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_bulgara_2.jpg 1024x1024 and matching thumbs/art_bulgara_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_bulgara_2.jpg 1024x1024 and matching thumbs/art_bulgara_2.jpg 192x192.
 ```
 
 #### `art_bulgara_3` — FAIL
@@ -177,7 +177,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_bulgara_2.jpg 1024
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Rodilla trasera cerca del suelo; empuja para subir.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_bulgara image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_bulgara image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Sentadilla búlgara. ASSET NAME: art_bulgara_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Rodilla trasera cerca del suelo; empuja para subir..
@@ -188,7 +188,7 @@ CONTACT / SHADOW RULE: soft oval at grounded foot and bench. No airborne oval sh
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_bulgara; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Se invierte la dirección del ejercicio y cambia el lado del banco.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Rodilla trasera cerca del suelo; empuja para subir..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_bulgara_3.jpg 1024x1024 and matching thumbs/art_bulgara_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_bulgara_3.jpg 1024x1024 and matching thumbs/art_bulgara_3.jpg 192x192.
 ```
 
 
@@ -205,7 +205,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_bulgara_3.jpg 1024
 **Problema:** No tiene defecto confirmado; rehacer para coherencia con los frames modificados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_arrancada image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_arrancada image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Arrancada. ASSET NAME: art_cf_arrancada. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: bar caught securely overhead with wide grip, elbows locked, hips/knees strongly flexed in snatch reception.
@@ -214,7 +214,7 @@ LOCKED CAMERA AND LATERALITY: fixed three-quarter frontal view.
 LIME MUSCLE FILL: quadriceps, glutes, deltoids and upper back; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: floor shadow under shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_arrancada; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_arrancada.jpg 1024x1024 and matching thumbs/art_cf_arrancada.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_arrancada.jpg 1024x1024 and matching thumbs/art_cf_arrancada.jpg 192x192.
 ```
 
 #### `art_cf_arrancada_1` — CONTINUIDAD
@@ -224,7 +224,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_arrancada.jpg 1
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Setup: barra sobre mediopié, AGARRE ANCHO de snatch, espalda plana.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_arrancada image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_arrancada image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Arrancada. ASSET NAME: art_cf_arrancada_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Setup: barra sobre mediopié, AGARRE ANCHO de snatch, espalda plana..
@@ -234,7 +234,7 @@ LIME MUSCLE FILL: quadriceps, glutes, deltoids and upper back; nothing else high
 CONTACT / SHADOW RULE: floor shadow under shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_arrancada; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Setup: barra sobre mediopié, AGARRE ANCHO de snatch, espalda plana..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_arrancada_1.jpg 1024x1024 and matching thumbs/art_cf_arrancada_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_arrancada_1.jpg 1024x1024 and matching thumbs/art_cf_arrancada_1.jpg 192x192.
 ```
 
 #### `art_cf_arrancada_2` — FAIL
@@ -244,7 +244,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_arrancada_1.jpg
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Métete bajo la barra tras la tirada: recibes hacia overhead squat.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_arrancada image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_arrancada image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Arrancada. ASSET NAME: art_cf_arrancada_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Métete bajo la barra tras la tirada: recibes hacia overhead squat..
@@ -255,7 +255,7 @@ CONTACT / SHADOW RULE: floor shadow under shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_arrancada; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Fase de recepción casi igual al paso 3; falta tirón intermedio.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Métete bajo la barra tras la tirada: recibes hacia overhead squat..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_arrancada_2.jpg 1024x1024 and matching thumbs/art_cf_arrancada_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_arrancada_2.jpg 1024x1024 and matching thumbs/art_cf_arrancada_2.jpg 192x192.
 ```
 
 #### `art_cf_arrancada_3` — FAIL
@@ -265,7 +265,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_arrancada_2.jpg
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Overhead squat profundo o de pie bloqueado, agarre ancho.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_arrancada image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_arrancada image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Arrancada. ASSET NAME: art_cf_arrancada_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Overhead squat profundo o de pie bloqueado, agarre ancho..
@@ -276,7 +276,7 @@ CONTACT / SHADOW RULE: floor shadow under shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_arrancada; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Segundo frame en sentadilla overhead prácticamente igual al paso 2.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Overhead squat profundo o de pie bloqueado, agarre ancho..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_arrancada_3.jpg 1024x1024 and matching thumbs/art_cf_arrancada_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_arrancada_3.jpg 1024x1024 and matching thumbs/art_cf_arrancada_3.jpg 192x192.
 ```
 
 
@@ -293,7 +293,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_arrancada_3.jpg
 **Problema:** Broad jump muestra zancada lateral muy abierta en vuelo
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_broad image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_broad image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Broad jump. ASSET NAME: art_cf_broad. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: mid-flight two-foot broad jump forward with bent hips and knees, feet aligned rather than side split.
@@ -303,7 +303,7 @@ LIME MUSCLE FILL: quadriceps, glutes and calves; nothing else highlighted in lim
 CONTACT / SHADOW RULE: NO floor oval or shadow while airborne. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_broad; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Broad jump muestra zancada lateral muy abierta en vuelo.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_broad.jpg 1024x1024 and matching thumbs/art_cf_broad.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_broad.jpg 1024x1024 and matching thumbs/art_cf_broad.jpg 192x192.
 ```
 
 
@@ -320,7 +320,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_broad.jpg 1024x
 **Problema:** No tiene defecto confirmado; rehacer para coherencia con los frames modificados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_burpee_pu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_burpee_pu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Burpee pull-up. ASSET NAME: art_cf_burpee_pu. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: athlete hanging from pull-up bar and pulling chin just above it; feet remain clear of the floor.
@@ -329,7 +329,7 @@ LOCKED CAMERA AND LATERALITY: fixed three-quarter view showing bar overhead.
 LIME MUSCLE FILL: lats, biceps and core; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: NO floor shadow during hang or jump. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_burpee_pu; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_burpee_pu.jpg 1024x1024 and matching thumbs/art_cf_burpee_pu.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_burpee_pu.jpg 1024x1024 and matching thumbs/art_cf_burpee_pu.jpg 192x192.
 ```
 
 #### `art_cf_burpee_pu_1` — CONTINUIDAD
@@ -339,7 +339,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_burpee_pu.jpg 1
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Pecho al suelo bajo la barra.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_burpee_pu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_burpee_pu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Burpee pull-up. ASSET NAME: art_cf_burpee_pu_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Pecho al suelo bajo la barra..
@@ -349,7 +349,7 @@ LIME MUSCLE FILL: lats, biceps and core; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: NO floor shadow during hang or jump. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_burpee_pu; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Pecho al suelo bajo la barra..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_burpee_pu_1.jpg 1024x1024 and matching thumbs/art_cf_burpee_pu_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_burpee_pu_1.jpg 1024x1024 and matching thumbs/art_cf_burpee_pu_1.jpg 192x192.
 ```
 
 #### `art_cf_burpee_pu_2` — CONTINUIDAD
@@ -359,7 +359,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_burpee_pu_1.jpg
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Salta y agarra la barra.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_burpee_pu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_burpee_pu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Burpee pull-up. ASSET NAME: art_cf_burpee_pu_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Salta y agarra la barra..
@@ -369,7 +369,7 @@ LIME MUSCLE FILL: lats, biceps and core; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: NO floor shadow during hang or jump. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_burpee_pu; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Salta y agarra la barra..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_burpee_pu_2.jpg 1024x1024 and matching thumbs/art_cf_burpee_pu_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_burpee_pu_2.jpg 1024x1024 and matching thumbs/art_cf_burpee_pu_2.jpg 192x192.
 ```
 
 #### `art_cf_burpee_pu_3` — FAIL
@@ -379,7 +379,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_burpee_pu_2.jpg
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Dominada: barbilla por encima de la barra.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_burpee_pu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_burpee_pu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Burpee pull-up. ASSET NAME: art_cf_burpee_pu_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Dominada: barbilla por encima de la barra..
@@ -390,7 +390,7 @@ CONTACT / SHADOW RULE: NO floor shadow during hang or jump. No airborne oval sha
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_burpee_pu; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Barra final distinta a la estructura de barra de los pasos anteriores.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Dominada: barbilla por encima de la barra..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_burpee_pu_3.jpg 1024x1024 and matching thumbs/art_cf_burpee_pu_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_burpee_pu_3.jpg 1024x1024 and matching thumbs/art_cf_burpee_pu_3.jpg 192x192.
 ```
 
 
@@ -407,7 +407,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_burpee_pu_3.jpg
 **Problema:** No tiene defecto confirmado; rehacer para coherencia con los frames modificados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cargada image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cargada image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cargada. ASSET NAME: art_cf_cargada. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: athlete standing with same barbell in FRONT rack on anterior shoulders, elbows forward and high.
@@ -416,7 +416,7 @@ LOCKED CAMERA AND LATERALITY: fixed three-quarter frontal view.
 LIME MUSCLE FILL: quadriceps, glutes, traps and core; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: ground oval under shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_cargada; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cargada.jpg 1024x1024 and matching thumbs/art_cf_cargada.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_cargada.jpg 1024x1024 and matching thumbs/art_cf_cargada.jpg 192x192.
 ```
 
 #### `art_cf_cargada_1` — FAIL
@@ -426,7 +426,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cargada.jpg 102
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Setup: barra sobre mediopié, agarre de clean.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cargada image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cargada image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cargada. ASSET NAME: art_cf_cargada_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Setup: barra sobre mediopié, agarre de clean..
@@ -437,7 +437,7 @@ CONTACT / SHADOW RULE: ground oval under shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_cargada; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Atleta vestido con camiseta en fase inicial frente a frames sin camiseta.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Setup: barra sobre mediopié, agarre de clean..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cargada_1.jpg 1024x1024 and matching thumbs/art_cf_cargada_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_cargada_1.jpg 1024x1024 and matching thumbs/art_cf_cargada_1.jpg 192x192.
 ```
 
 #### `art_cf_cargada_2` — CONTINUIDAD
@@ -447,7 +447,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cargada_1.jpg 1
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Recibe en front squat: barra delante del cuello, codos altos, cadera baja.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cargada image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cargada image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cargada. ASSET NAME: art_cf_cargada_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Recibe en front squat: barra delante del cuello, codos altos, cadera baja..
@@ -457,7 +457,7 @@ LIME MUSCLE FILL: quadriceps, glutes, traps and core; nothing else highlighted i
 CONTACT / SHADOW RULE: ground oval under shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_cargada; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Recibe en front squat: barra delante del cuello, codos altos, cadera baja..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cargada_2.jpg 1024x1024 and matching thumbs/art_cf_cargada_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_cargada_2.jpg 1024x1024 and matching thumbs/art_cf_cargada_2.jpg 192x192.
 ```
 
 #### `art_cf_cargada_3` — CONTINUIDAD
@@ -467,7 +467,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cargada_2.jpg 1
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Párate en rack frontal bloqueado.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cargada image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cargada image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cargada. ASSET NAME: art_cf_cargada_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Párate en rack frontal bloqueado..
@@ -477,7 +477,7 @@ LIME MUSCLE FILL: quadriceps, glutes, traps and core; nothing else highlighted i
 CONTACT / SHADOW RULE: ground oval under shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_cargada; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Párate en rack frontal bloqueado..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cargada_3.jpg 1024x1024 and matching thumbs/art_cf_cargada_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_cargada_3.jpg 1024x1024 and matching thumbs/art_cf_cargada_3.jpg 192x192.
 ```
 
 
@@ -494,7 +494,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cargada_3.jpg 1
 **Problema:** No tiene defecto confirmado; rehacer para coherencia con los frames modificados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cj image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cj image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cargada y envión. ASSET NAME: art_cf_cj. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: full clean-and-jerk finishing split or stable overhead lockout with the same barbell.
@@ -503,7 +503,7 @@ LOCKED CAMERA AND LATERALITY: fixed three-quarter side view facing RIGHT.
 LIME MUSCLE FILL: quadriceps, glutes, deltoids and triceps; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: ground shadow under contacting shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_cj; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cj.jpg 1024x1024 and matching thumbs/art_cf_cj.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_cj.jpg 1024x1024 and matching thumbs/art_cf_cj.jpg 192x192.
 ```
 
 #### `art_cf_cj_1` — FAIL
@@ -513,7 +513,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cj.jpg 1024x102
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Rack frontal tras la cargada, de pie.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cj image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cj image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cargada y envión. ASSET NAME: art_cf_cj_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Rack frontal tras la cargada, de pie..
@@ -524,7 +524,7 @@ CONTACT / SHADOW RULE: ground shadow under contacting shoes. No airborne oval sh
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_cj; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Disco/maneral corto en lugar de misma barra olímpica del movimiento.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Rack frontal tras la cargada, de pie..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cj_1.jpg 1024x1024 and matching thumbs/art_cf_cj_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_cj_1.jpg 1024x1024 and matching thumbs/art_cf_cj_1.jpg 192x192.
 ```
 
 #### `art_cf_cj_2` — FAIL
@@ -534,7 +534,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cj_1.jpg 1024x1
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Dip-drive: flexión corta y empuje.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cj image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cj image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cargada y envión. ASSET NAME: art_cf_cj_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Dip-drive: flexión corta y empuje..
@@ -545,7 +545,7 @@ CONTACT / SHADOW RULE: ground shadow under contacting shoes. No airborne oval sh
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_cj; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Back rack de sentadilla con soporte de rack, en vez de front rack de cargada.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Dip-drive: flexión corta y empuje..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cj_2.jpg 1024x1024 and matching thumbs/art_cf_cj_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_cj_2.jpg 1024x1024 and matching thumbs/art_cf_cj_2.jpg 192x192.
 ```
 
 #### `art_cf_cj_3` — CONTINUIDAD
@@ -555,7 +555,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cj_2.jpg 1024x1
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Bloquea overhead y recupera pies.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cj image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cj image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cargada y envión. ASSET NAME: art_cf_cj_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Bloquea overhead y recupera pies..
@@ -565,7 +565,7 @@ LIME MUSCLE FILL: quadriceps, glutes, deltoids and triceps; nothing else highlig
 CONTACT / SHADOW RULE: ground shadow under contacting shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_cj; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Bloquea overhead y recupera pies..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cj_3.jpg 1024x1024 and matching thumbs/art_cf_cj_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_cj_3.jpg 1024x1024 and matching thumbs/art_cf_cj_3.jpg 192x192.
 ```
 
 
@@ -582,7 +582,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cj_3.jpg 1024x1
 **Problema:** No tiene defecto confirmado; rehacer para coherencia con los frames modificados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cluster image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cluster image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cluster. ASSET NAME: art_cf_cluster. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: finish of squat clean plus thruster with barbell overhead, elbows locked and legs straight.
@@ -591,7 +591,7 @@ LOCKED CAMERA AND LATERALITY: fixed frontal three-quarter view.
 LIME MUSCLE FILL: quadriceps, glutes, deltoids and triceps; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: floor shadow under shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_cluster; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cluster.jpg 1024x1024 and matching thumbs/art_cf_cluster.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_cluster.jpg 1024x1024 and matching thumbs/art_cf_cluster.jpg 192x192.
 ```
 
 #### `art_cf_cluster_1` — CONTINUIDAD
@@ -601,7 +601,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cluster.jpg 102
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Rack frontal tras la cargada.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cluster image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cluster image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cluster. ASSET NAME: art_cf_cluster_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Rack frontal tras la cargada..
@@ -611,7 +611,7 @@ LIME MUSCLE FILL: quadriceps, glutes, deltoids and triceps; nothing else highlig
 CONTACT / SHADOW RULE: floor shadow under shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_cluster; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Rack frontal tras la cargada..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cluster_1.jpg 1024x1024 and matching thumbs/art_cf_cluster_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_cluster_1.jpg 1024x1024 and matching thumbs/art_cf_cluster_1.jpg 192x192.
 ```
 
 #### `art_cf_cluster_2` — CONTINUIDAD
@@ -621,7 +621,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cluster_1.jpg 1
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Sentadilla frontal profunda sin soltar el rack.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cluster image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cluster image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cluster. ASSET NAME: art_cf_cluster_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Sentadilla frontal profunda sin soltar el rack..
@@ -631,7 +631,7 @@ LIME MUSCLE FILL: quadriceps, glutes, deltoids and triceps; nothing else highlig
 CONTACT / SHADOW RULE: floor shadow under shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_cluster; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Sentadilla frontal profunda sin soltar el rack..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cluster_2.jpg 1024x1024 and matching thumbs/art_cf_cluster_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_cluster_2.jpg 1024x1024 and matching thumbs/art_cf_cluster_2.jpg 192x192.
 ```
 
 #### `art_cf_cluster_3` — FAIL
@@ -641,7 +641,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cluster_2.jpg 1
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Thruster a overhead en un solo tiempo.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cluster image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_cluster image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cluster. ASSET NAME: art_cf_cluster_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Thruster a overhead en un solo tiempo..
@@ -652,7 +652,7 @@ CONTACT / SHADOW RULE: floor shadow under shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_cluster; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Termina con mancuernas tras iniciar y bajar con barra olímpica.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Thruster a overhead en un solo tiempo..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cluster_3.jpg 1024x1024 and matching thumbs/art_cf_cluster_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_cluster_3.jpg 1024x1024 and matching thumbs/art_cf_cluster_3.jpg 192x192.
 ```
 
 
@@ -669,7 +669,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_cluster_3.jpg 1
 **Problema:** Chest-to-bar con torso vestido y pies apoyados en vez de suspendidos
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ctb image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ctb image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Chest to bar. ASSET NAME: art_cf_ctb. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: chest touching the pull-up bar with elbows bent, both feet suspended and bare torso.
@@ -679,7 +679,7 @@ LIME MUSCLE FILL: lats, scapular retractors and biceps; nothing else highlighted
 CONTACT / SHADOW RULE: NO ground oval or floor shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_ctb; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Chest-to-bar con torso vestido y pies apoyados en vez de suspendidos.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ctb.jpg 1024x1024 and matching thumbs/art_cf_ctb.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_ctb.jpg 1024x1024 and matching thumbs/art_cf_ctb.jpg 192x192.
 ```
 
 #### `art_cf_ctb_1` — CONTINUIDAD
@@ -689,7 +689,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ctb.jpg 1024x10
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Cuelga con brazos extendidos y agarre firme.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ctb image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ctb image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Chest to bar. ASSET NAME: art_cf_ctb_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Cuelga con brazos extendidos y agarre firme..
@@ -699,7 +699,7 @@ LIME MUSCLE FILL: lats, scapular retractors and biceps; nothing else highlighted
 CONTACT / SHADOW RULE: NO ground oval or floor shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_ctb; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Cuelga con brazos extendidos y agarre firme..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ctb_1.jpg 1024x1024 and matching thumbs/art_cf_ctb_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_ctb_1.jpg 1024x1024 and matching thumbs/art_cf_ctb_1.jpg 192x192.
 ```
 
 #### `art_cf_ctb_2` — CONTINUIDAD
@@ -709,7 +709,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ctb_1.jpg 1024x
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Tira hasta la barbilla cerca de la barra.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ctb image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ctb image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Chest to bar. ASSET NAME: art_cf_ctb_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Tira hasta la barbilla cerca de la barra..
@@ -719,7 +719,7 @@ LIME MUSCLE FILL: lats, scapular retractors and biceps; nothing else highlighted
 CONTACT / SHADOW RULE: NO ground oval or floor shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_ctb; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Tira hasta la barbilla cerca de la barra..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ctb_2.jpg 1024x1024 and matching thumbs/art_cf_ctb_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_ctb_2.jpg 1024x1024 and matching thumbs/art_cf_ctb_2.jpg 192x192.
 ```
 
 #### `art_cf_ctb_3` — FAIL
@@ -729,7 +729,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ctb_2.jpg 1024x
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Lleva el pecho a tocar la barra y baja con control.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ctb image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ctb image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Chest to bar. ASSET NAME: art_cf_ctb_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Lleva el pecho a tocar la barra y baja con control..
@@ -740,7 +740,7 @@ CONTACT / SHADOW RULE: NO ground oval or floor shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_ctb; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Chest to bar con piernas apoyadas; no está suspendido.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Lleva el pecho a tocar la barra y baja con control..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ctb_3.jpg 1024x1024 and matching thumbs/art_cf_ctb_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_ctb_3.jpg 1024x1024 and matching thumbs/art_cf_ctb_3.jpg 192x192.
 ```
 
 
@@ -757,7 +757,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ctb_3.jpg 1024x
 **Problema:** Hero con camiseta
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ghd image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ghd image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: GHD sit-up. ASSET NAME: art_cf_ghd. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: feet fixed in rollers, hips supported on GHD pad, trunk extended behind neutral line for starting GHD sit-up.
@@ -767,7 +767,7 @@ LIME MUSCLE FILL: abdominals and hip flexors; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: shadow only beneath GHD structure. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_ghd; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Hero con camiseta.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ghd.jpg 1024x1024 and matching thumbs/art_cf_ghd.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_ghd.jpg 1024x1024 and matching thumbs/art_cf_ghd.jpg 192x192.
 ```
 
 #### `art_cf_ghd_1` — FAIL
@@ -777,7 +777,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ghd.jpg 1024x10
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Fija los pies en los rodillos e inclina el tronco hacia atrás con control.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ghd image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ghd image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: GHD sit-up. ASSET NAME: art_cf_ghd_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Fija los pies en los rodillos e inclina el tronco hacia atrás con control..
@@ -788,7 +788,7 @@ CONTACT / SHADOW RULE: shadow only beneath GHD structure. No airborne oval shado
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_ghd; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Torso vestido y posición del aparato poco clara.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Fija los pies en los rodillos e inclina el tronco hacia atrás con control..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ghd_1.jpg 1024x1024 and matching thumbs/art_cf_ghd_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_ghd_1.jpg 1024x1024 and matching thumbs/art_cf_ghd_1.jpg 192x192.
 ```
 
 #### `art_cf_ghd_2` — FAIL
@@ -798,7 +798,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ghd_1.jpg 1024x
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Flexiona el tronco y lleva los brazos hacia delante sin soltar el apoyo.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ghd image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ghd image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: GHD sit-up. ASSET NAME: art_cf_ghd_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Flexiona el tronco y lleva los brazos hacia delante sin soltar el apoyo..
@@ -809,7 +809,7 @@ CONTACT / SHADOW RULE: shadow only beneath GHD structure. No airborne oval shado
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_ghd; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Torso vestido y movimiento poco diferenciado.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Flexiona el tronco y lleva los brazos hacia delante sin soltar el apoyo..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ghd_2.jpg 1024x1024 and matching thumbs/art_cf_ghd_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_ghd_2.jpg 1024x1024 and matching thumbs/art_cf_ghd_2.jpg 192x192.
 ```
 
 #### `art_cf_ghd_3` — FAIL
@@ -819,7 +819,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ghd_2.jpg 1024x
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Termina de incorporarte manteniendo la cadera sobre el apoyo de la máquina.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ghd image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ghd image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: GHD sit-up. ASSET NAME: art_cf_ghd_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Termina de incorporarte manteniendo la cadera sobre el apoyo de la máquina..
@@ -830,7 +830,7 @@ CONTACT / SHADOW RULE: shadow only beneath GHD structure. No airborne oval shado
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_ghd; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Torso vestido y fase muy similar a la anterior.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Termina de incorporarte manteniendo la cadera sobre el apoyo de la máquina..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ghd_3.jpg 1024x1024 and matching thumbs/art_cf_ghd_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_ghd_3.jpg 1024x1024 and matching thumbs/art_cf_ghd_3.jpg 192x192.
 ```
 
 
@@ -847,7 +847,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ghd_3.jpg 1024x
 **Problema:** Hero con camiseta
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hang_clean image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hang_clean image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cargada colgante. ASSET NAME: art_cf_hang_clean. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: standing tall with barbell in front rack on anterior deltoids and high elbows after a hang clean.
@@ -857,7 +857,7 @@ LIME MUSCLE FILL: glutes, hamstrings, traps and quadriceps; nothing else highlig
 CONTACT / SHADOW RULE: ground oval only for supported feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_hang_clean; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Hero con camiseta.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hang_clean.jpg 1024x1024 and matching thumbs/art_cf_hang_clean.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_hang_clean.jpg 1024x1024 and matching thumbs/art_cf_hang_clean.jpg 192x192.
 ```
 
 #### `art_cf_hang_clean_1` — FAIL
@@ -867,7 +867,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hang_clean.jpg 
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Barra en muslos, bisagra ligera, espalda plana.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hang_clean image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hang_clean image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cargada colgante. ASSET NAME: art_cf_hang_clean_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Barra en muslos, bisagra ligera, espalda plana..
@@ -878,7 +878,7 @@ CONTACT / SHADOW RULE: ground oval only for supported feet. No airborne oval sha
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_hang_clean; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Torso vestido, contra la referencia canónica.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Barra en muslos, bisagra ligera, espalda plana..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hang_clean_1.jpg 1024x1024 and matching thumbs/art_cf_hang_clean_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_hang_clean_1.jpg 1024x1024 and matching thumbs/art_cf_hang_clean_1.jpg 192x192.
 ```
 
 #### `art_cf_hang_clean_2` — FAIL
@@ -888,7 +888,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hang_clean_1.jp
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Extiende cadera y tira: barra sube pegada al cuerpo.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hang_clean image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hang_clean image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cargada colgante. ASSET NAME: art_cf_hang_clean_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Extiende cadera y tira: barra sube pegada al cuerpo..
@@ -899,7 +899,7 @@ CONTACT / SHADOW RULE: ground oval only for supported feet. No airborne oval sha
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_hang_clean; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Torso vestido y sombra de suelo en fase aérea.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Extiende cadera y tira: barra sube pegada al cuerpo..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hang_clean_2.jpg 1024x1024 and matching thumbs/art_cf_hang_clean_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_hang_clean_2.jpg 1024x1024 and matching thumbs/art_cf_hang_clean_2.jpg 192x192.
 ```
 
 #### `art_cf_hang_clean_3` — FAIL
@@ -909,7 +909,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hang_clean_2.jp
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Recibe en rack frontal (barra delante del cuello, codos altos) y párate.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hang_clean image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hang_clean image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cargada colgante. ASSET NAME: art_cf_hang_clean_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Recibe en rack frontal (barra delante del cuello, codos altos) y párate..
@@ -920,7 +920,7 @@ CONTACT / SHADOW RULE: ground oval only for supported feet. No airborne oval sha
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_hang_clean; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Torso vestido, contra la referencia canónica.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Recibe en rack frontal (barra delante del cuello, codos altos) y párate..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hang_clean_3.jpg 1024x1024 and matching thumbs/art_cf_hang_clean_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_hang_clean_3.jpg 1024x1024 and matching thumbs/art_cf_hang_clean_3.jpg 192x192.
 ```
 
 
@@ -937,7 +937,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hang_clean_3.jp
 **Problema:** Hang power clean mostrado con barra detrás del cuello
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hpc image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hpc image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Hang power clean. ASSET NAME: art_cf_hpc. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: hang power clean reception in a shallow quarter squat with bar in FRONT rack, elbows high.
@@ -947,7 +947,7 @@ LIME MUSCLE FILL: glutes, quads and traps; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: ground oval under planted feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_hpc; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Hang power clean mostrado con barra detrás del cuello.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hpc.jpg 1024x1024 and matching thumbs/art_cf_hpc.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_hpc.jpg 1024x1024 and matching thumbs/art_cf_hpc.jpg 192x192.
 ```
 
 
@@ -964,7 +964,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hpc.jpg 1024x10
 **Problema:** Hang power snatch con barra tras la cabeza y pies despegados
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hps image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hps image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Hang power snatch. ASSET NAME: art_cf_hps. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: hang power snatch reception upright and high with straight arms holding bar overhead; feet on floor.
@@ -974,7 +974,7 @@ LIME MUSCLE FILL: glutes, quadriceps and deltoids; nothing else highlighted in l
 CONTACT / SHADOW RULE: floor oval under planted feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_hps; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Hang power snatch con barra tras la cabeza y pies despegados.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hps.jpg 1024x1024 and matching thumbs/art_cf_hps.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_hps.jpg 1024x1024 and matching thumbs/art_cf_hps.jpg 192x192.
 ```
 
 
@@ -991,7 +991,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hps.jpg 1024x10
 **Problema:** No tiene defecto confirmado; rehacer para coherencia con los frames modificados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hspu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hspu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: HSPU. ASSET NAME: art_cf_hspu. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: inverted handstand push-up facing wall, palms on floor, heels resting lightly against wall.
@@ -1000,7 +1000,7 @@ LOCKED CAMERA AND LATERALITY: fixed strict lateral view, same wall in every fram
 LIME MUSCLE FILL: deltoids, triceps and serratus; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: subtle floor shadow ONLY under palms. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_hspu; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hspu.jpg 1024x1024 and matching thumbs/art_cf_hspu.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_hspu.jpg 1024x1024 and matching thumbs/art_cf_hspu.jpg 192x192.
 ```
 
 #### `art_cf_hspu_1` — FAIL
@@ -1010,7 +1010,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hspu.jpg 1024x1
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Pino contra la pared, brazos bloqueados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hspu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hspu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: HSPU. ASSET NAME: art_cf_hspu_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Pino contra la pared, brazos bloqueados..
@@ -1021,7 +1021,7 @@ CONTACT / SHADOW RULE: subtle floor shadow ONLY under palms. No airborne oval sh
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_hspu; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Bloqueo de handstand duplicado en paso 3, sin pared estable.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Pino contra la pared, brazos bloqueados..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hspu_1.jpg 1024x1024 and matching thumbs/art_cf_hspu_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_hspu_1.jpg 1024x1024 and matching thumbs/art_cf_hspu_1.jpg 192x192.
 ```
 
 #### `art_cf_hspu_2` — CONTINUIDAD
@@ -1031,7 +1031,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hspu_1.jpg 1024
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Baja la cabeza hacia el suelo con codos flexionados ~90°.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hspu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hspu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: HSPU. ASSET NAME: art_cf_hspu_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Baja la cabeza hacia el suelo con codos flexionados ~90°..
@@ -1041,7 +1041,7 @@ LIME MUSCLE FILL: deltoids, triceps and serratus; nothing else highlighted in li
 CONTACT / SHADOW RULE: subtle floor shadow ONLY under palms. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_hspu; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Baja la cabeza hacia el suelo con codos flexionados ~90°..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hspu_2.jpg 1024x1024 and matching thumbs/art_cf_hspu_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_hspu_2.jpg 1024x1024 and matching thumbs/art_cf_hspu_2.jpg 192x192.
 ```
 
 #### `art_cf_hspu_3` — FAIL
@@ -1051,7 +1051,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hspu_2.jpg 1024
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Empuja hasta bloquear otra vez en pino.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hspu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_hspu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: HSPU. ASSET NAME: art_cf_hspu_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Empuja hasta bloquear otra vez en pino..
@@ -1062,7 +1062,7 @@ CONTACT / SHADOW RULE: subtle floor shadow ONLY under palms. No airborne oval sh
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_hspu; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Fotograma prácticamente idéntico al paso 1, sin pared estable.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Empuja hasta bloquear otra vez en pino..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hspu_3.jpg 1024x1024 and matching thumbs/art_cf_hspu_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_hspu_3.jpg 1024x1024 and matching thumbs/art_cf_hspu_3.jpg 192x192.
 ```
 
 
@@ -1079,7 +1079,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_hspu_3.jpg 1024
 **Problema:** Clean de kettlebell mostrado con dos manos en balanceo
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_kb_clean image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_kb_clean image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Clean kettlebell. ASSET NAME: art_cf_kb_clean. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: one-arm kettlebell clean with bell safely resting in rack next to forearm and chest, not a two-hand swing.
@@ -1089,7 +1089,7 @@ LIME MUSCLE FILL: glutes, hamstrings, upper back and deltoid; nothing else highl
 CONTACT / SHADOW RULE: floor shadow under both feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_kb_clean; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Clean de kettlebell mostrado con dos manos en balanceo.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_kb_clean.jpg 1024x1024 and matching thumbs/art_cf_kb_clean.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_kb_clean.jpg 1024x1024 and matching thumbs/art_cf_kb_clean.jpg 192x192.
 ```
 
 
@@ -1106,7 +1106,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_kb_clean.jpg 10
 **Problema:** No tiene defecto confirmado; rehacer para coherencia con los frames modificados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_kb_snatch image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_kb_snatch image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Snatch kettlebell. ASSET NAME: art_cf_kb_snatch. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: single arm kettlebell snatch locked overhead with elbow straight and wrist neutral.
@@ -1115,7 +1115,7 @@ LOCKED CAMERA AND LATERALITY: fixed strict side view; kettle always in RIGHT han
 LIME MUSCLE FILL: glutes, hamstrings, deltoid and core; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: ground oval under planted shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_kb_snatch; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_kb_snatch.jpg 1024x1024 and matching thumbs/art_cf_kb_snatch.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_kb_snatch.jpg 1024x1024 and matching thumbs/art_cf_kb_snatch.jpg 192x192.
 ```
 
 #### `art_cf_kb_snatch_1` — CONTINUIDAD
@@ -1125,7 +1125,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_kb_snatch.jpg 1
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** KB entre los pies, bisagra de cadera.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_kb_snatch image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_kb_snatch image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Snatch kettlebell. ASSET NAME: art_cf_kb_snatch_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: KB entre los pies, bisagra de cadera..
@@ -1135,7 +1135,7 @@ LIME MUSCLE FILL: glutes, hamstrings, deltoid and core; nothing else highlighted
 CONTACT / SHADOW RULE: ground oval under planted shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_kb_snatch; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): KB entre los pies, bisagra de cadera..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_kb_snatch_1.jpg 1024x1024 and matching thumbs/art_cf_kb_snatch_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_kb_snatch_1.jpg 1024x1024 and matching thumbs/art_cf_kb_snatch_1.jpg 192x192.
 ```
 
 #### `art_cf_kb_snatch_2` — FAIL
@@ -1145,7 +1145,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_kb_snatch_1.jpg
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Extiende y guía la KB cerca del cuerpo.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_kb_snatch image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_kb_snatch image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Snatch kettlebell. ASSET NAME: art_cf_kb_snatch_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Extiende y guía la KB cerca del cuerpo..
@@ -1156,7 +1156,7 @@ CONTACT / SHADOW RULE: ground oval under planted shoes. No airborne oval shadows
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_kb_snatch; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Bloqueo OH casi idéntico al paso 3; falta tirón.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Extiende y guía la KB cerca del cuerpo..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_kb_snatch_2.jpg 1024x1024 and matching thumbs/art_cf_kb_snatch_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_kb_snatch_2.jpg 1024x1024 and matching thumbs/art_cf_kb_snatch_2.jpg 192x192.
 ```
 
 #### `art_cf_kb_snatch_3` — FAIL
@@ -1166,7 +1166,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_kb_snatch_2.jpg
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Bloquea overhead a brazo extendido.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_kb_snatch image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_kb_snatch image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Snatch kettlebell. ASSET NAME: art_cf_kb_snatch_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Bloquea overhead a brazo extendido..
@@ -1177,7 +1177,7 @@ CONTACT / SHADOW RULE: ground oval under planted shoes. No airborne oval shadows
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_kb_snatch; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Misma postura OH del paso 2, solo cambia el brazo libre.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Bloquea overhead a brazo extendido..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_kb_snatch_3.jpg 1024x1024 and matching thumbs/art_cf_kb_snatch_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_kb_snatch_3.jpg 1024x1024 and matching thumbs/art_cf_kb_snatch_3.jpg 192x192.
 ```
 
 
@@ -1194,7 +1194,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_kb_snatch_3.jpg
 **Problema:** Knees-to-elbows en suspensión con óvalo de suelo
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_kte image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_kte image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Knees to elbows. ASSET NAME: art_cf_kte. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: hanging with knees lifted toward elbows without feet touching ground.
@@ -1204,7 +1204,7 @@ LIME MUSCLE FILL: abdominals, hip flexors and lats; nothing else highlighted in 
 CONTACT / SHADOW RULE: NO ground shadow for hanging body. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_kte; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Knees-to-elbows en suspensión con óvalo de suelo.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_kte.jpg 1024x1024 and matching thumbs/art_cf_kte.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_kte.jpg 1024x1024 and matching thumbs/art_cf_kte.jpg 192x192.
 ```
 
 
@@ -1221,7 +1221,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_kte.jpg 1024x10
 **Problema:** No tiene defecto confirmado; rehacer para coherencia con los frames modificados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_mu_bar image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_mu_bar image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Muscle-up barra. ASSET NAME: art_cf_mu_bar. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: completed bar muscle-up in high support above the bar, fully straight elbows, feet hanging freely.
@@ -1230,7 +1230,7 @@ LOCKED CAMERA AND LATERALITY: fixed three-quarter side view for every pose.
 LIME MUSCLE FILL: lats, triceps, pecs and core; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: NO floor oval or floor shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_mu_bar; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_mu_bar.jpg 1024x1024 and matching thumbs/art_cf_mu_bar.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_mu_bar.jpg 1024x1024 and matching thumbs/art_cf_mu_bar.jpg 192x192.
 ```
 
 #### `art_cf_mu_bar_1` — WARN
@@ -1240,7 +1240,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_mu_bar.jpg 1024
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Cuélgate de la barra con los brazos largos y sin apoyar los pies.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_mu_bar image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_mu_bar image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Muscle-up barra. ASSET NAME: art_cf_mu_bar_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Cuélgate de la barra con los brazos largos y sin apoyar los pies..
@@ -1251,7 +1251,7 @@ CONTACT / SHADOW RULE: NO floor oval or floor shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_mu_bar; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Cámara posterior frente a cámaras laterales.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Cuélgate de la barra con los brazos largos y sin apoyar los pies..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_mu_bar_1.jpg 1024x1024 and matching thumbs/art_cf_mu_bar_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_mu_bar_1.jpg 1024x1024 and matching thumbs/art_cf_mu_bar_1.jpg 192x192.
 ```
 
 #### `art_cf_mu_bar_2` — WARN
@@ -1261,7 +1261,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_mu_bar_1.jpg 10
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Tira del torso sobre la barra y gira las muñecas durante la transición.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_mu_bar image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_mu_bar image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Muscle-up barra. ASSET NAME: art_cf_mu_bar_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Tira del torso sobre la barra y gira las muñecas durante la transición..
@@ -1272,7 +1272,7 @@ CONTACT / SHADOW RULE: NO floor oval or floor shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_mu_bar; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: La cámara cambia durante la transición.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Tira del torso sobre la barra y gira las muñecas durante la transición..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_mu_bar_2.jpg 1024x1024 and matching thumbs/art_cf_mu_bar_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_mu_bar_2.jpg 1024x1024 and matching thumbs/art_cf_mu_bar_2.jpg 192x192.
 ```
 
 #### `art_cf_mu_bar_3` — WARN
@@ -1282,7 +1282,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_mu_bar_2.jpg 10
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Empuja la barra hasta quedar en soporte con los brazos completamente extendidos.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_mu_bar image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_mu_bar image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Muscle-up barra. ASSET NAME: art_cf_mu_bar_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Empuja la barra hasta quedar en soporte con los brazos completamente extendidos..
@@ -1293,7 +1293,7 @@ CONTACT / SHADOW RULE: NO floor oval or floor shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_mu_bar; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Soporte final desde otro ángulo.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Empuja la barra hasta quedar en soporte con los brazos completamente extendidos..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_mu_bar_3.jpg 1024x1024 and matching thumbs/art_cf_mu_bar_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_mu_bar_3.jpg 1024x1024 and matching thumbs/art_cf_mu_bar_3.jpg 192x192.
 ```
 
 
@@ -1310,7 +1310,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_mu_bar_3.jpg 10
 **Problema:** Anillas beige en vez de grises
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_mu_rings image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_mu_rings image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Muscle-up anillas. ASSET NAME: art_cf_mu_rings. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: gymnast above rings in support with both rings next to hips, elbows locked and both feet suspended.
@@ -1320,7 +1320,7 @@ LIME MUSCLE FILL: lats, triceps, pecs and stabilizers; nothing else highlighted 
 CONTACT / SHADOW RULE: NO ground oval or floor shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_mu_rings; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Anillas beige en vez de grises.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_mu_rings.jpg 1024x1024 and matching thumbs/art_cf_mu_rings.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_mu_rings.jpg 1024x1024 and matching thumbs/art_cf_mu_rings.jpg 192x192.
 ```
 
 #### `art_cf_mu_rings_1` — FAIL
@@ -1330,7 +1330,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_mu_rings.jpg 10
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Cuélgate de las dos anillas con los brazos largos y los pies suspendidos.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_mu_rings image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_mu_rings image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Muscle-up anillas. ASSET NAME: art_cf_mu_rings_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Cuélgate de las dos anillas con los brazos largos y los pies suspendidos..
@@ -1341,7 +1341,7 @@ CONTACT / SHADOW RULE: NO ground oval or floor shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_mu_rings; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Óvalo bajo el deportista colgado; anillas fuera de paleta.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Cuélgate de las dos anillas con los brazos largos y los pies suspendidos..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_mu_rings_1.jpg 1024x1024 and matching thumbs/art_cf_mu_rings_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_mu_rings_1.jpg 1024x1024 and matching thumbs/art_cf_mu_rings_1.jpg 192x192.
 ```
 
 #### `art_cf_mu_rings_2` — FAIL
@@ -1351,7 +1351,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_mu_rings_1.jpg 
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Tira y acerca las anillas a la cintura mientras inclinas el torso hacia delante.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_mu_rings image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_mu_rings image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Muscle-up anillas. ASSET NAME: art_cf_mu_rings_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Tira y acerca las anillas a la cintura mientras inclinas el torso hacia delante..
@@ -1362,7 +1362,7 @@ CONTACT / SHADOW RULE: NO ground oval or floor shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_mu_rings; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Óvalo en suspensión; cambio de ángulo y lateralidad.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Tira y acerca las anillas a la cintura mientras inclinas el torso hacia delante..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_mu_rings_2.jpg 1024x1024 and matching thumbs/art_cf_mu_rings_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_mu_rings_2.jpg 1024x1024 and matching thumbs/art_cf_mu_rings_2.jpg 192x192.
 ```
 
 #### `art_cf_mu_rings_3` — FAIL
@@ -1372,7 +1372,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_mu_rings_2.jpg 
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Extiende los codos y mantente arriba con una anilla a cada lado del cuerpo.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_mu_rings image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_mu_rings image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Muscle-up anillas. ASSET NAME: art_cf_mu_rings_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Extiende los codos y mantente arriba con una anilla a cada lado del cuerpo..
@@ -1383,7 +1383,7 @@ CONTACT / SHADOW RULE: NO ground oval or floor shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_mu_rings; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Óvalo bajo el soporte en anillas; equipo inconsistente.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Extiende los codos y mantente arriba con una anilla a cada lado del cuerpo..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_mu_rings_3.jpg 1024x1024 and matching thumbs/art_cf_mu_rings_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_mu_rings_3.jpg 1024x1024 and matching thumbs/art_cf_mu_rings_3.jpg 192x192.
 ```
 
 
@@ -1400,7 +1400,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_mu_rings_3.jpg 
 **Problema:** No tiene defecto confirmado; rehacer para coherencia con los frames modificados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ohs image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ohs image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Overhead squat. ASSET NAME: art_cf_ohs. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: deep overhead squat with bar vertically above midfoot, locked elbows and heels planted.
@@ -1409,7 +1409,7 @@ LOCKED CAMERA AND LATERALITY: fixed side three-quarter view.
 LIME MUSCLE FILL: quadriceps, glutes, deltoids and upper back; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: soft oval under planted feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_ohs; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ohs.jpg 1024x1024 and matching thumbs/art_cf_ohs.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_ohs.jpg 1024x1024 and matching thumbs/art_cf_ohs.jpg 192x192.
 ```
 
 #### `art_cf_ohs_1` — CONTINUIDAD
@@ -1419,7 +1419,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ohs.jpg 1024x10
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Barra bloqueada overhead, agarre ancho, de pie.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ohs image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ohs image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Overhead squat. ASSET NAME: art_cf_ohs_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Barra bloqueada overhead, agarre ancho, de pie..
@@ -1429,7 +1429,7 @@ LIME MUSCLE FILL: quadriceps, glutes, deltoids and upper back; nothing else high
 CONTACT / SHADOW RULE: soft oval under planted feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_ohs; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Barra bloqueada overhead, agarre ancho, de pie..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ohs_1.jpg 1024x1024 and matching thumbs/art_cf_ohs_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_ohs_1.jpg 1024x1024 and matching thumbs/art_cf_ohs_1.jpg 192x192.
 ```
 
 #### `art_cf_ohs_2` — FAIL
@@ -1439,7 +1439,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ohs_1.jpg 1024x
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Siéntate profundo manteniendo la barra activa.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ohs image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ohs image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Overhead squat. ASSET NAME: art_cf_ohs_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Siéntate profundo manteniendo la barra activa..
@@ -1450,7 +1450,7 @@ CONTACT / SHADOW RULE: soft oval under planted feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_ohs; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Sentadilla overhead profunda casi idéntica a paso 3.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Siéntate profundo manteniendo la barra activa..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ohs_2.jpg 1024x1024 and matching thumbs/art_cf_ohs_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_ohs_2.jpg 1024x1024 and matching thumbs/art_cf_ohs_2.jpg 192x192.
 ```
 
 #### `art_cf_ohs_3` — FAIL
@@ -1460,7 +1460,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ohs_2.jpg 1024x
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Levántate sin perder el bloqueo.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ohs image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ohs image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Overhead squat. ASSET NAME: art_cf_ohs_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Levántate sin perder el bloqueo..
@@ -1471,7 +1471,7 @@ CONTACT / SHADOW RULE: soft oval under planted feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_ohs; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Repetición de posición final profunda en lugar de cambio articular claro.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Levántate sin perder el bloqueo..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ohs_3.jpg 1024x1024 and matching thumbs/art_cf_ohs_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_ohs_3.jpg 1024x1024 and matching thumbs/art_cf_ohs_3.jpg 192x192.
 ```
 
 
@@ -1488,7 +1488,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ohs_3.jpg 1024x
 **Problema:** Push jerk representado como split jerk con piernas alternadas
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_push_jerk image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_push_jerk image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Push jerk. ASSET NAME: art_cf_push_jerk. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: power jerk finish: arms locked overhead, feet PARALLEL and shoulder-width, knees flexed slightly in receiving position; NOT a split jerk.
@@ -1498,7 +1498,7 @@ LIME MUSCLE FILL: quadriceps, deltoids and triceps; nothing else highlighted in 
 CONTACT / SHADOW RULE: ground oval under both feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_push_jerk; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Push jerk representado como split jerk con piernas alternadas.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_push_jerk.jpg 1024x1024 and matching thumbs/art_cf_push_jerk.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_push_jerk.jpg 1024x1024 and matching thumbs/art_cf_push_jerk.jpg 192x192.
 ```
 
 
@@ -1515,7 +1515,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_push_jerk.jpg 1
 **Problema:** Fondo en anillas en el aire con óvalo de suelo
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ring_dip image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ring_dip image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Fondos en anillas. ASSET NAME: art_cf_ring_dip. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: body held up above rings by locked elbows, rings at hips and feet fully suspended.
@@ -1525,7 +1525,7 @@ LIME MUSCLE FILL: triceps, chest and anterior deltoids; nothing else highlighted
 CONTACT / SHADOW RULE: NO floor oval or shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_ring_dip; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Fondo en anillas en el aire con óvalo de suelo.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ring_dip.jpg 1024x1024 and matching thumbs/art_cf_ring_dip.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_ring_dip.jpg 1024x1024 and matching thumbs/art_cf_ring_dip.jpg 192x192.
 ```
 
 #### `art_cf_ring_dip_1` — FAIL
@@ -1535,7 +1535,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ring_dip.jpg 10
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Soporte en anillas: brazos bloqueados, anillas junto a cadera.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ring_dip image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ring_dip image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Fondos en anillas. ASSET NAME: art_cf_ring_dip_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Soporte en anillas: brazos bloqueados, anillas junto a cadera..
@@ -1546,7 +1546,7 @@ CONTACT / SHADOW RULE: NO floor oval or shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_ring_dip; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Sombra debajo de anillas en aire y pose duplicada con paso 3.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Soporte en anillas: brazos bloqueados, anillas junto a cadera..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ring_dip_1.jpg 1024x1024 and matching thumbs/art_cf_ring_dip_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_ring_dip_1.jpg 1024x1024 and matching thumbs/art_cf_ring_dip_1.jpg 192x192.
 ```
 
 #### `art_cf_ring_dip_2` — FAIL
@@ -1556,7 +1556,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ring_dip_1.jpg 
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Baja hasta hombros por debajo de los codos.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ring_dip image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ring_dip image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Fondos en anillas. ASSET NAME: art_cf_ring_dip_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Baja hasta hombros por debajo de los codos..
@@ -1567,7 +1567,7 @@ CONTACT / SHADOW RULE: NO floor oval or shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_ring_dip; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Óvalo de suelo bajo cuerpo suspendido de anillas.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Baja hasta hombros por debajo de los codos..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ring_dip_2.jpg 1024x1024 and matching thumbs/art_cf_ring_dip_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_ring_dip_2.jpg 1024x1024 and matching thumbs/art_cf_ring_dip_2.jpg 192x192.
 ```
 
 #### `art_cf_ring_dip_3` — FAIL
@@ -1577,7 +1577,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ring_dip_2.jpg 
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Empuja de nuevo a soporte bloqueado.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ring_dip image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_ring_dip image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Fondos en anillas. ASSET NAME: art_cf_ring_dip_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Empuja de nuevo a soporte bloqueado..
@@ -1588,7 +1588,7 @@ CONTACT / SHADOW RULE: NO floor oval or shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_ring_dip; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Sombra debajo de anillas en aire y pose duplicada con paso 1.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Empuja de nuevo a soporte bloqueado..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ring_dip_3.jpg 1024x1024 and matching thumbs/art_cf_ring_dip_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_ring_dip_3.jpg 1024x1024 and matching thumbs/art_cf_ring_dip_3.jpg 192x192.
 ```
 
 
@@ -1605,7 +1605,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_ring_dip_3.jpg 
 **Problema:** No tiene defecto confirmado; rehacer para coherencia con los frames modificados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_rope image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_rope image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Rope climb. ASSET NAME: art_cf_rope. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: mid-ascent rope climb, feet locked around rope, hands staggered vertically, torso upright, no floor contact.
@@ -1614,7 +1614,7 @@ LOCKED CAMERA AND LATERALITY: fixed side three-quarter view; same rope position.
 LIME MUSCLE FILL: lats, biceps, core and forearms; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: NO floor shadow for athlete suspended. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_rope; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_rope.jpg 1024x1024 and matching thumbs/art_cf_rope.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_rope.jpg 1024x1024 and matching thumbs/art_cf_rope.jpg 192x192.
 ```
 
 #### `art_cf_rope_1` — FAIL
@@ -1624,7 +1624,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_rope.jpg 1024x1
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Salta y agarra la cuerda alto.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_rope image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_rope image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Rope climb. ASSET NAME: art_cf_rope_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Salta y agarra la cuerda alto..
@@ -1635,7 +1635,7 @@ CONTACT / SHADOW RULE: NO floor shadow for athlete suspended. No airborne oval s
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_rope; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Sombra/óvalo bajo el escalador suspendido.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Salta y agarra la cuerda alto..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_rope_1.jpg 1024x1024 and matching thumbs/art_cf_rope_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_rope_1.jpg 1024x1024 and matching thumbs/art_cf_rope_1.jpg 192x192.
 ```
 
 #### `art_cf_rope_2` — FAIL
@@ -1645,7 +1645,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_rope_1.jpg 1024
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Enrola piernas (J-hook/wrap) y estira.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_rope image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_rope image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Rope climb. ASSET NAME: art_cf_rope_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Enrola piernas (J-hook/wrap) y estira..
@@ -1656,7 +1656,7 @@ CONTACT / SHADOW RULE: NO floor shadow for athlete suspended. No airborne oval s
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_rope; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Óvalo de suelo bajo la fase de escalada en aire.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Enrola piernas (J-hook/wrap) y estira..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_rope_2.jpg 1024x1024 and matching thumbs/art_cf_rope_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_rope_2.jpg 1024x1024 and matching thumbs/art_cf_rope_2.jpg 192x192.
 ```
 
 #### `art_cf_rope_3` — CONTINUIDAD
@@ -1666,7 +1666,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_rope_2.jpg 1024
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Sube a tramos y baja controlado.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_rope image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_rope image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Rope climb. ASSET NAME: art_cf_rope_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Sube a tramos y baja controlado..
@@ -1676,7 +1676,7 @@ LIME MUSCLE FILL: lats, biceps, core and forearms; nothing else highlighted in l
 CONTACT / SHADOW RULE: NO floor shadow for athlete suspended. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_rope; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Sube a tramos y baja controlado..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_rope_3.jpg 1024x1024 and matching thumbs/art_cf_rope_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_rope_3.jpg 1024x1024 and matching thumbs/art_cf_rope_3.jpg 192x192.
 ```
 
 
@@ -1693,7 +1693,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_rope_3.jpg 1024
 **Problema:** Sandbag over shoulder dibujado como saco en hombros sin fase de lanzamiento
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_sb_os image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_sb_os image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Sandbag over shoulder. ASSET NAME: art_cf_sb_os. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: sandbag being driven up and behind ONE shoulder, hips extended, torso braced, clear throw trajectory.
@@ -1703,7 +1703,7 @@ LIME MUSCLE FILL: glutes, traps and core; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: ground oval under feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_sb_os; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Sandbag over shoulder dibujado como saco en hombros sin fase de lanzamiento.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_sb_os.jpg 1024x1024 and matching thumbs/art_cf_sb_os.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_sb_os.jpg 1024x1024 and matching thumbs/art_cf_sb_os.jpg 192x192.
 ```
 
 
@@ -1720,7 +1720,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_sb_os.jpg 1024x
 **Problema:** Equipo SkiErg representado con plataforma y rueda de aspecto confuso
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_skierg image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_skierg image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: SkiErg. ASSET NAME: art_cf_skierg. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: athlete pulling TWO handles downward toward thighs from overhead, hinged at hips, no seated rowing or stationary bicycle.
@@ -1730,7 +1730,7 @@ LIME MUSCLE FILL: lats, abdominals and triceps; nothing else highlighted in lime
 CONTACT / SHADOW RULE: shadow beneath feet and anchored machine. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_skierg; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Equipo SkiErg representado con plataforma y rueda de aspecto confuso.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_skierg.jpg 1024x1024 and matching thumbs/art_cf_skierg.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_skierg.jpg 1024x1024 and matching thumbs/art_cf_skierg.jpg 192x192.
 ```
 
 
@@ -1747,7 +1747,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_skierg.jpg 1024
 **Problema:** Sled pull mostrado como empuje de trineo con las manos
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_sled_pull image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_sled_pull image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Sled pull. ASSET NAME: art_cf_sled_pull. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: athlete facing the sled and pulling attached rope hand over hand with backward lean and heels planted; not pushing the sled.
@@ -1757,7 +1757,7 @@ LIME MUSCLE FILL: lats, biceps, quads and glutes; nothing else highlighted in li
 CONTACT / SHADOW RULE: shadow under sled and contacting feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_sled_pull; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Sled pull mostrado como empuje de trineo con las manos.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_sled_pull.jpg 1024x1024 and matching thumbs/art_cf_sled_pull.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_sled_pull.jpg 1024x1024 and matching thumbs/art_cf_sled_pull.jpg 192x192.
 ```
 
 
@@ -1774,7 +1774,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_sled_pull.jpg 1
 **Problema:** No tiene defecto confirmado; rehacer para coherencia con los frames modificados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_split_jerk image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_split_jerk image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Split jerk. ASSET NAME: art_cf_split_jerk. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: split jerk finish: one foot in front, other behind, arms locked overhead and body aligned vertically.
@@ -1783,7 +1783,7 @@ LOCKED CAMERA AND LATERALITY: fixed three-quarter side view; LEFT leg forward in
 LIME MUSCLE FILL: quadriceps, glutes, deltoids and triceps; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: shadow under planted feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_split_jerk; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_split_jerk.jpg 1024x1024 and matching thumbs/art_cf_split_jerk.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_split_jerk.jpg 1024x1024 and matching thumbs/art_cf_split_jerk.jpg 192x192.
 ```
 
 #### `art_cf_split_jerk_1` — CONTINUIDAD
@@ -1793,7 +1793,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_split_jerk.jpg 
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Front rack, dip corto de piernas.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_split_jerk image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_split_jerk image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Split jerk. ASSET NAME: art_cf_split_jerk_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Front rack, dip corto de piernas..
@@ -1803,7 +1803,7 @@ LIME MUSCLE FILL: quadriceps, glutes, deltoids and triceps; nothing else highlig
 CONTACT / SHADOW RULE: shadow under planted feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_split_jerk; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Front rack, dip corto de piernas..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_split_jerk_1.jpg 1024x1024 and matching thumbs/art_cf_split_jerk_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_split_jerk_1.jpg 1024x1024 and matching thumbs/art_cf_split_jerk_1.jpg 192x192.
 ```
 
 #### `art_cf_split_jerk_2` — FAIL
@@ -1813,7 +1813,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_split_jerk_1.jp
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Drive y split: un pie delante, otro atrás, brazos bloqueados overhead.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_split_jerk image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_split_jerk image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Split jerk. ASSET NAME: art_cf_split_jerk_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Drive y split: un pie delante, otro atrás, brazos bloqueados overhead..
@@ -1824,7 +1824,7 @@ CONTACT / SHADOW RULE: shadow under planted feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_split_jerk; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Fase final split overhead casi idéntica al paso 3.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Drive y split: un pie delante, otro atrás, brazos bloqueados overhead..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_split_jerk_2.jpg 1024x1024 and matching thumbs/art_cf_split_jerk_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_split_jerk_2.jpg 1024x1024 and matching thumbs/art_cf_split_jerk_2.jpg 192x192.
 ```
 
 #### `art_cf_split_jerk_3` — FAIL
@@ -1834,7 +1834,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_split_jerk_2.jp
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Recupera pie delantero y luego el trasero bajo la barra.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_split_jerk image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_split_jerk image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Split jerk. ASSET NAME: art_cf_split_jerk_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Recupera pie delantero y luego el trasero bajo la barra..
@@ -1845,7 +1845,7 @@ CONTACT / SHADOW RULE: shadow under planted feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_split_jerk; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Repetición de split overhead del paso 2; falta fase diferenciada.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Recupera pie delantero y luego el trasero bajo la barra..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_split_jerk_3.jpg 1024x1024 and matching thumbs/art_cf_split_jerk_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_split_jerk_3.jpg 1024x1024 and matching thumbs/art_cf_split_jerk_3.jpg 192x192.
 ```
 
 
@@ -1862,7 +1862,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_split_jerk_3.jp
 **Problema:** Salto a la comba con óvalo/sombra mientras está suspendido
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_su image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_su image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Simples de comba. ASSET NAME: art_cf_su. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: single-under rope jump in mid-air, feet together slightly off floor, rope traveling beneath shoes.
@@ -1872,7 +1872,7 @@ LIME MUSCLE FILL: calves, forearms and deltoids; nothing else highlighted in lim
 CONTACT / SHADOW RULE: NO floor oval or floor shadow mid-jump. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_su; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Salto a la comba con óvalo/sombra mientras está suspendido.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_su.jpg 1024x1024 and matching thumbs/art_cf_su.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_su.jpg 1024x1024 and matching thumbs/art_cf_su.jpg 192x192.
 ```
 
 
@@ -1889,7 +1889,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_su.jpg 1024x102
 **Problema:** Sumo deadlift high pull representado como sentadilla overhead
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_sumo_hp image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_sumo_hp image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Sumo high pull. ASSET NAME: art_cf_sumo_hp. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: sumo deadlift high pull: wide feet planted, bar pulled vertically to upper chest and elbows above wrists, NOT overhead squat.
@@ -1899,7 +1899,7 @@ LIME MUSCLE FILL: glutes, quads, trapezius and deltoids; nothing else highlighte
 CONTACT / SHADOW RULE: ground oval under planted feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_sumo_hp; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Sumo deadlift high pull representado como sentadilla overhead.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_sumo_hp.jpg 1024x1024 and matching thumbs/art_cf_sumo_hp.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_sumo_hp.jpg 1024x1024 and matching thumbs/art_cf_sumo_hp.jpg 192x192.
 ```
 
 
@@ -1916,7 +1916,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_sumo_hp.jpg 102
 **Problema:** No tiene defecto confirmado; rehacer para coherencia con los frames modificados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_tgu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_tgu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Turkish get-up. ASSET NAME: art_cf_tgu. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: Turkish get-up finishing upright, right arm locked vertically overhead and other arm down, kettlebell never changes hands.
@@ -1925,7 +1925,7 @@ LOCKED CAMERA AND LATERALITY: fixed side three-quarter view facing RIGHT; same w
 LIME MUSCLE FILL: shoulder stabilizers, obliques and glutes; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: soft oval only under supported body parts. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_tgu; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_tgu.jpg 1024x1024 and matching thumbs/art_cf_tgu.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_tgu.jpg 1024x1024 and matching thumbs/art_cf_tgu.jpg 192x192.
 ```
 
 #### `art_cf_tgu_1` — FAIL
@@ -1935,7 +1935,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_tgu.jpg 1024x10
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Túmbate y mantén una kettlebell sobre el hombro con el brazo totalmente extendido.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_tgu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_tgu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Turkish get-up. ASSET NAME: art_cf_tgu_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Túmbate y mantén una kettlebell sobre el hombro con el brazo totalmente extendido..
@@ -1946,7 +1946,7 @@ CONTACT / SHADOW RULE: soft oval only under supported body parts. No airborne ov
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_tgu; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Mancuerna en vez de la kettlebell de los pasos siguientes.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Túmbate y mantén una kettlebell sobre el hombro con el brazo totalmente extendido..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_tgu_1.jpg 1024x1024 and matching thumbs/art_cf_tgu_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_tgu_1.jpg 1024x1024 and matching thumbs/art_cf_tgu_1.jpg 192x192.
 ```
 
 #### `art_cf_tgu_2` — CONTINUIDAD
@@ -1956,7 +1956,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_tgu_1.jpg 1024x
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Apoya la mano libre, eleva la cadera y mantén la kettlebell vertical.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_tgu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_tgu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Turkish get-up. ASSET NAME: art_cf_tgu_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Apoya la mano libre, eleva la cadera y mantén la kettlebell vertical..
@@ -1966,7 +1966,7 @@ LIME MUSCLE FILL: shoulder stabilizers, obliques and glutes; nothing else highli
 CONTACT / SHADOW RULE: soft oval only under supported body parts. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_tgu; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Apoya la mano libre, eleva la cadera y mantén la kettlebell vertical..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_tgu_2.jpg 1024x1024 and matching thumbs/art_cf_tgu_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_tgu_2.jpg 1024x1024 and matching thumbs/art_cf_tgu_2.jpg 192x192.
 ```
 
 #### `art_cf_tgu_3` — CONTINUIDAD
@@ -1976,7 +1976,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_tgu_2.jpg 1024x
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Termina de pie con el mismo brazo bloqueado y la kettlebell sobre la cabeza.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_tgu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_tgu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Turkish get-up. ASSET NAME: art_cf_tgu_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Termina de pie con el mismo brazo bloqueado y la kettlebell sobre la cabeza..
@@ -1986,7 +1986,7 @@ LIME MUSCLE FILL: shoulder stabilizers, obliques and glutes; nothing else highli
 CONTACT / SHADOW RULE: soft oval only under supported body parts. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_tgu; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Termina de pie con el mismo brazo bloqueado y la kettlebell sobre la cabeza..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_tgu_3.jpg 1024x1024 and matching thumbs/art_cf_tgu_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_tgu_3.jpg 1024x1024 and matching thumbs/art_cf_tgu_3.jpg 192x192.
 ```
 
 
@@ -2003,7 +2003,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_tgu_3.jpg 1024x
 **Problema:** No tiene defecto confirmado; rehacer para coherencia con los frames modificados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_thruster image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_thruster image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Thruster. ASSET NAME: art_cf_thruster. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: full standing thruster finished with barbell locked straight overhead, arms fully extended and feet planted.
@@ -2012,7 +2012,7 @@ LOCKED CAMERA AND LATERALITY: fixed frontal three-quarter view.
 LIME MUSCLE FILL: quadriceps, glutes, deltoids and triceps; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: ground oval under planted feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_thruster; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_thruster.jpg 1024x1024 and matching thumbs/art_cf_thruster.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_thruster.jpg 1024x1024 and matching thumbs/art_cf_thruster.jpg 192x192.
 ```
 
 #### `art_cf_thruster_1` — CONTINUIDAD
@@ -2022,7 +2022,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_thruster.jpg 10
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Sujeta la barra delante de los hombros y desciende hasta una sentadilla frontal.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_thruster image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_thruster image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Thruster. ASSET NAME: art_cf_thruster_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Sujeta la barra delante de los hombros y desciende hasta una sentadilla frontal..
@@ -2032,7 +2032,7 @@ LIME MUSCLE FILL: quadriceps, glutes, deltoids and triceps; nothing else highlig
 CONTACT / SHADOW RULE: ground oval under planted feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_thruster; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Sujeta la barra delante de los hombros y desciende hasta una sentadilla frontal..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_thruster_1.jpg 1024x1024 and matching thumbs/art_cf_thruster_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_thruster_1.jpg 1024x1024 and matching thumbs/art_cf_thruster_1.jpg 192x192.
 ```
 
 #### `art_cf_thruster_2` — CONTINUIDAD
@@ -2042,7 +2042,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_thruster_1.jpg 
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Extiende caderas y rodillas al subir, manteniendo la barra sobre los hombros.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_thruster image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_thruster image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Thruster. ASSET NAME: art_cf_thruster_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Extiende caderas y rodillas al subir, manteniendo la barra sobre los hombros..
@@ -2052,7 +2052,7 @@ LIME MUSCLE FILL: quadriceps, glutes, deltoids and triceps; nothing else highlig
 CONTACT / SHADOW RULE: ground oval under planted feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_thruster; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Extiende caderas y rodillas al subir, manteniendo la barra sobre los hombros..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_thruster_2.jpg 1024x1024 and matching thumbs/art_cf_thruster_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_thruster_2.jpg 1024x1024 and matching thumbs/art_cf_thruster_2.jpg 192x192.
 ```
 
 #### `art_cf_thruster_3` — FAIL
@@ -2062,7 +2062,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_thruster_2.jpg 
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Impulsa la misma barra sobre la cabeza hasta extender los brazos por completo.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_thruster image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_thruster image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Thruster. ASSET NAME: art_cf_thruster_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Impulsa la misma barra sobre la cabeza hasta extender los brazos por completo..
@@ -2073,7 +2073,7 @@ CONTACT / SHADOW RULE: ground oval under planted feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_thruster; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Mancuernas en el bloqueo de un thruster con barra.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Impulsa la misma barra sobre la cabeza hasta extender los brazos por completo..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_thruster_3.jpg 1024x1024 and matching thumbs/art_cf_thruster_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_thruster_3.jpg 1024x1024 and matching thumbs/art_cf_thruster_3.jpg 192x192.
 ```
 
 
@@ -2090,7 +2090,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_thruster_3.jpg 
 **Problema:** Triple under con sombra de suelo mientras salta
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_tu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_tu image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Triples de comba. ASSET NAME: art_cf_tu. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: triple-under jump at peak in flight with legs together and rope arcing rapidly around athlete.
@@ -2100,7 +2100,7 @@ LIME MUSCLE FILL: calves, wrists and shoulders; nothing else highlighted in lime
 CONTACT / SHADOW RULE: NO ground shadow while airborne. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_tu; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Triple under con sombra de suelo mientras salta.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_tu.jpg 1024x1024 and matching thumbs/art_cf_tu.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_tu.jpg 1024x1024 and matching thumbs/art_cf_tu.jpg 192x192.
 ```
 
 
@@ -2117,7 +2117,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_tu.jpg 1024x102
 **Problema:** Falta muro y diana en el hero
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_wall_ball image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_wall_ball image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Wall ball. ASSET NAME: art_cf_wall_ball. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: wall ball athlete in squatting catch or rising to throw, ball aligned to round target.
@@ -2127,7 +2127,7 @@ LIME MUSCLE FILL: quadriceps, glutes, deltoids and triceps; nothing else highlig
 CONTACT / SHADOW RULE: shadow only when feet on floor. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_wall_ball; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Falta muro y diana en el hero.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_wall_ball.jpg 1024x1024 and matching thumbs/art_cf_wall_ball.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_wall_ball.jpg 1024x1024 and matching thumbs/art_cf_wall_ball.jpg 192x192.
 ```
 
 #### `art_cf_wall_ball_1` — CONTINUIDAD
@@ -2137,7 +2137,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_wall_ball.jpg 1
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Sujeta el balón frente al pecho y baja a sentadilla mirando la diana.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_wall_ball image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_wall_ball image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Wall ball. ASSET NAME: art_cf_wall_ball_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: Sujeta el balón frente al pecho y baja a sentadilla mirando la diana..
@@ -2147,7 +2147,7 @@ LIME MUSCLE FILL: quadriceps, glutes, deltoids and triceps; nothing else highlig
 CONTACT / SHADOW RULE: shadow only when feet on floor. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_wall_ball; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Sujeta el balón frente al pecho y baja a sentadilla mirando la diana..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_wall_ball_1.jpg 1024x1024 and matching thumbs/art_cf_wall_ball_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_wall_ball_1.jpg 1024x1024 and matching thumbs/art_cf_wall_ball_1.jpg 192x192.
 ```
 
 #### `art_cf_wall_ball_2` — CONTINUIDAD
@@ -2157,7 +2157,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_wall_ball_1.jpg
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Extiende las piernas y lanza el balón hacia la diana con ambos brazos.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_wall_ball image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_wall_ball image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Wall ball. ASSET NAME: art_cf_wall_ball_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Extiende las piernas y lanza el balón hacia la diana con ambos brazos..
@@ -2167,7 +2167,7 @@ LIME MUSCLE FILL: quadriceps, glutes, deltoids and triceps; nothing else highlig
 CONTACT / SHADOW RULE: shadow only when feet on floor. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_wall_ball; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Extiende las piernas y lanza el balón hacia la diana con ambos brazos..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_wall_ball_2.jpg 1024x1024 and matching thumbs/art_cf_wall_ball_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_wall_ball_2.jpg 1024x1024 and matching thumbs/art_cf_wall_ball_2.jpg 192x192.
 ```
 
 #### `art_cf_wall_ball_3` — WARN
@@ -2177,7 +2177,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_wall_ball_2.jpg
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Alza las manos y recibe el balón frente a la diana antes de volver a bajar.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_wall_ball image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_wall_ball image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Wall ball. ASSET NAME: art_cf_wall_ball_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Alza las manos y recibe el balón frente a la diana antes de volver a bajar..
@@ -2188,7 +2188,7 @@ CONTACT / SHADOW RULE: shadow only when feet on floor. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_wall_ball; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Cambio de plano y balón alto; revisar fase de recepción.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Alza las manos y recibe el balón frente a la diana antes de volver a bajar..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_wall_ball_3.jpg 1024x1024 and matching thumbs/art_cf_wall_ball_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_wall_ball_3.jpg 1024x1024 and matching thumbs/art_cf_wall_ball_3.jpg 192x192.
 ```
 
 
@@ -2205,7 +2205,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_wall_ball_3.jpg
 **Problema:** Yoke carry representado con barra de pesas ordinaria sin yoke
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_yoke image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_cf_yoke image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Yoke carry. ASSET NAME: art_cf_yoke. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: athlete walking under yoke crossbar at upper back/shoulders while entire frame surrounds torso, not ordinary barbell.
@@ -2215,7 +2215,7 @@ LIME MUSCLE FILL: quads, glutes, traps and core; nothing else highlighted in lim
 CONTACT / SHADOW RULE: shadow below feet and yoke feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_cf_yoke; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Yoke carry representado con barra de pesas ordinaria sin yoke.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_yoke.jpg 1024x1024 and matching thumbs/art_cf_yoke.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_cf_yoke.jpg 1024x1024 and matching thumbs/art_cf_yoke.jpg 192x192.
 ```
 
 
@@ -2232,7 +2232,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_cf_yoke.jpg 1024x1
 **Problema:** Resaltado rojo no permitido; solo se admite lime
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_curl_femoral image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_curl_femoral image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Curl femoral. ASSET NAME: art_curl_femoral. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: lying FACE DOWN on prone leg curl machine, knees flexed and ankles pressing roller upward toward glutes.
@@ -2242,7 +2242,7 @@ LIME MUSCLE FILL: hamstrings ONLY in lime, NO RED; nothing else highlighted in l
 CONTACT / SHADOW RULE: soft oval beneath bench. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_curl_femoral; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Resaltado rojo no permitido; solo se admite lime.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_curl_femoral.jpg 1024x1024 and matching thumbs/art_curl_femoral.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_curl_femoral.jpg 1024x1024 and matching thumbs/art_curl_femoral.jpg 192x192.
 ```
 
 
@@ -2259,7 +2259,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_curl_femoral.jpg 1
 **Problema:** Curl mostrado con manos altas en postura de press de hombros
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_curl_mancuernas image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_curl_mancuernas image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Curl mancuernas. ASSET NAME: art_curl_mancuernas. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: standing dumbbell curls with elbows close to sides, palms facing forward, dumbbells near lower chest; NOT overhead press.
@@ -2269,7 +2269,7 @@ LIME MUSCLE FILL: biceps brachii and brachialis; nothing else highlighted in lim
 CONTACT / SHADOW RULE: ground oval under feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_curl_mancuernas; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Curl mostrado con manos altas en postura de press de hombros.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_curl_mancuernas.jpg 1024x1024 and matching thumbs/art_curl_mancuernas.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_curl_mancuernas.jpg 1024x1024 and matching thumbs/art_curl_mancuernas.jpg 192x192.
 ```
 
 
@@ -2286,7 +2286,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_curl_mancuernas.jp
 **Problema:** Curl martillo dibujado en postura de press de hombros
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_curl_martillo image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_curl_martillo image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Curl martillo. ASSET NAME: art_curl_martillo. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: standing hammer curl with palms facing INWARD, elbows beside torso and dumbbells rising toward shoulders.
@@ -2296,7 +2296,7 @@ LIME MUSCLE FILL: brachialis, brachioradialis and biceps; nothing else highlight
 CONTACT / SHADOW RULE: ground oval under feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_curl_martillo; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Curl martillo dibujado en postura de press de hombros.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_curl_martillo.jpg 1024x1024 and matching thumbs/art_curl_martillo.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_curl_martillo.jpg 1024x1024 and matching thumbs/art_curl_martillo.jpg 192x192.
 ```
 
 
@@ -2313,7 +2313,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_curl_martillo.jpg 
 **Problema:** Elevación lateral dibujada como press de hombros
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_elevaciones_laterales image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_elevaciones_laterales image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Elevaciones laterales. ASSET NAME: art_elevaciones_laterales. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: standing lateral raise with arms out to sides at shoulder level, softly bent elbows and thumbs neutral; NOT overhead press.
@@ -2323,7 +2323,7 @@ LIME MUSCLE FILL: lateral deltoids; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: ground oval under feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_elevaciones_laterales; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Elevación lateral dibujada como press de hombros.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_elevaciones_laterales.jpg 1024x1024 and matching thumbs/art_elevaciones_laterales.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_elevaciones_laterales.jpg 1024x1024 and matching thumbs/art_elevaciones_laterales.jpg 192x192.
 ```
 
 
@@ -2340,7 +2340,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_elevaciones_latera
 **Problema:** Resaltado lime alcanza abdomen además de cuádriceps
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_extension_cuad image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_extension_cuad image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Extensión de cuádriceps. ASSET NAME: art_extension_cuad. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: athlete seated against backrest, legs extended at knee and shins lifting roller pad.
@@ -2350,7 +2350,7 @@ LIME MUSCLE FILL: quadriceps ONLY, not abs; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: shadow below machine. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_extension_cuad; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Resaltado lime alcanza abdomen además de cuádriceps.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_extension_cuad.jpg 1024x1024 and matching thumbs/art_extension_cuad.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_extension_cuad.jpg 1024x1024 and matching thumbs/art_extension_cuad.jpg 192x192.
 ```
 
 
@@ -2367,7 +2367,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_extension_cuad.jpg
 **Problema:** Fondos sustituidos por jalón de tríceps en polea
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_fondos image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_fondos image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Fondos. ASSET NAME: art_fondos. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: athlete on parallel bars, shoulders over hands, elbows bent midway through body-weight dip with feet suspended.
@@ -2377,7 +2377,7 @@ LIME MUSCLE FILL: triceps, pectorals and deltoids; nothing else highlighted in l
 CONTACT / SHADOW RULE: NO floor oval if feet suspended. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_fondos; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Fondos sustituidos por jalón de tríceps en polea.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_fondos.jpg 1024x1024 and matching thumbs/art_fondos.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_fondos.jpg 1024x1024 and matching thumbs/art_fondos.jpg 192x192.
 ```
 
 
@@ -2394,7 +2394,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_fondos.jpg 1024x10
 **Problema:** Resaltado lime excesivo en espalda/brazos para elevación de gemelos
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gemelos image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gemelos image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Elevación de gemelos. ASSET NAME: art_gemelos. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: standing calf raise on raised step with heels above edge, rising onto toes; straight legs.
@@ -2404,7 +2404,7 @@ LIME MUSCLE FILL: gastrocnemius and soleus ONLY in lime; nothing else highlighte
 CONTACT / SHADOW RULE: oval shadow under raised step. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gemelos; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Resaltado lime excesivo en espalda/brazos para elevación de gemelos.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gemelos.jpg 1024x1024 and matching thumbs/art_gemelos.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gemelos.jpg 1024x1024 and matching thumbs/art_gemelos.jpg 192x192.
 ```
 
 
@@ -2421,7 +2421,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gemelos.jpg 1024x1
 **Problema:** Arch hold de suelo sustituido por elevación de piernas colgado
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_arch image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_arch image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Arch hold. ASSET NAME: art_gy_arch. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: ARCH HOLD on stomach: chest and thighs lifted slightly from floor, arms extended overhead, legs extended behind; NOT hanging from bar.
@@ -2431,7 +2431,7 @@ LIME MUSCLE FILL: erector spinae, glutes and posterior deltoids; nothing else hi
 CONTACT / SHADOW RULE: subtle oval beneath torso touching floor. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gy_arch; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Arch hold de suelo sustituido por elevación de piernas colgado.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_arch.jpg 1024x1024 and matching thumbs/art_gy_arch.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gy_arch.jpg 1024x1024 and matching thumbs/art_gy_arch.jpg 192x192.
 ```
 
 
@@ -2448,7 +2448,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_arch.jpg 1024x1
 **Problema:** Archer pull-up con ambos codos flexionados; falta brazo recto
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_archer image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_archer image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Archer pull-up. ASSET NAME: art_gy_archer. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: archer pull-up at top: one elbow deeply flexed and shoulder toward gripping hand, opposite arm STRAIGHT along bar, feet suspended.
@@ -2458,7 +2458,7 @@ LIME MUSCLE FILL: lats, biceps and rear deltoids; nothing else highlighted in li
 CONTACT / SHADOW RULE: NO floor shadow for hanging figure. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gy_archer; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Archer pull-up con ambos codos flexionados; falta brazo recto.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_archer.jpg 1024x1024 and matching thumbs/art_gy_archer.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gy_archer.jpg 1024x1024 and matching thumbs/art_gy_archer.jpg 192x192.
 ```
 
 
@@ -2475,7 +2475,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_archer.jpg 1024
 **Problema:** Candlestick sobre suelo mostrado como parada de manos
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_candle image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_candle image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Candlestick. ASSET NAME: art_gy_candle. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: candlestick supine on floor with legs together pointing vertically overhead, shoulders and upper back grounded, hips elevated.
@@ -2485,7 +2485,7 @@ LIME MUSCLE FILL: abdominals and hip flexors; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: floor oval under shoulders. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gy_candle; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Candlestick sobre suelo mostrado como parada de manos.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_candle.jpg 1024x1024 and matching thumbs/art_gy_candle.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gy_candle.jpg 1024x1024 and matching thumbs/art_gy_candle.jpg 192x192.
 ```
 
 
@@ -2502,7 +2502,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_candle.jpg 1024
 **Problema:** Anillas doradas en vez de grises canónicos
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_false_grip image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_false_grip image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: False grip hang. ASSET NAME: art_gy_false_grip. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: hanging from rings using false grip with wrists folded above the rings and arms long; feet not touching floor.
@@ -2512,7 +2512,7 @@ LIME MUSCLE FILL: forearms, wrist flexors and lats; nothing else highlighted in 
 CONTACT / SHADOW RULE: NO ground oval or shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gy_false_grip; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Anillas doradas en vez de grises canónicos.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_false_grip.jpg 1024x1024 and matching thumbs/art_gy_false_grip.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gy_false_grip.jpg 1024x1024 and matching thumbs/art_gy_false_grip.jpg 192x192.
 ```
 
 
@@ -2529,7 +2529,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_false_grip.jpg 
 **Problema:** Front lever en suspensión con óvalo de sombra de suelo
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_front_lev image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_front_lev image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Front lever tuck. ASSET NAME: art_gy_front_lev. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: front lever tuck: body hanging horizontally from straight arms, hips lifted and knees tucked while shoulders stay engaged.
@@ -2539,7 +2539,7 @@ LIME MUSCLE FILL: lats, abdominals and glutes; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: NO floor oval or shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gy_front_lev; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Front lever en suspensión con óvalo de sombra de suelo.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_front_lev.jpg 1024x1024 and matching thumbs/art_gy_front_lev.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gy_front_lev.jpg 1024x1024 and matching thumbs/art_gy_front_lev.jpg 192x192.
 ```
 
 
@@ -2556,7 +2556,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_front_lev.jpg 1
 **Problema:** Extensión GHD representada con barra de pesas elevada y banco equivocado
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_ghd_back image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_ghd_back image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: GHD back extension. ASSET NAME: art_gy_ghd_back. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: GHD back extension with ankles secured and hips supported, torso hinged forward then straightened level, no overhead bar.
@@ -2566,7 +2566,7 @@ LIME MUSCLE FILL: erector spinae and glutes; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: ground shadow only below apparatus. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gy_ghd_back; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Extensión GHD representada con barra de pesas elevada y banco equivocado.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_ghd_back.jpg 1024x1024 and matching thumbs/art_gy_ghd_back.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gy_ghd_back.jpg 1024x1024 and matching thumbs/art_gy_ghd_back.jpg 192x192.
 ```
 
 
@@ -2583,7 +2583,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_ghd_back.jpg 10
 **Problema:** Piernas parecen apoyadas en hollow hold, revisar
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_hollow_hold image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_hollow_hold image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Hollow hold. ASSET NAME: art_gy_hollow_hold. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: static hollow hold lying face up with shoulders raised, lumbar region pressed into floor and arms/legs extended OFF floor.
@@ -2593,7 +2593,7 @@ LIME MUSCLE FILL: rectus abdominis and obliques; nothing else highlighted in lim
 CONTACT / SHADOW RULE: small soft floor shadow beneath back. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gy_hollow_hold; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Piernas parecen apoyadas en hollow hold, revisar.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_hollow_hold.jpg 1024x1024 and matching thumbs/art_gy_hollow_hold.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gy_hollow_hold.jpg 1024x1024 and matching thumbs/art_gy_hollow_hold.jpg 192x192.
 ```
 
 
@@ -2610,7 +2610,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_hollow_hold.jpg
 **Problema:** Revisar sombra y postura de salto en jump lunge
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_jump_lunge image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_jump_lunge image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Jumping lunge. ASSET NAME: art_gy_jump_lunge. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: mid-air jump lunge switching legs, front/back knees bent, feet fully detached from floor.
@@ -2620,7 +2620,7 @@ LIME MUSCLE FILL: quadriceps and glutes; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: NO floor shadow in mid-air. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gy_jump_lunge; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Revisar sombra y postura de salto en jump lunge.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_jump_lunge.jpg 1024x1024 and matching thumbs/art_gy_jump_lunge.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gy_jump_lunge.jpg 1024x1024 and matching thumbs/art_gy_jump_lunge.jpg 192x192.
 ```
 
 
@@ -2637,7 +2637,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_jump_lunge.jpg 
 **Problema:** No tiene defecto confirmado; rehacer para coherencia con los frames modificados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_pb_dip image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_pb_dip image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Fondos en paralelas. ASSET NAME: art_gy_pb_dip. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: body supported on two parallel bars with elbows straight, shoulders stable, feet suspended behind.
@@ -2646,7 +2646,7 @@ LOCKED CAMERA AND LATERALITY: fixed strict side view.
 LIME MUSCLE FILL: triceps, chest and anterior deltoids; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: NO ground oval for suspended body. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gy_pb_dip; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_pb_dip.jpg 1024x1024 and matching thumbs/art_gy_pb_dip.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gy_pb_dip.jpg 1024x1024 and matching thumbs/art_gy_pb_dip.jpg 192x192.
 ```
 
 #### `art_gy_pb_dip_1` — WARN
@@ -2656,7 +2656,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_pb_dip.jpg 1024
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Sujeta las paralelas con brazos extendidos, hombros estables y pies suspendidos.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_pb_dip image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_pb_dip image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Fondos en paralelas. ASSET NAME: art_gy_pb_dip_1. FRAME: step 1 of 2.
 EXACT JOINT/GEAR POSE: Sujeta las paralelas con brazos extendidos, hombros estables y pies suspendidos..
@@ -2667,7 +2667,7 @@ CONTACT / SHADOW RULE: NO ground oval for suspended body. No airborne oval shado
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gy_pb_dip; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Cámara y barras no consistentes con el paso 2.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Sujeta las paralelas con brazos extendidos, hombros estables y pies suspendidos..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_pb_dip_1.jpg 1024x1024 and matching thumbs/art_gy_pb_dip_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gy_pb_dip_1.jpg 1024x1024 and matching thumbs/art_gy_pb_dip_1.jpg 192x192.
 ```
 
 #### `art_gy_pb_dip_2` — WARN
@@ -2677,7 +2677,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_pb_dip_1.jpg 10
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Flexiona los codos y baja el torso entre las barras sin apoyar los pies.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_pb_dip image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_pb_dip image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Fondos en paralelas. ASSET NAME: art_gy_pb_dip_2. FRAME: step 2 of 2.
 EXACT JOINT/GEAR POSE: Flexiona los codos y baja el torso entre las barras sin apoyar los pies..
@@ -2688,7 +2688,7 @@ CONTACT / SHADOW RULE: NO ground oval for suspended body. No airborne oval shado
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gy_pb_dip; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Cámara y barras no consistentes con el paso 1.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Flexiona los codos y baja el torso entre las barras sin apoyar los pies..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_pb_dip_2.jpg 1024x1024 and matching thumbs/art_gy_pb_dip_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gy_pb_dip_2.jpg 1024x1024 and matching thumbs/art_gy_pb_dip_2.jpg 192x192.
 ```
 
 
@@ -2705,7 +2705,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_pb_dip_2.jpg 10
 **Problema:** Pegboard mostrado como dominada en barra sin tablero
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_pegboard image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_pegboard image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Pegboard. ASSET NAME: art_gy_pegboard. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: gymnast climbing a vertical pegboard by gripping two inserted pegs, both feet clearly off floor.
@@ -2715,7 +2715,7 @@ LIME MUSCLE FILL: lats, biceps and forearms; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: NO floor oval while suspended. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gy_pegboard; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Pegboard mostrado como dominada en barra sin tablero.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_pegboard.jpg 1024x1024 and matching thumbs/art_gy_pegboard.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gy_pegboard.jpg 1024x1024 and matching thumbs/art_gy_pegboard.jpg 192x192.
 ```
 
 
@@ -2732,7 +2732,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_pegboard.jpg 10
 **Problema:** Press to handstand dibujado con barra olímpica en los pies
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_press_hs image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_press_hs image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Press to handstand. ASSET NAME: art_gy_press_hs. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: press to handstand transition with shoulders stacked over palms, straight arms, hips opening as legs rise from pike to vertical.
@@ -2742,7 +2742,7 @@ LIME MUSCLE FILL: deltoids, core and hip flexors; nothing else highlighted in li
 CONTACT / SHADOW RULE: shadow only under palms planted on floor. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gy_press_hs; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Press to handstand dibujado con barra olímpica en los pies.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_press_hs.jpg 1024x1024 and matching thumbs/art_gy_press_hs.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gy_press_hs.jpg 1024x1024 and matching thumbs/art_gy_press_hs.jpg 192x192.
 ```
 
 
@@ -2759,7 +2759,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_press_hs.jpg 10
 **Problema:** Soporte en anillas con óvalo de suelo bajo pies suspendidos
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_ring_sup image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_ring_sup image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Soporte en anillas. ASSET NAME: art_gy_ring_sup. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: strict ring support hold, body vertically above rings, elbows locked, rings next to hips and feet suspended.
@@ -2769,7 +2769,7 @@ LIME MUSCLE FILL: triceps, pectorals and shoulder stabilizers; nothing else high
 CONTACT / SHADOW RULE: NO floor oval or shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gy_ring_sup; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Soporte en anillas con óvalo de suelo bajo pies suspendidos.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_ring_sup.jpg 1024x1024 and matching thumbs/art_gy_ring_sup.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gy_ring_sup.jpg 1024x1024 and matching thumbs/art_gy_ring_sup.jpg 192x192.
 ```
 
 
@@ -2786,7 +2786,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_ring_sup.jpg 10
 **Problema:** Skin-the-cat representado como simple hang sin rotación
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_skin_cat image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_skin_cat image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Skin the cat. ASSET NAME: art_gy_skin_cat. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: skin-the-cat controlled inversion through shoulders with hips tucked and feet traveling BEHIND line of arms; not ordinary hang.
@@ -2796,7 +2796,7 @@ LIME MUSCLE FILL: lats, shoulders and core; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: NO floor shadow in suspension. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gy_skin_cat; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Skin-the-cat representado como simple hang sin rotación.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_skin_cat.jpg 1024x1024 and matching thumbs/art_gy_skin_cat.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gy_skin_cat.jpg 1024x1024 and matching thumbs/art_gy_skin_cat.jpg 192x192.
 ```
 
 
@@ -2813,7 +2813,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_skin_cat.jpg 10
 **Problema:** Muscle-up estricto dibujado como dominada con barbilla en barra
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_strict_mubar image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_strict_mubar image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Muscle-up estricto barra. ASSET NAME: art_gy_strict_mubar. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: strict bar muscle-up finishing support above bar with straight elbows and hips close to bar; not a chin-up.
@@ -2823,7 +2823,7 @@ LIME MUSCLE FILL: lats, triceps and pecs; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: NO floor oval in support. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gy_strict_mubar; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Muscle-up estricto dibujado como dominada con barbilla en barra.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_strict_mubar.jpg 1024x1024 and matching thumbs/art_gy_strict_mubar.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gy_strict_mubar.jpg 1024x1024 and matching thumbs/art_gy_strict_mubar.jpg 192x192.
 ```
 
 
@@ -2840,7 +2840,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_strict_mubar.jp
 **Problema:** Toes-to-bar en suspensión con óvalo de suelo
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_strict_ttb image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_strict_ttb image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Toes to bar estrictos. ASSET NAME: art_gy_strict_ttb. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: strict toes-to-bar with straight legs raised until toes touch bar, elbows straight, feet suspended.
@@ -2850,7 +2850,7 @@ LIME MUSCLE FILL: abdominals and hip flexors; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: NO ground shadow. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gy_strict_ttb; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Toes-to-bar en suspensión con óvalo de suelo.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_strict_ttb.jpg 1024x1024 and matching thumbs/art_gy_strict_ttb.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gy_strict_ttb.jpg 1024x1024 and matching thumbs/art_gy_strict_ttb.jpg 192x192.
 ```
 
 
@@ -2867,7 +2867,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_strict_ttb.jpg 
 **Problema:** V-sit sin apoyo de manos, parece V-up sobre suelo
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_vsit image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_gy_vsit image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: V-sit. ASSET NAME: art_gy_vsit. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: V-sit gymnastics HOLD supported entirely on both hands with hips off floor and both straight legs raised high forward.
@@ -2877,7 +2877,7 @@ LIME MUSCLE FILL: rectus abdominis, hip flexors and triceps; nothing else highli
 CONTACT / SHADOW RULE: shadow only immediately below planted palms. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_gy_vsit; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: V-sit sin apoyo de manos, parece V-up sobre suelo.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_vsit.jpg 1024x1024 and matching thumbs/art_gy_vsit.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_gy_vsit.jpg 1024x1024 and matching thumbs/art_gy_vsit.jpg 192x192.
 ```
 
 
@@ -2894,7 +2894,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_gy_vsit.jpg 1024x1
 **Problema:** Figura tumbada sobre banco como press, barra sobre pecho y no pelvis
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hip_thrust image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hip_thrust image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Hip thrust. ASSET NAME: art_hip_thrust. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: hip thrust top: ONLY shoulders and upper back on bench, feet flat floor, knees bent, bar at pelvis and torso aligned with thighs.
@@ -2904,7 +2904,7 @@ LIME MUSCLE FILL: glutes maximus, hamstrings; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: shadow below bench and feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_hip_thrust; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Figura tumbada sobre banco como press, barra sobre pecho y no pelvis.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hip_thrust.jpg 1024x1024 and matching thumbs/art_hip_thrust.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_hip_thrust.jpg 1024x1024 and matching thumbs/art_hip_thrust.jpg 192x192.
 ```
 
 #### `art_hip_thrust_1` — FAIL
@@ -2914,7 +2914,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hip_thrust.jpg 102
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Hombros en banco, barra en cadera, cadera BAJA cerca del suelo.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hip_thrust image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hip_thrust image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Hip thrust. ASSET NAME: art_hip_thrust_1. FRAME: step 1 of 2.
 EXACT JOINT/GEAR POSE: Hombros en banco, barra en cadera, cadera BAJA cerca del suelo..
@@ -2925,7 +2925,7 @@ CONTACT / SHADOW RULE: shadow below bench and feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_hip_thrust; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: El atleta yace en banco en vez de apoyar escápulas; barra sobre pecho.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Hombros en banco, barra en cadera, cadera BAJA cerca del suelo..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hip_thrust_1.jpg 1024x1024 and matching thumbs/art_hip_thrust_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_hip_thrust_1.jpg 1024x1024 and matching thumbs/art_hip_thrust_1.jpg 192x192.
 ```
 
 #### `art_hip_thrust_2` — FAIL
@@ -2935,7 +2935,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hip_thrust_1.jpg 1
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Empuja cadera hasta alinear torso y muslos; aprieta glúteo.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hip_thrust image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hip_thrust image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Hip thrust. ASSET NAME: art_hip_thrust_2. FRAME: step 2 of 2.
 EXACT JOINT/GEAR POSE: Empuja cadera hasta alinear torso y muslos; aprieta glúteo..
@@ -2946,7 +2946,7 @@ CONTACT / SHADOW RULE: shadow below bench and feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_hip_thrust; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Misma postura incorrecta sobre banco, casi idéntica al frame 1.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Empuja cadera hasta alinear torso y muslos; aprieta glúteo..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hip_thrust_2.jpg 1024x1024 and matching thumbs/art_hip_thrust_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_hip_thrust_2.jpg 1024x1024 and matching thumbs/art_hip_thrust_2.jpg 192x192.
 ```
 
 
@@ -2963,7 +2963,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hip_thrust_2.jpg 1
 **Problema:** El atleta sube a los bloques en lugar de empezar con la barra sobre ellos
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hl_block_clean image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hl_block_clean image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cargada desde bloques. ASSET NAME: art_hl_block_clean. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: block clean START: loaded barbell supported by raised lifting blocks near knee level, athlete grips bar from floor, never stands on blocks.
@@ -2973,7 +2973,7 @@ LIME MUSCLE FILL: quadriceps, glutes and trapezius; nothing else highlighted in 
 CONTACT / SHADOW RULE: floor oval under shoes and lifting blocks. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_hl_block_clean; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: El atleta sube a los bloques en lugar de empezar con la barra sobre ellos.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hl_block_clean.jpg 1024x1024 and matching thumbs/art_hl_block_clean.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_hl_block_clean.jpg 1024x1024 and matching thumbs/art_hl_block_clean.jpg 192x192.
 ```
 
 
@@ -2990,7 +2990,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hl_block_clean.jpg
 **Problema:** El atleta está sobre los bloques y no representa la salida
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hl_block_snatch image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hl_block_snatch image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Arrancada desde bloques. ASSET NAME: art_hl_block_snatch. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: block snatch START: weight plates rest ON top of two blocks, athlete standing on floor between them, hands in wide grip.
@@ -3000,7 +3000,7 @@ LIME MUSCLE FILL: quads, glutes and traps; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: floor oval under shoes and blocks. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_hl_block_snatch; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: El atleta está sobre los bloques y no representa la salida.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hl_block_snatch.jpg 1024x1024 and matching thumbs/art_hl_block_snatch.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_hl_block_snatch.jpg 1024x1024 and matching thumbs/art_hl_block_snatch.jpg 192x192.
 ```
 
 
@@ -3017,7 +3017,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hl_block_snatch.jp
 **Problema:** Barra detrás del cuello en vez de tirón de cargada
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hl_clean_pull image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hl_clean_pull image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Tirón de cargada. ASSET NAME: art_hl_clean_pull. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: clean pull phase: bar close to thighs rising powerfully from hip/knee extension with arms long; NO front/back rack or overhead.
@@ -3027,7 +3027,7 @@ LIME MUSCLE FILL: glutes, hamstrings and trapezius; nothing else highlighted in 
 CONTACT / SHADOW RULE: soft oval below shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_hl_clean_pull; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Barra detrás del cuello en vez de tirón de cargada.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hl_clean_pull.jpg 1024x1024 and matching thumbs/art_hl_clean_pull.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_hl_clean_pull.jpg 1024x1024 and matching thumbs/art_hl_clean_pull.jpg 192x192.
 ```
 
 
@@ -3044,7 +3044,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hl_clean_pull.jpg 
 **Problema:** Barra detrás del cuello en vez de rack frontal
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hl_hang_sq_clean image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hl_hang_sq_clean image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cargada colgante completa. ASSET NAME: art_hl_hang_sq_clean. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: hang squat clean caught in FULL FRONT squat, bar resting on anterior shoulders, elbows HIGH, never behind neck.
@@ -3054,7 +3054,7 @@ LIME MUSCLE FILL: quads, glutes and upper back; nothing else highlighted in lime
 CONTACT / SHADOW RULE: floor oval under feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_hl_hang_sq_clean; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Barra detrás del cuello en vez de rack frontal.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hl_hang_sq_clean.jpg 1024x1024 and matching thumbs/art_hl_hang_sq_clean.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_hl_hang_sq_clean.jpg 1024x1024 and matching thumbs/art_hl_hang_sq_clean.jpg 192x192.
 ```
 
 
@@ -3071,7 +3071,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hl_hang_sq_clean.j
 **Problema:** Barra overhead en vez de cargada con pausa
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hl_pause_clean image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hl_pause_clean image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Cargada con pausa. ASSET NAME: art_hl_pause_clean. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: clean with pause: bar stopped visibly at the knee with back neutral and arms long during first pull; NEVER overhead.
@@ -3081,7 +3081,7 @@ LIME MUSCLE FILL: quads, glutes and spinal erectors; nothing else highlighted in
 CONTACT / SHADOW RULE: floor oval under shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_hl_pause_clean; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Barra overhead en vez de cargada con pausa.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hl_pause_clean.jpg 1024x1024 and matching thumbs/art_hl_pause_clean.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_hl_pause_clean.jpg 1024x1024 and matching thumbs/art_hl_pause_clean.jpg 192x192.
 ```
 
 
@@ -3098,7 +3098,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hl_pause_clean.jpg
 **Problema:** Barra sobre la espalda en vez de rack frontal
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hl_pause_fs image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hl_pause_fs image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Sentadilla frontal con pausa. ASSET NAME: art_hl_pause_fs. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: paused FRONT squat at bottom, bar lying across front shoulders, elbows pointing forward/up, hips below knees.
@@ -3108,7 +3108,7 @@ LIME MUSCLE FILL: quadriceps and core; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: floor oval under shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_hl_pause_fs; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Barra sobre la espalda en vez de rack frontal.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hl_pause_fs.jpg 1024x1024 and matching thumbs/art_hl_pause_fs.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_hl_pause_fs.jpg 1024x1024 and matching thumbs/art_hl_pause_fs.jpg 192x192.
 ```
 
 
@@ -3125,7 +3125,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hl_pause_fs.jpg 10
 **Problema:** Cinturón extra distinto del outfit canónico
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hl_snatch_bal image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hl_snatch_bal image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Balance de arrancada. ASSET NAME: art_hl_snatch_bal. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: snatch balance catch in deep overhead squat with fully straight arms and feet planted.
@@ -3135,7 +3135,7 @@ LIME MUSCLE FILL: quads, glutes, deltoids and upper back; nothing else highlight
 CONTACT / SHADOW RULE: floor oval under shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_hl_snatch_bal; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Cinturón extra distinto del outfit canónico.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hl_snatch_bal.jpg 1024x1024 and matching thumbs/art_hl_snatch_bal.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_hl_snatch_bal.jpg 1024x1024 and matching thumbs/art_hl_snatch_bal.jpg 192x192.
 ```
 
 
@@ -3152,7 +3152,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hl_snatch_bal.jpg 
 **Problema:** Barra detrás del cuello en vez de tirón de arrancada
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hl_snatch_pull image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hl_snatch_pull image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Tirón de arrancada. ASSET NAME: art_hl_snatch_pull. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: snatch pull during explosive extension with bar rising close to thighs and elbows high and outside ONLY in finish; NO behind-neck rack or overhead.
@@ -3162,7 +3162,7 @@ LIME MUSCLE FILL: hamstrings, glutes and trapezius; nothing else highlighted in 
 CONTACT / SHADOW RULE: floor oval under grounded feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_hl_snatch_pull; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Barra detrás del cuello en vez de tirón de arrancada.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hl_snatch_pull.jpg 1024x1024 and matching thumbs/art_hl_snatch_pull.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_hl_snatch_pull.jpg 1024x1024 and matching thumbs/art_hl_snatch_pull.jpg 192x192.
 ```
 
 
@@ -3179,7 +3179,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hl_snatch_pull.jpg
 **Problema:** Torso vestido
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hl_tall_clean image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_hl_tall_clean image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Tall clean. ASSET NAME: art_hl_tall_clean. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: tall clean catching bar into FRONT rack with elbows high in a shallow squat, upper body SHIRTLESS.
@@ -3189,7 +3189,7 @@ LIME MUSCLE FILL: trapezius, quadriceps and shoulders; nothing else highlighted 
 CONTACT / SHADOW RULE: floor oval under feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_hl_tall_clean; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Torso vestido.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hl_tall_clean.jpg 1024x1024 and matching thumbs/art_hl_tall_clean.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_hl_tall_clean.jpg 1024x1024 and matching thumbs/art_hl_tall_clean.jpg 192x192.
 ```
 
 
@@ -3206,7 +3206,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_hl_tall_clean.jpg 
 **Problema:** Polea unida a barra olímpica cargada de discos, equipo imposible
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_jalon image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_jalon image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Jalón al pecho. ASSET NAME: art_jalon. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: seated lat pulldown, thigh pads hold legs, elbows drawn to sides as cable handle touches upper chest.
@@ -3216,7 +3216,7 @@ LIME MUSCLE FILL: latissimus dorsi and biceps; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: floor oval below machine. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_jalon; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Polea unida a barra olímpica cargada de discos, equipo imposible.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_jalon.jpg 1024x1024 and matching thumbs/art_jalon.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_jalon.jpg 1024x1024 and matching thumbs/art_jalon.jpg 192x192.
 ```
 
 
@@ -3233,7 +3233,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_jalon.jpg 1024x102
 **Problema:** Pájaros representados como press con barra y mancuernas simultáneas
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_pajaros image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_pajaros image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Pájaros. ASSET NAME: art_pajaros. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: bent-over reverse dumbbell fly: torso hinged, arms abducted laterally at shoulder height, softly bent elbows.
@@ -3243,7 +3243,7 @@ LIME MUSCLE FILL: rear deltoids and upper back; nothing else highlighted in lime
 CONTACT / SHADOW RULE: ground oval under planted feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_pajaros; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Pájaros representados como press con barra y mancuernas simultáneas.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_pajaros.jpg 1024x1024 and matching thumbs/art_pajaros.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_pajaros.jpg 1024x1024 and matching thumbs/art_pajaros.jpg 192x192.
 ```
 
 
@@ -3260,7 +3260,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_pajaros.jpg 1024x1
 **Problema:** No tiene defecto confirmado; rehacer para coherencia con los frames modificados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_peso_muerto image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_peso_muerto image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Peso muerto. ASSET NAME: art_peso_muerto. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: barbell deadlift finish: stand tall with bar touching front thighs, arms straight, hips and knees extended.
@@ -3269,7 +3269,7 @@ LOCKED CAMERA AND LATERALITY: fixed three-quarter side view.
 LIME MUSCLE FILL: glutes, hamstrings and spinal erectors; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: ground oval under feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_peso_muerto; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_peso_muerto.jpg 1024x1024 and matching thumbs/art_peso_muerto.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_peso_muerto.jpg 1024x1024 and matching thumbs/art_peso_muerto.jpg 192x192.
 ```
 
 #### `art_peso_muerto_1` — CONTINUIDAD
@@ -3279,7 +3279,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_peso_muerto.jpg 10
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Barra sobre mediopié, agarre fuera de piernas, espalda plana.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_peso_muerto image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_peso_muerto image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Peso muerto. ASSET NAME: art_peso_muerto_1. FRAME: step 1 of 2.
 EXACT JOINT/GEAR POSE: Barra sobre mediopié, agarre fuera de piernas, espalda plana..
@@ -3289,7 +3289,7 @@ LIME MUSCLE FILL: glutes, hamstrings and spinal erectors; nothing else highlight
 CONTACT / SHADOW RULE: ground oval under feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_peso_muerto; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Barra sobre mediopié, agarre fuera de piernas, espalda plana..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_peso_muerto_1.jpg 1024x1024 and matching thumbs/art_peso_muerto_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_peso_muerto_1.jpg 1024x1024 and matching thumbs/art_peso_muerto_1.jpg 192x192.
 ```
 
 #### `art_peso_muerto_2` — FAIL
@@ -3299,7 +3299,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_peso_muerto_1.jpg 
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Empuja el suelo y bloquea cadera de pie sin hiperextender.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_peso_muerto image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_peso_muerto image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Peso muerto. ASSET NAME: art_peso_muerto_2. FRAME: step 2 of 2.
 EXACT JOINT/GEAR POSE: Empuja el suelo y bloquea cadera de pie sin hiperextender..
@@ -3310,7 +3310,7 @@ CONTACT / SHADOW RULE: ground oval under feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_peso_muerto; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Barra y discos discontinuos respecto al paso 1.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Empuja el suelo y bloquea cadera de pie sin hiperextender..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_peso_muerto_2.jpg 1024x1024 and matching thumbs/art_peso_muerto_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_peso_muerto_2.jpg 1024x1024 and matching thumbs/art_peso_muerto_2.jpg 192x192.
 ```
 
 
@@ -3327,7 +3327,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_peso_muerto_2.jpg 
 **Problema:** Plancha representada como apoyo en paralelas con cuerpo suspendido y cara hacia arriba
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_plancha image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_plancha image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Plancha. ASSET NAME: art_plancha. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: standard FOREARM plank facing floor, elbows directly under shoulders, body straight heel to head, toes on ground.
@@ -3337,7 +3337,7 @@ LIME MUSCLE FILL: abdominals, transverse core and glutes; nothing else highlight
 CONTACT / SHADOW RULE: floor oval under forearms and toes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_plancha; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Plancha representada como apoyo en paralelas con cuerpo suspendido y cara hacia arriba.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_plancha.jpg 1024x1024 and matching thumbs/art_plancha.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_plancha.jpg 1024x1024 and matching thumbs/art_plancha.jpg 192x192.
 ```
 
 
@@ -3354,7 +3354,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_plancha.jpg 1024x1
 **Problema:** Press declinado representado sobre banco inclinado hacia arriba
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_press_declinado image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_press_declinado image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Press banca declinado. ASSET NAME: art_press_declinado. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: decline bench press with athlete secured on downward-sloping decline bench, feet held in leg hooks, bar over lower pecs.
@@ -3364,7 +3364,7 @@ LIME MUSCLE FILL: lower pectorals and triceps; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: ground oval under declined bench. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_press_declinado; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Press declinado representado sobre banco inclinado hacia arriba.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_press_declinado.jpg 1024x1024 and matching thumbs/art_press_declinado.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_press_declinado.jpg 1024x1024 and matching thumbs/art_press_declinado.jpg 192x192.
 ```
 
 
@@ -3381,7 +3381,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_press_declinado.jp
 **Problema:** Barra olímpica y cable de polea mezclados en press francés
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_press_frances image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_press_frances image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Press francés. ASSET NAME: art_press_frances. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: lying skull crusher, upper arms vertical, elbows bent bringing FREE EZ bar toward forehead under control.
@@ -3391,7 +3391,7 @@ LIME MUSCLE FILL: triceps only; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: floor oval under bench. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_press_frances; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Barra olímpica y cable de polea mezclados en press francés.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_press_frances.jpg 1024x1024 and matching thumbs/art_press_frances.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_press_frances.jpg 1024x1024 and matching thumbs/art_press_frances.jpg 192x192.
 ```
 
 
@@ -3408,7 +3408,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_press_frances.jpg 
 **Problema:** Activación abdominal demasiado dominante en pullover
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_pullover image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_pullover image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Pullover. ASSET NAME: art_pullover. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: lying on flat bench, dumbbell held in both hands traveling in an arc behind head with elbows slightly bent.
@@ -3418,7 +3418,7 @@ LIME MUSCLE FILL: latissimus dorsi, serratus and pectorals; NO abs emphasis; not
 CONTACT / SHADOW RULE: floor oval under bench. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_pullover; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Activación abdominal demasiado dominante en pullover.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_pullover.jpg 1024x1024 and matching thumbs/art_pullover.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_pullover.jpg 1024x1024 and matching thumbs/art_pullover.jpg 192x192.
 ```
 
 
@@ -3435,7 +3435,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_pullover.jpg 1024x
 **Problema:** No tiene defecto confirmado; rehacer para coherencia con los frames modificados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_rdl image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_rdl image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Peso muerto rumano. ASSET NAME: art_rdl. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: Romanian deadlift standing with bar close to thighs, soft knees, spine neutral and hips pushed backward.
@@ -3444,7 +3444,7 @@ LOCKED CAMERA AND LATERALITY: fixed STRICT SIDE view facing RIGHT.
 LIME MUSCLE FILL: hamstrings, glutes and spinal erectors; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: floor oval under shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_rdl; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_rdl.jpg 1024x1024 and matching thumbs/art_rdl.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_rdl.jpg 1024x1024 and matching thumbs/art_rdl.jpg 192x192.
 ```
 
 #### `art_rdl_1` — FAIL
@@ -3454,7 +3454,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_rdl.jpg 1024x1024 
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Colócate de pie con la barra frente a los muslos y las rodillas ligeramente flexionadas.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_rdl image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_rdl image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Peso muerto rumano. ASSET NAME: art_rdl_1. FRAME: step 1 of 2.
 EXACT JOINT/GEAR POSE: Colócate de pie con la barra frente a los muslos y las rodillas ligeramente flexionadas..
@@ -3465,7 +3465,7 @@ CONTACT / SHADOW RULE: floor oval under shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_rdl; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Cámara frontal, incompatible con el frame lateral.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Colócate de pie con la barra frente a los muslos y las rodillas ligeramente flexionadas..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_rdl_1.jpg 1024x1024 and matching thumbs/art_rdl_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_rdl_1.jpg 1024x1024 and matching thumbs/art_rdl_1.jpg 192x192.
 ```
 
 #### `art_rdl_2` — FAIL
@@ -3475,7 +3475,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_rdl_1.jpg 1024x102
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Lleva la cadera atrás y baja la barra cerca de las piernas manteniendo la espalda neutra.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_rdl image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_rdl image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Peso muerto rumano. ASSET NAME: art_rdl_2. FRAME: step 2 of 2.
 EXACT JOINT/GEAR POSE: Lleva la cadera atrás y baja la barra cerca de las piernas manteniendo la espalda neutra..
@@ -3486,7 +3486,7 @@ CONTACT / SHADOW RULE: floor oval under shoes. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_rdl; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Cámara lateral y discos diferentes frente al primer frame.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Lleva la cadera atrás y baja la barra cerca de las piernas manteniendo la espalda neutra..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_rdl_2.jpg 1024x1024 and matching thumbs/art_rdl_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_rdl_2.jpg 1024x1024 and matching thumbs/art_rdl_2.jpg 192x192.
 ```
 
 
@@ -3503,7 +3503,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_rdl_2.jpg 1024x102
 **Problema:** Remo ergómetro mezclado con barra olímpica cargada sobre la cabeza
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_remo_erg image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_remo_erg image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Remo máquina. ASSET NAME: art_remo_erg. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: seated rowing ergometer drive finish, legs extended, torso slightly back and both hands pull SINGLE cable handle to lower sternum; NO BARBELL.
@@ -3513,7 +3513,7 @@ LIME MUSCLE FILL: upper back, lats and quads; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: shadow under rower machine. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_remo_erg; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Remo ergómetro mezclado con barra olímpica cargada sobre la cabeza.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_remo_erg.jpg 1024x1024 and matching thumbs/art_remo_erg.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_remo_erg.jpg 1024x1024 and matching thumbs/art_remo_erg.jpg 192x192.
 ```
 
 
@@ -3530,7 +3530,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_remo_erg.jpg 1024x
 **Problema:** Remo invertido mostrado como dominada vertical
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_remo_invertido image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_remo_invertido image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Remo invertido. ASSET NAME: art_remo_invertido. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: inverted horizontal row: heels planted on floor, torso straight face up underneath LOW bar, chest pulled toward bar.
@@ -3540,7 +3540,7 @@ LIME MUSCLE FILL: lats, rhomboids and biceps; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: floor shadow under shoes, NOT airborne. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_remo_invertido; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Remo invertido mostrado como dominada vertical.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_remo_invertido.jpg 1024x1024 and matching thumbs/art_remo_invertido.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_remo_invertido.jpg 1024x1024 and matching thumbs/art_remo_invertido.jpg 192x192.
 ```
 
 
@@ -3557,7 +3557,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_remo_invertido.jpg
 **Problema:** Remo sentado mostrado como press de banca con barra suspendida
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_remo_sentado image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_remo_sentado image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Remo sentado. ASSET NAME: art_remo_sentado. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: seated upright cable row, feet braced and handle pulled to abdomen with elbows close to body.
@@ -3567,7 +3567,7 @@ LIME MUSCLE FILL: latissimus dorsi, rhomboids and biceps; nothing else highlight
 CONTACT / SHADOW RULE: shadow under cable station. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_remo_sentado; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Remo sentado mostrado como press de banca con barra suspendida.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_remo_sentado.jpg 1024x1024 and matching thumbs/art_remo_sentado.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_remo_sentado.jpg 1024x1024 and matching thumbs/art_remo_sentado.jpg 192x192.
 ```
 
 
@@ -3584,7 +3584,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_remo_sentado.jpg 1
 **Problema:** Codos demasiado bajos en posición frontal de barra
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_sentadilla_frontal image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_sentadilla_frontal image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Sentadilla frontal. ASSET NAME: art_sentadilla_frontal. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: front squat in FRONT rack with bar across anterior shoulders, elbows pointed FORWARD and up while squatting.
@@ -3594,7 +3594,7 @@ LIME MUSCLE FILL: quads, glutes and core; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: ground oval under feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_sentadilla_frontal; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: Codos demasiado bajos en posición frontal de barra.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_sentadilla_frontal.jpg 1024x1024 and matching thumbs/art_sentadilla_frontal.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_sentadilla_frontal.jpg 1024x1024 and matching thumbs/art_sentadilla_frontal.jpg 192x192.
 ```
 
 #### `art_sentadilla_frontal_1` — CONTINUIDAD
@@ -3604,7 +3604,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_sentadilla_frontal
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Barra en rack frontal (delante del cuello), codos altos, de pie.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_sentadilla_frontal image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_sentadilla_frontal image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Sentadilla frontal. ASSET NAME: art_sentadilla_frontal_1. FRAME: step 1 of 2.
 EXACT JOINT/GEAR POSE: Barra en rack frontal (delante del cuello), codos altos, de pie..
@@ -3614,7 +3614,7 @@ LIME MUSCLE FILL: quads, glutes and core; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: ground oval under feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_sentadilla_frontal; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Barra en rack frontal (delante del cuello), codos altos, de pie..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_sentadilla_frontal_1.jpg 1024x1024 and matching thumbs/art_sentadilla_frontal_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_sentadilla_frontal_1.jpg 1024x1024 and matching thumbs/art_sentadilla_frontal_1.jpg 192x192.
 ```
 
 #### `art_sentadilla_frontal_2` — CONTINUIDAD
@@ -3624,7 +3624,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_sentadilla_frontal
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Baja a paralelo o más con torso vertical y codos altos; empuja el suelo y vuelve.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_sentadilla_frontal image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_sentadilla_frontal image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Sentadilla frontal. ASSET NAME: art_sentadilla_frontal_2. FRAME: step 2 of 2.
 EXACT JOINT/GEAR POSE: Baja a paralelo o más con torso vertical y codos altos; empuja el suelo y vuelve..
@@ -3634,7 +3634,7 @@ LIME MUSCLE FILL: quads, glutes and core; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: ground oval under feet. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_sentadilla_frontal; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Baja a paralelo o más con torso vertical y codos altos; empuja el suelo y vuelve..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_sentadilla_frontal_2.jpg 1024x1024 and matching thumbs/art_sentadilla_frontal_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_sentadilla_frontal_2.jpg 1024x1024 and matching thumbs/art_sentadilla_frontal_2.jpg 192x192.
 ```
 
 
@@ -3651,7 +3651,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_sentadilla_frontal
 **Problema:** No tiene defecto confirmado; rehacer para coherencia con los frames modificados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_zancadas image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_zancadas image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Zancadas. ASSET NAME: art_zancadas. FRAME: representative hero.
 EXACT JOINT/GEAR POSE: dumbbell walking lunge with one foot in front, back knee close to floor, torso upright.
@@ -3660,7 +3660,7 @@ LOCKED CAMERA AND LATERALITY: fixed SIDE view facing RIGHT, SAME left-foot-forwa
 LIME MUSCLE FILL: quads and glutes; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: floor oval under feet in contact. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_zancadas; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_zancadas.jpg 1024x1024 and matching thumbs/art_zancadas.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_zancadas.jpg 1024x1024 and matching thumbs/art_zancadas.jpg 192x192.
 ```
 
 #### `art_zancadas_1` — CONTINUIDAD
@@ -3670,7 +3670,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_zancadas.jpg 1024x
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** De pie con mancuernas a los lados.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_zancadas image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_zancadas image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Zancadas. ASSET NAME: art_zancadas_1. FRAME: step 1 of 3.
 EXACT JOINT/GEAR POSE: De pie con mancuernas a los lados..
@@ -3680,7 +3680,7 @@ LIME MUSCLE FILL: quads and glutes; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: floor oval under feet in contact. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_zancadas; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): De pie con mancuernas a los lados..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_zancadas_1.jpg 1024x1024 and matching thumbs/art_zancadas_1.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_zancadas_1.jpg 1024x1024 and matching thumbs/art_zancadas_1.jpg 192x192.
 ```
 
 #### `art_zancadas_2` — CONTINUIDAD
@@ -3690,7 +3690,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_zancadas_1.jpg 102
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Da el paso y baja a media zancada.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_zancadas image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_zancadas image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Zancadas. ASSET NAME: art_zancadas_2. FRAME: step 2 of 3.
 EXACT JOINT/GEAR POSE: Da el paso y baja a media zancada..
@@ -3700,7 +3700,7 @@ LIME MUSCLE FILL: quads and glutes; nothing else highlighted in lime.
 CONTACT / SHADOW RULE: floor oval under feet in contact. No airborne oval shadows.
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_zancadas; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Da el paso y baja a media zancada..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_zancadas_2.jpg 1024x1024 and matching thumbs/art_zancadas_2.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_zancadas_2.jpg 1024x1024 and matching thumbs/art_zancadas_2.jpg 192x192.
 ```
 
 #### `art_zancadas_3` — WARN
@@ -3710,7 +3710,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_zancadas_2.jpg 102
 **Pie de foto actual (alinear o corregir en código si la pose exige otro):** Rodilla trasera cerca del suelo; empuja para volver.
 
 ```text
-GYMBRO / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_zancadas image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
+REPERA / ONE IMAGE ONLY. Reference canonical art_ab_wheel.jpg AND original art_zancadas image(s) for matching gray shirtless faceless athlete; maintain identical male proportions, charcoal short hair, charcoal shorts, gray sneakers, matte near-black empty charcoal background, clean flat anatomical vector style, 1024x1024 SQUARE, figure AND ALL equipment fully visible with comfortable margins. Exactly ONE pose, no multi-panel image, no words, no arrows, no logos.
 
 EXERCISE: Zancadas. ASSET NAME: art_zancadas_3. FRAME: step 3 of 3.
 EXACT JOINT/GEAR POSE: Rodilla trasera cerca del suelo; empuja para volver..
@@ -3721,7 +3721,7 @@ CONTACT / SHADOW RULE: floor oval under feet in contact. No airborne oval shadow
 EXTRA QA: Keep equipment and character EXACTLY the same as siblings of art_zancadas; do not mix barbells and dumbbells, do not change gym equipment, and ensure large unmistakable joint-position difference between phases. No shirt, no realistic face, no colored equipment and no clutter.
 REPAIR THE CONFIRMED AUDIT ERROR: La cámara se desplaza de tres cuartos a lateral.
 SPANISH CAPTION TO MATCH VISUALLY (DO NOT DRAW TEXT): Rodilla trasera cerca del suelo; empuja para volver..
-EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_zancadas_3.jpg 1024x1024 and matching thumbs/art_zancadas_3.jpg 192x192.
+EXPORT ONLY this image: Apps/Repera/Resources/ExerciseArt/art_zancadas_3.jpg 1024x1024 and matching thumbs/art_zancadas_3.jpg 192x192.
 ```
 
 
@@ -3735,7 +3735,7 @@ EXPORT ONLY this image: Apps/Gymbro/Resources/ExerciseArt/art_zancadas_3.jpg 102
 ```bash
 .venv-art/bin/python scripts/export_generated_art.py /ruta/al/generado.jpg <stem>
 .venv-art/bin/python scripts/audit_exercise_art.py
-swift test --package-path Packages/GymbroDomain
+swift test --package-path Packages/ReperaDomain
 ```
 
 5. Verificar `ExerciseArt/<stem>.jpg` (1024×1024) y `ExerciseArt/thumbs/<stem>.jpg` (192×192).

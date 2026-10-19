@@ -18,10 +18,10 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-ART = ROOT / "Apps/Gymbro/Resources/ExerciseArt"
+ART = ROOT / "Apps/Repera/Resources/ExerciseArt"
 THUMBS = ART / "thumbs"
-SWIFT = ROOT / "Apps/Gymbro/Sources/ExerciseArt.swift"
-SPANISH = ROOT / "Packages/GymbroDomain/Sources/GymbroDomain/CatalogSpanish.swift"
+SWIFT = ROOT / "Apps/Repera/Sources/ExerciseArt.swift"
+SPANISH = ROOT / "Packages/ReperaDomain/Sources/ReperaDomain/CatalogSpanish.swift"
 OUTPUT = ROOT / "docs/EXERCISE_ART_AUDIT.csv"
 SEQ_RE = re.compile(r"^(art_.+)_([1-8])$")
 

@@ -1,6 +1,6 @@
 # Canvas de evolución — iOS 27 / watchOS 27
 
-Panel visual persistente del trabajo de modernización de Gymbro.
+Panel visual persistente del trabajo de modernización de Repera.
 
 **Última actualización:** 2026-10-17
 

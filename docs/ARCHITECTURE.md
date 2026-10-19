@@ -1,40 +1,43 @@
-# Arquitectura Gymbro
+# Arquitectura Repera
 
-Última actualización: 2026-10-19 (detalle WOD: displayBlockHeader + wodResults)
+Última actualización: 2026-10-19 (splash LaunchScreen → Splash PNG)
 
 ## Visión
 
-App **local-first**: el estado vive en el dispositivo (JSON) y se sincroniza con **iCloud Documents**. El dominio puro está en el paquete `GymbroDomain` (testeable sin UI). La app iOS añade Salud, Vision, Foundation Models y Watch Connectivity.
+App **local-first**: el estado vive en el dispositivo (JSON) y se sincroniza con **iCloud Documents**. El dominio puro está en el paquete `ReperaDomain` (testeable sin UI). La app iOS añade Sign in with Apple (identidad obligatoria), Salud, Vision, Foundation Models, ubicación (pin/ruta) y Watch Connectivity.
 
 ## Estructura del repo
 
 ```
-gymbro/
+repera/
 ├── Apps/
-│   ├── Gymbro/                 # Target iPhone (SwiftUI)
+│   ├── Repera/                 # Target iPhone (SwiftUI)
 │   │   ├── Sources/            # UI + stores de plataforma
 │   │   └── Resources/          # Assets, Info.plist, BodyPaths.json, ExerciseArt (JPG 1024 + thumbs/192)
-│   ├── GymbroWatch/            # Companion Watch
-│   ├── GymbroRestWidget/       # Live Activity (descanso)
+│   ├── ReperaWatch/            # Companion Watch
+│   ├── ReperaRestWidget/       # Live Activity (descanso)
 │   └── Shared/                 # RestActivityAttributes (app + widget)
 ├── Packages/
-│   └── GymbroDomain/           # Modelos + motores (sin UIKit)
+│   └── ReperaDomain/           # Modelos + motores (sin UIKit)
+├── web/                        # Sitio estático repera.app (producto, legales, FAQ)
 ├── docs/                       # Documentación viva
 ├── project.yml                 # XcodeGen
 ├── AGENTS.md
 └── README.md
 ```
 
+Marketing web (`web/`): HTML/CSS/JS sin framework; SEO (canonical, OG, sitemap, JSON-LD), banner de cookies GDPR-ready y secciones de producto. Deploy IONOS: `web/pack-ionos.sh` → zip con `.htaccess` (pretty URLs, gzip, cabeceras). Detalle en `web/README.md`.
+
 ## Targets
 
 | Target | Rol |
 |--------|-----|
-| **Gymbro** | App iOS 27+. Tabs, sesión, Salud, OCR/IA pizarra, Live Activity host |
-| **GymbroRestWidget** | Widget Extension: Dynamic Island / lock screen del descanso |
-| **GymbroWatch** | Sesión + log rápido vía Watch Connectivity |
-| **GymbroDomain** (SPM) | Modelos, catálogo, stats, progresión, parser, LoadSuggestion |
+| **Repera** | App iOS 27+. Tabs, sesión, Salud, OCR/IA pizarra, Live Activity host |
+| **ReperaRestWidget** | Widget Extension: Dynamic Island / lock screen del descanso |
+| **ReperaWatch** | Sesión + log rápido vía Watch Connectivity |
+| **ReperaDomain** (SPM) | Modelos, catálogo, stats, progresión, parser, LoadSuggestion |
 
-Generación de proyecto: `xcodegen generate` → `Gymbro.xcodeproj`.
+Generación de proyecto: `xcodegen generate` → `Repera.xcodeproj`.
 
 ## Capas
 
@@ -42,15 +45,20 @@ Generación de proyecto: `xcodegen generate` → `Gymbro.xcodeproj`.
 ┌─────────────────────────────────────────┐
 │  SwiftUI (Home, Plan, Stats, Library…)  │
 ├─────────────────────────────────────────┤
-│  GymbroStore · HealthKitStore · LocalStore │
+│  ReperaStore · SubscriptionManager · Onboarding / AppleAuth · HK · Location │
 ├─────────────────────────────────────────┤
-│  GymbroDomain (Models, StatsEngine, …)  │
+│  ReperaDomain (Models, Stats, FeatureAccessPolicy) │
 └─────────────────────────────────────────┘
 ```
 
-### `GymbroStore` (`Apps/Gymbro/Sources/GymbroStore.swift`)
+Dependencia SPM adicional (app iOS): **RevenueCat** (`purchases-ios-spm`). No se enlaza en Watch.
+
+### `ReperaStore` (`Apps/Repera/Sources/ReperaStore.swift`)
 
 Fuente de verdad de la UI: ejercicios, rutinas, sesiones, peso corporal, favoritos, sesión activa. Persiste vía `LocalStore` / iCloud.
+
+- Gates freemium: `featureAccess` inyectado desde `SubscriptionManager`; `saveRoutine` / `addCustomExercise` / `ProgressionEngine` respetan la política.
+- El entitlement Pro **no** forma parte de `AppState` / JSON exportable.
 
 - Peso corporal: **un entry por día** (`dedupeBodyWeightsByDay` / `syncBodyWeightWithHealth`).
 - Quick log: `startQuickLog` / `logQuickSets`.
@@ -60,22 +68,25 @@ Fuente de verdad de la UI: ejercicios, rutinas, sesiones, peso corporal, favorit
 
 Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Alimenta Progreso con **caché diaria** de FC/kcal (hasta 360d); la UI promedia a semana/mes solo al pintar. Sync de peso: 1 muestra/día.
 
-**kcal sin Watch:** si Salud no aporta energía activa, `estimateActiveEnergyKcal` (MET × peso corporal + volumen kg + reps/cardio cronometrado). `GymbroStore.estimateSessionKcal` usa duración de sesión / WOD / series; al guardar se escribe **kcal provisionales al instante** y HealthKit refina después.
+**kcal sin Watch:** si Salud no aporta energía activa, `estimateActiveEnergyKcal` (MET × peso corporal + volumen kg + reps/cardio cronometrado). `ReperaStore.estimateSessionKcal` usa duración de sesión / WOD / series; al guardar se escribe **kcal provisionales al instante** y HealthKit refina después.
 
 **Arranque rápido (local-first):**
 - Snapshot JSON en Application Support (`HealthDiskCache`) con actividades + FC/kcal + ancla `HKQueryAnchor`.
 - Hidrata en `init` → Inicio pinta puntos/kcal al instante; luego refresh en background.
-- `HKAnchoredObjectQuery` fusiona altas/bajas cuando el filtro Gymbro no cambió; si no, query completa.
-- `HKObserverQuery` + `enableBackgroundDelivery` (entitlement + `UIBackgroundModes: health-kit`) marca dirty; al volver a foreground se refresca.
+- `HKAnchoredObjectQuery` fusiona altas/bajas cuando el filtro Repera no cambió; si no, query completa.
+- `HKObserverQuery` + `enableBackgroundDelivery` (entitlement `com.apple.developer.healthkit.background-delivery`) marca dirty; al volver a foreground se refresca.
 
-### `GymbroDomain` — piezas clave
+### `ReperaDomain` — piezas clave
 
 | Módulo | Responsabilidad |
 |--------|-----------------|
 | `Models.swift` | `Exercise`, `Routine`, `RoutineBlock`, `WODMovement`, `WorkoutSession`, `AppState`…; `ExerciseLoggingStyle` (load / reps / comba / `machineWork` Cal·m) + `LoggedSet.quantityUnit` |
 | `Catalog*.swift` | Seed gym / CrossFit / halterofilia / gimnasia + ES (`CatalogSpanish` 188/188: desc + guía entrenador); deporte en `sportTag`, grupo = músculo principal |
-| `CatalogWODs.swift` | Benchmarks conocidos (`WODTemplate` → `RoutineBlock` con `wodTemplateId`) |
+| `CatalogWODs.swift` | Benchmarks conocidos (`WODTemplate` → `RoutineBlock` con `wodTemplateId`); `WODScoreBands` principiante→élite |
 | `WODBlockResult` / `WODResultCapture` | Score por bloque (reps AMRAP / tiempo For Time / series); `WorkoutSession.wodResults` |
+| `SessionReview` / `SessionReviewEngine` | Valoración post-entreno: nota por rendimiento (bandas / ritmos por movimiento / typical) + ajuste hasta ±2 con `ExerciseEquivalence`; tips por ejercicio; `WorkoutSession.sessionReview` |
+| `ExerciseEquivalence` | Familias de movimiento (squat, hinge, press, pull…) y historial comparable entre ejercicios similares (mismo `loggingStyle` / `loadField`) |
+| `MovementPaceStandards` / `WODPaceEstimator` | Segundos/unidad por tipo de movimiento y nivel (principiante→élite); estima tiempo/rondas de WOD a medida |
 | `StatsEngine` | Series de progreso, PRs, métricas diarias, filtros `ProgressTimeRange` |
 | `MuscleTaxonomy` / `MuscleMapEngine` | Carga + fatiga (vida media por slug BodyMap); niveles 0–4 verde→rojo; primario 1.0 / secundarios ~0.55–0.35 |
 | `BoardImportParser` / `CrossFitGlossary` | OCR texto → fuerza+WOD; equipo DB → variante mancuerna (`resolveCatalogName` / `preferEquipmentVariant`) |
@@ -86,6 +97,17 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 | `LoadSuggestion` | `%` de 1RM → kg (pizarra / ficha); también kg para reps+RIR (Epley inverso) en el editor de series |
 | `ExerciseSubstitutes` | Alternativas mismo músculo (dominio; UI de cambio no expuesta) |
 | `ProgressTimeRange` | Periodos de Progreso |
+| `Monetization/*` | `ReperaFeature`, `FeatureAccessPolicy`, `FreeUsageLedger`, `SubscriptionStatus` |
+
+### Monetización (app)
+
+| Archivo | Rol |
+|---------|-----|
+| `SubscriptionManager` | Estado comercial observable, ofertas, compra/restore, paywall |
+| `RevenueCatEntitlementProvider` | CustomerInfo → `CommercialSnapshot` |
+| `FreeUsageStore` | Cuota escáner (`free_usage.json`, fuera del JSON deportivo) |
+| `PaywallView` / `ProTeaserCard` | UI comercial Liquid Glass |
+| Detalle | [MONETIZATION.md](MONETIZATION.md) |
 
 ## Navegación (tabs)
 
@@ -109,8 +131,9 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 
 ## Datos y sync
 
-- Estado: `AppState` Codable → JSON local (`Application Support/Gymbro`) + espejo iCloud Documents.
-- Bootstrap: `LaunchWarmup` solapa catálogo + `HealthDiskCache` + `app_state` con el primer frame. `GymbroStore` arranca con shell vacío; tras pintar: hydrate (reutiliza warm) → merge catálogo off-main → iCloud. LaunchScreen: `Splash.jpg` (~170KB). Detalle en `docs/PERFORMANCE.md`.
+- Estado: `AppState` Codable → JSON local (`Application Support/Repera`) + espejo iCloud Documents.
+- Bootstrap: `LaunchWarmup` solapa catálogo + `HealthDiskCache` + `app_state` con el primer frame. `ReperaStore` arranca con shell vacío; tras pintar: hydrate (reutiliza warm) → merge catálogo off-main → validar Sign in with Apple / onboarding → iCloud. Sin onboarding completo no se muestra `RootTabView`. LaunchScreen: imageset `Splash` PNG (mascota + wordmark, sin deformar) + AspectFit sobre `#002E24`. Detalle en `docs/PERFORMANCE.md`.
+- `WorkoutSession` puede llevar `locationPin` y `routePoints` (Codable, migrable); el detalle prioriza ruta Salud → ruta propia → pin.
 - Conflictos: `syncRevision` + `lastWriterDeviceId` (`SyncConflictResolver`); fallback a `updatedAt` para docs legacy.
 - I/O: actor `AppStatePersistence` (encode/write atómicos, coalescing); fachada `LocalStore` en MainActor.
 - Fases: `AppSyncPhase` (`loadingLocal` → `awaitingRemote` → `ready` / `offline` / `recoveringCorrupt`).
@@ -118,7 +141,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 - Thumbs: `ThumbImageLoader` (concurrencia 4, LRU, manifiesto JPG).
 - Stats: `DerivedStatsCache` invalidado con `syncRevision`; epochs Observation (`catalogEpoch` / `workoutsEpoch` / `sessionEpoch`); chrome de sesión `hasActiveSession` + `continueAccessory` (sin partir el documento Codable).
 - Progreso: `ProgressViewModel` + `ProgressDataEngine` preparan un `ProgressSnapshot` off-MainActor (tiles, charts, heatmap, músculo, PRs, peso); caché por `ProgressDataKey` (periodo + revisiones). `StatsView` pinta `LazyVStack` con datos listos.
-- Salud: hydrate disco para primer paint; match Gymbro↔HK con `GymbroSessionMatchIndex`; al cambiar entrenos Gymbro se invalida solo el filter (sin vaciar UI) y se re-fetch coalescido; observers marcan `healthNeedsRefresh`.
+- Salud: hydrate disco para primer paint; match Repera↔HK con `ReperaSessionMatchIndex`; al cambiar entrenos Repera se invalida solo el filter (sin vaciar UI) y se re-fetch coalescido; observers marcan `healthNeedsRefresh`.
 - Rendimiento: detalle en `docs/PERFORMANCE.md`.
 
 - Export / import JSON; import CSV Strong/Hevy (`WorkoutCSVImporter`).
@@ -144,7 +167,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 ## Tests
 
 ```bash
-cd Packages/GymbroDomain && swift test
+cd Packages/ReperaDomain && swift test
 ```
 
 Incluye `BoardImportParserTests`, `LoadSuggestionTests`, sesión, progresión, waves.
@@ -163,7 +186,7 @@ Guía manual: [TESTING_GUIDE.md](TESTING_GUIDE.md).
 - `imageNames(for:)` prioriza pasos propios `_1…_8`, después `movementFrames` verificados y por último un hero. La lista de candidaturas no habilita por sí misma un fallback.
 - El conjunto `quarantinedSequences` bloquea carruseles con fallos comprobados visualmente: la ficha conserva el hero y el texto técnico mientras se regenera el material, aunque el hero también requiere QA independiente.
 - Los holds estáticos se fuerzan a un único hero. Los N primeros textos de `CatalogSpanish.instructions` son captions de fase; si hay menos de N, se retira el carrusel y queda solo el hero. Los pasos siguientes son coaching («Cómo hacerlo») y no cuentan para ese chequeo.
-- `scripts/export_generated_art.py` escribe full JPEG 1024×1024 y thumb JPEG 192×192 bajo `Apps/Gymbro/Resources/ExerciseArt/`; no hace falta registrar cada recurso por separado en `project.yml`.
+- `scripts/export_generated_art.py` escribe full JPEG 1024×1024 y thumb JPEG 192×192 bajo `Apps/Repera/Resources/ExerciseArt/`; no hace falta registrar cada recurso por separado en `project.yml`.
 - `scripts/audit_exercise_art.py` con Pillow valida JPEG, medidas, pares full/thumb, referencia desde `nameMap` y N captions. `docs/EXERCISE_ART_AUDIT.csv` recopila por stem los defectos confirmados y lo que continúa pendiente de inspección visual.
 
 El auditor estructural **no puede aprobar** similitud del personaje, ejecución anatómica, lateralidad, sombra, equipo y activación muscular sin revisión visual. No publicar una secuencia en cuarentena hasta generar y exportar todos sus frames y miniaturas, comprobarlos visualmente y retirar su entrada de cuarentena.

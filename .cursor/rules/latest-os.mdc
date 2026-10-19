@@ -1,11 +1,11 @@
 ---
-description: Gymbro siempre apunta a la última versión de iOS/watchOS
+description: Repera siempre apunta a la última versión de iOS/watchOS
 alwaysApply: true
 ---
 
 # Plataforma: última versión
 
-- Target mínimo: **iOS 27+ / watchOS 27+** (`project.yml`, `Packages/GymbroDomain/Package.swift`).
+- Target mínimo: **iOS 27+ / watchOS 27+** (`project.yml`, `Packages/ReperaDomain/Package.swift`).
 - Programar siempre contra el **SDK más reciente**; no mantener compat con majors anteriores salvo que el usuario lo pida.
 - Preferir APIs nativas nuevas (Liquid Glass, `DefaultToolbarItem`, etc.) frente a polyfills o campos custom.
 - Al salir un major nuevo de Apple: subir deployment target + docs (`AGENTS.md`, `README.md`, `docs/ARCHITECTURE.md`).

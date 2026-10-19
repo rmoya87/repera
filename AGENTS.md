@@ -1,4 +1,4 @@
-# AGENTS.md — Gymbro
+# AGENTS.md — Repera
 
 Instrucciones para agentes (Cursor / Auto) que trabajan en este repo.
 
@@ -22,8 +22,8 @@ Si el cambio es solo tipográfico o de estilo sin cambio de producto, no hace fa
 
 - **Siempre la última OS**: iOS 27+ / watchOS 27+ (no programar para majors anteriores). Al salir una nueva, subir `project.yml`, `Package.swift` y docs.
 - SwiftUI, XcodeGen (`project.yml`).
-- Dominio: `Packages/GymbroDomain`.
-- App: `Apps/Gymbro`, Watch: `Apps/GymbroWatch`.
+- Dominio: `Packages/ReperaDomain`.
+- App: `Apps/Repera`, Watch: `Apps/ReperaWatch`.
 
 ## Convenciones UI
 

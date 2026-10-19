@@ -100,7 +100,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Gymbro · iOS 27 Modernization Canvas</title>
+<title>Repera · iOS 27 Modernization Canvas</title>
 <style>
 :root {
   --bg: #0b0f0c;
@@ -213,7 +213,7 @@ code { font-size: 0.78rem; background: #0e1511; padding: 1px 5px; border-radius:
 <header>
   <div class="header-row">
     <div>
-      <h1>Gymbro · Modernización iOS 27 / watchOS 27</h1>
+      <h1>Repera · Modernización iOS 27 / watchOS 27</h1>
       <div class="meta">
         Rama <code id="branch">—</code> · Base <code id="base">—</code> · HEAD <code id="head">—</code><br />
         Actualizado <span id="updated">—</span>
@@ -438,7 +438,7 @@ def build_html(data: dict) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Generate/validate Gymbro iOS27 canvas")
+    parser = argparse.ArgumentParser(description="Generate/validate Repera iOS27 canvas")
     parser.add_argument("--check", action="store_true", help="Validate only")
     parser.add_argument("--write", action="store_true", help="Write canvas.html")
     args = parser.parse_args()

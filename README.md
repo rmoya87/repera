@@ -1,6 +1,6 @@
-# Gymbro
+# Repera
 
-App nativa de entrenamiento (**iPhone + Apple Watch**), **local-first + iCloud**, UI **SwiftUI Liquid Glass** (iOS 27+).
+App nativa de entrenamiento (**iPhone + Apple Watch**), **local-first + iCloud**, Sign in with Apple, UI **SwiftUI Liquid Glass** (iOS 27+).
 
 Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (solo dominio/UX; no se copia código).
 
@@ -13,6 +13,8 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 | [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | Observation, caches, Home/HK, thumbs |
 | [docs/BOARD_SCAN.md](docs/BOARD_SCAN.md) | Escáner de pizarra (OCR + IA + parser) |
 | [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md) | Checklist manual por feature |
+| [docs/MONETIZATION.md](docs/MONETIZATION.md) | Freemium, RevenueCat, límites Gratis/Pro |
+| [web/](web/) | Sitio estático (producto, precios, privacidad, términos, FAQ) |
 | [docs/MAINTENANCE.md](docs/MAINTENANCE.md) | Cómo mantener docs al día |
 | [docs/ios27-modernization/](docs/ios27-modernization/) | Canvas modernización iOS 27 |
 | [docs/decisions/](docs/decisions/) | ADRs (persistencia, timers, nav, HK, arte) |
@@ -27,40 +29,49 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 | **Inicio** | Semana/día, métricas Salud, entrenos + externos, avatar→Ajustes, planificar / pizarra |
 | **Diario** | Plan semanal, rutinas, WOD, favoritos, **copiar semana pasada** |
 | **Crear** | Entreno libre, **Apuntar series**, favoritos, timer, foto pizarra/TV |
-| **Progreso** | Periodo, deltas vs anterior, cardio/kcal/peso vs objetivo, heatmap, equilibrio |
-| **Ejercicios** | Biblioteca + ficha (modal series, %→kg, discos, arte full-bleed) |
+| **Progreso** | Gratis: esta semana + teaser; Pro: periodos, deltas, cardio/kcal/peso, heatmap, equilibrio |
+| **Ejercicios** | Biblioteca + ficha; evolución completa = Pro (Gratis: última sesión + PR) |
 | **Sesión** | Series, WU/drop/rest-pause, RIR/RPE, discos, menú ⋯, Live Activity descanso |
-| **Pizarra** | OCR + parser local (skip IA si ≥2 bloques) + Apple Intelligence fallback + %→kg |
-| **Ajustes** | iCloud, Salud, historial, peso+objetivo, barra/discos, export/import |
-| **Datos** | JSON local + iCloud Documents; CSV Strong/Hevy |
-| **Watch** | Confirmar → conteo → **+1 serie** / log rápido |
+| **Pizarra** | OCR lite; Gratis 4 escaneos/mes; Pro ilimitados |
+| **Onboarding** | Sign in with Apple obligatorio → Gratis/Pro → permisos (notif, Salud, ubicación) |
+| **Ajustes** | Cuenta Apple, Pro / restaurar, iCloud, permisos/Salud, historial, peso, export/import |
+| **Datos** | JSON local + iCloud Documents; CSV Strong/Hevy (sin entitlement en el JSON) |
+| **Watch** | Confirmar → conteo → **+1 serie** / log rápido (sin límites Pro en v1) |
+| **Monetización** | StoreKit + RevenueCat; ver [docs/MONETIZATION.md](docs/MONETIZATION.md) |
 
 ## Arranque
 
 ```bash
 xcodegen generate
-open Gymbro.xcodeproj
+open Repera.xcodeproj
 # Tests dominio
-cd Packages/GymbroDomain && swift test
+cd Packages/ReperaDomain && swift test
+# Web marketing (local)
+cd web && python3 -m http.server 8080
 ```
+
+Sitio público: [repera.app](https://repera.app) — `cd web && ./pack-ionos.sh` y extraer el zip en IONOS `htdocs`; ver [web/README.md](web/README.md).
 
 Requisitos: **Xcode con SDK iOS 27**, dispositivo/simulador compatible. Apple Intelligence es opcional (fallback local en pizarra).
 
-Cold start: LaunchScreen sólido (sin imagen); store en shell vacío hasta hidratar disco; `Catalog.prewarm()` fuera del MainActor. En Debug+Simulador el dylib (~20 MB) puede retrasar el process start; medir en Release/dispositivo.
+Cold start: LaunchScreen con Splash proporcional (AspectFit); store en shell vacío hasta hidratar disco; `Catalog.prewarm()` fuera del MainActor. En Debug+Simulador el dylib (~20 MB) puede retrasar el process start; medir en Release/dispositivo.
 
 ## Identificadores
 
 | Qué | Valor |
 |-----|--------|
-| Bundle iOS | `app.gymbroapp.ios` |
-| iCloud | `iCloud.app.gymbroapp.ios` |
+| Bundle iOS | `com.app.repera` |
+| iCloud | `iCloud.com.app.repera` |
 | Team | ver `project.yml` |
+| RevenueCat API key | `RevenueCatPublicAPIKey` en Info.plist (pública `appl_…`) |
+| Productos | `repera_pro_monthly` / `repera_pro_annual` · entitlement `pro` |
 
 ## Fuera de alcance (por ahora)
 
 - Cliente Android
-- Backend social / multi-usuario
+- Backend social / multi-usuario (sí hay Sign in with Apple + iCloud)
 - Coach / tips con IA (sí hay Foundation Models on-device para pizarra)
+- SDK RevenueCat en Apple Watch
 
 ## Licencia
 

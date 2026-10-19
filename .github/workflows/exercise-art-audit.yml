@@ -3,10 +3,10 @@ name: Exercise art audit
 on:
   pull_request:
     paths:
-      - 'Apps/Gymbro/Resources/ExerciseArt/**'
-      - 'Apps/Gymbro/Sources/ExerciseArt.swift'
-      - 'Packages/GymbroDomain/Sources/GymbroDomain/CatalogSpanish.swift'
-      - 'Packages/GymbroDomain/Tests/GymbroDomainTests/ExerciseArtCaptionTests.swift'
+      - 'Apps/Repera/Resources/ExerciseArt/**'
+      - 'Apps/Repera/Sources/ExerciseArt.swift'
+      - 'Packages/ReperaDomain/Sources/ReperaDomain/CatalogSpanish.swift'
+      - 'Packages/ReperaDomain/Tests/ReperaDomainTests/ExerciseArtCaptionTests.swift'
       - 'scripts/audit_exercise_art.py'
       - '.github/workflows/exercise-art-audit.yml'
   push:
@@ -47,14 +47,14 @@ jobs:
           path: docs/EXERCISE_ART_AUDIT.csv
 
   domain:
-    name: GymbroDomain caption tests
+    name: ReperaDomain caption tests
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - name: Swift toolchain
         run: swift --version
       - name: Run domain unit tests
-        run: swift test --package-path Packages/GymbroDomain
+        run: swift test --package-path Packages/ReperaDomain
 
   visual-release-gate:
     name: Visual art must be corrected

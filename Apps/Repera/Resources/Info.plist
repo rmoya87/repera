@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Repera</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>3</string>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>Repera usa la cámara para leer ejercicios de una pizarra o TV y montar la sesión.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Repera lee peso, calorías activas, tiempo y entrenos de Apple Salud / Apple Watch para calcular calorías y duración reales.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Repera guarda el entreno en Apple Salud usando las calorías y el tiempo que reporta Salud / Apple Watch.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Repera usa tu ubicación para mostrar en el mapa dónde entrenaste y, en entrenos outdoor, el recorrido.</string>
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>WorkoutPreciseLocation</key>
+		<string>Repera usa ubicación precisa para el pin del gym y la ruta del entreno.</string>
+	</dict>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Repera lee fotos de pizarras o pantallas para importar el entrenamiento.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSUbiquitousContainers</key>
+	<dict>
+		<key>iCloud.com.app.repera</key>
+		<dict>
+			<key>NSUbiquitousContainerIsDocumentScopePublic</key>
+			<false/>
+			<key>NSUbiquitousContainerName</key>
+			<string>Repera</string>
+			<key>NSUbiquitousContainerSupportedFolderLevels</key>
+			<string>Any</string>
+		</dict>
+	</dict>
+	<key>RevenueCatPublicAPIKey</key>
+	<string>YOUR_REVENUECAT_PUBLIC_API_KEY</string>
+	<key>UIFileSharingEnabled</key>
+	<false/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+</dict>
+</plist>

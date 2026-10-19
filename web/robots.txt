@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://repera.app/sitemap.xml

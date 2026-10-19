@@ -1,20 +1,20 @@
 # Rendimiento (iOS 27)
 
-Última actualización: 2026-10-18 (Gymbro workouts en primer paint como Salud)
+Última actualización: 2026-10-19 (bundle `com.app.repera`)
 
 Prácticas nativas aplicadas para fluidez (listas, Inicio, sesión, Salud) y arranque.
 
 ## Cold start
 
-- `LaunchWarmup.start()` en `GymbroApp.init`: en paralelo precalienta `Catalog`, `HealthDiskCache` y `app_state.json`.
-- **Gymbro workouts** y **Salud**: ambos en el primer frame — `GymbroStore.init` usa `LaunchWarmup.appStateForFirstPaint()` (sync/`warm` de `app_state.json`), igual que `HealthKitStore` con `HealthDiskCache`.
+- `LaunchWarmup.start()` en `ReperaApp.init`: en paralelo precalienta `Catalog`, `HealthDiskCache` y `app_state.json`.
+- **Repera workouts** y **Salud**: ambos en el primer frame — `ReperaStore.init` usa `LaunchWarmup.appStateForFirstPaint()` (sync/`warm` de `app_state.json`), igual que `HealthKitStore` con `HealthDiskCache`.
 - `hydrateFromDisk` confirma (caché caliente, sin segundo decode lento); seed/enrich **off-MainActor**; iCloud después.
-- Home pinta buckets Gymbro al instante si hubo diskPaint; `onChange(isHydrated)` por si el shell iba vacío.
-- Consola: filtro `subsystem:app.gymbroapp.ios category:Launch`.
+- Home pinta buckets Repera al instante si hubo diskPaint; `onChange(isHydrated)` por si el shell iba vacío.
+- Consola: filtro `subsystem:com.app.repera category:Launch`.
 
 ## Observation + sync
 
-- `GymbroStore` expone epochs (`catalogEpoch`, `workoutsEpoch`, `sessionEpoch`) además de `AppState.syncRevision`.
+- `ReperaStore` expone epochs (`catalogEpoch`, `workoutsEpoch`, `sessionEpoch`) además de `AppState.syncRevision`.
 - Biblioteca → `catalogEpoch`; Historial / Home buckets → `workoutsEpoch` + `healthDataRevision`.
 - `persist(touchWorkouts:)` solo en cambios de la lista de entrenos terminados — **loguear series no rebuilda Inicio**.
 - Tras `touchWorkouts`: `invalidateExternalActivityFilter` (mantiene arrays) + refresh Salud coalescido con el nuevo filtro de exclusión.
@@ -22,7 +22,7 @@ Prácticas nativas aplicadas para fluidez (listas, Inicio, sesión, Salud) y arr
 ## Stats fuera del body
 
 - `DerivedStatsCache` (historial, última sesión, peso, PRs) invalidado con `syncRevision`.
-- Acceso vía `GymbroStore.cachedHistory` / `cachedLastWorkingSession` / `cachedPersonalRecordCountsBySession`.
+- Acceso vía `ReperaStore.cachedHistory` / `cachedLastWorkingSession` / `cachedPersonalRecordCountsBySession`.
 - Historial: mapa sesión→PRs en **un pase cronológico** (`StatsEngine.personalRecordCountsBySessionId`), no O(n²) por fila.
 
 ## Thumbs
@@ -49,6 +49,15 @@ Prácticas nativas aplicadas para fluidez (listas, Inicio, sesión, Salud) y arr
 - Reloj WOD: `TimelineView` solo lectura (`displaySeconds(at:)`); catch-up de intervalos en `feedbackTask`.
 - Tab / Inicio observan `hasActiveSession` + `continueAccessory` (Equatable), no el grafo completo de `activeSession`.
 - Watch: `updateApplicationContext` con debounce ~280 ms al loguear series; flush inmediato en start/end/inbound Watch.
+
+## Monetización (Gratis)
+
+- `isPro` es propiedad estable en `SubscriptionManager` (las vistas Pro/Gratis no se invalidan por cuotas ni conteos).
+- `syncCounts` solo escribe si cambian; conteos O(n) sin `libraryRoutines` sorted.
+- Arranque: `customerInfo` sí; **offerings** solo al abrir paywall. Foreground refresh throttled 30s.
+- `FreeUsageStore.load/persist` iCloud fuera del MainActor.
+- RevenueCat `logLevel = .warn` (evitar `.debug` en simulador).
+- Progreso: `schedulePrepare` solo si cambia `isPro`, no cada refresh de snapshot.
 
 ## Qué no tocar
 

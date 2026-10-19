@@ -1,13 +1,28 @@
-# Guía de pruebas — Gymbro
+# Guía de pruebas — Repera
 
-Última actualización: 2026-10-16 (teclado numérico con intro)
+Última actualización: 2026-10-19 (monetización Freemium / Pro)
 
 Checklist manual por feature. Preferible dispositivo real para Live Activity y Watch.
+
+## Monetización (Gratis / Pro)
+
+Detalle: [MONETIZATION.md](MONETIZATION.md).
+
+- [ ] Sin `RevenueCatPublicAPIKey` → app en Gratis; paywall indica compras no disponibles.
+- [ ] Debug → Ajustes → Debug Pro: simular Free / Pro mensual / anual / trial / gracia / caducada / offline.
+- [ ] Crear 4ª rutina biblioteca → paywall; editar/borrar las 3 existentes OK.
+- [ ] Crear 6º ejercicio custom → paywall; catálogo seed sin límite.
+- [ ] 4 escaneos OK en el mes; 5º → paywall; fallo OCR / cancelar no consumen.
+- [ ] Ficha ejercicio Gratis: última sesión + teaser; Pro: evolución completa.
+- [ ] Progreso Gratis: solo «Esta semana»; periodos Pro abren paywall sin cambiar rango.
+- [ ] WOD: registro libre; historial completo = Pro.
+- [ ] Restaurar compras (sandbox) y gestionar suscripción (enlace Apple).
+- [ ] Import JSON no activa Pro; export sigue incluyendo datos deportivos.
 
 ## Log rápido (Apuntar series)
 
 - [ ] **Crear → Apuntar series** → elige ejercicio → modal de series → guardar → aparece en Inicio / Historial.
-- [ ] Racha en Inicio con Salud autorizada → Historial lista Gymbro **y** entrenos de Salud (sin duplicar vinculados).
+- [ ] Racha en Inicio con Salud autorizada → Historial lista Repera **y** entrenos de Salud (sin duplicar vinculados).
 - [ ] Distinto de **Crear mi entreno**: no pide bloques/WOD.
 - [ ] **Ficha ejercicio → +** → mismo modal de series (no abre sesión completa).
 - [ ] En modal: check (guardar) estilo topbar; cancelar = X.

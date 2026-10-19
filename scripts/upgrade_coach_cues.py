@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CS = ROOT / "Packages/GymbroDomain/Sources/GymbroDomain/CatalogSpanish.swift"
+CS = ROOT / "Packages/ReperaDomain/Sources/ReperaDomain/CatalogSpanish.swift"
 
 CAROUSEL = {
     "Press banca": 2, "Press banca inclinada": 2, "Aperturas": 2, "Dominadas": 2,
@@ -1557,7 +1557,7 @@ def coach_for(name: str, desc: str) -> list[str]:
 
 
 def main() -> None:
-    phases = json.loads(Path("/tmp/gymbro_phases.json").read_text())
+    phases = json.loads(Path("/tmp/repera_phases.json").read_text())
     cs = CS.read_text()
     # descriptions
     a = cs.find("private static let spanishByName")

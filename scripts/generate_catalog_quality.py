@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DOMAIN = ROOT / "Packages/GymbroDomain/Sources/GymbroDomain"
+DOMAIN = ROOT / "Packages/ReperaDomain/Sources/ReperaDomain"
 
 # name -> (group, equipment, target, secondaryMuscles, bodyPart, primaries, secondaries, desc_es)
 # instructions_es handled separately (carousel-aware)
@@ -528,8 +528,8 @@ def sport_defaults() -> dict[str, list[str]]:
 
 
 def load_existing_es():
-    instr = json.loads(Path("/tmp/gymbro_es_instr.json").read_text())
-    desc = json.loads(Path("/tmp/gymbro_es_desc.json").read_text())
+    instr = json.loads(Path("/tmp/repera_es_instr.json").read_text())
+    desc = json.loads(Path("/tmp/repera_es_desc.json").read_text())
     return desc, instr
 
 
@@ -1048,7 +1048,7 @@ def rewrite_catalog_spanish(all_names: list[str]):
 
 
 def main():
-    names = Path("/tmp/gymbro_all_names.txt").read_text().strip().splitlines()
+    names = Path("/tmp/repera_all_names.txt").read_text().strip().splitlines()
     assert len(names) == 188
     rewrite_enrichment()
     rewrite_catalog_spanish(names)

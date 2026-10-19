@@ -16,7 +16,7 @@ from pathlib import Path
 from PIL import Image, ImageEnhance, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
-ART = ROOT / "Apps/Gymbro/Resources/ExerciseArt"
+ART = ROOT / "Apps/Repera/Resources/ExerciseArt"
 THUMBS = ART / "thumbs"
 THUMB = 192
 

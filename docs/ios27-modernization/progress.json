@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "project": "Gymbro",
+  "project": "Repera",
   "branch": "perf/progress-snapshot-engine",
   "baseCommit": "7790eb1ed57af6f7f857b030676470fed652bff9",
   "headCommit": "pending",
@@ -99,18 +99,18 @@
         "Offline / sync tardía / conflicto LWW+revision"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/LocalStore.swift",
-        "Apps/Gymbro/Sources/GymbroStore.swift",
-        "Apps/Gymbro/Sources/GymbroApp.swift",
-        "Packages/GymbroDomain/Sources/GymbroDomain/Models.swift",
-        "Packages/GymbroDomain/Sources/GymbroDomain/SyncConflictResolver.swift",
-        "Packages/GymbroDomain/Tests/GymbroDomainTests/SyncConflictResolverTests.swift",
+        "Apps/Repera/Sources/LocalStore.swift",
+        "Apps/Repera/Sources/ReperaStore.swift",
+        "Apps/Repera/Sources/ReperaApp.swift",
+        "Packages/ReperaDomain/Sources/ReperaDomain/Models.swift",
+        "Packages/ReperaDomain/Sources/ReperaDomain/SyncConflictResolver.swift",
+        "Packages/ReperaDomain/Tests/ReperaDomainTests/SyncConflictResolverTests.swift",
         "docs/ARCHITECTURE.md"
       ],
       "relatedFiles": [
         "LocalStore.swift",
-        "GymbroStore.swift",
-        "GymbroApp.swift"
+        "ReperaStore.swift",
+        "ReperaApp.swift"
       ],
       "commits": [
         "1a06984",
@@ -124,7 +124,7 @@
           "detail": "6 tests"
         },
         {
-          "name": "xcodebuild Gymbro iPhone 17e",
+          "name": "xcodebuild Repera iPhone 17e",
           "result": "pass"
         },
         {
@@ -160,13 +160,13 @@
         "Critical path durable"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/LocalStore.swift",
-        "Apps/Gymbro/Sources/GymbroStore.swift",
-        "Apps/Gymbro/Sources/GymbroApp.swift"
+        "Apps/Repera/Sources/LocalStore.swift",
+        "Apps/Repera/Sources/ReperaStore.swift",
+        "Apps/Repera/Sources/ReperaApp.swift"
       ],
       "relatedFiles": [
         "LocalStore.swift",
-        "GymbroStore.swift"
+        "ReperaStore.swift"
       ],
       "commits": [
         "1a06984",
@@ -175,7 +175,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro iPhone 17e",
+          "name": "xcodebuild Repera iPhone 17e",
           "result": "pass"
         },
         {
@@ -206,10 +206,10 @@
         "Pause/resume correct"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/WorkoutView.swift",
-        "Apps/Gymbro/Sources/StandaloneTimerView.swift",
-        "Packages/GymbroDomain/Sources/GymbroDomain/WallClockTimer.swift",
-        "Packages/GymbroDomain/Tests/GymbroDomainTests/WallClockTimerTests.swift"
+        "Apps/Repera/Sources/WorkoutView.swift",
+        "Apps/Repera/Sources/StandaloneTimerView.swift",
+        "Packages/ReperaDomain/Sources/ReperaDomain/WallClockTimer.swift",
+        "Packages/ReperaDomain/Tests/ReperaDomainTests/WallClockTimerTests.swift"
       ],
       "relatedFiles": [
         "WorkoutView.swift",
@@ -226,7 +226,7 @@
           "detail": "3 tests"
         },
         {
-          "name": "xcodebuild Gymbro",
+          "name": "xcodebuild Repera",
           "result": "pass"
         },
         {
@@ -259,15 +259,15 @@
         "LA endDate fijo"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/RestSessionCoordinator.swift",
-        "Apps/Gymbro/Sources/RestLiveActivity.swift",
-        "Apps/Gymbro/Sources/WorkoutView.swift",
-        "Apps/Gymbro/Sources/GymbroStore.swift"
+        "Apps/Repera/Sources/RestSessionCoordinator.swift",
+        "Apps/Repera/Sources/RestLiveActivity.swift",
+        "Apps/Repera/Sources/WorkoutView.swift",
+        "Apps/Repera/Sources/ReperaStore.swift"
       ],
       "relatedFiles": [
         "WorkoutView.swift",
         "RestLiveActivity.swift",
-        "GymbroStore.swift"
+        "ReperaStore.swift"
       ],
       "commits": [
         "dfc6c70"
@@ -275,7 +275,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro",
+          "name": "xcodebuild Repera",
           "result": "pass"
         },
         {
@@ -306,13 +306,13 @@
         "Idempotente"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/HomeView.swift",
-        "Apps/Gymbro/Sources/HistoryView.swift",
-        "Apps/Gymbro/Sources/HealthKitStore.swift",
-        "Apps/Gymbro/Sources/GymbroStore.swift"
+        "Apps/Repera/Sources/HomeView.swift",
+        "Apps/Repera/Sources/HistoryView.swift",
+        "Apps/Repera/Sources/HealthKitStore.swift",
+        "Apps/Repera/Sources/ReperaStore.swift"
       ],
       "relatedFiles": [
-        "GymbroStore.swift",
+        "ReperaStore.swift",
         "HomeView.swift",
         "HistoryView.swift",
         "HealthKitStore.swift"
@@ -323,7 +323,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro",
+          "name": "xcodebuild Repera",
           "result": "pass"
         },
         {
@@ -356,11 +356,11 @@
         "No duplicar active energy"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/HealthKitStore.swift"
+        "Apps/Repera/Sources/HealthKitStore.swift"
       ],
       "relatedFiles": [
         "HealthKitStore.swift",
-        "GymbroApp.swift",
+        "ReperaApp.swift",
         "SettingsView.swift"
       ],
       "commits": [
@@ -369,7 +369,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro",
+          "name": "xcodebuild Repera",
           "result": "pass"
         },
         {
@@ -400,9 +400,9 @@
         "Estado vs acciones separadas"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/PhoneConnectivity.swift",
-        "Apps/GymbroWatch/Sources/WatchConnectivityClient.swift",
-        "Apps/Gymbro/Sources/GymbroStore.swift"
+        "Apps/Repera/Sources/PhoneConnectivity.swift",
+        "Apps/ReperaWatch/Sources/WatchConnectivityClient.swift",
+        "Apps/Repera/Sources/ReperaStore.swift"
       ],
       "relatedFiles": [
         "PhoneConnectivity.swift",
@@ -415,7 +415,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro+Watch",
+          "name": "xcodebuild Repera+Watch",
           "result": "pass"
         },
         {
@@ -450,14 +450,14 @@
         "Stale task guard"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/RestLiveActivity.swift",
-        "Apps/Gymbro/Sources/StatsView.swift",
-        "Apps/Gymbro/Sources/ThumbImageLoader.swift",
-        "Apps/Gymbro/Sources/ExerciseArt.swift"
+        "Apps/Repera/Sources/RestLiveActivity.swift",
+        "Apps/Repera/Sources/StatsView.swift",
+        "Apps/Repera/Sources/ThumbImageLoader.swift",
+        "Apps/Repera/Sources/ExerciseArt.swift"
       ],
       "relatedFiles": [
-        "Apps/Gymbro/Sources",
-        "Apps/GymbroWatch/Sources"
+        "Apps/Repera/Sources",
+        "Apps/ReperaWatch/Sources"
       ],
       "commits": [
         "e686414"
@@ -465,7 +465,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro+Watch",
+          "name": "xcodebuild Repera+Watch",
           "result": "pass"
         },
         {
@@ -496,8 +496,8 @@
         "Proporciones OK"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/ThumbImageLoader.swift",
-        "Apps/Gymbro/Sources/ExerciseArt.swift"
+        "Apps/Repera/Sources/ThumbImageLoader.swift",
+        "Apps/Repera/Sources/ExerciseArt.swift"
       ],
       "relatedFiles": [
         "ExerciseArt.swift"
@@ -508,7 +508,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro",
+          "name": "xcodebuild Repera",
           "result": "pass"
         },
         {
@@ -540,8 +540,8 @@
         "Memoria acotada"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/ThumbImageLoader.swift",
-        "Apps/Gymbro/Sources/ExerciseArt.swift"
+        "Apps/Repera/Sources/ThumbImageLoader.swift",
+        "Apps/Repera/Sources/ExerciseArt.swift"
       ],
       "relatedFiles": [
         "ExerciseArt.swift"
@@ -552,7 +552,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro",
+          "name": "xcodebuild Repera",
           "result": "pass"
         },
         {
@@ -581,12 +581,12 @@
         "Cache invalidation"
       ],
       "filesModified": [
-        "Packages/GymbroDomain/Sources/GymbroDomain/DerivedStatsCache.swift",
-        "Apps/Gymbro/Sources/GymbroStore.swift",
-        "Apps/Gymbro/Sources/StatsView.swift",
-        "Apps/Gymbro/Sources/ExerciseDetailView.swift",
-        "Apps/Gymbro/Sources/ExerciseProgressView.swift",
-        "Packages/GymbroDomain/Tests/GymbroDomainTests/DerivedStatsCacheTests.swift"
+        "Packages/ReperaDomain/Sources/ReperaDomain/DerivedStatsCache.swift",
+        "Apps/Repera/Sources/ReperaStore.swift",
+        "Apps/Repera/Sources/StatsView.swift",
+        "Apps/Repera/Sources/ExerciseDetailView.swift",
+        "Apps/Repera/Sources/ExerciseProgressView.swift",
+        "Packages/ReperaDomain/Tests/ReperaDomainTests/DerivedStatsCacheTests.swift"
       ],
       "relatedFiles": [
         "StatsView.swift",
@@ -628,7 +628,7 @@
         "No publish stale"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/StatsView.swift"
+        "Apps/Repera/Sources/StatsView.swift"
       ],
       "relatedFiles": [
         "StatsView.swift",
@@ -640,7 +640,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro",
+          "name": "xcodebuild Repera",
           "result": "pass"
         },
         {
@@ -671,8 +671,8 @@
         "Consistencia tabs"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/HealthKitStore.swift",
-        "Apps/Gymbro/Sources/GymbroStore.swift"
+        "Apps/Repera/Sources/HealthKitStore.swift",
+        "Apps/Repera/Sources/ReperaStore.swift"
       ],
       "relatedFiles": [
         "HealthKitStore.swift"
@@ -683,7 +683,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro",
+          "name": "xcodebuild Repera",
           "result": "pass"
         },
         {
@@ -715,11 +715,11 @@
         "Sin % inventados"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/GymbroApp.swift"
+        "Apps/Repera/Sources/ReperaApp.swift"
       ],
       "relatedFiles": [
-        "GymbroApp.swift",
-        "GymbroStore.swift"
+        "ReperaApp.swift",
+        "ReperaStore.swift"
       ],
       "commits": [
         "e686414"
@@ -727,7 +727,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro",
+          "name": "xcodebuild Repera",
           "result": "pass"
         },
         {
@@ -757,7 +757,7 @@
         "Sesión desde cualquier tab"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/RootTabView.swift"
+        "Apps/Repera/Sources/RootTabView.swift"
       ],
       "relatedFiles": [
         "RootTabView.swift"
@@ -766,7 +766,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro+Watch",
+          "name": "xcodebuild Repera+Watch",
           "result": "pass"
         },
         {
@@ -795,7 +795,7 @@
         "Confirm delete"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/HomeView.swift"
+        "Apps/Repera/Sources/HomeView.swift"
       ],
       "relatedFiles": [
         "HomeView.swift",
@@ -805,7 +805,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro+Watch",
+          "name": "xcodebuild Repera+Watch",
           "result": "pass"
         }
       ],
@@ -830,7 +830,7 @@
         "VoiceOver"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/PlanView.swift"
+        "Apps/Repera/Sources/PlanView.swift"
       ],
       "relatedFiles": [
         "Plan views",
@@ -840,7 +840,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro+Watch",
+          "name": "xcodebuild Repera+Watch",
           "result": "pass"
         }
       ],
@@ -865,8 +865,8 @@
         "Safe areas"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/Theme.swift",
-        "Apps/Gymbro/Sources/WorkoutView.swift"
+        "Apps/Repera/Sources/Theme.swift",
+        "Apps/Repera/Sources/WorkoutView.swift"
       ],
       "relatedFiles": [
         "Theme.swift"
@@ -875,7 +875,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro+Watch",
+          "name": "xcodebuild Repera+Watch",
           "result": "pass"
         }
       ],
@@ -900,7 +900,7 @@
         "Keyboard dismiss"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/Theme.swift"
+        "Apps/Repera/Sources/Theme.swift"
       ],
       "relatedFiles": [
         "Theme.swift"
@@ -909,7 +909,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro+Watch",
+          "name": "xcodebuild Repera+Watch",
           "result": "pass"
         }
       ],
@@ -934,7 +934,7 @@
         "OCR board"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/CameraPicker.swift",
+        "Apps/Repera/Sources/CameraPicker.swift",
         "DayPlusSheet",
         "StartHubSheet"
       ],
@@ -945,7 +945,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro+Watch",
+          "name": "xcodebuild Repera+Watch",
           "result": "pass"
         }
       ],
@@ -973,7 +973,7 @@
         "Respect Reduce Motion"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/WorkoutView.swift"
+        "Apps/Repera/Sources/WorkoutView.swift"
       ],
       "relatedFiles": [
         "WorkoutView.swift"
@@ -982,7 +982,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro+Watch",
+          "name": "xcodebuild Repera+Watch",
           "result": "pass"
         }
       ],
@@ -1009,7 +1009,7 @@
         "Reduce Motion"
       ],
       "filesModified": [
-        "Apps/Gymbro/Sources/LibraryView.swift"
+        "Apps/Repera/Sources/LibraryView.swift"
       ],
       "relatedFiles": [
         "LibraryView.swift",
@@ -1019,7 +1019,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro+Watch",
+          "name": "xcodebuild Repera+Watch",
           "result": "pass"
         }
       ],
@@ -1055,7 +1055,7 @@
       "prLinks": [],
       "tests": [
         {
-          "name": "xcodebuild Gymbro+Watch",
+          "name": "xcodebuild Repera+Watch",
           "result": "pass"
         },
         {
@@ -1086,10 +1086,10 @@
         "Connectivity UI"
       ],
       "filesModified": [
-        "Apps/GymbroWatch/Sources/WatchSessionView.swift"
+        "Apps/ReperaWatch/Sources/WatchSessionView.swift"
       ],
       "relatedFiles": [
-        "GymbroWatch"
+        "ReperaWatch"
       ],
       "commits": [],
       "prLinks": [],
@@ -1127,10 +1127,10 @@
         "Tests green"
       ],
       "filesModified": [
-        "Packages/GymbroDomain/Tests"
+        "Packages/ReperaDomain/Tests"
       ],
       "relatedFiles": [
-        "Packages/GymbroDomain",
+        "Packages/ReperaDomain",
         "Apps tests"
       ],
       "commits": [],
@@ -1165,7 +1165,7 @@
         "Evidence screenshots"
       ],
       "filesModified": [
-        "Apps/GymbroUITests",
+        "Apps/ReperaUITests",
         "project.yml"
       ],
       "relatedFiles": [
@@ -1185,7 +1185,7 @@
         }
       ],
       "metrics": [],
-      "notes": "GymbroUITests smoke target wired in XcodeGen.",
+      "notes": "ReperaUITests smoke target wired in XcodeGen.",
       "startedAt": null,
       "completedAt": null,
       "updatedAt": "2026-10-17T09:10:42Z"
@@ -1699,7 +1699,7 @@
       "id": "J28-020",
       "phase": "P5",
       "priority": "critical",
-      "title": "CI scheme Gymbro + fail hard",
+      "title": "CI scheme Repera + fail hard",
       "summary": "Sin continue-on-error UITests",
       "status": "pending",
       "dependsOn": [],
@@ -1882,19 +1882,19 @@
       "phase": "P6",
       "priority": "high",
       "title": "HealthKit match index + race de cobertura",
-      "summary": "GymbroSessionMatchIndex; gen refresh; métricas separadas.",
+      "summary": "ReperaSessionMatchIndex; gen refresh; métricas separadas.",
       "status": "in_review",
       "dependsOn": [],
       "blockedBy": [],
       "risks": [],
       "acceptanceCriteria": [
-        "GymbroSessionMatchIndex; gen refresh; métricas separadas."
+        "ReperaSessionMatchIndex; gen refresh; métricas separadas."
       ],
       "filesModified": [],
       "tests": [],
       "commits": [],
       "metrics": {},
-      "notes": "GymbroSessionMatchIndex; gen refresh; métricas separadas.",
+      "notes": "ReperaSessionMatchIndex; gen refresh; métricas separadas.",
       "startedAt": "2026-10-17T10:08:45Z",
       "completedAt": null,
       "updatedAt": "2026-10-17T10:08:45Z"
@@ -2001,7 +2001,7 @@
   "pullRequests": [
     {
       "title": "feat: modernización iOS 27 — P0 estabilidad y datos",
-      "url": "https://github.com/rmoya87/gymbro/pull/3",
+      "url": "https://github.com/rmoya87/repera/pull/3",
       "draft": true
     }
   ],
@@ -2024,7 +2024,7 @@
     },
     {
       "id": "uitests-run",
-      "message": "GymbroUITests not yet executed green on sim"
+      "message": "ReperaUITests not yet executed green on sim"
     }
   ]
 }

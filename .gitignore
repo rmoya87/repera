@@ -13,8 +13,8 @@ timeline.xctimeline
 playground.xcworkspace
 
 # Generated
-Gymbro.xcodeproj/
-Gymbro.xcworkspace/
+Repera.xcodeproj/
+Repera.xcworkspace/
 *.xcworkspace/xcuserdata/
 
 # SPM
@@ -48,3 +48,7 @@ reference/
 .venv/
 .venv-img/
 .venv-art/
+
+# Web: no versionar zips de subida manual a hosting
+web/*.zip
+web/Archivo.zip

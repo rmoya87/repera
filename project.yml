@@ -1,6 +1,6 @@
-name: Gymbro
+name: Repera
 options:
-  bundleIdPrefix: app.gymbroapp
+  bundleIdPrefix: com.app
   deploymentTarget:
     iOS: "27.0"
     watchOS: "27.0"
@@ -8,8 +8,11 @@ options:
   groupSortPosition: top
 
 packages:
-  GymbroDomain:
-    path: Packages/GymbroDomain
+  ReperaDomain:
+    path: Packages/ReperaDomain
+  RevenueCat:
+    url: https://github.com/RevenueCat/purchases-ios-spm
+    from: 5.0.0
 
 settings:
   BASE_SDK: iphoneos
@@ -20,59 +23,69 @@ settings:
   CODE_SIGN_STYLE: Automatic
 
 targets:
-  Gymbro:
+  Repera:
     type: application
     platform: iOS
     sources:
-      - path: Apps/Gymbro/Sources
+      - path: Apps/Repera/Sources
       - path: Apps/Shared/RestActivityAttributes.swift
       # XcodeGen 2.46 + objectVersion 77 omite `resources:`; hay que declarar assets a mano.
-      - path: Apps/Gymbro/Resources/Assets.xcassets
+      - path: Apps/Repera/Resources/Assets.xcassets
         buildPhase: resources
-      - path: Apps/Gymbro/Resources/ExerciseArt
+      - path: Apps/Repera/Resources/ExerciseArt
         buildPhase: resources
         type: folder
-      - path: Apps/Gymbro/Resources/LaunchScreen.storyboard
+      - path: Apps/Repera/Resources/LaunchScreen.storyboard
         buildPhase: resources
-      - path: Apps/Gymbro/Resources/BodyPaths.json
+      - path: Apps/Repera/Resources/BodyPaths.json
         buildPhase: resources
     resources: []
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: app.gymbroapp.ios
-      INFOPLIST_FILE: Apps/Gymbro/Resources/Info.plist
+      PRODUCT_BUNDLE_IDENTIFIER: com.app.repera
+      INFOPLIST_FILE: Apps/Repera/Resources/Info.plist
       ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
       TARGETED_DEVICE_FAMILY: "1"
       GENERATE_INFOPLIST_FILE: false
-      CURRENT_PROJECT_VERSION: 2
+      # Bump forces SpringBoard to invalidate cached launch snapshot.
+      CURRENT_PROJECT_VERSION: 3
       MARKETING_VERSION: "1.0.0"
       CODE_SIGN_STYLE: Automatic
       DEVELOPMENT_TEAM: 9DTDGQ8UUQ
       SWIFT_EMIT_MODULE_INTERFACE: NO
-      CODE_SIGN_ENTITLEMENTS: Apps/Gymbro/Resources/Gymbro.entitlements
+      CODE_SIGN_ENTITLEMENTS: Apps/Repera/Resources/Repera.entitlements
     entitlements:
-      path: Apps/Gymbro/Resources/Gymbro.entitlements
+      path: Apps/Repera/Resources/Repera.entitlements
       properties:
+        com.apple.developer.applesignin:
+          - Default
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.background-delivery: true
         com.apple.developer.icloud-container-identifiers:
-          - iCloud.app.gymbroapp.ios
+          - iCloud.com.app.repera
         com.apple.developer.icloud-services:
           - CloudDocuments
         com.apple.developer.ubiquity-container-identifiers:
-          - iCloud.app.gymbroapp.ios
+          - iCloud.com.app.repera
     dependencies:
-      - package: GymbroDomain
-      - target: GymbroWatch
+      - package: ReperaDomain
+      - package: RevenueCat
+        product: RevenueCat
+      - target: ReperaWatch
         embed: true
-      - target: GymbroRestWidget
+      - target: ReperaRestWidget
         embed: true
       - sdk: HealthKit.framework
       - sdk: FoundationModels.framework
       - sdk: ActivityKit.framework
+      - sdk: CoreLocation.framework
+      - sdk: MapKit.framework
+      - sdk: AuthenticationServices.framework
     info:
-      path: Apps/Gymbro/Resources/Info.plist
+      path: Apps/Repera/Resources/Info.plist
       properties:
-        CFBundleDisplayName: Gymbro
+        CFBundleDisplayName: Repera
+        # Clave pública RevenueCat (`appl_…`). Sustituir en ASC / xcconfig; vacío = modo gratis.
+        RevenueCatPublicAPIKey: YOUR_REVENUECAT_PUBLIC_API_KEY
         UILaunchStoryboardName: LaunchScreen
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -81,27 +94,28 @@ targets:
         NSSupportsLiveActivities: true
         UIFileSharingEnabled: false
         LSSupportsOpeningDocumentsInPlace: false
-        NSCameraUsageDescription: Gymbro usa la cámara para leer ejercicios de una pizarra o TV y montar la sesión.
-        NSPhotoLibraryUsageDescription: Gymbro lee fotos de pizarras o pantallas para importar el entrenamiento.
-        NSHealthShareUsageDescription: Gymbro lee peso, calorías activas, tiempo y entrenos de Apple Salud / Apple Watch para calcular calorías y duración reales.
-        NSHealthUpdateUsageDescription: Gymbro guarda el entreno en Apple Salud usando las calorías y el tiempo que reporta Salud / Apple Watch.
-        UIBackgroundModes:
-          - health-kit
+        NSCameraUsageDescription: Repera usa la cámara para leer ejercicios de una pizarra o TV y montar la sesión.
+        NSPhotoLibraryUsageDescription: Repera lee fotos de pizarras o pantallas para importar el entrenamiento.
+        NSHealthShareUsageDescription: Repera lee peso, calorías activas, tiempo y entrenos de Apple Salud / Apple Watch para calcular calorías y duración reales.
+        NSHealthUpdateUsageDescription: Repera guarda el entreno en Apple Salud usando las calorías y el tiempo que reporta Salud / Apple Watch.
+        NSLocationWhenInUseUsageDescription: Repera usa tu ubicación para mostrar en el mapa dónde entrenaste y, en entrenos outdoor, el recorrido.
+        NSLocationTemporaryUsageDescriptionDictionary:
+          WorkoutPreciseLocation: Repera usa ubicación precisa para el pin del gym y la ruta del entreno.
         NSUbiquitousContainers:
-          iCloud.app.gymbroapp.ios:
+          iCloud.com.app.repera:
             NSUbiquitousContainerIsDocumentScopePublic: false
-            NSUbiquitousContainerName: Gymbro
+            NSUbiquitousContainerName: Repera
             NSUbiquitousContainerSupportedFolderLevels: Any
 
-  GymbroRestWidget:
+  ReperaRestWidget:
     type: app-extension
     platform: iOS
     sources:
-      - path: Apps/GymbroRestWidget
+      - path: Apps/ReperaRestWidget
       - path: Apps/Shared/RestActivityAttributes.swift
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: app.gymbroapp.ios.GymbroRestWidget
-      INFOPLIST_FILE: Apps/GymbroRestWidget/Info.plist
+      PRODUCT_BUNDLE_IDENTIFIER: com.app.repera.ReperaRestWidget
+      INFOPLIST_FILE: Apps/ReperaRestWidget/Info.plist
       GENERATE_INFOPLIST_FILE: false
       CURRENT_PROJECT_VERSION: 2
       MARKETING_VERSION: "1.0.0"
@@ -114,24 +128,29 @@ targets:
       - sdk: SwiftUI.framework
       - sdk: ActivityKit.framework
     info:
-      path: Apps/GymbroRestWidget/Info.plist
+      path: Apps/ReperaRestWidget/Info.plist
       properties:
-        CFBundleDisplayName: Gymbro Rest
+        CFBundleDisplayName: Repera Rest
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
 
-  GymbroWatch:
+  ReperaWatch:
     type: application
     platform: watchOS
     sources:
-      - path: Apps/GymbroWatch/Sources
+      - path: Apps/ReperaWatch/Sources
+      # XcodeGen 2.46 + objectVersion 77: asset catalogs van en sources buildPhase resources.
+      - path: Apps/ReperaWatch/Resources/Assets.xcassets
+        buildPhase: resources
     resources:
-      - path: Apps/GymbroWatch/Resources
+      - path: Apps/ReperaWatch/Resources
         excludes:
           - Info.plist
+          - Assets.xcassets
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: app.gymbroapp.ios.watchkitapp
-      INFOPLIST_FILE: Apps/GymbroWatch/Resources/Info.plist
+      PRODUCT_BUNDLE_IDENTIFIER: com.app.repera.watchkitapp
+      INFOPLIST_FILE: Apps/ReperaWatch/Resources/Info.plist
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
       GENERATE_INFOPLIST_FILE: false
       CURRENT_PROJECT_VERSION: 2
       MARKETING_VERSION: "1.0.0"
@@ -139,41 +158,42 @@ targets:
       DEVELOPMENT_TEAM: 9DTDGQ8UUQ
       SDKROOT: watchos
     dependencies:
-      - package: GymbroDomain
+      - package: ReperaDomain
     info:
-      path: Apps/GymbroWatch/Resources/Info.plist
+      path: Apps/ReperaWatch/Resources/Info.plist
       properties:
-        CFBundleDisplayName: Gymbro
+        CFBundleDisplayName: Repera
+        CFBundleIconName: AppIcon
         WKApplication: true
-        WKCompanionAppBundleIdentifier: app.gymbroapp.ios
+        WKCompanionAppBundleIdentifier: com.app.repera
         WKRunsIndependentlyOfCompanionApp: false
-        NSMotionUsageDescription: Gymbro usa el movimiento del Watch para contar repeticiones durante el entrenamiento.
+        NSMotionUsageDescription: Repera usa el movimiento del Watch para contar repeticiones durante el entrenamiento.
 
-  GymbroUITests:
+  ReperaUITests:
     type: bundle.ui-testing
     platform: iOS
     sources:
-      - path: Apps/GymbroUITests
+      - path: Apps/ReperaUITests
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: app.gymbroapp.ios.uitests
+      PRODUCT_BUNDLE_IDENTIFIER: com.app.repera.uitests
       GENERATE_INFOPLIST_FILE: true
       TARGETED_DEVICE_FAMILY: "1"
       CODE_SIGN_STYLE: Automatic
       DEVELOPMENT_TEAM: 9DTDGQ8UUQ
-      TEST_TARGET_NAME: Gymbro
+      TEST_TARGET_NAME: Repera
     dependencies:
-      - target: Gymbro
+      - target: Repera
 
 schemes:
-  Gymbro:
+  Repera:
     build:
       targets:
-        Gymbro: all
-        GymbroWatch: all
-        GymbroRestWidget: all
+        Repera: all
+        ReperaWatch: all
+        ReperaRestWidget: all
     run:
       config: Debug
-      executable: Gymbro
+      executable: Repera
     test:
       targets:
-        - GymbroUITests
+        - ReperaUITests

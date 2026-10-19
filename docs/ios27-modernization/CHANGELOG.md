@@ -7,7 +7,7 @@ Historial de implementaciones (G27 + J28 + PROG). Rama activa: `perf/progress-sn
 - `ProgressSnapshot` + `ProgressDataEngine`: un payload por periodo (charts, tiles, heatmap×2, músculo all/hard, PRs, peso).
 - `ProgressViewModel`: caché por periodo/revisión; cancelación del `Task.detached` de prep (sin huérfanos).
 - `StatsView`: `LazyVStack`; sin filtros/cálculos en `body`.
-- HealthKit: `GymbroSessionMatchIndex`; race Home/Progreso corregida; métricas FC/kcal separables de actividades.
+- HealthKit: `ReperaSessionMatchIndex`; race Home/Progreso corregida; métricas FC/kcal separables de actividades.
 - Peso: `ProgressWeightPoint` con id = fecha de bucket (no `UUID()`).
 - Tests: `ProgressSnapshotEngineTests` (6 periodos + series estables).
 
@@ -45,7 +45,7 @@ Historial de implementaciones (G27 + J28 + PROG). Rama activa: `perf/progress-sn
 
 ### G27-003 / G27-004 — Temporizadores y descanso
 - `WallClockTimer` + TimelineView.
-- `RestSessionCoordinator` en `GymbroStore`; Live Activity sin updates/s.
+- `RestSessionCoordinator` en `ReperaStore`; Live Activity sin updates/s.
 - WOD: pre-countdown solo en el primer arranque.
 
 ### G27-005 / G27-006 — HealthKit
@@ -55,7 +55,7 @@ Historial de implementaciones (G27 + J28 + PROG). Rama activa: `perf/progress-sn
 ### G27-007 — Watch
 - `actionId` dedupe; context vs message; cola pendiente; logging.
 
-Validaciones: `swift test` (conflict+timer), `xcodebuild` Gymbro + GymbroWatch (iPhone 17e / Watch Series 12).
+Validaciones: `swift test` (conflict+timer), `xcodebuild` Repera + ReperaWatch (iPhone 17e / Watch Series 12).
 QA multi-dispositivo / Watch físico: **bloqueada**.
 
 ## 2026-10-17 — P1 rendimiento (in_review)

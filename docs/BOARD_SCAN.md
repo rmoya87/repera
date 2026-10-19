@@ -1,6 +1,6 @@
 # Escáner de pizarra / TV
 
-Última actualización: 2026-10-19 (DB hang snatch → Snatch mancuerna)
+Última actualización: 2026-10-19 (bundle `com.app.repera`)
 
 ## Objetivo
 
@@ -28,7 +28,7 @@ UIImage
   → deriveEmomRoundsIfNeeded (EMOM/circuito)
   → BoardImportReviewView (cards + thumbs = SessionPreview)
   → Editar (DayEditorView sobre draft) opcional
-  → GymbroStore.saveBoardToDay / startSessionFromBoard
+  → ReperaStore.saveBoardToDay / startSessionFromBoard
   → SessionController.from → plannedSets por formato
 ```
 
@@ -91,6 +91,11 @@ Editar movimiento WOD (`WODMovementEditor`): mismas series derivadas que Apuntar
 - Tras convertir, `deriveEmomRoundsIfNeeded`.
 - No hay LLM en la nube ni API keys.
 
+## Cuota freemium
+
+- **Gratis:** 4 escaneos correctos/mes (periodo UTC). Se consume al abrir revisión usable; cancelación/OCR vacío no cuentan.
+- **Pro:** ilimitados. Contadores en `free_usage.json` (no en `app_state`). Ver [MONETIZATION.md](MONETIZATION.md).
+
 ## Entrada a la app
 
 - **Crear** tab: `StartHubSheet`
@@ -101,15 +106,15 @@ Ambos llaman `BoardImportPipeline.interpret`.
 ## Tests
 
 ```bash
-cd Packages/GymbroDomain && swift test --filter BoardImportParserTests
-cd Packages/GymbroDomain && swift test --filter SessionControllerTests
+cd Packages/ReperaDomain && swift test --filter BoardImportParserTests
+cd Packages/ReperaDomain && swift test --filter SessionControllerTests
 ```
 
 Incluye EMOM 12' multi-estación → 4 rondas, fuerza+AMRAP, expansión de series en sesión.
 
 ## Logs
 
-`BoardScanLog` → **siempre** `print` + `Logger` (subsystem `app.gymbroapp.ios`, category `BoardScan`) + archivo `Documents/BoardScan.log` en el contenedor de la app.
+`BoardScanLog` → **siempre** `print` + `Logger` (subsystem `com.app.repera`, category `BoardScan`) + archivo `Documents/BoardScan.log` en el contenedor de la app.
 
 En Xcode: filtro `[BoardScan]`. Cada pasada tiene un id corto y tiempos `+Nms · ΣTotalms`:
 
@@ -126,10 +131,10 @@ En Xcode: filtro `[BoardScan]`. Cada pasada tiene un id corto y tiempos `+Nms ·
 
 Si se queda en «Leyendo…», la última línea `•` indica la fase colgada (p. ej. `vision`, `ai.respond`).
 
-Para sacar el log del iPhone: Xcode → Devices → Gymbro → Download Container → `AppData/Documents/BoardScan.log`, o:
+Para sacar el log del iPhone: Xcode → Devices → Repera → Download Container → `AppData/Documents/BoardScan.log`, o:
 
 ```bash
 xcrun devicectl device info files --device <udid> \
-  --domain-type appDataContainer --domain-identifier app.gymbroapp.ios \
+  --domain-type appDataContainer --domain-identifier com.app.repera \
   --subdirectory Documents
 ```

@@ -1,0 +1,81 @@
+# Repera — Apache (IONOS / hosting compartido)
+# Sube este archivo junto al resto de `web/` a la raíz del sitio (htdocs).
+
+DirectoryIndex index.html
+
+# No listar directorios
+Options -Indexes
+
+# Bloquear basura / archivos de repo no públicos
+<FilesMatch "(?i)^(.*\.zip|README\.md|LEEME-SUBIR\.txt|_redirects|_headers|\.DS_Store|pack-ionos\.sh)$">
+  Require all denied
+</FilesMatch>
+<IfModule !mod_authz_core.c>
+  <FilesMatch "(?i)^(.*\.zip|README\.md|LEEME-SUBIR\.txt|_redirects|_headers|\.DS_Store|pack-ionos\.sh)$">
+    Order allow,deny
+    Deny from all
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # HTTPS: actívalo en el panel IONOS («Forzar HTTPS» / Let's Encrypt).
+  # No se fuerza aquí para que el sitio funcione aunque el certificado aún no esté listo.
+
+  # Pretty URLs canónicas (App Store / sitemap)
+  RewriteRule ^privacy/?$ privacy.html [L]
+  RewriteRule ^terms/?$ terms.html [L]
+  RewriteRule ^faq/?$ faq.html [L]
+
+  # Redirigir .html → URL limpia (SEO / un solo canonical)
+  RewriteCond %{THE_REQUEST} \s/+privacy\.html[\s?] [NC]
+  RewriteRule ^ /privacy [R=301,L]
+  RewriteCond %{THE_REQUEST} \s/+terms\.html[\s?] [NC]
+  RewriteRule ^ /terms [R=301,L]
+  RewriteCond %{THE_REQUEST} \s/+faq\.html[\s?] [NC]
+  RewriteRule ^ /faq [R=301,L]
+  RewriteCond %{THE_REQUEST} \s/+index\.html[\s?] [NC]
+  RewriteRule ^ / [R=301,L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header set X-Frame-Options "DENY"
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set Permissions-Policy "interest-cohort=()"
+  Header set Cross-Origin-Opener-Policy "same-origin-allow-popups"
+</IfModule>
+
+# Tipos MIME habituales (por si el hosting no los declara)
+<IfModule mod_mime.c>
+  AddType text/css .css
+  AddType application/javascript .js
+  AddType image/png .png
+  AddType image/jpeg .jpg .jpeg
+  AddType image/webp .webp
+  AddType application/xml .xml
+  AddType text/plain .txt
+</IfModule>
+
+# Compresión gzip (HTML/CSS/JS/XML/SVG/JSON)
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml
+  AddOutputFilterByType DEFLATE application/javascript application/x-javascript
+  AddOutputFilterByType DEFLATE application/xml application/xhtml+xml
+  AddOutputFilterByType DEFLATE application/json image/svg+xml
+  # No comprimir ya comprimidos
+  SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png|webp|zip|gz)$ no-gzip dont-vary
+</IfModule>
+
+# Caché ligera de estáticos
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 1 hour"
+  ExpiresByType text/css "access plus 7 days"
+  ExpiresByType application/javascript "access plus 7 days"
+  ExpiresByType image/png "access plus 30 days"
+  ExpiresByType image/jpeg "access plus 30 days"
+  ExpiresByType image/webp "access plus 30 days"
+</IfModule>

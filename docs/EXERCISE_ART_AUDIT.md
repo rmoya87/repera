@@ -1,7 +1,7 @@
-# Auditoría + corrección parcial de ilustraciones Gymbro
+# Auditoría + corrección parcial de ilustraciones Repera
 
 Última actualización: 2026-10-17  
-Repositorio: `rmoya87/gymbro` · Referencia: `art_ab_wheel.jpg`
+Repositorio: `rmoya87/repera` · Referencia: `art_ab_wheel.jpg`
 
 ## Alcance comprobado
 
@@ -82,7 +82,7 @@ Pendientes opcionales si reaparecen en QA: CTB con pecho inequívoco + agarre pr
 
    ```bash
    .venv-art/bin/python scripts/audit_exercise_art.py
-   swift test --package-path Packages/GymbroDomain
+   swift test --package-path Packages/ReperaDomain
    ```
 
 6. Retirar la entrada de `quarantinedSequences` únicamente cuando la secuencia haya sido reexportada, revisada y sus captions correspondan 1:1. Añadir a `verifiedMovementFrameExercises` solo una reutilización hero que haya pasado estas comprobaciones.

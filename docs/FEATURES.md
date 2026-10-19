@@ -1,16 +1,16 @@
-# Funcionalidades Gymbro
+# Funcionalidades Repera
 
-Última actualización: 2026-10-19 (Progreso: scroll sin salto al final)
+Última actualización: 2026-10-19 (splash LaunchScreen → Splash PNG)
 
 ## Tabs
 
 ### Inicio (`HomeView`)
 
-- Topbar fijo arriba (`ogFixedTopBar`): «gymbro» + fecha debajo; avatar a la derecha → Ajustes.
+- Topbar fijo arriba (`ogFixedTopBar`): «repera» + fecha debajo; avatar a la derecha → Ajustes.
 - **Carrusel de días**: swipe horizontal (o chevrons) entre semanas; al cambiar de semana se conserva el weekday. Al tocar un día pinta al instante sin esperar HealthKit.
-- Card **Racha de N semanas** (como openGym `streakWeeks`): cuenta Gymbro **y** Apple Salud; toque → **Historial** unificado.
-- Métricas del día: tiempo; **kcal = max(energía activa del día en Salud, suma de chips Gymbro+Salud del día)**. Por entreno: kcal guardadas en sesión (Apple/Watch o estimado por time caps del WOD); **tiempo mostrado = inicio→fin** (p. ej. 60′ si así lo apuntaste). Detalle de entreno usa la misma kcal de sesión (no pisa con samples viejos de Salud). Recalc al arrancar (v2026_10_19d).
-- Lista de entrenos Gymbro del día + actividades externas de Salud (etiqueta «DÍA · hora» misma tipografía; chips min/kcal/ej./PR como Historial, alineados al título al reposo, carrusel hasta los bordes de la card).
+- Card **Racha de N semanas** (como openGym `streakWeeks`): cuenta Repera **y** Apple Salud; toque → **Historial** unificado.
+- Métricas del día: tiempo; **kcal = max(energía activa del día en Salud, suma de chips Repera+Salud del día)**. Por entreno: kcal guardadas en sesión (Apple/Watch o estimado por time caps del WOD); **tiempo mostrado = inicio→fin** (p. ej. 60′ si así lo apuntaste). Detalle de entreno usa la misma kcal de sesión (no pisa con samples viejos de Salud). Recalc al arrancar (v2026_10_19d).
+- Lista de entrenos Repera del día + actividades externas de Salud (etiqueta «DÍA · hora» misma tipografía; chips min/kcal/**nota**/PR como Historial; tile del día «Nota» en lugar de nº de ejercicios). Notas recalculadas al arrancar si cambia la fórmula (`sessionReviewFormulaVersion`).
 - Acciones: empezar, **Añadir entreno** (`DayPlusSheet`), escanear pizarra → revisión como **página** (no modal) titulada «Añadir entreno».
 - Swipe en filas de entreno: círculo rojo + papelera; **toda la card (chips incluidos)** se desliza. El gesto solo nace fuera del carrusel (sobre chips solo scroll); confirmación glass.
 - También en **entrenos planificados** del día (aún sin registro): swipe borra el suelto o quita la plantilla del weekday (igual que desde el detalle).
@@ -40,6 +40,8 @@
 ### Progreso (`StatsView`)
 
 - Título arriba + periodo como subtítulo; calendario a la derecha (`ogFixedTopBar`).
+- **Gratis:** solo periodo **Esta semana** (entrenos, tiempo total, racha + heatmap básico + teaser Pro). Selector visible: periodos largos marcados Pro → paywall.
+- **Pro:** todos los periodos y métricas avanzadas.
 - Títulos de sección grises encima de cada card (actividad, cardio, peso, equilibrio…).
 - Filtro: **Hoy / Esta semana / Este mes / 90 / 180 / 360 días** (sin «Todo»). Modal fitted + glass.
 - Gráficas: día en periodos cortos; **media semanal** en 90/180; **media mensual** en 360.
@@ -48,11 +50,11 @@
 - **Cardio / calorías / tiles / heatmap / músculo / PRs / peso:** un `ProgressSnapshot` por periodo (`ProgressDataEngine` off-main); `ProgressViewModel` cachea por periodo+revisión y cancela preps obsoletas.
 - Selector de periodo responde al toque; si hay caché, pinta al instante; si no, loader solo en gráficas.
 - Agregación: día (hoy/semana), media semanal (mes/90/180), media mensual (360); Charts ≤48 pts.
-- Calorías: por día **max(energía activa Salud, chips Gymbro+externos)** — misma regla que Inicio; total de gráfica = `summary.totalKcal`.
+- Calorías: por día **max(energía activa Salud, chips Repera+externos)** — misma regla que Inicio; total de gráfica = `summary.totalKcal`.
 - Salud: caché diaria ≤360d; match de sesiones indexado; sin sobrescribir ventanas grandes con refrescos cortos.
 - Heatmap (tiempo/volumen precalculados), equilibrio (all/hard precalculados), progreso por ejercicio y PRs; enlace a historial.
 - `VStack` en el scroll de Progreso (evita salto al subir desde el final por reciclado de LazyVStack).
-- Equilibrio: mapa coloreado por **fatiga retenida** (`MuscleMapEngine`, vida media por músculo) — gris → verde → amarillo → naranja → rojo (Recuperado→Fatigado). Incluye entrenos Gymbro **y** Apple Salud (`HealthMuscleMapper`: correr, tenis/raqueta, bici, natación, HIIT, deportes de equipo, etc.). Barras = series del periodo; color de barra = fatiga. Toggle Todas/Duras.
+- Equilibrio: mapa coloreado por **fatiga retenida** (`MuscleMapEngine`, vida media por músculo) — gris → verde → amarillo → naranja → rojo (Recuperado→Fatigado). Incluye entrenos Repera **y** Apple Salud (`HealthMuscleMapper`: correr, tenis/raqueta, bici, natación, HIIT, deportes de equipo, etc.). Barras = series del periodo; color de barra = fatiga. Toggle Todas/Duras.
 
 ### Ejercicios (`LibraryView`)
 
@@ -79,7 +81,8 @@
 
 - Topbar fijo transparente: nombre del ejercicio + favorito / **+** en toolbar.
 - **+** abre modal de series (`QuickLogSheet`: series, nota, guardar / cancelar = X), sin sesión completa.
-- **Evolución** en la ficha: fuerza → Tope/e1RM/top set; comba/erg → Mejor/Total/Tiempo (cal·m·reps) · gráfica · resumen + **Historial** (líneas `15 cal · 1:00`, no `—×15`).
+- **Gratis:** última sesión + récord / e1RM básico + teaser «Tu evolución» (sin gráfica ni historial completo).
+- **Pro — Evolución:** fuerza → Tope/e1RM/top set; comba/erg → Mejor/Total/Tiempo · gráfica · resumen + **Historial**.
 - Steppers numéricos (`OGRepeatStepper`): ± fiables en scroll; toque en el número → teclado con **intro** (confirma y cierra; el pad puro de Apple no tiene return).
 - **Músculos y equipo**: subsecciones (Músculo / También / Equipo / Deporte); chips con `OGFlowLayout` a todo el ancho de la card.
 - Arte **edge-to-edge**; pie de foto del paso actual si hay carrusel.
@@ -101,26 +104,42 @@
 - Rest feedback (sonido / háptico según settings).
 - **Live Activity** de descanso (isla / pantalla bloqueo; `NSSupportsLiveActivities`).
 - Watch: confirmar ejercicio, conteo, **+1 serie** / log rápido del último ejercicio.
+- **Resultado post-entreno** (`SessionReviewEngine`): nota 1–10 por **rendimiento**. Prioridad: bandas publicadas → ritmos por movimiento/nivel (WOD a medida; tiempos realistas con roturas) → tiempo típico → formato. **Tu rendimiento** en ejercicios similares ajusta hasta ±2. Blurb: «Esperado ~X (intermedio) · tú Y». Recálculo al subir `sessionReviewFormulaVersion` (v4).
 
 ## Salud (Apple)
 
-- Workouts externos → muestras diarias + estímulo muscular (`HealthMuscleMapper`) que alimenta **equilibrio/fatiga** y el heatmap; también en **Historial** (junto a Gymbro) y en la racha de Inicio.
+- Workouts externos → muestras diarias + estímulo muscular (`HealthMuscleMapper`) que alimenta **equilibrio/fatiga** y el heatmap; también en **Historial** (junto a Repera) y en la racha de Inicio.
 - FC por día (min/avg/max) para gráfica Cardio.
-- Energía activa diaria para gráfica Calorías (fusionada con estimados Gymbro como en Inicio).
+- Energía activa diaria para gráfica Calorías (fusionada con estimados Repera como en Inicio).
 - **Sin Apple Watch / sin kcal de Salud:** estimación local MET (≈5.5 fuerza con carga, ≈7 metcon/PC, ≈9 cardio cronometrado) × peso corporal + volumen + reps; calorías de consola (bike/Ski) como **suelo** del estimado; se guarda al terminar y se escribe en Salud como complemento.
 - **Fatiga muscular:** series de máquina/cardio aportan estímulo por duración (no como reps de fuerza); el filtro «Duras» las excluye.
-- Empareja con sesiones Gymbro por UUID / solape temporal (no se duplican en Historial).
+- Empareja con sesiones Repera por UUID / solape temporal (no se duplican en Historial).
 - Borrar entreno en app → intenta borrar workout en Salud.
 - **Caché en disco** del último snapshot (actividades/FC/kcal): al abrir la app se muestran datos al instante; HealthKit actualiza en segundo plano (anclado + observers).
+
+## Onboarding (primer acceso y usuarios existentes)
+
+- Wizard full-screen antes de las tabs: **Sign in with Apple** (obligatorio, CTA en español) → **Gratis o Pro** → **permisos** (notificaciones, Salud, ubicación).
+- Mascota Repera: saludo en login (`MascotWelcome`), thumbs-up en permisos (`MascotPermissions`); plan Pro usa `MascotHero` (PNG con fondo transparente). En permisos, tras conceder, el CTA pasa de «Permitir» a «Hecho».
+- Plan Pro del onboarding: precios y cargos desde StoreKit / App Store Connect (RevenueCat si hay API key).
+- Sin iCloud del sistema: usable en local; aviso para activarlo y poder recuperar tras reinstalar.
+- Denegar permisos no bloquea el avance; se pueden reintentar en Ajustes.
+- LaunchScreen: imageset `Splash` (PNG en asset catalog) + `scaleAspectFit` sobre verde `#002E24`; el sistema solo resuelve imágenes del catálogo en el launch storyboard.
 
 ## Ajustes
 
 - Topbar fijo transparente en Ajustes, Historial, Peso y Rotación (mismo patrón que Ejercicios).
 - Títulos de sección Form en gris encima de cada grupo.
+- **Cuenta:** estado Sign in with Apple / cerrar sesión (vuelve al gate de login).
+- **Repera Pro:** descubrir / estado activo, gestionar suscripción, restaurar compras (Debug: simulador de estados).
 - iCloud (nombre, foto, sync).
-- Apple Salud (conectar / estado).
-- Historial de entrenos (Gymbro + Apple Salud, agrupado por día; hora a la derecha del título; chips en **una sola línea** alineados al título al reposo, carrusel hasta los bordes de la fila si no caben).
-- **Detalle de entreno:** resumen Tiempo/Kcal alineado con Inicio (kcal de sesión; tiempo = inicio→fin). Bloques WOD con cabecera según formato (`AMRAP 20'`, `For Time`, `EMOM…`); score en tarjeta; movimientos como prescripción. EMOM/Tabata/fuerza: series por ejercicio.
+- **Permisos y Apple Salud:** notificaciones, HealthKit, ubicación (+ enlace a Ajustes del sistema).
+
+## Monetización
+
+Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom, 4 escaneos/mes; Pro vía RevenueCat entitlement `pro`.
+- Historial de entrenos (Repera + Apple Salud, agrupado por día; hora a la derecha del título; chips en **una sola línea** alineados al título al reposo, carrusel hasta los bordes de la fila si no caben).
+- **Detalle de entreno:** resumen Tiempo/Kcal alineado con Inicio (kcal de sesión; tiempo = inicio→fin). Sección **Ubicación / Recorrido**: pin del gym (GPS al empezar), ruta propia outdoor o ruta de Salud si hay ≥2 puntos. Sección **Salud**: kcal activa = `session.appleActiveEnergyKcal` (misma que el resumen), no un sample ambiente del intervalo. Sección **Resultado** (`SessionReview`): nota + texto; detalle desplegable. Bloques WOD con cabecera según formato (`AMRAP 20'`, `For Time`, `EMOM…`); score en tarjeta; movimientos como prescripción. EMOM/Tabata/fuerza: series por ejercicio.
 - **Peso corporal** (misma sección): pesajes + objetivo; un valor por día; sync Salud (muestra más reciente del día).
 - Unidades, modo de plan / rotación, semana, descanso, esfuerzo, progresión, incremento.
 - Export/import JSON, CSV Strong/Hevy, borrar datos.
@@ -132,3 +151,11 @@
 ## Fuera de producto
 
 - **Coach** (reglas locales / tips): eliminado; no aportaba acción real sobre los datos.
+
+## Sitio web (`web/` → repera.app)
+
+- Landing: hero (mascota en pose), pilares, cómo funciona, para quién, funciones, Apple Watch (otra pose), confianza/privacidad, Gratis vs Pro, precios, CTA.
+- Legales: `privacy` (incl. cookies), `terms`, `faq` (JSON-LD FAQPage).
+- Banner de cookies + preferencias (esenciales vs analítica opt-in); SEO (meta, OG, sitemap, robots).
+- Responsive móvil/tablet (nav &lt; 900px) y animaciones de reveal respetando `prefers-reduced-motion`.
+- Hosting IONOS (Apache): `web/pack-ionos.sh` genera `repera-ionos.zip` (incluye [`.htaccess`](../web/.htaccess): pretty URLs, gzip, cabeceras). Extraer en `htdocs`. Detalle en [`web/README.md`](../web/README.md).
