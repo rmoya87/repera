@@ -125,9 +125,13 @@ actor ThumbImageLoader {
         manifestBuilt = true
         let bundle = Bundle.main
         var found = Set<String>()
+        // XcodeGen puede copiar los JPG como recursos planos del bundle, no como
+        // folder reference. Incluir la raíz evita que el manifest silencie
+        // miniaturas reales que sí están presentes en el binario.
         let dirs = [
             bundle.resourceURL?.appendingPathComponent("ExerciseArt/thumbs", isDirectory: true),
             bundle.resourceURL?.appendingPathComponent("ExerciseArt", isDirectory: true),
+            bundle.resourceURL,
         ].compactMap { $0 }
         for dir in dirs {
             guard let items = try? FileManager.default.contentsOfDirectory(
@@ -182,9 +186,13 @@ actor ThumbImageLoader {
         if let full = bundle.url(forResource: name, withExtension: "jpg", subdirectory: "ExerciseArt") {
             return [full]
         }
+        if let flat = bundle.url(forResource: name, withExtension: "jpg") {
+            return [flat]
+        }
         return [
             bundle.resourceURL?.appendingPathComponent("ExerciseArt/thumbs/\(name).jpg"),
             bundle.resourceURL?.appendingPathComponent("ExerciseArt/\(name).jpg"),
+            bundle.resourceURL?.appendingPathComponent("\(name).jpg"),
             bundle.bundleURL.appendingPathComponent("ExerciseArt/thumbs/\(name).jpg"),
             bundle.bundleURL.appendingPathComponent("ExerciseArt/\(name).jpg"),
         ].compactMap { $0 }
