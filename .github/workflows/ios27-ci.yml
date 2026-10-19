@@ -88,8 +88,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Do not force -sdk iphonesimulator here: the Repera scheme embeds
+          # ReperaWatch, which must retain watchsimulator as its SDK.
           xcodebuild -project Repera.xcodeproj -scheme Repera \
-            -configuration Debug -sdk iphonesimulator \
+            -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/ReperaDerivedData" \
             CODE_SIGNING_ALLOWED=NO build 2>&1 | tee "$RUNNER_TEMP/repera-ios-build.log"

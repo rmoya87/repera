@@ -119,6 +119,10 @@
 - Se evita un `localizedStandardCompare` caro en cada empate de ranking del buscador: usa la clave de nombre normalizada y precomputada, preservando orden por puntuación; test de rendimiento <3ms debe volver a medirse en CI Xcode 27.
 - Validación Swift 6.4 con CI todavía necesaria; las modificaciones siguen en rama.
 
+## Error real de compilación watchOS corregido en workflow
+- Los logs de Xcode 27 mostraron `actool: AppIcon did not have any applicable content` porque el comando global `-sdk iphonesimulator` forzaba al target `ReperaWatch` (integrado en la scheme iOS) a compilar con iconos de iPhone; actool ejecutaba `--platform iphonesimulator` sobre `Assets.xcassets` de Apple Watch. Se retira ese flag y se deja que los targets seleccionen automáticamente iOS Simulator y watchOS Simulator según su plataforma.
+- No se han inventado ni sustituido iconos de Watch; se mantiene el catálogo real del proyecto. Pendiente validación de build posterior con CI.
+
 ## PENDIENTE
 - Completar integración Auth extremo a extremo en navegador (confirmación de correo, dominios redirect, correo SMTP, refresh de sesión real, recuperación y logout en dispositivos).
 - Invitaciones, membresía administrada transaccionalmente y consentimientos.
