@@ -36,8 +36,8 @@ public enum ExerciseSearch {
     /// No sustituyen los nombres reales; una búsqueda exacta sigue siendo prioritaria.
     private static let bilingualPhrases: [String: String] = [
         "back squat": "sentadilla",
-        "sentadilla trasera": "back squat",
-        "sentadilla con barra": "back squat",
+        "sentadilla trasera": "sentadilla",
+        "sentadilla con barra": "sentadilla",
         "squat": "sentadilla",
         "squats": "sentadilla",
         "power snatch": "arrancada de potencia",
