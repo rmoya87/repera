@@ -84,13 +84,11 @@ jobs:
             -quiet build
       - name: Build ReperaWatch
         run: |
-          DEST=$(xcrun simctl list devices available | awk -F '[()]' '/Apple Watch Series 12/{print $2; exit}')
-          if [ -z "$DEST" ]; then
-            DEST=$(xcrun simctl list devices available | awk -F '[()]' '/Apple Watch/{print $2; exit}')
-          fi
-          echo "Using watch simulator $DEST"
+          # La etiqueta del modelo incluye paréntesis: extraer el UDID con awk
+          # devolvía "46mm" en vez del UUID. El destino genérico es
+          # suficiente para compilar watchOS y evita depender de un simulador.
           xcodebuild -scheme ReperaWatch \
-            -destination "platform=watchOS Simulator,id=$DEST" \
+            -destination "generic/platform=watchOS Simulator" \
             -quiet build
       - name: UI tests (scheme Repera — fail hard)
         run: |
