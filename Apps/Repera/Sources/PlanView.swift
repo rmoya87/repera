@@ -513,6 +513,7 @@ struct DayEditorView: View {
     @State private var showRoutinePicker = false
     @State private var showWODCatalog = false
     @State private var showCreateWODFormat = false
+    @State private var selectFormatForBlock: UUID?
     @State private var saveAsFavorite = false
 
     var body: some View {
@@ -653,12 +654,13 @@ struct DayEditorView: View {
             confirmTitle: confirmTitle,
             onConfirm: confirm
         ))
-        .sheet(item: Binding(
-            get: { pickExerciseForBlock.map { IDBox(id: $0) } },
-            set: { pickExerciseForBlock = $0?.id }
-        )) { box in
-            ExercisePickerView { exercise in
-                if let idx = routine.blocks.firstIndex(where: { $0.id == box.id }) {
+        .navigationDestination(isPresented: Binding(
+            get: { pickExerciseForBlock != nil },
+            set: { if !$0 { pickExerciseForBlock = nil } }
+        )) {
+            ExercisePickerView(embedsNavigationStack: false) { exercise in
+                if let blockID = pickExerciseForBlock,
+                   let idx = routine.blocks.firstIndex(where: { $0.id == blockID }) {
                     let sets = (0..<3).map { _ in PlannedSet(targetReps: 8, targetWeightKg: nil) }
                     routine.blocks[idx].exercises.append(
                         RoutineExercise(exerciseId: exercise.id, plannedSets: sets)
@@ -667,12 +669,13 @@ struct DayEditorView: View {
                 pickExerciseForBlock = nil
             }
         }
-        .sheet(item: Binding(
-            get: { pickMovementForBlock.map { IDBox(id: $0) } },
-            set: { pickMovementForBlock = $0?.id }
-        )) { box in
-            ExercisePickerView { exercise in
-                if let idx = routine.blocks.firstIndex(where: { $0.id == box.id }) {
+        .navigationDestination(isPresented: Binding(
+            get: { pickMovementForBlock != nil },
+            set: { if !$0 { pickMovementForBlock = nil } }
+        )) {
+            ExercisePickerView(embedsNavigationStack: false) { exercise in
+                if let blockID = pickMovementForBlock,
+                   let idx = routine.blocks.firstIndex(where: { $0.id == blockID }) {
                     routine.blocks[idx].movements.append(
                         WODMovement(exerciseId: exercise.id, name: exercise.name, reps: 10)
                     )
@@ -680,7 +683,7 @@ struct DayEditorView: View {
                 pickMovementForBlock = nil
             }
         }
-        .sheet(isPresented: $showRoutinePicker) {
+        .navigationDestination(isPresented: $showRoutinePicker) {
             RoutineImportPickerSheet(
                 routines: importableRoutines,
                 onPick: { source in
@@ -689,9 +692,10 @@ struct DayEditorView: View {
                 },
                 onCancel: { showRoutinePicker = false }
             )
+            .ogPinnedTransparentNav("Añadir rutina")
         }
-        .sheet(isPresented: $showWODCatalog) {
-            WODCatalogPickerView { template in
+        .navigationDestination(isPresented: $showWODCatalog) {
+            WODCatalogPickerView(embedsNavigationStack: false) { template in
                 routine.blocks.append(template.makeBlock())
                 if routine.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     || routine.title == "Entreno"
@@ -701,13 +705,57 @@ struct DayEditorView: View {
                 showWODCatalog = false
             }
         }
-        .confirmationDialog("Formato del WOD", isPresented: $showCreateWODFormat, titleVisibility: .visible) {
-            ForEach(WODFormat.allCases, id: \.self) { format in
-                Button(format.displayName) {
-                    routine.blocks.append(.wod(format: format))
+        .navigationDestination(isPresented: $showCreateWODFormat) {
+            List {
+                ForEach(WODFormat.allCases, id: \.self) { format in
+                    Button {
+                        routine.blocks.append(.wod(format: format))
+                        showCreateWODFormat = false
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(format.displayName).foregroundStyle(OG.label)
+                            Text(format.detail)
+                                .font(.footnote)
+                                .foregroundStyle(OG.label2)
+                        }
+                    }
                 }
             }
-            Button("Cancelar", role: .cancel) {}
+            .ogListChrome()
+            .ogPinnedTransparentNav("Tipo de WOD")
+        }
+        .navigationDestination(isPresented: Binding(
+            get: { selectFormatForBlock != nil },
+            set: { if !$0 { selectFormatForBlock = nil } }
+        )) {
+            List {
+                ForEach(WODFormat.allCases, id: \.self) { format in
+                    Button {
+                        if let id = selectFormatForBlock,
+                           let index = routine.blocks.firstIndex(where: { $0.id == id }) {
+                            setWODFormat(format, at: index)
+                        }
+                        selectFormatForBlock = nil
+                    } label: {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(format.displayName).foregroundStyle(OG.label)
+                                Text(format.detail)
+                                    .font(.footnote)
+                                    .foregroundStyle(OG.label2)
+                            }
+                            Spacer(minLength: 8)
+                            if let id = selectFormatForBlock,
+                               let block = routine.blocks.first(where: { $0.id == id }),
+                               block.wodFormat == format {
+                                Image(systemName: "checkmark").foregroundStyle(OG.accent)
+                            }
+                        }
+                    }
+                }
+            }
+            .ogListChrome()
+            .ogPinnedTransparentNav("Formato del WOD")
         }
     }
 
@@ -949,29 +997,38 @@ struct DayEditorView: View {
     }
 
     @ViewBuilder
+    private func setWODFormat(_ format: WODFormat, at index: Int) {
+        routine.blocks[index].wodFormat = format
+        if format == .tabata {
+            routine.blocks[index].workSeconds = routine.blocks[index].workSeconds ?? 20
+            routine.blocks[index].restSeconds = routine.blocks[index].restSeconds ?? 10
+            routine.blocks[index].rounds = routine.blocks[index].rounds ?? 8
+        }
+        if format == .forTime {
+            routine.blocks[index].rounds = routine.blocks[index].rounds ?? 4
+            routine.blocks[index].timeCapMinutes = routine.blocks[index].timeCapMinutes ?? 12
+        }
+        if format == .amrap || format == .emom {
+            routine.blocks[index].timeCapMinutes = routine.blocks[index].timeCapMinutes ?? 12
+        }
+        if format == .emom {
+            routine.blocks[index].deriveEmomRoundsIfNeeded()
+        }
+    }
+
     private func wodBlock(index: Int) -> some View {
-        Picker("Formato", selection: Binding(
-            get: { routine.blocks[index].wodFormat ?? .amrap },
-            set: { new in
-                routine.blocks[index].wodFormat = new
-                if new == .tabata {
-                    routine.blocks[index].workSeconds = routine.blocks[index].workSeconds ?? 20
-                    routine.blocks[index].restSeconds = routine.blocks[index].restSeconds ?? 10
-                    routine.blocks[index].rounds = routine.blocks[index].rounds ?? 8
-                }
-                if new == .forTime {
-                    routine.blocks[index].rounds = routine.blocks[index].rounds ?? 4
-                    routine.blocks[index].timeCapMinutes = routine.blocks[index].timeCapMinutes ?? 12
-                }
-                if new == .amrap || new == .emom {
-                    routine.blocks[index].timeCapMinutes = routine.blocks[index].timeCapMinutes ?? 12
-                }
-                if new == .emom {
-                    routine.blocks[index].deriveEmomRoundsIfNeeded()
-                }
+        Button {
+            selectFormatForBlock = routine.blocks[index].id
+        } label: {
+            HStack {
+                Text("Formato")
+                Spacer()
+                Text((routine.blocks[index].wodFormat ?? .amrap).displayName)
+                    .foregroundStyle(OG.label2)
+                Image(systemName: "chevron.right")
+                    .font(.footnote)
+                    .foregroundStyle(OG.label3)
             }
-        )) {
-            ForEach(WODFormat.allCases, id: \.self) { Text($0.displayName).tag($0) }
         }
 
         if let format = routine.blocks[index].wodFormat {
