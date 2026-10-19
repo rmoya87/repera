@@ -7,6 +7,7 @@ on:
     branches:
       - feat/ios27-native-performance-audit
       - fix/ios27-jank-search-reliability
+      - feat/repera-business-platform
       - main
 
 concurrency:
