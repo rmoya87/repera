@@ -78,10 +78,14 @@ struct PlanView: View {
                     .accessibilityLabel("Más opciones")
                 }
             }
-            .sheet(item: $editing) { routine in
-                DayEditorView(routine: routine, mode: .plan(isNew: isCreating))
-                    .ogSheetChrome(detents: [.large])
-                    .onDisappear { isCreating = false }
+            .navigationDestination(item: $editing) { routine in
+                DayEditorView(
+                    routine: routine,
+                    mode: .plan(isNew: isCreating),
+                    embedsNavigationStack: false,
+                    usesPageCloseHeader: true
+                )
+                .onDisappear { isCreating = false }
             }
             .sheet(item: Binding(
                 get: { assigningDay.map { WeekdayBox(day: $0) } },
@@ -910,17 +914,12 @@ struct DayEditorView: View {
                     Label("Añadir serie", systemImage: "plus")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(OG.accent)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
 
-                Picker("Superserie", selection: Binding(
-                    get: { routine.blocks[index].exercises[exIndex].supersetGroup ?? 0 },
-                    set: { routine.blocks[index].exercises[exIndex].supersetGroup = $0 == 0 ? nil : $0 }
-                )) {
-                    Text("Ninguna").tag(0)
-                    Text("Superserie A").tag(1)
-                    Text("Superserie B").tag(2)
-                    Text("Superserie C").tag(3)
-                }
             }
         }
         .reorderable(collectionID: blockId)
@@ -1884,23 +1883,15 @@ struct RoutineExerciseEditor: View {
                     Label("Añadir serie", systemImage: "plus")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(OG.accent)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             } header: {
                 Text("Objetivo por serie")
             } footer: {
                 Text("Cada serie puede tener peso, reps y RIR distintos.")
-            }
-
-            Section("Superserie") {
-                Picker("Grupo", selection: Binding(
-                    get: { item.supersetGroup ?? 0 },
-                    set: { item.supersetGroup = $0 == 0 ? nil : $0 }
-                )) {
-                    Text("Ninguna").tag(0)
-                    Text("Superserie A").tag(1)
-                    Text("Superserie B").tag(2)
-                    Text("Superserie C").tag(3)
-                }
             }
 
             Section {
