@@ -21,6 +21,10 @@ echo "Repera iOS · ejecución local en simulador"
 echo "Esta ejecución NO despliega ni publica la aplicación."
 echo
 
+# Fast-forward seguro en main antes de comprobar archivos o generar Xcode.
+# Si hay cambios locales, la actualización se omite sin perder trabajo.
+bash "$ROOT/scripts/update_repera_checkout.sh" "$ROOT"
+
 if [[ ! -f "$ROOT/project.yml" ]]; then
   echo "ERROR: project.yml no encontrado. Sitúa el lanzador en la raíz de Repera."
   exit 1

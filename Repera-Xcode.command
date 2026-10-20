@@ -19,6 +19,10 @@ echo "El archivo Repera.xcodeproj es generado y NO se guarda en GitHub."
 echo "No se borran DerivedData, preferencias, simuladores, llaveros ni datos locales."
 echo
 
+# Repera.xcodeproj no se versiona: antes de generarlo comprobamos la versión
+# de main; únicamente actualizamos automáticamente si la copia Git está limpia.
+bash "$ROOT/scripts/update_repera_checkout.sh" "$ROOT"
+
 for source in BusinessAuthStore.swift BusinessDataStore.swift BusinessWorkoutSyncStore.swift; do
   if [[ ! -f "Apps/Repera/Sources/$source" ]]; then
     echo "ERROR: Falta $source en esta copia local de Repera."
