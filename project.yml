@@ -9,6 +9,9 @@ options:
   createIntermediateGroups: true
   groupSortPosition: top
 
+fileGroups:
+  - Configs/Version.xcconfig
+
 packages:
   ReperaDomain:
     path: Packages/ReperaDomain
