@@ -270,6 +270,29 @@ struct SettingsView: View {
             }
 
             Section {
+                if businessData.personalNotices.isEmpty {
+                    LabeledContent("Mensajes", value: "Sin avisos")
+                } else {
+                    ForEach(businessData.personalNotices) { message in
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(message.title)
+                                .font(.headline)
+                            Text(message.body)
+                                .font(.subheadline)
+                            Text(businessData.centerName(message.orgId))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            } header: {
+                Text("Avisos de entrenadores y centros")
+            } footer: {
+                Text("Solo se muestran avisos de tus centros vinculados en Repera Business. La entrega push todavía no está habilitada.")
+            }
+
+            Section {
                 if subscriptions.isPro {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {

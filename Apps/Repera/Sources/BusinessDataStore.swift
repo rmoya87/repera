@@ -144,6 +144,22 @@ struct BusinessProfessionalTrainingSession: Decodable, Identifiable {
     }
 }
 
+struct BusinessClientNotification: Decodable, Identifiable {
+    let id: UUID
+    let orgId: UUID
+    let clientId: UUID
+    let title: String
+    let body: String
+    let createdAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, body
+        case orgId = "org_id"
+        case clientId = "client_id"
+        case createdAt = "created_at"
+    }
+}
+
 private struct BusinessClientLink: Decodable {
     let id: UUID
     let orgId: UUID
@@ -169,6 +185,7 @@ final class BusinessDataStore {
     private(set) var bookings: [BusinessBooking] = []
     private(set) var availability: [UUID: BusinessAvailability] = [:]
     private(set) var trainingSessions: [BusinessProfessionalTrainingSession] = []
+    private(set) var personalNotices: [BusinessClientNotification] = []
     private(set) var isLoading = false
     @ObservationIgnored private var refreshRevision = 0
     private(set) var errorMessage: String?
@@ -188,6 +205,7 @@ final class BusinessDataStore {
         bookings = []
         availability = [:]
         trainingSessions = []
+        personalNotices = []
         errorMessage = nil
     }
 
@@ -235,6 +253,10 @@ final class BusinessDataStore {
                 .from("professional_training_sessions")
                 .select("id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,prescription,status")
                 .execute().value
+            let fetchedNotices: [BusinessClientNotification] = try await client
+                .from("business_client_notifications")
+                .select("id,org_id,client_id,title,body,created_at")
+                .execute().value
             // Capacity counts are authorized by org membership, never exposing
             // the identities or bookings of other athletes.
             var counts: [UUID: BusinessAvailability] = [:]
@@ -261,6 +283,7 @@ final class BusinessDataStore {
             occurrences = fetchedOccurrences.filter { $0.status == "active" }
             passes = fetchedPasses.filter { ownedClientIds.contains($0.clientId) }
             bookings = fetchedBookings.filter { ownedClientIds.contains($0.clientId) }
+            personalNotices = fetchedNotices.filter { ownedClientIds.contains($0.clientId) }
             trainingSessions = fetchedTrainingSessions.filter { ownedClientIds.contains($0.clientId) && $0.status == "scheduled" }.sorted { $0.scheduledDate < $1.scheduledDate }
             errorMessage = nil
         } catch {
