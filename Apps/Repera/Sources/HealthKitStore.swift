@@ -1066,7 +1066,9 @@ final class HealthKitStore {
             averageHeartRateBpm: bpmValues.isEmpty ? nil : bpmValues.reduce(0, +) / Double(bpmValues.count),
             maxHeartRateBpm: bpmValues.max(),
             minHeartRateBpm: bpmValues.min(),
-            heartRateSeries: downsample(series, maxCount: 120),
+            // Más muestras para obtener FC media fiable en parciales largos,
+            // conservando la reducción de puntos en entrenos sin recorrido.
+            heartRateSeries: downsample(series, maxCount: points.count >= 2 ? 480 : 120),
             routePoints: downsampleRoute(points, maxCount: 400),
             averageSpeedKmh: avgSpeedKmh,
             maxSpeedKmh: maxSpeedKmh,
