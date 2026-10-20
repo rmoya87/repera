@@ -85,6 +85,7 @@ jobs:
         run: |
           python3 scripts/check_xcode_sources.py
           python3 -m unittest discover -s tests -p test_xcode_sources.py -v
+          python3 -m unittest discover -s tests -p test_checkout_refresh.py -v
       - name: Parse Swift sources with Xcode 27 compiler
         shell: bash
         run: |

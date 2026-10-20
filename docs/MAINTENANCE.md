@@ -1,6 +1,6 @@
 # Mantenimiento de la documentación
 
-Última actualización: 2026-10-19 (web IONOS / .htaccess)
+Última actualización: 2026-10-20 (recuperación segura del proyecto Xcode local)
 
 ## Regla de oro
 

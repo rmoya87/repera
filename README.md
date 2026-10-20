@@ -54,7 +54,9 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 
 El proyecto Xcode (`Repera.xcodeproj`) **se genera localmente** y no se versiona. Puede quedarse con la lista de fuentes anterior a la integración de Supabase, aunque los archivos Swift existan en disco. Por tanto, errores como `Cannot find 'BusinessAuthStore' in scope` o `Cannot find 'BusinessWorkoutSyncStore' in scope` (desde `BusinessAuthStore.swift:258`) suelen requerir regenerar el proyecto, **no duplicar la clase ni eliminar la limpieza de la sesión Supabase**. El validador comprueba también que el archivo esté en *Compile Sources*, no solo en el navegador de Xcode.
 
-Cierra Xcode y haz doble clic en [`Repera-Xcode.command`](Repera-Xcode.command). Alternativa:
+Cierra Xcode y haz doble clic en [`Repera-Xcode.command`](Repera-Xcode.command). **Este lanzador ahora comprueba `origin/main` y hace solo un fast-forward cuando trabajas en `main` y no hay cambios sin confirmar**; después ejecuta XcodeGen, comprueba que los cuatro almacenes Apple/Supabase están realmente en *Compile Sources* y abre el proyecto regenerado. [`Repera-iOS.command`](Repera-iOS.command) usa la misma reparación antes de lanzar Simulator.
+
+Si la carpeta local tiene cambios sin confirmar, otra rama o no hay conexión, el lanzador **no sobrescribe, descarta ni fusiona nada**: avisa y utiliza el código disponible. Si falta `BusinessWorkoutSyncStore.swift`, guarda tus cambios y actualiza `main`; regenerar un proyecto no puede inventar un archivo Swift ausente. Alternativa:
 
 ```bash
 cd /Users/ramon/Proyectos/repera
