@@ -193,3 +193,16 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 - Banner de cookies + preferencias (esenciales vs analítica opt-in); SEO (meta, OG, sitemap, robots).
 - Responsive móvil/tablet (nav &lt; 900px) y animaciones de reveal respetando `prefers-reduced-motion`.
 - Hosting IONOS (Apache): `web/pack-ionos.sh` genera `repera-ionos.zip` (incluye [`.htaccess`](../web/.htaccess): pretty URLs, gzip, cabeceras). Extraer en `htdocs`. Detalle en [`web/README.md`](../web/README.md).
+
+
+## Sueño y ciclo (iOS 27)
+
+- Progreso agrupa **Entreno**, **Actividad** y **Recuperación** mediante controles segmentados nativos.
+- Ajustes → Salud y recuperación: activación opcional y permisos separados de HealthKit.
+- Sueño: una sola fuente nocturna y fusión de intervalos solapados; tendencias con Swift Charts.
+- Ciclo: muestras de menstruación y pruebas de ovulación, fase solo orientativa con historial suficiente. No permite confirmar ovulación ni prever fertilidad.
+- Consejos locales durante el entrenamiento y al consultar resultados, sin modificar la nota real ni la prescripción profesional.
+- Supabase no recibe horas o fases de sueño, datos menstruales, temperatura, notas médicas, calorías/duración de Apple Salud ni indicadores derivados.
+- Se elimina el editor y la semántica de superseries; los campos antiguos se conservan solo para lectura compatible.
+- Los editores desde Diario y la revisión del entreno se muestran mediante navegación push, no como hojas modales anidadas.
+- La acción «Añadir serie» tiene área táctil de altura mínima 44 puntos y se alinea con las filas de series.
