@@ -89,6 +89,39 @@ struct BusinessBooking: Decodable, Identifiable {
         case occurrenceId = "occurrence_id"
     }
 }
+// Wire contract v1, intentionally separate from private ReperaStore work sessions.
+// IDs and catalog keys are authored by the trainer and authenticated by Supabase.
+struct BusinessPrescription: Decodable {
+    let schemaVersion: Int?
+    let blocks: [BusinessPrescriptionBlock]
+}
+struct BusinessPrescriptionBlock: Decodable, Identifiable {
+    let id: UUID
+    let title: String
+    let kind: String
+    let exercises: [BusinessPrescriptionEntry]
+    let movements: [BusinessPrescriptionEntry]
+    let wodFormat: String?
+    let rounds: Int?
+    let timeCapMinutes: Int?
+    var entries: [BusinessPrescriptionEntry] { kind == "wod" ? movements : exercises }
+}
+struct BusinessPrescriptionEntry: Decodable, Identifiable {
+    let id: UUID
+    let source: String
+    let catalogKey: String?
+    let name: String
+    let plannedSets: [BusinessPrescriptionSet]?
+    let reps: Int?
+    let notes: String?
+}
+struct BusinessPrescriptionSet: Decodable, Identifiable {
+    let id: UUID
+    let targetReps: Int
+    let targetWeightKg: Double?
+    let targetRir: Double?
+}
+
 struct BusinessProfessionalTrainingSession: Decodable, Identifiable {
     let id: UUID
     let orgId: UUID
@@ -98,9 +131,10 @@ struct BusinessProfessionalTrainingSession: Decodable, Identifiable {
     let title: String
     let instructions: String
     let status: String
+    let prescription: BusinessPrescription?
 
     enum CodingKeys: String, CodingKey {
-        case id, title, instructions, status
+        case id, title, instructions, status, prescription
         case orgId = "org_id"
         case clientId = "client_id"
         case coachUserId = "coach_user_id"
@@ -193,7 +227,7 @@ final class BusinessDataStore {
                 .execute().value
             let fetchedTrainingSessions: [BusinessProfessionalTrainingSession] = try await client
                 .from("professional_training_sessions")
-                .select("id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,status")
+                .select("id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,prescription,status")
                 .execute().value
             // Capacity counts are authorized by org membership, never exposing
             // the identities or bookings of other athletes.
