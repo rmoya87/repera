@@ -466,3 +466,52 @@ struct RecoveryTrainingTip: View {
         .task { await recovery.refresh() }
     }
 }
+
+struct RecoveryHomeCard: View {
+    @State private var recovery = HealthRecoveryStore.shared
+
+    var body: some View {
+        if recovery.sleepEnabled || recovery.cycleEnabled {
+            VStack(alignment: .leading, spacing: 8) {
+                OGCardSectionTitle(title: "Tu estado de hoy")
+                NavigationLink {
+                    HealthRecoverySettingsView()
+                } label: {
+                    OGCard {
+                        HStack(spacing: 14) {
+                            Image(systemName: "moon.stars.fill")
+                                .font(.title2)
+                                .foregroundStyle(OG.accent)
+                                .frame(width: 42, height: 42)
+                                .background(OG.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 13))
+                            VStack(alignment: .leading, spacing: 4) {
+                                if recovery.sleepEnabled {
+                                    Text(recovery.lastNight.map { String(format: "%.1f h de sueño", $0.hours) }
+                                        ?? "Sueño: esperando datos de Apple Salud")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(OG.label)
+                                }
+                                if recovery.cycleEnabled {
+                                    Text(recovery.cycleEstimate.rawValue)
+                                        .font(.footnote)
+                                        .foregroundStyle(OG.label2)
+                                }
+                                if let index = recovery.sleepIndex {
+                                    Text("Índice orientativo de sueño · \\(index)/100")
+                                        .font(.caption)
+                                        .foregroundStyle(OG.label3)
+                                }
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(OG.label3)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .task { await recovery.refresh() }
+        }
+    }
+}
