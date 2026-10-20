@@ -99,8 +99,9 @@ test('Authenticated professional plan publication uses RPC with immutable idempo
   return response([]);
  }});
  await api.signIn('a@example.test','12345678');
- await api.publishProfessionalSession({orgId:userId,clientId:userId,date:'2026-10-21',title:'Fuerza A',instructions:'3x8',requestId:userId});
- const req=calls.find(x=>x.url.endsWith('/rpc/publish_professional_session'));
- assert.deepEqual(JSON.parse(req.options.body),{p_org:userId,p_client:userId,p_day:'2026-10-21',p_title:'Fuerza A',p_instructions:'3x8',p_request:userId});
+ const prescription={version:1,blocks:[{kind:'strength',format:'sets',title:'Fuerza',rounds:1,timeCap:0,exercises:[{id:'sentadilla',name:'Sentadilla',sets:3,reps:8,rir:2,weight:0,duration:0,notes:''}]}]};
+ await api.publishProfessionalSession({orgId:userId,clientId:userId,date:'2026-10-21',title:'Fuerza A',instructions:'3x8',prescription,requestId:userId});
+ const req=calls.find(x=>x.url.endsWith('/rpc/publish_professional_session_v2'));
+ assert.deepEqual(JSON.parse(req.options.body),{p_org:userId,p_client:userId,p_day:'2026-10-21',p_title:'Fuerza A',p_instructions:'3x8',p_request:userId,p_prescription:prescription});
  assert.equal(req.options.headers.Authorization,'Bearer plan-jwt');
 });
