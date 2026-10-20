@@ -1,15 +1,24 @@
 # Estado de desarrollo — Repera Business
-Última actualización: 2026-10-20 (editor visual y navegación por perfil en rama; migración pendiente).
+Última actualización: 2026-10-20 (fichas 360, registro y migraciones aplicadas).
 
-## IMPLEMENTADO EN CÓDIGO (2026-10-20; no desplegado ni validado en Supabase)
+## IMPLEMENTADO EN RAMA Y SUPABASE REAL (2026-10-20; pendiente E2E y despliegue)
 - Interfaz clara para consola conectada y demo: modales blancos, botones accesibles, iconos SVG y navegación específica gimnasio/entrenador personal. El entrenador conserva citas y evita «Operaciones del centro».
 - Ficha del negocio editable en Configuración: nombre, email público, teléfono, web, dirección, descripción y zona horaria (roles de propietario y administrador).
 - Editor profesional de bloques de fuerza, WOD, calentamiento, AMRAP, EMOM, RFT, Every y For Time. Ejercicios con miniaturas, series, reps, RIR, kilos, segundos, rondas, time cap, notas y ejercicios manuales.
 - Catálogo web derivado de `ExerciseArt.swift` (189 entradas, 188 ilustraciones originales de iOS) con equivalencias ES/EN principales; no hay aún regeneración automática cuando cambia el catálogo Swift.
 - Plantillas por organización protegidas con RLS; al aplicar una plantilla a un atleta se publica una prescripción propia, editable sin alterar el original. Las sesiones futuras se actualizan por RPC con comprobación de autorización.
 - En Inicio y Diario de iOS se muestran los bloques estructurados con miniaturas y objetivos, sin sobrescribir resultados e historial privados del atleta.
-- Migración a aplicar antes de usar la UI conectada: `supabase/migrations/20261020104200_business_visual_workout_templates.sql`. Sin aplicarla, fallarán las consultas a nuevos campos, plantillas y RPC v2.
-- Limitaciones: el editor estructurado está conectado al panel autenticado, no al constructor semanal de la demostración; la ejecución estructurada de estas sesiones en iOS sigue pendiente. No está desplegado, fusionado con main ni verificado con cuentas reales o build Xcode.
+- Migraciones `business_visual_workout_templates`, `business_360_operations`, `business_groups_recurrence_trial_gate`, `business_class_prescriptions`, `business_pass_management_audit`, `business_athlete_history_consent`, `business_athlete_history_toggle` y `business_group_members` aplicadas realmente a Supabase Repera. Cero usuarios y cero organizaciones persistentes al verificar.
+- Limitaciones: la demo local conserva editor semanal básico; la consola conectada no está desplegada ni fusionada con main. La ejecución estructurada profesional en iOS y los pagos/Push requieren completar integraciones, E2E y revisión de seguridad.
+
+## Ampliaciones del 20 de octubre de 2026
+- Menú profesional simplificado: Inicio, Clientes, Entrenamientos, Clases y reservas (Citas para autónomo), Bonos, Facturación, Analíticas, Configuración y Equipo/espacios exclusivo de centros. Eliminados Grupos, Agenda deportistas y Operaciones como menús independientes.
+- Inicio muestra clases clicables. Fichas de clientes: avatar, datos, bonos con saldo y gestión auditada, planes, reservas, vínculo por invitación aceptada, avisos y actividad compartida solo tras autorización granular.
+- Clases: calendario y listado, detalle con lugar, color, foto por URL, aforo, inscritos, alta y baja con débito/abono, cancelación con reembolso, recurrencias 1–52 y programación por bloques para inscritos vinculados. Gestión de grupos/miembros dentro de clases.
+- Registro con tipo de negocio, login Supabase Auth y prueba real de siete días desde creación de organización. Vencimiento y escritura protegidos en Postgres; la elección de tarifa no concede acceso sin pago verificado.
+- Admin Repera: email `rmoya87@gmail.com` recibirá rol al registrarse y verificar el correo. No existe aún usuario Auth creado, por lo que no se ha concedido acceso a una cuenta existente.
+- Precios propuestos: entrenador hasta 5/50/75 por 14/50/65 €; gimnasio 35/70/ilimitado por 34/44/54 € (oferta 2 meses, precio posterior sin fijar).
+- El paquete IONOS ahora incluye `/console/`, pero no se ha publicado todavía. SMTP/redirects y E2E deben comprobarse.
 
 ## IMPLEMENTADO (verificado en Supabase Repera)
 - Proyecto `uvzgujlrqohreoucirms` conectado y sano; PostgreSQL 17.
