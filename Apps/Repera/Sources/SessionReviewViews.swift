@@ -68,6 +68,9 @@ struct SessionReviewCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            RecoveryTrainingTip()
+                .padding(.horizontal, 12)
+                .padding(.top, 12)
             Button {
                 guard hasDetails else { return }
                 withAnimation(.snappy(duration: 0.22)) {
