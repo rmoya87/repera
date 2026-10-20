@@ -89,6 +89,32 @@ struct BusinessBooking: Decodable, Identifiable {
         case occurrenceId = "occurrence_id"
     }
 }
+/// Prescripción estructurada de Repera Business, separada de las series completadas del deportista.
+struct BusinessWorkoutPrescription: Decodable {
+    let version: Int?
+    let blocks: [BusinessWorkoutBlock]
+}
+
+struct BusinessWorkoutBlock: Decodable {
+    let kind: String
+    let format: String
+    let title: String
+    let rounds: Int?
+    let timeCap: Int?
+    let exercises: [BusinessWorkoutMovement]
+}
+
+struct BusinessWorkoutMovement: Decodable {
+    let id: String?
+    let name: String
+    let sets: Int?
+    let reps: Int?
+    let rir: Int?
+    let weight: Double?
+    let duration: Int?
+    let notes: String?
+}
+
 struct BusinessProfessionalTrainingSession: Decodable, Identifiable {
     let id: UUID
     let orgId: UUID
@@ -97,10 +123,11 @@ struct BusinessProfessionalTrainingSession: Decodable, Identifiable {
     let scheduledDate: String  // yyyy-MM-dd, date-only (never UTC-shifted)
     let title: String
     let instructions: String
+    let prescription: BusinessWorkoutPrescription?
     let status: String
 
     enum CodingKeys: String, CodingKey {
-        case id, title, instructions, status
+        case id, title, instructions, prescription, status
         case orgId = "org_id"
         case clientId = "client_id"
         case coachUserId = "coach_user_id"
@@ -193,7 +220,7 @@ final class BusinessDataStore {
                 .execute().value
             let fetchedTrainingSessions: [BusinessProfessionalTrainingSession] = try await client
                 .from("professional_training_sessions")
-                .select("id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,status")
+                .select("id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,prescription,status")
                 .execute().value
             // Capacity counts are authorized by org membership, never exposing
             // the identities or bookings of other athletes.
