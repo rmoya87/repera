@@ -105,7 +105,7 @@ struct DayPlusSheet: View {
                 }) {
                     LibraryPicker(image: $captured).ignoresSafeArea()
                 }
-                .sheet(isPresented: $showDayEditor) {
+                .navigationDestination(isPresented: $showDayEditor) {
                     DayEditorView(
                         routine: Routine(
                             title: "Entreno · \(dayName)",
@@ -114,9 +114,10 @@ struct DayPlusSheet: View {
                             blocks: [.strength(title: "Bloque 1")],
                             progression: .off
                         ),
-                        mode: .oneOff(isNew: true)
+                        mode: .oneOff(isNew: true),
+                        embedsNavigationStack: false,
+                        usesPageCloseHeader: true
                     )
-                    .ogSheetChrome(detents: [.large])
                     .onDisappear {
                         if store.routineForDay(dayStart)?.isOneOff == true {
                             dismiss()
@@ -460,7 +461,7 @@ struct BoardImportReviewView: View {
                 .disabled(!canConfirm)
             }
         }
-        .sheet(isPresented: $showEditor) {
+        .navigationDestination(isPresented: $showEditor) {
             DayEditorView(
                 routine: draftRoutine,
                 mode: .session,
@@ -469,11 +470,10 @@ struct BoardImportReviewView: View {
                     draftRoutine = edited
                     showEditor = false
                 },
-                embedsNavigationStack: true,
+                embedsNavigationStack: false,
                 usesPageCloseHeader: true
             )
             .id(draftRoutine.id)
-            .ogSheetChrome(detents: [.large])
         }
         .onAppear { seedIfNeeded() }
     }
