@@ -137,11 +137,24 @@ struct BusinessProfessionalTrainingSession: Decodable, Identifiable {
 
 private struct BusinessClientLink: Decodable {
     let id: UUID
+    let orgId: UUID
     let userId: UUID?
 
     enum CodingKeys: String, CodingKey {
         case id
+        case orgId = "org_id"
         case userId = "user_id"
+    }
+}
+
+private struct BusinessHistoryConsent: Decodable {
+    let orgId: UUID
+    let clientId: UUID
+    let revokedAt: String?
+    enum CodingKeys: String, CodingKey {
+        case orgId = "org_id"
+        case clientId = "client_id"
+        case revokedAt = "revoked_at"
     }
 }
 
@@ -157,6 +170,8 @@ final class BusinessDataStore {
     private(set) var bookings: [BusinessBooking] = []
     private(set) var availability: [UUID: BusinessAvailability] = [:]
     private(set) var trainingSessions: [BusinessProfessionalTrainingSession] = []
+    private(set) var sharedHistoryOrgIds: Set<UUID> = []
+    private(set) var linkedClientByOrg: [UUID: UUID] = [:]
     private(set) var isLoading = false
     @ObservationIgnored private var refreshRevision = 0
     private(set) var errorMessage: String?
@@ -175,6 +190,8 @@ final class BusinessDataStore {
         bookings = []
         availability = [:]
         trainingSessions = []
+        sharedHistoryOrgIds = []
+        linkedClientByOrg = [:]
         errorMessage = nil
     }
 
@@ -203,9 +220,13 @@ final class BusinessDataStore {
                 .execute().value
             let fetchedLinks: [BusinessClientLink] = try await client
                 .from("clients")
-                .select("id,user_id")
+.select("id,org_id,user_id")
                 .execute().value
             let ownedClientIds = Set(fetchedLinks.filter { $0.userId == currentUser }.map(\.id))
+            let fetchedHistoryConsents: [BusinessHistoryConsent] = try await client
+                .from("athlete_business_history_consents")
+                .select("org_id,client_id,revoked_at")
+                .execute().value
             let fetchedOccurrences: [BusinessOccurrence] = try await client
                 .from("service_occurrences")
                 .select("id,org_id,kind,title,starts_at,ends_at,capacity,status")
@@ -247,6 +268,8 @@ final class BusinessDataStore {
             occurrences = fetchedOccurrences.filter { $0.status == "active" }
             passes = fetchedPasses.filter { ownedClientIds.contains($0.clientId) }
             bookings = fetchedBookings.filter { ownedClientIds.contains($0.clientId) }
+            linkedClientByOrg = Dictionary(fetchedLinks.filter { $0.userId == currentUser }.map { ($0.orgId, $0.id) }, uniquingKeysWith: { first, _ in first })
+            sharedHistoryOrgIds = Set(fetchedHistoryConsents.filter { $0.revokedAt == nil && ownedClientIds.contains($0.clientId) }.map(\.orgId))
             trainingSessions = fetchedTrainingSessions.filter { ownedClientIds.contains($0.clientId) && $0.status == "scheduled" }.sorted { $0.scheduledDate < $1.scheduledDate }
             errorMessage = nil
         } catch {
@@ -337,4 +360,21 @@ final class BusinessDataStore {
             errorMessage = "No se ha podido cancelar la reserva: \(error.localizedDescription)"
         }
     }
+    /// Explicit grant per linked organization; the RPC verifies auth.uid() is the athlete.
+    func setHistorySharing(_ allow: Bool, orgId: UUID) async {
+        guard let client = BusinessAuthStore.shared.apiClient,
+              let clientId = linkedClientByOrg[orgId], !isSubmitting else { return }
+        isSubmitting = true
+        defer { isSubmitting = false }
+        do {
+            try await client.rpc("set_athlete_history_consent",
+                                 params: ["p_org": orgId.uuidString,
+                                          "p_client": clientId.uuidString,
+                                          "p_allow": allow ? "true" : "false"]).execute()
+            await refresh()
+        } catch {
+            errorMessage = "No se pudo actualizar el consentimiento: \(error.localizedDescription)"
+        }
+    }
+
 }
