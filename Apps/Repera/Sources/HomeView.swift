@@ -133,6 +133,9 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     weekAndDayCard
+                    if calendar.isDateInToday(selectedDay) {
+                        RecoveryHomeCard()
+                    }
                     professionalSessionsForSelectedDay
                     confirmedBusinessBookingsCard
                     streakCard
