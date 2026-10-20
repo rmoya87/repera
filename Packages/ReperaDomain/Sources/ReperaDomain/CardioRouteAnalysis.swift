@@ -93,13 +93,16 @@ public enum CardioRouteAnalysis {
             }
             if let altitude = validAltitude(sample.altitudeMeters) {
                 if let earlier = previousAltitude {
-                    // Evita sumar ruido de precisión vertical como desnivel real.
+                    // Referencia estable: acumula también ascensos graduales de 1-2 m,
+                    // sin sumar oscilaciones insignificantes punto por punto.
                     let delta = altitude - earlier
                     if abs(delta) >= 3, abs(delta) / max(meters, 1) <= 1.5 {
                         if delta > 0 { ascent += delta } else { descent -= delta }
+                        previousAltitude = altitude
                     }
+                } else {
+                    previousAltitude = altitude
                 }
-                previousAltitude = altitude
                 profile.append(ProfilePoint(id: profile.count, date: sample.date,
                                             distanceKm: distance / 1000, altitudeMeters: altitude))
             }
