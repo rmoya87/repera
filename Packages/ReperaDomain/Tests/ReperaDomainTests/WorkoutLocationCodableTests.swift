@@ -24,7 +24,8 @@ final class WorkoutLocationCodableTests: XCTestCase {
             latitude: 40.4,
             longitude: -3.7,
             name: "Retiro",
-            mapItemIdentifier: "I63802885C8189B2B"
+            mapItemIdentifier: "I63802885C8189B2B",
+            pointOfInterestCategory: "MKPOICategoryPark"
         )
         session.routePoints = [
             WorkoutRoutePoint(id: 0, latitude: 40.4, longitude: -3.7, speedMps: 2.5),
@@ -35,6 +36,7 @@ final class WorkoutLocationCodableTests: XCTestCase {
         XCTAssertEqual(decoded.locationPin?.latitude, 40.4)
         XCTAssertEqual(decoded.locationPin?.name, "Retiro")
         XCTAssertEqual(decoded.locationPin?.mapItemIdentifier, "I63802885C8189B2B")
+        XCTAssertEqual(decoded.locationPin?.pointOfInterestCategory, "MKPOICategoryPark")
         XCTAssertEqual(decoded.routePoints.count, 2)
         XCTAssertEqual(decoded.routePoints[1].speedMps, 3.0)
     }

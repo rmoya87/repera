@@ -1659,19 +1659,23 @@ public struct WorkoutLocationPin: Codable, Sendable, Equatable {
     public var name: String?
     /// `MKMapItem.Identifier` raw value para reconstruir el marcador nativo.
     public var mapItemIdentifier: String?
+    /// `MKPointOfInterestCategory.rawValue` para el glyph de Mapas.
+    public var pointOfInterestCategory: String?
 
     public init(
         latitude: Double,
         longitude: Double,
         recordedAt: Date = Date(),
         name: String? = nil,
-        mapItemIdentifier: String? = nil
+        mapItemIdentifier: String? = nil,
+        pointOfInterestCategory: String? = nil
     ) {
         self.latitude = latitude
         self.longitude = longitude
         self.recordedAt = recordedAt
         self.name = name
         self.mapItemIdentifier = mapItemIdentifier
+        self.pointOfInterestCategory = pointOfInterestCategory
     }
 }
 
