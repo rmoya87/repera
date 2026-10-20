@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-20 (prescripciones profesionales por bloques)
+Última actualización: 2026-10-20 (prescripciones, aviso y consentimiento deportivo)
 
 ## Tabs
 
@@ -19,6 +19,7 @@
 
 - Selector **Entrenador · Personal · Rutinas**. Entrenador es la vista inicial y muestra sesiones reales publicadas en Supabase tras vinculación con el profesional; si no hay datos, presenta un estado vacío honesto. No muestra asignaciones simuladas.
 - Las sesiones de entrenador presentan bloques y WOD, miniaturas, series, repeticiones, RIR y otros objetivos si existe una prescripción estructurada publicada; la ejecución registrada por el deportista sigue siendo local y no se comparte con el profesional.
+- En Ajustes, el deportista puede autorizar y revocar por cada negocio la consulta del historial espejado expresamente sincronizado. No se comparte por defecto su iCloud ni HealthKit. También aparece una bandeja de avisos individuales del centro, sin push real.
 - La programación personal, sus rutinas y sus herramientas siguen disponibles en **Personal** y **Rutinas**, sin eliminar datos locales ni del historial.
 
 - Título arriba (`ogFixedTopBar`) + menú ⋯ en la misma fila (Programado).
