@@ -51,8 +51,8 @@ test('Panel conectado no contiene sección Agenda del deportista ni Operaciones'
 });
 test('Migraciones exigen consentimiento individual y no exponen historial global',()=>{
  const root=new URL('../../../supabase/migrations/',import.meta.url);
- const policy=readFileSync(new URL('20261020131000_business_athlete_history_consent.sql',root),'utf8');
- const trial=readFileSync(new URL('20261020121500_business_groups_recurrence_trial_gate.sql',root),'utf8');
+ const policy=readFileSync(new URL('20261020093136_business_athlete_history_consent.sql',root),'utf8');
+ const trial=readFileSync(new URL('20261020091937_business_groups_recurrence_trial_gate.sql',root),'utf8');
  assert.match(policy,/athlete_user_id=athlete/);
  assert.match(policy,/revoked_at is null/);
  assert.match(policy,/private\.is_assigned_coach/);
