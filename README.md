@@ -44,15 +44,15 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 ## Arranque rápido en Mac (doble clic)
 
 - [`Repera-Business.command`](Repera-Business.command): ejecuta localmente la demostración profesional en navegador; requiere Python 3 y permanece abierta una ventana Terminal. Los datos son ficticios.
-- [`Repera-Xcode.command`](Repera-Xcode.command): **abre Xcode después de regenerar el proyecto** y comprueba que `AppleAuthStore.swift`, `BusinessAuthStore.swift` y `BusinessDataStore.swift` están incluidos. Úsalo al actualizar el repositorio.
+- [`Repera-Xcode.command`](Repera-Xcode.command): **abre Xcode después de regenerar el proyecto** y comprueba que `AppleAuthStore.swift`, `BusinessAuthStore.swift`, `BusinessDataStore.swift` y `BusinessWorkoutSyncStore.swift` están incluidos en las fuentes del target. Úsalo al actualizar el repositorio.
 - [`Repera-iOS.command`](Repera-iOS.command): intenta compilar y lanzar la app en Simulator; regenera y valida el proyecto antes de compilar; requiere macOS, Xcode con iOS 27, XcodeGen y un simulador compatible.
 - Ambos lanzadores están en la raíz del repositorio; si clonas por Git, se conserva el permiso de ejecución. No se ha generado todavía una aplicación macOS firmada ni un paquete iOS listo para distribución.
 
 **Estado:** la identidad Apple y el flujo profesional conectado con Supabase ya están en `main`. Aún requieren validación con cuentas y dispositivos reales; consulta los checks de GitHub Actions del commit actual antes de publicar en TestFlight.
 
-## Solución: Xcode no encuentra `BusinessAuthStore`
+## Solución: Xcode no encuentra `BusinessAuthStore` o `BusinessWorkoutSyncStore`
 
-El proyecto Xcode (`Repera.xcodeproj`) **se genera localmente** y no se versiona. Puede quedarse con la lista de fuentes anterior a la integración de Supabase, aunque `BusinessAuthStore.swift` exista en disco. Por tanto, un error en `AppleAuthStore.swift` del tipo `Cannot find 'BusinessAuthStore' in scope` suele requerir regenerar el proyecto, **no duplicar la clase ni cambiar el login Apple**.
+El proyecto Xcode (`Repera.xcodeproj`) **se genera localmente** y no se versiona. Puede quedarse con la lista de fuentes anterior a la integración de Supabase, aunque los archivos Swift existan en disco. Por tanto, errores como `Cannot find 'BusinessAuthStore' in scope` o `Cannot find 'BusinessWorkoutSyncStore' in scope` (desde `BusinessAuthStore.swift:258`) suelen requerir regenerar el proyecto, **no duplicar la clase ni eliminar la limpieza de la sesión Supabase**. El validador comprueba también que el archivo esté en *Compile Sources*, no solo en el navegador de Xcode.
 
 Cierra Xcode y haz doble clic en [`Repera-Xcode.command`](Repera-Xcode.command). Alternativa:
 
@@ -64,7 +64,7 @@ python3 scripts/check_xcode_sources.py
 open Repera.xcodeproj
 ```
 
-Si falta `BusinessAuthStore.swift` en la copia local, la herramienta avisa de que hay que actualizar Git. La generación **no borra datos de entrenamientos**, simuladores ni DerivedData, y conserva la versión del proyecto según `Configs/Version.xcconfig`.
+Si falta `BusinessAuthStore.swift` o `BusinessWorkoutSyncStore.swift` en la copia local, la herramienta avisa de que hay que actualizar Git. La generación **no borra datos de entrenamientos**, simuladores ni DerivedData, y conserva la versión del proyecto según `Configs/Version.xcconfig`.
 
 ## Arranque
 

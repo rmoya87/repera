@@ -18,6 +18,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         (directory / "Onboarding/AppleAuthStore.swift").write_text("// Apple", encoding="utf-8")
         (directory / "BusinessAuthStore.swift").write_text("// Supabase", encoding="utf-8")
         (directory / "BusinessDataStore.swift").write_text("// Business", encoding="utf-8")
+        (directory / "BusinessWorkoutSyncStore.swift").write_text("// Workout Sync", encoding="utf-8")
         (self.root / "project.yml").write_text(
             "targets:\n  Repera:\n    sources:\n      - path: Apps/Repera/Sources\n"
             "    dependencies:\n      - package: Supabase\n        product: Supabase\n",
@@ -27,7 +28,8 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         self.pbx = self.root / "Repera.xcodeproj/project.pbxproj"
         self.pbx.write_text(
             "AppleAuthStore.swift in Sources\nBusinessAuthStore.swift in Sources\n"
-            "BusinessDataStore.swift in Sources", encoding="utf-8"
+            "BusinessDataStore.swift in Sources\n"
+            "BusinessWorkoutSyncStore.swift in Sources", encoding="utf-8"
         )
 
     def test_current_generated_project(self):
@@ -41,6 +43,30 @@ class XcodeSourceMembershipTests(unittest.TestCase):
     def test_outdated_checkout_is_rejected(self):
         (self.root / "Apps/Repera/Sources/BusinessAuthStore.swift").unlink()
         with self.assertRaisesRegex(ValueError, "git pull origin main"):
+            validate(self.root)
+
+    def test_missing_workout_sync_store_requires_checkout_update(self):
+        (self.root / "Apps/Repera/Sources/BusinessWorkoutSyncStore.swift").unlink()
+        with self.assertRaisesRegex(ValueError, "BusinessWorkoutSyncStore.swift"):
+            validate(self.root)
+
+    def test_stale_workout_sync_target_is_rejected(self):
+        pbx = self.pbx.read_text(encoding="utf-8")
+        self.pbx.write_text(
+            pbx.replace("BusinessWorkoutSyncStore.swift in Sources", ""),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "BusinessWorkoutSyncStore.swift"):
+            validate(self.root)
+
+    def test_file_reference_without_compile_sources_is_rejected(self):
+        pbx = self.pbx.read_text(encoding="utf-8")
+        self.pbx.write_text(
+            pbx.replace("BusinessWorkoutSyncStore.swift in Sources",
+                        "BusinessWorkoutSyncStore.swift /* file only */"),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "BusinessWorkoutSyncStore.swift"):
             validate(self.root)
 
 
