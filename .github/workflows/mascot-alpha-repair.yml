@@ -1,0 +1,35 @@
+name: Repair enclosed mascot alpha gaps
+on:
+  push:
+    branches:
+      - feat/repera-light-structured-training
+    paths:
+      - scripts/repair_mascot_alpha.py
+      - .github/workflows/mascot-alpha-repair.yml
+permissions:
+  contents: write
+jobs:
+  alpha-repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install image decoder
+        run: python -m pip install 'Pillow==11.3.0'
+      - name: Detect and repair enclosed transparency
+        run: python scripts/repair_mascot_alpha.py --write
+      - name: Commit repaired mascots to feature branch
+        run: |
+          git add Apps/Repera/Resources/Assets.xcassets/Mascot*.imageset/*.png
+          if git diff --cached --quiet; then
+            echo 'No interior alpha defect needed repair'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'fix(assets): restore opaque mascot eyes, mouth and headband details'
+            git push origin HEAD:feat/repera-light-structured-training
+          fi
