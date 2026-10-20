@@ -2,7 +2,7 @@ import {WOD_FORMATS,summaryHTML} from '../core/structured-prescription.js';
 
 // Presentation-only builder; controller owns the draft state and publishes via
 // the authenticated RPC (no mock plans or writes to athlete workout history).
-export function renderProfessionalPlanning({orgId,role,sessions=[],clients=[],memberships=[],catalog=[],draft=[],escapeHTML:h,busy=false}) {
+export function renderProfessionalPlanning({orgId,role,sessions=[],clients=[],memberships=[],catalog=[],draft=[],formData={},escapeHTML:h,busy=false}) {
  if(!orgId)return '';
  const editor=['owner','admin','coach'].includes(role),manager=['owner','admin'].includes(role);
  const linked=clients.filter(c=>c.user_id);
@@ -56,11 +56,11 @@ export function renderProfessionalPlanning({orgId,role,sessions=[],clients=[],me
  ${summaryHTML(s.prescription,s.instructions,h)}</article>`):'<p>El calendario todavía no tiene sesiones publicadas. Crea una planificación completa debajo.</p>'}</div>`;
  const form=editor&&linked.length?`<form data-connected="publish-session" class="connected-plan-editor">
  <div class="connected-form-grid">
- <label class="connected-field">Deportista vinculado<select name="client" required>${options(linked,c=>`<option value="${h(c.id)}">${h(c.name)}</option>`)}</select></label>
- <label class="connected-field">Fecha<input name="date" type="date" required></label>
+ <label class="connected-field">Deportista vinculado<select name="client" data-plan-header="client" required>${options(linked,c=>`<option value="${h(c.id)}" ${formData.client===c.id?'selected':''}>${h(c.name)}</option>`)}</select></label>
+ <label class="connected-field">Fecha<input name="date" data-plan-header="date" value="${h(formData.date||'')}" type="date" required></label>
  </div>
- ${field('Título del entreno','','Ej. Fuerza + WOD','name="title" minlength="2" maxlength="120" required')}
- <label class="connected-field">Notas del entrenador<textarea name="instructions" maxlength="10000" rows="2" placeholder="Objetivo, material y recomendaciones"></textarea></label>
+ ${field('Título del entreno',formData.title||'','Ej. Fuerza + WOD','name="title" data-plan-header="title" minlength="2" maxlength="120" required')}
+ <label class="connected-field">Notas del entrenador<textarea name="instructions" data-plan-header="instructions" maxlength="10000" rows="2" placeholder="Objetivo, material y recomendaciones">${h(formData.instructions||'')}</textarea></label>
  <div class="connected-panel-header" style="margin-top:18px"><div><span class="connected-eyebrow">Programación por bloques</span><h2>Construye el entrenamiento</h2></div><span class="connected-pill">${draft.length} bloque(s)</span></div>
  ${draft.map(block).join('')}
  <div class="connected-builder-actions"><button type="button" class="connected-secondary" data-plan-action="add-block" data-kind="strength">+ Bloque de fuerza</button>
