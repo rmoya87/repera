@@ -14,6 +14,14 @@ struct RecoverySleepNight: Identifiable, Sendable, Equatable {
     var id: Date { date }
 }
 
+/// Copia Sendable de los campos de HealthKit: nunca sale un HKSample del callback.
+private struct RecoveryCategoryRecord: Sendable {
+    let startDate: Date
+    let endDate: Date
+    let value: Int
+    let source: String
+}
+
 enum CycleEstimate: String, Sendable {
     case menstrual = "Menstruación registrada"
     case follicular = "Fase folicular estimada"
@@ -157,23 +165,32 @@ final class HealthRecoveryStore {
         }
         if cycleEnabled {
             let menstrual = await categorySamples(.menstrualFlow, days: 230)
-            menstrualDays = Array(Set(menstrual.map { Calendar.current.startOfDay(for: $0.startDate) })).sorted()
+            menstrualDays = Array(Set(menstrual
+                .filter { $0.value != HKCategoryValueMenstrualFlow.none.rawValue }
+                .map { Calendar.current.startOfDay(for: $0.startDate) })).sorted()
             let tests = await categorySamples(.ovulationTestResult, days: 230)
             positiveOvulationTests = tests.filter {
-                $0.value == HKCategoryValueOvulationTestResult.positive.rawValue
+                $0.value == HKCategoryValueOvulationTestResult.luteinizingHormoneSurge.rawValue
             }.map(\.startDate).sorted()
         }
         lastRefreshed = Date()
     }
 
-    private func categorySamples(_ identifier: HKCategoryTypeIdentifier, days: Int) async -> [HKCategorySample] {
+    private func categorySamples(_ identifier: HKCategoryTypeIdentifier, days: Int) async -> [RecoveryCategoryRecord] {
         guard let type = HKObjectType.categoryType(forIdentifier: identifier) else { return [] }
         let start = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? .distantPast
         let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: [])
-        return await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) {
-                _, samples, _ in
-                continuation.resume(returning: samples as? [HKCategorySample] ?? [])
+        return await withCheckedContinuation { (continuation: CheckedContinuation<[RecoveryCategoryRecord], Never>) in
+            let query = HKSampleQuery(
+                sampleType: type, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil
+            ) { _, samples, _ in
+                let records = (samples as? [HKCategorySample] ?? []).map {
+                    RecoveryCategoryRecord(
+                        startDate: $0.startDate, endDate: $0.endDate,
+                        value: $0.value, source: $0.sourceRevision.source.bundleIdentifier
+                    )
+                }
+                continuation.resume(returning: records)
             }
             healthStore.execute(query)
         }
@@ -181,7 +198,7 @@ final class HealthRecoveryStore {
 
     /// Elige una fuente de etapas por noche y fusiona intervalos para no duplicar
     /// sueño de iPhone + Watch o muestras solapadas.
-    private static func combineSleep(_ samples: [HKCategorySample]) -> [RecoverySleepNight] {
+    private static func combineSleep(_ samples: [RecoveryCategoryRecord]) -> [RecoverySleepNight] {
         struct Segment {
             let start: Date
             let end: Date
@@ -200,7 +217,7 @@ final class HealthRecoveryStore {
             let night = Calendar.current.startOfDay(for: midpoint.addingTimeInterval(12 * 3600))
             grouped[night, default: []].append(
                 Segment(start: sample.startDate, end: sample.endDate, value: sample.value,
-                        source: sample.sourceRevision.source.bundleIdentifier)
+                        source: sample.source)
             )
         }
         func unionSeconds(_ values: [Segment]) -> Double {
