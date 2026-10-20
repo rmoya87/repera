@@ -36,12 +36,56 @@ async function reload(){const [orgs,members,invites]=await Promise.all([auth.org
  if(selectedOrg){[clients,occurrences,passes,bookings,professionalSessions]=await Promise.all([auth.clients(selectedOrg),auth.serviceOccurrences(selectedOrg),auth.servicePasses(selectedOrg),auth.serviceBookings(selectedOrg),auth.professionalSessions(selectedOrg)]);}
  else{clients=[];occurrences=[];passes=[];bookings=[];professionalSessions=[];}}
 app.addEventListener('click',async event=>{
+ const button=event.target.closest('[data-plan-action]');
+ if(button&&!busy){
+  const action=button.dataset.planAction,bi=Number(button.dataset.bi),
+    ei=Number(button.dataset.ei),si=Number(button.dataset.si);
+  if(action==='add-block')trainingDraft.push(makeBlock(button.dataset.kind));
+  if(action==='remove-block')trainingDraft.splice(bi,1);
+  if(action==='add-entry'){
+   const block=trainingDraft[bi];
+   block[block.kind==='wod'?'movements':'exercises'].push(makeEntry(block.kind,button.dataset.source));
+  }
+  if(action==='remove-entry'){
+   const block=trainingDraft[bi];
+   block[block.kind==='wod'?'movements':'exercises'].splice(ei,1);
+  }
+  if(action==='add-set')trainingDraft[bi].exercises[ei].plannedSets.push(makeSet());
+  if(action==='remove-set'){
+   const sets=trainingDraft[bi].exercises[ei].plannedSets;
+   if(sets.length>1)sets.splice(si,1);
+   else notice='Debe quedar al menos una serie para este ejercicio.';
+  }
+  render();return;
+ }
  const mode=event.target.closest('[data-view]');if(mode){view=mode.dataset.view;error=notice='';render();return;}
  const actionable=event.target.closest('[data-action]');const action=actionable?.dataset.action;
  if(action==='accept-invitation'&&!busy){busy=true;error=notice='';render();try{await auth.acceptInvitation(actionable.dataset.id);await reload();notice='Invitación aceptada. Tu relación con el centro ya consta en Supabase.';}catch(e){error=e.message;}finally{busy=false;render();}return;}
  if(action==='logout'){busy=true;render();try{await auth.signOut();user=null;organizations=[];memberships=[];invitations=[];view='login';notice='Sesión cerrada';}catch(e){user=null;organizations=[];memberships=[];view='login';notice='Sesión local cerrada. No se pudo confirmar el cierre remoto.';}finally{busy=false;render();}}
 });
-app.addEventListener('change',async event=>{if(event.target.id!=='connected-org-select')return;selectedOrg=event.target.value||null;error='';clients=[];occurrences=[];passes=[];bookings=[];professionalSessions=[];
+app.addEventListener('input',event=>{
+ const t=event.target;
+ if(t.dataset.planHeader){trainingHeader[t.dataset.planHeader]=t.value;return;}
+ if(!t.dataset.planScope)return;
+ const bi=Number(t.dataset.bi),ei=Number(t.dataset.ei),si=Number(t.dataset.si);
+ const block=trainingDraft[bi];if(!block)return;
+ const obj=t.dataset.planScope==='block'?block:t.dataset.planScope==='set'
+   ?block.exercises[ei]?.plannedSets[si]:block[block.kind==='wod'?'movements':'exercises']?.[ei];
+ if(obj)obj[t.dataset.planField]=t.value;
+});
+app.addEventListener('change',async event=>{
+ if(event.target.dataset.planScope){
+  const t=event.target,bi=Number(t.dataset.bi),ei=Number(t.dataset.ei),block=trainingDraft[bi];
+  if(block&&t.dataset.planScope==='entry'&&(t.dataset.planField==='source'||t.dataset.planField==='catalogKey')){
+   const obj=block[block.kind==='wod'?'movements':'exercises'][ei];
+   if(t.dataset.planField==='source'){obj.source=t.value;obj.catalogKey=null;obj.name='';}
+   else{obj.catalogKey=t.value;obj.name=exerciseCatalog.find(x=>x.catalogKey===t.value)?.name||'';}
+   render();
+  }
+  return;
+ }
+ if(event.target.id!=='connected-org-select')return;
+ selectedOrg=event.target.value||null;trainingDraft=[];trainingHeader={client:'',date:'',title:'',instructions:''};error='';clients=[];occurrences=[];passes=[];bookings=[];professionalSessions=[];
  if(selectedOrg){try{[clients,occurrences,passes,bookings,professionalSessions]=await Promise.all([auth.clients(selectedOrg),auth.serviceOccurrences(selectedOrg),auth.servicePasses(selectedOrg),auth.serviceBookings(selectedOrg),auth.professionalSessions(selectedOrg)]);}catch(e){error=e.message;}}
  render();});
 app.addEventListener('submit',async event=>{
@@ -55,8 +99,11 @@ app.addEventListener('submit',async event=>{
   if(action==='create'){await auth.createOrganization({name:data.get('name'),slug:data.get('slug'),kind:data.get('kind'),userId:user.id});await reload();notice='Organización creada correctamente.';}
   if(action==='invite'){await auth.issueInvitation({orgId:selectedOrg,email:data.get('email'),role:data.get('role')});await reload();notice='Invitación creada. El destinatario podrá aceptarla desde su propia cuenta verificada.';}
   if(action==='publish-session'){
-   await auth.publishProfessionalSession({orgId:selectedOrg,clientId:data.get('client'),date:data.get('date'),title:data.get('title'),instructions:data.get('instructions')});
-   await reload();notice='Entrenamiento profesional publicado.';
+   const prescription=buildPrescription(trainingDraft,exerciseCatalog);
+   await auth.publishProfessionalSession({orgId:selectedOrg,clientId:data.get('client'),date:data.get('date'),
+      title:data.get('title'),instructions:data.get('instructions'),prescription});
+   trainingDraft=[];trainingHeader={client:'',date:'',title:'',instructions:''};
+   await reload();notice='Entrenamiento estructurado publicado en Inicio y Diario.';
   }
   if(action==='assign-coach'){
    await auth.assignCoachClient({orgId:selectedOrg,clientId:data.get('client'),coachId:data.get('coach')});
@@ -76,6 +123,10 @@ app.addEventListener('submit',async event=>{
  finally{busy=false;render();}
 });
 async function boot(){
+ try{
+  const response=await fetch(new URL('../data/exercise-catalog.json',import.meta.url));
+  if(response.ok){const payload=await response.json();exerciseCatalog=payload.exercises||[];}
+ }catch{exerciseCatalog=[];}
  busy=true;render();
  try{
   if(await auth.acceptRecoveryFragment(globalThis.location?.hash||'')){
