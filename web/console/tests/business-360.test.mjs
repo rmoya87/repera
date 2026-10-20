@@ -26,7 +26,7 @@ test('Ficha 360 de cliente mantiene datos, bonos, opciones por rol y confidencia
 test('Historial autorizado muestra actividad real pero no inventa pesos, PR ni series',()=>{
  const html=renderClient360({clients:[client],selected:'c1',sharedHistory:[{id:'h',title:'Mi sesión',started_at:'2030-08-11T07:00:00Z'}]});
  assert.match(html,/Mi sesión/);
- assert.match(html,/compartidos por semana/);
+ assert.match(html,/compartidas por semana/);
  assert.doesNotMatch(html,/1RM|PR calculado/);
 });
 test('Clases: calendario, participantes, modificación y entrenos de grupo',()=>{
