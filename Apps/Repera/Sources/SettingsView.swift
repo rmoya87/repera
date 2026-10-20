@@ -12,6 +12,7 @@ struct SettingsView: View {
     @Environment(AppleAuthStore.self) private var appleAuth
     @Environment(BusinessAuthStore.self) private var businessAuth
     @Environment(BusinessDataStore.self) private var businessData
+    @Environment(BusinessWorkoutSyncStore.self) private var workoutSync
     @Environment(OnboardingStore.self) private var onboarding
     @Environment(WorkoutLocationTracker.self) private var location
     @Environment(\.openURL) private var openURL
@@ -186,6 +187,59 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             } header: {
                 Text("Mis centros y entrenadores")
+            }
+
+            Section {
+                LabeledContent("Copia de entrenamientos en Supabase",
+                               value: workoutSync.isSyncing ? "Sincronizando…" :
+                               (workoutSync.lastSyncAt == nil ? "Pendiente" : "Sincronizada"))
+                if let when = workoutSync.lastSyncAt {
+                    LabeledContent("Última sincronización",
+                                   value: when.formatted(date: .abbreviated, time: .shortened))
+                }
+                Button {
+                    Task { await workoutSync.sync(store: store) }
+                } label: {
+                    Label("Sincronizar entrenamientos", systemImage: "arrow.triangle.2.circlepath")
+                }
+                .disabled(workoutSync.isSyncing || !businessAuth.isConnected)
+
+                let linkedCenters = businessData.centers.filter {
+                    businessData.athleteCenterIds.contains($0.id)
+                }
+                if linkedCenters.isEmpty {
+                    Text("Vincúlate con un entrenador o gimnasio para compartir resultados.")
+                        .foregroundStyle(OG.label2)
+                } else {
+                    ForEach(linkedCenters) { center in
+                        Toggle(isOn: Binding(
+                            get: { workoutSync.sharingByCenter[center.id] == true },
+                            set: { enabled in
+                                Task { await workoutSync.setSharing(enabled, for: center.id) }
+                            }
+                        )) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Compartir resultados con \(center.name)")
+                                    .font(.subheadline.weight(.medium))
+                                Text("Permite ver series, repeticiones y marcas al entrenador asignado y al administrador. Puedes revocarlo cuando quieras.")
+                                    .font(.caption)
+                                    .foregroundStyle(OG.label2)
+                            }
+                        }
+                        .disabled(workoutSync.updatingSharingCenter != nil ||
+                                  !businessAuth.isConnected)
+                    }
+                }
+                if let problem = workoutSync.lastError {
+                    Text(problem)
+                        .font(.footnote)
+                        .foregroundStyle(OG.red)
+                }
+                Text("Los entrenamientos completados se guardan de forma privada en tu cuenta Supabase. No se suben rutas GPS, notas personales, identificadores de Salud ni valoraciones. Compartir resultados está desactivado inicialmente para cada centro.")
+                    .font(.footnote)
+                    .foregroundStyle(OG.label2)
+            } header: {
+                Text("Sincronización y privacidad de entrenamientos")
             }
 
             Section {

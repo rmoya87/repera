@@ -17,6 +17,8 @@ final class BusinessWorkoutSyncStore {
     private(set) var lastError: String?
     private(set) var mirroredCount = 0
     private(set) var recoveredCount = 0
+    private(set) var sharingByCenter: [UUID: Bool] = [:]
+    private(set) var updatingSharingCenter: UUID?
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var retryRequested = false
 
@@ -39,6 +41,28 @@ final class BusinessWorkoutSyncStore {
             // decoding of otherwise healthy rows.
             payload = try? c.decode(WorkoutSession.self, forKey: .payload)
             deletedAt = try c.decodeIfPresent(String.self, forKey: .deletedAt)
+        }
+    }
+
+    private struct SharingRow: Decodable {
+        let orgId: UUID
+        let enabled: Bool
+        enum CodingKeys: String, CodingKey {
+            case orgId = "org_id"
+            case enabled
+        }
+    }
+
+    private struct SharingUpdate: Encodable {
+        let athleteId: UUID
+        let orgId: UUID
+        let enabled: Bool
+        let updatedAt: Date
+        enum CodingKeys: String, CodingKey {
+            case enabled
+            case athleteId = "athlete_id"
+            case orgId = "org_id"
+            case updatedAt = "updated_at"
         }
     }
 
@@ -105,6 +129,8 @@ final class BusinessWorkoutSyncStore {
         lastError = nil
         mirroredCount = 0
         recoveredCount = 0
+        sharingByCenter = [:]
+        updatingSharingCenter = nil
         // Per-user fingerprints/deletion outbox are intentionally retained.
         // Never carry workout summaries from one Apple identity to another.
     }
@@ -233,10 +259,70 @@ final class BusinessWorkoutSyncStore {
             mirroredCount = existing.values.filter { $0.deletedAt == nil }.count + pending.count
             lastSyncAt = Date()
             lastError = nil
+            await refreshSharing()
         } catch {
             guard run == generation else { return }
             lastError = "La sincronización con Supabase está pendiente: \(error.localizedDescription)"
             // Never mark failed uploads as synced; retries keep local files safe.
+        }
+    }
+
+    /// Independent, revocable consent to let a linked center's authorized
+    /// coach/manager read exercise results. Default is OFF for every center.
+    func refreshSharing() async {
+        guard BusinessAuthStore.shared.isConnected,
+              let client = BusinessAuthStore.shared.apiClient else {
+            sharingByCenter = [:]
+            return
+        }
+        do {
+            let session = try await client.auth.session
+            guard !session.isExpired else { return }
+            let userID = session.user.id
+            let rows: [SharingRow] = try await client
+                .from("athlete_workout_sharing")
+                .select("org_id,enabled")
+                .eq("athlete_id", value: userID.uuidString)
+                .execute().value
+            guard BusinessAuthStore.shared.isConnected,
+                  BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id == userID
+            else { return }
+            sharingByCenter = Dictionary(uniqueKeysWithValues: rows.map { ($0.orgId, $0.enabled) })
+        } catch {
+            lastError = "No se ha podido comprobar con quién compartes tus resultados."
+        }
+    }
+
+    func setSharing(_ enabled: Bool, for orgId: UUID) async {
+        guard updatingSharingCenter == nil,
+              BusinessAuthStore.shared.isConnected,
+              let client = BusinessAuthStore.shared.apiClient else { return }
+        updatingSharingCenter = orgId
+        defer { updatingSharingCenter = nil }
+        do {
+            let session = try await client.auth.session
+            guard !session.isExpired,
+                  BusinessDataStore.shared.athleteCenterIds.contains(orgId)
+            else { throw WorkoutConsentError.notLinked }
+            let userID = session.user.id
+            let update = SharingUpdate(athleteId: userID, orgId: orgId,
+                                       enabled: enabled, updatedAt: Date())
+            try await client.from("athlete_workout_sharing")
+                .upsert(update, onConflict: "athlete_id,org_id").execute()
+            guard BusinessAuthStore.shared.isConnected,
+                  BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id == userID
+            else { return }
+            sharingByCenter[orgId] = enabled
+            lastError = nil
+        } catch {
+            lastError = "No se ha podido cambiar el permiso de compartir resultados: \(error.localizedDescription)"
+        }
+    }
+
+    private enum WorkoutConsentError: LocalizedError {
+        case notLinked
+        var errorDescription: String? {
+            "Debes estar vinculado y activo en el centro para compartir tus resultados."
         }
     }
 
