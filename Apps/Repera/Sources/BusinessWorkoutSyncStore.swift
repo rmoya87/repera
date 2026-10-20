@@ -167,16 +167,15 @@ final class BusinessWorkoutSyncStore {
             // silently truncated at Supabase/PostgREST's default 1,000 rows.
             var remote: [MirrorRow] = []
             var offset = 0
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
             repeat {
-                let response = try await client.from("athlete_workout_mirror")
+                // Use the SDK's Supabase-aware JSON date decoder (handles
+                // fractional timestamps that Foundation .iso8601 can reject).
+                let page: [MirrorRow] = try await client.from("athlete_workout_mirror")
                     .select("id,payload,deleted_at")
                     .eq("owner_id", value: user.uuidString)
                     .order("finished_at", ascending: false)
                     .range(from: offset, to: offset + 199)
-                    .execute()
-                let page = try decoder.decode([MirrorRow].self, from: response.data)
+                    .execute().value
                 remote.append(contentsOf: page)
                 offset += page.count
                 if page.count < 200 { break }
