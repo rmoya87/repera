@@ -28,8 +28,8 @@ struct ProgressCardioChartCard: View {
     }
 
     private var lineInterpolation: InterpolationMethod {
-        // Cardinal con tensión evita el overshoot fuerte de catmullRom en el preview.
-        prepared.isTeaserPreview ? .cardinal(tension: 0.65) : .catmullRom
+        // Preview free: catmullRom para curvas visibles (dominio Y ya va holgado + clip).
+        .catmullRom
     }
 
     private var xDomain: ClosedRange<Date> {
@@ -196,9 +196,7 @@ struct ProgressCaloriesChartCard: View {
         return max(peak * pad, 1)
     }
 
-    private var calorieInterpolation: InterpolationMethod {
-        prepared.isTeaserPreview ? .cardinal(tension: 0.65) : .catmullRom
-    }
+    private var calorieInterpolation: InterpolationMethod { .catmullRom }
 
     private var xDomain: ClosedRange<Date> {
         ProgressChartAxis.xDomain(
@@ -314,6 +312,8 @@ struct ProgressWeightChartCard: View {
     var weekStartsOnMonday: Bool = true
     /// Prepared stable points from ProgressSnapshot (preferred).
     var preparedPoints: [ProgressWeightPoint]? = nil
+    /// Preview free: misma suavidad que cardio/kcal.
+    var isTeaserPreview: Bool = false
 
     private var rawPoints: [BodyWeightEntry] {
         let start = range.startDate(now: Date(), weekStartsOnMonday: weekStartsOnMonday)
@@ -369,7 +369,8 @@ struct ProgressWeightChartCard: View {
             if let goal = goalKg { return (goal - 2)...(goal + 2) }
             return 60...90
         }
-        let pad = max(1.2, (hi0 - lo0) * 0.22)
+        let factor = isTeaserPreview ? 0.35 : 0.22
+        let pad = max(isTeaserPreview ? 1.6 : 1.2, (hi0 - lo0) * factor)
         return (lo0 - pad)...max(lo0 - pad + 2, hi0 + pad)
     }
 
@@ -427,14 +428,14 @@ struct ProgressWeightChartCard: View {
                                 )
                                 .foregroundStyle(OG.accent)
                                 .lineStyle(StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round))
-                                .interpolationMethod(.cardinal(tension: 0.7))
+                                .interpolationMethod(.catmullRom)
 
                                 PointMark(
                                     x: .value("Fecha", entry.date),
                                     y: .value("kg", entry.weightKg)
                                 )
                                 .foregroundStyle(OG.accent)
-                                .symbolSize(points.count <= 8 ? 32 : 18)
+                                .symbolSize(isTeaserPreview || points.count <= 8 ? 32 : 18)
                             }
                         }
                         .chartXScale(domain: xDomain)

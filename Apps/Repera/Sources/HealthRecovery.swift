@@ -146,7 +146,7 @@ final class HealthRecoveryStore {
             // que cubre varios días; expandirla para pintar el calendario completo.
             let calendar = Calendar.current
             menstrualDays = Array(Set(menstrual
-                .filter { $0.value != HKCategoryValueMenstrualFlow.none.rawValue }
+                .filter { $0.value != HKCategoryValueVaginalBleeding.none.rawValue }
                 .flatMap { record -> [Date] in
                     let start = calendar.startOfDay(for: record.startDate)
                     let lastMoment = max(record.startDate, record.endDate.addingTimeInterval(-1))
@@ -278,11 +278,13 @@ struct HealthRecoverySettingsView: View {
 }
 
 struct HealthRecoveryProgressView: View {
+    var range: ProgressTimeRange = .week
+    var weekStartsOnMonday: Bool = true
+
     @State private var recovery = HealthRecoveryStore.shared
     @Environment(SubscriptionManager.self) private var subscriptions
 
     private var isPro: Bool { subscriptions.isPro }
-    private var hasSleepData: Bool { recovery.sleepEnabled && !recovery.nights.isEmpty }
     private var hasCycleData: Bool { !recovery.menstrualDays.isEmpty }
 
     private enum NightSky {
@@ -291,6 +293,41 @@ struct HealthRecoveryProgressView: View {
         static let mid = Color(red: 0.32, green: 0.42, blue: 0.78)
         static let glow = Color(red: 0.55, green: 0.68, blue: 0.95)
         static let rem = Color(red: 0.72, green: 0.82, blue: 1.0)
+        /// Icono luna (Inicio + Progreso).
+        static let icon = Color(red: 0.30, green: 0.22, blue: 0.58)
+    }
+
+    private var nightsInRange: [RecoverySleepNight] {
+        recovery.nights.filter {
+            range.contains($0.date, weekStartsOnMonday: weekStartsOnMonday)
+        }
+    }
+
+    private var hasSleepData: Bool { recovery.sleepEnabled && !nightsInRange.isEmpty }
+
+    private var isSingleNight: Bool { nightsInRange.count <= 1 || range == .today }
+
+    private var headlineHours: Double? {
+        guard !nightsInRange.isEmpty else { return nil }
+        if isSingleNight { return nightsInRange.last?.hours }
+        return nightsInRange.map(\.hours).reduce(0, +) / Double(nightsInRange.count)
+    }
+
+    private var phaseAverages: (deep: Double, rem: Double, light: Double) {
+        guard !nightsInRange.isEmpty else { return (0, 0, 0) }
+        let n = Double(nightsInRange.count)
+        let deep = nightsInRange.map(\.deepHours).reduce(0, +) / n
+        let rem = nightsInRange.map(\.remHours).reduce(0, +) / n
+        let light = nightsInRange.map { max(0, $0.hours - $0.deepHours - $0.remHours) }.reduce(0, +) / n
+        return (deep, rem, light)
+    }
+
+    private var periodIndex: Int? {
+        RecoveryEngine.sleepIndex(hours: headlineHours, recentAverage: headlineHours)
+    }
+
+    private var hoursLabel: String {
+        isSingleNight ? "Última noche" : "Media · \(range.subtitleLabel)"
     }
 
     var body: some View {
@@ -303,7 +340,6 @@ struct HealthRecoveryProgressView: View {
                 softSleepEmpty
             }
 
-            // Solo si hay registros reales (p. ej. no mostrar vacío a quien no usa ciclo).
             if hasCycleData {
                 cycleContent
             }
@@ -321,18 +357,23 @@ struct HealthRecoveryProgressView: View {
         .task { await recovery.refresh() }
     }
 
-    /// Preview free sin empujar a «Configurar Salud».
     @ViewBuilder
     private var freeRecoveryPreview: some View {
+        let sample = Self.teaserNights(for: range, weekStartsOnMonday: weekStartsOnMonday)
+        let deep = sample.map(\.deepHours).reduce(0, +) / Double(max(1, sample.count))
+        let rem = sample.map(\.remHours).reduce(0, +) / Double(max(1, sample.count))
+        let light = sample.map { max(0, $0.hours - $0.deepHours - $0.remHours) }.reduce(0, +) / Double(max(1, sample.count))
+        let hours = sample.map(\.hours).reduce(0, +) / Double(max(1, sample.count))
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Sueño · ejemplo")
             sleepNightCard(
-                hours: 7.4,
+                hours: hours,
+                hoursCaption: sample.count <= 1 ? "Última noche" : "Media · \(range.subtitleLabel)",
                 index: 82,
-                deep: 1.6,
-                rem: 1.9,
-                light: 3.9,
-                nights: Self.teaserNights,
+                deep: deep,
+                rem: rem,
+                light: light,
+                nights: sample,
                 caption: "Así se vería tu descanso con datos de Apple Salud."
             )
             .opacity(0.9)
@@ -344,7 +385,7 @@ struct HealthRecoveryProgressView: View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Sueño")
             OGCard {
-                Text("Sin noches recientes en Apple Salud. Cuando haya registros, verás horas y fases aquí.")
+                Text("Sin noches en \(range.subtitleLabel). Cuando haya registros de Apple Salud, verás horas y fases aquí.")
                     .font(.subheadline)
                     .foregroundStyle(OG.label2)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -352,39 +393,42 @@ struct HealthRecoveryProgressView: View {
         }
     }
 
-    private static var teaserNights: [RecoverySleepNight] {
+    private static func teaserNights(for range: ProgressTimeRange, weekStartsOnMonday: Bool) -> [RecoverySleepNight] {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
-        return (0..<10).reversed().compactMap { offset -> RecoverySleepNight? in
-            guard let day = cal.date(byAdding: .day, value: -offset, to: today) else { return nil }
-            let t = Double(9 - offset)
-            let hours = 6.4 + 1.1 * sin(t * 0.7) + 0.35 * cos(t * 1.4)
-            let deep = max(0.6, 1.2 + 0.4 * sin(t))
-            let rem = max(0.7, 1.4 + 0.35 * cos(t * 1.2))
-            let light = max(2.0, hours - deep - rem)
-            return RecoverySleepNight(date: day, hours: hours, deepHours: deep, remHours: rem)
+        let count = min(14, max(1, range.chartDayCount))
+        let start = range.startDate(now: Date(), weekStartsOnMonday: weekStartsOnMonday) ?? today
+        return (0..<count).compactMap { offset -> RecoverySleepNight? in
+            guard let day = cal.date(byAdding: .day, value: offset, to: start), day <= today else { return nil }
+            let t = Double(offset)
+            let deep = max(0.6, 1.2 + 0.4 * sin(t * 0.8))
+            let rem = max(0.7, 1.4 + 0.35 * cos(t * 1.1))
+            let light = max(2.0, 3.2 + 0.5 * cos(t * 0.9))
+            return RecoverySleepNight(date: day, hours: deep + rem + light, deepHours: deep, remHours: rem)
         }
     }
 
     @ViewBuilder
     private var sleepContent: some View {
         OGCardSectionTitle(title: "Sueño")
-        let last = recovery.lastNight
-        let light = last.map { max(0, $0.hours - $0.deepHours - $0.remHours) } ?? 0
+        let phases = phaseAverages
         sleepNightCard(
-            hours: last?.hours,
-            index: recovery.sleepIndex,
-            deep: last?.deepHours ?? 0,
-            rem: last?.remHours ?? 0,
-            light: light,
-            nights: Array(recovery.nights.suffix(14)),
-            caption: recovery.averageHours.map { String(format: "Media reciente %.1f h · una fuente por noche", $0) }
-                ?? "Las fases las estima el dispositivo."
+            hours: headlineHours,
+            hoursCaption: hoursLabel,
+            index: periodIndex,
+            deep: phases.deep,
+            rem: phases.rem,
+            light: phases.light,
+            nights: nightsInRange,
+            caption: isSingleNight
+                ? "Fases estimadas por el dispositivo · una fuente por noche."
+                : String(format: "Media de %d noches en %@.", nightsInRange.count, range.subtitleLabel)
         )
     }
 
     private func sleepNightCard(
         hours: Double?,
+        hoursCaption: String,
         index: Int?,
         deep: Double,
         rem: Double,
@@ -392,22 +436,24 @@ struct HealthRecoveryProgressView: View {
         nights: [RecoverySleepNight],
         caption: String
     ) -> some View {
-        let yLo = max(3.5, (nights.map(\.hours).min() ?? 5) - 0.8)
-        let yHi = min(11, (nights.map(\.hours).max() ?? 8) + 0.9)
+        let yLo = max(3.5, (nights.map(\.hours).min() ?? 5) - 0.6)
+        let yHi = min(11, (nights.map(\.hours).max() ?? 8) + 0.7)
+        let xStart = nights.map(\.date).min() ?? Date()
+        let xEnd = nights.map(\.date).max() ?? Date()
         return OGCard {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .center, spacing: 12) {
                     Image(systemName: "moon.stars.fill")
                         .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(NightSky.glow)
                         .frame(width: 40, height: 40)
-                        .background(NightSky.ink.opacity(0.9), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .background(NightSky.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Última noche")
+                        Text(hoursCaption)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(OG.label2)
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            Text(hours.map { String(format: "%.1f" , $0) } ?? "—")
+                        HStack(alignment: .firstTextBaseline, spacing: 5) {
+                            Text(hours.map { String(format: "%.1f", $0) } ?? "—")
                                 .font(.system(size: 28, weight: .semibold, design: .rounded).monospacedDigit())
                                 .foregroundStyle(OG.label)
                             Text("h")
@@ -415,93 +461,71 @@ struct HealthRecoveryProgressView: View {
                                 .foregroundStyle(OG.label2)
                         }
                     }
-                    Spacer(minLength: 0)
+                    Spacer(minLength: 8)
                     if let index {
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text("Descanso")
-                                .font(.caption2.weight(.medium))
-                                .foregroundStyle(OG.label3)
-                            Text("\(index)")
-                                .font(.system(size: 22, weight: .semibold, design: .rounded).monospacedDigit())
-                                .foregroundStyle(OG.label)
-                            Text("/100")
-                                .font(.caption2)
-                                .foregroundStyle(OG.label3)
-                        }
+                        Text("\(index)/100")
+                            .font(.system(size: 22, weight: .semibold, design: .rounded).monospacedDigit())
+                            .foregroundStyle(OG.label)
+                            .accessibilityLabel("Descanso \(index) de 100")
                     }
                 }
 
                 if deep + rem + light > 0.2 {
-                    HStack(spacing: 8) {
-                        phaseChip(title: "Profundo", hours: deep, color: NightSky.deep)
-                        phaseChip(title: "REM", hours: rem, color: NightSky.mid)
-                        phaseChip(title: "Ligero", hours: light, color: NightSky.glow)
-                    }
-                    phaseStackBar(deep: deep, rem: rem, light: light)
+                    phaseDistributionBar(deep: deep, rem: rem, light: light)
                 }
 
                 Chart {
                     ForEach(nights) { night in
                         AreaMark(
-                            x: .value("Día", night.date, unit: .day),
-                            y: .value("Horas", night.hours)
+                            x: .value("Día", night.date),
+                            yStart: .value("Base", yLo),
+                            yEnd: .value("Horas", night.hours)
                         )
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [NightSky.mid.opacity(0.45), NightSky.ink.opacity(0.05)],
+                                colors: [NightSky.mid.opacity(0.5), NightSky.ink.opacity(0.15)],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
                         )
-                        .interpolationMethod(.cardinal(tension: 0.7))
+                        .interpolationMethod(.catmullRom)
 
                         LineMark(
-                            x: .value("Día", night.date, unit: .day),
+                            x: .value("Día", night.date),
                             y: .value("Horas", night.hours)
                         )
                         .foregroundStyle(NightSky.glow)
-                        .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
-                        .interpolationMethod(.cardinal(tension: 0.7))
+                        .lineStyle(StrokeStyle(lineWidth: 2.4, lineCap: .round, lineJoin: .round))
+                        .interpolationMethod(.catmullRom)
 
                         PointMark(
-                            x: .value("Día", night.date, unit: .day),
+                            x: .value("Día", night.date),
                             y: .value("Horas", night.hours)
                         )
-                        .symbolSize(42)
+                        .symbolSize(nights.count > 10 ? 22 : 36)
                         .foregroundStyle(NightSky.rem)
                     }
-                    RuleMark(y: .value("Referencia", 7))
-                        .foregroundStyle(NightSky.glow.opacity(0.35))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
                 }
+                .chartXScale(domain: xStart...xEnd)
                 .chartYScale(domain: yLo...yHi)
-                .chartPlotStyle { plot in
-                    plot
-                        .background(NightSky.ink.opacity(0.55), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .clipped()
-                }
-                .chartYAxis {
-                    AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
-                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.4))
-                            .foregroundStyle(NightSky.mid.opacity(0.35))
-                        AxisValueLabel {
-                            if let v = value.as(Double.self) {
-                                Text(String(format: "%.0fh", v))
-                                    .font(.system(size: 10).monospacedDigit())
-                                    .foregroundStyle(OG.label3)
-                            }
-                        }
-                    }
-                }
-                .chartXAxis {
-                    AxisMarks(values: .stride(by: .day, count: 2)) { _ in
-                        AxisValueLabel(format: .dateTime.day().month(.abbreviated))
-                            .foregroundStyle(OG.label3)
-                            .font(.system(size: 10))
-                    }
-                }
-                .frame(height: 168)
+                .chartXAxis(.hidden)
+                .chartYAxis(.hidden)
+                .chartLegend(.hidden)
+                .chartPlotStyle { $0.clipped() }
+                .frame(height: 150)
+                .frame(maxWidth: .infinity)
+                .background(NightSky.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .clipped()
+
+                if nights.count > 1 {
+                    HStack {
+                        Text(xStart.formatted(.dateTime.day().month(.abbreviated)))
+                        Spacer()
+                        Text(xEnd.formatted(.dateTime.day().month(.abbreviated)))
+                    }
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(OG.label3)
+                }
 
                 Text(caption)
                     .font(.caption)
@@ -510,36 +534,44 @@ struct HealthRecoveryProgressView: View {
         }
     }
 
-    private func phaseChip(title: String, hours: Double, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(OG.label2)
-            Text(String(format: "%.1f h", hours))
-                .font(.system(size: 14, weight: .semibold, design: .rounded).monospacedDigit())
-                .foregroundStyle(OG.label)
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(color)
-                .frame(height: 3)
+    /// Barra de fases con etiquetas encima (sin tiles sueltos).
+    private func phaseDistributionBar(deep: Double, rem: Double, light: Double) -> some View {
+        let total = max(0.01, deep + rem + light)
+        return VStack(alignment: .leading, spacing: 6) {
+            GeometryReader { geo in
+                let w = geo.size.width
+                HStack(spacing: 0) {
+                    phaseSegment(title: "Profundo", hours: deep, width: w * deep / total, color: NightSky.deep)
+                    phaseSegment(title: "REM", hours: rem, width: w * rem / total, color: NightSky.mid)
+                    phaseSegment(title: "Ligero", hours: light, width: w * light / total, color: NightSky.glow)
+                }
+            }
+            .frame(height: 36)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(OG.surface2.opacity(0.9), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Distribución de fases")
     }
 
-    private func phaseStackBar(deep: Double, rem: Double, light: Double) -> some View {
-        let total = max(0.01, deep + rem + light)
-        return GeometryReader { geo in
-            HStack(spacing: 2) {
-                Capsule().fill(NightSky.deep).frame(width: geo.size.width * deep / total)
-                Capsule().fill(NightSky.mid).frame(width: geo.size.width * rem / total)
-                Capsule().fill(NightSky.glow).frame(width: geo.size.width * light / total)
+    private func phaseSegment(title: String, hours: Double, width: CGFloat, color: Color) -> some View {
+        VStack(spacing: 2) {
+            if width >= 52 {
+                Text(title)
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.92))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text(String(format: "%.1fh", hours))
+                    .font(.system(size: 11, weight: .bold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(.white)
+            } else if width >= 28 {
+                Text(String(format: "%.1f", hours))
+                    .font(.system(size: 10, weight: .bold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(.white)
             }
         }
-        .frame(height: 8)
-        .clipShape(Capsule())
-        .accessibilityLabel("Fases de sueño")
+        .frame(width: width, height: 36)
+        .background(color)
     }
 
     @ViewBuilder
@@ -654,48 +686,66 @@ struct RecoveryTrainingTip: View {
 struct RecoveryHomeCard: View {
     @State private var recovery = HealthRecoveryStore.shared
 
+    /// Mismo `moon.stars.fill` / cielo nocturno que Progreso → Sueño.
+    private static let nightInk = Color(red: 0.07, green: 0.10, blue: 0.22)
+    private static let nightGlow = Color(red: 0.55, green: 0.68, blue: 0.95)
+
+    private var lastNight: RecoverySleepNight? {
+        recovery.sleepEnabled ? recovery.lastNight : nil
+    }
+
+    private var hasCycleSnippet: Bool {
+        recovery.cycleEnabled && !recovery.menstrualDays.isEmpty
+    }
+
+    /// Solo con datos reales; el vacío vive en Progreso → Recuperación.
+    private var hasHomeData: Bool { lastNight != nil || hasCycleSnippet }
+
     var body: some View {
-        if recovery.sleepEnabled || recovery.cycleEnabled {
-            VStack(alignment: .leading, spacing: 8) {
-                OGCardSectionTitle(title: "Tu estado de hoy")
-                NavigationLink {
-                    HealthRecoverySettingsView()
-                } label: {
-                    OGCard {
-                        HStack(spacing: 14) {
-                            Image(systemName: "moon.stars.fill")
-                                .font(.title2)
-                                .foregroundStyle(OG.accent)
-                                .frame(width: 42, height: 42)
-                                .background(OG.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 13))
-                            VStack(alignment: .leading, spacing: 4) {
-                                if recovery.sleepEnabled {
-                                    Text(recovery.lastNight.map { String(format: "%.1f h de sueño", $0.hours) }
-                                        ?? "Sueño: esperando datos de Apple Salud")
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(OG.label)
+        Group {
+            if hasHomeData {
+                VStack(alignment: .leading, spacing: 8) {
+                    OGCardSectionTitle(title: "Tu estado de hoy")
+                    NavigationLink {
+                        HealthRecoverySettingsView()
+                    } label: {
+                        OGCard {
+                            HStack(spacing: 14) {
+                                Image(systemName: "moon.stars.fill")
+                                    .font(.system(size: 22, weight: .semibold))
+                                    .foregroundStyle(Self.nightGlow)
+                                    .frame(width: 42, height: 42)
+                                    .background(Self.nightInk, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                                VStack(alignment: .leading, spacing: 4) {
+                                    if let night = lastNight {
+                                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                            Text(String(format: "%.1f h de sueño", night.hours))
+                                                .font(.subheadline.weight(.semibold))
+                                                .foregroundStyle(OG.label)
+                                            if let index = recovery.sleepIndex {
+                                                Text("· \(index)/100")
+                                                    .font(.subheadline.weight(.semibold).monospacedDigit())
+                                                    .foregroundStyle(OG.label2)
+                                            }
+                                        }
+                                    }
+                                    if hasCycleSnippet {
+                                        Text(recovery.cycleEstimate.rawValue)
+                                            .font(.footnote)
+                                            .foregroundStyle(OG.label2)
+                                    }
                                 }
-                                if recovery.cycleEnabled {
-                                    Text(recovery.cycleEstimate.rawValue)
-                                        .font(.footnote)
-                                        .foregroundStyle(OG.label2)
-                                }
-                                if let index = recovery.sleepIndex {
-                                    Text("Índice orientativo de sueño · \(index)/100")
-                                        .font(.caption)
-                                        .foregroundStyle(OG.label3)
-                                }
+                                Spacer(minLength: 0)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(OG.label3)
                             }
-                            Spacer(minLength: 0)
-                            Image(systemName: "chevron.right")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(OG.label3)
                         }
                     }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
-            .task { await recovery.refresh() }
         }
+        .task { await recovery.refresh() }
     }
 }

@@ -388,7 +388,7 @@ final class BusinessAuthStore {
                 // Cache-bust para que Inicio/consola vean el JPEG nuevo al instante.
                 avatarURL = publicURL.absoluteString + "?v=\(Int(Date().timeIntervalSince1970))"
             } else {
-                try? await client.storage
+                _ = try? await client.storage
                     .from("profile-avatars")
                     .remove(paths: [storagePath])
                 avatarURL = nil

@@ -59,7 +59,7 @@
 - Título arriba + periodo como subtítulo; calendario a la derecha (`ogFixedTopBar`).
 - **Gratis · Entreno:** periodo **Esta semana** (tiles entrenos/tiempo/racha + heatmap + teaser Pro). Los tiles **no** se repiten en Actividad.
 - **Gratis · Actividad:** preview ondulada (no rectas) de cardio/kcal/peso dentro del plot + teaser; sin tiles duplicados.
-- **Gratis · Recuperación:** sección **Sueño** con gráfica nocturna por puntos y fases (profundo/REM/ligero); sin CTA «Configurar Salud» ni bloque de ciclo vacío.
+- **Gratis · Recuperación:** sueño acotado al **periodo** de Progreso (media si hay >1 noche); gráfica nocturna a borde; fases en la barra (sin tiles); Inicio solo con datos y mismo icono luna.
 - **Pro:** todos los periodos y métricas avanzadas.
 - Selector visible: periodos largos marcados Pro → paywall.
 - Títulos de sección grises encima de cada card (actividad, cardio, peso, equilibrio…).

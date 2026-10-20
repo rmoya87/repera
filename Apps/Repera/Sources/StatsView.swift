@@ -70,7 +70,10 @@ struct StatsView: View {
                             }
                         }
                     case .recovery:
-                        HealthRecoveryProgressView()
+                        HealthRecoveryProgressView(
+                            range: model.range,
+                            weekStartsOnMonday: mondayFirst
+                        )
                     }
 
                     NavigationLink {
@@ -308,7 +311,8 @@ struct StatsView: View {
                 goalKg: store.state.settings.bodyWeightGoalKg ?? 75,
                 range: .week,
                 weekStartsOnMonday: mondayFirst,
-                preparedPoints: ProgressPreparedCharts.teaserWeightPoints()
+                preparedPoints: ProgressPreparedCharts.teaserWeightPoints(),
+                isTeaserPreview: true
             )
         }
         .opacity(0.88)
