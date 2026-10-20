@@ -66,6 +66,23 @@ Requisitos: **Xcode con SDK iOS 27**, dispositivo/simulador compatible. Apple In
 
 Cold start: Splash nativo y pantalla de espera usan la misma UIImageView UIKit en modo AspectFit y fijada a los cuatro bordes; evita saltos de escala, y una build nueva invalida la captura antigua de iOS. Store en shell vacío hasta hidratar disco; `Catalog.prewarm()` fuera del MainActor. En Debug+Simulador el dylib (~20 MB) puede retrasar el process start; medir en Release/dispositivo.
 
+## Versiones de Xcode (una sola fuente de verdad)
+
+La **versión comercial** (`MARKETING_VERSION`, por ejemplo `1.2.0`) y la **compilación** (`CURRENT_PROJECT_VERSION`, por ejemplo `42`) proceden de [`Configs/Version.xcconfig`](Configs/Version.xcconfig). Se aplican automáticamente a **Repera iPhone, ReperaWatch y ReperaRestWidget** y a sus respectivos `Info.plist` mediante sustitución de variables de Xcode.
+
+**Desde Xcode (recomendado):** abre `Configs/Version.xcconfig` en el navegador del proyecto y cambia `REPERA_MARKETING_VERSION` y `REPERA_BUILD_NUMBER`. Los tres targets toman los valores en la siguiente compilación, sin editar archivos individuales. También puedes introducirlos en **PROJECT Repera → Build Settings** para Debug y Release; al compilar con el scheme `Repera`, una preacción guarda esos valores de nuevo en `Version.xcconfig`. Para evitar que Watch o el widget difieran en la primera compilación, edita la versión **del proyecto** o el archivo compartido, no solamente **TARGET Repera → General**.
+
+El script [`scripts/sync_versions.py`](scripts/sync_versions.py) se ejecuta automáticamente **antes de regenerar con XcodeGen**, recuperando los valores del proyecto Xcode existente para no perder los cambios hechos en la interfaz. `Repera.xcodeproj` sigue sin versionarse: los dos valores persistentes viven en `Version.xcconfig`. Si se editó únicamente la versión del target iPhone en `General`, regenera con `xcodegen generate` antes de archivar, para volver a unificar los tres targets.
+
+```bash
+xcodegen generate                   # preserva versiones de Xcode si ya existía el proyecto
+python3 scripts/sync_versions.py --check
+python3 scripts/sync_versions.py --set 1.2.0 42  # alternativa por terminal
+python3 -m unittest discover -s tests -p 'test_sync_versions.py'
+```
+
+**Importante:** cambiar una versión no incrementa automáticamente el número de compilación. Para cada envío a TestFlight/App Store, pon un build mayor que el anterior; la publicación en App Store Connect sigue siendo manual.
+
 ## Identificadores
 
 | Qué | Valor |
