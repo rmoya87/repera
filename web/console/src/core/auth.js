@@ -8,7 +8,7 @@ const SESSION_KEY='repera-business-supabase-session-v1';
 const emptyStorage={getItem:()=>null,setItem:()=>{},removeItem:()=>{}};
 const allowedKind=new Set(['personal_trainer','gym','sports_center']);
 export class ReperaAuthAPI {
- constructor({baseUrl=URL_REPERA,publishableKey,fetcher=globalThis.fetch,storage=globalThis.sessionStorage,clock=()=>Date.now()}={}){
+ constructor({baseUrl=URL_REPERA,publishableKey,fetcher=(...args)=>globalThis.fetch(...args),storage=globalThis.sessionStorage,clock=()=>Date.now()}={}){
   if(baseUrl!==URL_REPERA)throw Error('Proyecto Supabase no autorizado para Repera');
   if(!/^sb_publishable_[A-Za-z0-9_-]+$/.test(publishableKey||''))throw Error('Se requiere clave pública moderna; nunca service_role');
   if(typeof fetcher!=='function')throw Error('No hay cliente HTTP disponible');
