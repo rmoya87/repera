@@ -147,6 +147,22 @@ private struct BusinessClientLink: Decodable {
     }
 }
 
+struct BusinessClientNotification: Decodable, Identifiable {
+    let id: UUID
+    let orgId: UUID
+    let clientId: UUID
+    let title: String
+    let body: String
+    let createdAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, body
+        case orgId = "org_id"
+        case clientId = "client_id"
+        case createdAt = "created_at"
+    }
+}
+
 private struct BusinessHistoryConsentParams: Encodable {
     let p_org: String
     let p_client: String
@@ -178,6 +194,7 @@ final class BusinessDataStore {
     private(set) var trainingSessions: [BusinessProfessionalTrainingSession] = []
     private(set) var sharedHistoryOrgIds: Set<UUID> = []
     private(set) var linkedClientByOrg: [UUID: UUID] = [:]
+    private(set) var personalNotices: [BusinessClientNotification] = []
     private(set) var isLoading = false
     @ObservationIgnored private var refreshRevision = 0
     private(set) var errorMessage: String?
@@ -198,6 +215,7 @@ final class BusinessDataStore {
         trainingSessions = []
         sharedHistoryOrgIds = []
         linkedClientByOrg = [:]
+        personalNotices = []
         errorMessage = nil
     }
 
@@ -232,6 +250,12 @@ final class BusinessDataStore {
             let fetchedHistoryConsents: [BusinessHistoryConsent] = try await client
                 .from("athlete_business_history_consents")
                 .select("org_id,client_id,revoked_at")
+                .execute().value
+            let fetchedPersonalNotices: [BusinessClientNotification] = try await client
+                .from("business_client_notifications")
+                .select("id,org_id,client_id,title,body,created_at")
+                .order("created_at", ascending: false)
+                .limit(100)
                 .execute().value
             let fetchedOccurrences: [BusinessOccurrence] = try await client
                 .from("service_occurrences")
@@ -274,6 +298,7 @@ final class BusinessDataStore {
             occurrences = fetchedOccurrences.filter { $0.status == "active" }
             passes = fetchedPasses.filter { ownedClientIds.contains($0.clientId) }
             bookings = fetchedBookings.filter { ownedClientIds.contains($0.clientId) }
+            personalNotices = fetchedPersonalNotices.filter { ownedClientIds.contains($0.clientId) }
             linkedClientByOrg = Dictionary(fetchedLinks.filter { $0.userId == currentUser }.map { ($0.orgId, $0.id) }, uniquingKeysWith: { first, _ in first })
             sharedHistoryOrgIds = Set(fetchedHistoryConsents.filter { $0.revokedAt == nil && ownedClientIds.contains($0.clientId) }.map(\.orgId))
             trainingSessions = fetchedTrainingSessions.filter { ownedClientIds.contains($0.clientId) && $0.status == "scheduled" }.sorted { $0.scheduledDate < $1.scheduledDate }
