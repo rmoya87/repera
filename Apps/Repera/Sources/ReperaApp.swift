@@ -9,6 +9,7 @@ struct ReperaApp: App {
     @State private var appleAuth = AppleAuthStore.shared
     @State private var businessAuth = BusinessAuthStore.shared
     @State private var businessData = BusinessDataStore.shared
+    @State private var workoutSync = BusinessWorkoutSyncStore.shared
     @State private var onboarding = OnboardingStore.shared
     @State private var locationTracker = WorkoutLocationTracker.shared
     @State private var wasBackgrounded = false
@@ -60,6 +61,7 @@ struct ReperaApp: App {
                 .environment(appleAuth)
                 .environment(businessAuth)
                 .environment(businessData)
+                .environment(workoutSync)
                 .environment(onboarding)
                 .environment(locationTracker)
                 .preferredColorScheme(.light)
@@ -102,6 +104,7 @@ struct ReperaApp: App {
                                     displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName
                                 )
                                 await businessData.refresh()
+                                await workoutSync.sync(store: store)
                             }
                         }
                         await warmHealthAfterHydrate()
@@ -123,9 +126,29 @@ struct ReperaApp: App {
                             await subscriptions.refreshOnForeground()
                             // Pull latest published trainer blocks, reservations and passes
                             // on foreground. Supabase RLS keeps personal history private.
-                            if businessAuth.isConnected { await businessData.refresh() }
+                            if businessAuth.isConnected {
+                                await businessData.refresh()
+                                await workoutSync.sync(store: store)
+                            }
                             wireSubscriptionGates()
                         }
+                    }
+                }
+                .onChange(of: businessAuth.isConnected) { _, connected in
+                    if connected {
+                        Task { await workoutSync.sync(store: store) }
+                    } else {
+                        workoutSync.clearSession()
+                    }
+                }
+                .onChange(of: store.didCompleteInitialRemoteSync) { _, finished in
+                    if finished && businessAuth.isConnected {
+                        Task { await workoutSync.sync(store: store) }
+                    }
+                }
+                .onChange(of: store.workoutsEpoch) { _, _ in
+                    if businessAuth.isConnected {
+                        Task { await workoutSync.sync(store: store) }
                     }
                 }
                 .onChange(of: store.state.syncRevision) { _, _ in

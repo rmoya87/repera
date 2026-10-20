@@ -255,6 +255,7 @@ final class BusinessAuthStore {
 
     /// Sign out from business platform independently of the Apple/iCloud personal store.
     func signOut() async {
+        BusinessWorkoutSyncStore.shared.clearSession()
         isConnected = false
         isMigrationRequired = false
         profileMigrationErrorMessage = nil
