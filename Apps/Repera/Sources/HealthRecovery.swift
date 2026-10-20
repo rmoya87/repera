@@ -447,8 +447,20 @@ struct RecoveryTrainingTip: View {
                 HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "moon.stars.fill").foregroundStyle(OG.accent)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Tu contexto de hoy").font(.subheadline.weight(.semibold)).foregroundStyle(OG.label)
+                    HStack(spacing: 8) {
+                        Text("Tu contexto de hoy").font(.subheadline.weight(.semibold)).foregroundStyle(OG.label)
+                        Spacer(minLength: 0)
+                        if let index = recovery.sleepIndex {
+                            Text("Sueño \(index)/100")
+                                .font(.caption.weight(.semibold))
+                                .monospacedDigit()
+                                .foregroundStyle(OG.accent)
+                        }
+                    }
                     Text(tip).font(.footnote).foregroundStyle(OG.label2)
+                    Text("El descanso no modifica la nota del entrenamiento.")
+                        .font(.caption2)
+                        .foregroundStyle(OG.label3)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
