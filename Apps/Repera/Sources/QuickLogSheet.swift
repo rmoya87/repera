@@ -220,10 +220,7 @@ struct QuickLogSheet: View {
             }
             .onAppear { seedRows() }
         }
-        .preferredColorScheme(.dark)
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-        .ogSheetCorners()
+        .ogSheetChrome(detents: [.medium, .large])
     }
 
     private var quantityLabel: String {

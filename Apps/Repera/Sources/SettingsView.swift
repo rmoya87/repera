@@ -112,15 +112,35 @@ struct SettingsView: View {
                 }
 
                 Button {
-                    Task { await store.refreshFromiCloud() }
+                    Task { await syncEverything() }
                 } label: {
-                    if store.isSyncingiCloud {
+                    if store.isSyncingiCloud || workoutSync.isSyncing || businessData.isLoading {
                         ProgressView()
                     } else {
                         Label("Sincronizar ahora", systemImage: "arrow.triangle.2.circlepath")
+                            .foregroundStyle(OG.label)
                     }
                 }
-                .disabled(store.iCloudStatus == .signedOut || store.isSyncingiCloud)
+                .disabled(store.iCloudStatus == .signedOut
+                          || store.isSyncingiCloud
+                          || workoutSync.isSyncing)
+
+                if let when = workoutSync.lastSyncAt {
+                    LabeledContent(
+                        "Última sync entrenamientos",
+                        value: when.formatted(date: .abbreviated, time: .shortened)
+                    )
+                }
+                if let problem = workoutSync.lastError {
+                    Text(problem)
+                        .font(.footnote)
+                        .foregroundStyle(OG.red)
+                }
+                if let syncMsg = store.lastiCloudSyncMessage, !syncMsg.isEmpty {
+                    Text(syncMsg)
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                }
 
                 Button("Cerrar sesión", role: .destructive) {
                     confirmSignOut = true
@@ -128,52 +148,53 @@ struct SettingsView: View {
             } header: {
                 Text("Cuenta")
             } footer: {
-                Text("Sign in with Apple identifica tu cuenta. Con iCloud activo hay copia de seguridad y sync entre dispositivos.")
+                Text("Sincroniza iCloud, tu perfil y los entrenamientos privados. Compartir resultados con un centro se gestiona en su ficha.")
             }
 
             Section {
-                LabeledContent(
-                    "Cuenta Supabase",
-                    value: businessAuth.isConnected ? "Conectada" :
-                        (businessAuth.isMigrationRequired ? "Pendiente de migrar" : "Sin conectar")
-                )
-                ForEach(businessData.centers) { center in
-                    LabeledContent(center.kind == "personal_trainer" ? "Entrenador" : "Centro", value: center.name)
+                let linked = businessData.linkedCenters()
+                ForEach(linked) { center in
+                    NavigationLink {
+                        LinkedCenterDetailView(center: center)
+                    } label: {
+                        CenterRow(center: center, linked: true)
+                    }
                 }
-                if businessData.centers.isEmpty {
-                    LabeledContent("Centros vinculados", value: "Ninguno")
+
+                NavigationLink {
+                    FindCenterTrainerView()
+                } label: {
+                    Label("Buscar centro o entrenador", systemImage: "magnifyingglass")
+                        .foregroundStyle(OG.label)
                 }
+
                 if !businessAuth.isConnected {
-                    Button("Conectar cuenta Apple con Repera") {
+                    Button {
                         Task {
                             do {
-                                // signIn already requests a nonce-bound Apple ID token
-                                // and forwards it to BusinessAuthStore.connect.
                                 try await appleAuth.signIn()
                                 await businessAuth.migrateLocalProfileIfNeeded(
                                     displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName
                                 )
+                                await businessData.refresh()
                             } catch {
                                 appleConnectionError = error.localizedDescription
                             }
                         }
+                    } label: {
+                        Label("Conectar con Apple", systemImage: "apple.logo")
+                            .foregroundStyle(OG.label)
                     }
                     .disabled(appleAuth.isSigningIn || businessAuth.isConnecting)
                     if let error = businessAuth.lastErrorMessage {
-                        Text(error)
-                            .font(.footnote)
-                            .foregroundStyle(OG.red)
+                        Text(error).font(.footnote).foregroundStyle(OG.red)
                     }
                     if let appleConnectionError {
-                        Text(appleConnectionError)
-                            .font(.footnote)
-                            .foregroundStyle(OG.red)
+                        Text(appleConnectionError).font(.footnote).foregroundStyle(OG.red)
                     }
                 }
                 if let issue = businessAuth.profileMigrationErrorMessage {
-                    Text(issue)
-                        .font(.footnote)
-                        .foregroundStyle(OG.red)
+                    Text(issue).font(.footnote).foregroundStyle(OG.red)
                     Button("Reintentar sincronización del perfil") {
                         Task {
                             await businessAuth.migrateLocalProfileIfNeeded(
@@ -181,119 +202,29 @@ struct SettingsView: View {
                             )
                         }
                     }
+                    .foregroundStyle(OG.label)
                 }
-                Text("Los usuarios anteriores se vinculan con Apple sin volver a crear entrenamientos. Solo el nombre y la identidad se sincronizan con Supabase; el historial sigue en iCloud.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             } header: {
-                Text("Mis centros y entrenadores")
+                Text("Centro y entrenador")
+            } footer: {
+                Text("Al vincularte y elegir bono, la app queda con acceso completo mientras mantengas el vínculo. Bonos y sesiones se ven en la ficha del centro.")
             }
 
             Section {
-                LabeledContent("Copia de entrenamientos en Supabase",
-                               value: workoutSync.isSyncing ? "Sincronizando…" :
-                               (workoutSync.lastSyncAt == nil ? "Pendiente" : "Sincronizada"))
-                if let when = workoutSync.lastSyncAt {
-                    LabeledContent("Última sincronización",
-                                   value: when.formatted(date: .abbreviated, time: .shortened))
-                }
-                Button {
-                    Task { await workoutSync.sync(store: store) }
-                } label: {
-                    Label("Sincronizar entrenamientos", systemImage: "arrow.triangle.2.circlepath")
-                }
-                .disabled(workoutSync.isSyncing || !businessAuth.isConnected)
-
-                let linkedCenters = businessData.centers.filter {
-                    businessData.athleteCenterIds.contains($0.id)
-                }
-                if linkedCenters.isEmpty {
-                    Text("Vincúlate con un entrenador o gimnasio para compartir resultados.")
-                        .foregroundStyle(OG.label2)
-                } else {
-                    ForEach(linkedCenters) { center in
-                        Toggle(isOn: Binding(
-                            get: { workoutSync.sharingByCenter[center.id] == true },
-                            set: { enabled in
-                                Task { await workoutSync.setSharing(enabled, for: center.id) }
-                            }
-                        )) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Compartir resultados con \(center.name)")
-                                    .font(.subheadline.weight(.medium))
-                                Text("Permite ver series, repeticiones y marcas al entrenador asignado y al administrador. Puedes revocarlo cuando quieras.")
-                                    .font(.caption)
-                                    .foregroundStyle(OG.label2)
-                            }
-                        }
-                        .disabled(workoutSync.updatingSharingCenter != nil ||
-                                  !businessAuth.isConnected)
-                    }
-                }
-                if let problem = workoutSync.lastError {
-                    Text(problem)
-                        .font(.footnote)
-                        .foregroundStyle(OG.red)
-                }
-                Text("Los entrenamientos completados se guardan de forma privada en tu cuenta Supabase. No se suben rutas GPS, notas personales, identificadores de Salud ni valoraciones. Compartir resultados está desactivado inicialmente para cada centro.")
-                    .font(.footnote)
-                    .foregroundStyle(OG.label2)
-            } header: {
-                Text("Sincronización y privacidad de entrenamientos")
-            }
-
-            Section {
-                if businessData.passes.isEmpty {
-                    LabeledContent("Bonos y sesiones", value: "Sin bonos activos")
-                } else {
-                    ForEach(businessData.passes) { pass in
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(businessData.centerName(pass.orgId))
+                if subscriptions.businessSponsoredAccess {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Acceso completo")
                                 .font(.headline)
-                            Text(pass.kind == "appointment" ? "Sesiones de entrenador personal" : "Clases de gimnasio")
+                            Text("Incluido con tu centro o entrenador")
                                 .font(.subheadline)
-                            Text("\(pass.remainingCredits) de \(pass.totalCredits) sesiones disponibles")
-                                .foregroundStyle(OG.accent)
-                            if let end = BusinessDataStore.date(pass.validUntil) {
-                                Text("Caduca: \(end.formatted(date: .abbreviated, time: .omitted))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-                Text("Los bonos mostrados están emitidos por el centro. La compra, renovación o cambio de contrato todavía se tramita con el profesional; Repera Pro es independiente.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            } header: {
-                Text("Servicios contratados")
-            }
-
-            Section {
-                if businessData.personalNotices.isEmpty {
-                    LabeledContent("Mensajes", value: "Sin avisos")
-                } else {
-                    ForEach(businessData.personalNotices) { message in
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(message.title)
-                                .font(.headline)
-                            Text(message.body)
-                                .font(.subheadline)
-                            Text(businessData.centerName(message.orgId))
-                                .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        .padding(.vertical, 4)
+                        Spacer()
+                        Image(systemName: "checkmark.seal.fill")
+                            .foregroundStyle(OG.label)
                     }
-                }
-            } header: {
-                Text("Avisos de entrenadores y centros")
-            } footer: {
-                Text("Solo se muestran avisos de tus centros vinculados en Repera Business. La entrega push todavía no está habilitada.")
-            }
-
-            Section {
-                if subscriptions.isPro {
+                } else if subscriptions.snapshot.grantsProAccess {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Repera Pro activo")
@@ -309,46 +240,50 @@ struct SettingsView: View {
                         }
                         Spacer()
                         Image(systemName: "checkmark.seal.fill")
-                            .foregroundStyle(OG.accent)
+                            .foregroundStyle(OG.label)
                     }
                     Button("Gestionar suscripción") {
                         openURL(CommercialConfig.manageSubscriptionsURL)
                     }
+                    .foregroundStyle(OG.label)
                 } else {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Repera Pro")
                                 .font(.headline)
-                            Text("Desbloquea todo tu progreso")
+                            Text("O vincula un centro para acceso completo")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
                         Image(systemName: "lock.fill")
-                            .foregroundStyle(OG.accent)
+                            .foregroundStyle(OG.label)
                     }
                     Button("Descubrir Pro") {
                         subscriptions.presentPaywall(.settings, feature: .advancedProgress)
                     }
                     .fontWeight(.semibold)
-                    .foregroundStyle(OG.accent)
+                    .foregroundStyle(OG.label)
                 }
-                Button("Restaurar compras") {
-                    Task {
-                        let ok = await subscriptions.restorePurchases()
-                        restoreMessage = ok
-                            ? "Suscripción restaurada."
-                            : (subscriptions.lastErrorMessage ?? "No se encontró ninguna suscripción.")
+                if !subscriptions.businessSponsoredAccess {
+                    Button("Restaurar compras") {
+                        Task {
+                            let ok = await subscriptions.restorePurchases()
+                            restoreMessage = ok
+                                ? "Suscripción restaurada."
+                                : (subscriptions.lastErrorMessage ?? "No se encontró ninguna suscripción.")
+                        }
                     }
+                    .disabled(subscriptions.purchaseInFlight)
+                    .foregroundStyle(OG.label)
                 }
-                .disabled(subscriptions.purchaseInFlight)
                 if !CommercialConfig.isConfigured {
                     Text("Compras no configuradas en este build (falta RevenueCatPublicAPIKey).")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             } header: {
-                Text("Repera Pro")
+                Text("Acceso")
             }
 
             #if DEBUG
@@ -410,7 +345,7 @@ struct SettingsView: View {
                 }
                 if health.isAuthorized {
                     Label("HealthKit conectado", systemImage: "heart.fill")
-                        .foregroundStyle(OG.accent)
+                        .foregroundStyle(OG.label)
                     if let kcal = health.activeEnergyTodayKcal {
                         LabeledContent("kcal hoy", value: "\(Int(kcal.rounded()))")
                     }
@@ -521,7 +456,7 @@ struct SettingsView: View {
                     if abs(delta) < 0.3 {
                         Text("Estás en el objetivo.")
                             .font(.footnote)
-                            .foregroundStyle(OG.accent)
+                            .foregroundStyle(OG.label)
                     } else {
                         let sign = delta > 0 ? "+" : ""
                         Text("\(sign)\(delta.formatted(.number.precision(.fractionLength(1)))) kg respecto al objetivo")
@@ -671,8 +606,11 @@ struct SettingsView: View {
                 }
             }
         }
+        .listStyle(.insetGrouped)
         .ogListChrome()
         .ogPinnedTransparentNav("Ajustes")
+        .toolbarBackground(OG.bg, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .alert("Restaurar compras", isPresented: Binding(
             get: { restoreMessage != nil },
             set: { if !$0 { restoreMessage = nil } }
@@ -750,6 +688,7 @@ struct SettingsView: View {
                     Text("Compartir backup")
                 }
                 .padding()
+                .ogSheetChrome(detents: [.medium])
             }
         }
     }
@@ -765,6 +704,15 @@ struct SettingsView: View {
     private func refreshNotificationsStatus() async {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         notificationsStatus = settings.authorizationStatus
+    }
+
+    /// iCloud + perfil Business + espejo privado de entrenamientos (un solo gesto).
+    private func syncEverything() async {
+        await store.refreshFromiCloud()
+        if businessAuth.isConnected {
+            await businessData.refresh()
+            await workoutSync.sync(store: store)
+        }
     }
 
     private func permissionStatusRow(
@@ -789,7 +737,7 @@ struct SettingsView: View {
         let synced = store.iCloudStatus == .available
         ZStack {
             Circle()
-                .fill(synced ? OG.accent.opacity(0.25) : OG.surface2)
+                .fill(synced ? OG.label.opacity(0.12) : OG.surface2)
                 .frame(width: 44, height: 44)
             if let img = ProfileAvatar.uiImage(from: store.state.settings.profileAvatarJPEG) {
                 Image(uiImage: img)
@@ -800,7 +748,7 @@ struct SettingsView: View {
             } else {
                 Image(systemName: synced ? "person.crop.circle.fill" : "icloud.slash")
                     .font(.system(size: synced ? 26 : 18, weight: .regular))
-                    .foregroundStyle(synced ? OG.accent : OG.label2)
+                    .foregroundStyle(synced ? OG.label : OG.label2)
             }
         }
     }

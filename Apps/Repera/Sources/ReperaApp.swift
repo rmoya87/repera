@@ -64,15 +64,14 @@ struct ReperaApp: App {
                 .environment(workoutSync)
                 .environment(onboarding)
                 .environment(locationTracker)
-                .preferredColorScheme(.light)
-                .background(Color.white)
+                .background(OG.bg)
                 .sheet(isPresented: Binding(
                     get: { subscriptions.paywall.isPresented && onboarding.isComplete },
                     set: { if !$0 { subscriptions.dismissPaywall() } }
                 )) {
                     PaywallView()
                         .environment(subscriptions)
-                        .ogSheetCorners()
+                        .ogSheetChrome(detents: [.large])
                 }
                 .task {
                     LaunchTiming.mark("RootTabView.task")
@@ -105,6 +104,7 @@ struct ReperaApp: App {
                                 )
                                 await businessData.refresh()
                                 await workoutSync.sync(store: store)
+                                wireSubscriptionGates()
                             }
                         }
                         await warmHealthAfterHydrate()
@@ -139,7 +139,12 @@ struct ReperaApp: App {
                         Task { await workoutSync.sync(store: store) }
                     } else {
                         workoutSync.clearSession()
+                        subscriptions.setBusinessSponsoredAccess(false)
                     }
+                    wireSubscriptionGates()
+                }
+                .onChange(of: businessData.athleteCenterIds) { _, _ in
+                    wireSubscriptionGates()
                 }
                 .onChange(of: store.didCompleteInitialRemoteSync) { _, finished in
                     if finished && businessAuth.isConnected {
@@ -167,6 +172,7 @@ struct ReperaApp: App {
             libraryRoutines: store.libraryRoutineCount,
             customExercises: store.customExerciseCount
         )
+        subscriptions.setBusinessSponsoredAccess(businessData.grantsFullAppAccess)
         store.featureAccess = { [subscriptions] in subscriptions.policy }
     }
 

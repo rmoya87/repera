@@ -23,6 +23,5 @@ struct QuickLogPickerView: View {
             }
         )
         .ogPinnedTransparentNav("Apuntar series")
-        .preferredColorScheme(.dark)
     }
 }

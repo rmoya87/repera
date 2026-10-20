@@ -89,7 +89,7 @@ export class ReperaAuthAPI {
   return rows?.[0]||null;
  }
  async organizations(){
-  return this.#authorized('organizations?select=id,name,slug,kind,public_email,phone,website,address,description,timezone,created_at&order=created_at.desc');
+  return this.#authorized('organizations?select=id,name,slug,kind,avatar_url,tagline,is_discoverable,public_email,phone,website,address,description,timezone,created_at&order=created_at.desc');
  }
  async clients(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
@@ -193,7 +193,16 @@ export class ReperaAuthAPI {
   name=String(name||'').trim();
   if(name.length<2||name.length>120||!/^[0-9a-f-]{36}$/i.test(orgId))throw Error('Datos de organización inválidos');
   // SQL permits only UPDATE(name), restricted by owner/admin membership.
-  return this.#authorized('organizations?id=eq.'+encodeURIComponent(orgId)+'&select=id,name,slug,kind',{method:'PATCH',prefer:'return=representation',body:{name}});
+  return this.#authorized('organizations?id=eq.'+encodeURIComponent(orgId)+'&select=id,name,slug,kind,avatar_url,tagline',{method:'PATCH',prefer:'return=representation',body:{name}});
+ }
+ async updateOrganizationBranding({orgId,avatarUrl='',tagline='',isDiscoverable=true}){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
+  return this.#authorized('rpc/update_organization_branding',{method:'POST',body:{
+   p_org:orgId,
+   p_avatar_url:String(avatarUrl||'').trim()||null,
+   p_tagline:String(tagline||'').trim()||null,
+   p_is_discoverable:!!isDiscoverable
+  }});
  }
  async updateProfessionalSession({id,date,title,instructions='',prescription}){
   if(!/^[0-9a-f-]{36}$/i.test(id||''))throw Error('Sesión inválida');

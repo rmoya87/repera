@@ -286,7 +286,6 @@ struct StartHubSheet: View {
                 LibraryPicker(image: $captured).ignoresSafeArea()
             }
         }
-        .preferredColorScheme(.light)
     }
 
     private var favoritesSubtitle: String {

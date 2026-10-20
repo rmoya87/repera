@@ -145,6 +145,30 @@ struct HomeView: View {
             .background(OG.bg)
             .refreshable { await businessData.refresh() }
             .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay)) {
+                if !businessData.athleteCenterIds.isEmpty {
+                    NavigationLink {
+                        MessagesInboxView()
+                    } label: {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "bubble.left.and.bubble.right")
+                                .font(.system(size: OG.toolbarGlassIcon, weight: .semibold))
+                                .foregroundStyle(OG.label)
+                                .symbolRenderingMode(.monochrome)
+                                .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
+                                .contentShape(Circle())
+                                .glassEffect(.regular.interactive(), in: .circle)
+                            if !businessData.personalNotices.isEmpty {
+                                Circle()
+                                    .fill(OG.label)
+                                    .frame(width: 8, height: 8)
+                                    .offset(x: -10, y: 10)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Mensajes con centro o entrenador")
+                }
+
                 OGToolbarGlassButton(
                     systemName: "plus",
                     accessibilityLabel: "Crear entreno, apuntar series o escanear pizarra",
@@ -229,7 +253,6 @@ struct HomeView: View {
                         }
                     }
                 )
-                .preferredColorScheme(.light)
             }
             .navigationDestination(item: $boardReviewPayload) { payload in
                 BoardImportReviewView(

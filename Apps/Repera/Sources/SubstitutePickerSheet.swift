@@ -62,7 +62,7 @@ struct SubstitutePickerSheet: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
         .ogFittedHeight()
+        .ogFittedSheet()
         .tint(OG.accent)
-        .preferredColorScheme(.dark)
     }
 }

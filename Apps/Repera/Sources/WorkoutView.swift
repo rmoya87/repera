@@ -184,8 +184,6 @@ struct WorkoutView: View {
                 },
                 onCancel: { pendingWODConfirm = nil }
             )
-            .presentationDetents([.medium, .large])
-            .ogFittedSheet()
         }
         .onAppear {
             prefill()
@@ -254,7 +252,6 @@ struct WorkoutView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
         .ogFittedHeight()
-        .preferredColorScheme(.light)
         .ogFittedSheet()
     }
 
@@ -481,7 +478,7 @@ struct WorkoutView: View {
                         }
                     }
                 )
-                .frame(width: style == .repsOnly ? nil : 96)
+                .frame(width: style == .repsOnly ? nil : 112)
                 .frame(maxWidth: style == .repsOnly ? .infinity : nil)
                 .accessibilityLabel(qtyLabel)
 
@@ -493,10 +490,10 @@ struct WorkoutView: View {
                         }
                     } label: {
                         Text(row.rir.map { String(format: "%g", $0) } ?? "RIR")
-                            .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                            .font(.system(size: 15, weight: .semibold).monospacedDigit())
                             .foregroundStyle(row.rir == nil ? OG.label3 : OG.label)
-                            .frame(width: 48, height: 36)
-                            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .frame(width: 56, height: 48)
+                            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                     .disabled(row.completed)
                 }
@@ -769,30 +766,46 @@ struct WorkoutView: View {
             mondayFirst: store.state.settings.weekStartsOn == .monday
         ).first { $0.exerciseName == current.exercise.name }
         return VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(current.exercise.name)
-                    .font(.title2.bold())
-                HStack(spacing: 8) {
-                    if let label = SessionController.supersetLabel(current.supersetGroup) {
-                        Text(label)
-                            .font(.caption2.bold())
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(.orange.opacity(0.25), in: Capsule())
+            NavigationLink {
+                ExerciseDetailView(exerciseId: current.exercise.id)
+            } label: {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(current.exercise.name)
+                        .font(.title2.bold())
+                        .foregroundStyle(OG.label)
+                        .multilineTextAlignment(.leading)
+                    HStack(spacing: 8) {
+                        if let label = SessionController.supersetLabel(current.supersetGroup) {
+                            Text(label)
+                                .font(.caption2.bold())
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(.orange.opacity(0.25), in: Capsule())
+                        }
+                        Text(exerciseMetaLine(current, target: target))
+                            .foregroundStyle(OG.label2)
                     }
-                    Text(exerciseMetaLine(current, target: target))
-                        .foregroundStyle(OG.label2)
+                    if let wod = wodPlanLabel(for: current) {
+                        Text(wod)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(OG.accent)
+                    }
                 }
-                if let wod = wodPlanLabel(for: current) {
-                    Text(wod)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(OG.accent)
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .buttonStyle(.plain)
+            .accessibilityHint("Ver ficha del ejercicio")
 
-            ExerciseArtView(exercise: current.exercise, showStepCaptions: true)
-                .frame(maxWidth: .infinity)
-                .clipped()
+            NavigationLink {
+                ExerciseDetailView(exerciseId: current.exercise.id)
+            } label: {
+                ExerciseArtView(exercise: current.exercise, showStepCaptions: true)
+                    .frame(maxWidth: .infinity)
+                    .clipped()
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Ilustración de \(current.exercise.name)")
+            .accessibilityHint("Ver ficha del ejercicio")
 
             HStack(spacing: 8) {
                 metaPill("Último", last.map { String(format: "%g kg", $0) } ?? "—")
@@ -1454,30 +1467,38 @@ struct WorkoutView: View {
                         ForEach(block.items, id: \.exercise.id) { pair in
                             let index = pair.index
                             let item = pair.exercise
-                            Button {
-                                store.selectExercise(at: index)
-                            } label: {
-                                HStack(spacing: 12) {
-                                    ExerciseThumb(exercise: item.exercise, size: 44)
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        HStack(spacing: 6) {
-                                            Text(item.exercise.name)
-                                                .font(.system(size: 15, weight: .semibold))
-                                                .foregroundStyle(OG.label)
-                                                .lineLimit(2)
-                                                .multilineTextAlignment(.leading)
-                                            if let label = SessionController.supersetLabel(item.supersetGroup) {
-                                                Text(label)
-                                                    .font(.caption2.bold())
-                                                    .foregroundStyle(OG.orange)
+                            HStack(spacing: 10) {
+                                NavigationLink {
+                                    ExerciseDetailView(exerciseId: item.exercise.id)
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        ExerciseThumb(exercise: item.exercise, size: 48)
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            HStack(spacing: 6) {
+                                                Text(item.exercise.name)
+                                                    .font(.system(size: 16, weight: .semibold))
+                                                    .foregroundStyle(OG.label)
+                                                    .lineLimit(2)
+                                                    .multilineTextAlignment(.leading)
+                                                if let label = SessionController.supersetLabel(item.supersetGroup) {
+                                                    Text(label)
+                                                        .font(.caption2.bold())
+                                                        .foregroundStyle(OG.orange)
+                                                }
                                             }
+                                            Text(queueRowSubtitle(item))
+                                                .font(.system(size: 12))
+                                                .foregroundStyle(OG.label3)
+                                                .lineLimit(1)
                                         }
-                                        Text(queueRowSubtitle(item))
-                                            .font(.system(size: 12))
-                                            .foregroundStyle(OG.label3)
-                                            .lineLimit(1)
                                     }
-                                    Spacer(minLength: 6)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityHint("Ver ficha del ejercicio")
+
+                                Button {
+                                    store.selectExercise(at: index)
+                                } label: {
                                     VStack(alignment: .trailing, spacing: 4) {
                                         Image(systemName: item.isCompleted
                                               ? "checkmark.circle.fill"
@@ -1495,14 +1516,17 @@ struct WorkoutView: View {
                                                 .foregroundStyle(OG.label3)
                                         }
                                     }
+                                    .frame(minWidth: 44)
+                                    .contentShape(Rectangle())
                                 }
-                                .padding(10)
-                                .background(
-                                    index == session.currentIndex ? OG.surface3 : OG.surface2,
-                                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                )
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Seleccionar ejercicio")
                             }
-                            .buttonStyle(.plain)
+                            .padding(10)
+                            .background(
+                                index == session.currentIndex ? OG.surface3 : OG.surface2,
+                                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            )
                         }
                     }
                 }

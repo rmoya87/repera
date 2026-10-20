@@ -143,7 +143,6 @@ struct StandaloneTimerView: View {
         }
         .fullScreenCover(isPresented: $showClock) {
             clockScreen
-                .preferredColorScheme(.dark)
         }
         .alert("Guardar en favoritos", isPresented: $showSaveAlert) {
             TextField("Nombre", text: $saveTitle)

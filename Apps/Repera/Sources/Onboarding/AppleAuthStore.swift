@@ -40,7 +40,7 @@ final class AppleAuthStore: NSObject {
         }
         let provider = ASAuthorizationAppleIDProvider()
         do {
-            credentialState = try await withCheckedThrowingContinuation { cont in
+            let remote = try await withCheckedThrowingContinuation { (cont: CheckedContinuation<ASAuthorizationAppleIDProvider.CredentialState, Error>) in
                 provider.getCredentialState(forUserID: userID) { state, error in
                     if let error {
                         cont.resume(throwing: error)
@@ -49,16 +49,28 @@ final class AppleAuthStore: NSObject {
                     }
                 }
             }
+            switch remote {
+            case .authorized, .transferred:
+                credentialState = remote
+            case .revoked:
+                // Solo Apple «revocado» borra identidad local. No mezclar con .notFound
+                // (flaky tras actualizar builds / reinicios) — eso forzaba login otra vez.
+                clearSession(keepKeychain: false)
+                credentialState = .revoked
+            case .notFound:
+                // Conservar Keychain: tras update/reinstall parcial Apple a veces
+                // responde notFound aunque el usuario siga vinculado.
+                credentialState = .authorized
+                lastErrorMessage = nil
+            @unknown default:
+                credentialState = .authorized
+            }
         } catch {
             // Error de red / temporal: no borrar la sesión local.
             lastErrorMessage = error.localizedDescription
             if credentialState != .authorized && credentialState != .transferred {
                 credentialState = .authorized
             }
-            return
-        }
-        if credentialState == .revoked || credentialState == .notFound {
-            clearSession(keepKeychain: false)
         }
     }
 
@@ -66,6 +78,13 @@ final class AppleAuthStore: NSObject {
     func ensureValidSession() async -> Bool {
         if userID == nil {
             loadFromKeychain()
+        }
+        // Optimista: con userID en Keychain ya somos "signed in" mientras Apple responde.
+        if userID != nil,
+           credentialState != .authorized,
+           credentialState != .transferred,
+           credentialState != .revoked {
+            credentialState = .authorized
         }
         await refreshCredentialState()
         return isSignedIn
@@ -153,6 +172,10 @@ final class AppleAuthStore: NSObject {
         userID = readKeychain(account: userIDKey)
         displayName = readKeychain(account: nameKey)
         email = readKeychain(account: emailKey)
+        // Restaurar UI/gates al arrancar sin esperar a getCredentialState.
+        if userID != nil {
+            credentialState = .authorized
+        }
     }
 
     private func persistToKeychain() {
@@ -171,7 +194,8 @@ final class AppleAuthStore: NSObject {
         SecItemDelete(query as CFDictionary)
         var attrs = query
         attrs[kSecValueData as String] = data
-        attrs[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        // Survives app updates; available after first unlock (cold start OK).
+        attrs[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         SecItemAdd(attrs as CFDictionary, nil)
     }
 

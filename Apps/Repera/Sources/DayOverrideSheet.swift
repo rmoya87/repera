@@ -106,7 +106,6 @@ struct DayOverrideSheet: View {
             .fixedSize(horizontal: false, vertical: true)
             .ogFittedHeight()
         }
-        .preferredColorScheme(.dark)
         .ogFittedSheet()
     }
 

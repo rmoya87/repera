@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-20 (versionado único Xcode/Watch/widget)
+Última actualización: 2026-10-20 (Ajustes Business: buscar centro, sync, mensajes, avatares)
 
 ## Visión
 
@@ -113,7 +113,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 
 | Archivo | Rol |
 |---------|-----|
-| `SubscriptionManager` | Estado comercial observable, ofertas, compra/restore, paywall |
+| `SubscriptionManager` | Estado comercial observable, ofertas, compra/restore, paywall; `businessSponsoredAccess` si hay vínculo activo a centro/entrenador |
 | `RevenueCatEntitlementProvider` | CustomerInfo → `CommercialSnapshot` |
 | `FreeUsageStore` | Cuota escáner (`free_usage.json`, fuera del JSON deportivo) |
 | `PaywallView` / `ProTeaserCard` | UI comercial Liquid Glass |
@@ -121,18 +121,18 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 
 ## Navegación (tabs)
 
-`RootTabView`: **Inicio · Diario · Center · Progreso · Ejercicios**. El antiguo `StartHubSheet` se presenta desde Inicio mediante +; el flujo de sesión y todas sus herramientas se conservan. `CenterView` es nativa, divide **Clases / Citas individuales** en un selector y muestra estados vacíos auténticos hasta conectar datos profesionales.
+`RootTabView`: **Inicio · Diario · Crear|Center · Progreso · Ejercicios**. La pestaña central es **Crear** (`StartHubSheet`) salvo vínculo/invitación a gimnasio o entrenador, cuando pasa a **Center**. El + de Inicio sigue abriendo Crear en hoja. `CenterView` divide **Clases / Citas** con datos reales de Supabase.
 
 - Flujo de entreno: overlay `NavigationStack` (`sessionPreview` → `workout`).
 - Tab bar: `minimize` solo con sesión activa; accessory **Continuar**.
 
-La pestaña Diario prioriza **Entrenador** y conserva **Personal · Rutinas** como alternativas sin sobrescribir almacenamiento local. Ajustes agrupa relaciones profesionales y contratos con estados «Sin sincronizar» hasta disponer de APIs y sesión Supabase móvil verificadas.
+La pestaña Diario prioriza **Entrenador** y conserva **Personal · Rutinas** como alternativas sin sobrescribir almacenamiento local. Ajustes: **Buscar centro o entrenador**, ficha con bonos/sesiones, sync unificado; mensajes en topbar de Inicio.
 
 ## UI / design system
 
 `Theme.swift` (`OG*`):
 
-- Colores oscuros, acento verde `#30d158`
+- Tokens `OG*` adaptativos (día/noche según sistema), acento verde `#30d158`
 - `OGCard`, `OGPageHeader`, `OGBackPageHeader` (legacy / sheets compactos)
 - `ogPinnedTransparentNav`: título large debajo de volver/acciones (subpáginas)
 - `ogFixedTopBar` / `OGFixedTopBar`: título arriba del todo; acciones en la misma fila (roots sin franja vacía)
@@ -190,10 +190,10 @@ Guía manual: [TESTING_GUIDE.md](TESTING_GUIDE.md).
 `BusinessDataStore` lee `professional_training_sessions` de clientes vinculados (doble control: RLS del servidor + filtro local). `PlanView` en modo Entrenador lista títulos, fechas e instrucciones del coach y `HomeView` muestra la programación del día, sin alterar las rutinas/series JSON privadas de iCloud. El editor de bloques/series profesionales avanzado no está conectado todavía.
 
 ## Datos reales de Centro/bonos en iOS
-`BusinessDataStore.swift` es un overlay `@Observable` alimentado por Supabase SDK autenticado. `CenterView` lee Clases/Citas, bonos y reservas para ofrecer acciones RPC; `HomeView` integra reservas confirmadas; Ajustes muestra los centros y saldos. No se fusiona con el JSON local ni iCloud. Pendiente de compilación iOS 27/E2E y disponibilidad de datos reales de prueba.
+`BusinessDataStore.swift` es un overlay `@Observable` alimentado por Supabase SDK autenticado. `CenterView` lee Clases/Citas, bonos y reservas; `FindCenterTrainerView` / `LinkedCenterDetailView` gestionan directorio, vínculo, bono y desvinculación; `MessagesInboxView` mensajes bidireccionales. Migración `org_directory_avatar_messaging`: `avatar_url`, directorio, `request_org_athlete_link`, `leave_org_as_athlete`, `athlete_send_org_message`. No se fusiona con el JSON local ni iCloud.
 
 ## Puente de identidad iOS/Repera Business
-`BusinessAuthStore.swift` usa SDK `supabase-swift` (2.55.4 exacta). Tras autorización Apple con nonce SHA-256, intenta obtener una sesión Supabase sin interferir con `AppleAuthStore`, `ReperaStore` local ni sincronización iCloud. Ajustes permite reconectar usuarios previos. NO hay envío automático de entrenamientos privados ni agenda móvil real hasta completar APIs y pruebas E2E.
+`BusinessAuthStore.swift` usa SDK `supabase-swift` (2.55.4 exacta). Tras autorización Apple con nonce SHA-256, intenta obtener una sesión Supabase sin interferir con `AppleAuthStore`, `ReperaStore` local ni sincronización iCloud. «Sincronizar ahora» también dispara el espejo privado de entrenamientos (`BusinessWorkoutSyncStore`).
 
 ## Plataforma profesional (desarrollo separado dentro del monorepo)
 

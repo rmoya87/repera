@@ -6,20 +6,24 @@ public struct FeatureAccessPolicy: Sendable, Equatable {
     public var freeUsage: FreeUsageState
     public var libraryRoutineCount: Int
     public var customExerciseCount: Int
+    /// Acceso completo mientras el deportista paga / está vinculado a un centro o entrenador.
+    public var businessSponsoredAccess: Bool
 
     public init(
         snapshot: CommercialSnapshot = CommercialSnapshot(),
         freeUsage: FreeUsageState = FreeUsageState(),
         libraryRoutineCount: Int = 0,
-        customExerciseCount: Int = 0
+        customExerciseCount: Int = 0,
+        businessSponsoredAccess: Bool = false
     ) {
         self.snapshot = snapshot
         self.freeUsage = freeUsage
         self.libraryRoutineCount = libraryRoutineCount
         self.customExerciseCount = customExerciseCount
+        self.businessSponsoredAccess = businessSponsoredAccess
     }
 
-    public var isPro: Bool { snapshot.grantsProAccess }
+    public var isPro: Bool { snapshot.grantsProAccess || businessSponsoredAccess }
 
     public var effectiveStatus: SubscriptionStatus {
         snapshot.effectiveStatus()

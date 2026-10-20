@@ -22,7 +22,6 @@ struct WODCatalogPickerView: View {
                 pickerContent
             }
         }
-        .preferredColorScheme(.dark)
     }
 
     private var pickerContent: some View {
@@ -239,7 +238,6 @@ struct WODTemplateDetailView: View {
                 .map { resolvedExercise(for: $0) }
             ExerciseArt.prefetchThumbs(for: thumbs, pointSize: 40, limit: 24)
         }
-        .preferredColorScheme(.dark)
     }
 
     private func playNow() {

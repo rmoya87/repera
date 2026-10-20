@@ -11,20 +11,6 @@ struct WODResultConfirmSheet: View {
     var onSave: () -> Void
     var onCancel: () -> Void
 
-    private var minutes: Binding<Int> {
-        Binding(
-            get: { elapsedSeconds / 60 },
-            set: { elapsedSeconds = max(0, $0) * 60 + (elapsedSeconds % 60) }
-        )
-    }
-
-    private var seconds: Binding<Int> {
-        Binding(
-            get: { elapsedSeconds % 60 },
-            set: { elapsedSeconds = (elapsedSeconds / 60) * 60 + min(59, max(0, $0)) }
-        )
-    }
-
     var body: some View {
         NavigationStack {
             Form {
@@ -45,17 +31,27 @@ struct WODResultConfirmSheet: View {
                     }
                 } else if capture == .elapsedTime {
                     Section {
-                        labeledIntStepper(title: "Minutos", value: minutes, range: 0...180, step: 1)
-                        labeledIntStepper(title: "Segundos", value: seconds, range: 0...59, step: 1)
-                        Text(DurationText.format(elapsedSeconds))
-                            .font(.system(size: 22, weight: .bold).monospacedDigit())
-                            .foregroundStyle(OG.accent)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, 4)
+                        HStack(spacing: 12) {
+                            Text("Tiempo")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(OG.label2)
+                                .frame(width: 88, alignment: .leading)
+                            OGRepeatStepper(
+                                display: DurationText.format(elapsedSeconds),
+                                keyboard: .numbersAndPunctuation,
+                                onMinus: { elapsedSeconds = max(0, elapsedSeconds - 5) },
+                                onPlus: { elapsedSeconds = min(180 * 60, elapsedSeconds + 5) },
+                                onCommitText: { text in
+                                    if let parsed = DurationText.parse(text) {
+                                        elapsedSeconds = min(180 * 60, parsed)
+                                    }
+                                }
+                            )
+                        }
                     } header: {
-                        Text("Tiempo")
+                        Text("Resultado")
                     } footer: {
-                        Text("Puedes ajustar el tiempo si paraste el reloj tarde o pronto.")
+                        Text("Formato m:ss. Puedes ajustar si paraste el reloj tarde o pronto.")
                     }
                 } else {
                     Section {
@@ -80,7 +76,7 @@ struct WODResultConfirmSheet: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
+        .ogSheetChrome(detents: [.medium, .large])
     }
 
     private var canSave: Bool {
@@ -102,9 +98,9 @@ struct WODResultConfirmSheet: View {
     ) -> some View {
         HStack(spacing: 12) {
             Text(title)
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(OG.label2)
-                .frame(width: 110, alignment: .leading)
+                .frame(width: 88, alignment: .leading)
             OGRepeatStepper(
                 display: "\(value.wrappedValue)",
                 keyboard: .numberPad,

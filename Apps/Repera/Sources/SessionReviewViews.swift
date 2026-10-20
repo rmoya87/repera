@@ -23,9 +23,7 @@ struct SessionReviewSheet: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .ogSheetChrome(detents: [.medium, .large])
     }
 }
 

@@ -104,6 +104,8 @@ struct LibraryView: View {
             .navigationTitle(browseMode == .wods ? "WODs" : "Ejercicios")
             .navigationBarTitleDisplayMode(.inline)
             .ogTransparentNav()
+            .toolbarBackground(OG.bg, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     OGToolbarGlassButton(
@@ -162,7 +164,7 @@ struct LibraryView: View {
             }
             .sheet(isPresented: $showingAdd) {
                 addExerciseSheet
-                    .ogSheetCorners()
+                    .ogSheetChrome(detents: [.medium, .large])
             }
         }
     }
@@ -306,7 +308,6 @@ struct LibraryView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
     }
 
     private func resetAddForm() {
@@ -368,7 +369,6 @@ struct LibraryView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
         .ogFittedHeight()
-        .preferredColorScheme(.dark)
         .ogFittedSheet()
     }
 

@@ -142,7 +142,6 @@ struct SessionPreviewView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
         .sheet(isPresented: $showDeleteConfirm) {
             OGConfirmSheet(
                 title: "¿Borrar entreno?",
@@ -276,25 +275,27 @@ struct LogFinalResultsView: View {
                     }
                 case .elapsedTime:
                     Section {
-                        labeledScoreStepper(
-                            title: "Minutos",
-                            value: Binding(
-                                get: { block.elapsedSeconds / 60 },
-                                set: { block.elapsedSeconds = max(0, $0) * 60 + (block.elapsedSeconds % 60) }
-                            ),
-                            range: 0...180
-                        )
-                        labeledScoreStepper(
-                            title: "Segundos",
-                            value: Binding(
-                                get: { block.elapsedSeconds % 60 },
-                                set: { block.elapsedSeconds = (block.elapsedSeconds / 60) * 60 + min(59, max(0, $0)) }
-                            ),
-                            range: 0...59
-                        )
-                        Text(DurationText.format(block.elapsedSeconds))
-                            .font(.system(size: 22, weight: .bold).monospacedDigit())
-                            .foregroundStyle(OG.accent)
+                        HStack(spacing: 12) {
+                            Text("Tiempo")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(OG.label2)
+                                .frame(width: 88, alignment: .leading)
+                            OGRepeatStepper(
+                                display: DurationText.format(block.elapsedSeconds),
+                                keyboard: .numbersAndPunctuation,
+                                onMinus: {
+                                    block.elapsedSeconds = max(0, block.elapsedSeconds - 5)
+                                },
+                                onPlus: {
+                                    block.elapsedSeconds = min(180 * 60, block.elapsedSeconds + 5)
+                                },
+                                onCommitText: { text in
+                                    if let parsed = DurationText.parse(text) {
+                                        block.elapsedSeconds = min(180 * 60, parsed)
+                                    }
+                                }
+                            )
+                        }
                         ForEach(block.exercises.prefix(4)) { draft in
                             exerciseHeaderRow(draft: draft)
                                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -302,7 +303,7 @@ struct LogFinalResultsView: View {
                     } header: {
                         blockSectionHeader(title: block.title, kindLabel: block.kindLabel)
                     } footer: {
-                        Text("For Time / chipper: tiempo de finalización (puede pasar del time cap).")
+                        Text("For Time / RFT / chipper: tiempo de finalización (m:ss).")
                     }
                 case .perMovementSets:
                     ForEach($block.exercises) { $draft in
@@ -400,7 +401,6 @@ struct LogFinalResultsView: View {
                 finishedAt = newStart.addingTimeInterval(60 * 60)
             }
         }
-        .preferredColorScheme(.dark)
     }
 
     private var durationFooter: String {
@@ -438,14 +438,20 @@ struct LogFinalResultsView: View {
 
     private func exerciseHeaderRow(draft: DraftExercise) -> some View {
         let exercise = resolvedCatalogExercise(draft.exercise)
-        return HStack(spacing: 12) {
-            ExerciseThumb(exercise: exercise, size: 48)
-            Text(exercise.name)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(OG.label)
-                .lineLimit(2)
-            Spacer(minLength: 0)
+        return NavigationLink {
+            ExerciseDetailView(exerciseId: exercise.id)
+        } label: {
+            HStack(spacing: 12) {
+                ExerciseThumb(exercise: exercise, size: 52)
+                Text(exercise.name)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }
         }
+        .accessibilityHint("Ver ficha del ejercicio")
     }
 
     /// id → catálogo → canónico limpio (quita @RIR / W.S. / DB…) para arte y título.
@@ -476,9 +482,9 @@ struct LogFinalResultsView: View {
     ) -> some View {
         HStack(spacing: 12) {
             Text(title)
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(OG.label2)
-                .frame(width: 110, alignment: .leading)
+                .frame(width: 88, alignment: .leading)
             OGRepeatStepper(
                 display: "\(value.wrappedValue)",
                 keyboard: .numberPad,
@@ -693,10 +699,10 @@ struct LogFinalResultsView: View {
                         }
                     } label: {
                         Text(set.wrappedValue.rir.map { String(format: "%g", $0) } ?? "RIR")
-                            .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                            .font(.system(size: 15, weight: .semibold).monospacedDigit())
                             .foregroundStyle(set.wrappedValue.rir == nil ? OG.label3 : OG.label)
-                            .frame(width: 48, height: 36)
-                            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .frame(width: 56, height: 48)
+                            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                 }
             }

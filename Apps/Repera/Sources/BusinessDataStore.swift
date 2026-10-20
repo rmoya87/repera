@@ -6,10 +6,29 @@ import Supabase
 /// Only athlete-owned completed-workout results are mirrored to Supabase
 /// by BusinessWorkoutSyncStore; coaches see them only with explicit consent.
 /// HealthKit/location remain local/iCloud and private.
-struct BusinessOrganization: Decodable, Identifiable {
+struct BusinessOrganization: Decodable, Identifiable, Hashable {
     let id: UUID
     let name: String
     let kind: String
+    let slug: String?
+    let avatarUrl: String?
+    let tagline: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, kind, slug, tagline
+        case avatarUrl = "avatar_url"
+    }
+
+    var kindLabel: String {
+        switch kind {
+        case "personal_trainer": return "Entrenador"
+        case "gym": return "Gimnasio"
+        case "sports_center": return "Centro deportivo"
+        default: return "Centro"
+        }
+    }
+
+    var isTrainer: Bool { kind == "personal_trainer" }
 }
 struct BusinessInvitation: Decodable, Identifiable {
     let id: UUID
@@ -186,10 +205,15 @@ final class BusinessDataStore {
     private(set) var availability: [UUID: BusinessAvailability] = [:]
     private(set) var trainingSessions: [BusinessProfessionalTrainingSession] = []
     private(set) var personalNotices: [BusinessClientNotification] = []
+    private(set) var directory: [BusinessOrganization] = []
     private(set) var isLoading = false
+    private(set) var isSearchingDirectory = false
     @ObservationIgnored private var refreshRevision = 0
     private(set) var errorMessage: String?
     private(set) var isSubmitting = false
+
+    /// Acceso completo en la app mientras el deportista está vinculado a un centro/entrenador.
+    var grantsFullAppAccess: Bool { !athleteCenterIds.isEmpty }
 
     private init() {}
 
@@ -206,6 +230,7 @@ final class BusinessDataStore {
         availability = [:]
         trainingSessions = []
         personalNotices = []
+        directory = []
         errorMessage = nil
     }
 
@@ -226,7 +251,7 @@ final class BusinessDataStore {
             let currentUser = user.id
             let fetchedCenters: [BusinessOrganization] = try await client
                 .from("organizations")
-                .select("id,name,kind")
+                .select("id,name,kind,slug,avatar_url,tagline")
                 .execute().value
             let fetchedInvitations: [BusinessInvitation] = try await client
                 .from("organization_invitations")
@@ -310,7 +335,40 @@ final class BusinessDataStore {
     }
 
     func centerName(_ id: UUID) -> String {
-        centers.first(where: { $0.id == id })?.name ?? "Centro deportivo"
+        centers.first(where: { $0.id == id })?.name
+            ?? directory.first(where: { $0.id == id })?.name
+            ?? "Centro deportivo"
+    }
+
+    func center(for id: UUID) -> BusinessOrganization? {
+        centers.first(where: { $0.id == id }) ?? directory.first(where: { $0.id == id })
+    }
+
+    func linkedCenters() -> [BusinessOrganization] {
+        centers.filter { athleteCenterIds.contains($0.id) }
+    }
+
+    func passesForOrg(_ orgId: UUID) -> [BusinessPass] {
+        passes.filter { $0.orgId == orgId }
+    }
+
+    func searchDirectory(query: String) async {
+        guard let client = BusinessAuthStore.shared.apiClient else {
+            directory = []
+            return
+        }
+        isSearchingDirectory = true
+        defer { isSearchingDirectory = false }
+        do {
+            let rows: [BusinessOrganization] = try await client
+                .rpc("search_discoverable_organizations",
+                     params: ["p_query": query])
+                .execute().value
+            directory = rows
+        } catch {
+            directory = []
+            errorMessage = "No se pudo buscar centros: \(error.localizedDescription)"
+        }
     }
 
     func booking(for occurrenceId: UUID) -> BusinessBooking? {
@@ -372,6 +430,65 @@ final class BusinessDataStore {
             await refresh()
         } catch {
             errorMessage = "No se ha podido cancelar la reserva: \(error.localizedDescription)"
+        }
+    }
+
+    func requestLink(to org: BusinessOrganization, passKind: String, note: String?) async -> Bool {
+        guard let client = BusinessAuthStore.shared.apiClient, !isSubmitting else { return false }
+        isSubmitting = true
+        defer { isSubmitting = false }
+        do {
+            try await client.rpc(
+                "request_org_athlete_link",
+                params: [
+                    "p_org": org.id.uuidString,
+                    "p_pass_kind": passKind,
+                    "p_note": note ?? "",
+                ]
+            ).execute()
+            await refresh()
+            return true
+        } catch {
+            errorMessage = "No se ha podido vincular: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    func leave(_ org: BusinessOrganization) async -> Bool {
+        guard let client = BusinessAuthStore.shared.apiClient, !isSubmitting else { return false }
+        isSubmitting = true
+        defer { isSubmitting = false }
+        do {
+            try await client.rpc(
+                "leave_org_as_athlete",
+                params: ["p_org": org.id.uuidString]
+            ).execute()
+            await refresh()
+            return true
+        } catch {
+            errorMessage = "No se ha podido desvincular: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    func sendMessage(to orgId: UUID, title: String, body: String) async -> Bool {
+        guard let client = BusinessAuthStore.shared.apiClient, !isSubmitting else { return false }
+        isSubmitting = true
+        defer { isSubmitting = false }
+        do {
+            try await client.rpc(
+                "athlete_send_org_message",
+                params: [
+                    "p_org": orgId.uuidString,
+                    "p_title": title,
+                    "p_body": body,
+                ]
+            ).execute()
+            await refresh()
+            return true
+        } catch {
+            errorMessage = "No se ha podido enviar el mensaje: \(error.localizedDescription)"
+            return false
         }
     }
 }

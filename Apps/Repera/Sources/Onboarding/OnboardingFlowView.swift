@@ -25,10 +25,8 @@ struct OnboardingFlowView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // Welcome remains deliberately dark; the athlete workspace and
-        // permissions/prices follow Repera Light (white + green accent).
+        // Welcome keeps a black canvas for the hero; el resto sigue el modo del sistema.
         .background((onboarding.step == .appleSignIn ? Color.black : OG.bg).ignoresSafeArea())
-        .preferredColorScheme(onboarding.step == .appleSignIn ? .dark : .light)
         .task {
             _ = await appleAuth.ensureValidSession()
             onboarding.reconcile(isSignedIn: appleAuth.isSignedIn)

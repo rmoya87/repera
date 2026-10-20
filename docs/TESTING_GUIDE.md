@@ -6,7 +6,7 @@ Checklist manual por feature. Preferible dispositivo real para Live Activity y W
 
 ## Navegación deportista (2026-10-19)
 
-- [ ] La barra muestra **Inicio · Diario · Center · Progreso · Ejercicios** (sin pestaña Crear).
+- [ ] La barra muestra **Inicio · Diario · Crear · Progreso · Ejercicios** sin vínculo a centro; con gimnasio/entrenador, **Center** en lugar de Crear.
 - [ ] **Inicio → +** abre todas las acciones antiguas: crear entreno, apuntar series, favoritos, temporizador y escanear pizarra; iniciar/continuar entreno conserva la navegación.
 - [ ] **Inicio → Añadir entreno** conserva su sheet por día y **Crear plan** abre Diario en «Personal».
 - [ ] **Diario** abre en «Entrenador» con sesiones profesionales recibidas tras invitación/Apple Auth, o estado vacío sin vinculaciones; «Personal» y «Rutinas» conservan todos los datos y acciones.
@@ -133,4 +133,4 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 
 ## UI tests en simulador limpio (2026-10-19)
 
-`ReperaSmokeUITests` arranca la app Debug con `--repera-ui-test-tabs` y `REPERA_UI_TEST_MODE=1` para acceder únicamente al contenedor de pestañas sin cuenta Apple del runner. La compilación Release **no** reconoce este modo. Los tests comprueban `Inicio · Diario · Center · Progreso · Ejercicios` y navegación a Ejercicios. El login real con Apple debe probarse en otro escenario E2E con cuenta y TestFlight, nunca se simula como superado.
+`ReperaSmokeUITests` arranca la app Debug con `--repera-ui-test-tabs` y `REPERA_UI_TEST_MODE=1` para acceder únicamente al contenedor de pestañas sin cuenta Apple del runner. La compilación Release **no** reconoce este modo. Los tests comprueban `Inicio · Diario · Crear|Center · Progreso · Ejercicios` y navegación a Ejercicios. El login real con Apple debe probarse en otro escenario E2E con cuenta y TestFlight, nunca se simula como superado.

@@ -20,7 +20,10 @@ final class ReperaSmokeUITests: XCTestCase {
         // Tab labels from RootTabView.
         XCTAssertTrue(app.tabBars.buttons["Inicio"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.tabBars.buttons["Diario"].exists)
-        XCTAssertTrue(app.tabBars.buttons["Center"].exists)
+        // Sin vínculo a gimnasio/entrenador la pestaña es Crear; con vínculo, Center.
+        XCTAssertTrue(
+            app.tabBars.buttons["Crear"].exists || app.tabBars.buttons["Center"].exists
+        )
         XCTAssertTrue(app.tabBars.buttons["Progreso"].exists)
         XCTAssertTrue(app.tabBars.buttons["Ejercicios"].exists)
     }

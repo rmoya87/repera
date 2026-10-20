@@ -23,6 +23,19 @@ struct FeatureAccessPolicyTests {
         }
     }
 
+    @Test("Vínculo con centro/entrenador otorga acceso completo")
+    func businessSponsoredGrantsFullAccess() {
+        let policy = FeatureAccessPolicy(
+            libraryRoutineCount: 100,
+            customExerciseCount: 100,
+            businessSponsoredAccess: true
+        )
+        #expect(policy.isPro)
+        for feature in ReperaFeature.allCases {
+            #expect(policy.canAccess(feature), "Patrocinio Business debería acceder a \(feature)")
+        }
+    }
+
     @Test("Gratis: 3 rutinas OK, 4ª bloqueada; edición permitida")
     func routineLimits() {
         var policy = FeatureAccessPolicy(libraryRoutineCount: 2)

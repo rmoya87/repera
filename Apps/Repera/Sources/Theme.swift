@@ -1,18 +1,43 @@
 import SwiftUI
 import UIKit
 
-/// Repera Light: lienzo blanco, jerarquía neutra y verde como acento de acción.
-/// Estos tokens son comunes a Diario, Center, progreso, modales y navegación.
+/// Tokens adaptativos: día (claro) y noche (oscuro) según el sistema.
+/// Comunes a Diario, Center, progreso, modales y navegación.
 enum OG {
-    static let bg = Color.white
-    static let bgEl = Color(red: 248 / 255, green: 250 / 255, blue: 249 / 255)
-    static let surface = Color(red: 247 / 255, green: 249 / 255, blue: 248 / 255)
-    static let surface2 = Color(red: 239 / 255, green: 243 / 255, blue: 241 / 255)
-    static let surface3 = Color(red: 226 / 255, green: 234 / 255, blue: 229 / 255)
+    static let bg = adaptive(
+        light: UIColor.white,
+        dark: UIColor.black
+    )
+    static let bgEl = adaptive(
+        light: UIColor(red: 248 / 255, green: 250 / 255, blue: 249 / 255, alpha: 1),
+        dark: UIColor(red: 12 / 255, green: 12 / 255, blue: 12 / 255, alpha: 1)
+    )
+    static let surface = adaptive(
+        // Contraste claro frente a `bg` blanco (Inicio / Progreso / Ajustes / Ejercicios).
+        light: UIColor(red: 242 / 255, green: 245 / 255, blue: 243 / 255, alpha: 1),
+        dark: UIColor(red: 28 / 255, green: 28 / 255, blue: 30 / 255, alpha: 1)
+    )
+    static let surface2 = adaptive(
+        light: UIColor(red: 239 / 255, green: 243 / 255, blue: 241 / 255, alpha: 1),
+        dark: UIColor(red: 44 / 255, green: 44 / 255, blue: 46 / 255, alpha: 1)
+    )
+    static let surface3 = adaptive(
+        light: UIColor(red: 226 / 255, green: 234 / 255, blue: 229 / 255, alpha: 1),
+        dark: UIColor(red: 58 / 255, green: 58 / 255, blue: 60 / 255, alpha: 1)
+    )
 
-    static let label = Color(red: 23 / 255, green: 38 / 255, blue: 32 / 255)
-    static let label2 = Color(red: 93 / 255, green: 110 / 255, blue: 99 / 255)
-    static let label3 = Color(red: 137 / 255, green: 153 / 255, blue: 143 / 255)
+    static let label = adaptive(
+        light: UIColor(red: 23 / 255, green: 38 / 255, blue: 32 / 255, alpha: 1),
+        dark: UIColor(red: 245 / 255, green: 245 / 255, blue: 247 / 255, alpha: 1)
+    )
+    static let label2 = adaptive(
+        light: UIColor(red: 93 / 255, green: 110 / 255, blue: 99 / 255, alpha: 1),
+        dark: UIColor(red: 174 / 255, green: 174 / 255, blue: 178 / 255, alpha: 1)
+    )
+    static let label3 = adaptive(
+        light: UIColor(red: 137 / 255, green: 153 / 255, blue: 143 / 255, alpha: 1),
+        dark: UIColor(red: 120 / 255, green: 120 / 255, blue: 128 / 255, alpha: 1)
+    )
 
     static let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255) // #30d158
     static let onAccent = Color.black
@@ -21,9 +46,15 @@ enum OG {
     static let blue = Color(red: 10 / 255, green: 132 / 255, blue: 1)
     static let red = Color(red: 1, green: 69 / 255, blue: 58 / 255)
 
+    private static func adaptive(light: UIColor, dark: UIColor) -> Color {
+        Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark ? dark : light
+        })
+    }
+
     static let radiusCard: CGFloat = 14
     static let radiusLG: CGFloat = 16
-    /// Esquinas de sheets (alineadas al radio continuo del iPhone).
+    /// Esquinas de sheets: radio continuo alineado al sheet nativo del iPhone (~38 pt).
     static let sheetCornerRadius: CGFloat = 38
     /// Diámetro liquid glass de botones en cabecera de contenido (= topbar del sistema).
     static let toolbarGlassSize: CGFloat = 44
@@ -67,7 +98,6 @@ struct OGScreen<Content: View>: View {
             OG.bg.ignoresSafeArea()
             content()
         }
-        .preferredColorScheme(.light)
     }
 }
 
@@ -179,12 +209,14 @@ extension OGPageHeader where Leading == EmptyView {
 }
 
 extension View {
-    /// Lista agrupada estilo openGym (superficie #1c1c1e sobre negro).
+    /// Lista agrupada alineada con Inicio / Progreso (mismo `OG.bg` + filas `OG.surface`).
     /// Márgenes horizontales = Inicio; sin margen top extra (lo pone `OGPageHeader`, como Progreso).
     func ogListChrome() -> some View {
         self
             .scrollContentBackground(.hidden)
-            .background(OG.bg)
+            .background {
+                OG.bg.ignoresSafeArea()
+            }
             .listRowBackground(OG.surface)
             .tint(OG.accent)
             .contentMargins(.all, EdgeInsets(top: 0, leading: OG.pad, bottom: 0, trailing: OG.pad), for: .scrollContent)
@@ -195,7 +227,6 @@ extension View {
     func ogTransparentNav() -> some View {
         self
             .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbarColorScheme(.light, for: .navigationBar)
     }
 
     /// Topbar fijo como Ejercicios: título large que colapsa; botones del toolbar no se van con el scroll.
@@ -266,22 +297,36 @@ extension View {
         modifier(OGFittedSheetModifier(expanded: expanded, freezeHeight: freezeHeight))
     }
 
-    /// Esquinas + fondo Liquid Glass del sheet (`.presentationBackground`); no duplicar en botones del `.toolbar`.
+    /// Esquinas + fondo Liquid Glass del sheet (`.presentationBackground`).
+    /// Usar en **todas** las `.sheet` (fitted o medium/large). No duplicar glass en botones del `.toolbar`.
     func ogSheetCorners() -> some View {
         self
             .presentationCornerRadius(OG.sheetCornerRadius)
             .presentationBackground {
-                Rectangle()
+                RoundedRectangle(cornerRadius: OG.sheetCornerRadius, style: .continuous)
                     .fill(.clear)
-                    .glassEffect(.regular, in: .rect(cornerRadius: OG.sheetCornerRadius))
+                    .glassEffect(
+                        .regular,
+                        in: .rect(cornerRadius: OG.sheetCornerRadius)
+                    )
                     .ignoresSafeArea()
             }
     }
 
+    /// Sheet a altura media/grande con el mismo glass y radio que el sistema.
+    func ogSheetChrome(
+        detents: Set<PresentationDetent> = [.medium, .large],
+        dragIndicator: Visibility = .visible
+    ) -> some View {
+        self
+            .presentationDetents(detents)
+            .presentationDragIndicator(dragIndicator)
+            .ogSheetCorners()
+    }
+
     /// Confirmación corta (eliminar, vaciar…) con liquid glass vía `ogFittedSheet`.
     func ogConfirmSheetChrome() -> some View {
-        preferredColorScheme(.dark)
-            .ogFittedSheet()
+        ogFittedSheet()
     }
 
     /// Mide la altura del contenido y la publica para `ogFittedSheet`.
@@ -603,7 +648,7 @@ struct OGRepeatStepper: View {
             centerValue
             holdButton(systemName: "plus", side: .plus, action: onPlus)
         }
-        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .opacity(enabled ? 1 : 0.45)
         .disabled(!enabled)
         .accessibilityElement(children: .ignore)
@@ -620,6 +665,8 @@ struct OGRepeatStepper: View {
         .onDisappear { stopHold() }
     }
 
+    private var controlHeight: CGFloat { 48 }
+
     @ViewBuilder
     private var centerValue: some View {
         if editing {
@@ -629,14 +676,15 @@ struct OGRepeatStepper: View {
                 textAlignment: .center,
                 onCommit: { commitEdit() }
             )
+            .font(.system(size: 18, weight: .semibold).monospacedDigit())
             .frame(maxWidth: .infinity)
-            .frame(height: 36)
+            .frame(height: controlHeight)
         } else {
             Text(display)
-                .font(.system(size: 15, weight: .semibold).monospacedDigit())
+                .font(.system(size: 18, weight: .semibold).monospacedDigit())
                 .foregroundStyle(OG.label)
                 .frame(maxWidth: .infinity)
-                .frame(height: 36)
+                .frame(height: controlHeight)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     guard enabled else { return }
@@ -659,9 +707,9 @@ struct OGRepeatStepper: View {
             action()
         } label: {
             Image(systemName: systemName)
-                .font(.system(size: 12, weight: .bold))
+                .font(.system(size: 15, weight: .bold))
                 .foregroundStyle(OG.label2)
-                .frame(width: 36, height: 36)
+                .frame(width: 44, height: controlHeight)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

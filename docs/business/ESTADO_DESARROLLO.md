@@ -1,5 +1,10 @@
 # Estado de desarrollo — Repera Business
-Última actualización: 2026-10-19.
+Última actualización: 2026-10-20.
+
+## App iOS (2026-10-20)
+- Ajustes: buscar/vincular centro o entrenador + bono; acceso completo mientras vinculado; ficha con bonos/sesiones/desvincular; sync unificado; acentos negros.
+- Mensajes en topbar de Inicio; avatares de organización en app y consola Business.
+- Migración pendiente de aplicar en remoto: `20261020140000_org_directory_avatar_messaging` (avatar, directorio, link/leave, mensajes atleta).
 
 ## IMPLEMENTADO (verificado en Supabase Repera)
 - Proyecto `uvzgujlrqohreoucirms` conectado y sano; PostgreSQL 17.
@@ -18,7 +23,7 @@
 - No se ha desplegado la consola en IONOS. Auth configurado en producción (SMTP, redirects, Confirm email) aún necesita verificación E2E.
 
 ## CAMBIO DE EXPERIENCIA iOS (implementación parcial)
-- Barra nativa iOS: `Inicio · Diario · Center · Progreso · Ejercicios`; el hub «Crear» sigue accesible desde + de Inicio.
+- Barra nativa iOS: `Inicio · Diario · Crear|Center · Progreso · Ejercicios` (Center solo con vínculo a centro/entrenador); el hub Crear también desde + de Inicio.
 - Diario abre en vista Entrenador (sesiones profesionales reales si existen, estado vacío si no); planificación personal y rutinas intactas en pestañas secundarias.
 - Center es pantalla nativa con selector Clases/Citas, consulta real del backend y botones de reserva/cancelación mediante RPC, sujetos a sesión Apple→Supabase y bono válido; integración iOS pendiente de pruebas en dispositivo.
 - Ajustes separa centros/entrenadores y bonos reales obtenidos del backend, con sesiones restantes y vencimiento; Repera Pro se mantiene independiente.

@@ -324,7 +324,6 @@ struct WorkoutDetailView: View {
                     .foregroundStyle(OG.label2)
             }
         }
-        .preferredColorScheme(.dark)
         .onAppear { loadDraft() }
         .task(id: sessionId) {
             loadDraft()
@@ -1209,7 +1208,6 @@ struct HealthActivityDetailView: View {
             }
         }
         .background(OG.bg)
-        .preferredColorScheme(.dark)
         .task {
             detail = await health.activityDetail(for: activityId)
         }

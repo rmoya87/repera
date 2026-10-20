@@ -77,20 +77,30 @@ final class BusinessAuthStore {
         }
         do {
             let session = try await client.auth.session
-            guard !session.isExpired,
-                  UserDefaults.standard.string(forKey: appleIdentityBindingKey) == expectedBinding,
+            guard UserDefaults.standard.string(forKey: appleIdentityBindingKey) == expectedBinding,
                   AppleAuthStore.shared.userID == appleUserID else {
                 isMigrationRequired = true
                 return
+            }
+            if session.isExpired {
+                // Intentar renovar; no empujar al login Apple solo por un token caducado.
+                _ = try await client.auth.refreshSession()
+                let refreshed = try await client.auth.session
+                guard !refreshed.isExpired else {
+                    isMigrationRequired = true
+                    lastErrorMessage = "La sesión con Supabase ha caducado. Vuelve a conectar con Apple."
+                    return
+                }
             }
             isConnected = true
             isMigrationRequired = false
             lastErrorMessage = nil
         } catch {
             isConnected = false
-            isMigrationRequired = true
-            // Network problems never delete training files or iCloud history.
-            lastErrorMessage = "La sesión con Supabase requiere volver a conectar con Apple."
+            // Tras actualizar la app, un fallo de red no debe pedir Sign in with Apple otra vez
+            // si el vínculo Apple↔Supabase ya estaba guardado.
+            isMigrationRequired = false
+            lastErrorMessage = "No se pudo renovar la sesión Business. Se reintentará al volver a la app."
         }
     }
 

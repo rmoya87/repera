@@ -57,7 +57,6 @@ struct BoardScanSourceSheet: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
         .ogFittedHeight()
-        .preferredColorScheme(.dark)
         .ogFittedSheet()
     }
 

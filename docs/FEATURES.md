@@ -1,12 +1,12 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-19 (Ajustes cuenta/iCloud, ubicación al Play, peso)
+Última actualización: 2026-10-20 (Ajustes Business: buscar centro, sync unificado, mensajes Inicio)
 
 ## Tabs
 
 ### Inicio (`HomeView`)
 
-- Topbar fijo arriba (`ogFixedTopBar`): «repera» + fecha debajo; avatar a la derecha → Ajustes.
+- Topbar fijo arriba (`ogFixedTopBar`): «repera» + fecha; icono de **mensajes** (liquid glass, solo si hay centro/entrenador vinculado) + «+» + avatar → Ajustes.
 - **Carrusel de días**: swipe horizontal (o chevrons) entre semanas; al cambiar de semana se conserva el weekday. Al tocar un día pinta al instante sin esperar HealthKit.
 - Card **Racha de N semanas** (como openGym `streakWeeks`): cuenta Repera **y** Apple Salud; toque → **Historial** unificado.
 - Métricas del día: tiempo; **kcal = max(energía activa del día en Salud, suma de chips Repera+Salud del día)**. Por entreno: kcal de sesión = Watch/Salud **solo si la energía es creíble**; si en la franja solo hay ambiente (p. ej. 2 kcal), manda el **estimado Repera** (MET / time caps). **Tiempo mostrado = inicio→fin**. Detalle alineado con Inicio. Recalc al arrancar (v2026_10_19e).
@@ -17,8 +17,7 @@
 
 ### Diario (`PlanView`)
 
-- Selector **Entrenador · Personal · Rutinas**. Entrenador es la vista inicial y muestra sesiones reales publicadas en Supabase tras vinculación con el profesional; si no hay datos, presenta un estado vacío honesto. No muestra asignaciones simuladas.
-- La programación personal, sus rutinas y sus herramientas siguen disponibles en **Personal** y **Rutinas**, sin eliminar datos locales ni del historial.
+- Selector **Programado · Rutinas**. En Programado aparecen la semana Lu–Do y, si hay vínculo, los entrenos publicados por el entrenador/centro. Rutinas conserva las plantillas locales.
 
 - Título arriba (`ogFixedTopBar`) + menú ⋯ en la misma fila (Programado).
 - Plan semanal por weekday.
@@ -31,9 +30,13 @@
 - **Copiar semana pasada**: clona entrenos sueltos de la semana ISO anterior a la actual (nuevos IDs).
 - **Editor de ejercicio** (`RoutineExerciseEditor`): card **Referencia** con última sesión (series + TOP) y **carga sugerida** (kg grande) según reps + RIR de la 1.ª serie (Epley / 1RM·e1RM); **Aplicar** rellena pesos; **Copiar última sesión** clona series.
 
-### Herramientas de Crear desde Inicio (`StartHubSheet`)
+### Crear / Center (pestaña central)
 
-- Ya no existe la pestaña Crear. El botón + de la barra de **Inicio** abre las mismas herramientas nativas dentro de una hoja; la tarjeta «Añadir entreno» del día conserva su flujo propio.
+- **Sin** gimnasio ni entrenador vinculados (ni invitación pendiente): la pestaña central es **Crear** (`StartHubSheet`), como antes.
+- **Con** centro/entrenador o invitación: la pestaña pasa a **Center** (clases, citas, reservas).
+- El botón + de **Inicio** sigue abriendo las herramientas de Crear en hoja; la tarjeta «Añadir entreno» del día conserva su flujo.
+
+### Herramientas de Crear (`StartHubSheet`)
 
 - Título arriba (`ogFixedTopBar`), sin franja vacía encima.
 - **Crear mi entreno**: sesión completa (bloques, WOD, pizarra). No asigna día del plan (solo Diario).
@@ -44,7 +47,7 @@
 
 ### Center (`CenterView`)
 
-- Pestaña nativa dedicada a centros y reservas, con selector **Clases · Citas**.
+- Solo visible en la tab bar si hay vínculo (o invitación) a un centro/entrenador. Selector **Clases · Citas**.
 - **Clases**: horarios grupales, saldo de bono, reservas/cancelaciones por RPC segura cuando existe sesión Supabase. Lista de espera aún pendiente.
 - **Citas**: horarios de sesiones individuales ofrecidas por entrenadores, reservas/cancelaciones y bono independiente del de clases; pendiente validación real iOS/Apple Auth.
 - **Estado real actual:** siete migraciones Supabase desplegadas; consulta iOS nativa desde `BusinessDataStore` implementada pero sin validación compilada/Apple OAuth E2E. No muestra horarios ni cuotas ficticios.
@@ -133,8 +136,10 @@
 
 ## Ajustes: centros, entrenadores y contratos
 
-- Secciones nativas de **Mis centros y entrenadores** y **Servicios contratados**: consultan organizaciones vinculadas y bonos de cortesía reales cuando hay sesión Supabase; sin sesión, muestran un estado sin datos. El plan Repera Pro es independiente; los contratos de pago todavía no están implementados.
-- Repera Pro (Apple/RevenueCat) sigue independiente del bono/cuota pagado al gimnasio o entrenador.
+- **Buscar centro o entrenador**: directorio descubrible + invitaciones; al vincularse se elige el bono deseado y la app pasa a **acceso completo** mientras exista el vínculo (sin freemium). Desvincular revoca ese acceso salvo Repera Pro por App Store.
+- Ficha del centro vinculado: avatar, bonos/sesiones, planificación, compartir resultados y desvincular.
+- **Sincronizar ahora** unifica iCloud + datos Business + espejo privado de entrenamientos.
+- Mensajes en Inicio (topbar), no en Ajustes. Avatares de org en app y en Repera Business.
 
 ## Onboarding (primer acceso y usuarios existentes)
 
@@ -148,9 +153,10 @@
 ## Ajustes
 
 - Topbar fijo transparente en Ajustes, Historial, Peso y Rotación (mismo patrón que Ejercicios).
-- Títulos de sección Form en gris encima de cada grupo.
-- **Cuenta:** Sign in with Apple, iCloud (copia de seguridad activa / estado), nombre, elegir foto, sincronizar, cerrar sesión.
-- **Repera Pro:** descubrir / estado activo, gestionar suscripción, restaurar compras (Debug: simulador de estados).
+- Títulos de sección Form en gris encima de cada grupo. Acciones e iconos en color de etiqueta (negro/blanco sistema), no verde.
+- **Cuenta:** Sign in with Apple, iCloud, nombre, foto, **Sincronizar ahora** (iCloud + Business + entrenamientos), cerrar sesión.
+- **Centro y entrenador:** vinculados + Buscar centro o entrenador (bonos/sesiones en la ficha).
+- **Acceso:** completo por vínculo Business, o Repera Pro (App Store); restaurar compras si no hay patrocinio.
 - **Permisos y Apple Salud:** notificaciones, HealthKit (kcal/min; el peso va en Peso corporal), ubicación (+ enlace a Ajustes del sistema). Al dar **Play** se pide ubicación si aún está pendiente (`ensureWhenInUseAuthorized`) y se guarda el pin en la sesión activa.
 - **Peso corporal:** enlace **Peso** + objetivo; historial con origen **Propio** / **Salud** (`BodyWeightSource`).
 - **Entrenamiento:** Historial de entrenos + unidades, modo de plan / rotación, semana, descanso, esfuerzo, progresión, incremento.

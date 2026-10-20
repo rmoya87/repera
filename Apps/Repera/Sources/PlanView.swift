@@ -2,7 +2,6 @@ import ReperaDomain
 import SwiftUI
 
 enum DiarioSection: String, CaseIterable, Identifiable {
-    case coach
     case schedule
     case routines
 
@@ -10,14 +9,13 @@ enum DiarioSection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .coach: return "Entrenador"
-        case .schedule: return "Personal"
+        case .schedule: return "Programado"
         case .routines: return "Rutinas"
         }
     }
 }
 
-/// Diario: planificación profesional (pendiente de sincronización) y planificación personal intacta.
+/// Diario: Programado (personal + lo publicado por el entrenador/centro) y Rutinas.
 struct PlanView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(SubscriptionManager.self) private var subscriptions
@@ -44,14 +42,13 @@ struct PlanView: View {
                 }
 
                 switch section {
-                case .coach:
-                    coachScheduleContent
                 case .schedule:
                     scheduleContent
                 case .routines:
                     routinesContent
                 }
             }
+            .listStyle(.insetGrouped)
             .ogListChrome()
             .refreshable { await businessData.refresh() }
             .ogFixedTopBar("Diario") {
@@ -83,7 +80,7 @@ struct PlanView: View {
             }
             .sheet(item: $editing) { routine in
                 DayEditorView(routine: routine, mode: .plan(isNew: isCreating))
-                    .ogSheetCorners()
+                    .ogSheetChrome(detents: [.large])
                     .onDisappear { isCreating = false }
             }
             .sheet(item: Binding(
@@ -161,27 +158,12 @@ struct PlanView: View {
         }
     }
 
-    // MARK: - Planificación de entrenadores
+    // MARK: - Programado (Lu–Do + sesiones del entrenador/centro)
 
     @ViewBuilder
-    private var coachScheduleContent: some View {
-        Section {
-            if businessData.trainingSessions.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Label("Planificación de tu entrenador", systemImage: "person.fill.checkmark")
-                        .font(.headline)
-                        .foregroundStyle(OG.label)
-
-                    Text("Aquí aparecerán los entrenamientos que publique tu entrenador después de aceptar su invitación.")
-                        .font(.subheadline)
-                        .foregroundStyle(OG.label2)
-
-                    Text("Tu programación personal sigue disponible en «Personal» y «Rutinas»; los entrenamientos registrados nunca se borran.")
-                        .font(.footnote)
-                        .foregroundStyle(OG.label2)
-                }
-                .padding(.vertical, 12)
-            } else {
+    private var scheduleContent: some View {
+        if !businessData.trainingSessions.isEmpty {
+            Section {
                 ForEach(businessData.trainingSessions) { session in
                     BusinessProfessionalSessionCard(
                         session: session,
@@ -189,14 +171,11 @@ struct PlanView: View {
                     )
                     .ogCardListRow(top: 6, bottom: 6)
                 }
+            } header: {
+                Text("De tu entrenador o centro")
             }
         }
-    }
 
-    // MARK: - Programado (solo asignación Lu–Do)
-
-    @ViewBuilder
-    private var scheduleContent: some View {
         Section {
             ForEach(1...7, id: \.self) { day in
                 let routine = store.routine(forWeekday: day)
@@ -257,6 +236,8 @@ struct PlanView: View {
                     }
                 }
             }
+        } header: {
+            Text("Tu programación")
         }
     }
 
@@ -507,10 +488,8 @@ struct DayEditorView: View {
         Group {
             if embedsNavigationStack {
                 NavigationStack { editorForm }
-                    .preferredColorScheme(.light)
             } else {
                 editorForm
-                    .preferredColorScheme(.light)
             }
         }
     }
@@ -876,23 +855,41 @@ struct DayEditorView: View {
         let blockId = routine.blocks[index].id
         ForEach(Array(routine.blocks[index].exercises.enumerated()), id: \.element.id) { exIndex, item in
             if let ex = store.state.exercises.first(where: { $0.id == item.exerciseId }) {
-                NavigationLink {
-                    RoutineExerciseEditor(
-                        exerciseName: ex.name,
-                        exerciseId: ex.id,
-                        item: Binding(
-                            get: { routine.blocks[index].exercises[exIndex] },
-                            set: { routine.blocks[index].exercises[exIndex] = $0 }
-                        )
-                    )
-                } label: {
-                    HStack(spacing: 12) {
-                        ExerciseThumb(exercise: ex, size: 40)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(ex.name)
-                            Text(setSummary(item)).font(.caption).foregroundStyle(.secondary)
+                HStack(spacing: 10) {
+                    NavigationLink {
+                        ExerciseDetailView(exerciseId: ex.id)
+                    } label: {
+                        HStack(spacing: 12) {
+                            ExerciseThumb(exercise: ex, size: 48)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(ex.name)
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(OG.label)
+                                Text(setSummary(item))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
+                    .accessibilityHint("Ver ficha del ejercicio")
+
+                    NavigationLink {
+                        RoutineExerciseEditor(
+                            exerciseName: ex.name,
+                            exerciseId: ex.id,
+                            item: Binding(
+                                get: { routine.blocks[index].exercises[exIndex] },
+                                set: { routine.blocks[index].exercises[exIndex] = $0 }
+                            )
+                        )
+                    } label: {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(OG.label2)
+                            .frame(width: 44, height: 44)
+                            .background(OG.surface2, in: Circle())
+                    }
+                    .accessibilityLabel("Editar series")
                 }
                 .accessibilityHint("Arrastra para cambiar el orden dentro del bloque de fuerza")
                 .swipeActions {
@@ -1048,38 +1045,38 @@ struct DayEditorView: View {
         }
 
         ForEach(Array(routine.blocks[index].movements.enumerated()), id: \.element.id) { mIndex, move in
-            NavigationLink {
-                WODMovementEditor(
-                    movement: Binding(
-                        get: { routine.blocks[index].movements[mIndex] },
-                        set: { routine.blocks[index].movements[mIndex] = $0 }
-                    ),
-                    block: routine.blocks[index]
-                )
-            } label: {
-                HStack(spacing: 12) {
-                    if move.isRest {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(OG.surface2)
-                            Image(systemName: "pause.fill")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(OG.label3)
+            let resolved = resolvedExercise(for: move)
+            let hasCatalog = !move.isRest && store.state.exercises.contains(where: { $0.id == resolved.id })
+            HStack(spacing: 10) {
+                Group {
+                    if hasCatalog {
+                        NavigationLink {
+                            ExerciseDetailView(exerciseId: resolved.id)
+                        } label: {
+                            movementRowLabel(move: move, resolved: resolved)
                         }
-                        .frame(width: 40, height: 40)
+                        .accessibilityHint("Ver ficha del ejercicio")
                     } else {
-                        ExerciseThumb(exercise: resolvedExercise(for: move), size: 40)
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(move.isRest ? "Descanso" : (resolvedExercise(for: move).name))
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(OG.label)
-                        Text(move.summaryLine)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
+                        movementRowLabel(move: move, resolved: resolved)
                     }
                 }
+
+                NavigationLink {
+                    WODMovementEditor(
+                        movement: Binding(
+                            get: { routine.blocks[index].movements[mIndex] },
+                            set: { routine.blocks[index].movements[mIndex] = $0 }
+                        ),
+                        block: routine.blocks[index]
+                    )
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(OG.label2)
+                        .frame(width: 44, height: 44)
+                        .background(OG.surface2, in: Circle())
+                }
+                .accessibilityLabel("Editar movimiento")
             }
             .swipeActions {
                 OGSwipeDeleteButton(accessibilityLabel: "Quitar") {
@@ -1126,6 +1123,34 @@ struct DayEditorView: View {
         // Mantiene una identidad visual coherente incluso si el ejercicio
         // importado todavía no tiene ID en el catálogo del usuario.
         return Exercise(name: canonical, muscleGroup: "WOD", isCustom: true)
+    }
+
+    @ViewBuilder
+    private func movementRowLabel(move: WODMovement, resolved: Exercise) -> some View {
+        HStack(spacing: 12) {
+            if move.isRest {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(OG.surface2)
+                    Image(systemName: "pause.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(OG.label3)
+                }
+                .frame(width: 48, height: 48)
+            } else {
+                ExerciseThumb(exercise: resolved, size: 48)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(move.isRest ? "Descanso" : resolved.name)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                Text(move.summaryLine)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 0)
+        }
     }
 }
 
@@ -1744,7 +1769,6 @@ struct ExercisePickerView: View {
                 pickerContent
             }
         }
-        .preferredColorScheme(.light)
     }
 
     private var pickerContent: some View {
@@ -1896,7 +1920,6 @@ private struct RoutineImportPickerSheet: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
         .ogFittedHeight()
-        .preferredColorScheme(.light)
         .ogFittedSheet()
     }
 

@@ -116,6 +116,7 @@ struct DayPlusSheet: View {
                         ),
                         mode: .oneOff(isNew: true)
                     )
+                    .ogSheetChrome(detents: [.large])
                     .onDisappear {
                         if store.routineForDay(dayStart)?.isOneOff == true {
                             dismiss()
@@ -123,7 +124,6 @@ struct DayPlusSheet: View {
                     }
                 }
         }
-        .preferredColorScheme(.light)
         // Congelar alto solo con pickers a pantalla completa (no con «Leyendo…»).
         .ogFittedSheet(
             expanded: isPushed,
@@ -375,7 +375,6 @@ struct BoardImportReviewView: View {
         Group {
             if embedsNavigationStack {
                 NavigationStack { reviewContent }
-                    .preferredColorScheme(.light)
             } else {
                 reviewContent
             }
@@ -474,6 +473,7 @@ struct BoardImportReviewView: View {
                 usesPageCloseHeader: true
             )
             .id(draftRoutine.id)
+            .ogSheetChrome(detents: [.large])
         }
         .onAppear { seedIfNeeded() }
     }

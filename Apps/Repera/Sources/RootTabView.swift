@@ -9,17 +9,24 @@ enum WorkoutFlowRoute: Hashable {
     case workout
 }
 
-/// Menú principal: Inicio · Diario (entrenador/personal) · Center · Progreso · Ejercicios
+/// Menú principal: Inicio · Diario · Crear|Center · Progreso · Ejercicios.
+/// Center solo si el atleta está vinculado a un gimnasio/entrenador (o tiene invitación).
 struct RootTabView: View {
     @Environment(ReperaStore.self) private var store
+    @Environment(BusinessDataStore.self) private var businessData
     @State private var tab: AppTab = .home
-    @State private var planSection: DiarioSection = .coach
+    @State private var planSection: DiarioSection = .schedule
     @State private var showStartHub = false
     @State private var flowPath: [WorkoutFlowRoute] = []
     @State private var previewRoutine: Routine?
 
     enum AppTab: Hashable {
         case home, plan, center, stats, exercises
+    }
+
+    /// Gimnasio/entrenador vinculado o invitación pendiente → pestaña Center; si no, Crear.
+    private var showsCenterTab: Bool {
+        !businessData.centers.isEmpty || !businessData.invitations.isEmpty
     }
 
     var body: some View {
@@ -39,8 +46,17 @@ struct RootTabView: View {
                     PlanView(section: $planSection)
                 }
 
-                SwiftUI.Tab("Center", systemImage: "building.2", value: AppTab.center) {
-                    CenterView()
+                if showsCenterTab {
+                    SwiftUI.Tab("Center", systemImage: "building.2", value: AppTab.center) {
+                        CenterView()
+                    }
+                } else {
+                    SwiftUI.Tab("Crear", systemImage: "plus.circle", value: AppTab.center) {
+                        StartHubSheet(
+                            onGoPlan: { planSection = .schedule; tab = .plan },
+                            onOpenedWorkout: openWorkout
+                        )
+                    }
                 }
 
                 SwiftUI.Tab("Progreso", systemImage: "chart.bar", value: AppTab.stats) {
@@ -86,11 +102,9 @@ struct RootTabView: View {
                     openWorkout()
                 }
             )
-            .presentationDetents([.large])
-            .ogSheetCorners()
+            .ogSheetChrome(detents: [.large])
         }
         .animation(.easeInOut(duration: 0.32), value: flowPath.isEmpty)
-        .preferredColorScheme(.light)
         .tint(OG.accent)
         .sheet(isPresented: Binding(
             get: { store.pendingSessionReview != nil },

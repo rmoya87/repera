@@ -101,7 +101,6 @@ struct LegacyAccountMigrationView: View {
             .frame(maxWidth: .infinity)
         }
         .background(Color.white)
-        .preferredColorScheme(.light)
     }
 
     private func benefit(icon: String, title: String, detail: String) -> some View {

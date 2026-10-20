@@ -1,6 +1,6 @@
 # Onboarding y mascota · revisión 2026-10-20
 
-La configuración visual general de Repera está en **tema claro** (blanco y verde de acento), a petición del diseño del producto. La pantalla de **bienvenida y acceso Apple es la excepción intencionada, en negro con textos blancos**; permisos y presentación de planes vuelven al esquema claro.
+La UI atleta usa tokens `OG*` **adaptativos** (día/noche según el sistema). La pantalla de **bienvenida y acceso Apple** sigue siendo excepción intencionada (canvas negro con textos blancos); permisos y planes usan el mismo tema adaptativo que el resto de la app.
 
 El flujo para nuevas instalaciones es Apple → permisos de notificaciones / Apple Salud / ubicación (opcionales) → selección de plan (Gratis o Pro) → Inicio. Nunca se activa el `PaywallCoordinator` modal desde el paywall *inline* de onboarding, porque la transición al Inicio hacía aparecer una segunda pantalla de precios. El estado persistido v1 se migra de forma que un usuario que ya pasó por la pantalla de planes no vuelva a verla tras continuar los permisos.
 

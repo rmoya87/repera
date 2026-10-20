@@ -10,6 +10,8 @@ final class SubscriptionManager {
     private(set) var snapshot = CommercialSnapshot()
     /// Cache estable: las vistas que solo leen Pro no se invalidan por cuotas/conteos.
     private(set) var isPro = false
+    /// Full app access while linked to a paying center/trainer (independent of StoreKit).
+    private(set) var businessSponsoredAccess = false
     private(set) var offerings = CommercialOfferings.empty
     private(set) var isRefreshing = false
     private(set) var lastErrorMessage: String?
@@ -31,8 +33,18 @@ final class SubscriptionManager {
             snapshot: snapshot,
             freeUsage: freeUsage.state,
             libraryRoutineCount: libraryRoutineCount,
-            customExerciseCount: customExerciseCount
+            customExerciseCount: customExerciseCount,
+            businessSponsoredAccess: businessSponsoredAccess
         )
+    }
+
+    func setBusinessSponsoredAccess(_ enabled: Bool) {
+        guard businessSponsoredAccess != enabled else {
+            isPro = snapshot.grantsProAccess || businessSponsoredAccess
+            return
+        }
+        businessSponsoredAccess = enabled
+        isPro = snapshot.grantsProAccess || enabled
     }
 
     var status: SubscriptionStatus { snapshot.effectiveStatus() }
@@ -251,11 +263,11 @@ final class SubscriptionManager {
 
     private func applySnapshot(_ next: CommercialSnapshot) {
         guard next != snapshot else {
-            isPro = snapshot.grantsProAccess
+            isPro = snapshot.grantsProAccess || businessSponsoredAccess
             return
         }
         snapshot = next
-        isPro = next.grantsProAccess
+        isPro = next.grantsProAccess || businessSponsoredAccess
     }
 
     private func mergedVerifiedCache(_ snapshot: CommercialSnapshot, from previous: CommercialSnapshot) -> CommercialSnapshot {
