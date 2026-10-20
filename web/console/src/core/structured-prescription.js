@@ -32,7 +32,7 @@ export function buildPrescription(draft,catalog){
  const allowed=new Map(catalog.map(x=>[x.catalogKey,x.name]));
  if(!Array.isArray(draft)||draft.length<1||draft.length>30)throw Error('Añade al menos un bloque (máximo 30)');
  const blocks=draft.map((original,position)=>{
-  const b=structuredClone(original);
+  const b=JSON.parse(JSON.stringify(original));
   if(!['strength','wod'].includes(b.kind)||String(b.title||'').trim().length<2)throw Error('Revisa el título del bloque '+(position+1));
   const field=b.kind==='wod'?'movements':'exercises',other=b.kind==='wod'?'exercises':'movements';
   if(!Array.isArray(b[field])||!b[field].length||b[field].length>50)throw Error('Añade movimientos al bloque '+(position+1));
@@ -53,8 +53,10 @@ export function buildPrescription(draft,catalog){
      targetWeightKg:numeric(set.targetWeightKg,'Carga (kg)',0,2000,true),
      targetRir:numeric(set.targetRir,'RIR',0,10,true)
     }));
+    if(e.plannedSets.some(set=>!Number.isInteger(set.targetReps)))throw Error('Repeticiones de serie no válidas');
    }else{
     e.reps=numeric(entry.reps,'Repeticiones',1,9999);
+    if(!Number.isInteger(e.reps))throw Error('Las repeticiones del WOD deben ser enteras');
     e.notes=String(entry.notes||'').slice(0,500);
    }
    return e;
@@ -62,6 +64,7 @@ export function buildPrescription(draft,catalog){
   if(b.kind==='wod'){
    if(!WOD_FORMATS.some(([x])=>x===b.wodFormat))throw Error('Elige un formato WOD válido');
    b.rounds=numeric(b.rounds,'Rondas',1,300,true);
+   if(b.rounds!=null&&!Number.isInteger(b.rounds))throw Error('Las rondas deben ser enteras');
    b.timeCapMinutes=numeric(b.timeCapMinutes,'Tiempo límite',1,300,true);
   }
   b.title=String(b.title).trim();
