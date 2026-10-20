@@ -720,7 +720,7 @@ public struct RoutineExercise: Identifiable, Codable, Sendable, Hashable {
     public var exerciseId: UUID
     public var plannedSets: [PlannedSet]
     public var restSeconds: Int?
-    /// Same non-nil value = same superseries.
+    /// Campo histórico conservado para leer rutinas existentes; no activa superseries.
     public var supersetGroup: Int?
 
     public init(
@@ -747,7 +747,7 @@ public struct RoutineExercise: Identifiable, Codable, Sendable, Hashable {
         exerciseId = try c.decode(UUID.self, forKey: .exerciseId)
         plannedSets = try c.decodeIfPresent([PlannedSet].self, forKey: .plannedSets) ?? []
         restSeconds = try c.decodeIfPresent(Int.self, forKey: .restSeconds)
-        supersetGroup = try c.decodeIfPresent(Int.self, forKey: .supersetGroup)
+        supersetGroup = nil // Compatibilidad de lectura, sin restaurar agrupaciones.
     }
 
     /// Copia con nuevos IDs de ejercicio y series.
@@ -756,7 +756,7 @@ public struct RoutineExercise: Identifiable, Codable, Sendable, Hashable {
             exerciseId: exerciseId,
             plannedSets: plannedSets.map { $0.duplicatingContent() },
             restSeconds: restSeconds,
-            supersetGroup: supersetGroup
+            supersetGroup: nil
         )
     }
 }
@@ -773,7 +773,7 @@ public enum WODFormat: String, Codable, Sendable, Hashable, CaseIterable {
     case tabata
     case chipper
     case deathBy
-    /// Fuerza / skill / técnica / superseries (series×reps).
+    /// Fuerza / skill / técnica (series×reps).
     case strength
     /// As Fast As Possible.
     case afap
@@ -817,7 +817,7 @@ public enum WODFormat: String, Codable, Sendable, Hashable, CaseIterable {
         case .tabata: return "Intervalos fijos clásicos 20\"/10\" × rondas (u otras proporciones)."
         case .chipper: return "Lista larga en una sola pasada, lo más rápido posible."
         case .deathBy: return "Cada minuto sumas 1 rep (u otra progresión) hasta fallar."
-        case .strength: return "Bloque de fuerza/técnica: 5×5, 3×8 @RPE, superseries, skill."
+        case .strength: return "Bloque de fuerza/técnica: 5×5, 3×8 @RPE, skill."
         case .afap: return "Haz el trabajo lo más rápido posible (sin rondas fijas)."
         case .ladder: return "Escalera: 21-15-9, ascending/descending ladder, pirámide."
         case .partner: return "Dos atletas: You Go I Go, sync, split reps."
@@ -837,7 +837,7 @@ public enum WODFormat: String, Codable, Sendable, Hashable, CaseIterable {
         case .tabata: return ["TABATA", "TABATA 20/10 × 8"]
         case .chipper: return ["CHIPPER", "FOR COMPLETION"]
         case .deathBy: return ["DEATH BY BURPEES", "MUERTE POR C&J"]
-        case .strength: return ["STRENGTH", "SKILL", "TECH", "5x5 BACK SQUAT", "SUPERSET"]
+        case .strength: return ["STRENGTH", "SKILL", "TECH", "5x5 BACK SQUAT"]
         case .afap: return ["AFAP", "AS FAST AS POSSIBLE"]
         case .ladder: return ["21-15-9", "ASCENDING LADDER", "DESCENDING LADDER 10→1"]
         case .partner: return ["PARTNER WOD", "YOU GO I GO", "YGIG"]
@@ -1630,7 +1630,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         loggedSets = try c.decodeIfPresent([LoggedSet].self, forKey: .loggedSets) ?? []
         completedReps = try c.decodeIfPresent(Int.self, forKey: .completedReps) ?? 0
         isCompleted = try c.decodeIfPresent(Bool.self, forKey: .isCompleted) ?? false
-        supersetGroup = try c.decodeIfPresent(Int.self, forKey: .supersetGroup)
+        supersetGroup = nil // Compatibilidad de lectura, sin restaurar agrupaciones.
         blockId = try c.decodeIfPresent(UUID.self, forKey: .blockId)
         blockKind = try c.decodeIfPresent(RoutineBlockKind.self, forKey: .blockKind)
         wodFormat = try c.decodeIfPresent(WODFormat.self, forKey: .wodFormat)
