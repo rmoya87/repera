@@ -623,14 +623,21 @@ struct WorkoutDetailView: View {
                 icon: "flame.fill",
                 tint: OG.orange
             )
-            if let hr = healthExtras?.averageHeartRateBpm, session.totalVolumeKg <= 0 {
+            if displayedRoute(session).count >= 2 {
+                let path = displayedRoute(session).map {
+                    CardioRouteAnalysis.Sample(
+                        date: $0.date, latitude: $0.latitude,
+                        longitude: $0.longitude, altitudeMeters: $0.altitudeMeters
+                    )
+                }
+                let meters = CardioRouteAnalysis.analyze(route: path).distanceMeters
                 summaryTile(
-                    title: "FC media",
-                    value: "\(Int(hr.rounded()))",
-                    icon: "heart.fill",
-                    tint: OG.red
+                    title: "Distancia",
+                    value: meters > 0 ? String(format: "%.2f km", meters / 1000) : "—",
+                    icon: "point.bottomleft.forward.to.point.topright.scurvepath",
+                    tint: OG.accent
                 )
-            } else {
+            } else if session.totalVolumeKg > 0 {
                 summaryTile(
                     title: "Volumen",
                     value: "\(Int(session.totalVolumeKg))",
@@ -1765,13 +1772,6 @@ struct HealthActivityDetailView: View {
                     value: distanceLabel(distance),
                     icon: "point.bottomleft.forward.to.point.topright.scurvepath",
                     tint: OG.accent
-                )
-            } else {
-                summaryTile(
-                    title: "FC media",
-                    value: detail.averageHeartRateBpm.map { "\(Int($0.rounded()))" } ?? "—",
-                    icon: "heart.fill",
-                    tint: OG.red
                 )
             }
         }
