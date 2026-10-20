@@ -81,11 +81,11 @@ export class ReperaAuthAPI {
   catch(e){if(e.status===401)this.clear();throw e;}
  }
  async organizations(){
-  return this.#authorized('organizations?select=id,name,slug,kind,created_at&order=created_at.desc');
+  return this.#authorized('organizations?select=id,name,slug,kind,public_email,phone,website,address,description,timezone,created_at&order=created_at.desc');
  }
  async clients(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
-  return this.#authorized('clients?select=id,org_id,name,email,status,created_at&org_id=eq.'+encodeURIComponent(orgId)+'&order=created_at.desc');
+  return this.#authorized('clients?select=id,org_id,user_id,name,email,status,created_at&org_id=eq.'+encodeURIComponent(orgId)+'&order=created_at.desc');
  }
  async addClient({orgId,name,email,userId}){
   name=String(name||'').trim();email=String(email||'').trim().toLowerCase();
@@ -110,14 +110,14 @@ export class ReperaAuthAPI {
  }
  async professionalSessions(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
-  return this.#authorized('professional_training_sessions?select=id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,status&org_id=eq.'+orgId+'&order=scheduled_date.asc&limit=200');
+  return this.#authorized('professional_training_sessions?select=id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,prescription,status&org_id=eq.'+orgId+'&order=scheduled_date.asc&limit=200');
  }
- async publishProfessionalSession({orgId,clientId,date,title,instructions='',requestId=globalThis.crypto?.randomUUID?.()}){
+ async publishProfessionalSession({orgId,clientId,date,title,instructions='',prescription,requestId=globalThis.crypto?.randomUUID?.()}){
   title=String(title||'').trim();instructions=String(instructions||'');
   if(![orgId,clientId,requestId].every(id=>/^[0-9a-f-]{36}$/i.test(id||''))||title.length<2
     ||title.length>120||instructions.length>10000||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date||''))
       throw Error('Planificación inválida');
-  return this.#authorized('rpc/publish_professional_session',{method:'POST',body:{p_org:orgId,p_client:clientId,p_day:date,p_title:title,p_instructions:instructions,p_request:requestId}});
+  return this.#authorized('rpc/publish_professional_session_v2',{method:'POST',body:{p_org:orgId,p_client:clientId,p_day:date,p_title:title,p_instructions:instructions,p_request:requestId,p_prescription:prescription}});
  }
  async assignCoachClient({orgId,clientId,coachId}){
   if(![orgId,clientId,coachId].every(id=>/^[0-9a-f-]{36}$/i.test(id||'')))throw Error('Asignación inválida');
@@ -179,4 +179,32 @@ export class ReperaAuthAPI {
   // SQL permits only UPDATE(name), restricted by owner/admin membership.
   return this.#authorized('organizations?id=eq.'+encodeURIComponent(orgId)+'&select=id,name,slug,kind',{method:'PATCH',prefer:'return=representation',body:{name}});
  }
+ async updateProfessionalSession({id,date,title,instructions='',prescription}){
+  if(!/^[0-9a-f-]{36}$/i.test(id||''))throw Error('Sesión inválida');
+  return this.#authorized('rpc/update_professional_session_v2',{method:'POST',body:{p_session:id,p_day:date,p_title:String(title||'').trim(),p_instructions:instructions,p_prescription:prescription}});
+ }
+ async workoutTemplates(orgId){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
+  return this.#authorized('professional_workout_templates?select=id,org_id,name,description,prescription,created_by,updated_at&org_id=eq.'+encodeURIComponent(orgId)+'&order=updated_at.desc');
+ }
+ async createWorkoutTemplate({orgId,name,description='',prescription,userId}){
+  if(![orgId,userId].every(id=>/^[0-9a-f-]{36}$/i.test(id||''))||String(name||'').trim().length<2)throw Error('Plantilla inválida');
+  return this.#authorized('professional_workout_templates?select=id,name,description',{method:'POST',prefer:'return=representation',
+    body:{org_id:orgId,created_by:userId,name:String(name).trim().slice(0,120),description:String(description).slice(0,1000),prescription}});
+ }
+ async updateWorkoutTemplate({id,orgId,name,description='',prescription}){
+  if(![id,orgId].every(x=>/^[0-9a-f-]{36}$/i.test(x||'')))throw Error('Plantilla inválida');
+  return this.#authorized('professional_workout_templates?id=eq.'+encodeURIComponent(id)+'&org_id=eq.'+encodeURIComponent(orgId),
+    {method:'PATCH',prefer:'return=representation',body:{name:String(name||'').trim().slice(0,120),description:String(description).slice(0,1000),prescription,updated_at:new Date().toISOString()}});
+ }
+ async updateOrganization({orgId,name,publicEmail='',phone='',website='',address='',description='',timezone='Europe/Madrid'}){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||String(name||'').trim().length<2)throw Error('Datos del negocio inválidos');
+  const body={name:String(name).trim().slice(0,120),public_email:String(publicEmail).trim().slice(0,180)||null,
+    phone:String(phone).trim().slice(0,40)||null,website:String(website).trim().slice(0,255)||null,
+    address:String(address).trim().slice(0,300)||null,description:String(description).trim().slice(0,2000)||null,
+    timezone:String(timezone).trim().slice(0,80)||'Europe/Madrid'};
+  return this.#authorized('organizations?id=eq.'+encodeURIComponent(orgId)+'&select=id,name,slug,kind,public_email,phone,website,address,description,timezone',
+    {method:'PATCH',prefer:'return=representation',body});
+ }
+
 }
