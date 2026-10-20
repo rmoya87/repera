@@ -55,7 +55,7 @@ struct ReperaApp: App {
                 .environment(businessData)
                 .environment(onboarding)
                 .environment(locationTracker)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(.light)
                 .background(Color.black)
                 .sheet(isPresented: Binding(
                     get: { subscriptions.paywall.isPresented && onboarding.isComplete },
