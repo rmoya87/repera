@@ -103,13 +103,16 @@ final class HealthRecoveryStore {
     }
 
     var trainingTip: String? {
-        if let hours = lastNight?.hours, hours < 6 {
+        guard let lastNight,
+              abs(Calendar.current.dateComponents([.day], from: lastNight.date, to: Date()).day ?? 99) <= 1
+              || cycleEstimate == .menstrual else { return nil }
+        if lastNight.hours < 6 {
             return "Has dormido menos de 6 horas. Ajusta el esfuerzo a tus sensaciones y cuida la técnica."
         }
         if cycleEstimate == .menstrual {
             return "Has registrado menstruación. Si tienes molestias, adapta el volumen; no necesitas reducirlo si te encuentras bien."
         }
-        if let hours = lastNight?.hours, hours >= 7 {
+        if lastNight.hours >= 7 {
             return "Has descansado al menos 7 horas. Mantén tu plan y guía las cargas por tu RIR."
         }
         return nil
@@ -314,9 +317,17 @@ struct HealthRecoveryProgressView: View {
                             .font(.system(size: 34, weight: .semibold, design: .rounded))
                             .foregroundStyle(OG.label)
                         Spacer()
-                        Text("Última noche").font(.subheadline).foregroundStyle(OG.label2)
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text("Última noche").font(.subheadline).foregroundStyle(OG.label2)
+                            if let index = recovery.sleepIndex {
+                                Text("Descanso \\(index)/100")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(OG.accent)
+                            }
+                        }
                     }
-                    Chart(Array(recovery.nights.suffix(14))) { night in
+                    Chart {
+                        ForEach(Array(recovery.nights.suffix(14))) { night in
                         BarMark(
                             x: .value("Día", night.date, unit: .day),
                             y: .value("Horas", night.hours),
@@ -324,6 +335,7 @@ struct HealthRecoveryProgressView: View {
                         )
                         .foregroundStyle(night.hours >= 7 ? OG.accent : OG.orange)
                         .cornerRadius(5)
+                        }
                         RuleMark(y: .value("Referencia", 7))
                             .foregroundStyle(OG.label3.opacity(0.5))
                             .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
@@ -391,8 +403,9 @@ struct RecoveryTrainingTip: View {
     @State private var recovery = HealthRecoveryStore.shared
 
     var body: some View {
-        if let tip = recovery.trainingTip {
-            HStack(alignment: .top, spacing: 10) {
+        Group {
+            if let tip = recovery.trainingTip {
+                HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "moon.stars.fill").foregroundStyle(OG.accent)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Tu contexto de hoy").font(.subheadline.weight(.semibold)).foregroundStyle(OG.label)
@@ -401,8 +414,9 @@ struct RecoveryTrainingTip: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
-            .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
-            .task { await recovery.refresh() }
+                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+            }
         }
+        .task { await recovery.refresh() }
     }
 }
