@@ -1,5 +1,15 @@
 # Estado de desarrollo — Repera Business
-Última actualización: 2026-10-19.
+Última actualización: 2026-10-20 (editor visual y navegación por perfil en rama; migración pendiente).
+
+## IMPLEMENTADO EN CÓDIGO (2026-10-20; no desplegado ni validado en Supabase)
+- Interfaz clara para consola conectada y demo: modales blancos, botones accesibles, iconos SVG y navegación específica gimnasio/entrenador personal. El entrenador conserva citas y evita «Operaciones del centro».
+- Ficha del negocio editable en Configuración: nombre, email público, teléfono, web, dirección, descripción y zona horaria (roles de propietario y administrador).
+- Editor profesional de bloques de fuerza, WOD, calentamiento, AMRAP, EMOM, RFT, Every y For Time. Ejercicios con miniaturas, series, reps, RIR, kilos, segundos, rondas, time cap, notas y ejercicios manuales.
+- Catálogo web derivado de `ExerciseArt.swift` (189 entradas, 188 ilustraciones originales de iOS) con equivalencias ES/EN principales; no hay aún regeneración automática cuando cambia el catálogo Swift.
+- Plantillas por organización protegidas con RLS; al aplicar una plantilla a un atleta se publica una prescripción propia, editable sin alterar el original. Las sesiones futuras se actualizan por RPC con comprobación de autorización.
+- En Inicio y Diario de iOS se muestran los bloques estructurados con miniaturas y objetivos, sin sobrescribir resultados e historial privados del atleta.
+- Migración a aplicar antes de usar la UI conectada: `supabase/migrations/20261020104200_business_visual_workout_templates.sql`. Sin aplicarla, fallarán las consultas a nuevos campos, plantillas y RPC v2.
+- Limitaciones: el editor estructurado está conectado al panel autenticado, no al constructor semanal de la demostración; la ejecución estructurada de estas sesiones en iOS sigue pendiente. No está desplegado, fusionado con main ni verificado con cuentas reales o build Xcode.
 
 ## IMPLEMENTADO (verificado en Supabase Repera)
 - Proyecto `uvzgujlrqohreoucirms` conectado y sano; PostgreSQL 17.
