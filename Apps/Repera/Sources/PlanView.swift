@@ -182,26 +182,11 @@ struct PlanView: View {
                 .padding(.vertical, 12)
             } else {
                 ForEach(businessData.trainingSessions) { session in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(session.scheduledDate)
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(OG.accent)
-                        Text(session.title)
-                            .font(.headline)
-                            .foregroundStyle(OG.label)
-                        Text(businessData.centerName(session.orgId))
-                            .font(.subheadline)
-                            .foregroundStyle(OG.label2)
-                        if !session.instructions.isEmpty {
-                            Text(session.instructions)
-                                .font(.body)
-                                .foregroundStyle(OG.label)
-                        }
-                        Text("Programación enviada por tu entrenador. Los resultados personales permanecen en tu historial privado.")
-                            .font(.footnote)
-                            .foregroundStyle(OG.label2)
-                    }
-                    .padding(.vertical, 7)
+                    BusinessProfessionalSessionCard(
+                        session: session,
+                        centerName: businessData.centerName(session.orgId)
+                    )
+                    .ogCardListRow(top: 6, bottom: 6)
                 }
             }
         }

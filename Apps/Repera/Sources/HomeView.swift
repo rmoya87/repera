@@ -71,31 +71,20 @@ struct HomeView: View {
         )
     }
 
-    /// Read-only professional plan for the selected day (never overwrites personal routines).
+    /// Professional plan read from Supabase, projected as real editable-style blocks.
+    /// Never overwrites the athlete's local routines, results or HealthKit history.
     @ViewBuilder
     private var professionalSessionsForSelectedDay: some View {
         let selected = BusinessDataStore.localDayKey(selectedDay)
         let published = businessData.trainingSessions.filter { $0.scheduledDate == selected }
         if !published.isEmpty {
             OGCardSectionTitle(title: "Planificado por tu entrenador")
-            OGCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(published) { session in
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(session.title)
-                                .font(.headline)
-                                .foregroundStyle(OG.label)
-                            Text(businessData.centerName(session.orgId))
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
-                            if !session.instructions.isEmpty {
-                                Text(session.instructions)
-                                    .font(.footnote)
-                                    .foregroundStyle(OG.label)
-                            }
-                        }
-                    }
-                }
+            ForEach(published) { session in
+                BusinessProfessionalSessionCard(
+                    session: session,
+                    centerName: businessData.centerName(session.orgId),
+                    compact: true
+                )
             }
         }
     }
