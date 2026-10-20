@@ -226,3 +226,10 @@ El auditor estructural **no puede aprobar** similitud del personaje, ejecución 
 `HealthRecoveryStore` usa HealthKit directamente en el iPhone y no entra en la capa de `BusinessWorkoutSyncStore`. Los permisos opcionales se almacenan en `UserDefaults` local y las muestras de sueño/ciclo se consultan en Apple Salud y se mantienen en memoria. No añadir estos datos a `AppSettings`, al documento iCloud de entrenamientos ni al payload de Supabase. Las sesiones sí guardan sus ejercicios, bloques, series y resultados para el entrenador con consentimiento existente. En el espejo Supabase, `privateMirrorPayload` elimina toda referencia a Apple Salud, incluido `appleDurationSeconds`.
 
 El campo histórico `supersetGroup` permanece en el formato Codable para abrir copias antiguas, pero se ignora al decodificar y no debe utilizarse para nuevas planificaciones.
+
+
+### Cardio con GPS (solo iPhone)
+
+`CardioRouteAnalysis` (ReperaDomain) recibe coordenadas/fechas y FC, filtra saltos GPS, calcula distancia con haversine e interpola los instantes de cruce de cada kilómetro. Devuelve perfil altimétrico y parciales únicamente para tramos válidos; no hace peticiones a red. `HealthKitStore.RoutePoint.altitudeMeters` y `WorkoutRoutePoint.altitudeMeters` son opcionales, preservan rutas antiguas y pueden provenir de GPS de Apple Salud o Core Location. `CardioRouteComponents` usa Swift Charts (selección x nativa), un selector segmentado Cardio/Altitud, tabla de parciales y consultas WeatherKit con etiqueta temporal histórica y atribución de Apple Weather. WeatherKit requiere activar capacidad en App ID de Apple Developer, además del entitlement `com.apple.developer.weatherkit`; si falla, la interfaz muestra «—». AQI histórico no tiene proveedor conectado en esta fase y también muestra «—».
+
+`BusinessWorkoutSyncStore.privateMirrorPayload` elimina `routePoints`, `locationPin` y datos de HealthKit antes de transmitir a Supabase. WeatherKit se solicita localmente al abrir el detalle del entreno; la ubicación inicial del recorrido se comunica a Apple Weather para la consulta meteorológica, nunca a Supabase.
