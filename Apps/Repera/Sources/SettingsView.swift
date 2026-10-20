@@ -609,8 +609,6 @@ struct SettingsView: View {
         .listStyle(.insetGrouped)
         .ogListChrome()
         .ogPinnedTransparentNav("Ajustes")
-        .toolbarBackground(OG.bg, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
         .alert("Restaurar compras", isPresented: Binding(
             get: { restoreMessage != nil },
             set: { if !$0 { restoreMessage = nil } }

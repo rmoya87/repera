@@ -1676,7 +1676,7 @@ final class ReperaStore: NSObject {
             title: "Entreno del día",
             weekday: nil,
             scheduledDate: today,
-            blocks: [.strength(title: "Bloque", exercises: [item])],
+            blocks: [.strength(title: "Bloque 1", exercises: [item])],
             progression: .off
         )
         saveRoutine(routine)

@@ -98,7 +98,7 @@ struct FavoritesHubView: View {
                     editing = Routine(
                         title: "Mi favorito",
                         weekday: nil,
-                        blocks: [.strength(title: "Bloque")],
+                        blocks: [.strength(title: "Bloque 1")],
                         progression: .off,
                         isFavorite: true
                     )

@@ -1,12 +1,12 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-20 (Ajustes Business: buscar centro, sync unificado, mensajes Inicio)
+Última actualización: 2026-10-20 (Ajustes título large; avatar glass en Inicio)
 
 ## Tabs
 
 ### Inicio (`HomeView`)
 
-- Topbar fijo arriba (`ogFixedTopBar`): «repera» + fecha; icono de **mensajes** (liquid glass, solo si hay centro/entrenador vinculado) + «+» + avatar → Ajustes.
+- Topbar fijo arriba (`ogFixedTopBar`): «repera» + fecha; icono de **mensajes** (liquid glass, solo si hay centro/entrenador vinculado) + «+» + avatar → Ajustes (mismo círculo liquid glass que el +).
 - **Carrusel de días**: swipe horizontal (o chevrons) entre semanas; al cambiar de semana se conserva el weekday. Al tocar un día pinta al instante sin esperar HealthKit.
 - Card **Racha de N semanas** (como openGym `streakWeeks`): cuenta Repera **y** Apple Salud; toque → **Historial** unificado.
 - Métricas del día: tiempo; **kcal = max(energía activa del día en Salud, suma de chips Repera+Salud del día)**. Por entreno: kcal de sesión = Watch/Salud **solo si la energía es creíble**; si en la franja solo hay ambiente (p. ej. 2 kcal), manda el **estimado Repera** (MET / time caps). **Tiempo mostrado = inicio→fin**. Detalle alineado con Inicio. Recalc al arrancar (v2026_10_19e).
@@ -21,7 +21,7 @@
 
 - Título arriba (`ogFixedTopBar`) + menú ⋯ en la misma fila (Programado).
 - Plan semanal por weekday.
-- Edición de rutinas / bloques (fuerza + WOD): modal con **check** (swipe para cerrar); desde Entreno → Editar, **volver** (sin X) + check.
+- Edición de rutinas / bloques (fuerza + WOD): modal con **check** (swipe para cerrar); desde Entreno → Editar, **volver** (sin X) + check. Al añadir un bloque, el título por defecto es **Bloque 1**, **Bloque 2**, … (secuencial).
 - **Elegir WOD**: catálogo seed de benchmarks conocidos (`CatalogWODs`: Fran, Cindy, Murph…). Detalle con miniaturas de movimientos, tiempo típico y músculos → Usar.
 - **Crear WOD**: formato vacío (AMRAP, EMOM, RFT…) en página push con volver arriba y título large debajo; también los selectores de ejercicio/movimiento y la creación de movimiento libre son páginas push.
 - Día → asignar rutina: sin X; selección con check blanco en círculo verde.
@@ -143,16 +143,22 @@
 
 ## Onboarding (primer acceso y usuarios existentes)
 
-- Wizard full-screen antes de las tabs: **Sign in with Apple** (obligatorio, CTA en español) → **Gratis o Pro** → **permisos** (notificaciones, Salud, ubicación).
+- Wizard full-screen antes de las tabs: **Sign in with Apple** (obligatorio, CTA en español) → **permisos** → **Gratis o Pro** (si aún no se vieron precios).
+- Pantalla de login: fondo **blanco en modo día / negro en modo noche**; botón Apple **negro+texto blanco** de día y **blanco+texto negro** de noche.
+- La identidad Apple se guarda en **Keychain** y sobrevive a actualizaciones de la app. Un fallo de Supabase/Business **no** vuelve a pedir SIWA; el muro de migración Business se recuerda si eliges «sin conexión».
 - Mascota Repera: saludo en login (`MascotWelcome`), thumbs-up en permisos (`MascotPermissions`); plan Pro usa `MascotHero` (PNG con fondo transparente). En permisos, tras conceder, el CTA pasa de «Permitir» a «Hecho».
 - Plan Pro del onboarding: precios y cargos desde StoreKit / App Store Connect (RevenueCat si hay API key).
 - Sin iCloud del sistema: usable en local; aviso para activarlo y poder recuperar tras reinstalar.
 - Denegar permisos no bloquea el avance; se pueden reintentar en Ajustes.
 - LaunchScreen: imageset `Splash` (PNG en asset catalog) centrado con constraint de aspecto 473∶1024 (no anclado a 4 bordes; evita el estirado del snapshot de SpringBoard) sobre verde `#002E24`.
 
+## UI / chrome
+
+- Lienzo `OG.bg` + cards/listas `OG.surface`: en **noche** negro + gris; en **día** gris agrupado + blanco (mismo contraste de secciones que en noche). Listas/Form `insetGrouped` nativos (`ogListChrome`).
+
 ## Ajustes
 
-- Topbar fijo transparente en Ajustes, Historial, Peso y Rotación (mismo patrón que Ejercicios).
+- Subpágina con volver: título large **Ajustes** debajo del chevron (`ogPinnedTransparentNav`; barra del sistema visible tras venir de Inicio). Mismo patrón en Historial, Peso y Rotación.
 - Títulos de sección Form en gris encima de cada grupo. Acciones e iconos en color de etiqueta (negro/blanco sistema), no verde.
 - **Cuenta:** Sign in with Apple, iCloud, nombre, foto, **Sincronizar ahora** (iCloud + Business + entrenamientos), cerrar sesión.
 - **Centro y entrenador:** vinculados + Buscar centro o entrenador (bonos/sesiones en la ficha).

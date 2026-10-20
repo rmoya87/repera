@@ -4,25 +4,27 @@ import UIKit
 /// Tokens adaptativos: día (claro) y noche (oscuro) según el sistema.
 /// Comunes a Diario, Center, progreso, modales y navegación.
 enum OG {
+    /// Lienzo de pantalla. Día = gris agrupado (como Ajustes de Apple); noche = negro.
+    /// Las secciones / cards usan `surface` encima para diferenciarse (mismo patrón que en noche).
     static let bg = adaptive(
-        light: UIColor.white,
+        light: UIColor(red: 242 / 255, green: 245 / 255, blue: 243 / 255, alpha: 1),
         dark: UIColor.black
     )
     static let bgEl = adaptive(
-        light: UIColor(red: 248 / 255, green: 250 / 255, blue: 249 / 255, alpha: 1),
+        light: UIColor(red: 235 / 255, green: 239 / 255, blue: 237 / 255, alpha: 1),
         dark: UIColor(red: 12 / 255, green: 12 / 255, blue: 12 / 255, alpha: 1)
     )
+    /// Cards / filas de lista agrupada. Día = blanco sobre `bg` gris; noche = gris sobre negro.
     static let surface = adaptive(
-        // Contraste claro frente a `bg` blanco (Inicio / Progreso / Ajustes / Ejercicios).
-        light: UIColor(red: 242 / 255, green: 245 / 255, blue: 243 / 255, alpha: 1),
+        light: UIColor.white,
         dark: UIColor(red: 28 / 255, green: 28 / 255, blue: 30 / 255, alpha: 1)
     )
     static let surface2 = adaptive(
-        light: UIColor(red: 239 / 255, green: 243 / 255, blue: 241 / 255, alpha: 1),
+        light: UIColor(red: 242 / 255, green: 245 / 255, blue: 243 / 255, alpha: 1),
         dark: UIColor(red: 44 / 255, green: 44 / 255, blue: 46 / 255, alpha: 1)
     )
     static let surface3 = adaptive(
-        light: UIColor(red: 226 / 255, green: 234 / 255, blue: 229 / 255, alpha: 1),
+        light: UIColor(red: 220 / 255, green: 228 / 255, blue: 223 / 255, alpha: 1),
         dark: UIColor(red: 58 / 255, green: 58 / 255, blue: 60 / 255, alpha: 1)
     )
 
@@ -209,8 +211,8 @@ extension OGPageHeader where Leading == EmptyView {
 }
 
 extension View {
-    /// Lista agrupada alineada con Inicio / Progreso (mismo `OG.bg` + filas `OG.surface`).
-    /// Márgenes horizontales = Inicio; sin margen top extra (lo pone `OGPageHeader`, como Progreso).
+    /// Lista agrupada nativa (`insetGrouped`): fondo `OG.bg`, filas `OG.surface`.
+    /// Las cajas de sección las dibuja el sistema; no envolver filas en `OGCard`.
     func ogListChrome() -> some View {
         self
             .scrollContentBackground(.hidden)
@@ -231,10 +233,13 @@ extension View {
 
     /// Topbar fijo como Ejercicios: título large que colapsa; botones del toolbar no se van con el scroll.
     /// Usar cuando hay volver / acciones en la barra (el título queda debajo de esos botones).
+    /// Fuerza la barra visible: Inicio/Progreso ocultan el toolbar del sistema (`ogContentTitleNav`);
+    /// sin esto, al pushear Ajustes/Historial queda el hueco del large title sin el texto «Ajustes».
     func ogPinnedTransparentNav(_ title: String) -> some View {
         self
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.large)
+            .toolbar(.visible, for: .navigationBar)
             .ogTransparentNav()
     }
 
@@ -627,6 +632,8 @@ extension OGBackPageHeader where Trailing == EmptyView {
 struct OGRepeatStepper: View {
     var display: String
     var enabled: Bool = true
+    /// Filas densas (peso/reps en Form): botones algo más estrechos; la altura sigue en 48 pt.
+    var compact: Bool = false
     var keyboard: UIKeyboardType = .decimalPad
     var onMinus: () -> Void
     var onPlus: () -> Void
@@ -666,6 +673,7 @@ struct OGRepeatStepper: View {
     }
 
     private var controlHeight: CGFloat { 48 }
+    private var buttonWidth: CGFloat { compact ? 36 : 44 }
 
     @ViewBuilder
     private var centerValue: some View {
@@ -707,9 +715,9 @@ struct OGRepeatStepper: View {
             action()
         } label: {
             Image(systemName: systemName)
-                .font(.system(size: 15, weight: .bold))
+                .font(.system(size: compact ? 14 : 15, weight: .bold))
                 .foregroundStyle(OG.label2)
-                .frame(width: 44, height: controlHeight)
+                .frame(width: buttonWidth, height: controlHeight)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

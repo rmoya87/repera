@@ -25,8 +25,7 @@ struct OnboardingFlowView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // Welcome keeps a black canvas for the hero; el resto sigue el modo del sistema.
-        .background((onboarding.step == .appleSignIn ? Color.black : OG.bg).ignoresSafeArea())
+        .background(OG.bg.ignoresSafeArea())
         .task {
             _ = await appleAuth.ensureValidSession()
             onboarding.reconcile(isSignedIn: appleAuth.isSignedIn)
@@ -43,8 +42,18 @@ private struct OnboardingSignInStep: View {
     @Environment(ReperaStore.self) private var store
     @Environment(AppleAuthStore.self) private var appleAuth
     @Environment(OnboardingStore.self) private var onboarding
+    @Environment(\.colorScheme) private var colorScheme
     @State private var busy = false
     @State private var errorText: String?
+
+    /// Día: botón negro / texto blanco. Noche: botón blanco / texto negro (HIG Apple SIWA).
+    private var appleButtonBackground: Color {
+        colorScheme == .dark ? .white : .black
+    }
+
+    private var appleButtonForeground: Color {
+        colorScheme == .dark ? .black : .white
+    }
 
     var body: some View {
         VStack(spacing: 24) {
@@ -53,11 +62,11 @@ private struct OnboardingSignInStep: View {
             VStack(spacing: 10) {
                 Text("Bienvenido a Repera")
                     .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(OG.label)
                     .multilineTextAlignment(.center)
                 Text("Accede con Apple para empezar. Tu historial de entrenamientos sigue bajo tu control en el iPhone e iCloud.")
                     .font(.body)
-                    .foregroundStyle(Color.white.opacity(0.77))
+                    .foregroundStyle(OG.label2)
                     .multilineTextAlignment(.center)
             }
 
@@ -67,10 +76,10 @@ private struct OnboardingSignInStep: View {
                     systemImage: "exclamationmark.icloud"
                 )
                 .font(.footnote)
-                .foregroundStyle(Color.white.opacity(0.84))
+                .foregroundStyle(OG.label2)
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.white.opacity(0.09), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
             }
 
             Button {
@@ -79,7 +88,7 @@ private struct OnboardingSignInStep: View {
                 HStack(spacing: 10) {
                     if busy {
                         ProgressView()
-                            .tint(.black)
+                            .tint(appleButtonForeground)
                     } else {
                         Image(systemName: "apple.logo")
                             .font(.system(size: 18, weight: .semibold))
@@ -89,8 +98,8 @@ private struct OnboardingSignInStep: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .foregroundStyle(.black)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .foregroundStyle(appleButtonForeground)
+                .background(appleButtonBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .disabled(busy)
             .accessibilityLabel("Iniciar sesión con Apple")
@@ -105,6 +114,12 @@ private struct OnboardingSignInStep: View {
             Spacer()
         }
         .padding(.horizontal, OG.pad)
+        .onAppear {
+            // Si Keychain ya tiene sesión (p. ej. tras actualizar), no pedir SIWA otra vez.
+            if appleAuth.isSignedIn {
+                onboarding.reconcile(isSignedIn: true)
+            }
+        }
     }
 
     private func signInSpanish() async {

@@ -19,8 +19,20 @@ final class BusinessAuthStore {
     private(set) var hasRestoredSession = false
     private(set) var profileMigrationErrorMessage: String?
     private let appleIdentityBindingKey = "repera.business.appleIdentityHash.v1"
+    /// El usuario eligió no vincular Supabase ahora: no re-mostrar el muro de migración en cada arranque.
+    private let continueLocalOnlyKey = "repera.business.continueLocalOnly.v1"
     private(set) var lastErrorMessage: String?
     private(set) var isConnecting = false
+
+    /// Preferencia persistente: seguir solo con Apple/iCloud (sin forzar SIWA por Business).
+    var prefersLocalOnly: Bool {
+        UserDefaults.standard.bool(forKey: continueLocalOnlyKey)
+    }
+
+    func setPrefersLocalOnly(_ value: Bool) {
+        UserDefaults.standard.set(value, forKey: continueLocalOnlyKey)
+        if value { isMigrationRequired = false }
+    }
 
     @ObservationIgnored
     private let client: SupabaseClient?
@@ -56,7 +68,8 @@ final class BusinessAuthStore {
         isConnected = false
         BusinessDataStore.shared.clear()
         guard let client else {
-            isMigrationRequired = AppleAuthStore.shared.isSignedIn
+            // Sin backend en el build: no bloquear la app con muro de migración.
+            isMigrationRequired = false
             lastErrorMessage = "Supabase Repera no está configurado en esta compilación."
             return
         }
@@ -68,9 +81,8 @@ final class BusinessAuthStore {
         }
         let expectedBinding = Self.hashedNonce(appleUserID)
         guard UserDefaults.standard.string(forKey: appleIdentityBindingKey) == expectedBinding else {
-            // Legacy Apple-only identity: require a new Apple authentication with
-            // nonce instead of attempting to translate Keychain IDs into JWTs.
-            isMigrationRequired = true
+            // Sin vínculo Supabase aún: solo mostrar migración si el usuario no eligió «local».
+            isMigrationRequired = !prefersLocalOnly
             lastErrorMessage = nil
             try? await client.auth.signOut()
             return
@@ -79,7 +91,7 @@ final class BusinessAuthStore {
             let session = try await client.auth.session
             guard UserDefaults.standard.string(forKey: appleIdentityBindingKey) == expectedBinding,
                   AppleAuthStore.shared.userID == appleUserID else {
-                isMigrationRequired = true
+                isMigrationRequired = !prefersLocalOnly
                 return
             }
             if session.isExpired {
@@ -87,13 +99,15 @@ final class BusinessAuthStore {
                 _ = try await client.auth.refreshSession()
                 let refreshed = try await client.auth.session
                 guard !refreshed.isExpired else {
-                    isMigrationRequired = true
-                    lastErrorMessage = "La sesión con Supabase ha caducado. Vuelve a conectar con Apple."
+                    // Sesión Business caducada: se puede re-vincular desde Ajustes; no muro en cada update.
+                    isMigrationRequired = false
+                    lastErrorMessage = "La sesión con Supabase ha caducado. Reconecta desde Ajustes si usas un centro."
                     return
                 }
             }
             isConnected = true
             isMigrationRequired = false
+            setPrefersLocalOnly(false)
             lastErrorMessage = nil
         } catch {
             isConnected = false
@@ -169,13 +183,15 @@ final class BusinessAuthStore {
             UserDefaults.standard.set(expectedBinding, forKey: appleIdentityBindingKey)
             isConnected = true
             isMigrationRequired = false
+            setPrefersLocalOnly(false)
             hasRestoredSession = true
             lastErrorMessage = nil
             await BusinessDataStore.shared.refresh()
             return true
         } catch {
             isConnected = false
-            isMigrationRequired = AppleAuthStore.shared.isSignedIn
+            // No forzar muro de migración si Apple ya está OK; se puede reintentar luego.
+            isMigrationRequired = false
             BusinessDataStore.shared.clear()
             lastErrorMessage = "No se ha podido conectar con Supabase: \(error.localizedDescription)"
             return false

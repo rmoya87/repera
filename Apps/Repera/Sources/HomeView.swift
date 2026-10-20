@@ -179,7 +179,9 @@ struct HomeView: View {
                     SettingsView()
                 } label: {
                     iCloudAvatar
-                        .frame(width: 44, height: 44)
+                        .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
+                        .contentShape(Circle())
+                        .glassEffect(.regular.interactive(), in: .circle)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Ajustes y cuenta iCloud")
@@ -350,15 +352,17 @@ struct HomeView: View {
     private var iCloudAvatar: some View {
         let synced = store.iCloudStatus == .available
         let photo = ProfileAvatar.uiImage(from: store.state.settings.profileAvatarJPEG)
-        // Sin glassEffect: el halo liquid glass sobresalía por encima de «repera».
+        // El liquid glass lo aplica el `NavigationLink` (mismo diámetro que el +).
         Color.clear
             .overlay {
                 GeometryReader { geo in
                     let side = min(geo.size.width, geo.size.height)
                     let iconSize = synced ? side * 0.42 : side * 0.34
                     ZStack {
-                        Circle()
-                            .fill(synced || photo != nil ? OG.accent.opacity(0.22) : OG.surface2)
+                        if photo != nil || synced {
+                            Circle()
+                                .fill(OG.accent.opacity(0.22))
+                        }
                         if let img = photo {
                             Image(uiImage: img)
                                 .resizable()
@@ -371,10 +375,6 @@ struct HomeView: View {
                     }
                     .frame(width: side, height: side)
                     .clipShape(Circle())
-                    .overlay {
-                        Circle()
-                            .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
-                    }
                 }
             }
     }

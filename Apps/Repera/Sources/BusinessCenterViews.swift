@@ -86,20 +86,6 @@ struct FindCenterTrainerView: View {
             }
 
             Section {
-                TextField("Buscar por nombre", text: $query)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .onSubmit {
-                        Task { await businessData.searchDirectory(query: query) }
-                    }
-                    .onChange(of: query) { _, value in
-                        Task {
-                            try? await Task.sleep(for: .milliseconds(350))
-                            guard query == value else { return }
-                            await businessData.searchDirectory(query: value)
-                        }
-                    }
-
                 if businessData.isSearchingDirectory {
                     ProgressView()
                 } else if businessData.directory.isEmpty {
@@ -115,11 +101,12 @@ struct FindCenterTrainerView: View {
                                 linked: businessData.athleteCenterIds.contains(org.id)
                             )
                         }
+                        .buttonStyle(.plain)
                         .disabled(businessData.athleteCenterIds.contains(org.id))
                     }
                 }
             } header: {
-                Text("Buscar")
+                Text("Resultados")
             } footer: {
                 Text("Al vincularte eliges el bono y la app pasa a acceso completo mientras mantengas el vínculo. Puedes desvincularte cuando quieras.")
             }
@@ -128,6 +115,25 @@ struct FindCenterTrainerView: View {
                 Section {
                     Text(err).font(.footnote).foregroundStyle(OG.red)
                 }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .ogListChrome()
+        .searchable(
+            text: $query,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: "Nombre del centro o entrenador"
+        )
+        .textInputAutocapitalization(.never)
+        .autocorrectionDisabled()
+        .onSubmit(of: .search) {
+            Task { await businessData.searchDirectory(query: query) }
+        }
+        .onChange(of: query) { _, value in
+            Task {
+                try? await Task.sleep(for: .milliseconds(350))
+                guard query == value else { return }
+                await businessData.searchDirectory(query: value)
             }
         }
         .ogPinnedTransparentNav("Buscar centro o entrenador")
@@ -263,6 +269,8 @@ struct LinkedCenterDetailView: View {
                 Text("Al desvincularte pierdes el acceso completo asociado a este centro, salvo que tengas Repera Pro.")
             }
         }
+        .listStyle(.insetGrouped)
+        .ogListChrome()
         .navigationTitle(center.name)
         .navigationBarTitleDisplayMode(.inline)
         .ogTransparentNav()

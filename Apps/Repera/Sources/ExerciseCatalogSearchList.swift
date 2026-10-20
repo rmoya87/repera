@@ -53,8 +53,11 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
                                     .font(.caption)
                                     .foregroundStyle(OG.label2)
                             }
+                            Spacer(minLength: 0)
                         }
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                 }
             } header: {
                 header()
@@ -62,6 +65,7 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
                 footer()
             }
         }
+        .listStyle(.insetGrouped)
         .ogListChrome()
         .scrollDismissesKeyboard(.interactively)
         .animation(nil, value: rowIDsToken)

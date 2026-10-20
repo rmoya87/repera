@@ -1178,7 +1178,7 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
         wodTemplateId = try c.decodeIfPresent(String.self, forKey: .wodTemplateId)
     }
 
-    public static func strength(title: String = "Bloque", exercises: [RoutineExercise] = []) -> RoutineBlock {
+    public static func strength(title: String = "Bloque 1", exercises: [RoutineExercise] = []) -> RoutineBlock {
         RoutineBlock(title: title, kind: .strength, exercises: exercises)
     }
 

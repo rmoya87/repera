@@ -570,13 +570,13 @@ struct DayEditorView: View {
                         wodBlock(index: index)
                     }
                 } header: {
-                    Text(block.kind == .wod ? "Bloque · \(block.headerLabel)" : "Bloque")
+                    Text(block.kind == .wod ? "Bloque · \(block.headerLabel)" : block.title)
                 }
             }
 
             Section {
                 Button {
-                    routine.blocks.append(.strength(title: "Bloque"))
+                    routine.blocks.append(.strength(title: nextDefaultBlockTitle()))
                 } label: {
                     Label("Añadir bloque", systemImage: "square.stack.3d.up")
                 }
@@ -606,7 +606,9 @@ struct DayEditorView: View {
                 }
             }
         }
+        .listStyle(.insetGrouped)
         .ogListChrome()
+        .onAppear { ensureStrengthPlannedSets() }
         .reorderContainer(for: RoutineExercise.self, in: UUID.self) { difference in
             let blockId = difference.destination.collectionID
             guard let blockIndex = routine.blocks.firstIndex(where: { $0.id == blockId }) else { return }
@@ -673,10 +675,15 @@ struct DayEditorView: View {
         }
         .navigationDestination(isPresented: $showCreateWODFormat) {
             WODFormatPickerPage { format in
-                routine.blocks.append(.wod(format: format))
+                routine.blocks.append(.wod(format: format, title: nextDefaultBlockTitle()))
                 showCreateWODFormat = false
             }
         }
+    }
+
+    /// Nombre por defecto al añadir bloque: «Bloque 1», «Bloque 2», …
+    private func nextDefaultBlockTitle() -> String {
+        "Bloque \(routine.blocks.count + 1)"
     }
 
     private var importableRoutines: [Routine] {
@@ -853,54 +860,131 @@ struct DayEditorView: View {
     @ViewBuilder
     private func strengthBlock(index: Int) -> some View {
         let blockId = routine.blocks[index].id
+        let weightStep = store.state.settings.weightIncrementKg
         ForEach(Array(routine.blocks[index].exercises.enumerated()), id: \.element.id) { exIndex, item in
             if let ex = store.state.exercises.first(where: { $0.id == item.exerciseId }) {
-                HStack(spacing: 10) {
-                    NavigationLink {
-                        ExerciseDetailView(exerciseId: ex.id)
-                    } label: {
-                        HStack(spacing: 12) {
-                            ExerciseThumb(exercise: ex, size: 48)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(ex.name)
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .foregroundStyle(OG.label)
-                                Text(setSummary(item))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+                NavigationLink {
+                    ExerciseDetailView(exerciseId: ex.id)
+                } label: {
+                    HStack(spacing: 12) {
+                        ExerciseThumb(exercise: ex, size: 48)
+                        Text(ex.name)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .accessibilityHint("Ver ficha del ejercicio")
-
-                    NavigationLink {
-                        RoutineExerciseEditor(
-                            exerciseName: ex.name,
-                            exerciseId: ex.id,
-                            item: Binding(
-                                get: { routine.blocks[index].exercises[exIndex] },
-                                set: { routine.blocks[index].exercises[exIndex] = $0 }
-                            )
-                        )
-                    } label: {
-                        Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(OG.label2)
-                            .frame(width: 44, height: 44)
-                            .background(OG.surface2, in: Circle())
-                    }
-                    .accessibilityLabel("Editar series")
                 }
-                .accessibilityHint("Arrastra para cambiar el orden dentro del bloque de fuerza")
+                .accessibilityHint("Ver ficha del ejercicio. Arrastra para cambiar el orden.")
                 .swipeActions {
                     OGSwipeDeleteButton(accessibilityLabel: "Quitar") {
                         routine.blocks[index].exercises.remove(at: exIndex)
                     }
                 }
+
+                HStack(spacing: 12) {
+                    Text("#").frame(width: 28, alignment: .center)
+                    Text("PESO (KG)")
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    Text("REPS")
+                        .frame(width: 108, alignment: .center)
+                    Text("RIR")
+                        .frame(width: 48, alignment: .center)
+                }
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(OG.label3)
+                .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 4, trailing: 16))
+
+                ForEach(Array(routine.blocks[index].exercises[exIndex].plannedSets.enumerated()), id: \.element.id) { setIndex, _ in
+                    PlannedSetConfigRow(
+                        index: setIndex + 1,
+                        set: plannedSetBinding(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex),
+                        weightStep: weightStep,
+                        canDelete: routine.blocks[index].exercises[exIndex].plannedSets.count > 1,
+                        onDelete: { deleteStrengthSet(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex) }
+                    )
+                }
+
+                Button {
+                    addStrengthSet(blockIndex: index, exerciseIndex: exIndex)
+                } label: {
+                    Label("Añadir serie", systemImage: "plus")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(OG.accent)
+                }
+
+                Picker("Superserie", selection: Binding(
+                    get: { routine.blocks[index].exercises[exIndex].supersetGroup ?? 0 },
+                    set: { routine.blocks[index].exercises[exIndex].supersetGroup = $0 == 0 ? nil : $0 }
+                )) {
+                    Text("Ninguna").tag(0)
+                    Text("Superserie A").tag(1)
+                    Text("Superserie B").tag(2)
+                    Text("Superserie C").tag(3)
+                }
             }
         }
         .reorderable(collectionID: blockId)
         Button("Añadir ejercicio") { pickExerciseForBlock = routine.blocks[index].id }
+    }
+
+    private func plannedSetBinding(blockIndex: Int, exerciseIndex: Int, setIndex: Int) -> Binding<PlannedSet> {
+        Binding(
+            get: {
+                guard routine.blocks.indices.contains(blockIndex),
+                      routine.blocks[blockIndex].exercises.indices.contains(exerciseIndex),
+                      routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets.indices.contains(setIndex)
+                else {
+                    return PlannedSet(targetReps: 8)
+                }
+                return routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets[setIndex]
+            },
+            set: { newValue in
+                guard routine.blocks.indices.contains(blockIndex),
+                      routine.blocks[blockIndex].exercises.indices.contains(exerciseIndex),
+                      routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets.indices.contains(setIndex)
+                else { return }
+                routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets[setIndex] = newValue
+            }
+        )
+    }
+
+    private func ensureStrengthPlannedSets() {
+        for blockIndex in routine.blocks.indices where routine.blocks[blockIndex].kind == .strength {
+            for exerciseIndex in routine.blocks[blockIndex].exercises.indices
+            where routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets.isEmpty {
+                routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets = [
+                    PlannedSet(targetReps: 8, targetWeightKg: nil)
+                ]
+            }
+        }
+    }
+
+    private func addStrengthSet(blockIndex: Int, exerciseIndex: Int) {
+        guard routine.blocks.indices.contains(blockIndex),
+              routine.blocks[blockIndex].exercises.indices.contains(exerciseIndex) else { return }
+        var sets = routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets
+        if sets.isEmpty {
+            sets = [PlannedSet(targetReps: 8, targetWeightKg: nil)]
+        }
+        guard sets.count < 12 else { return }
+        let last = sets.last
+        sets.append(
+            PlannedSet(
+                targetReps: last?.targetReps ?? 8,
+                targetWeightKg: last?.targetWeightKg,
+                targetRir: last?.targetRir
+            )
+        )
+        routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets = sets
+    }
+
+    private func deleteStrengthSet(blockIndex: Int, exerciseIndex: Int, setIndex: Int) {
+        guard routine.blocks.indices.contains(blockIndex),
+              routine.blocks[blockIndex].exercises.indices.contains(exerciseIndex) else { return }
+        var sets = routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets
+        guard sets.count > 1, sets.indices.contains(setIndex) else { return }
+        sets.remove(at: setIndex)
+        routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets = sets
     }
 
     private func applyStrengthExerciseReorder(
@@ -971,117 +1055,118 @@ struct DayEditorView: View {
             Text(format.detail).font(.caption).foregroundStyle(.secondary)
         }
 
-        if routine.blocks[index].wodFormat == .amrap || routine.blocks[index].wodFormat == .forTime
-            || routine.blocks[index].wodFormat == .emom || routine.blocks[index].wodFormat == .chipper {
-            Stepper(
-                "Time cap: \(routine.blocks[index].timeCapMinutes ?? 12) min",
-                value: Binding(
-                    get: { routine.blocks[index].timeCapMinutes ?? 12 },
-                    set: { routine.blocks[index].timeCapMinutes = $0 }
-                ),
-                in: 1...60
-            )
-        }
-        if routine.blocks[index].wodFormat == .forTime || routine.blocks[index].wodFormat == .deathBy
-            || routine.blocks[index].wodFormat == .emom {
-            Stepper(
-                "Rondas: \(emomOrRFTRounds(at: index))",
-                value: Binding(
-                    get: { emomOrRFTRounds(at: index) },
-                    set: { routine.blocks[index].rounds = $0 }
-                ),
-                in: 1...30
-            )
-        }
-        if routine.blocks[index].wodFormat == .forTime {
-            Stepper(
-                "Descanso entre rondas: \(routine.blocks[index].restBetweenRoundsSeconds ?? 0)s",
-                value: Binding(
-                    get: { routine.blocks[index].restBetweenRoundsSeconds ?? 0 },
-                    set: { routine.blocks[index].restBetweenRoundsSeconds = $0 }
-                ),
-                in: 0...300,
-                step: 15
-            )
-        }
-        if routine.blocks[index].wodFormat == .emom {
-            Stepper(
-                "Intervalo: \(routine.blocks[index].emomIntervalSeconds ?? 60)s",
-                value: Binding(
-                    get: { routine.blocks[index].emomIntervalSeconds ?? 60 },
-                    set: { routine.blocks[index].emomIntervalSeconds = $0 }
-                ),
-                in: 30...180,
-                step: 15
-            )
-        }
-        if routine.blocks[index].wodFormat == .tabata {
-            Stepper(
-                "Trabajo: \(routine.blocks[index].workSeconds ?? 20)s",
-                value: Binding(
-                    get: { routine.blocks[index].workSeconds ?? 20 },
-                    set: { routine.blocks[index].workSeconds = $0 }
-                ),
-                in: 5...60,
-                step: 5
-            )
-            Stepper(
-                "Descanso: \(routine.blocks[index].restSeconds ?? 10)s",
-                value: Binding(
-                    get: { routine.blocks[index].restSeconds ?? 10 },
-                    set: { routine.blocks[index].restSeconds = $0 }
-                ),
-                in: 5...60,
-                step: 5
-            )
-            Stepper(
-                "Rondas: \(routine.blocks[index].rounds ?? 8)",
-                value: Binding(
-                    get: { routine.blocks[index].rounds ?? 8 },
-                    set: { routine.blocks[index].rounds = $0 }
-                ),
-                in: 1...30
-            )
-        }
+            if routine.blocks[index].wodFormat == .amrap || routine.blocks[index].wodFormat == .forTime
+                || routine.blocks[index].wodFormat == .emom || routine.blocks[index].wodFormat == .chipper {
+                Stepper(
+                    "Time cap: \(routine.blocks[index].timeCapMinutes ?? 12) min",
+                    value: Binding(
+                        get: { routine.blocks[index].timeCapMinutes ?? 12 },
+                        set: { routine.blocks[index].timeCapMinutes = $0 }
+                    ),
+                    in: 1...60
+                )
+            }
+            if routine.blocks[index].wodFormat == .forTime || routine.blocks[index].wodFormat == .deathBy
+                || routine.blocks[index].wodFormat == .emom {
+                Stepper(
+                    "Rondas: \(emomOrRFTRounds(at: index))",
+                    value: Binding(
+                        get: { emomOrRFTRounds(at: index) },
+                        set: { routine.blocks[index].rounds = $0 }
+                    ),
+                    in: 1...30
+                )
+            }
+            if routine.blocks[index].wodFormat == .forTime {
+                Stepper(
+                    "Descanso entre rondas: \(routine.blocks[index].restBetweenRoundsSeconds ?? 0)s",
+                    value: Binding(
+                        get: { routine.blocks[index].restBetweenRoundsSeconds ?? 0 },
+                        set: { routine.blocks[index].restBetweenRoundsSeconds = $0 }
+                    ),
+                    in: 0...300,
+                    step: 15
+                )
+            }
+            if routine.blocks[index].wodFormat == .emom {
+                Stepper(
+                    "Intervalo: \(routine.blocks[index].emomIntervalSeconds ?? 60)s",
+                    value: Binding(
+                        get: { routine.blocks[index].emomIntervalSeconds ?? 60 },
+                        set: { routine.blocks[index].emomIntervalSeconds = $0 }
+                    ),
+                    in: 30...180,
+                    step: 15
+                )
+            }
+            if routine.blocks[index].wodFormat == .tabata {
+                Stepper(
+                    "Trabajo: \(routine.blocks[index].workSeconds ?? 20)s",
+                    value: Binding(
+                        get: { routine.blocks[index].workSeconds ?? 20 },
+                        set: { routine.blocks[index].workSeconds = $0 }
+                    ),
+                    in: 5...60,
+                    step: 5
+                )
+                Stepper(
+                    "Descanso: \(routine.blocks[index].restSeconds ?? 10)s",
+                    value: Binding(
+                        get: { routine.blocks[index].restSeconds ?? 10 },
+                        set: { routine.blocks[index].restSeconds = $0 }
+                    ),
+                    in: 5...60,
+                    step: 5
+                )
+                Stepper(
+                    "Rondas: \(routine.blocks[index].rounds ?? 8)",
+                    value: Binding(
+                        get: { routine.blocks[index].rounds ?? 8 },
+                        set: { routine.blocks[index].rounds = $0 }
+                    ),
+                    in: 1...30
+                )
+            }
 
         ForEach(Array(routine.blocks[index].movements.enumerated()), id: \.element.id) { mIndex, move in
             let resolved = resolvedExercise(for: move)
             let hasCatalog = !move.isRest && store.state.exercises.contains(where: { $0.id == resolved.id })
-            HStack(spacing: 10) {
-                Group {
-                    if hasCatalog {
-                        NavigationLink {
-                            ExerciseDetailView(exerciseId: resolved.id)
-                        } label: {
-                            movementRowLabel(move: move, resolved: resolved)
-                        }
-                        .accessibilityHint("Ver ficha del ejercicio")
-                    } else {
-                        movementRowLabel(move: move, resolved: resolved)
+            Group {
+                if hasCatalog {
+                    NavigationLink {
+                        ExerciseDetailView(exerciseId: resolved.id)
+                    } label: {
+                        movementRowLabel(move: move, resolved: resolved, showSummary: false)
                     }
+                    .accessibilityHint("Ver ficha del ejercicio")
+                } else {
+                    movementRowLabel(move: move, resolved: resolved, showSummary: false)
                 }
-
-                NavigationLink {
-                    WODMovementEditor(
-                        movement: Binding(
-                            get: { routine.blocks[index].movements[mIndex] },
-                            set: { routine.blocks[index].movements[mIndex] = $0 }
-                        ),
-                        block: routine.blocks[index]
-                    )
-                } label: {
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(OG.label2)
-                        .frame(width: 44, height: 44)
-                        .background(OG.surface2, in: Circle())
-                }
-                .accessibilityLabel("Editar movimiento")
             }
             .swipeActions {
                 OGSwipeDeleteButton(accessibilityLabel: "Quitar") {
                     routine.blocks[index].movements.remove(at: mIndex)
                 }
+            }
+
+            if move.isRest {
+                Stepper(
+                    "Segundos: \(routine.blocks[index].movements[mIndex].restSeconds ?? 60)",
+                    value: Binding(
+                        get: { routine.blocks[index].movements[mIndex].restSeconds ?? 60 },
+                        set: { routine.blocks[index].movements[mIndex].restSeconds = $0 }
+                    ),
+                    in: 15...300,
+                    step: 15
+                )
+            } else {
+                InlineWODMovementSets(
+                    movement: Binding(
+                        get: { routine.blocks[index].movements[mIndex] },
+                        set: { routine.blocks[index].movements[mIndex] = $0 }
+                    ),
+                    block: routine.blocks[index]
+                )
             }
         }
 
@@ -1100,10 +1185,6 @@ struct DayEditorView: View {
             set: { routine.blocks[index].wodNotes = $0.isEmpty ? nil : $0 }
         ), axis: .vertical)
         .lineLimit(2...5)
-    }
-
-    private func setSummary(_ item: RoutineExercise) -> String {
-        item.plannedSets.compactSummary
     }
 
     /// Resuelve el ejercicio del catálogo para miniaturas en bloques WOD (EMOM, AMRAP…).
@@ -1126,7 +1207,7 @@ struct DayEditorView: View {
     }
 
     @ViewBuilder
-    private func movementRowLabel(move: WODMovement, resolved: Exercise) -> some View {
+    private func movementRowLabel(move: WODMovement, resolved: Exercise, showSummary: Bool = true) -> some View {
         HStack(spacing: 12) {
             if move.isRest {
                 ZStack {
@@ -1144,12 +1225,256 @@ struct DayEditorView: View {
                 Text(move.isRest ? "Descanso" : resolved.name)
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(OG.label)
-                Text(move.summaryLine)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                if showSummary {
+                    Text(move.summaryLine)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
             }
             Spacer(minLength: 0)
+        }
+    }
+}
+
+// MARK: - Inline WOD sets (en la página de crear/editar entreno)
+
+/// Controles de series WOD embebidos (mismo comportamiento que `WODMovementEditor`).
+private struct InlineWODMovementSets: View {
+    @Environment(ReperaStore.self) private var store
+    @Binding var movement: WODMovement
+    var block: RoutineBlock
+
+    @State private var draftSets: [PlannedSet] = []
+    @State private var didSeedSets = false
+
+    private var weightStep: Double { store.state.settings.weightIncrementKg }
+
+    private var loggingStyle: ExerciseLoggingStyle {
+        let catalogName = CrossFitGlossary.resolveCatalogName(movement.name, notes: movement.notes)
+        if let match = store.state.exercises.first(where: {
+            $0.name.localizedCaseInsensitiveCompare(catalogName) == .orderedSame
+        }) {
+            return match.loggingStyle
+        }
+        return Exercise.loggingStyle(name: catalogName, equipment: movement.notes)
+    }
+
+    private var resolvedLoadField: ExerciseLoadField {
+        let catalogName = CrossFitGlossary.resolveCatalogName(movement.name, notes: movement.notes)
+        if let match = store.state.exercises.first(where: {
+            $0.name.localizedCaseInsensitiveCompare(catalogName) == .orderedSame
+        }) {
+            return match.loadField
+        }
+        return Exercise.loadField(name: catalogName, equipment: movement.notes)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(Array(draftSets.enumerated()), id: \.element.id) { index, _ in
+                setRow(index: index)
+                    .contextMenu {
+                        if draftSets.count > 1 {
+                            Button("Eliminar serie", role: .destructive) {
+                                removeSet(at: index)
+                            }
+                        }
+                    }
+            }
+            Button {
+                addSet()
+            } label: {
+                Label("Añadir serie", systemImage: "plus")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(OG.accent)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, 4)
+        .onAppear { seedSetsIfNeeded() }
+        .onChange(of: movement.id) { _, _ in
+            didSeedSets = false
+            seedSetsIfNeeded()
+        }
+    }
+
+    private func seedSetsIfNeeded() {
+        guard !didSeedSets, !movement.isRest else { return }
+        didSeedSets = true
+        draftSets = block.plannedSets(for: movement)
+        if draftSets.isEmpty {
+            draftSets = movement.plannedSetsFromReps
+        }
+        if draftSets.isEmpty {
+            draftSets = [PlannedSet(targetReps: movement.reps ?? 10, targetWeightKg: movement.weightMaleKg)]
+        }
+        writeSetsToMovement()
+    }
+
+    @ViewBuilder
+    private func setRow(index: Int) -> some View {
+        let style = loggingStyle
+        let maxReps = style.quantityCap
+        let qtyStep: Int = {
+            if style == .machineWork, movement.prescribedQuantityUnit == .meters { return 50 }
+            if style == .repsAndTime { return 5 }
+            return 1
+        }()
+        HStack(spacing: 12) {
+            Text("\(index + 1)")
+                .font(.system(size: 13, weight: .bold).monospacedDigit())
+                .foregroundStyle(OG.label)
+                .frame(width: 28, height: 28)
+                .background(OG.surface2, in: Circle())
+
+            if style == .loadAndReps {
+                if resolvedLoadField == .deficitCm {
+                    OGRepeatStepper(
+                        display: draftSets[index].targetWeightKg.map { String(format: "%.0f", $0) } ?? "0",
+                        compact: true,
+                        keyboard: .numberPad,
+                        onMinus: {
+                            let current = draftSets[index].targetWeightKg ?? 0
+                            let next = max(0, current - 1)
+                            draftSets[index].targetWeightKg = next > 0 ? next : nil
+                            writeSetsToMovement()
+                        },
+                        onPlus: {
+                            let current = draftSets[index].targetWeightKg ?? 0
+                            draftSets[index].targetWeightKg = min(60, current + 1)
+                            writeSetsToMovement()
+                        },
+                        onCommitText: { text in
+                            if let parsed = Int(text.filter(\.isNumber)) {
+                                let v = min(60, max(0, parsed))
+                                draftSets[index].targetWeightKg = v > 0 ? Double(v) : nil
+                            }
+                            writeSetsToMovement()
+                        }
+                    )
+                    .frame(minWidth: 128, maxWidth: .infinity)
+                    .layoutPriority(1)
+                } else {
+                    OGRepeatStepper(
+                        display: draftSets[index].targetWeightKg.map { String(format: "%g", $0) } ?? "—",
+                        compact: true,
+                        keyboard: .decimalPad,
+                        onMinus: {
+                            let current = draftSets[index].targetWeightKg ?? 0
+                            let next = max(0, ((current - weightStep) * 10).rounded() / 10)
+                            draftSets[index].targetWeightKg = next > 0 ? next : nil
+                            writeSetsToMovement()
+                        },
+                        onPlus: {
+                            let current = draftSets[index].targetWeightKg ?? 0
+                            draftSets[index].targetWeightKg = ((current + weightStep) * 10).rounded() / 10
+                            writeSetsToMovement()
+                        },
+                        onCommitText: { text in
+                            let normalized = text.replacingOccurrences(of: ",", with: ".")
+                            if normalized.isEmpty {
+                                draftSets[index].targetWeightKg = nil
+                            } else if let parsed = Double(normalized) {
+                                draftSets[index].targetWeightKg = parsed > 0 ? ((parsed * 10).rounded() / 10) : nil
+                            }
+                            writeSetsToMovement()
+                        }
+                    )
+                    .frame(minWidth: 128, maxWidth: .infinity)
+                    .layoutPriority(1)
+                }
+            }
+
+            OGRepeatStepper(
+                display: "\(draftSets[index].targetReps)",
+                compact: true,
+                keyboard: .numberPad,
+                onMinus: {
+                    draftSets[index].targetReps = max(1, draftSets[index].targetReps - qtyStep)
+                    writeSetsToMovement()
+                },
+                onPlus: {
+                    draftSets[index].targetReps = min(maxReps, draftSets[index].targetReps + qtyStep)
+                    writeSetsToMovement()
+                },
+                onCommitText: { text in
+                    if let parsed = Int(text) {
+                        draftSets[index].targetReps = min(maxReps, max(1, parsed))
+                        writeSetsToMovement()
+                    }
+                }
+            )
+            .frame(width: style == .loadAndReps ? 108 : nil)
+            .frame(maxWidth: style == .loadAndReps ? nil : .infinity)
+
+            if style.usesRIR {
+                Menu {
+                    Button("Sin RIR") {
+                        draftSets[index].targetRir = nil
+                        writeSetsToMovement()
+                    }
+                    ForEach(0...5, id: \.self) { rir in
+                        Button("\(rir)") {
+                            draftSets[index].targetRir = Double(rir)
+                            writeSetsToMovement()
+                        }
+                    }
+                } label: {
+                    Text(draftSets[index].targetRir.map { String(format: "%g", $0) } ?? "RIR")
+                        .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(draftSets[index].targetRir == nil ? OG.label3 : OG.label)
+                        .frame(width: 48, height: 48)
+                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+            }
+        }
+    }
+
+    private func addSet() {
+        guard draftSets.count < 20 else { return }
+        let last = draftSets.last
+        draftSets.append(
+            PlannedSet(
+                targetReps: last?.targetReps ?? movement.reps ?? 10,
+                targetWeightKg: last?.targetWeightKg ?? movement.weightMaleKg,
+                targetRir: last?.targetRir
+            )
+        )
+        writeSetsToMovement()
+    }
+
+    private func removeSet(at index: Int) {
+        guard draftSets.count > 1, draftSets.indices.contains(index) else { return }
+        draftSets.remove(at: index)
+        writeSetsToMovement()
+    }
+
+    private func writeSetsToMovement() {
+        movement.explicitPlannedSets = draftSets
+        let repsList = draftSets.map(\.targetReps)
+        if loggingStyle == .machineWork {
+            let qty = repsList.first
+            switch movement.prescribedQuantityUnit {
+            case .calories:
+                movement.calories = qty
+                if movement.distanceMeters == nil { movement.reps = nil }
+            case .meters:
+                movement.distanceMeters = qty
+                if movement.calories == nil { movement.reps = nil }
+            case .reps:
+                movement.reps = qty
+            }
+            movement.repScheme = repsList.count > 1 ? repsList : nil
+        } else if repsList.count <= 1 {
+            movement.repScheme = nil
+            movement.reps = repsList.first
+        } else {
+            movement.repScheme = repsList
+            movement.reps = nil
+        }
+        if let kg = draftSets.compactMap(\.targetWeightKg).first {
+            movement.weightMaleKg = kg
         }
     }
 }
@@ -1528,20 +1853,20 @@ struct RoutineExerciseEditor: View {
             }
 
             Section {
-                HStack(spacing: 8) {
+                HStack(spacing: 12) {
                     Text("#")
                         .frame(width: 28, alignment: .center)
                     Text("PESO (KG)")
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, alignment: .center)
                     Text("REPS")
-                        .frame(width: 88)
+                        .frame(width: 108, alignment: .center)
                     Text("RIR")
-                        .frame(width: 52, alignment: .center)
+                        .frame(width: 48, alignment: .center)
                 }
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(OG.label)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(OG.label3)
                 .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 0, trailing: 12))
+                .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 4, trailing: 16))
 
                 ForEach(Array(item.plannedSets.enumerated()), id: \.element.id) { index, _ in
                     PlannedSetConfigRow(
@@ -1551,7 +1876,6 @@ struct RoutineExerciseEditor: View {
                         canDelete: item.plannedSets.count > 1,
                         onDelete: { deleteSet(at: index) }
                     )
-                    .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
                 }
 
                 Button {
@@ -1585,6 +1909,7 @@ struct RoutineExerciseEditor: View {
                 }
             }
         }
+        .listStyle(.insetGrouped)
         .ogListChrome()
         .ogPinnedTransparentNav(exerciseName)
         .onAppear {
@@ -1683,7 +2008,7 @@ struct RoutineExerciseEditor: View {
     }
 }
 
-/// Fila de objetivo: peso / reps / RIR independientes por serie.
+/// Fila de objetivo: peso / reps / RIR. Borrar serie = swipe (sin icono de papelera).
 private struct PlannedSetConfigRow: View {
     var index: Int
     @Binding var set: PlannedSet
@@ -1692,7 +2017,7 @@ private struct PlannedSetConfigRow: View {
     var onDelete: () -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 12) {
             Text("\(index)")
                 .font(.system(size: 13, weight: .bold).monospacedDigit())
                 .foregroundStyle(OG.label)
@@ -1701,6 +2026,7 @@ private struct PlannedSetConfigRow: View {
 
             OGRepeatStepper(
                 display: set.targetWeightKg.map { String(format: "%g", $0) } ?? "—",
+                compact: true,
                 keyboard: .decimalPad,
                 onMinus: { bumpWeight(-weightStep) },
                 onPlus: { bumpWeight(weightStep) },
@@ -1713,10 +2039,12 @@ private struct PlannedSetConfigRow: View {
                     }
                 }
             )
-            .frame(maxWidth: .infinity)
+            .frame(minWidth: 128, maxWidth: .infinity)
+            .layoutPriority(1)
 
             OGRepeatStepper(
                 display: "\(set.targetReps)",
+                compact: true,
                 keyboard: .numberPad,
                 onMinus: { set.targetReps = max(1, set.targetReps - 1) },
                 onPlus: { set.targetReps = min(50, set.targetReps + 1) },
@@ -1726,7 +2054,7 @@ private struct PlannedSetConfigRow: View {
                     }
                 }
             )
-            .frame(width: 96)
+            .frame(width: 108)
 
             Menu {
                 Button("Sin RIR") { set.targetRir = nil }
@@ -1737,10 +2065,11 @@ private struct PlannedSetConfigRow: View {
                 Text(set.targetRir.map { String(format: "%g", $0) } ?? "RIR")
                     .font(.system(size: 13, weight: .semibold).monospacedDigit())
                     .foregroundStyle(set.targetRir == nil ? OG.label3 : OG.label)
-                    .frame(width: 52, height: 36)
-                    .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .frame(width: 48, height: 48)
+                    .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
         }
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if canDelete {
                 OGSwipeDeleteButton(action: onDelete)

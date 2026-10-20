@@ -111,7 +111,7 @@ struct DayPlusSheet: View {
                             title: "Entreno · \(dayName)",
                             weekday: nil,
                             scheduledDate: dayStart,
-                            blocks: [.strength(title: "Bloque")],
+                            blocks: [.strength(title: "Bloque 1")],
                             progression: .off
                         ),
                         mode: .oneOff(isNew: true)

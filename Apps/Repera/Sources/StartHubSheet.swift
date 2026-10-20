@@ -239,7 +239,7 @@ struct StartHubSheet: View {
                         routine: Routine(
                             title: "Mi entreno",
                             weekday: nil,
-                            blocks: [.strength(title: "Bloque")],
+                            blocks: [.strength(title: "Bloque 1")],
                             progression: .off
                         ),
                         mode: .session,

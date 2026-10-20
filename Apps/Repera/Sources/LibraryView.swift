@@ -214,6 +214,7 @@ struct LibraryView: View {
                 }
             }
         }
+        .listStyle(.insetGrouped)
     }
 
     private var filteredWODTemplates: [WODTemplate] {
@@ -263,6 +264,7 @@ struct LibraryView: View {
                         .lineLimit(4...10)
                 }
             }
+            .listStyle(.insetGrouped)
             .ogListChrome()
             .navigationTitle("Nuevo ejercicio")
             .navigationBarTitleDisplayMode(.inline)
@@ -555,6 +557,7 @@ private struct LibraryExerciseList: View {
                 }
             }
         }
+        .listStyle(.insetGrouped)
     }
 
     @ViewBuilder

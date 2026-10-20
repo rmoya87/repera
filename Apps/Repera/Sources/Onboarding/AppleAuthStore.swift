@@ -119,10 +119,15 @@ final class AppleAuthStore: NSObject {
             throw AppleAuthError.accountMismatch
         }
         apply(credential: credential)
-        guard await BusinessAuthStore.shared.connect(credential: credential, rawNonce: rawNonce) else {
-            throw AppleAuthError.businessConnectionFailed(
-                BusinessAuthStore.shared.lastErrorMessage ?? "No se pudo iniciar sesión en Supabase."
-            )
+        // La identidad Apple en Keychain basta para entrar a la app personal.
+        // Supabase/Business es opcional: un fallo de red o de proyecto no debe
+        // invalidar el login ni volver a pedir SIWA en el próximo arranque.
+        let connected = await BusinessAuthStore.shared.connect(
+            credential: credential,
+            rawNonce: rawNonce
+        )
+        if !connected {
+            lastErrorMessage = BusinessAuthStore.shared.lastErrorMessage
         }
     }
 
@@ -194,9 +199,12 @@ final class AppleAuthStore: NSObject {
         SecItemDelete(query as CFDictionary)
         var attrs = query
         attrs[kSecValueData as String] = data
-        // Survives app updates; available after first unlock (cold start OK).
+        // Survives app updates; readable after first unlock (cold start OK).
         attrs[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        SecItemAdd(attrs as CFDictionary, nil)
+        let status = SecItemAdd(attrs as CFDictionary, nil)
+        if status != errSecSuccess {
+            lastErrorMessage = "No se pudo guardar la sesión Apple (\(status))."
+        }
     }
 
     private func readKeychain(account: String) -> String? {
@@ -209,8 +217,15 @@ final class AppleAuthStore: NSObject {
         ]
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
-        guard status == errSecSuccess, let data = item as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
+        if status == errSecSuccess, let data = item as? Data {
+            return String(data: data, encoding: .utf8)
+        }
+        // Antes se usaba AfterFirstUnlock (sin ThisDeviceOnly): intentar leer legacy.
+        if status == errSecItemNotFound {
+            return nil
+        }
+        // Dispositivo aún bloqueado u otro error temporal: no borrar Keychain.
+        return nil
     }
 
     private func deleteKeychain() {

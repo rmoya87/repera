@@ -76,6 +76,7 @@ struct LegacyAccountMigrationView: View {
                 .disabled(isMigrating)
 
                 Button("Seguir con mis entrenamientos sin conexión") {
+                    businessAuth.setPrefersLocalOnly(true)
                     onContinueLocalOnly()
                 }
                 .font(.subheadline.weight(.semibold))
@@ -100,7 +101,7 @@ struct LegacyAccountMigrationView: View {
             .frame(maxWidth: 560)
             .frame(maxWidth: .infinity)
         }
-        .background(Color.white)
+        .background(OG.bg.ignoresSafeArea())
     }
 
     private func benefit(icon: String, title: String, detail: String) -> some View {
