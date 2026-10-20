@@ -62,7 +62,11 @@ final class HealthRecoveryStore {
         cycleEnabled = UserDefaults.standard.bool(forKey: cycleKey)
     }
 
-    var lastNight: RecoverySleepNight? { nights.last }
+    var lastNight: RecoverySleepNight? {
+        guard let last = nights.last,
+              abs(last.date.timeIntervalSinceNow) <= 48 * 3600 else { return nil }
+        return last
+    }
     var averageHours: Double? {
         let recent = Array(nights.suffix(14))
         guard !recent.isEmpty else { return nil }
@@ -86,16 +90,13 @@ final class HealthRecoveryStore {
     }
 
     var trainingTip: String? {
-        guard let lastNight,
-              abs(Calendar.current.dateComponents([.day], from: lastNight.date, to: Date()).day ?? 99) <= 1
-              || cycleEstimate == .menstrual else { return nil }
-        if lastNight.hours < 6 {
+        if let lastNight, lastNight.hours < 6 {
             return "Has dormido menos de 6 horas. Ajusta el esfuerzo a tus sensaciones y cuida la técnica."
         }
         if cycleEstimate == .menstrual {
             return "Has registrado menstruación. Si tienes molestias, adapta el volumen; no necesitas reducirlo si te encuentras bien."
         }
-        if lastNight.hours >= 7 {
+        if let lastNight, lastNight.hours >= 7 {
             return "Has descansado al menos 7 horas. Mantén tu plan y guía las cargas por tu RIR."
         }
         return nil
