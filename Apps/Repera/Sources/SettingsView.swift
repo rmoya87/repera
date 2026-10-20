@@ -165,6 +165,19 @@ struct SettingsView: View {
             }
 
             Section {
+                NavigationLink {
+                    HealthRecoverySettingsView()
+                } label: {
+                    Label("Salud y recuperación", systemImage: "moon.stars")
+                        .foregroundStyle(OG.label)
+                }
+            } header: {
+                Text("Privacidad y bienestar")
+            } footer: {
+                Text("Sueño y ciclo se leen localmente desde Apple Salud. No se guardan ni comparten mediante Supabase.")
+            }
+
+            Section {
                 let linked = businessData.linkedCenters()
                 ForEach(linked) { center in
                     NavigationLink {
