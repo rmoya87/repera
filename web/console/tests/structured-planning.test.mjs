@@ -18,7 +18,7 @@ test('full native catalog is mirrored with stable unique keys',()=>{
   ['CatalogGimnasia',/\bgy\(\s*"([^"]+)"/g],
   ['CatalogCrossFit',/\bcf\(\s*"([^"]+)"/g]
  ]){
-  const native=read('../../../../Packages/ReperaDomain/Sources/ReperaDomain/'+file+'.swift');
+  const native=read('../../../Packages/ReperaDomain/Sources/ReperaDomain/'+file+'.swift');
   for(const match of native.matchAll(regex))assert.ok(catalog.some(c=>c.name===match[1]),'Missing native exercise: '+match[1]);
  }
 });
