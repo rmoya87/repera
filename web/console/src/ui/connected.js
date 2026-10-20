@@ -216,6 +216,10 @@ app.addEventListener('submit',async event=>{
    await auth.enrollManagedClient({occurrenceId:data.get('occurrence'),clientId:pass.client_id,passId:pass.id});
    await loadSelectedOrg();notice='Deportista inscrito y crédito descontado del bono.';
   }
+  if(action==='manage-pass'){
+   const op=data.get('op');await auth.changeCourtesyCredits(data.get('pass'),op,Number(data.get('amount')),data.get('until')||null);
+   await loadSelectedOrg();notice='Bono actualizado. La modificación quedó registrada para auditoría.';
+  }
   if(action==='client-profile'){
    await auth.updateClientProfile({orgId:selectedOrg,id:data.get('client'),name:data.get('name'),email:data.get('email'),phone:data.get('phone'),notes:data.get('notes'),avatar:data.get('avatar'),status:data.get('status')});
    await loadSelectedOrg();notice='Ficha del cliente actualizada.';
