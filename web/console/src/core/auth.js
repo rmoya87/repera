@@ -239,6 +239,9 @@ export class ReperaAuthAPI {
  async sendClientNotice({orgId,clientId,title,body}){
   return this.#authorized('rpc/send_business_client_notice',{method:'POST',body:{p_org:orgId,p_client:clientId,p_title:title,p_body:body}});
  }
+ async changeCourtesyCredits(id,action,amount=0,until=null){
+  return this.#authorized('rpc/manage_complimentary_pass',{method:'POST',body:{p_pass:id,p_action:action,p_amount:amount||null,p_until:until?new Date(until).toISOString():null}});
+ }
  async publishClassTraining({occurrenceId,title,instructions='',prescription}){
   if(!/^[0-9a-f-]{36}$/i.test(occurrenceId||''))throw Error('Clase inválida');
   return this.#authorized('rpc/publish_class_training',{method:'POST',body:{p_occurrence:occurrenceId,p_title:title,p_instructions:instructions,p_prescription:prescription}});
