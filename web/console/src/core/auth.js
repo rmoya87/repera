@@ -80,6 +80,9 @@ export class ReperaAuthAPI {
   try{return await this.#request('/rest/v1/'+path,{...options,token});}
   catch(e){if(e.status===401)this.clear();throw e;}
  }
+ async platformOverview(){
+  return this.#authorized('rpc/platform_business_overview',{method:'POST',body:{}});
+ }
  async myProfile(){
   const user=await this.currentUser();if(!user?.id)return null;
   const rows=await this.#authorized('profiles?select=id,role,display_name&id=eq.'+encodeURIComponent(user.id));
