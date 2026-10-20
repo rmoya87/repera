@@ -170,8 +170,8 @@ public struct SessionController: Sendable {
                         if let id = move.exerciseId, let ex = byId[id] {
                             exercise = ex
                         } else if let match = byId.values.first(where: {
-                            $0.name.localizedCaseInsensitiveCompare(move.name) == .orderedSame
-                                || $0.name.localizedCaseInsensitiveCompare(canonical) == .orderedSame
+                            ExerciseEquivalence.sameName($0.name, move.name)
+                                || ExerciseEquivalence.sameName($0.name, canonical)
                         }) {
                             exercise = match
                         } else {

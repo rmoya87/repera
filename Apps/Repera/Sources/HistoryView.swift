@@ -264,8 +264,16 @@ struct WorkoutDetailView: View {
     @State private var isEditing = false
     @State private var showDeleteConfirm = false
     @State private var healthExtras: HealthKitStore.SessionHealthExtras?
+    /// Un solo destino: evita apilar fichas si hay varios links en la misma card.
+    @State private var exerciseRoute: DetailExerciseRoute?
 
     private var weightStep: Double { store.state.settings.weightIncrementKg }
+
+    private struct DetailExerciseRoute: Identifiable, Hashable {
+        var id: UUID { exerciseId }
+        var exerciseId: UUID
+        var sessionId: UUID
+    }
 
     private var subtitle: String {
         guard let session = draft, let start = session.startedAt else { return "" }
@@ -433,24 +441,38 @@ struct WorkoutDetailView: View {
 
                 ForEach(groupedExercises(session), id: \.id) { group in
                     Section {
-                        if let result = group.wodResult {
-                            wodResultCard(result)
-                                .ogCardListRow()
-                        }
                         if group.showsMovementsAsPrescription {
-                            wodMovementsCard(session: session, indices: group.indices)
-                                .ogCardListRow()
-                        } else {
+                            wodBlockMovementsCard(
+                                session: session,
+                                indices: group.indices,
+                                result: group.wodResult
+                            )
+                            .ogCardListRow()
+                        } else if isEditing {
+                            if let result = group.wodResult {
+                                wodResultCard(result)
+                                    .ogCardListRow()
+                            }
                             ForEach(group.indices, id: \.self) { exIndex in
                                 if session.exercises.indices.contains(exIndex) {
                                     exerciseCard(
                                         exIndex: exIndex,
                                         exercise: session.exercises[exIndex],
-                                        hideScoreArtifact: group.wodResult
+                                        hideScoreArtifact: group.wodResult,
+                                        highlightSessionId: session.id
                                     )
                                     .ogCardListRow()
                                 }
                             }
+                        } else {
+                            // Resultado + ejercicios del bloque en una card, separados por línea.
+                            wodBlockExercisesCard(
+                                session: session,
+                                indices: group.indices,
+                                hideScoreArtifact: group.wodResult,
+                                result: group.wodResult
+                            )
+                            .ogCardListRow()
                         }
                     } header: {
                         blockSectionHeader(group.header)
@@ -467,6 +489,12 @@ struct WorkoutDetailView: View {
         }
         .ogListChrome()
         .listSectionSpacing(12)
+        .navigationDestination(item: $exerciseRoute) { route in
+            ExerciseDetailView(
+                exerciseId: route.exerciseId,
+                highlightSessionId: route.sessionId
+            )
+        }
         .ogPinnedTransparentNav("Entreno")
         .navigationBarBackButtonHidden(isEditing)
         .toolbar {
@@ -673,10 +701,18 @@ struct WorkoutDetailView: View {
     }
 
     private func wodResultCard(_ result: WODBlockResult) -> some View {
+        wodResultHeader(result)
+            .padding(OG.pad)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+    }
+
+    private func wodResultHeader(_ result: WODBlockResult) -> some View {
         HStack(spacing: 12) {
             Image(systemName: result.elapsedSeconds != nil ? "stopwatch.fill" : "number.circle.fill")
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundStyle(OG.accent)
+                .frame(width: 40, alignment: .center)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Resultado")
                     .font(.system(size: 12, weight: .medium))
@@ -695,57 +731,151 @@ struct WorkoutDetailView: View {
                     .background(OG.surface2, in: Capsule())
             }
         }
-        .padding(OG.pad)
+        .padding(.vertical, 4)
+    }
+
+    private func detailExerciseId(for exercise: Exercise) -> UUID {
+        store.resolvedCatalogExercise(id: exercise.id)?.id ?? exercise.id
+    }
+
+    private var detailRowChevron: some View {
+        Image(systemName: "chevron.right")
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(OG.label3)
+    }
+
+    /// AMRAP / RFT / chipper: resultado + movimientos en una card, separados por línea.
+    private func wodBlockMovementsCard(
+        session: WorkoutSession,
+        indices: [Int],
+        result: WODBlockResult?
+    ) -> some View {
+        let rows = indices.compactMap { idx -> (Int, SessionExercise)? in
+            guard session.exercises.indices.contains(idx) else { return nil }
+            return (idx, session.exercises[idx])
+        }
+        return VStack(alignment: .leading, spacing: 0) {
+            if let result {
+                wodResultHeader(result)
+                    .padding(.vertical, 8)
+                if !rows.isEmpty {
+                    Divider().overlay(OG.surface3).padding(.leading, 52)
+                }
+            }
+            ForEach(Array(rows.enumerated()), id: \.element.0) { offset, pair in
+                let exercise = pair.1
+                if offset > 0 {
+                    Divider().overlay(OG.surface3).padding(.leading, 52)
+                }
+                Button {
+                    openExerciseDetail(exercise.exercise, sessionId: session.id)
+                } label: {
+                    HStack(spacing: 12) {
+                        ExerciseThumb(exercise: exercise.exercise, size: 40)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(exercise.exercise.name)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(OG.label)
+                                .lineLimit(2)
+                            Text(exercise.prescriptionSummaryLine)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(OG.label2)
+                        }
+                        Spacer(minLength: 0)
+                        detailRowChevron
+                    }
+                    .padding(.vertical, 12)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Ver ficha del ejercicio")
+            }
+        }
+        .padding(.horizontal, OG.pad)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
     }
 
-    private func wodMovementsCard(session: WorkoutSession, indices: [Int]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Movimientos")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(OG.label3)
-            ForEach(indices, id: \.self) { exIndex in
-                if session.exercises.indices.contains(exIndex) {
-                    let exercise = session.exercises[exIndex]
-                    NavigationLink {
-                        ExerciseDetailView(exerciseId: exercise.exercise.id)
-                    } label: {
-                        HStack(spacing: 12) {
-                            ExerciseThumb(exercise: exercise.exercise, size: 40)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(exercise.exercise.name)
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(OG.label)
-                                    .lineLimit(2)
-                                Text(exercise.prescriptionSummaryLine)
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundStyle(OG.label2)
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("Ver ficha del ejercicio")
+    /// EMOM / series: resultado (si hay) + ejercicios del bloque en una card.
+    private func wodBlockExercisesCard(
+        session: WorkoutSession,
+        indices: [Int],
+        hideScoreArtifact: WODBlockResult?,
+        result: WODBlockResult?
+    ) -> some View {
+        let rows = indices.compactMap { idx -> (Int, SessionExercise)? in
+            guard session.exercises.indices.contains(idx) else { return nil }
+            return (idx, session.exercises[idx])
+        }
+        return VStack(alignment: .leading, spacing: 0) {
+            if let result {
+                wodResultHeader(result)
+                    .padding(.vertical, 8)
+                if !rows.isEmpty {
+                    Divider().overlay(OG.surface3).padding(.leading, 52)
                 }
             }
+            ForEach(Array(rows.enumerated()), id: \.element.0) { offset, pair in
+                let exIndex = pair.0
+                let exercise = pair.1
+                if offset > 0 {
+                    Divider().overlay(OG.surface3).padding(.leading, 60)
+                }
+                exerciseBlockContent(
+                    exIndex: exIndex,
+                    exercise: exercise,
+                    hideScoreArtifact: hideScoreArtifact,
+                    highlightSessionId: session.id,
+                    showsOuterPadding: false
+                )
+                .padding(.vertical, 12)
+            }
         }
-        .padding(OG.pad)
+        .padding(.horizontal, OG.pad)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+    }
+
+    private func openExerciseDetail(_ exercise: Exercise, sessionId: UUID) {
+        exerciseRoute = DetailExerciseRoute(
+            exerciseId: detailExerciseId(for: exercise),
+            sessionId: sessionId
+        )
     }
 
     private func exerciseCard(
         exIndex: Int,
         exercise: SessionExercise,
-        hideScoreArtifact: WODBlockResult? = nil
+        hideScoreArtifact: WODBlockResult? = nil,
+        highlightSessionId: UUID? = nil
+    ) -> some View {
+        exerciseBlockContent(
+            exIndex: exIndex,
+            exercise: exercise,
+            hideScoreArtifact: hideScoreArtifact,
+            highlightSessionId: highlightSessionId,
+            showsOuterPadding: true
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+    }
+
+    private func exerciseBlockContent(
+        exIndex: Int,
+        exercise: SessionExercise,
+        hideScoreArtifact: WODBlockResult?,
+        highlightSessionId: UUID?,
+        showsOuterPadding: Bool
     ) -> some View {
         let visibleSets = visibleLoggedSets(for: exercise, hideScoreArtifact: hideScoreArtifact)
         let catalogExercise = exercise.exercise
         return VStack(alignment: .leading, spacing: 12) {
-            NavigationLink {
-                ExerciseDetailView(exerciseId: catalogExercise.id)
+            Button {
+                if let highlightSessionId {
+                    openExerciseDetail(catalogExercise, sessionId: highlightSessionId)
+                } else if let session = draft {
+                    openExerciseDetail(catalogExercise, sessionId: session.id)
+                }
             } label: {
                 HStack(spacing: 12) {
                     ExerciseThumb(exercise: catalogExercise, size: 48)
@@ -754,6 +884,7 @@ struct WorkoutDetailView: View {
                         .foregroundStyle(OG.label)
                         .lineLimit(2)
                     Spacer(minLength: 0)
+                    detailRowChevron
                 }
                 .contentShape(Rectangle())
             }
@@ -787,9 +918,7 @@ struct WorkoutDetailView: View {
                 }
             }
         }
-        .padding(OG.pad)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+        .padding(showsOuterPadding ? OG.pad : 0)
     }
 
     private func editSetColumnHeaders(exercise: Exercise, showsRemove: Bool) -> some View {
@@ -860,22 +989,12 @@ struct WorkoutDetailView: View {
     }
 
     private func readOnlySetRow(setIndex: Int, set: LoggedSet) -> some View {
-        HStack(spacing: 10) {
-            Text("S\(setIndex + 1)")
-                .font(.system(size: 12, weight: .bold).monospacedDigit())
-                .foregroundStyle(OG.label3)
-                .frame(width: 28, alignment: .leading)
-            Text(set.displaySummaryLine)
-                .font(.system(size: 15, weight: .medium).monospacedDigit())
-                .foregroundStyle(OG.label)
-            Spacer(minLength: 0)
-            if let rir = set.rir, !set.isMachineQuantity {
-                Text("RIR \(Int(rir.rounded()))")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(OG.label3)
-            }
-        }
-        .padding(.vertical, 4)
+        OGExerciseSetRow(
+            index: setIndex,
+            summaryLine: set.displaySummaryLine,
+            rir: set.rir,
+            showsRIR: !set.isMachineQuantity
+        )
     }
 
     private func editableSetRow(

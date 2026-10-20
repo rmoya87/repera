@@ -6,6 +6,8 @@ struct ExerciseDetailView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(SubscriptionManager.self) private var subscriptions
     let exerciseId: UUID
+    /// Entreno desde el que se abrió la ficha (para «Esta sesión» vs anteriores).
+    var highlightSessionId: UUID? = nil
 
     var onOpenedWorkout: (() -> Void)? = nil
 
@@ -13,11 +15,15 @@ struct ExerciseDetailView: View {
     @State private var suggestPercent: Double = 70
 
     private var exercise: Exercise? {
-        store.state.exercises.first { $0.id == exerciseId }
+        store.resolvedCatalogExercise(id: exerciseId)
+    }
+
+    private var resolvedId: UUID {
+        exercise?.id ?? exerciseId
     }
 
     private var loadPref: ExerciseLoadPreference {
-        store.loadPreference(for: exerciseId)
+        store.loadPreference(for: resolvedId)
     }
 
     var body: some View {
@@ -31,15 +37,28 @@ struct ExerciseDetailView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             muscleEquipmentBlock(exercise)
 
+                            if let highlightSessionId {
+                                ExerciseThisSessionCard(
+                                    exerciseId: resolvedId,
+                                    highlightSessionId: highlightSessionId
+                                )
+                            }
+
                             VStack(alignment: .leading, spacing: 8) {
                                 OGCardSectionTitle(title: "Carga sugerida")
                                 OGCard { suggestedLoadSection(exercise) }
                             }
 
                             if subscriptions.isPro {
-                                ExerciseEvolutionPanel(exerciseId: exercise.id)
+                                ExerciseEvolutionPanel(
+                                    exerciseId: resolvedId,
+                                    highlightSessionId: highlightSessionId
+                                )
                             } else {
-                                FreeExerciseSummaryCard(exerciseId: exercise.id)
+                                FreeExerciseSummaryCard(
+                                    exerciseId: resolvedId,
+                                    highlightSessionId: highlightSessionId
+                                )
                             }
                         }
                         .padding(.horizontal, OG.pad)
@@ -56,7 +75,7 @@ struct ExerciseDetailView: View {
                             accessibilityLabel: exercise.isFavorite ? "Quitar de favoritos" : "Favorito",
                             tint: exercise.isFavorite ? OG.yellow : OG.label
                         ) {
-                            store.toggleFavorite(exerciseId)
+                            store.toggleFavorite(resolvedId)
                         }
                     }
                     ToolbarItem(placement: .topBarTrailing) {

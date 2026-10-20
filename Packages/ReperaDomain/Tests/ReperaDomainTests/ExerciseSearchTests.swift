@@ -31,6 +31,50 @@ final class ExerciseSearchTests: XCTestCase {
         XCTAssertEqual(ExerciseSearch.ranked(catalog, query: "zancadas inversas con barra").first?.name, "Back rack reverse lunge")
     }
 
+    func testChinUpMapsToSupinatedNotGenericPullUp() {
+        let catalog = [
+            exercise(name: "Dominadas", muscle: "Espalda"),
+            exercise(name: "Dominadas estrictas", muscle: "Espalda"),
+            exercise(name: "Dominadas kipping", muscle: "Espalda"),
+            exercise(name: "Dominadas butterfly", muscle: "Espalda"),
+            exercise(name: "Dominadas supinas", muscle: "Espalda"),
+            exercise(name: "Chest to bar", muscle: "Espalda"),
+        ]
+        XCTAssertEqual(ExerciseSearch.ranked(catalog, query: "chin up").first?.name, "Dominadas supinas")
+        XCTAssertEqual(ExerciseSearch.ranked(catalog, query: "chin-ups").first?.name, "Dominadas supinas")
+        XCTAssertEqual(ExerciseSearch.ranked(catalog, query: "pull up").first?.name, "Dominadas")
+        XCTAssertEqual(ExerciseSearch.ranked(catalog, query: "strict pull up").first?.name, "Dominadas estrictas")
+        XCTAssertEqual(ExerciseSearch.ranked(catalog, query: "kipping pull-up").first?.name, "Dominadas kipping")
+    }
+
+    func testEnglishVariantsMapToSpecificCatalogEntries() {
+        let catalog = Catalog.seed()
+        let cases: [(String, String)] = [
+            ("chin up", "Dominadas supinas"),
+            ("pull up", "Dominadas"),
+            ("walking lunge", "Walking lunge"),
+            ("front rack lunge", "Front rack lunge"),
+            ("overhead squat", "Overhead squat"),
+            ("front squat", "Sentadilla frontal"),
+            ("back squat", "Sentadilla"),
+            ("rdl", "Peso muerto rumano"),
+            ("sumo deadlift", "Peso muerto sumo"),
+            ("incline bench press", "Press banca inclinada"),
+            ("db thruster", "Thruster mancuernas"),
+            ("kb thruster", "Thruster kettlebell"),
+            ("power clean", "Cargada de potencia"),
+            ("hang snatch", "Arrancada colgante"),
+            ("chest to bar", "Chest to bar"),
+        ]
+        for (query, expected) in cases {
+            XCTAssertEqual(
+                ExerciseSearch.ranked(catalog, query: query).first?.name,
+                expected,
+                "«\(query)» debería abrir «\(expected)»"
+            )
+        }
+    }
+
     func testPressDeBancaFindsPressBanca() {
         let ex = exercise(name: "Press banca", muscle: "Pecho", equipment: "Barra")
         XCTAssertTrue(ExerciseSearch.matches(ex, query: "press de banca"))

@@ -1065,6 +1065,37 @@ public enum CrossFitGlossary {
         "pullups": "Dominadas",
         "pu": "Dominadas",
         "chin up": "Dominadas supinas",
+        "chin ups": "Dominadas supinas",
+        "chin-up": "Dominadas supinas",
+        "chin-ups": "Dominadas supinas",
+        "chinup": "Dominadas supinas",
+        "chinups": "Dominadas supinas",
+        "strict pull up": "Dominadas estrictas",
+        "strict pull-up": "Dominadas estrictas",
+        "strict pull ups": "Dominadas estrictas",
+        "butterfly pull up": "Dominadas butterfly",
+        "butterfly pull-up": "Dominadas butterfly",
+        "ring pull up": "Dominadas en anillas",
+        "ring pull-up": "Dominadas en anillas",
+        "ring pull ups": "Dominadas en anillas",
+        // Variantes concretas (completar glosario; sin duplicar claves ya definidas arriba).
+        "walking lunge": "Walking lunge",
+        "walking lunges": "Walking lunge",
+        "front rack lunge": "Front rack lunge",
+        "front rack lunges": "Front rack lunge",
+        "jumping lunge": "Jumping lunge",
+        "jumping lunges": "Jumping lunge",
+        "air squat": "Air squat",
+        "goblet squat": "Goblet squat",
+        "pistol squat": "Pistol squat",
+        "pistol": "Pistol squat",
+        "rdl": "Peso muerto rumano",
+        "romanian deadlift": "Peso muerto rumano",
+        "sumo deadlift": "Peso muerto sumo",
+        "incline bench press": "Press banca inclinada",
+        "decline bench press": "Press banca declinado",
+        "deficit hspu": "HSPU deficit",
+        "hspu deficit": "HSPU deficit",
         "thruster": "Thruster",
         "thrusters": "Thruster",
         "kb swing": "Swing kettlebell",
@@ -1457,6 +1488,10 @@ public enum CrossFitGlossary {
         // Antes de quitar ruido (DB/ALT…): compuestos con equipo (`db hang snatch` → Snatch mancuerna).
         let rawNorm = normalize(raw)
         if let exact = aliases[rawNorm] { return exact }
+        // Misma tabla EN↔catálogo que la búsqueda de ejercicios (chin up, walking lunge…).
+        if let fromSearch = ExerciseSearch.scannerCatalogName(forNormalizedQuery: rawNorm) {
+            return fromSearch
+        }
         let ordered = aliases.keys.sorted { $0.count > $1.count }
         for key in ordered {
             guard key.count >= 4, let value = aliases[key], !value.isEmpty else { continue }
@@ -1469,6 +1504,9 @@ public enum CrossFitGlossary {
         let cleaned = cleanMovementLabel(raw)
         let n = normalize(cleaned)
         if let exact = aliases[n] { return exact }
+        if let fromSearch = ExerciseSearch.scannerCatalogName(forNormalizedQuery: n) {
+            return fromSearch
+        }
         // Alias como palabra completa (no "mu" ⊂ "muerto"). Ej. "kipping hspu" → HSPU.
         for key in ordered {
             guard key.count >= 2, let value = aliases[key], !value.isEmpty else { continue }

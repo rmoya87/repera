@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-20 (detalle: nota pegada a Tiempo/Kcal/Volumen)
+Última actualización: 2026-10-20 (búsqueda EN↔ES + escáner con mismos aliases)
 
 ## Tabs
 
@@ -41,9 +41,9 @@
 - Título arriba (`ogFixedTopBar`), sin franja vacía encima.
 - **Crear mi entreno**: sesión completa (bloques, WOD, pizarra). No asigna día del plan (solo Diario).
 - **Apuntar series** (log rápido): picker → modal de series (`QuickLogSheet`) → guardar (≠ Crear completo).
-- Pickers de ejercicio (`ExerciseCatalogSearchList`): búsqueda bilingüe ES/EN, nombres alternativos y abreviaturas CrossFit; índice/ranking off-main, prefetch de miniaturas solo de la ventana visible. El cargador encuentra JPG incluso si Xcode los copia a la raíz del bundle.
+- Pickers / lista de ejercicios: búsqueda bilingüe ES/EN (`ExerciseSearch` + `CrossFitGlossary`); aliases EN indexados por ejercicio (p. ej. «back squat» → Sentadilla). En pestaña WODs, si la query no pega con ningún WOD, se muestran ejercicios.
 - Favoritos, timer standalone.
-- Cámara / galería → escáner de pizarra → página **Añadir entreno** (cards/thumbs) → toolbar **Guardar** / **Empezar** (iconos). Detalle en `docs/BOARD_SCAN.md`.
+- Cámara / galería → escáner de pizarra → página **Añadir entreno** (cards/thumbs) → toolbar **Guardar** / **Empezar** (iconos). Reconoce los mismos aliases EN→variante que la búsqueda (`CrossFitGlossary` + `ExerciseSearch`). Detalle en `docs/BOARD_SCAN.md`.
 
 ### Center (`CenterView`)
 
@@ -98,7 +98,10 @@
 
 - Topbar fijo transparente: nombre del ejercicio + favorito / **+** en toolbar.
 - **+** abre modal de series (`QuickLogSheet`: series, nota, guardar / cancelar = X), sin sesión completa.
-- **Gratis:** última sesión + récord / e1RM básico + teaser «Tu evolución» (sin gráfica ni historial completo).
+- **Gratis:** última sesión + récord / e1RM básico + teaser «Tu evolución» (sin gráfica ni historial completo). El historial empareja por id, `catalogId` o nombre (entrenos WOD/pizarra con UUID huérfano siguen contando).
+- Desde el detalle de un entreno, el toque en nombre/imagen resuelve al ejercicio de catálogo (no «Ejercicio no encontrado»).
+- Detalle WOD: movimientos del bloque en **una card** separados por línea; chevron dentro; un toque → una ficha (`navigationDestination`).
+- Ficha desde entreno terminado → **Esta sesión**: WOD de catálogo = score **global**; WOD libre/series = movimiento vs anterior.
 - **Pro — Evolución:** fuerza → Tope/e1RM/top set; comba/erg → Mejor/Total/Tiempo · gráfica · resumen + **Historial**.
 - Steppers numéricos (`OGRepeatStepper`): ± fiables en scroll; toque en el número → teclado con **intro** (confirma y cierra; el pad puro de Apple no tiene return).
 - **Músculos y equipo**: subsecciones (Músculo / También / Equipo / Deporte); chips con `OGFlowLayout` a todo el ancho de la card.

@@ -24,7 +24,7 @@ struct ExerciseProgressView: View {
         }
         .background(OG.bg)
         .ogPinnedTransparentNav(
-            store.state.exercises.first { $0.id == exerciseId }?.name ?? "Ejercicio"
+            store.resolvedCatalogExercise(id: exerciseId)?.name ?? "Ejercicio"
         )
     }
 }
@@ -33,6 +33,7 @@ struct ExerciseProgressView: View {
 struct ExerciseEvolutionPanel: View {
     @Environment(ReperaStore.self) private var store
     let exerciseId: UUID
+    var highlightSessionId: UUID? = nil
 
     @State private var metric: ExerciseProgressMetric = .topSet
     @State private var range: ProgressRange = .all
@@ -42,7 +43,7 @@ struct ExerciseEvolutionPanel: View {
     @State private var didSeedMetric = false
 
     private var exercise: Exercise? {
-        store.state.exercises.first { $0.id == exerciseId }
+        store.resolvedCatalogExercise(id: exerciseId)
     }
 
     private var loggingStyle: ExerciseLoggingStyle {
@@ -74,7 +75,8 @@ struct ExerciseEvolutionPanel: View {
             exerciseId: exerciseId,
             metric: metric,
             range: range,
-            workouts: store.state.workouts
+            workouts: store.state.workouts,
+            catalog: store.state.exercises
         )
     }
 
@@ -382,7 +384,8 @@ struct ExerciseEvolutionPanel: View {
         let allSessions = StatsEngine.exerciseSessionSnapshots(
             exerciseId: exerciseId,
             workouts: store.state.workouts,
-            range: .all
+            range: .all,
+            catalog: store.state.exercises
         )
         let latest = allSessions.first
         return VStack(alignment: .leading, spacing: 10) {
@@ -476,14 +479,15 @@ struct ExerciseHistoryView: View {
     let exerciseId: UUID
 
     private var exerciseName: String {
-        store.state.exercises.first { $0.id == exerciseId }?.name ?? "Ejercicio"
+        store.resolvedCatalogExercise(id: exerciseId)?.name ?? "Ejercicio"
     }
 
     private var sessions: [ExerciseSessionSnapshot] {
         StatsEngine.exerciseSessionSnapshots(
             exerciseId: exerciseId,
             workouts: store.state.workouts,
-            range: .all
+            range: .all,
+            catalog: store.state.exercises
         )
     }
 

@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-20 (SessionCardioEffort en Resultado)
+Última actualización: 2026-10-20 (ExerciseSessionAppearance; nav RFT por fila)
 
 ## Visión
 
@@ -95,9 +95,9 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 | `CatalogWODs.swift` | Benchmarks conocidos (`WODTemplate` → `RoutineBlock` con `wodTemplateId`); `WODScoreBands` principiante→élite |
 | `WODBlockResult` / `WODResultCapture` | Score por bloque (reps AMRAP / tiempo For Time / series); `WorkoutSession.wodResults` |
 | `SessionReview` / `SessionReviewEngine` | Valoración post-entreno: nota por rendimiento (bandas / ritmos / typical) + ajuste ±2 con `ExerciseEquivalence` + ajuste ±2 con `SessionCardioEffort` (FC/kcal de Salud); `WorkoutSession.sessionReview` |
-| `ExerciseEquivalence` | Familias de movimiento (squat, hinge, press, pull…) y historial comparable entre ejercicios similares (mismo `loggingStyle` / `loadField`) |
+| `ExerciseEquivalence` | Familias de movimiento + `matchesCatalogIdentity` (id / catalogId / nombre) para historial y ficha pese a UUID huérfanos de WOD/pizarra |
 | `MovementPaceStandards` / `WODPaceEstimator` | Segundos/unidad por tipo de movimiento y nivel (principiante→élite); estima tiempo/rondas de WOD a medida |
-| `StatsEngine` | Series de progreso, PRs, métricas diarias, filtros `ProgressTimeRange` |
+| `StatsEngine` | Series de progreso, PRs, métricas diarias; historial por ejercicio acepta `catalog` para emparejar por identidad |
 | `MuscleTaxonomy` / `MuscleMapEngine` | Carga + fatiga (vida media por slug BodyMap); niveles 0–4 verde→rojo; primario 1.0 / secundarios ~0.55–0.35 |
 | `BoardImportParser` / `CrossFitGlossary` | OCR texto → fuerza+WOD; equipo DB → variante mancuerna (`resolveCatalogName` / `preferEquipmentVariant`) |
 | `RoutineBlock.plannedSets(for:)` | Series al apuntar según formato (EMOM/RFT/Tabata/…) |

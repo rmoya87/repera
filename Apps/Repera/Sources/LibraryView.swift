@@ -66,7 +66,10 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if browseMode == .wods {
+                // En WODs, si la búsqueda no pega con ningún WOD (p. ej. «back squat»),
+                // mostrar ejercicios: si no, parece que «no hay ejercicio».
+                if browseMode == .wods, query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    || !filteredWODTemplates.isEmpty {
                     wodsList
                 } else {
                     LibraryExerciseList(

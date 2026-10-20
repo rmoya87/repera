@@ -179,6 +179,16 @@ struct BoardImportParserTests {
         #expect(CrossFitGlossary.canonicalName(for: "OHSQ") == "Overhead squat")
     }
 
+    @Test func glossaryMapsVariantSpecificEnglishLikeSearch() {
+        #expect(CrossFitGlossary.canonicalName(for: "chin up") == "Dominadas supinas")
+        #expect(CrossFitGlossary.canonicalName(for: "CHIN-UPS") == "Dominadas supinas")
+        #expect(CrossFitGlossary.canonicalName(for: "walking lunge") == "Walking lunge")
+        #expect(CrossFitGlossary.canonicalName(for: "ring pull-up") == "Dominadas en anillas")
+        #expect(CrossFitGlossary.canonicalName(for: "rdl") == "Peso muerto rumano")
+        #expect(CrossFitGlossary.canonicalName(for: "back squat") == "Sentadilla")
+        #expect(CrossFitGlossary.canonicalName(for: "power clean") == "Cargada de potencia")
+    }
+
     @Test func glossaryCleansBoardNoiseForLookup() {
         #expect(CrossFitGlossary.canonicalName(for: "W.S. Dominadas @RIR 2-1") == "Dominadas")
         #expect(CrossFitGlossary.canonicalName(for: "KIPPING HSPU @FQ") == "HSPU")

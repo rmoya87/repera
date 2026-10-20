@@ -97,7 +97,7 @@ public enum ExerciseEquivalence {
     /// Factor de transferencia al comparar `current` con un set histórico de `prior`.
     public static func transferFactor(current: Exercise, prior: Exercise) -> Double {
         if current.id == prior.id { return 1.0 }
-        if namesEqual(current.name, prior.name) { return 1.0 }
+        if sameName(current.name, prior.name) { return 1.0 }
 
         let cf = family(for: current)
         let pf = family(for: prior)
@@ -142,13 +142,24 @@ public enum ExerciseEquivalence {
 
     public static func areEquivalent(_ a: Exercise, _ b: Exercise) -> Bool {
         if a.id == b.id { return true }
-        if namesEqual(a.name, b.name) { return true }
+        if sameName(a.name, b.name) { return true }
         guard a.loggingStyle == b.loggingStyle else { return false }
         guard a.loadField == b.loadField else { return false }
         let fa = family(for: a)
         let fb = family(for: b)
         guard fa == fb, fa != .other else { return false }
         return transferFactor(current: a, prior: b) > 0
+    }
+
+    /// Mismo ejercicio de catálogo: id, `catalogId` o nombre canónico (ignora UUID huérfanos de WOD/pizarra).
+    public static func matchesCatalogIdentity(_ a: Exercise, _ b: Exercise) -> Bool {
+        if a.id == b.id { return true }
+        if let ac = a.catalogId, let bc = b.catalogId, !ac.isEmpty, ac == bc { return true }
+        return sameName(a.name, b.name)
+    }
+
+    public static func sameName(_ a: String, _ b: String) -> Bool {
+        normalize(a) == normalize(b)
     }
 
     /// Historial comparable: id → nombre → familia+estilo+loadField.
@@ -166,7 +177,7 @@ public enum ExerciseEquivalence {
                 }
                 guard !sets.isEmpty else { continue }
 
-                if entry.exercise.id == exercise.id || namesEqual(entry.exercise.name, exercise.name) {
+                if matchesCatalogIdentity(entry.exercise, exercise) {
                     exact.append((entry.exercise.name, sets))
                     continue
                 }
@@ -214,10 +225,6 @@ public enum ExerciseEquivalence {
         s.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
             .lowercased()
             .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private static func namesEqual(_ a: String, _ b: String) -> Bool {
-        normalize(a) == normalize(b)
     }
 
     private static func containsAny(_ haystack: String, _ needles: [String]) -> Bool {

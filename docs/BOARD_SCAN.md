@@ -1,6 +1,6 @@
 # Escáner de pizarra / TV
 
-Última actualización: 2026-10-20 (OCR ruidoso RFT/BOB; parser unificado en Domain)
+Última actualización: 2026-10-20 (alias EN variantes + tabla compartida con ExerciseSearch)
 
 ## Objetivo
 
@@ -32,7 +32,7 @@ Regresión del 19/10/2026: pizarra con tres bloques:
 2. `EVERY 2’ X 4` + `4-3-3-2 BACK SQUAT @6-8`: **bloque de fuerza** con series 4, 3, 3 y 2; la cadencia y el RPE quedan en notas, nunca convertidos arbitrariamente en RIR.
 3. `4 RFT (TC 12’)`: 4 rondas, cap 12 min, 6 Power Snatch 40/25, 8 BOB (**Bar facing burpee** / burpee over the bar), 10 Back Rack Reverse Lunges 40/25 y descanso de 60 s. Si OCR pega `4RFf` o `8BOB`, sigue siendo cabecera RFT + movimiento BOB (no un «Movimiento» suelto dentro del EVERY).
 
-El catálogo resuelve abreviaturas en inglés y español. Una variante no encontrada no debe descartarse: se conserva como movimiento WOD editable. El emparejamiento local utiliza mapa indexado de nombres/canónicos, no comparación difusa por ejercicio; si se añaden nuevos alias, actualizarlos en `CrossFitGlossary`. En fuerza, se asigna `targetRir` **solo** cuando se identifica explícitamente `@RIR N`; `@6-8` no significa RIR y se mantiene como nota.
+El catálogo resuelve abreviaturas en inglés y español vía `CrossFitGlossary.canonicalName` (y, si falta en el glosario, la misma tabla EN↔catálogo que `ExerciseSearch`). Así `chin up`, `walking lunge`, `ring pull-up`, etc. caen en la ficha concreta. Una variante no encontrada no debe descartarse: se conserva como movimiento WOD editable. El emparejamiento local utiliza mapa indexado de nombres/canónicos, no comparación difusa por ejercicio; si se añaden nuevos alias, actualizarlos en `CrossFitGlossary` y/o `ExerciseSearch.bilingualPhrases`. En fuerza, se asigna `targetRir` **solo** cuando se identifica explícitamente `@RIR N`; `@6-8` no significa RIR y se mantiene como nota.
 
 ## OCR (`BoardTextRecognizer`)
 

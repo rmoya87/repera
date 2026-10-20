@@ -104,12 +104,46 @@ public enum StatsEngine {
         return mins.reduce(0, +) / Double(mins.count)
     }
 
-    public static func lastWorkingWeight(exerciseId: UUID, workouts: [WorkoutSession]) -> Double? {
-        history(for: exerciseId, workouts: workouts).lastWeightKg
+    public static func lastWorkingWeight(
+        exerciseId: UUID,
+        workouts: [WorkoutSession],
+        catalog: [Exercise] = []
+    ) -> Double? {
+        history(for: exerciseId, workouts: workouts, catalog: catalog).lastWeightKg
+    }
+
+    /// Ancla de identidad: catálogo o snapshot embebido en entrenos.
+    public static func exerciseAnchor(
+        id: UUID,
+        catalog: [Exercise],
+        workouts: [WorkoutSession]
+    ) -> Exercise? {
+        if let hit = catalog.first(where: { $0.id == id }) { return hit }
+        return workouts.lazy
+            .flatMap(\.exercises)
+            .map(\.exercise)
+            .first { $0.id == id }
+    }
+
+    /// Match por id / catalogId / nombre (WOD/pizarra a veces guardan UUID distinto al catálogo).
+    public static func matchingSessionExercise(
+        in workout: WorkoutSession,
+        exerciseId: UUID,
+        anchor: Exercise?
+    ) -> SessionExercise? {
+        workout.exercises.first { entry in
+            if entry.exercise.id == exerciseId { return true }
+            guard let anchor else { return false }
+            return ExerciseEquivalence.matchesCatalogIdentity(entry.exercise, anchor)
+        }
     }
 
     /// Resumen de historial de un ejercicio (PR, última sesión, veces…).
-    public static func history(for exerciseId: UUID, workouts: [WorkoutSession]) -> ExerciseHistorySummary {
+    public static func history(
+        for exerciseId: UUID,
+        workouts: [WorkoutSession],
+        catalog: [Exercise] = []
+    ) -> ExerciseHistorySummary {
         var maxWeight: Double = 0
         var maxWeightReps = 0
         var bestReps = 0
@@ -124,12 +158,13 @@ public enum StatsEngine {
         var times = 0
         var best1RM: Double = 0
 
+        let anchor = exerciseAnchor(id: exerciseId, catalog: catalog, workouts: workouts)
         let sorted = workouts.sorted {
             ($0.finishedAt ?? $0.startedAt ?? .distantPast) > ($1.finishedAt ?? $1.startedAt ?? .distantPast)
         }
 
         for workout in sorted {
-            guard let ex = workout.exercises.first(where: { $0.exercise.id == exerciseId }) else { continue }
+            guard let ex = matchingSessionExercise(in: workout, exerciseId: exerciseId, anchor: anchor) else { continue }
             let work = ex.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
             guard !work.isEmpty else { continue }
             times += 1
@@ -413,9 +448,11 @@ extension StatsEngine {
         metric: ExerciseProgressMetric,
         range: ProgressRange,
         workouts: [WorkoutSession],
+        catalog: [Exercise] = [],
         now: Date = Date()
     ) -> [ExerciseProgressPoint] {
         let start = range.startDate(from: now)
+        let anchor = exerciseAnchor(id: exerciseId, catalog: catalog, workouts: workouts)
         var points: [ExerciseProgressPoint] = []
 
         for workout in workouts.sorted(by: {
@@ -424,7 +461,7 @@ extension StatsEngine {
             guard workout.finishedAt != nil || workout.phase == .finished else { continue }
             guard let date = workout.finishedAt ?? workout.startedAt else { continue }
             if let start, date < start { continue }
-            guard let ex = workout.exercises.first(where: { $0.exercise.id == exerciseId }) else { continue }
+            guard let ex = matchingSessionExercise(in: workout, exerciseId: exerciseId, anchor: anchor) else { continue }
             let work = ex.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
             guard !work.isEmpty else { continue }
 
@@ -507,14 +544,16 @@ extension StatsEngine {
     /// Última sesión con series de trabajo (más reciente primero).
     public static func lastWorkingSession(
         for exerciseId: UUID,
-        workouts: [WorkoutSession]
+        workouts: [WorkoutSession],
+        catalog: [Exercise] = []
     ) -> ExerciseLastSession? {
+        let anchor = exerciseAnchor(id: exerciseId, catalog: catalog, workouts: workouts)
         for workout in workouts.sorted(by: {
             ($0.finishedAt ?? $0.startedAt ?? .distantPast) > ($1.finishedAt ?? $1.startedAt ?? .distantPast)
         }) {
             guard workout.finishedAt != nil || workout.phase == .finished else { continue }
             guard let date = workout.finishedAt ?? workout.startedAt else { continue }
-            guard let ex = workout.exercises.first(where: { $0.exercise.id == exerciseId }) else { continue }
+            guard let ex = matchingSessionExercise(in: workout, exerciseId: exerciseId, anchor: anchor) else { continue }
             let work = ex.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
             guard !work.isEmpty else { continue }
             return ExerciseLastSession(
@@ -540,9 +579,11 @@ extension StatsEngine {
         exerciseId: UUID,
         workouts: [WorkoutSession],
         range: ProgressRange = .all,
+        catalog: [Exercise] = [],
         now: Date = Date()
     ) -> [ExerciseSessionSnapshot] {
         let start = range.startDate(from: now)
+        let anchor = exerciseAnchor(id: exerciseId, catalog: catalog, workouts: workouts)
         var rows: [ExerciseSessionSnapshot] = []
 
         for workout in workouts.sorted(by: {
@@ -551,7 +592,7 @@ extension StatsEngine {
             guard workout.finishedAt != nil || workout.phase == .finished else { continue }
             guard let date = workout.finishedAt ?? workout.startedAt else { continue }
             if let start, date < start { continue }
-            guard let ex = workout.exercises.first(where: { $0.exercise.id == exerciseId }) else { continue }
+            guard let ex = matchingSessionExercise(in: workout, exerciseId: exerciseId, anchor: anchor) else { continue }
             let work = ex.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
             guard !work.isEmpty else { continue }
 

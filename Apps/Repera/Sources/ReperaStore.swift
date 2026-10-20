@@ -141,6 +141,7 @@ final class ReperaStore: NSObject {
                 dirty = true
             }
             dirty = dedupeBodyWeightsByDay() || dirty
+            dirty = relinkOrphanSessionExercisesToCatalog() || dirty
             if dirty {
                 catalogEpoch &+= 1
                 // Local only until iCloud recovery completes — never upload seed over undownloaded cloud.
@@ -355,20 +356,80 @@ final class ReperaStore: NSObject {
 
     func cachedHistory(for exerciseId: UUID) -> ExerciseHistorySummary {
         statsCache.history(exerciseId: exerciseId, revision: state.syncRevision) {
-            StatsEngine.history(for: exerciseId, workouts: state.workouts)
+            StatsEngine.history(for: exerciseId, workouts: state.workouts, catalog: state.exercises)
         }
     }
 
     func cachedLastWorkingSession(for exerciseId: UUID) -> ExerciseLastSession? {
         statsCache.lastSession(exerciseId: exerciseId, revision: state.syncRevision) {
-            StatsEngine.lastWorkingSession(for: exerciseId, workouts: state.workouts)
+            StatsEngine.lastWorkingSession(
+                for: exerciseId,
+                workouts: state.workouts,
+                catalog: state.exercises
+            )
         }
     }
 
     func cachedLastWorkingWeight(for exerciseId: UUID) -> Double? {
         statsCache.lastWorkingWeight(exerciseId: exerciseId, revision: state.syncRevision) {
-            StatsEngine.lastWorkingWeight(exerciseId: exerciseId, workouts: state.workouts)
+            StatsEngine.lastWorkingWeight(
+                exerciseId: exerciseId,
+                workouts: state.workouts,
+                catalog: state.exercises
+            )
         }
+    }
+
+    /// Resuelve un id de sesión (a veces UUID huérfano de WOD/pizarra) al ejercicio de catálogo.
+    func resolvedCatalogExercise(id: UUID) -> Exercise? {
+        if let hit = state.exercises.first(where: { $0.id == id }) { return hit }
+        guard let snap = state.workouts
+            .lazy
+            .flatMap(\.exercises)
+            .map(\.exercise)
+            .first(where: { $0.id == id })
+        else { return nil }
+        if let match = state.exercises.first(where: {
+            ExerciseEquivalence.matchesCatalogIdentity($0, snap)
+        }) {
+            return match
+        }
+        return snap
+    }
+
+    /// Reescribe en entrenos guardados el Exercise de catálogo cuando el id embebido no está en la librería.
+    @discardableResult
+    func relinkOrphanSessionExercisesToCatalog() -> Bool {
+        var changed = false
+        for wi in state.workouts.indices {
+            for ei in state.workouts[wi].exercises.indices {
+                let snap = state.workouts[wi].exercises[ei].exercise
+                if state.exercises.contains(where: { $0.id == snap.id }) { continue }
+                guard let match = state.exercises.first(where: {
+                    ExerciseEquivalence.matchesCatalogIdentity($0, snap)
+                }) else { continue }
+                state.workouts[wi].exercises[ei].exercise = match
+                changed = true
+            }
+        }
+        if let active = state.activeSession {
+            var session = active
+            var activeChanged = false
+            for ei in session.exercises.indices {
+                let snap = session.exercises[ei].exercise
+                if state.exercises.contains(where: { $0.id == snap.id }) { continue }
+                guard let match = state.exercises.first(where: {
+                    ExerciseEquivalence.matchesCatalogIdentity($0, snap)
+                }) else { continue }
+                session.exercises[ei].exercise = match
+                activeChanged = true
+            }
+            if activeChanged {
+                state.activeSession = session
+                changed = true
+            }
+        }
+        return changed
     }
 
     func cachedPersonalRecordCount(in session: WorkoutSession) -> Int {
@@ -438,6 +499,7 @@ final class ReperaStore: NSObject {
             state = remote
             stripSeededDemoPlanIfNeeded()
             _ = enrichCatalogMetadata()
+            _ = relinkOrphanSessionExercisesToCatalog()
             // Metadata merges stay local until the next user edit bumps revision.
             store.persistLocal(state, immediate: true)
             catalogEpoch &+= 1

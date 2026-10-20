@@ -40,6 +40,7 @@ struct FreeExerciseSummaryCard: View {
     @Environment(ReperaStore.self) private var store
     @Environment(SubscriptionManager.self) private var subscriptions
     let exerciseId: UUID
+    var highlightSessionId: UUID? = nil
 
     private var history: ExerciseHistorySummary {
         store.cachedHistory(for: exerciseId)
@@ -49,9 +50,18 @@ struct FreeExerciseSummaryCard: View {
         store.cachedLastWorkingSession(for: exerciseId)
     }
 
+    /// Si venimos de un entreno, la «última» no debe repetir «Esta sesión».
+    private var lastSessionForSummary: ExerciseLastSession? {
+        guard let last = lastSession else { return nil }
+        if let highlightSessionId, last.sessionId == highlightSessionId {
+            return nil
+        }
+        return last
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if !history.hasData {
+            if !history.hasData, highlightSessionId == nil {
                 OGCard {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Sin registros aún")
@@ -62,8 +72,10 @@ struct FreeExerciseSummaryCard: View {
                             .foregroundStyle(OG.label2)
                     }
                 }
-            } else {
-                lastSessionBlock
+            } else if history.hasData {
+                if lastSessionForSummary != nil {
+                    lastSessionBlock
+                }
                 personalRecordBlock
             }
 
@@ -79,18 +91,23 @@ struct FreeExerciseSummaryCard: View {
 
     @ViewBuilder
     private var lastSessionBlock: some View {
-        if let last = lastSession {
+        if let last = lastSessionForSummary {
             VStack(alignment: .leading, spacing: 8) {
                 OGCardSectionTitle(title: "Última sesión")
                 OGCard {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(last.date.formatted(date: .abbreviated, time: .omitted))
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(OG.label)
-                        ForEach(last.sets) { set in
-                            Text(set.line)
-                                .font(.footnote)
-                                .foregroundStyle(OG.label2)
+                            .padding(.bottom, 4)
+                        ForEach(Array(last.sets.enumerated()), id: \.element.id) { index, set in
+                            let isMachine = set.quantityUnit == .calories || set.quantityUnit == .meters
+                            OGExerciseSetRow(
+                                index: index,
+                                summaryLine: set.line,
+                                rir: set.rir,
+                                showsRIR: !isMachine
+                            )
                         }
                     }
                 }
