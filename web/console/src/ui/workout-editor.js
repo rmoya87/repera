@@ -68,7 +68,7 @@ function num(value, min, max, label, key, step=1){return `<label class="editor-n
 function select(value,choices,key){return `<select data-editor-field="${key}" aria-label="${key}">${Object.entries(choices).map(([v,t])=>`<option value="${v}" ${v===value?'selected':''}>${t}</option>`).join('')}</select>`;}
 function movementMarkup(x,i){
  const known=MOVEMENTS.find(m=>m.id===x.id);
- return `<article class="editor-exercise" data-editor-exercise><div class="editor-exercise-head">${thumb(known)}<div class="exercise-title"><strong>${escapeHTML(x.name)}</strong><small>${escapeHTML(known?.group||'Movimiento personalizado')}</small></div><button type="button" class="editor-icon-button" data-editor-action="remove-exercise" data-exercise="${i}" title="Eliminar ejercicio" aria-label="Eliminar ${escapeHTML(x.name)}">×</button></div><div class="editor-values">
+ return `<article class="editor-exercise" data-editor-exercise data-id="${escapeHTML(x.id||'custom')}" data-name="${escapeHTML(x.name)}"><div class="editor-exercise-head">${thumb(known)}<div class="exercise-title"><strong>${escapeHTML(x.name)}</strong><small>${escapeHTML(known?.group||'Movimiento personalizado')}</small></div><button type="button" class="editor-icon-button" data-editor-action="remove-exercise" data-exercise="${i}" title="Eliminar ejercicio" aria-label="Eliminar ${escapeHTML(x.name)}">×</button></div><div class="editor-values">
  ${num(x.sets??3,1,50,'Series','sets')}${num(x.reps??8,0,1000,'Reps','reps')}${num(x.rir??2,0,10,'RIR','rir')}
  ${num(x.weight??0,0,1000,'Kg','weight',.5)}${num(x.duration??0,0,3600,'Seg.','duration')}
  </div><label class="editor-notes">Indicaciones<input data-editor-field="notes" value="${escapeHTML(x.notes||'')}" maxlength="400" placeholder="Tempo, descanso, alternativa…"></label></article>`;
@@ -88,7 +88,7 @@ export function editorMarkup(value=emptyPrescription()){
  <label class="editor-custom">Ejercicio personalizado<input data-editor-custom maxlength="120" placeholder="Nombre del movimiento"></label><button type="button" class="editor-add" data-editor-action="add-custom">Añadir ejercicio personalizado</button></div></div>`;
 }
 export function readPrescription(form){
- const editor=form.querySelector('.workout-editor');
+ const editor=form.matches?.('.workout-editor')?form:form.querySelector('.workout-editor');
  if(!editor)return emptyPrescription();
  return {version:1,blocks:[...editor.querySelectorAll('[data-editor-block]')].map(block=>{
   const get=(parent,key)=>parent.querySelector(`[data-editor-field="${key}"]`)?.value;
