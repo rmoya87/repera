@@ -59,10 +59,6 @@ final class ReperaStore: NSObject {
         return SessionController(session: active)
     }
 
-    var nextIsSupersetPartner: Bool {
-        controller?.nextIsSupersetPartner ?? false
-    }
-
     override init() {
         // Same idea as HealthDiskCache: paint Repera workouts on first frame (not after hydrate).
         if let painted = LaunchWarmup.appStateForFirstPaint() {
@@ -1648,7 +1644,7 @@ final class ReperaStore: NSObject {
                         plannedSets: $0.plannedSets.isEmpty
                             ? [PlannedSet(targetReps: 8, targetWeightKg: nil)]
                             : $0.plannedSets,
-                        supersetGroup: $0.supersetGroup
+                        supersetGroup: nil
                     )
                 }
                 return RoutineBlock(
