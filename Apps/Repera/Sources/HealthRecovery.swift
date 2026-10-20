@@ -320,7 +320,7 @@ struct HealthRecoveryProgressView: View {
                         VStack(alignment: .trailing, spacing: 4) {
                             Text("Última noche").font(.subheadline).foregroundStyle(OG.label2)
                             if let index = recovery.sleepIndex {
-                                Text("Descanso \\(index)/100")
+                                Text("Descanso \(index)/100")
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(OG.accent)
                             }
@@ -497,7 +497,7 @@ struct RecoveryHomeCard: View {
                                         .foregroundStyle(OG.label2)
                                 }
                                 if let index = recovery.sleepIndex {
-                                    Text("Índice orientativo de sueño · \\(index)/100")
+                                    Text("Índice orientativo de sueño · \(index)/100")
                                         .font(.caption)
                                         .foregroundStyle(OG.label3)
                                 }
