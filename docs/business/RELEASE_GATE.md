@@ -1,10 +1,19 @@
 # Repera Business — puerta de salida a producción
-Última actualización: 2026-10-19. **NO APTO PARA FUSIÓN NI DESPLIEGUE DE PAGO**.
+Última actualización: 2026-10-20. **NO APTO PARA FUSIÓN NI DESPLIEGUE DE PAGO**.
 
 Este documento es el criterio operativo para cerrar `feat/repera-business-platform` y autorizar
 `origin/main`. No confundir interfaz implementada, pruebas SQL aisladas y servicios validados
 de extremo a extremo. Ninguna operación de CI o scripts locales puede declarar listo el producto
 si falla alguno de estos puntos.
+
+## Comprobaciones nuevas de Business 360
+- Probar con cuentas reales separadas: registro y verificación, rol administrador, aislamiento por organización, vencimiento de prueba y elección de plan sin activación de cobro.
+- Validar altas/bajas de alumnos de clase, devolución de créditos, aforo, recurrencias, modificaciones con reservas, cancelaciones y solapamientos.
+- Validar permiso revocable en iOS: historia espejada solo para organización consentida y entrenador asignado; comprobar revocación, ausencia de consentimiento y acceso cruzado con cuentas distintas.
+- Comprobar publicación de WOD a asistentes vinculados y avisos individuales en Ajustes iOS.
+- La migración está aplicada en el proyecto real, pero **no** existe aún ningún usuario ni organización real; sin E2E no hay autorización de producción.
+- IONOS: empaquetado incluye `/console/`; aún falta despliegue, configuración Auth redirect/SMTP, HTTPS, revisión de CSP, prueba de seguridad en navegador y rollback.
+- Sin Stripe B2B ni activación de planes; la prueba de siete días no debe confundirse con suscripción de pago.
 
 ## Comprobaciones locales con doble clic
 
