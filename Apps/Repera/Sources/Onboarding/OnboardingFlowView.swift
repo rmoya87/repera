@@ -21,12 +21,14 @@ struct OnboardingFlowView: View {
             case .permissions:
                 OnboardingPermissionsStep()
             case .done:
-                Color.black
+                OG.bg
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(OG.bg.ignoresSafeArea())
-        .preferredColorScheme(.light)
+        // Welcome remains deliberately dark; the athlete workspace and
+        // permissions/prices follow Repera Light (white + green accent).
+        .background((onboarding.step == .appleSignIn ? Color.black : OG.bg).ignoresSafeArea())
+        .preferredColorScheme(onboarding.step == .appleSignIn ? .dark : .light)
         .task {
             _ = await appleAuth.ensureValidSession()
             onboarding.reconcile(isSignedIn: appleAuth.isSignedIn)
@@ -53,11 +55,11 @@ private struct OnboardingSignInStep: View {
             VStack(spacing: 10) {
                 Text("Bienvenido a Repera")
                     .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(OG.label)
+                    .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
-                Text("Accede con Apple y vincula tu identidad con Supabase. Tus entrenamientos personales siguen protegidos en tu dispositivo e iCloud.")
+                Text("Accede con Apple para empezar. Tu historial de entrenamientos sigue bajo tu control en el iPhone e iCloud.")
                     .font(.body)
-                    .foregroundStyle(OG.label2)
+                    .foregroundStyle(Color.white.opacity(0.77))
                     .multilineTextAlignment(.center)
             }
 
@@ -67,10 +69,10 @@ private struct OnboardingSignInStep: View {
                     systemImage: "exclamationmark.icloud"
                 )
                 .font(.footnote)
-                .foregroundStyle(OG.label2)
+                .foregroundStyle(Color.white.opacity(0.84))
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                .background(Color.white.opacity(0.09), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
             }
 
             Button {
@@ -125,7 +127,7 @@ private struct OnboardingSignInStep: View {
             await BusinessAuthStore.shared.migrateLocalProfileIfNeeded(
                 displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName
             )
-            onboarding.advance(to: .choosePlan)
+            onboarding.advance(to: .permissions)
         } catch let error as AppleAuthError where error == .cancelled {
             return
         } catch {
@@ -144,10 +146,10 @@ private struct OnboardingPlanStep: View {
         PaywallView(
             mode: .onboarding,
             onContinueFree: {
-                onboarding.advance(to: .permissions)
+                onboarding.finishPrices()
             },
             onPurchaseSuccess: {
-                onboarding.advance(to: .permissions)
+                onboarding.finishPrices()
             }
         )
         .environment(subscriptions)
@@ -223,7 +225,7 @@ struct OnboardingPermissionsStep: View {
             Spacer(minLength: 8)
 
             Button {
-                onboarding.advance(to: .done)
+                onboarding.finishPermissions()
             } label: {
                 Text("Continuar")
                     .font(.system(size: 17, weight: .semibold))
