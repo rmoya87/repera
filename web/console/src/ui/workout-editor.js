@@ -47,7 +47,6 @@ const FORMATS={sets:'Series',amrap:'AMRAP',emom:'EMOM',rft:'RFT',every:'Every / 
 const escapeHTML=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[ch]));
 const integer=(v,def=0)=>Number.isFinite(Number(v))?Math.round(Number(v)):def;
 const thumb=m=>m?.art?`<img class="exercise-thumb" loading="lazy" src="../../assets/exercises/${m.art}.jpg" alt="" onerror="this.hidden=true">`:'<span class="exercise-thumb exercise-thumb-empty" aria-hidden="true">＋</span>';
-const catalog=()=>MOVEMENTS;
 export function emptyPrescription(){return {version:1,blocks:[]};}
 export function validatePrescription(value){
  if(!value||value.version!==1||!Array.isArray(value.blocks)||value.blocks.length>24)throw Error('Estructura de entrenamiento no válida');
@@ -57,7 +56,7 @@ export function validatePrescription(value){
    const label=String(x.name||'').trim().slice(0,120);
    if(!label)throw Error('Cada ejercicio debe tener un nombre');
    const sets=integer(x.sets,3),reps=integer(x.reps,8),rir=integer(x.rir,2),weight=Number(x.weight||0),duration=integer(x.duration,0);
-   if(sets<1||sets>50||reps<0||reps>1000||rir<0||rir>10||weight<0||weight>1000||duration<0||duration>3600)throw Error('Revisa series, repeticiones, RIR, peso o duración');
+   if(sets<1||sets>50||reps<0||reps>1000||rir<0||rir>10||!Number.isFinite(weight)||weight<0||weight>1000||duration<0||duration>3600)throw Error('Revisa series, repeticiones, RIR, peso o duración');
    return {id:String(x.id||'custom').slice(0,80),name:label,sets,reps,rir,weight,duration,notes:String(x.notes||'').slice(0,400)};
   });
   if(!exercises.length)throw Error('Añade al menos un ejercicio a cada bloque');
