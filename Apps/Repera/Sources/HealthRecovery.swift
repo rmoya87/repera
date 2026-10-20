@@ -375,6 +375,11 @@ struct HealthRecoveryProgressView: View {
                     .frame(height: 105)
                     Text("Registros de menstruación de los últimos 90 días")
                         .font(.caption).foregroundStyle(OG.label2)
+                    Divider().opacity(0.3)
+                    Text("Calendario de las últimas seis semanas")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(OG.label)
+                    cycleCalendar
                     if !recovery.positiveOvulationTests.isEmpty {
                         Label("Pruebas de ovulación positivas registradas: \(recovery.positiveOvulationTests.count)", systemImage: "checkmark.circle")
                             .font(.footnote).foregroundStyle(OG.label2)
@@ -383,6 +388,47 @@ struct HealthRecoveryProgressView: View {
                         .font(.caption).foregroundStyle(OG.label3)
                 }
             }
+        }
+    }
+
+    private var cycleCalendar: some View {
+        let calendar = Calendar.current
+        let currentWeek = calendar.dateInterval(of: .weekOfYear, for: Date())?.start
+            ?? calendar.startOfDay(for: Date())
+        let start = calendar.date(byAdding: .weekOfYear, value: -5, to: currentWeek) ?? currentWeek
+        let days = (0..<42).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+        let weekdays = (0..<7).map { offset in
+            let first = calendar.firstWeekday
+            return calendar.veryShortStandaloneWeekdaySymbols[(first - 1 + offset) % 7]
+        }
+        return VStack(spacing: 9) {
+            HStack(spacing: 4) {
+                ForEach(weekdays.indices, id: \.self) { index in
+                    Text(weekdays[index].uppercased())
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(OG.label3)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 7), spacing: 5) {
+                ForEach(days, id: \.self) { day in
+                    let period = recovery.menstrualDays.contains { calendar.isDate($0, inSameDayAs: day) }
+                    let today = calendar.isDateInToday(day)
+                    Text(day.formatted(.dateTime.day()))
+                        .font(.system(size: 12, weight: today ? .bold : .medium, design: .rounded))
+                        .foregroundStyle(period ? OG.orange : OG.label)
+                        .frame(maxWidth: .infinity, minHeight: 30)
+                        .background(
+                            period ? OG.orange.opacity(0.17) : (today ? OG.accent.opacity(0.10) : OG.surface2),
+                            in: RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        )
+                        .accessibilityLabel(day.formatted(date: .abbreviated, time: .omitted)
+                            + (period ? ", menstruación registrada" : ""))
+                }
+            }
+            Label("Días registrados de menstruación", systemImage: "circle.fill")
+                .font(.caption).foregroundStyle(OG.orange)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
