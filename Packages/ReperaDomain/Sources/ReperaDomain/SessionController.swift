@@ -106,23 +106,6 @@ public struct SessionController: Sendable {
         }
     }
 
-    /// True when the next exercise shares the same superseries group.
-    public var nextIsSupersetPartner: Bool {
-        guard session.exercises.indices.contains(session.currentIndex),
-              let group = session.exercises[session.currentIndex].supersetGroup
-        else { return false }
-        let next = session.currentIndex + 1
-        guard session.exercises.indices.contains(next) else { return false }
-        return session.exercises[next].supersetGroup == group
-    }
-
-    public static func supersetLabel(_ group: Int?) -> String? {
-        guard let group, group > 0 else { return nil }
-        let letter = Character(UnicodeScalar(65 + ((group - 1) % 26))!)
-        return "SS \(letter)"
-    }
-
-
     public mutating func finishWorkout() {
         for i in session.exercises.indices {
             if !session.exercises[i].loggedSets.isEmpty {
@@ -148,7 +131,7 @@ public struct SessionController: Sendable {
                             SessionExercise(
                                 exercise: exercise,
                                 plannedSets: item.plannedSets,
-                                supersetGroup: item.supersetGroup,
+                                supersetGroup: nil,
                                 blockId: block.id,
                                 blockKind: .strength,
                                 wodFormat: block.wodFormat ?? .strength,
@@ -202,7 +185,7 @@ public struct SessionController: Sendable {
                 return SessionExercise(
                     exercise: exercise,
                     plannedSets: item.plannedSets,
-                    supersetGroup: item.supersetGroup
+                    supersetGroup: nil
                 )
             }
         }
