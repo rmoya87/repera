@@ -187,8 +187,29 @@ app.addEventListener('submit',async event=>{
    await reload();notice='Entrenador asignado al cliente.';
   }
   if(action==='service-occurrence'){
-   await auth.addServiceOccurrence({orgId:selectedOrg,coachId:data.get('coach'),kind:data.get('kind'),title:data.get('title'),start:data.get('start'),end:data.get('end'),capacity:Number(data.get('capacity'))});
-   await reload();notice='Horario creado en Supabase.';
+   const created=await auth.addClassSeries({orgId:selectedOrg,coachId:data.get('coach'),kind:data.get('kind'),title:data.get('title'),start:data.get('start'),end:data.get('end'),capacity:Number(data.get('capacity')),repeat:data.get('repeat')||'none',count:Number(data.get('repeatCount')||1)});
+   await loadSelectedOrg();notice='Sesiones creadas: '+(Array.isArray(created)?created.length:1);
+  }
+  if(action==='edit-occurrence'){
+   await auth.manageOccurrence({id:data.get('id'),title:data.get('title'),start:data.get('start'),end:data.get('end'),capacity:data.get('capacity'),description:data.get('description'),location:data.get('location'),color:data.get('color'),image:data.get('image')});
+   await loadSelectedOrg();notice='Clase actualizada.';
+  }
+  if(action==='enroll-client'){
+   const pass=passes.find(p=>p.id===data.get('pass'));if(!pass)throw Error('Selecciona un cliente con bono válido');
+   await auth.enrollManagedClient({occurrenceId:data.get('occurrence'),clientId:pass.client_id,passId:pass.id});
+   await loadSelectedOrg();notice='Deportista inscrito y crédito descontado del bono.';
+  }
+  if(action==='client-profile'){
+   await auth.updateClientProfile({orgId:selectedOrg,id:data.get('client'),name:data.get('name'),email:data.get('email'),phone:data.get('phone'),notes:data.get('notes'),avatar:data.get('avatar'),status:data.get('status')});
+   await loadSelectedOrg();notice='Ficha del cliente actualizada.';
+  }
+  if(action==='client-notice'){
+   await auth.sendClientNotice({orgId:selectedOrg,clientId:data.get('client'),title:data.get('title'),body:data.get('body')});
+   await loadSelectedOrg();notice='Aviso guardado (sin push automático).';
+  }
+  if(action==='create-group'){
+   await auth.addGroup({orgId:selectedOrg,name:data.get('name'),description:data.get('description'),userId:user.id});
+   await loadSelectedOrg();notice='Grupo creado.';
   }
   if(action==='courtesy-pass'){
    await auth.grantCourtesyPass({orgId:selectedOrg,clientId:data.get('client'),kind:data.get('kind'),credits:Number(data.get('credits')),validUntil:data.get('until')+'T23:59:59'});
