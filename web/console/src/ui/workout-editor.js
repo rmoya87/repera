@@ -130,3 +130,55 @@ export function handleEditorSearch(event){
  });
  return true;
 }
+
+/** Translate the visual editor into the canonical schemaVersion:1 format
+ * consumed by the latest iOS app and validated in Supabase.
+ * Unknown bilingual/custom movements remain explicitly free, never fake catalog IDs. */
+export function canonicalPrescription(prescription,catalog=[]){
+ const valid=validatePrescription(prescription);
+ const entries=new Map(catalog.map(e=>[String(e.name).toLowerCase(),e]));
+ const uid=()=>globalThis.crypto?.randomUUID?.()||'00000000-0000-4000-8000-000000000000';
+ const blocks=valid.blocks.map(b=>{
+  const wod=b.kind==='wod';
+  const exercises=b.exercises.map(e=>{
+   const known=entries.get(e.name.toLowerCase());
+   const entry={id:uid(),source:known?'catalog':'free',catalogKey:known?.catalogKey||null,name:known?.name||e.name};
+   if(wod){
+    entry.reps=Math.max(1,e.reps||1);
+    entry.notes=e.notes;
+   } else {
+    entry.plannedSets=Array.from({length:Math.min(e.sets,30)},()=>({
+     id:uid(),targetReps:Math.max(1,e.reps||1),
+     targetWeightKg:e.weight||null,targetRir:e.rir
+    }));
+   }
+   return entry;
+  });
+  const canonical={id:uid(),title:b.title.length>1?b.title:(wod?'WOD':'Fuerza'),
+   kind:wod?'wod':'strength',exercises:wod?[]:exercises,
+   movements:wod?exercises:[],notes:''};
+  if(wod){
+   canonical.wodFormat=({sets:'strength',amrap:'amrap',emom:'emom',rft:'forTime',every:'emom',fortime:'forTime'})[b.format]||'forTime';
+   canonical.rounds=b.rounds;
+   canonical.timeCapMinutes=b.timeCap||null;
+  }
+  return canonical;
+ });
+ return {schemaVersion:1,blocks};
+}
+export function visualPrescription(prescription){
+ if(prescription?.version===1)return prescription;
+ if(prescription?.schemaVersion!==1)return emptyPrescription();
+ return {version:1,blocks:(prescription.blocks||[]).map(b=>{
+  const wod=b.kind==='wod',entries=(wod?b.movements:b.exercises)||[];
+  return {kind:wod?'wod':'strength',
+   format:wod?({amrap:'amrap',emom:'emom',forTime:'rft'})[b.wodFormat]||'fortime':'sets',
+   title:b.title,rounds:b.rounds||1,timeCap:b.timeCapMinutes||0,
+   exercises:entries.map(e=>({id:e.catalogKey||'custom',name:e.name,
+    sets:wod?1:Math.max(1,e.plannedSets?.length||1),
+    reps:wod?e.reps||1:e.plannedSets?.[0]?.targetReps||8,
+    rir:wod?0:e.plannedSets?.[0]?.targetRir??2,
+    weight:wod?0:e.plannedSets?.[0]?.targetWeightKg||0,duration:0,notes:e.notes||''}))
+  };
+ })};
+}
