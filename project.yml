@@ -117,7 +117,7 @@ targets:
         LSSupportsOpeningDocumentsInPlace: false
         NSCameraUsageDescription: Repera usa la cámara para leer ejercicios de una pizarra o TV y montar la sesión.
         NSPhotoLibraryUsageDescription: Repera lee fotos de pizarras o pantallas para importar el entrenamiento.
-        NSHealthShareUsageDescription: Repera lee peso, calorías activas, tiempo y entrenos de Apple Salud / Apple Watch para calcular calorías y duración reales.
+        NSHealthShareUsageDescription: Repera lee con tu permiso actividad, sueño y registros menstruales de Apple Salud para mostrar estadísticas y consejos locales. El sueño y el ciclo no se envían a Supabase.
         NSHealthUpdateUsageDescription: Repera guarda el entreno en Apple Salud usando las calorías y el tiempo que reporta Salud / Apple Watch.
         NSLocationWhenInUseUsageDescription: Repera usa tu ubicación para mostrar en el mapa dónde entrenaste y, en entrenos outdoor, el recorrido.
         NSLocationTemporaryUsageDescriptionDictionary:
