@@ -1,17 +1,18 @@
 import SwiftUI
 import UIKit
 
-/// Tokens alineados con openGym `index.css` (dark default).
+/// Repera Light: lienzo blanco, jerarquía neutra y verde como acento de acción.
+/// Estos tokens son comunes a Diario, Center, progreso, modales y navegación.
 enum OG {
-    static let bg = Color.black
-    static let bgEl = Color(red: 14 / 255, green: 14 / 255, blue: 16 / 255)
-    static let surface = Color(red: 28 / 255, green: 28 / 255, blue: 30 / 255)
-    static let surface2 = Color(red: 44 / 255, green: 44 / 255, blue: 46 / 255)
-    static let surface3 = Color(red: 58 / 255, green: 58 / 255, blue: 60 / 255)
+    static let bg = Color.white
+    static let bgEl = Color(red: 248 / 255, green: 250 / 255, blue: 249 / 255)
+    static let surface = Color(red: 247 / 255, green: 249 / 255, blue: 248 / 255)
+    static let surface2 = Color(red: 239 / 255, green: 243 / 255, blue: 241 / 255)
+    static let surface3 = Color(red: 226 / 255, green: 234 / 255, blue: 229 / 255)
 
-    static let label = Color.white
-    static let label2 = Color.white.opacity(0.60)
-    static let label3 = Color.white.opacity(0.32)
+    static let label = Color(red: 23 / 255, green: 38 / 255, blue: 32 / 255)
+    static let label2 = Color(red: 93 / 255, green: 110 / 255, blue: 99 / 255)
+    static let label3 = Color(red: 137 / 255, green: 153 / 255, blue: 143 / 255)
 
     static let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255) // #30d158
     static let onAccent = Color.black
@@ -54,6 +55,7 @@ struct OGCard<Content: View>: View {
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous).stroke(OG.surface3.opacity(0.75), lineWidth: 0.7))
     }
 }
 
@@ -65,7 +67,7 @@ struct OGScreen<Content: View>: View {
             OG.bg.ignoresSafeArea()
             content()
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
     }
 }
 
@@ -193,7 +195,7 @@ extension View {
     func ogTransparentNav() -> some View {
         self
             .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarColorScheme(.light, for: .navigationBar)
     }
 
     /// Topbar fijo como Ejercicios: título large que colapsa; botones del toolbar no se van con el scroll.

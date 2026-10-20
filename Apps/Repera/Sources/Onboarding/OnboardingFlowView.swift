@@ -26,7 +26,7 @@ struct OnboardingFlowView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(OG.bg.ignoresSafeArea())
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
         .task {
             _ = await appleAuth.ensureValidSession()
             onboarding.reconcile(isSignedIn: appleAuth.isSignedIn)

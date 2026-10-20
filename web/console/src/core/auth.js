@@ -110,13 +110,17 @@ export class ReperaAuthAPI {
  }
  async professionalSessions(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
-  return this.#authorized('professional_training_sessions?select=id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,status&org_id=eq.'+orgId+'&order=scheduled_date.asc&limit=200');
+  return this.#authorized('professional_training_sessions?select=id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,prescription,status&org_id=eq.'+orgId+'&order=scheduled_date.asc&limit=200');
  }
- async publishProfessionalSession({orgId,clientId,date,title,instructions='',requestId=globalThis.crypto?.randomUUID?.()}){
+ async publishProfessionalSession({orgId,clientId,date,title,instructions='',prescription=null,requestId=globalThis.crypto?.randomUUID?.()}){
   title=String(title||'').trim();instructions=String(instructions||'');
   if(![orgId,clientId,requestId].every(id=>/^[0-9a-f-]{36}$/i.test(id||''))||title.length<2
     ||title.length>120||instructions.length>10000||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date||''))
       throw Error('Planificación inválida');
+  if(prescription){
+    if(prescription.schemaVersion!==1||!Array.isArray(prescription.blocks)||!prescription.blocks.length)throw Error('Prescripción inválida');
+    return this.#authorized('rpc/publish_structured_professional_session',{method:'POST',body:{p_org:orgId,p_client:clientId,p_day:date,p_title:title,p_instructions:instructions,p_request:requestId,p_prescription:prescription}});
+  }
   return this.#authorized('rpc/publish_professional_session',{method:'POST',body:{p_org:orgId,p_client:clientId,p_day:date,p_title:title,p_instructions:instructions,p_request:requestId}});
  }
  async assignCoachClient({orgId,clientId,coachId}){

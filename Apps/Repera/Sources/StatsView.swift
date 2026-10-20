@@ -363,7 +363,7 @@ struct StatsView: View {
         .fixedSize(horizontal: false, vertical: true)
         .ogFittedHeight()
         .tint(OG.accent)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
     }
 
     // MARK: - Tiles (data from snapshot only)

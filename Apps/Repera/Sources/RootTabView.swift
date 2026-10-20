@@ -90,7 +90,7 @@ struct RootTabView: View {
             .ogSheetCorners()
         }
         .animation(.easeInOut(duration: 0.32), value: flowPath.isEmpty)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
         .tint(OG.accent)
         .sheet(isPresented: Binding(
             get: { store.pendingSessionReview != nil },
