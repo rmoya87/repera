@@ -1,6 +1,6 @@
 import {editorMarkup,emptyPrescription} from './workout-editor.js';
 const dateToday=()=>new Date().toLocaleDateString('sv-SE');
-export function renderProfessionalPlanning({orgId,role,sessions=[],templates=[],clients=[],memberships=[],escapeHTML,busy=false,templateId=null,sessionId=null}) {
+export function renderProfessionalPlanning({orgId,role,sessions=[],templates=[],clients=[],memberships=[],escapeHTML,busy=false,templateId=null,sessionId=null,clientId=null}) {
  if(!orgId)return '';
  const canEdit=['owner','admin','coach'].includes(role),manager=['owner','admin'].includes(role);
  const linked=clients.filter(c=>c.user_id&&c.status==='active');
@@ -23,7 +23,7 @@ export function renderProfessionalPlanning({orgId,role,sessions=[],templates=[],
  </div><div class="planning-composer">
  ${canEdit&&linked.length?`<form data-connected="publish-session" class="planning-form">
  <div class="planning-form-heading"><h3>${currentSession?'Editar entreno individual':selectedTemplate?'Usar una plantilla':'Preparar entrenamiento'}</h3>${currentSession||selectedTemplate?'<button type="button" data-action="new-workout" class="connected-secondary">Empezar de cero</button>':''}</div>
- <div class="planning-form-row"><label class="connected-field">Deportista<select name="client" ${currentSession?'disabled':''}>${options(linked,c=>`<option value="${escapeHTML(c.id)}" ${c.id===currentSession?.client_id?'selected':''}>${escapeHTML(c.name)}</option>`)}</select></label>
+ <div class="planning-form-row"><label class="connected-field">Deportista<select name="client" ${currentSession?'disabled':''}>${options(linked,c=>`<option value="${escapeHTML(c.id)}" ${c.id===(currentSession?.client_id||clientId)?'selected':''}>${escapeHTML(c.name)}</option>`)}</select></label>
  <label class="connected-field">Fecha<input type="date" name="date" value="${escapeHTML(sessionDay)}" min="${dateToday()}" required></label></div>
  <label class="connected-field">Título de la sesión<input name="title" minlength="2" maxlength="120" value="${escapeHTML(sessionTitle)}" required placeholder="Ej. Fuerza + AMRAP 12'"></label>
  ${editorMarkup(prescription)}
