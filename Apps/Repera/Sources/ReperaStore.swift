@@ -1075,6 +1075,8 @@ final class ReperaStore: NSObject {
     }
 
     func deleteWorkout(_ id: UUID) {
+        // Persist a per-account tombstone before removing from local/iCloud.
+        BusinessWorkoutSyncStore.shared.noteDeleted(id)
         let hkUUID = state.workouts.first(where: { $0.id == id })?.healthKitWorkoutUUID
         state.workouts.removeAll { $0.id == id }
         persistWorkouts()
@@ -1190,6 +1192,29 @@ final class ReperaStore: NSObject {
             persist()
             pushActiveToWatch(immediate: true)
         }
+    }
+
+
+    /// Merge-only recovery from authenticated Supabase, after iCloud recovery.
+    /// Never replaces an existing local workout, active session or local settings.
+    @discardableResult
+    func mergeRecoveredWorkoutsFromSupabase(_ recovered: [WorkoutSession]) -> Int {
+        guard didCompleteInitialRemoteSync, !isSyncingiCloud else { return 0 }
+        var known = Set(state.workouts.map(\.id))
+        var imported = 0
+        for session in recovered where session.finishedAt != nil {
+            guard known.insert(session.id).inserted else { continue }
+            state.workouts.append(session)
+            imported += 1
+        }
+        if imported > 0 {
+            state.workouts.sort {
+                ($0.finishedAt ?? $0.startedAt ?? .distantPast) >
+                    ($1.finishedAt ?? $1.startedAt ?? .distantPast)
+            }
+            persistWorkouts()
+        }
+        return imported
     }
 
     private func upsertWorkout(_ session: WorkoutSession) {

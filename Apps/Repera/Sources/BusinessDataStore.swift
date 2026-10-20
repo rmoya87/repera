@@ -3,7 +3,9 @@ import Observation
 import Supabase
 
 /// Professional data read through the verified Supabase Auth session and row-level security.
-/// Local ReperaStore workouts and HealthKit are never uploaded or overwritten.
+/// Only athlete-owned completed-workout results are mirrored to Supabase
+/// by BusinessWorkoutSyncStore; coaches see them only with explicit consent.
+/// HealthKit/location remain local/iCloud and private.
 struct BusinessOrganization: Decodable, Identifiable {
     let id: UUID
     let name: String
@@ -144,10 +146,12 @@ struct BusinessProfessionalTrainingSession: Decodable, Identifiable {
 
 private struct BusinessClientLink: Decodable {
     let id: UUID
+    let orgId: UUID
     let userId: UUID?
 
     enum CodingKeys: String, CodingKey {
         case id
+        case orgId = "org_id"
         case userId = "user_id"
     }
 }
@@ -158,6 +162,7 @@ final class BusinessDataStore {
     static let shared = BusinessDataStore()
 
     private(set) var centers: [BusinessOrganization] = []
+    private(set) var athleteCenterIds: Set<UUID> = []
     private(set) var invitations: [BusinessInvitation] = []
     private(set) var occurrences: [BusinessOccurrence] = []
     private(set) var passes: [BusinessPass] = []
@@ -176,6 +181,7 @@ final class BusinessDataStore {
         refreshRevision &+= 1
         isLoading = false
         centers = []
+        athleteCenterIds = []
         invitations = []
         occurrences = []
         passes = []
@@ -210,7 +216,7 @@ final class BusinessDataStore {
                 .execute().value
             let fetchedLinks: [BusinessClientLink] = try await client
                 .from("clients")
-                .select("id,user_id")
+                .select("id,org_id,user_id")
                 .execute().value
             let ownedClientIds = Set(fetchedLinks.filter { $0.userId == currentUser }.map(\.id))
             let fetchedOccurrences: [BusinessOccurrence] = try await client
@@ -250,6 +256,7 @@ final class BusinessDataStore {
 
             availability = counts
             centers = fetchedCenters
+            athleteCenterIds = Set(fetchedLinks.filter { $0.userId == currentUser }.map(\.orgId))
             invitations = fetchedInvitations.filter { $0.acceptedAt == nil && $0.cancelledAt == nil && (Self.date($0.expiresAt) ?? .distantPast) > Date() }
             occurrences = fetchedOccurrences.filter { $0.status == "active" }
             passes = fetchedPasses.filter { ownedClientIds.contains($0.clientId) }

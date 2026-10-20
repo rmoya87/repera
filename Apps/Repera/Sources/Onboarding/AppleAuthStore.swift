@@ -94,8 +94,17 @@ final class AppleAuthStore: NSObject {
         guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
             throw AppleAuthError.invalidCredential
         }
+        // An existing local Apple identity must not be silently replaced by
+        // another Apple account while private workouts remain on the device.
+        if let existingID = userID, existingID != credential.user {
+            throw AppleAuthError.accountMismatch
+        }
         apply(credential: credential)
-        await BusinessAuthStore.shared.connect(credential: credential, rawNonce: rawNonce)
+        guard await BusinessAuthStore.shared.connect(credential: credential, rawNonce: rawNonce) else {
+            throw AppleAuthError.businessConnectionFailed(
+                BusinessAuthStore.shared.lastErrorMessage ?? "No se pudo iniciar sesión en Supabase."
+            )
+        }
     }
 
     /// Aplica el credential ya obtenido por `SignInWithAppleButton`.
@@ -103,6 +112,9 @@ final class AppleAuthStore: NSObject {
         isSigningIn = true
         lastErrorMessage = nil
         defer { isSigningIn = false }
+        if let existingID = userID, existingID != credential.user {
+            throw AppleAuthError.accountMismatch
+        }
         apply(credential: credential)
         guard userID != nil else { throw AppleAuthError.invalidCredential }
     }
@@ -192,11 +204,15 @@ final class AppleAuthStore: NSObject {
 enum AppleAuthError: LocalizedError, Equatable {
     case invalidCredential
     case cancelled
+    case accountMismatch
+    case businessConnectionFailed(String)
 
     var errorDescription: String? {
         switch self {
         case .invalidCredential: return "No se pudo completar el inicio de sesión con Apple."
         case .cancelled: return "Inicio de sesión cancelado."
+        case .accountMismatch: return "Esta cuenta Apple es distinta de la que tiene los entrenamientos locales. Usa la cuenta anterior para evitar mezclar historiales."
+        case .businessConnectionFailed(let reason): return reason
         }
     }
 }

@@ -51,9 +51,8 @@ struct PaywallView: View {
                 }
             }
             .task {
-                if mode == .onboarding {
-                    subscriptions.paywall.present(.onboarding)
-                }
+                // Inline onboarding prices must NOT arm the global sheet:
+                // doing so made the paywall appear again after finishing onboarding.
                 // Siempre refresca ofertas desde Apple/RevenueCat (precios localizados).
                 await subscriptions.start()
                 await subscriptions.loadOfferings()
