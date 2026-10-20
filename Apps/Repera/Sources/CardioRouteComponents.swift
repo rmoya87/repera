@@ -334,11 +334,15 @@ struct RouteWeatherStrip: View {
         attributionMarkURL = nil
         // No solicitar predicciones actuales como si fueran condiciones pasadas.
         guard workoutDate <= Date(),
-              Date().timeIntervalSince(workoutDate) < 365 * 24 * 3600,
+              workoutDate >= Date(timeIntervalSince1970: 1_628_121_600), // Apple Weather histórico desde 2021-08-01.
               (-90...90).contains(latitude), (-180...180).contains(longitude)
         else { return }
         do {
-            let location = CLLocation(latitude: latitude, longitude: longitude)
+            // Apple recibe solo la coordenada aproximada (~1 km), nunca el recorrido.
+            let location = CLLocation(
+                latitude: (latitude * 100).rounded() / 100,
+                longitude: (longitude * 100).rounded() / 100
+            )
             let hourly = try await WeatherService.shared.weather(
                 for: location,
                 including: .hourly(startDate: workoutDate.addingTimeInterval(-3600),
