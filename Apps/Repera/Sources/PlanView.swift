@@ -192,6 +192,9 @@ struct PlanView: View {
                         Text(businessData.centerName(session.orgId))
                             .font(.subheadline)
                             .foregroundStyle(OG.label2)
+                        if let prescription = session.prescription {
+                            BusinessWorkoutBlocksView(prescription: prescription)
+                        }
                         if !session.instructions.isEmpty {
                             Text(session.instructions)
                                 .font(.body)
