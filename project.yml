@@ -54,6 +54,9 @@ targets:
     resources: []
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.app.repera
+      # Las configuraciones del target heredan la versión compartida del proyecto.
+      MARKETING_VERSION: "$(inherited)"
+      CURRENT_PROJECT_VERSION: "$(inherited)"
       INFOPLIST_FILE: Apps/Repera/Resources/Info.plist
       ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
       TARGETED_DEVICE_FAMILY: "1"
@@ -130,6 +133,9 @@ targets:
       - path: Apps/Shared/RestActivityAttributes.swift
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.app.repera.ReperaRestWidget
+      # Las configuraciones del target heredan la versión compartida del proyecto.
+      MARKETING_VERSION: "$(inherited)"
+      CURRENT_PROJECT_VERSION: "$(inherited)"
       INFOPLIST_FILE: Apps/ReperaRestWidget/Info.plist
       GENERATE_INFOPLIST_FILE: false
       TARGETED_DEVICE_FAMILY: "1"
@@ -164,6 +170,9 @@ targets:
           - Assets.xcassets
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.app.repera.watchkitapp
+      # Las configuraciones del target heredan la versión compartida del proyecto.
+      MARKETING_VERSION: "$(inherited)"
+      CURRENT_PROJECT_VERSION: "$(inherited)"
       INFOPLIST_FILE: Apps/ReperaWatch/Resources/Info.plist
       ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
       GENERATE_INFOPLIST_FILE: false
