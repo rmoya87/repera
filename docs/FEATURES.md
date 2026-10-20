@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-20 (tiles Progreso: icono+etiqueta en fila; chips Inicio=Historial)
+Última actualización: 2026-10-20 (tiles Progreso más compactos; chips Inicio=Historial)
 
 ## Tabs
 

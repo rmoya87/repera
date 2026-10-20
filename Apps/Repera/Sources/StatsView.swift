@@ -435,7 +435,7 @@ struct StatsView: View {
         valueColor: Color = OG.label,
         delta: Int? = nil
     ) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 4) {
             HStack(spacing: 5) {
                 Image(systemName: icon)
                     .font(.system(size: 12, weight: .semibold))
@@ -447,7 +447,7 @@ struct StatsView: View {
                     .minimumScaleFactor(0.8)
             }
             Text(value)
-                .font(.system(size: 30, weight: .bold).monospacedDigit())
+                .font(.system(size: 28, weight: .bold).monospacedDigit())
                 .foregroundStyle(valueColor)
                 .minimumScaleFactor(0.7)
                 .lineLimit(1)
@@ -459,9 +459,9 @@ struct StatsView: View {
             }
         }
         .multilineTextAlignment(.center)
-        .frame(maxWidth: .infinity, minHeight: 88, maxHeight: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity, alignment: .center)
         .padding(.horizontal, 10)
-        .padding(.vertical, 14)
+        .padding(.vertical, 10)
         .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
     }
 
