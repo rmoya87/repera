@@ -1,5 +1,6 @@
+import {APP_CATALOG} from './exercise-catalog.js';
 // Editor de prescripciones Repera Business. Formato serializable compartido con iOS.
-const MOVEMENTS = [
+const CURATED = [
  ['sentadilla','Sentadilla / Back Squat','Pierna','art_sentadilla'],
  ['sentadilla-frontal','Sentadilla frontal / Front Squat','Pierna','art_sentadilla_frontal'],
  ['peso-muerto','Peso muerto / Deadlift','Pierna','art_peso_muerto'],
@@ -40,6 +41,7 @@ const MOVEMENTS = [
  ['hspu','Handstand Push-ups','Gimnasia','art_cf_hspu'],
  ['muscle-up','Muscle-ups','Gimnasia','art_cf_mu_rings']
 ].map(([id,name,group,art])=>({id,name,group,art}));
+const MOVEMENTS=[...CURATED,...APP_CATALOG.filter(item=>!CURATED.some(base=>base.art===item.art&&base.name.toLowerCase().startsWith(item.name.toLowerCase())))];
 const TYPES={strength:'Fuerza',wod:'WOD / Metcon',warmup:'Calentamiento',accessory:'Accesorios'};
 const FORMATS={sets:'Series',amrap:'AMRAP',emom:'EMOM',rft:'RFT',every:'Every / Intervalos',fortime:'For Time'};
 const escapeHTML=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[ch]));
