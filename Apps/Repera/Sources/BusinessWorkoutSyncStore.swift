@@ -325,8 +325,8 @@ final class BusinessWorkoutSyncStore {
         }
     }
 
-    /// No GPS, notes, raw HealthKit identifiers, subjective reviews or heart/
-    /// calorie measurements are sent to the server workout mirror.
+    /// Supabase sólo recibe planificación, ejercicio, series y resultados.
+    /// No se exportan GPS, notas subjetivas ni mediciones de Apple Salud.
     private static func privateMirrorPayload(_ source: WorkoutSession) -> WorkoutSession {
         var value = source
         value.notes = nil
@@ -335,6 +335,7 @@ final class BusinessWorkoutSyncStore {
         value.routePoints = []
         value.healthKitWorkoutUUID = nil
         value.appleActiveEnergyKcal = nil
+        value.appleDurationSeconds = nil
         return value
     }
 
