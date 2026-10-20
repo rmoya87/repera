@@ -19,11 +19,14 @@ echo "El archivo Repera.xcodeproj es generado y NO se guarda en GitHub."
 echo "No se borran DerivedData, preferencias, simuladores, llaveros ni datos locales."
 echo
 
-if [[ ! -f "Apps/Repera/Sources/BusinessAuthStore.swift" ]]; then
-  echo "ERROR: No existe BusinessAuthStore.swift en esta copia de Repera."
-  echo "Actualiza el repositorio con: git pull origin main"
-  exit 1
-fi
+for source in BusinessAuthStore.swift BusinessDataStore.swift BusinessWorkoutSyncStore.swift; do
+  if [[ ! -f "Apps/Repera/Sources/$source" ]]; then
+    echo "ERROR: Falta $source en esta copia local de Repera."
+    echo "Actualiza los archivos con: git pull origin main"
+    echo "La regeneración de Xcode no puede crear código Swift que aún no has descargado."
+    exit 1
+  fi
+done
 if ! command -v xcodegen >/dev/null 2>&1; then
   echo "ERROR: Falta XcodeGen. Instálalo con: brew install xcodegen"
   exit 1
@@ -40,5 +43,5 @@ python3 scripts/check_xcode_sources.py
 
 echo "Abriendo Repera.xcodeproj en Xcode..."
 open "$ROOT/Repera.xcodeproj"
-echo "El target Repera ya incluye BusinessAuthStore.swift y BusinessDataStore.swift."
+echo "El target Repera incluye BusinessAuthStore.swift, BusinessDataStore.swift y BusinessWorkoutSyncStore.swift."
 echo "Puedes compilar con ⌘B y ejecutar con ⌘R."

@@ -15,6 +15,7 @@ REQUIRED = (
     "AppleAuthStore.swift",
     "BusinessAuthStore.swift",
     "BusinessDataStore.swift",
+    "BusinessWorkoutSyncStore.swift",
 )
 
 
@@ -39,7 +40,9 @@ def validate(root: Path) -> None:
 
     pbx = project.read_text(encoding="utf-8")
     for name in REQUIRED:
-        if name not in pbx:
+        # A file reference alone is not enough: the Swift source must belong to
+        # the app's Compile Sources phase, or references to its types will fail.
+        if f"{name} in Sources" not in pbx:
             raise ValueError(
                 f"Xcode utiliza un proyecto antiguo sin {name}. "
                 "Cierra Xcode y ejecuta xcodegen generate --spec project.yml."
@@ -55,7 +58,7 @@ def main() -> int:
     except (OSError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
-    print("OK: AppleAuthStore, BusinessAuthStore y BusinessDataStore presentes en Repera.xcodeproj.")
+    print("OK: todos los almacenes Apple/Supabase, incluido BusinessWorkoutSyncStore.swift, están en Compile Sources.")
     return 0
 
 
