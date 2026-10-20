@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-19 (ubicación al Play + peso source)
+Última actualización: 2026-10-20 (versionado único Xcode/Watch/widget)
 
 ## Visión
 
@@ -22,6 +22,8 @@ repera/
 ├── web/                        # Sitio estático repera.app (producto, legales, FAQ)
 ├── docs/                       # Documentación viva
 ├── project.yml                 # XcodeGen
+├── Configs/Version.xcconfig    # Version y build compartidos (Xcode)
+├── scripts/sync_versions.py    # Captura ediciones Xcode y validación
 ├── AGENTS.md
 └── README.md
 ```
@@ -38,6 +40,13 @@ Marketing web (`web/`): HTML/CSS/JS sin framework; SEO (canonical, OG, sitemap, 
 | **ReperaDomain** (SPM) | Modelos, catálogo, stats, progresión, parser, LoadSuggestion |
 
 Generación de proyecto: `xcodegen generate` → `Repera.xcodeproj`.
+
+### Versionado de todos los targets
+
+`Configs/Version.xcconfig` define `REPERA_MARKETING_VERSION` y `REPERA_BUILD_NUMBER`. Las configuraciones Debug y Release lo incluyen a nivel **proyecto**; `MARKETING_VERSION` y `CURRENT_PROJECT_VERSION` resuelven esos valores y cada target iOS/Watch/widget hereda las dos variables. En los tres `Info.plist`, `CFBundleShortVersionString=$(MARKETING_VERSION)` y `CFBundleVersion=$(CURRENT_PROJECT_VERSION)` sustituyen a los literales anteriores. XcodeGen genera estos plist con dichas expresiones, de modo que regenerar no los vuelve a fijar.
+
+La preacción del scheme `Repera` guarda los valores efectivos que Xcode muestra para el target iPhone en el `.xcconfig`; el `options.preGenCommand` de XcodeGen ejecuta `scripts/sync_versions.py --from-project` antes de regenerar, y captura los cambios realizados en la GUI a través de `xcodebuild -showBuildSettings`. El proyecto `.xcodeproj` queda generado/no versionado, y `Configs/Version.xcconfig` es persistente. Las ediciones deben realizarse en el archivo compartido o en los ajustes del proyecto (Debug+Release) para evitar discrepancias durante una primera compilación con overrides del target iPhone. CI valida el cableado y ejecuta los tests Python. No se incrementan builds de forma automática.
+
 
 ## Capas
 
