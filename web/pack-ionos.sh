@@ -9,13 +9,17 @@ OUT="${ROOT}/repera-ionos.zip"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 
-mkdir -p "${STAGE}/css" "${STAGE}/js" "${STAGE}/assets"
+mkdir -p "${STAGE}/css" "${STAGE}/js" "${STAGE}/assets" "${STAGE}/console"
 
 cp "${ROOT}/.htaccess" "${STAGE}/"
 cp "${ROOT}/index.html" "${ROOT}/privacy.html" "${ROOT}/terms.html" "${ROOT}/faq.html" "${STAGE}/"
 cp "${ROOT}/robots.txt" "${ROOT}/sitemap.xml" "${STAGE}/"
 cp "${ROOT}/css/site.css" "${STAGE}/css/"
 cp "${ROOT}/js/site.js" "${STAGE}/js/"
+# Acceso profesional autenticado con Supabase; ningún dato real se empaqueta.
+cp "${ROOT}/console/index.html" "${STAGE}/console/"
+cp -R "${ROOT}/console/src" "${STAGE}/console/src"
+cp -R "${ROOT}/assets/exercises" "${STAGE}/assets/exercises"
 cp "${ROOT}/assets/"*.png "${STAGE}/assets/" 2>/dev/null || true
 cp "${ROOT}/assets/"*.jpg "${STAGE}/assets/" 2>/dev/null || true
 cp "${ROOT}/assets/"*.jpeg "${STAGE}/assets/" 2>/dev/null || true
@@ -37,6 +41,7 @@ Repera — subir a IONOS
    https://repera.app/privacy
    https://repera.app/terms
    https://repera.app/faq
+   https://repera.app/console/ (login profesional; requiere redirects Auth de Supabase)
 
 No subas README.md del repo ni _redirects / _headers (son para Netlify).
 EOF
