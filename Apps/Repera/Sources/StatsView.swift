@@ -11,6 +11,13 @@ struct StatsView: View {
     @State private var model = ProgressViewModel()
     @State private var heatmapMetric: HeatmapMetric = .time
     @State private var showRangePicker = false
+    @State private var topic: ProgressTopic = .training
+
+    private enum ProgressTopic: String, CaseIterable {
+        case training = "Entreno"
+        case health = "Actividad"
+        case recovery = "Recuperación"
+    }
 
     private var mondayFirst: Bool {
         store.state.settings.weekStartsOn == .monday
@@ -25,19 +32,45 @@ struct StatsView: View {
                 // VStack (no Lazy): LazyVStack al final del scroll reciclaba charts/heatmap y
                 // al subir el offset saltaba otra vez hacia abajo.
                 VStack(alignment: .leading, spacing: 12) {
-                    if isPro {
-                        tilesGrid
-                        proAdvancedSections
-                    } else {
-                        freeTilesGrid
-                        freeActivityCard
-                        ProTeaserCard(
-                            title: "Descubre todo tu progreso",
-                            bodyText: "Analiza tu evolución, tus marcas personales, el equilibrio muscular y cómo cambia tu rendimiento con el tiempo.",
-                            cta: "Descubrir Repera Pro"
-                        ) {
-                            subscriptions.presentPaywall(.progress, feature: .advancedProgress)
+                    Picker("Categoría", selection: $topic) {
+                        ForEach(ProgressTopic.allCases, id: \.self) { option in
+                            Text(option.rawValue).tag(option)
                         }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.bottom, 6)
+
+                    switch topic {
+                    case .training:
+                        if isPro {
+                            tilesGrid
+                            proAdvancedSections
+                        } else {
+                            freeTilesGrid
+                            freeActivityCard
+                            ProTeaserCard(
+                                title: "Descubre todo tu progreso",
+                                bodyText: "Analiza tu evolución, tus marcas personales y el equilibrio muscular.",
+                                cta: "Descubrir Repera Pro"
+                            ) {
+                                subscriptions.presentPaywall(.progress, feature: .advancedProgress)
+                            }
+                        }
+                    case .health:
+                        if isPro {
+                            healthSections
+                        } else {
+                            freeTilesGrid
+                            ProTeaserCard(
+                                title: "Métricas de actividad avanzadas",
+                                bodyText: "Consulta frecuencia cardíaca, calorías y evolución de peso con Repera Pro.",
+                                cta: "Descubrir Repera Pro"
+                            ) {
+                                subscriptions.presentPaywall(.progress, feature: .advancedProgress)
+                            }
+                        }
+                    case .recovery:
+                        HealthRecoveryProgressView()
                     }
 
                     NavigationLink {
@@ -125,39 +158,6 @@ struct StatsView: View {
 
     @ViewBuilder
     private var proAdvancedSections: some View {
-        if health.isAuthorized {
-            if model.isPreparing && snap.range != model.range {
-                ProgressView("Actualizando gráficas…")
-                    .tint(OG.accent)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-            }
-            ProgressCardioChartCard(prepared: snap.charts)
-            ProgressCaloriesChartCard(prepared: snap.charts)
-        } else {
-            VStack(alignment: .leading, spacing: 8) {
-                OGCardSectionTitle(title: "Salud")
-                progressEmptyCard(
-                    title: "Salud no conectada",
-                    subtitle: "Autoriza Apple Salud para ver FC y kcal.",
-                    systemImage: "heart.text.square",
-                    cta: "Ajustes de Salud"
-                ) {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        UIApplication.shared.open(url)
-                    }
-                }
-            }
-        }
-
-        ProgressWeightChartCard(
-            entries: store.state.bodyWeights,
-            goalKg: store.state.settings.bodyWeightGoalKg,
-            range: model.range,
-            weekStartsOnMonday: mondayFirst,
-            preparedPoints: snap.range == model.range ? snap.weightPoints : nil
-        )
-
         activityCard
 
         MuscleBalanceCard(
@@ -195,6 +195,43 @@ struct StatsView: View {
         } else {
             prSection
         }
+    }
+
+    @ViewBuilder
+    private var healthSections: some View {
+        if health.isAuthorized {
+            if model.isPreparing && snap.range != model.range {
+                ProgressView("Actualizando gráficas…")
+                    .tint(OG.accent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            }
+            ProgressCardioChartCard(prepared: snap.charts)
+            ProgressCaloriesChartCard(prepared: snap.charts)
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                OGCardSectionTitle(title: "Salud")
+                progressEmptyCard(
+                    title: "Salud no conectada",
+                    subtitle: "Autoriza Apple Salud para ver FC y kcal.",
+                    systemImage: "heart.text.square",
+                    cta: "Ajustes de Salud"
+                ) {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            }
+        }
+
+        ProgressWeightChartCard(
+            entries: store.state.bodyWeights,
+            goalKg: store.state.settings.bodyWeightGoalKg,
+            range: model.range,
+            weekStartsOnMonday: mondayFirst,
+            preparedPoints: snap.range == model.range ? snap.weightPoints : nil
+        )
+
     }
 
     private var freeTilesGrid: some View {
