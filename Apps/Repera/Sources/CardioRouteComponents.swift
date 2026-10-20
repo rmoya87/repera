@@ -114,6 +114,14 @@ struct CardioAltitudeChart: View {
         }
     }
 
+    private var elevationRange: ClosedRange<Double> {
+        let values = result.profile.map(\.altitudeMeters)
+        let minimum = values.min() ?? 0
+        let maximum = values.max() ?? 1
+        let padding = max(4, (maximum - minimum) * 0.14)
+        return (minimum - padding)...(maximum + padding)
+    }
+
     @ViewBuilder
     private var elevation: some View {
         HStack {
@@ -154,6 +162,7 @@ struct CardioAltitudeChart: View {
                 }
             }
             .chartXSelection(value: $selectedDistance)
+            .chartYScale(domain: elevationRange)
             .chartXAxisLabel("km")
             .chartYAxis {
                 AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) {
@@ -255,7 +264,6 @@ struct RouteWeatherStrip: View {
     var longitude: Double
     var workoutDate: Date
 
-    @State private var condition: String?
     @State private var temperatureC: Double?
     @State private var humidity: Double?
     @State private var symbol = "cloud.sun"
@@ -320,7 +328,6 @@ struct RouteWeatherStrip: View {
     }
 
     private func loadWeather() async {
-        condition = nil
         humidity = nil
         temperatureC = nil
         attributionURL = nil
@@ -340,12 +347,13 @@ struct RouteWeatherStrip: View {
             guard let hour = hourly.forecast.min(by: {
                 abs($0.date.timeIntervalSince(workoutDate)) < abs($1.date.timeIntervalSince(workoutDate))
             }), abs(hour.date.timeIntervalSince(workoutDate)) <= 3600 else { return }
+            let attribution = try await WeatherService.shared.attribution
+            // Nunca mostrar información de WeatherKit sin su atribución legal.
+            attributionURL = attribution.legalPageURL
+            attributionMarkURL = attribution.combinedMarkLightURL
             temperatureC = hour.temperature.converted(to: .celsius).value
             humidity = hour.humidity
             symbol = hour.symbolName
-            let attribution = try await WeatherService.shared.attribution
-            attributionURL = attribution.legalPageURL
-            attributionMarkURL = attribution.combinedMarkLightURL
         } catch {
             // Denegación de WeatherKit, histórico no cubierto o red: mostrar —.
         }
