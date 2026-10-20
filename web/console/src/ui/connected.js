@@ -8,7 +8,7 @@ import {handleEditorClick,handleEditorSearch,readPrescription,validatePrescripti
 const app=document.querySelector('#app');
 const auth=new ReperaAuthAPI({baseUrl:SUPABASE_URL,publishableKey:SUPABASE_PUBLISHABLE_KEY});
 const escapeHTML=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let user=null,organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],notices=[],selectedClientId=null,selectedClassId=null,classMode='calendar',calendarMonth='',activeTab='overview',selectedTemplateId=null,editingSessionId=null,view='login',busy=false,error='',notice='';
+let user=null,organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],notices=[],selectedClientId=null,selectedClassId=null,classMode='calendar',calendarMonth='',planningClientId=null,activeTab='overview',selectedTemplateId=null,editingSessionId=null,view='login',busy=false,error='',notice='';
 const kindLabel={gym:'Gimnasio',personal_trainer:'Entrenador independiente',sports_center:'Centro deportivo'};
 const roleLabel={owner:'Propietario',admin:'Administrador',coach:'Entrenador',reception:'Recepción',athlete:'Deportista'};
 const message=()=>`${error?`<p class="connected-error" role="alert">${escapeHTML(error)}</p>`:''}${notice?`<p class="connected-notice" role="status">${escapeHTML(notice)}</p>`:''}`;
@@ -118,6 +118,32 @@ app.addEventListener('click',async event=>{
  const tab=event.target.closest('[data-workspace]');if(tab){activeTab=tab.dataset.workspace;render();return;}
  const mode=event.target.closest('[data-view]');if(mode){view=mode.dataset.view;error=notice='';render();return;}
  const actionable=event.target.closest('[data-action]');const action=actionable?.dataset.action;
+ if(action==='detail-client'){selectedClientId=actionable.dataset.id;activeTab='clients';render();return;}
+ if(action==='back-clients'){selectedClientId=null;activeTab='clients';render();return;}
+ if(action==='detail-occurrence'){selectedClassId=actionable.dataset.id;activeTab='services';render();return;}
+ if(action==='back-classes'){selectedClassId=null;activeTab='services';render();return;}
+ if(action==='open-class-calendar'){selectedClassId=null;classMode='calendar';activeTab='services';render();return;}
+ if(action==='calendar-mode'){classMode=actionable.dataset.mode==='list'?'list':'calendar';render();return;}
+ if(action==='calendar-prev'||action==='calendar-next'){
+  const first=(calendarMonth?new Date(calendarMonth+'-01T12:00:00'):new Date());
+  first.setDate(1);first.setMonth(first.getMonth()+(action==='calendar-next'?1:-1));
+  calendarMonth=first.toLocaleDateString('sv-SE').slice(0,7);render();return;
+ }
+ if(action==='plan-client'){planningClientId=actionable.dataset.id;activeTab='planning';selectedTemplateId=null;editingSessionId=null;render();return;}
+ if(action==='find-class-for-client'){selectedClientId=actionable.dataset.id;selectedClassId=null;activeTab='services';classMode='list';notice='Selecciona una clase para inscribir a este deportista con un bono válido.';render();return;}
+ if(action==='invite-client'&&!busy){const c=clients.find(c=>c.id===actionable.dataset.id);
+  if(!c||c.user_id)return;busy=true;render();try{await auth.issueInvitation({orgId:selectedOrg,email:c.email,role:'athlete'});await reload();notice='Invitación creada para el cliente. Debe registrarse y aceptarla.';}catch(e){error=e.message;}finally{busy=false;render();}return;}
+ if(action==='choose-plan'&&!busy){
+  busy=true;render();try{await auth.subscriptionIntent({orgId:selectedOrg,planKey:actionable.dataset.plan,userId:user.id});notice='Plan seleccionado, pendiente de habilitar la pasarela de pago. No se ha efectuado ningún cargo ni se ha activado el plan.';}catch(e){error=e.message;}finally{busy=false;render();}return;
+ }
+ if(action==='cancel-occurrence'&&!busy){
+  if(!confirm('¿Cancelar esta clase y devolver automáticamente los créditos de todas las reservas?'))return;
+  busy=true;render();try{const credited=await auth.cancelManagedOccurrence(actionable.dataset.id);selectedClassId=null;await reload();notice='Clase cancelada. Reservas reembolsadas: '+credited;}catch(e){error=e.message;}finally{busy=false;render();}return;
+ }
+ if(action==='remove-booking'&&!busy){
+  if(!confirm('¿Quitar a este deportista y devolver el crédito de la reserva?'))return;
+  busy=true;render();try{await auth.removeManagedClient(actionable.dataset.id);await loadSelectedOrg();notice='Participante retirado y crédito devuelto.';}catch(e){error=e.message;}finally{busy=false;render();}return;
+ }
  if(action==='new-workout'){selectedTemplateId=null;editingSessionId=null;render();return;}
  if(action==='use-template'){selectedTemplateId=actionable.dataset.id;editingSessionId=null;activeTab='planning';render();return;}
  if(action==='edit-session'){editingSessionId=actionable.dataset.id;selectedTemplateId=null;activeTab='planning';render();return;}
