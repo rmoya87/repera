@@ -66,6 +66,7 @@ fi
 
 echo "Generando proyecto Xcode..."
 xcodegen generate --spec "$ROOT/project.yml"
+python3 scripts/check_xcode_sources.py
 
 echo "Abriendo el simulador..."
 open -a Simulator
@@ -92,5 +93,5 @@ xcrun simctl launch "$device_id" com.app.repera
 
 echo
 echo "Repera iniciada en el simulador."
-echo "Atención: el puente Apple → Supabase y las reservas reales NO están implementados."
+echo "La sesión Apple → Supabase y las reservas requieren usuarios vinculados y credenciales reales."
 echo "Puedes cerrar esta ventana; Simulator seguirá abierto."

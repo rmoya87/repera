@@ -81,6 +81,10 @@ jobs:
         run: brew install xcodegen
       - name: Generate project
         run: xcodegen generate --spec project.yml
+      - name: Check Apple and Supabase Auth sources in generated Repera target
+        run: |
+          python3 scripts/check_xcode_sources.py
+          python3 -m unittest discover -s tests -p test_xcode_sources.py -v
       - name: Parse Swift sources with Xcode 27 compiler
         shell: bash
         run: |

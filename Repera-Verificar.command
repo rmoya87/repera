@@ -36,7 +36,7 @@ skip_check() {
   SKIPPED=$((SKIPPED+1))
 }
 
-run_check "Sintaxis de lanzadores" bash -n Repera-Business.command Repera-iOS.command
+run_check "Sintaxis de lanzadores" bash -n Repera-Business.command Repera-iOS.command Repera-Xcode.command
 if command -v node >/dev/null 2>&1; then
   run_check "Panel Business Node" bash -c 'cd "$1/web/console" && node --test tests/*.test.mjs' _ "$ROOT"
 else
@@ -44,6 +44,7 @@ else
 fi
 if command -v python3 >/dev/null 2>&1; then
   run_check "Modernizacion iOS canvas" python3 docs/ios27-modernization/generate_canvas.py --check
+  run_check "Validar herramienta Xcode Auth" python3 -m unittest discover -s tests -p test_xcode_sources.py -v
 else
   skip_check "Python 3 no instalado. No se puede validar canvas."
 fi
@@ -58,6 +59,7 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
   if command -v xcodegen >/dev/null 2>&1 && command -v xcodebuild >/dev/null 2>&1; then
     if xcodebuild -showsdks 2>/dev/null | grep -Eq "iphonesimulator27|iOS 27"; then
       run_check "Generacion XcodeGen" xcodegen generate --spec "$ROOT/project.yml"
+      run_check "Fuentes Auth en target iOS" python3 scripts/check_xcode_sources.py
       if [[ -f "$ROOT/Repera.xcodeproj/project.pbxproj" ]]; then
         run_check "Build iOS 27 Simulator" xcodebuild -project Repera.xcodeproj -scheme Repera -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
         run_check "Build watchOS 27 Simulator" xcodebuild -project Repera.xcodeproj -scheme ReperaWatch -configuration Debug -destination 'generic/platform=watchOS Simulator' CODE_SIGNING_ALLOWED=NO build
