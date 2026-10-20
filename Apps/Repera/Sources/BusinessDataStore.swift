@@ -147,6 +147,12 @@ private struct BusinessClientLink: Decodable {
     }
 }
 
+private struct BusinessHistoryConsentParams: Encodable {
+    let p_org: String
+    let p_client: String
+    let p_allow: Bool
+}
+
 private struct BusinessHistoryConsent: Decodable {
     let orgId: UUID
     let clientId: UUID
@@ -368,9 +374,9 @@ final class BusinessDataStore {
         defer { isSubmitting = false }
         do {
             try await client.rpc("set_athlete_history_consent",
-                                 params: ["p_org": orgId.uuidString,
-                                          "p_client": clientId.uuidString,
-                                          "p_allow": allow ? "true" : "false"]).execute()
+                                 params: BusinessHistoryConsentParams(p_org: orgId.uuidString,
+                                                                      p_client: clientId.uuidString,
+                                                                      p_allow: allow)).execute()
             await refresh()
         } catch {
             errorMessage = "No se pudo actualizar el consentimiento: \(error.localizedDescription)"
