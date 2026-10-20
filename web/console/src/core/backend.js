@@ -4,15 +4,16 @@
  * A publishable Supabase key is safe in the static frontend; service_role and Stripe keys are not.
  * All authorization is enforced server-side by PostgreSQL RLS / RPC; browser context is untrusted.
  */
+import {browserFetch,wrapFetcher} from './http.js';
 const VALID_REF=/^https:\/\/[a-z0-9-]+\.supabase\.co$/;
 const TABLES=new Set(['organizations','org_members','clients','locations','coaching_groups','coaching_group_clients','program_templates','program_assignments','classes','class_bookings','products','client_passes','credit_ledger','business_payments','invoice_drafts','notification_outbox']);
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export class SupabaseBusinessAPI {
- constructor({baseUrl,publishableKey,sessionProvider,fetcher=(...args)=>globalThis.fetch(...args)}){
+ constructor({baseUrl,publishableKey,sessionProvider,fetcher=browserFetch}){
   if(!VALID_REF.test(baseUrl))throw Error('Supabase URL debe ser HTTPS y corresponder al proyecto independiente');
   if(!publishableKey||/service_role|sb_secret_/i.test(publishableKey))throw Error('Clave Supabase pública inválida');
   if(typeof sessionProvider!=='function')throw Error('Se requiere proveedor de sesión');
-  this.base=baseUrl;this.key=publishableKey;this.sessionProvider=sessionProvider;this.fetcher=fetcher;
+  this.base=baseUrl;this.key=publishableKey;this.sessionProvider=sessionProvider;this.fetcher=wrapFetcher(fetcher);
  }
  async send(path,{method='GET',body=null,headers={}}={}){
   const token=await this.sessionProvider();if(typeof token!=='string'||!token)throw Error('Inicia sesión para continuar');

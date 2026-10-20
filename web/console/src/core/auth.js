@@ -3,16 +3,17 @@
  * Only intended for https://uvzgujlrqohreoucirms.supabase.co.
  * Browser tokens live in sessionStorage (this tab only); Auth, not this code, grants roles.
  */
+import {browserFetch,wrapFetcher} from './http.js';
 const URL_REPERA='https://uvzgujlrqohreoucirms.supabase.co';
 const SESSION_KEY='repera-business-supabase-session-v1';
 const emptyStorage={getItem:()=>null,setItem:()=>{},removeItem:()=>{}};
 const allowedKind=new Set(['personal_trainer','gym','sports_center']);
 export class ReperaAuthAPI {
- constructor({baseUrl=URL_REPERA,publishableKey,fetcher=(...args)=>globalThis.fetch(...args),storage=globalThis.sessionStorage,clock=()=>Date.now()}={}){
+ constructor({baseUrl=URL_REPERA,publishableKey,fetcher=browserFetch,storage=null,clock=()=>Date.now()}={}){
   if(baseUrl!==URL_REPERA)throw Error('Proyecto Supabase no autorizado para Repera');
   if(!/^sb_publishable_[A-Za-z0-9_-]+$/.test(publishableKey||''))throw Error('Se requiere clave pública moderna; nunca service_role');
-  if(typeof fetcher!=='function')throw Error('No hay cliente HTTP disponible');
-  this.base=baseUrl;this.key=publishableKey;this.fetcher=fetcher;this.storage=storage||emptyStorage;this.clock=clock;this.refreshing=null;
+  const store=storage||(typeof globalThis.sessionStorage!=='undefined'?globalThis.sessionStorage:emptyStorage);
+  this.base=baseUrl;this.key=publishableKey;this.fetcher=wrapFetcher(fetcher);this.storage=store;this.clock=clock;this.refreshing=null;
   try {const saved=JSON.parse(this.storage.getItem(SESSION_KEY)||'null');this.session=this.#valid(saved)?saved:null;}catch{this.session=null;this.storage.removeItem(SESSION_KEY);}
  }
  #valid(value){return !!(value&&typeof value.access_token==='string'&&value.access_token.length>2&&typeof value.refresh_token==='string'&&value.refresh_token.length>2&&Number.isFinite(value.expires_at));}
