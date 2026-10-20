@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-19 (ubicación al Play + peso source)
+Última actualización: 2026-10-20 (editor profesional y contrato de bloques)
 
 ## Visión
 
@@ -25,6 +25,8 @@ repera/
 ├── AGENTS.md
 └── README.md
 ```
+
+Panel profesional (`web/console/`): ES modules sin framework, Supabase Auth+RLS por defecto, `?demo=1` con datos ficticios separados. El editor se implementa en `src/ui/workout-editor.js`, y `src/ui/exercise-catalog.js` deriva su inventario de ilustraciones de `Apps/Repera/Sources/ExerciseArt.swift`. El contrato `prescription.version=1` contiene `blocks[]`: `kind`, `format`, `title`, `rounds`, `timeCap`, y `exercises[]` con `id`, `name`, `sets`, `reps`, `rir`, `weight`, `duration`, `notes`. Las plantillas viven en `professional_workout_templates` y se copian a `professional_training_sessions.prescription` para cada deportista. Las escrituras requieren RPC v2 y la migración de 2026-10-20. iOS lee el mismo contrato en `BusinessDataStore` y dibuja `BusinessWorkoutBlocksView.swift`; los resultados privados del atleta no salen de `ReperaStore`.
 
 Marketing web (`web/`): HTML/CSS/JS sin framework; SEO (canonical, OG, sitemap, JSON-LD), banner de cookies GDPR-ready y secciones de producto. Deploy IONOS: `web/pack-ionos.sh` → zip con `.htaccess` (pretty URLs, gzip, cabeceras). Detalle en `web/README.md`.
 
