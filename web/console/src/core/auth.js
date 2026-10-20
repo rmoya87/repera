@@ -220,6 +220,12 @@ export class ReperaAuthAPI {
   if(!valid.includes(planKey))throw Error('Plan desconocido');
   return this.#authorized('business_subscription_intents',{method:'POST',body:{org_id:orgId,plan_key:planKey,actor:userId}});
  }
+ async groupMembers(orgId){
+  return this.#authorized('business_training_group_members?select=org_id,group_id,client_id&org_id=eq.'+encodeURIComponent(orgId));
+ }
+ async updateBusinessGroup({groupId,name,description='',clientIds=[]}){
+  return this.#authorized('rpc/manage_business_group',{method:'POST',body:{p_group:groupId,p_name:name,p_description:description,p_clients:clientIds}});
+ }
  async groupList(orgId){return this.#authorized('business_training_groups?select=id,org_id,name,description&org_id=eq.'+encodeURIComponent(orgId)+'&order=name.asc');}
  async addGroup({orgId,name,description='',userId}){
   return this.#authorized('business_training_groups?select=id,name',{method:'POST',prefer:'return=representation',body:{org_id:orgId,name,description,created_by:userId}});
