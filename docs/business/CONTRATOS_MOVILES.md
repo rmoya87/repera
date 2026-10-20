@@ -1,5 +1,5 @@
 # Contratos móviles — iOS/Android/backend
-Última actualización: 2026-10-19.
+Última actualización: 2026-10-20.
 Estado: propuesta; **no hay integración móvil publicada**.
 
 ## Principio
@@ -8,6 +8,8 @@ No sustituir `AppState` local ni el espejo iCloud de iOS. Supabase guardará pri
 ## Implementación inicial Apple → Supabase (2026-10-19)
 - `BusinessAuthStore.swift`: usa supabase-swift 2.55.4, Sign in with Apple nativo con nonce aleatorio/hash SHA-256, y sesión administrada por el SDK. Solo conecta a `uvzgujlrqohreoucirms.supabase.co` con clave pública.
 - La primera autorización Apple intenta registrar/iniciar Supabase sin bloquear el modo local cuando no hay red o el provider falla. Usuarios previos: reconectar en Ajustes para intercambiar un ID token actualizado.
+- Login de producto: Apple → Supabase en el **primer** acceso; en arranques siguientes basta Apple + (sesión Keychain o binding UserDefaults). Los datos de entreno siguen local/iCloud y se espejan cuando hay sesión.
+- Tras conectar, iOS empuja `profiles.display_name` y el avatar JPEG a Storage `profile-avatars/{uid}/avatar.jpg` + `profiles.avatar_url` (`BusinessAuthStore.syncPublicProfile`). Espejo de entrenamientos vía `BusinessWorkoutSyncStore` (no Salud).
 - Estado de conexión en Ajustes y logout complementario. Aún no se sincroniza agenda, membresías ni historial personal.
 - Riesgos por verificar: Apple provider en Supabase, cuentas de correo oculto, duplicados identitarios, token inválido/nonce, renovación de sesiones, revocación, login TestFlight y cambios de credenciales.
 

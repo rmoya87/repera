@@ -1,12 +1,12 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-20 (Ajustes título large; avatar glass en Inicio)
+Última actualización: 2026-10-20 (Historial = misma fila/chips que Inicio)
 
 ## Tabs
 
 ### Inicio (`HomeView`)
 
-- Topbar fijo arriba (`ogFixedTopBar`): «repera» + fecha; icono de **mensajes** (liquid glass, solo si hay centro/entrenador vinculado) + «+» + avatar → Ajustes (mismo círculo liquid glass que el +).
+- Topbar fijo arriba (`ogFixedTopBar`): «repera» + fecha; icono de **mensajes** (liquid glass, solo si hay centro/entrenador vinculado) + avatar → Ajustes. Sin «+» en Inicio (el alta va por **Añadir entreno** / tab Crear).
 - **Carrusel de días**: swipe horizontal (o chevrons) entre semanas; al cambiar de semana se conserva el weekday. Al tocar un día pinta al instante sin esperar HealthKit.
 - Card **Racha de N semanas** (como openGym `streakWeeks`): cuenta Repera **y** Apple Salud; toque → **Historial** unificado.
 - Métricas del día: tiempo; **kcal = max(energía activa del día en Salud, suma de chips Repera+Salud del día)**. Por entreno: kcal de sesión = Watch/Salud **solo si la energía es creíble**; si en la franja solo hay ambiente (p. ej. 2 kcal), manda el **estimado Repera** (MET / time caps). **Tiempo mostrado = inicio→fin**. Detalle alineado con Inicio. Recalc al arrancar (v2026_10_19e).
@@ -34,7 +34,7 @@
 
 - **Sin** gimnasio ni entrenador vinculados (ni invitación pendiente): la pestaña central es **Crear** (`StartHubSheet`), como antes.
 - **Con** centro/entrenador o invitación: la pestaña pasa a **Center** (clases, citas, reservas).
-- El botón + de **Inicio** sigue abriendo las herramientas de Crear en hoja; la tarjeta «Añadir entreno» del día conserva su flujo.
+- La tarjeta **Añadir entreno** del día y la tab **Crear** concentran alta/escáner; Inicio ya no lleva «+» en la topbar.
 
 ### Herramientas de Crear (`StartHubSheet`)
 
@@ -57,12 +57,12 @@
 ### Progreso (`StatsView`)
 
 - Título arriba + periodo como subtítulo; calendario a la derecha (`ogFixedTopBar`).
-- **Gratis:** solo periodo **Esta semana** (entrenos, tiempo total, racha + heatmap básico + teaser Pro). Selector visible: periodos largos marcados Pro → paywall.
+- **Gratis:** solo periodo **Esta semana** (entrenos, tiempo, racha + heatmap básico + teaser Pro). Selector visible: periodos largos marcados Pro → paywall.
 - **Pro:** todos los periodos y métricas avanzadas.
 - Títulos de sección grises encima de cada card (actividad, cardio, peso, equilibrio…).
 - Filtro: **Hoy / Esta semana / Este mes / 90 / 180 / 360 días** (sin «Todo»). Modal fitted + glass.
 - Gráficas: día en periodos cortos; **media semanal** en 90/180; **media mensual** en 360.
-- Tiles: entrenos, tiempo medio, **FC media (lpm de Salud)**, racha.
+- Tiles: entrenos, tiempo medio, racha; **FC media** solo si hay lpm de Salud. Sin FC → 3 en una fila; con FC → 2×2. Números grandes centrados en la card (icono arriba, valor, etiqueta).
 - Racha: semanas consecutivas con ≥1 entreno ≈ openGym `streakWeeks`.
 - **Cardio / calorías / tiles / heatmap / músculo / PRs / peso:** un `ProgressSnapshot` por periodo (`ProgressDataEngine` off-main); `ProgressViewModel` cachea por periodo+revisión y cancela preps obsoletas.
 - Selector de periodo responde al toque; si hay caché, pinta al instante; si no, loader solo en gráficas.
@@ -91,7 +91,7 @@
 - Modo **WODs**: lista de benchmarks (`CatalogWODs`; favoritos arriba) con detalle: movimientos con **miniatura**, músculo, tiempo típico, progresión (`wodResults` por `wodTemplateId`). Topbar: **play** (empezar ya), **+** (apuntar resultado), **★** (`AppSettings.favoriteWODTemplateIds`).
 - **Músculo** = grupo anatómico (Pecho, Piernas…). CrossFit / Halterofilia / Gimnasia no son grupos musculares: van en **Deporte** (`sportTag`) y el ejercicio se asigna al músculo principal para métricas.
 - Ficha: descripción + guía **Cómo hacerlo** (tono entrenador: setup, ejecución, error típico, estándar) para los **188**. Con carrusel, N captions de fase + coaching debajo.
-- Alta de ejercicio custom.
+- Alta de ejercicio custom: página push (`navigationDestination`, `ogPinnedTransparentNav`), no sheet.
 - **Sin** botón «+ Plan» en filas.
 
 #### Ficha de ejercicio (`ExerciseDetailView`)
@@ -121,7 +121,7 @@
 - Rest feedback (sonido / háptico según settings).
 - **Live Activity** de descanso (isla / pantalla bloqueo; `NSSupportsLiveActivities`).
 - Watch: confirmar ejercicio, conteo, **+1 serie** / log rápido del último ejercicio.
-- **Resultado post-entreno** (`SessionReviewEngine`): nota 1–10 por **rendimiento**. Prioridad: bandas publicadas → ritmos por movimiento/nivel (WOD a medida; tiempos realistas con roturas) → tiempo típico → formato. **Tu rendimiento** en ejercicios similares ajusta hasta ±2. Blurb: «Esperado ~X (intermedio) · tú Y». Recálculo al subir `sessionReviewFormulaVersion` (v4).
+- **Resultado post-entreno** (`SessionReviewEngine`): nota 1–10 por **rendimiento**. Prioridad: bandas publicadas → ritmos por movimiento/nivel → tiempo típico → formato. Blurb en frases naturales («Hiciste 9:24; el ritmo intermedio…»). Recálculo al subir `sessionReviewFormulaVersion`.
 
 ## Salud (Apple)
 
@@ -145,7 +145,7 @@
 
 - Wizard full-screen antes de las tabs: **Sign in with Apple** (obligatorio, CTA en español) → **permisos** → **Gratis o Pro** (si aún no se vieron precios).
 - Pantalla de login: fondo **blanco en modo día / negro en modo noche**; botón Apple **negro+texto blanco** de día y **blanco+texto negro** de noche.
-- La identidad Apple se guarda en **Keychain** y sobrevive a actualizaciones de la app. Un fallo de Supabase/Business **no** vuelve a pedir SIWA; el muro de migración Business se recuerda si eliges «sin conexión».
+- Puerta: **Apple → Supabase** en el primer acceso. Luego: onboarding + (sesión viva | refresh Keychain | binding). Si Apple Keychain se vacía (p. ej. `.revoked` espurio) pero Supabase/binding siguen, se entra igual; la identidad Apple también se espeja en UserDefaults. **No** se borra Apple Keychain en `getCredentialState(.revoked)`. Trazas Consola `com.app.repera`/`AuthSession` y DEBUG `🔐 AUTH`.
 - Mascota Repera: saludo en login (`MascotWelcome`), thumbs-up en permisos (`MascotPermissions`); plan Pro usa `MascotHero` (PNG con fondo transparente). En permisos, tras conceder, el CTA pasa de «Permitir» a «Hecho».
 - Plan Pro del onboarding: precios y cargos desde StoreKit / App Store Connect (RevenueCat si hay API key).
 - Sin iCloud del sistema: usable en local; aviso para activarlo y poder recuperar tras reinstalar.
@@ -155,24 +155,24 @@
 ## UI / chrome
 
 - Lienzo `OG.bg` + cards/listas `OG.surface`: en **noche** negro + gris; en **día** gris agrupado + blanco (mismo contraste de secciones que en noche). Listas/Form `insetGrouped` nativos (`ogListChrome`).
+- Campos numéricos al apuntar (`OGNumericTextField` / stepper): texto `OG.label` (negro en día, claro en noche); nunca blanco fijo sobre fondo claro.
 
 ## Ajustes
 
 - Subpágina con volver: título large **Ajustes** debajo del chevron (`ogPinnedTransparentNav`; barra del sistema visible tras venir de Inicio). Mismo patrón en Historial, Peso y Rotación.
 - Títulos de sección Form en gris encima de cada grupo. Acciones e iconos en color de etiqueta (negro/blanco sistema), no verde.
-- **Cuenta:** Sign in with Apple, iCloud, nombre, foto, **Sincronizar ahora** (iCloud + Business + entrenamientos), cerrar sesión.
-- **Centro y entrenador:** vinculados + Buscar centro o entrenador (bonos/sesiones en la ficha).
-- **Acceso:** completo por vínculo Business, o Repera Pro (App Store); restaurar compras si no hay patrocinio.
-- **Permisos y Apple Salud:** notificaciones, HealthKit (kcal/min; el peso va en Peso corporal), ubicación (+ enlace a Ajustes del sistema). Al dar **Play** se pide ubicación si aún está pendiente (`ensureWhenInUseAuthorized`) y se guarda el pin en la sesión activa.
-- **Peso corporal:** enlace **Peso** + objetivo; historial con origen **Propio** / **Salud** (`BodyWeightSource`).
+- **Cuenta:** Sign in with Apple, nombre, foto, **Sincronizar ahora** (icono gira + «Sincronizando…»; debajo, fecha de la última sync; iCloud implícito sin fila de estado). Con Supabase: nombre/avatar a `profiles` + Storage. Cerrar sesión.
+- **Centro y entrenador:** vinculados + **Buscar centro o entrenador** (directorio RPC `search_discoverable_organizations`).
+- **Acceso:** completo por vínculo Business, o Repera Pro (App Store); restaurar compras si no hay patrocinio. **Debug Pro** solo en builds `#if DEBUG` (no en App Store).
+- **Salud:** notificaciones, conexión Salud (kcal hoy), ubicación, Ajustes del sistema, **Peso** + objetivo (mismo color `OG.label`). Historial de peso con origen **Propio** / **Salud**. Al dar **Play** se pide ubicación si aún está pendiente.
 - **Entrenamiento:** Historial de entrenos + unidades, modo de plan / rotación, semana, descanso, esfuerzo, progresión, incremento.
 - Export/import JSON, CSV Strong/Hevy, borrar datos.
 
 ## Monetización
 
 Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom, 4 escaneos/mes; Pro vía RevenueCat entitlement `pro`.
-- Historial de entrenos (Repera + Apple Salud, agrupado por día; hora a la derecha del título; chips en **una sola línea** alineados al título al reposo, carrusel hasta los bordes de la fila si no caben).
-- **Detalle de entreno:** resumen Tiempo/Kcal alineado con Inicio (kcal de sesión; tiempo = inicio→fin). Sección **Ubicación / Recorrido**: pin del gym (GPS al empezar), ruta propia outdoor o ruta de Salud si hay ≥2 puntos. Sección **Salud**: kcal activa = `session.appleActiveEnergyKcal` (misma que el resumen), no un sample ambiente del intervalo. Sección **Resultado** (`SessionReview`): nota + texto; detalle desplegable. Bloques WOD con cabecera según formato (`AMRAP 20'`, `For Time`, `EMOM…`); score en tarjeta; movimientos como prescripción. EMOM/Tabata/fuerza: series por ejercicio.
+- Historial de entrenos (Repera + Apple Salud, agrupado por día): misma fila que Inicio — línea «ENTRENO · hora» / día · hora, título debajo, icono de fuerza (no check), chips compartidos (`OGRegisterChip`, minutos = inicio→fin).
+- **Detalle de entreno:** resumen Tiempo/Kcal alineado con Inicio. Sección **Salud** solo con métricas auténticas (FC, ruta, ritmo); no muestra dispositivo/kcal si el origen es Repera. Series: RIR solo a la derecha, entero, sin duplicar entre paréntesis. Al **Editar**, el chevron vuelve se sustituye por **X** (cancelar). Las X de cierre usan `OG.label` (negro/blanco), no rojo. Sección **Resultado**: nota + frases naturales.
 
 ## Temporizador
 

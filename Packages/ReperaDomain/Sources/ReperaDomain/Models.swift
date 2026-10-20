@@ -657,18 +657,14 @@ public struct LoggedSet: Identifiable, Codable, Sendable, Hashable {
             return "\(reps) veces · \(Self.formatClock(sec))"
         }
         if let deficit = deficitCm {
-            var line = "\(deficit) cm × \(reps)"
-            if let rir { line += " (RIR \(String(format: "%g", rir)))" }
-            return line
+            return "\(deficit) cm × \(reps)"
         }
         let w = weightKg.map { String(format: "%g", $0) } ?? "—"
         var line = "\(w)×\(reps)"
         if let sec = durationSeconds, sec > 0 {
             line += " · \(Self.formatClock(sec))"
         }
-        if let rir {
-            line += " (RIR \(String(format: "%g", rir)))"
-        }
+        // RIR va en columna aparte en el detalle; no repetirlo entre paréntesis.
         return line
     }
 
@@ -1825,6 +1821,17 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         guard let start = startedAt else { return 0 }
         let end = finishedAt ?? Date()
         return max(0, end.timeIntervalSince(start) / 60)
+    }
+
+    /// Minutos del chip en listas (Inicio / Historial): reloj de pared inicio→fin.
+    /// No usa el time-cap ni la duración de Salud (esos van a kcal / detalle).
+    public var displayDurationMinutes: Double {
+        if let start = startedAt {
+            let end = finishedAt ?? start.addingTimeInterval(60)
+            let wall = max(0, end.timeIntervalSince(start) / 60)
+            if wall > 0 { return wall }
+        }
+        return durationMinutes
     }
 }
 

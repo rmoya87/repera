@@ -2,6 +2,7 @@ import AuthenticationServices
 import CryptoKit
 import Foundation
 import Observation
+import ReperaDomain
 import Security
 import Supabase
 
@@ -39,20 +40,33 @@ final class BusinessAuthStore {
 
     var apiClient: SupabaseClient? { client }
 
+    /// Hay refresh/access token en Keychain del SDK (sobrevive updates). No hace falta SIWA.
+    var hasCachedSupabaseSession: Bool {
+        client?.auth.currentSession != nil
+    }
+
+    /// Login Supabase exitoso previo (UserDefaults). Sobrevive si el SDK borra el refresh
+    /// tras un refresh fallido (`sessionCleanupErrorCodes`).
+    var hasPriorSupabaseBinding: Bool {
+        UserDefaults.standard.string(forKey: appleIdentityBindingKey) != nil
+    }
+
     private init() {
         let urlString = Bundle.main.object(forInfoDictionaryKey: "ReperaSupabaseURL") as? String
         let key = Bundle.main.object(forInfoDictionaryKey: "ReperaSupabasePublishableKey") as? String
         if let urlString, let url = URL(string: urlString),
            url.scheme == "https", url.host == "uvzgujlrqohreoucirms.supabase.co",
            let key, key.hasPrefix("sb_publishable_") {
-            // Supabase Swift 2.55.4 emits the stored (possibly expired) session
-            // immediately. Never authorize users from that initial event:
-            // restoreSession() always awaits auth.session to validate/refresh it.
+            // Sesión en Keychain (`supabase.gotrue.swift`); AfterFirstUnlock sobrevive updates.
             client = SupabaseClient(
                 supabaseURL: url,
                 supabaseKey: key,
                 options: SupabaseClientOptions(
-                    auth: .init(emitLocalSessionAsInitialSession: true)
+                    auth: .init(
+                        storage: KeychainLocalStorage(service: "supabase.gotrue.swift"),
+                        autoRefreshToken: true,
+                        emitLocalSessionAsInitialSession: true
+                    )
                 )
             )
         } else {
@@ -60,61 +74,165 @@ final class BusinessAuthStore {
         }
     }
 
-    /// Restores the SDK's validated/auto-refreshed session, never an expired
-    /// `initialSession` or an account not linked to the current Apple identity.
+    /// Restaura sesión desde Keychain y renueva el access token si hace falta.
+    /// Con cache local **no** exige SIWA (tampoco si el refresh de red falla una vez).
+    /// Si el SDK ya no tiene tokens pero hay binding previo, no se fuerza re-login:
+    /// la app entra y Business se reconecta desde Ajustes cuando haga falta.
     func restoreSession() async {
         hasRestoredSession = false
         defer { hasRestoredSession = true }
-        isConnected = false
-        BusinessDataStore.shared.clear()
+        AuthSessionTrace.event(
+            "restoreSession start apple=\(AppleAuthStore.shared.isSignedIn) cache=\(hasCachedSupabaseSession) binding=\(hasPriorSupabaseBinding) connected=\(isConnected)"
+        )
         guard let client else {
-            // Sin backend en el build: no bloquear la app con muro de migración.
+            isConnected = false
             isMigrationRequired = false
             lastErrorMessage = "Supabase Repera no está configurado en esta compilación."
+            AuthSessionTrace.event("restoreSession abort: no client")
             return
         }
-        guard let appleUserID = AppleAuthStore.shared.userID,
-              AppleAuthStore.shared.isSignedIn else {
-            isMigrationRequired = false
-            try? await client.auth.signOut()
-            return
-        }
-        let expectedBinding = Self.hashedNonce(appleUserID)
-        guard UserDefaults.standard.string(forKey: appleIdentityBindingKey) == expectedBinding else {
-            // Sin vínculo Supabase aún: solo mostrar migración si el usuario no eligió «local».
-            isMigrationRequired = !prefersLocalOnly
-            lastErrorMessage = nil
-            try? await client.auth.signOut()
-            return
-        }
-        do {
-            let session = try await client.auth.session
-            guard UserDefaults.standard.string(forKey: appleIdentityBindingKey) == expectedBinding,
-                  AppleAuthStore.shared.userID == appleUserID else {
-                isMigrationRequired = !prefersLocalOnly
+        let appleUserID = AppleAuthStore.shared.userID
+        let appleOK = appleUserID != nil && AppleAuthStore.shared.isSignedIn
+        if !appleOK {
+            // No signOut. Si hay cache/binding, restaurar igual (Apple Keychain pudo
+            // borrarse por .revoked espurio; trazas: cache=true binding=true userID=false).
+            AuthSessionTrace.event(
+                "restoreSession soft: no Apple local cache=\(hasCachedSupabaseSession) binding=\(hasPriorSupabaseBinding)"
+            )
+            if let cached = client.auth.currentSession {
+                AuthSessionTrace.event(
+                    "restoreSession HIT cache without Apple expired=\(cached.isExpired) user=\(cached.user.id)"
+                )
+                acceptCachedSessionKeepingExistingBinding()
+                await refreshAccessTokenBestEffort(client: client)
+                AuthSessionTrace.event(
+                    "restoreSession done via cache-no-apple connected=\(isConnected)"
+                )
                 return
             }
-            if session.isExpired {
-                // Intentar renovar; no empujar al login Apple solo por un token caducado.
-                _ = try await client.auth.refreshSession()
-                let refreshed = try await client.auth.session
-                guard !refreshed.isExpired else {
-                    // Sesión Business caducada: se puede re-vincular desde Ajustes; no muro en cada update.
-                    isMigrationRequired = false
-                    lastErrorMessage = "La sesión con Supabase ha caducado. Reconecta desde Ajustes si usas un centro."
-                    return
-                }
+            if hasPriorSupabaseBinding {
+                markNeedsSoftReconnect(keepBinding: true)
+                AuthSessionTrace.event("restoreSession no Apple no cache; keep binding")
+                return
             }
-            isConnected = true
-            isMigrationRequired = false
-            setPrefersLocalOnly(false)
-            lastErrorMessage = nil
-        } catch {
             isConnected = false
-            // Tras actualizar la app, un fallo de red no debe pedir Sign in with Apple otra vez
-            // si el vínculo Apple↔Supabase ya estaba guardado.
             isMigrationRequired = false
-            lastErrorMessage = "No se pudo renovar la sesión Business. Se reintentará al volver a la app."
+            BusinessDataStore.shared.clear()
+            AuthSessionTrace.event("restoreSession abort: no Apple and no remote")
+            return
+        }
+        let expectedBinding = Self.hashedNonce(appleUserID!)
+
+        // 1) Cache Keychain (rápido, offline, tras update). Preferir currentSession
+        // y NO llamar auth.session si hay cache: ese path hace refresh y el SDK
+        // puede borrar Keychain ante ciertos errores de sesión.
+        if let cached = client.auth.currentSession {
+            AuthSessionTrace.event(
+                "restoreSession HIT cache expired=\(cached.isExpired) user=\(cached.user.id)"
+            )
+            acceptCachedSession(expectedBinding: expectedBinding)
+            await refreshAccessTokenBestEffort(client: client)
+            AuthSessionTrace.event(
+                "restoreSession done via cache connected=\(isConnected) cacheNow=\(hasCachedSupabaseSession)"
+            )
+            return
+        }
+
+        // 2) Intentar hidratar desde storage (sin haber visto currentSession aún).
+        do {
+            let session = try await client.auth.session
+            guard !session.accessToken.isEmpty else {
+                markNeedsSoftReconnect(keepBinding: hasPriorSupabaseBinding)
+                AuthSessionTrace.event("restoreSession empty accessToken binding=\(hasPriorSupabaseBinding)")
+                return
+            }
+            AuthSessionTrace.event("restoreSession via auth.session expired=\(session.isExpired)")
+            acceptCachedSession(expectedBinding: expectedBinding)
+            if session.isExpired {
+                await refreshAccessTokenBestEffort(client: client)
+            }
+            AuthSessionTrace.event("restoreSession done via session connected=\(isConnected)")
+        } catch {
+            if client.auth.currentSession != nil {
+                acceptCachedSession(expectedBinding: expectedBinding)
+                AuthSessionTrace.event("restoreSession recover cache after error: \(error.localizedDescription)")
+                return
+            }
+            // Binding previo: no pedir Bienvenido; tokens los limpió el SDK.
+            markNeedsSoftReconnect(keepBinding: hasPriorSupabaseBinding)
+            lastErrorMessage = hasPriorSupabaseBinding
+                ? "Sesión remota caducada. Entra a la app; reconecta en Ajustes si hace falta."
+                : "No se pudo restaurar la sesión. Vuelve a iniciar sesión con Apple."
+            AuthSessionTrace.event(
+                "restoreSession MISS binding=\(hasPriorSupabaseBinding): \(error.localizedDescription)"
+            )
+        }
+    }
+
+    /// Acepta la sesión ya en Keychain sin UI (p. ej. tras timeout de red).
+    @discardableResult
+    func connectFromCachedSessionIfPossible() -> Bool {
+        guard let appleUserID = AppleAuthStore.shared.userID,
+              AppleAuthStore.shared.isSignedIn,
+              client?.auth.currentSession != nil
+        else {
+            AuthSessionTrace.event("connectFromCache failed apple/cache missing")
+            return false
+        }
+        acceptCachedSession(expectedBinding: Self.hashedNonce(appleUserID))
+        AuthSessionTrace.event("connectFromCache OK")
+        return true
+    }
+
+    private func acceptCachedSession(expectedBinding: String) {
+        UserDefaults.standard.set(expectedBinding, forKey: appleIdentityBindingKey)
+        isConnected = true
+        isMigrationRequired = false
+        setPrefersLocalOnly(false)
+        lastErrorMessage = nil
+        AuthSessionTrace.event("acceptCachedSession binding saved")
+    }
+
+    /// Restaura `isConnected` sin reescribir binding (Apple local ausente).
+    private func acceptCachedSessionKeepingExistingBinding() {
+        isConnected = true
+        isMigrationRequired = false
+        setPrefersLocalOnly(false)
+        lastErrorMessage = nil
+        AuthSessionTrace.event("acceptCachedSession keep existing binding=\(hasPriorSupabaseBinding)")
+    }
+
+    /// Sin tokens vivos: Business offline. Si `keepBinding`, la app sigue entrando.
+    private func markNeedsSoftReconnect(keepBinding: Bool) {
+        isConnected = false
+        isMigrationRequired = true
+        BusinessDataStore.shared.clear()
+        if !keepBinding {
+            UserDefaults.standard.removeObject(forKey: appleIdentityBindingKey)
+        }
+        AuthSessionTrace.event("softReconnect keepBinding=\(keepBinding)")
+    }
+
+    private func refreshAccessTokenBestEffort(client: SupabaseClient) async {
+        guard let cached = client.auth.currentSession, cached.isExpired else {
+            AuthSessionTrace.event("refresh skip (not expired or nil)")
+            return
+        }
+        // Snapshot: si el SDK borra tras error de cleanup, al menos ya tenemos binding.
+        let binding = UserDefaults.standard.string(forKey: appleIdentityBindingKey)
+        do {
+            _ = try await client.auth.refreshSession()
+            AuthSessionTrace.event("refresh OK cacheNow=\(client.auth.currentSession != nil)")
+        } catch {
+            AuthSessionTrace.event(
+                "refresh FAIL cacheNow=\(client.auth.currentSession != nil) binding=\(binding != nil): \(error.localizedDescription)"
+            )
+            // Mantener isConnected si aún hay cache; si el SDK limpió, soft reconnect.
+            if client.auth.currentSession == nil {
+                isConnected = false
+                isMigrationRequired = true
+                BusinessDataStore.shared.clear()
+            }
         }
     }
 
@@ -161,13 +279,21 @@ final class BusinessAuthStore {
 
         isConnecting = true
         defer { isConnecting = false }
-        isConnected = false
-        BusinessDataStore.shared.clear()
         let expectedBinding = Self.hashedNonce(credential.user)
-        if UserDefaults.standard.string(forKey: appleIdentityBindingKey) != expectedBinding {
-            // Invalidate a previous account's SDK tokens before changing identity.
+        let storedBinding = UserDefaults.standard.string(forKey: appleIdentityBindingKey)
+        // Solo signOut si cambia la cuenta Apple. Si binding==nil, NO borrar Keychain
+        // (antes se destruía el refresh token en cada re-SIWA / update).
+        let wipe = AuthSessionLaunchPolicy.shouldSignOutBeforeConnect(
+            storedBinding: storedBinding,
+            expectedBinding: expectedBinding
+        )
+        AuthSessionTrace.event(
+            "connect start wipe=\(wipe) hadCache=\(hasCachedSupabaseSession) storedBinding=\(storedBinding != nil)"
+        )
+        if wipe {
             try? await client.auth.signOut()
         }
+        BusinessDataStore.shared.clear()
         do {
             _ = try await client.auth.signInWithIdToken(
                 credentials: OpenIDConnectCredentials(
@@ -186,85 +312,110 @@ final class BusinessAuthStore {
             setPrefersLocalOnly(false)
             hasRestoredSession = true
             lastErrorMessage = nil
+            AuthSessionTrace.event("connect OK user=\(session.user.id) cacheNow=\(hasCachedSupabaseSession)")
             await BusinessDataStore.shared.refresh()
             return true
         } catch {
+            // Si el id_token falla pero sigue habiendo sesión cacheada, no dejar al usuario fuera.
+            if connectFromCachedSessionIfPossible() {
+                AuthSessionTrace.event("connect failed but kept cache: \(error.localizedDescription)")
+                return true
+            }
             isConnected = false
-            // No forzar muro de migración si Apple ya está OK; se puede reintentar luego.
-            isMigrationRequired = false
+            isMigrationRequired = true
             BusinessDataStore.shared.clear()
             lastErrorMessage = "No se ha podido conectar con Supabase: \(error.localizedDescription)"
+            AuthSessionTrace.event("connect FAIL: \(error.localizedDescription)")
             return false
         }
     }
 
-    /// One-time, idempotent migration of the *public profile name only*.
-    /// Existing remote values win, and private iCloud workouts are never sent.
-    func migrateLocalProfileIfNeeded(displayName: String?) async {
+    /// Empuja nombre y avatar públicos a Supabase (fuente de verdad = Ajustes local).
+    /// No envía entrenamientos, Salud ni StoreKit. Idempotente; reintenta en el próximo arranque si falla.
+    func migrateLocalProfileIfNeeded(displayName: String?, avatarJPEG: Data? = nil) async {
+        await syncPublicProfile(displayName: displayName, avatarJPEG: avatarJPEG)
+    }
+
+    /// Edición desde Ajustes: alinea `profiles.display_name` + `avatar_url` (y el JPEG en Storage).
+    func updateDisplayName(_ value: String?, avatarJPEG: Data? = nil) async {
+        await syncPublicProfile(displayName: value, avatarJPEG: avatarJPEG)
+    }
+
+    /// Sube `display_name` y, si hay JPEG, el avatar a Storage (`profile-avatars/{uid}/avatar.jpg`).
+    /// Usa `currentSession` + refresh best-effort: evita `auth.session` que puede
+    /// borrar Keychain si el refresh falla con códigos de cleanup.
+    func syncPublicProfile(displayName: String?, avatarJPEG: Data?) async {
         guard isConnected, let client else { return }
         do {
-            let session = try await client.auth.session
-            guard !session.isExpired,
+            if let cached = client.auth.currentSession, cached.isExpired {
+                await refreshAccessTokenBestEffort(client: client)
+            }
+            guard let session = client.auth.currentSession,
+                  !session.accessToken.isEmpty,
                   let appleUserID = AppleAuthStore.shared.userID,
                   UserDefaults.standard.string(forKey: appleIdentityBindingKey) == Self.hashedNonce(appleUserID)
-            else { return }
-            let userID = session.user.id.uuidString
-            let migrationKey = "repera.business.migratedProfile.v1.\(userID)"
-            guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
-
-            let profiles: [RemoteProfileName] = try await client
-                .from("profiles")
-                .select("display_name")
-                .eq("id", value: userID)
-                .limit(1)
-                .execute().value
-            guard let profile = profiles.first else {
-                throw AccountMigrationError.profileMissing
+            else {
+                AuthSessionTrace.event("syncPublicProfile skip: no usable session")
+                return
             }
-            let localName = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            if (profile.displayName ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-               !localName.isEmpty {
-                try await client.from("profiles")
-                    .update(["display_name": String(localName.prefix(100))])
-                    .eq("id", value: userID)
-                    .execute()
+            if session.isExpired {
+                AuthSessionTrace.event("syncPublicProfile skip: still expired after refresh")
+                return
             }
-            guard isConnected,
-                  AppleAuthStore.shared.userID == appleUserID,
-                  (try await client.auth.session).user.id == session.user.id else { return }
-            UserDefaults.standard.set(true, forKey: migrationKey)
-            profileMigrationErrorMessage = nil
-        } catch {
-            // No success marker on failure: retry on the next authenticated launch.
-            profileMigrationErrorMessage = "No se pudo sincronizar el nombre del perfil. Los entrenamientos locales están intactos."
-        }
-    }
 
-    /// Explicit profile edit from Ajustes, separate from the one-time migration.
-    /// Keeps a visible local profile name and remote profile aligned, without
-    /// sending workout data, photos or StoreKit entitlements to Supabase.
-    func updateDisplayName(_ value: String?) async {
-        guard isConnected, let client else { return }
-        do {
-            let session = try await client.auth.session
-            guard !session.isExpired else { return }
-            let name = String((value ?? "")
+            let userID = session.user.id.uuidString.lowercased()
+            let name = String((displayName ?? "")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
                 .prefix(100))
+            let storagePath = "\(userID)/avatar.jpg"
+            var avatarURL: String?
+
+            if let jpeg = avatarJPEG, !jpeg.isEmpty {
+                _ = try await client.storage
+                    .from("profile-avatars")
+                    .upload(
+                        storagePath,
+                        data: jpeg,
+                        options: FileOptions(
+                            cacheControl: "3600",
+                            contentType: "image/jpeg",
+                            upsert: true
+                        )
+                    )
+                let publicURL = try client.storage
+                    .from("profile-avatars")
+                    .getPublicURL(path: storagePath)
+                // Cache-bust para que Inicio/consola vean el JPEG nuevo al instante.
+                avatarURL = publicURL.absoluteString + "?v=\(Int(Date().timeIntervalSince1970))"
+            } else {
+                try? await client.storage
+                    .from("profile-avatars")
+                    .remove(paths: [storagePath])
+                avatarURL = nil
+            }
+
             try await client.from("profiles")
-                .update(["display_name": name])
-                .eq("id", value: session.user.id.uuidString)
+                .update(ProfilePublicPatch(displayName: name, avatarURL: avatarURL))
+                .eq("id", value: userID)
                 .execute()
+
+            guard isConnected,
+                  AppleAuthStore.shared.userID == appleUserID,
+                  client.auth.currentSession?.user.id == session.user.id else { return }
             profileMigrationErrorMessage = nil
+            AuthSessionTrace.event("syncPublicProfile OK")
         } catch {
-            profileMigrationErrorMessage = "No se ha podido sincronizar el nombre. Puedes reintentarlo más adelante."
+            profileMigrationErrorMessage =
+                "No se pudo sincronizar nombre/avatar con Supabase. Los datos locales quedan intactos."
+            AuthSessionTrace.event("syncPublicProfile FAIL: \(error.localizedDescription)")
         }
     }
-
-    private struct RemoteProfileName: Decodable {
-        let displayName: String?
+    private struct ProfilePublicPatch: Encodable {
+        let displayName: String
+        let avatarURL: String?
         enum CodingKeys: String, CodingKey {
             case displayName = "display_name"
+            case avatarURL = "avatar_url"
         }
     }
 

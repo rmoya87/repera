@@ -983,6 +983,11 @@ public enum CrossFitGlossary {
         "burpees over the bar": "Bar facing burpee",
         "burpee over bar": "Bar facing burpee",
         "bob": "Bar facing burpee",
+        "bobs": "Bar facing burpee",
+        "b.o.b": "Bar facing burpee",
+        "b.o.b.": "Bar facing burpee",
+        // OCR a veces pega reps: "8bob" / "8BOB"
+        "8bob": "Bar facing burpee",
 
         // Condicionamiento
         "wb": "Wall ball",
@@ -1258,10 +1263,13 @@ public enum CrossFitGlossary {
             }
         }
 
-        // Reps al inicio: «10 toes to bar» → reps=10, nombre sin el 10.
+        // Reps al inicio: «10 toes to bar» o pegado OCR «8BOB» → reps=8, nombre sin el 8.
         if scheme == nil, meters == nil, calories == nil,
-           let leading = working.range(of: #"^\s*(\d+)\b"#, options: .regularExpression) {
-            reps = Int(working[leading].trimmingCharacters(in: .whitespaces))
+           let leading = working.range(
+            of: #"^\s*(\d+)(?:\b|(?=[A-Za-zÁÉÍÓÚÑáéíóúñ]))"#,
+            options: .regularExpression
+           ) {
+            reps = Int(working[leading].filter(\.isNumber))
             working.removeSubrange(leading)
         }
 
@@ -1491,9 +1499,9 @@ public enum CrossFitGlossary {
             with: "",
             options: .regularExpression
         )
-        // Reps sueltas al inicio: "10 Dominadas"
+        // Reps sueltas al inicio: "10 Dominadas" o pegadas "8BOB"
         s = s.replacingOccurrences(
-            of: #"^\s*\d+\s+"#,
+            of: #"^\s*\d+(?:\s+|(?=[A-Za-zÁÉÍÓÚÑáéíóúñ]))"#,
             with: "",
             options: .regularExpression
         )

@@ -1,6 +1,6 @@
 # Escáner de pizarra / TV
 
-Última actualización: 2026-10-19 (lectura de pizarra en tres bloques, iOS 27)
+Última actualización: 2026-10-20 (OCR ruidoso RFT/BOB; parser unificado en Domain)
 
 ## Objetivo
 
@@ -10,7 +10,7 @@ Entrada cámara/galería: modal `BoardScanSourceSheet`. Flujo anti-cuelgue:
 
 1. JPEG reducido en MainActor (UIKit).
 2. Vision off-main (**fast**, accurate si hace falta) con timeout 20s.
-3. Tras OCR: **`BoardScanLiteParser`** síncrono (cabeceras EMOM/AMRAP + líneas). Sin `BoardImportParser` pesado, sin hilos, sin IA.
+3. Tras OCR: **`BoardScanLiteParser`** (paquete `ReperaDomain`) síncrono. Normaliza ruido Vision (`4RFf`→`4 RFT`, `8BOB`→`8 BOB`) antes de partir cabeceras. Sin `BoardImportParser` pesado, sin hilos, sin IA.
 4. Galería: `PHPicker` en `fullScreenCover`. Sheet crece solo con «Leyendo…» / error.
 
 Causa del cuelgue: `BoardImportParser` + concurrencia (GCD/Thread/semáforo) no reanudaban la continuation en dispositivo. El lite parser con la pizarra de prueba produce 3 bloques en <1 ms.
@@ -30,7 +30,7 @@ La ruta activa **no** ejecuta `BoardImportParser.parseBlocks` ni Foundation Mode
 Regresión del 19/10/2026: pizarra con tres bloques:
 1. `EMOM 8’ @6-8`: 8 minutos, 2 High Hang Squat Snatch por estación; intensidad original conservada.
 2. `EVERY 2’ X 4` + `4-3-3-2 BACK SQUAT @6-8`: **bloque de fuerza** con series 4, 3, 3 y 2; la cadencia y el RPE quedan en notas, nunca convertidos arbitrariamente en RIR.
-3. `4 RFT (TC 12’)`: 4 rondas, cap 12 min, 6 Power Snatch 40/25, 8 BOB (Bar facing burpee), 10 Back Rack Reverse Lunges 40/25 y descanso de 60 s.
+3. `4 RFT (TC 12’)`: 4 rondas, cap 12 min, 6 Power Snatch 40/25, 8 BOB (**Bar facing burpee** / burpee over the bar), 10 Back Rack Reverse Lunges 40/25 y descanso de 60 s. Si OCR pega `4RFf` o `8BOB`, sigue siendo cabecera RFT + movimiento BOB (no un «Movimiento» suelto dentro del EVERY).
 
 El catálogo resuelve abreviaturas en inglés y español. Una variante no encontrada no debe descartarse: se conserva como movimiento WOD editable. El emparejamiento local utiliza mapa indexado de nombres/canónicos, no comparación difusa por ejercicio; si se añaden nuevos alias, actualizarlos en `CrossFitGlossary`. En fuerza, se asigna `targetRir` **solo** cuando se identifica explícitamente `@RIR N`; `@6-8` no significa RIR y se mantiene como nota.
 

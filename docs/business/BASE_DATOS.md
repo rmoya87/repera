@@ -1,5 +1,5 @@
 # Base de datos — Repera
-Última actualización: 2026-10-19.
+Última actualización: 2026-10-20 (profiles.avatar_url; ensure search_discoverable_organizations).
 
 **Proyecto autorizado:** `uvzgujlrqohreoucirms` (eu-west-1, PostgreSQL 17).
 **Migraciones aplicadas:** `20261019190623_business_foundation_secure`, `20261019193414_business_clients_scoped`, `20261019201141_business_org_invitations_consent` y `20261019201248_business_invitation_private_rpc`, `20261019201914_business_services_booking_wallets`, `20261019203258_business_professional_training_sessions` y `20261019210032_business_service_availability`.
@@ -8,7 +8,7 @@ La migración antigua `20261015120000_init_repera.sql` **no se aplicó** y fue s
 ## Tablas implantadas
 | Tabla | Uso | Política básica |
 |---|---|---|
-| `profiles` | Identidad ligada a `auth.users` | Propietario; solo puede actualizar display_name |
+| `profiles` | Identidad ligada a `auth.users` (`display_name`, `avatar_url`) | Propietario; UPDATE `display_name` + `avatar_url`; JPEG en bucket Storage `profile-avatars` |
 | `organizations` | Tenant y tipo | Miembros activos leen; owner/admin modifica nombre |
 | `organization_memberships` | Roles/estado por tenant | Usuario propio y gestores leen; cliente no puede modificar |
 | `exercises` | MVP personal y catálogo del sistema | Ejercicio de sistema o propio |

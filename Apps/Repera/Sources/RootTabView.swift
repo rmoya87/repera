@@ -37,8 +37,7 @@ struct RootTabView: View {
                         onOpenWorkout: openWorkout,
                         onStart: openTodayPreview,
                         onStartRoutine: openRoutinePreview,
-                        onGoPlan: { planSection = .schedule; tab = .plan },
-                        onOpenStartHub: { showStartHub = true }
+                        onGoPlan: { planSection = .schedule; tab = .plan }
                     )
                 }
 

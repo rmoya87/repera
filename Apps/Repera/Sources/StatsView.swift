@@ -206,7 +206,11 @@ struct StatsView: View {
             }
             return "—"
         }()
-        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+        // Sin FC: 3 tiles en una sola fila.
+        return LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3),
+            spacing: 8
+        ) {
             tile(
                 icon: "dumbbell.fill",
                 label: "Entrenos",
@@ -216,7 +220,7 @@ struct StatsView: View {
             )
             tile(
                 icon: "clock.fill",
-                label: "Tiempo total",
+                label: "Tiempo",
                 value: totalMinutes,
                 iconColor: OG.blue,
                 delta: nil
@@ -373,7 +377,13 @@ struct StatsView: View {
         let streak = snap.streak
         let avgHr = snap.averageHeartRate
         let prevAvgHr = snap.previousAverageHeartRate
-        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+        let showCardio = avgHr != nil
+        // Sin cardio → 3 en una fila; con FC → 2×2.
+        let columns = Array(
+            repeating: GridItem(.flexible(), spacing: 8),
+            count: showCardio ? 2 : 3
+        )
+        return LazyVGrid(columns: columns, spacing: 8) {
             tile(
                 icon: "dumbbell.fill",
                 label: "Entrenos",
@@ -394,16 +404,18 @@ struct StatsView: View {
                     return Int((cur - old).rounded())
                 }()
             )
-            tile(
-                icon: "heart.fill",
-                label: "FC media",
-                value: avgHr.map { "\(Int($0.rounded()))" } ?? "—",
-                iconColor: OG.red,
-                delta: {
-                    guard let cur = avgHr, let old = prevAvgHr else { return nil }
-                    return Int((cur - old).rounded())
-                }()
-            )
+            if showCardio, let avgHr {
+                tile(
+                    icon: "heart.fill",
+                    label: "FC media",
+                    value: "\(Int(avgHr.rounded()))",
+                    iconColor: OG.red,
+                    delta: {
+                        guard let old = prevAvgHr else { return nil }
+                        return Int((avgHr - old).rounded())
+                    }()
+                )
+            }
             tile(
                 icon: "flame.fill",
                 label: "Racha",
@@ -423,31 +435,31 @@ struct StatsView: View {
         valueColor: Color = OG.label,
         delta: Int? = nil
     ) -> some View {
-        HStack(alignment: .top, spacing: 10) {
+        VStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(iconColor)
-                .frame(width: 22, height: 22)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(OG.label2)
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(value)
-                        .font(.system(size: 22, weight: .bold).monospacedDigit())
-                        .foregroundStyle(valueColor)
-                    if let delta, delta != 0 {
-                        Text(delta > 0 ? "+\(delta)" : "\(delta)")
-                            .font(.system(size: 12, weight: .semibold).monospacedDigit())
-                            .foregroundStyle(delta > 0 ? OG.accent : OG.yellow)
-                    }
-                }
+            Text(value)
+                .font(.system(size: 30, weight: .bold).monospacedDigit())
+                .foregroundStyle(valueColor)
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+            Text(label)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(OG.label2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            if let delta, delta != 0 {
+                Text(delta > 0 ? "+\(delta)" : "\(delta)")
+                    .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(delta > 0 ? OG.accent : OG.yellow)
             }
-            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, minHeight: 64, maxHeight: .infinity, alignment: .topLeading)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity, minHeight: 96, maxHeight: .infinity, alignment: .center)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 14)
         .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
     }
 

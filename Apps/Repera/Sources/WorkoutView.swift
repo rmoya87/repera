@@ -489,7 +489,7 @@ struct WorkoutView: View {
                             Button("\(value)") { setLiveRir(at: index, rir: Double(value)) }
                         }
                     } label: {
-                        Text(row.rir.map { String(format: "%g", $0) } ?? "RIR")
+                        Text(row.rir.map { "\(Int($0.rounded()))" } ?? "RIR")
                             .font(.system(size: 15, weight: .semibold).monospacedDigit())
                             .foregroundStyle(row.rir == nil ? OG.label3 : OG.label)
                             .frame(width: 56, height: 48)

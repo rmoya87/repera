@@ -240,7 +240,7 @@ public enum SessionReviewEngine {
                 level = .beginner
             }
             let score = continuousTimeScore(elapsed: elapsed, bands: bands)
-            let summary = "Referencia \(level.label): \(formatSeconds(elapsed)) (bandas de catálogo)."
+            let summary = "Tu tiempo: \(formatSeconds(elapsed))."
             return (level, score, summary)
         }
 
@@ -256,11 +256,11 @@ public enum SessionReviewEngine {
                 level = .beginner
             }
             let score = continuousRoundsScore(rounds: rounds, bands: bands)
-            let summary = "Referencia \(level.label): \(formatRounds(rounds)) (bandas de catálogo)."
+            let summary = "Completaste \(formatRounds(rounds))."
             return (level, score, summary)
         }
 
-        return (.intermediate, 6, "Sin bandas aplicables; nota media.")
+        return (.intermediate, 6, "Sin referencia clara; nota media orientativa.")
     }
 
     private static func mapLevelFromTypical(
@@ -760,19 +760,19 @@ public enum SessionReviewEngine {
             let refs = nonEmptySimilarRefs(movements)
             let tip: String = {
                 if adj >= 2 {
-                    return refs.map { "Tu rendimiento en similares (\($0)) está claramente por encima." }
-                        ?? "Tu rendimiento en movimientos similares está claramente por encima."
+                    return refs.map { "En \($0) vas claramente mejor que en tus sesiones parecidas." }
+                        ?? "Vas claramente mejor que en tus sesiones parecidas."
                 }
                 if adj == 1 {
-                    return refs.map { "Tu rendimiento en similares (\($0)) está por encima." }
-                        ?? "Tu rendimiento en movimientos similares está por encima."
+                    return refs.map { "En \($0) vas un poco mejor que de costumbre." }
+                        ?? "Vas un poco mejor que de costumbre."
                 }
                 if adj <= -2 {
-                    return refs.map { "Tu rendimiento en similares (\($0)) está claramente por debajo." }
-                        ?? "Tu rendimiento en movimientos similares está claramente por debajo."
+                    return refs.map { "En \($0) estás bastante por debajo de tus marcas habituales." }
+                        ?? "Estás bastante por debajo de tus marcas habituales."
                 }
-                return refs.map { "Tu rendimiento en similares (\($0)) está por debajo." }
-                    ?? "Tu rendimiento en movimientos similares está por debajo."
+                return refs.map { "En \($0) estás un poco por debajo de lo habitual." }
+                    ?? "Estás un poco por debajo de lo habitual."
             }()
             if adj > 0 { keep.append(tip) } else { improve.append(tip) }
             // Prioriza explicar tu rendimiento personal junto al PR de WOD.
@@ -782,7 +782,7 @@ public enum SessionReviewEngine {
                 history = tip
             }
         } else if movements.contains(where: { $0.performanceRatio != nil }) {
-            let tip = "Tu rendimiento en movimientos similares está en línea con tu historial."
+            let tip = "En línea con lo que sueles hacer en movimientos parecidos."
             if history == nil || history?.contains("Primer intento") == true {
                 history = tip
             }

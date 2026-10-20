@@ -137,6 +137,21 @@ final class HealthKitStore {
                 || (activeEnergyKcal ?? 0) > 0
         }
 
+        /// FC, ruta o ritmo: señales que solo vienen de Salud, no del JSON de Repera.
+        var hasAuthenticSaludMetrics: Bool {
+            !heartRateSeries.isEmpty
+                || averageHeartRateBpm != nil
+                || showRouteMap
+                || (averageSpeedKmh ?? 0) > 0
+        }
+
+        /// Origen externo (Watch / otra app). El workout escrito por Repera no cuenta.
+        var hasExternalSaludSource: Bool {
+            guard let name = sourceName?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !name.isEmpty else { return false }
+            return !name.localizedCaseInsensitiveContains("repera")
+        }
+
         /// Usa la kcal guardada en la sesión (resumen / Inicio) si es válida.
         func preferringEnergy(_ sessionKcal: Double?) -> SessionHealthExtras {
             guard let sessionKcal, sessionKcal > 0 else { return self }

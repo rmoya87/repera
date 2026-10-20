@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-20 (ogPinnedTransparentNav + avatar glass)
+Última actualización: 2026-10-20 (filas Inicio/Historial compartidas)
 
 ## Visión
 
@@ -139,8 +139,9 @@ La pestaña Diario prioriza **Entrenador** y conserva **Personal · Rutinas** co
 - `ogFixedTopBar` / `OGFixedTopBar`: título arriba del todo; acciones en la misma fila (roots sin franja vacía)
 - `OGCardSectionTitle`: título gris encima de la card (estilo Ajustes)
 - Botones glass: `OGToolbarGlassButton` (`appliesGlass: false` en `.toolbar` del sistema)
-- Sheets: `ogFittedSheet` / `ogSheetCorners` (radio 38 + **liquid glass** de fondo)
+- Sheets: `ogFittedSheet` / `ogSheetCorners` (radio continuo 44 + **liquid glass** de fondo; estilo sheet nativo iPhone)
 - Confirmaciones (eliminar, vaciar…): `OGConfirmSheet` (mismo glass)
+- Filas Inicio/Historial: `OGRegisterLeadingIcon` + `OGRegisterChip` / `OGRegisterChipsRow` (`RegisterSessionChrome.swift`); minutos de chip = `WorkoutSession.displayDurationMinutes` (inicio→fin)
 
 ## Datos y sync
 
@@ -194,7 +195,7 @@ Guía manual: [TESTING_GUIDE.md](TESTING_GUIDE.md).
 `BusinessDataStore.swift` es un overlay `@Observable` alimentado por Supabase SDK autenticado. `CenterView` lee Clases/Citas, bonos y reservas; `FindCenterTrainerView` / `LinkedCenterDetailView` gestionan directorio, vínculo, bono y desvinculación; `MessagesInboxView` mensajes bidireccionales. Migración `org_directory_avatar_messaging`: `avatar_url`, directorio, `request_org_athlete_link`, `leave_org_as_athlete`, `athlete_send_org_message`. No se fusiona con el JSON local ni iCloud.
 
 ## Puente de identidad iOS/Repera Business
-`BusinessAuthStore.swift` usa SDK `supabase-swift` (2.55.4 exacta). Tras autorización Apple con nonce SHA-256, intenta obtener una sesión Supabase sin interferir con `AppleAuthStore`, `ReperaStore` local ni sincronización iCloud. La sesión Apple (Keychain) es la puerta de la app; Supabase es opcional y un fallo de red/proyecto no invalida SIWA ni re-muestra el login. La preferencia «seguir en local» (`continueLocalOnly`) se persiste para no repetir el muro de migración tras cada update. «Sincronizar ahora» también dispara el espejo privado de entrenamientos (`BusinessWorkoutSyncStore`).
+`BusinessAuthStore.swift` usa SDK `supabase-swift` (2.55.4 exacta). **Primer login = Apple id_token + nonce → `signInWithIdToken` Supabase**. Arranque: onboarding + (`isConnected` | refresh Keychain | binding) → `RootTabView`, aunque Apple Keychain esté vacío (p. ej. wipe histórico por `.revoked` espurio). Identidad Apple se espeja en UserDefaults; no se borra Keychain en `getCredentialState(.revoked)`. Trazas: Consola `com.app.repera` / `AuthSession` y DEBUG `🔐 AUTH`.
 
 ## Plataforma profesional (desarrollo separado dentro del monorepo)
 

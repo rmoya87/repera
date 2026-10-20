@@ -1,6 +1,7 @@
 import AuthenticationServices
 import Foundation
 import Observation
+import ReperaDomain
 import Security
 import UIKit
 
@@ -25,6 +26,11 @@ final class AppleAuthStore: NSObject {
     private let userIDKey = "userID"
     private let nameKey = "displayName"
     private let emailKey = "email"
+    /// Espejo durable: `getCredentialState(.revoked)` en sim/device a veces borraba Keychain
+    /// y dejaba Supabase vivo → Bienvenido eterno. UserDefaults sobrevive ese wipe.
+    private let defaultsUserIDKey = "repera.apple.userID.v1"
+    private let defaultsNameKey = "repera.apple.displayName.v1"
+    private let defaultsEmailKey = "repera.apple.email.v1"
 
     private var continuityContinuation: CheckedContinuation<ASAuthorization, Error>?
 
@@ -53,12 +59,14 @@ final class AppleAuthStore: NSObject {
             case .authorized, .transferred:
                 credentialState = remote
             case .revoked:
-                // Solo Apple «revocado» borra identidad local. No mezclar con .notFound
-                // (flaky tras actualizar builds / reinicios) — eso forzaba login otra vez.
-                clearSession(keepKeychain: false)
-                credentialState = .revoked
+                // NUNCA borrar Keychain/UserDefaults aquí. En Simulator (y a veces tras
+                // update) Apple reporta revoked de forma espuria; borrar forzaba login
+                // aunque Supabase/binding siguieran vivos.
+                credentialState = .authorized
+                lastErrorMessage = nil
+                AuthSessionTrace.event("credentialState revoked→keep identity (no wipe)")
             case .notFound:
-                // Conservar Keychain: tras update/reinstall parcial Apple a veces
+                // Conservar identidad: tras update/reinstall parcial Apple a veces
                 // responde notFound aunque el usuario siga vinculado.
                 credentialState = .authorized
                 lastErrorMessage = nil
@@ -79,14 +87,19 @@ final class AppleAuthStore: NSObject {
         if userID == nil {
             loadFromKeychain()
         }
-        // Optimista: con userID en Keychain ya somos "signed in" mientras Apple responde.
+        AuthSessionTrace.event(
+            "ensureValidSession after load userID=\(userID != nil) state=\(String(describing: credentialState))"
+        )
+        // Optimista: con userID local ya somos "signed in" mientras Apple responde.
         if userID != nil,
            credentialState != .authorized,
-           credentialState != .transferred,
-           credentialState != .revoked {
+           credentialState != .transferred {
             credentialState = .authorized
         }
         await refreshCredentialState()
+        AuthSessionTrace.event(
+            "ensureValidSession result signedIn=\(isSignedIn) state=\(String(describing: credentialState))"
+        )
         return isSignedIn
     }
 
@@ -119,15 +132,17 @@ final class AppleAuthStore: NSObject {
             throw AppleAuthError.accountMismatch
         }
         apply(credential: credential)
-        // La identidad Apple en Keychain basta para entrar a la app personal.
-        // Supabase/Business es opcional: un fallo de red o de proyecto no debe
-        // invalidar el login ni volver a pedir SIWA en el próximo arranque.
+        // Entrada a la app = Apple ID token → sesión Supabase. Los datos siguen
+        // en local/iCloud y se sincronizan con Supabase; sin sesión remota no hay acceso.
         let connected = await BusinessAuthStore.shared.connect(
             credential: credential,
             rawNonce: rawNonce
         )
         if !connected {
-            lastErrorMessage = BusinessAuthStore.shared.lastErrorMessage
+            let reason = BusinessAuthStore.shared.lastErrorMessage
+                ?? "No se pudo conectar con el servidor."
+            lastErrorMessage = reason
+            throw AppleAuthError.businessConnectionFailed(reason)
         }
     }
 
@@ -161,7 +176,7 @@ final class AppleAuthStore: NSObject {
             email = mail
         }
         credentialState = .authorized
-        persistToKeychain()
+        persistIdentity()
     }
 
     private func clearSession(keepKeychain: Bool) {
@@ -170,6 +185,10 @@ final class AppleAuthStore: NSObject {
         email = nil
         if !keepKeychain {
             deleteKeychain()
+            let defaults = UserDefaults.standard
+            defaults.removeObject(forKey: defaultsUserIDKey)
+            defaults.removeObject(forKey: defaultsNameKey)
+            defaults.removeObject(forKey: defaultsEmailKey)
         }
     }
 
@@ -177,13 +196,30 @@ final class AppleAuthStore: NSObject {
         userID = readKeychain(account: userIDKey)
         displayName = readKeychain(account: nameKey)
         email = readKeychain(account: emailKey)
+        // Fallback si Keychain se vació (revoked wipe histórico / flaky sim).
+        let defaults = UserDefaults.standard
+        if userID == nil, let backup = defaults.string(forKey: defaultsUserIDKey), !backup.isEmpty {
+            userID = backup
+            displayName = displayName ?? defaults.string(forKey: defaultsNameKey)
+            email = email ?? defaults.string(forKey: defaultsEmailKey)
+            persistToKeychainOnly()
+            AuthSessionTrace.event("loadFromKeychain restored userID from UserDefaults backup")
+        }
         // Restaurar UI/gates al arrancar sin esperar a getCredentialState.
         if userID != nil {
             credentialState = .authorized
         }
     }
 
-    private func persistToKeychain() {
+    private func persistIdentity() {
+        persistToKeychainOnly()
+        let defaults = UserDefaults.standard
+        if let userID { defaults.set(userID, forKey: defaultsUserIDKey) }
+        if let displayName { defaults.set(displayName, forKey: defaultsNameKey) }
+        if let email { defaults.set(email, forKey: defaultsEmailKey) }
+    }
+
+    private func persistToKeychainOnly() {
         if let userID { writeKeychain(account: userIDKey, value: userID) }
         if let displayName { writeKeychain(account: nameKey, value: displayName) }
         if let email { writeKeychain(account: emailKey, value: email) }

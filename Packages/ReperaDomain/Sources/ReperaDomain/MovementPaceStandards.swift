@@ -373,7 +373,14 @@ public enum WODPaceEstimator {
         }()
 
         let midRef = Int(intermediate.rounded())
-        let summary = "Esperado ~\(formatSeconds(midRef)) (intermedio) · tú \(formatSeconds(elapsedSeconds)) → \(level.label)."
+        let yours = formatSeconds(elapsedSeconds)
+        let ref = formatSeconds(midRef)
+        let summary: String = {
+            if elapsedSeconds <= midRef {
+                return "Hiciste \(yours); un ritmo intermedio suele ir a ~\(ref)."
+            }
+            return "Hiciste \(yours); el ritmo intermedio de referencia está en ~\(ref)."
+        }()
         return (level, score, summary)
     }
 
@@ -413,12 +420,14 @@ public enum WODPaceEstimator {
         }()
 
         let midRef = intermediate
-        let summary = String(
-            format: "Esperado ~%.0f rondas (intermedio) · tú %.1f → %@.",
-            midRef,
-            rounds,
-            level.label
-        )
+        let yours = formatRounds(rounds)
+        let ref = formatRounds(midRef)
+        let summary: String = {
+            if rounds >= midRef {
+                return "Completaste \(yours); un ritmo intermedio suele hacer ~\(ref)."
+            }
+            return "Completaste \(yours); el ritmo intermedio de referencia está en ~\(ref)."
+        }()
         return (level, score, summary)
     }
 
@@ -452,5 +461,12 @@ public enum WODPaceEstimator {
         let m = total / 60
         let s = abs(total) % 60
         return String(format: "%d:%02d", m, s)
+    }
+
+    private static func formatRounds(_ value: Double) -> String {
+        if abs(value - value.rounded()) < 0.05 {
+            return "\(Int(value.rounded()))"
+        }
+        return String(format: "%.1f", value)
     }
 }

@@ -42,15 +42,10 @@ struct ReperaApp: App {
                     LaunchSplashView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .ignoresSafeArea()
-                } else if uiTestTabShell || (onboarding.isComplete && appleAuth.isSignedIn) {
-                    if !uiTestTabShell && businessAuth.isMigrationRequired && !businessAuth.prefersLocalOnly {
-                        LegacyAccountMigrationView {
-                            businessAuth.setPrefersLocalOnly(true)
-                        }
-                    } else {
-                        RootTabView()
-                    }
+                } else if uiTestTabShell || canEnterMainApp {
+                    RootTabView()
                 } else {
+                    // Login normal (Bienvenido + SIWA). Sin pantalla intermedia de «Confirma tu cuenta».
                     OnboardingFlowView()
                 }
             }
@@ -84,9 +79,47 @@ struct ReperaApp: App {
                     store.bootstrap()
                     wireSubscriptionGates()
 
-                    let signedIn = await appleAuth.ensureValidSession()
-                    onboarding.reconcile(isSignedIn: signedIn)
+                    let appleOK = await appleAuth.ensureValidSession()
+                    AuthSessionTrace.event(
+                        "launch appleOK=\(appleOK) signedIn=\(appleAuth.isSignedIn) cache=\(businessAuth.hasCachedSupabaseSession) binding=\(businessAuth.hasPriorSupabaseBinding) connected=\(businessAuth.isConnected) onboardingDone=\(onboarding.isComplete) priceSeen=\(onboarding.priceAlreadySeen)"
+                    )
+                    // Restaurar Supabase aunque falle Apple local: las trazas mostraron
+                    // cache=true binding=true con userID=false → antes se saltaba restore.
+                    if appleOK
+                        || businessAuth.hasCachedSupabaseSession
+                        || businessAuth.hasPriorSupabaseBinding
+                    {
+                        await businessAuth.restoreSession()
+                        if !businessAuth.isConnected {
+                            _ = businessAuth.connectFromCachedSessionIfPossible()
+                        }
+                    }
+                    // Nunca forzar sheet SIWA en splash. Binding previo → tabs aunque
+                    // el SDK haya borrado el refresh tras un refresh fallido.
+                    let onboardingFinished = onboarding.isComplete || onboarding.priceAlreadySeen
+                    let decision = AuthSessionLaunchPolicy.decide(
+                        .init(
+                            appleSignedIn: appleAuth.isSignedIn,
+                            hasCachedSupabaseSession: businessAuth.hasCachedSupabaseSession,
+                            isConnected: businessAuth.isConnected,
+                            hasPriorSupabaseBinding: businessAuth.hasPriorSupabaseBinding,
+                            onboardingFinished: onboardingFinished
+                        )
+                    )
+                    AuthSessionTrace.event(
+                        "launch decision=\(decision) interactiveSIWA=\(AuthSessionLaunchPolicy.shouldPresentInteractiveAppleSignIn(appleSignedIn: appleAuth.isSignedIn, isConnected: businessAuth.isConnected, hasCachedSupabaseSession: businessAuth.hasCachedSupabaseSession, hasPriorSupabaseBinding: businessAuth.hasPriorSupabaseBinding))"
+                    )
+                    if decision == .enterApp {
+                        _ = businessAuth.connectFromCachedSessionIfPossible()
+                        onboarding.reconcile(isSignedIn: true)
+                        if onboardingFinished { onboarding.advance(to: .done) }
+                    } else {
+                        onboarding.reconcile(isSignedIn: false)
+                    }
                     authReady = true
+                    AuthSessionTrace.event(
+                        "launch authReady canEnter=\(canEnterMainApp) connected=\(businessAuth.isConnected) cache=\(businessAuth.hasCachedSupabaseSession) binding=\(businessAuth.hasPriorSupabaseBinding)"
+                    )
 
                     // Suscripciones en paralelo — no bloquean el primer frame ni Health.
                     Task(priority: .utility) {
@@ -94,18 +127,18 @@ struct ReperaApp: App {
                         wireSubscriptionGates()
                     }
 
-                    if signedIn {
+                    if canEnterMainApp {
                         Task(priority: .utility) {
-                            await businessAuth.restoreSession()
-                            if businessAuth.isConnected {
-                                await businessAuth.migrateLocalProfileIfNeeded(
-                                    displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName
-                                )
-                                await businessData.refresh()
-                                await workoutSync.sync(store: store)
-                                wireSubscriptionGates()
-                            }
+                            await businessAuth.syncPublicProfile(
+                                displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName,
+                                avatarJPEG: store.state.settings.profileAvatarJPEG
+                            )
+                            await businessData.refresh()
+                            await workoutSync.sync(store: store)
+                            wireSubscriptionGates()
                         }
+                        await warmHealthAfterHydrate()
+                    } else if appleAuth.isSignedIn {
                         await warmHealthAfterHydrate()
                     }
                 }
@@ -163,6 +196,19 @@ struct ReperaApp: App {
                     )
                 }
         }
+    }
+
+    /// Apple + (Supabase viva | cache | binding previo) + onboarding hecho.
+    private var canEnterMainApp: Bool {
+        AuthSessionLaunchPolicy.decide(
+            .init(
+                appleSignedIn: appleAuth.isSignedIn,
+                hasCachedSupabaseSession: businessAuth.hasCachedSupabaseSession,
+                isConnected: businessAuth.isConnected,
+                hasPriorSupabaseBinding: businessAuth.hasPriorSupabaseBinding,
+                onboardingFinished: onboarding.isComplete || onboarding.priceAlreadySeen
+            )
+        ) == .enterApp
     }
 
     private func wireSubscriptionGates() {

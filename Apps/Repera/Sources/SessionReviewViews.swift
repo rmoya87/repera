@@ -40,30 +40,28 @@ struct SessionReviewCard: View {
             || !review.movements.isEmpty
     }
 
-    /// Texto corto: nivel + en qué se basa (esperado vs tú / tu historial), sin jerga técnica.
+    /// Una o dos frases claras: nivel + comparación de tiempo/rondas + historial personal.
     private var blurb: String {
-        var parts: [String] = []
+        var sentences: [String] = []
         if let level = review.levelLabel {
-            parts.append(level)
+            sentences.append(level + ".")
         }
-        if let standard = review.vsStandardSummary {
-            parts.append(standard.replacingOccurrences(of: "Referencia ", with: ""))
+        if let standard = review.vsStandardSummary?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !standard.isEmpty {
+            sentences.append(standard.hasSuffix(".") ? standard : standard + ".")
         }
-        if let history = review.vsHistorySummary {
-            // Evitar duplicar si el estándar ya lo incluye.
-            if standardOmits(history) {
-                parts.append(history)
-            }
-        } else if parts.count <= 1 {
-            if let basis = review.scoreBasis {
-                parts.append(basis.blurbLabel)
-            } else if !review.movements.isEmpty {
-                parts.append("Según movimientos de la sesión.")
-            } else {
-                parts.append("Valoración de la sesión.")
+        if let history = review.vsHistorySummary?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !history.isEmpty,
+           standardOmits(history) {
+            sentences.append(history.hasSuffix(".") ? history : history + ".")
+        } else if sentences.count <= 1 {
+            if !review.movements.isEmpty {
+                sentences.append("Según cómo fueron los movimientos de la sesión.")
+            } else if review.scoreBasis != nil {
+                sentences.append("Valoración orientativa de esta sesión.")
             }
         }
-        return parts.joined(separator: " · ")
+        return sentences.joined(separator: " ")
     }
 
     private func standardOmits(_ history: String) -> Bool {

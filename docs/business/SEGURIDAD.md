@@ -1,9 +1,9 @@
 # Seguridad multiempresa — Repera
-Última actualización: 2026-10-19.
+Última actualización: 2026-10-20 (avatar profiles).
 
 ## Controles implantados
 - RLS en **todas las once** tablas publicadas, política explícita `TO authenticated` y predicados de propietario / membresía.
-- `profiles.role` no depende de `raw_user_meta_data` y la API solo dispone de UPDATE(display_name); no autoascenso.
+- `profiles.role` no depende de `raw_user_meta_data` y la API solo dispone de UPDATE(`display_name`, `avatar_url`); no autoascenso. Avatares en bucket `profile-avatars` solo escritura en carpeta `auth.uid()`.
 - Todas las funciones SECURITY DEFINER del baseline viven en esquema **private** con `search_path=''`; no se publica una función privilegiada en `public`.
 - Helper de membresía solo devuelve booleano asociado a `auth.uid()`, exige membresía activa, y no expone filas privadas.
 - Trigger de alta de organización asigna propietario sin permitir INSERT arbitrario en membresías.

@@ -11,7 +11,6 @@ struct HomeView: View {
     /// Abre el preview / inicio de un entreno concreto (p. ej. suelto del viernes).
     var onStartRoutine: (Routine) -> Void = { _ in }
     var onGoPlan: () -> Void
-    var onOpenStartHub: () -> Void
 
     /// 0 = semana actual; negativo = pasadas; positivo = futuras. Carrusel horizontal.
     @State private var weekOffset = 0
@@ -169,12 +168,6 @@ struct HomeView: View {
                     .accessibilityLabel("Mensajes con centro o entrenador")
                 }
 
-                OGToolbarGlassButton(
-                    systemName: "plus",
-                    accessibilityLabel: "Crear entreno, apuntar series o escanear pizarra",
-                    appliesGlass: true,
-                    action: onOpenStartHub
-                )
                 NavigationLink {
                     SettingsView()
                 } label: {
@@ -383,7 +376,7 @@ struct HomeView: View {
     private var weekAndDayCard: some View {
         let workouts = workoutsOnSelectedDay
         let durationMin = max(
-            workouts.reduce(0.0) { $0 + sessionMinutes($1) },
+            workouts.reduce(0.0) { $0 + $1.displayDurationMinutes },
             dayHealth.workoutMinutes ?? 0
         )
         let kcal = healthKcal(for: workouts, durationMin: durationMin)
@@ -521,7 +514,6 @@ struct HomeView: View {
 
     /// Entreno planificado del día (aún sin sesión hecha): mismo swipe de borrar que los registros.
     private func plannedDayCard(_ routine: Routine) -> some View {
-        let isToday = calendar.isDateInToday(selectedDay)
         return registerCardWithChipsOverlay(
             open: { onStartRoutine(routine) },
             accessibilityHint: "Toca para abrir el entreno. Desliza para borrarlo de este día.",
@@ -538,7 +530,7 @@ struct HomeView: View {
                     .frame(width: 44, height: 44)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(dayLabelWithTime(isToday: isToday, time: selectedDayTimeLabel))
+                        Text(WorkoutListCaption.dayTimeLine(for: selectedDay, time: selectedDayTimeLabel))
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(OG.label3)
                             .tracking(0.3)
@@ -555,20 +547,19 @@ struct HomeView: View {
             chips: {
                 let blockCount = routine.blocks.count
                 if blockCount > 0 {
-                    registerChip("\(blockCount) bloq.", icon: "square.stack.3d.up")
+                    OGRegisterChip(text: "\(blockCount) bloq.", icon: "square.stack.3d.up")
                 }
                 if let wod = routine.blocks.first(where: { $0.kind == .wod }) {
-                    registerChip(wod.headerLabel, icon: "timer")
+                    OGRegisterChip(text: wod.headerLabel, icon: "timer")
                 }
             }
         )
     }
 
     private func dayWorkoutCard(_ session: WorkoutSession) -> some View {
-        let minutes = sessionMinutes(session)
+        let minutes = session.displayDurationMinutes
         let kcal = session.appleActiveEnergyKcal
         let prs = prCountBySessionId[session.id] ?? 0
-        let isToday = calendar.isDateInToday(selectedDay)
         return registerCardWithChipsOverlay(
             open: { openWorkoutId = session.id },
             accessibilityHint: "Toca para ver el detalle del entreno",
@@ -576,19 +567,19 @@ struct HomeView: View {
             onDelete: { workoutPendingDelete = session },
             title: {
                 HStack(alignment: .top, spacing: 12) {
-                    ZStack {
-                        Circle().fill(OG.accent.opacity(0.22))
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(OG.accent)
-                    }
-                    .frame(width: 44, height: 44)
+                    OGRegisterLeadingIcon(
+                        systemName: "figure.strengthtraining.traditional",
+                        tint: OG.accent
+                    )
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(dayLabelWithTime(isToday: isToday, time: session.startedAt.map(SpanishDate.time)))
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(OG.label3)
-                            .tracking(0.3)
+                        Text(WorkoutListCaption.dayTimeLine(
+                            for: selectedDay,
+                            time: session.startedAt.map(SpanishDate.time)
+                        ))
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(OG.label3)
+                        .tracking(0.3)
                         Text(session.title)
                             .font(.system(size: 17, weight: .medium))
                             .foregroundStyle(OG.label)
@@ -601,23 +592,22 @@ struct HomeView: View {
             },
             chips: {
                 if minutes > 0 {
-                    registerChip("\(Int(minutes.rounded())) min", icon: "timer")
+                    OGRegisterChip(text: "\(Int(minutes.rounded())) min", icon: "timer")
                 }
                 if let kcal, kcal > 0 {
-                    registerChip("\(Int(kcal.rounded())) kcal", icon: "flame.fill")
+                    OGRegisterChip(text: "\(Int(kcal.rounded())) kcal", icon: "flame.fill")
                 }
                 if let review = session.sessionReview {
-                    registerChip(review.scoreLabel, icon: review.scoreSymbolName)
+                    OGRegisterChip(text: review.scoreLabel, icon: review.scoreSymbolName)
                 }
                 if prs > 0 {
-                    registerChip("\(prs) PR", icon: "trophy.fill")
+                    OGRegisterChip(text: "\(prs) PR", icon: "trophy.fill")
                 }
             }
         )
     }
 
     private func healthActivityCard(_ activity: HealthKitStore.ExternalActivity) -> some View {
-        let isToday = calendar.isDateInToday(selectedDay)
         return registerCardWithChipsOverlay(
             open: { openHealthActivityId = activity.id },
             accessibilityHint: "Toca para ver el detalle de la actividad",
@@ -625,19 +615,16 @@ struct HomeView: View {
             onDelete: { healthPendingDelete = activity },
             title: {
                 HStack(alignment: .top, spacing: 12) {
-                    ZStack {
-                        Circle().fill(OG.red.opacity(0.22))
-                        Image(systemName: activity.symbolName)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(OG.red)
-                    }
-                    .frame(width: 44, height: 44)
+                    OGRegisterLeadingIcon(systemName: activity.symbolName, tint: OG.red)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(dayLabelWithTime(isToday: isToday, time: SpanishDate.time(activity.start)))
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(OG.label3)
-                            .tracking(0.3)
+                        Text(WorkoutListCaption.dayTimeLine(
+                            for: selectedDay,
+                            time: SpanishDate.time(activity.start)
+                        ))
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(OG.label3)
+                        .tracking(0.3)
                         Text(activity.title)
                             .font(.system(size: 17, weight: .medium))
                             .foregroundStyle(OG.label)
@@ -649,12 +636,12 @@ struct HomeView: View {
                 .padding(.horizontal, Self.registerCardPad)
             },
             chips: {
-                registerChip("Salud", icon: "heart.fill")
+                OGRegisterChip(text: "Salud", icon: "heart.fill")
                 if activity.durationMinutes > 0 {
-                    registerChip("\(Int(activity.durationMinutes.rounded())) min", icon: "timer")
+                    OGRegisterChip(text: "\(Int(activity.durationMinutes.rounded())) min", icon: "timer")
                 }
                 if let kcal = activity.activeEnergyKcal, kcal > 0 {
-                    registerChip("\(Int(kcal.rounded())) kcal", icon: "flame.fill")
+                    OGRegisterChip(text: "\(Int(kcal.rounded())) kcal", icon: "flame.fill")
                 }
             }
         )
@@ -674,7 +661,11 @@ struct HomeView: View {
             onDelete: onDelete,
             deleteAccessibilityLabel: deleteLabel,
             title: title,
-            chips: { registerChipsRow(content: chips) }
+            chips: {
+                OGRegisterChipsRow(leadingInset: Self.chipsTitleLeading) {
+                    chips()
+                }
+            }
         )
         .accessibilityHint(accessibilityHint)
     }
@@ -718,35 +709,6 @@ struct HomeView: View {
     private static let registerCardPad: CGFloat = 14
     /// Card pad + icono 44 + gap 12 → chips alineados al título en reposo.
     private static let chipsTitleLeading: CGFloat = registerCardPad + 44 + 12
-
-    /// Carrusel edge-to-edge; sin gesto de borrar (vive en el título de `RegisterSwipeRevealCard`).
-    @ViewBuilder
-    private func registerChipsRow(@ViewBuilder content: () -> some View) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                content()
-            }
-            .padding(.leading, Self.chipsTitleLeading)
-        }
-        .contentMargins(.horizontal, 0, for: .scrollContent)
-        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func registerChip(_ text: String, icon: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 10, weight: .semibold))
-            Text(text)
-                .font(.system(size: 11, weight: .semibold))
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-        }
-        .foregroundStyle(OG.label2)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(OG.surface3.opacity(0.65), in: Capsule())
-    }
 
     private func startPlannedDayIfPossible() {
         if calendar.isDateInToday(selectedDay), store.hasActiveSession {
@@ -803,7 +765,7 @@ struct HomeView: View {
                         .foregroundStyle(todayIconFg)
                 }
             VStack(alignment: .leading, spacing: 2) {
-                Text(dayLabelWithTime(isToday: isToday, time: selectedDayTimeLabel))
+                Text(WorkoutListCaption.dayTimeLine(for: selectedDay, time: selectedDayTimeLabel))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(OG.label3)
                     .tracking(0.3)
@@ -1015,19 +977,6 @@ struct HomeView: View {
         return nil
     }
 
-    private var dayHeaderLabel: String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "es_ES")
-        f.setLocalizedDateFormatFromTemplate("EEEE")
-        return f.string(from: selectedDay)
-    }
-
-    private func dayLabelWithTime(isToday: Bool, time: String?) -> String {
-        let day = isToday ? "ENTRENO" : dayHeaderLabel.uppercased()
-        guard let time, !time.isEmpty else { return day }
-        return "\(day) · \(time)"
-    }
-
     private var todayIconBg: Color {
         if calendar.isDateInToday(selectedDay), store.hasActiveSession { return OG.orange }
         if calendar.isDateInToday(selectedDay), store.routineForToday() != nil { return OG.accent }
@@ -1047,16 +996,6 @@ struct HomeView: View {
         if hasCompletedActivityOnSelectedDay { return "checkmark" }
         if plannedTitleForSelectedDay != nil { return "figure.strengthtraining.traditional" }
         return "moon.fill"
-    }
-
-    /// Minutos del chip: inicio→fin del registro (no el time-cap usado solo para estimar kcal).
-    private func sessionMinutes(_ session: WorkoutSession) -> Double {
-        if let start = session.startedAt {
-            let end = session.finishedAt ?? start.addingTimeInterval(60)
-            let wall = max(0, end.timeIntervalSince(start) / 60)
-            if wall > 0 { return wall }
-        }
-        return session.durationMinutes
     }
 
     /// Tile del día: max(energía activa Salud del día, suma de chips del día).

@@ -162,9 +162,8 @@ struct LibraryView: View {
             .sheet(isPresented: $showFilter) {
                 filterSheet
             }
-            .sheet(isPresented: $showingAdd) {
-                addExerciseSheet
-                    .ogSheetChrome(detents: [.medium, .large])
+            .navigationDestination(isPresented: $showingAdd) {
+                addExercisePage
             }
         }
     }
@@ -242,73 +241,71 @@ struct LibraryView: View {
             }
     }
 
-    private var addExerciseSheet: some View {
-        NavigationStack {
-            Form {
-                Section("Básico") {
-                    TextField("Nombre", text: $name)
-                    Picker("Grupo muscular", selection: $muscle) {
-                        ForEach(muscles, id: \.self) { Text($0).tag($0) }
-                    }
-                    TextField("Equipamiento (barra, mancuernas…)", text: $equipment)
+    /// Página push (no sheet): mismo patrón que el resto de subpáginas de Ejercicios.
+    private var addExercisePage: some View {
+        Form {
+            Section("Básico") {
+                TextField("Nombre", text: $name)
+                Picker("Grupo muscular", selection: $muscle) {
+                    ForEach(muscles, id: \.self) { Text($0).tag($0) }
                 }
-                Section("Detalle") {
-                    TextField("Músculo objetivo", text: $targetMuscle)
-                    TextField("Parte del cuerpo", text: $bodyPart)
-                    TextField("Secundarios (separados por coma)", text: $secondaryText)
-                    TextField("Descripción", text: $detailDescription, axis: .vertical)
-                        .lineLimit(3...6)
-                }
-                Section("Instrucciones") {
-                    TextField("Un paso por línea", text: $instructionsText, axis: .vertical)
-                        .lineLimit(4...10)
-                }
+                TextField("Equipamiento (barra, mancuernas…)", text: $equipment)
             }
-            .listStyle(.insetGrouped)
-            .ogListChrome()
-            .navigationTitle("Nuevo ejercicio")
-            .navigationBarTitleDisplayMode(.inline)
-            .ogTransparentNav()
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { showingAdd = false }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Añadir") {
-                        let secondary = secondaryText
-                            .split(separator: ",")
-                            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                            .filter { !$0.isEmpty }
-                        let instructions = instructionsText
-                            .split(whereSeparator: \.isNewline)
-                            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                            .filter { !$0.isEmpty }
-                        let ok = store.addCustomExercise(
-                            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-                            muscleGroup: muscle,
-                            equipment: equipment.isEmpty ? nil : equipment,
-                            targetMuscle: targetMuscle.isEmpty ? nil : targetMuscle,
-                            secondaryMuscles: secondary,
-                            bodyPart: bodyPart.isEmpty ? nil : bodyPart,
-                            detailDescription: detailDescription.isEmpty ? nil : detailDescription,
-                            instructions: instructions
+            Section("Detalle") {
+                TextField("Músculo objetivo", text: $targetMuscle)
+                TextField("Parte del cuerpo", text: $bodyPart)
+                TextField("Secundarios (separados por coma)", text: $secondaryText)
+                TextField("Descripción", text: $detailDescription, axis: .vertical)
+                    .lineLimit(3...6)
+            }
+            Section("Instrucciones") {
+                TextField("Un paso por línea", text: $instructionsText, axis: .vertical)
+                    .lineLimit(4...10)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .ogListChrome()
+        .ogPinnedTransparentNav("Nuevo ejercicio")
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Añadir") {
+                    let secondary = secondaryText
+                        .split(separator: ",")
+                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        .filter { !$0.isEmpty }
+                    let instructions = instructionsText
+                        .split(whereSeparator: \.isNewline)
+                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        .filter { !$0.isEmpty }
+                    let ok = store.addCustomExercise(
+                        name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+                        muscleGroup: muscle,
+                        equipment: equipment.isEmpty ? nil : equipment,
+                        targetMuscle: targetMuscle.isEmpty ? nil : targetMuscle,
+                        secondaryMuscles: secondary,
+                        bodyPart: bodyPart.isEmpty ? nil : bodyPart,
+                        detailDescription: detailDescription.isEmpty ? nil : detailDescription,
+                        instructions: instructions
+                    )
+                    if ok {
+                        resetAddForm()
+                        showingAdd = false
+                    } else {
+                        showingAdd = false
+                        let decision = store.lastAccessDenial
+                            ?? subscriptions.canCreateCustomExercise(isNew: true)
+                        subscriptions.presentPaywall(
+                            decision.paywallContext,
+                            feature: .unlimitedCustomExercises
                         )
-                        if ok {
-                            resetAddForm()
-                            showingAdd = false
-                        } else {
-                            showingAdd = false
-                            let decision = store.lastAccessDenial
-                                ?? subscriptions.canCreateCustomExercise(isNew: true)
-                            subscriptions.presentPaywall(
-                                decision.paywallContext,
-                                feature: .unlimitedCustomExercises
-                            )
-                        }
                     }
-                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
+                .fontWeight(.semibold)
+                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
+        }
+        .onDisappear {
+            resetAddForm()
         }
     }
 

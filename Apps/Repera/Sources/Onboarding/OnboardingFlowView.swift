@@ -21,15 +21,31 @@ struct OnboardingFlowView: View {
             case .permissions:
                 OnboardingPermissionsStep()
             case .done:
-                OG.bg
+                // Si aún no hay tabs (falta Supabase), volver al login — nunca un spinner eterno.
+                OnboardingSignInStep()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(OG.bg.ignoresSafeArea())
         .task {
-            _ = await appleAuth.ensureValidSession()
-            onboarding.reconcile(isSignedIn: appleAuth.isSignedIn)
-            if appleAuth.isSignedIn {
+            let appleOK = await appleAuth.ensureValidSession()
+            let business = BusinessAuthStore.shared
+            if appleOK && !business.isConnected {
+                await business.restoreSession()
+                if !business.isConnected {
+                    _ = business.connectFromCachedSessionIfPossible()
+                }
+            }
+            // Misma regla que ReperaApp: cache o binding previo cuentan (no solo isConnected).
+            let businessOK = business.isConnected
+                || business.hasCachedSupabaseSession
+                || business.hasPriorSupabaseBinding
+            let ok = appleOK && businessOK
+            AuthSessionTrace.event(
+                "onboardingFlow reconcile ok=\(ok) apple=\(appleOK) connected=\(business.isConnected) cache=\(business.hasCachedSupabaseSession) binding=\(business.hasPriorSupabaseBinding)"
+            )
+            onboarding.reconcile(isSignedIn: ok)
+            if appleOK {
                 await store.refreshFromiCloud(isInitial: true)
             }
         }
@@ -115,8 +131,11 @@ private struct OnboardingSignInStep: View {
         }
         .padding(.horizontal, OG.pad)
         .onAppear {
-            // Si Keychain ya tiene sesión (p. ej. tras actualizar), no pedir SIWA otra vez.
-            if appleAuth.isSignedIn {
+            let business = BusinessAuthStore.shared
+            let businessOK = business.isConnected
+                || business.hasCachedSupabaseSession
+                || business.hasPriorSupabaseBinding
+            if appleAuth.isSignedIn && businessOK {
                 onboarding.reconcile(isSignedIn: true)
             }
         }
@@ -137,10 +156,15 @@ private struct OnboardingSignInStep: View {
             await store.refreshFromiCloud(isInitial: true)
             // Existing Apple/iCloud members keep their local history, while
             // their public profile name is copied into their Supabase identity.
-            await BusinessAuthStore.shared.migrateLocalProfileIfNeeded(
-                displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName
+            await BusinessAuthStore.shared.syncPublicProfile(
+                displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName,
+                avatarJPEG: store.state.settings.profileAvatarJPEG
             )
-            onboarding.advance(to: .permissions)
+            // Ya vio onboarding / precios → entrar; si no, permisos (se saltan si ya están OK).
+            onboarding.reconcile(isSignedIn: BusinessAuthStore.shared.isConnected)
+            if onboarding.step == .appleSignIn {
+                onboarding.advance(to: .permissions)
+            }
         } catch let error as AppleAuthError where error == .cancelled {
             return
         } catch {
@@ -185,8 +209,36 @@ struct OnboardingPermissionsStep: View {
     @State private var notificationsStatus: UNAuthorizationStatus = .notDetermined
     @State private var healthBusy = false
     @State private var requesting = false
+    /// false hasta comprobar si ya están todos concedidos (evitar flash de la pantalla).
+    @State private var showPermissionsUI = false
 
     var body: some View {
+        Group {
+            if showPermissionsUI {
+                permissionsContent
+            } else {
+                Color.clear
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(OG.bg.ignoresSafeArea())
+            }
+        }
+        .task {
+            await refreshNotificationsStatus()
+            location.refreshStatus()
+            health.refreshAuthorizationStatus()
+            if allPermissionsGranted {
+                onboarding.finishPermissions()
+                return
+            }
+            showPermissionsUI = true
+        }
+    }
+
+    private var allPermissionsGranted: Bool {
+        notificationsGranted && health.isAuthorized && location.isAuthorized
+    }
+
+    private var permissionsContent: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack {
                 Spacer(minLength: 0)
@@ -205,7 +257,7 @@ struct OnboardingPermissionsStep: View {
             permissionRow(
                 title: "Notificaciones",
                 subtitle: "Aviso cuando termina el descanso",
-                symbol: "bell.fill",
+                symbol: "bell",
                 statusText: notificationsLabel,
                 isDone: notificationsGranted
             ) {
@@ -213,9 +265,9 @@ struct OnboardingPermissionsStep: View {
             }
 
             permissionRow(
-                title: "Apple Salud",
+                title: "Salud",
                 subtitle: "Calorías, tiempo y entrenos del Watch",
-                symbol: "heart.fill",
+                symbol: "heart",
                 statusText: health.isAuthorized ? "Conectado" : "Pendiente",
                 isDone: health.isAuthorized
             ) {
@@ -227,7 +279,7 @@ struct OnboardingPermissionsStep: View {
             permissionRow(
                 title: "Ubicación",
                 subtitle: "Pin del gym y ruta en entrenos outdoor",
-                symbol: "location.fill",
+                symbol: "location",
                 statusText: locationLabel,
                 isDone: location.isAuthorized
             ) {
@@ -259,11 +311,6 @@ struct OnboardingPermissionsStep: View {
         }
         .padding(.horizontal, OG.pad)
         .padding(.bottom, 28)
-        .task {
-            await refreshNotificationsStatus()
-            location.refreshStatus()
-            health.refreshAuthorizationStatus()
-        }
     }
 
     private var notificationsGranted: Bool {

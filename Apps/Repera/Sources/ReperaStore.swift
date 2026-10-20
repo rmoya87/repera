@@ -951,7 +951,7 @@ final class ReperaStore: NSObject {
     }
 
     /// Versión de la fórmula de Resultado; al subir, se recalculan todas las notas.
-    private static let sessionReviewFormulaVersion = 4
+    private static let sessionReviewFormulaVersion = 5
 
     /// Recomputa la review con la fórmula actual y la persiste.
     @discardableResult

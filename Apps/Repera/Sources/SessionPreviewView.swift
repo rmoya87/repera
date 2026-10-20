@@ -698,7 +698,7 @@ struct LogFinalResultsView: View {
                             }
                         }
                     } label: {
-                        Text(set.wrappedValue.rir.map { String(format: "%g", $0) } ?? "RIR")
+                        Text(set.wrappedValue.rir.map { "\(Int($0.rounded()))" } ?? "RIR")
                             .font(.system(size: 15, weight: .semibold).monospacedDigit())
                             .foregroundStyle(set.wrappedValue.rir == nil ? OG.label3 : OG.label)
                             .frame(width: 56, height: 48)

@@ -9,7 +9,7 @@ public enum BoardScanLiteParser {
     }
 
     public static func parse(ocrText: String, catalog: [Exercise] = []) -> Output {
-        let rawLines = ocrText
+        let rawLines = normalizeOCRNoise(ocrText)
             .components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -139,6 +139,39 @@ public enum BoardScanLiteParser {
         var interval: Int? = nil
     }
 
+    /// Vision a menudo pega tokens (`4RFf`, `8BOB`) o lee T→F (`RFF`).
+    public static func normalizeOCRNoise(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "’", with: "'")
+            .replacingOccurrences(of: "′", with: "'")
+            .replacingOccurrences(of: "‘", with: "'")
+            .replacingOccurrences(of: "×", with: "X")
+            // 4RFf / 4RFF / 4RFT → "4 RFT"
+            .replacingOccurrences(
+                of: #"(?i)(\d+)\s*RF[TF]\b"#,
+                with: "$1 RFT",
+                options: .regularExpression
+            )
+            // TC12 / TC12? → TC 12
+            .replacingOccurrences(
+                of: #"(?i)\bTC\s*[:=]?\s*(\d+)"#,
+                with: "TC $1",
+                options: .regularExpression
+            )
+            // 8BOB / 8BFB → "8 BOB"
+            .replacingOccurrences(
+                of: #"(?i)(\d+)(BOB|BFB)\b"#,
+                with: "$1 $2",
+                options: .regularExpression
+            )
+            // EVERY2'X4 → EVERY 2' X 4
+            .replacingOccurrences(
+                of: #"(?i)\b(EVERY|CADA)\s*(\d+)\s*'?\s*X\s*(\d+)\b"#,
+                with: "$1 $2' X $3",
+                options: .regularExpression
+            )
+    }
+
     private static func detectHeader(_ line: String) -> Header? {
         let upper = line.uppercased()
             .replacingOccurrences(of: "’", with: "'")
@@ -153,15 +186,24 @@ public enum BoardScanLiteParser {
             let mins = firstInt(upper) ?? 10
             return Header(title: line, format: .amrap, cap: mins)
         }
-        // 4 RFT (TC 12') → 4 rondas, límite 12 min. El primer 4 NO es el time cap.
-        if upper.range(of: #"^\d+\s*RFT\b"#, options: .regularExpression) != nil ||
-           upper.hasPrefix("RFT") || upper.contains("FOR TIME") {
-            let rounds = upper.range(of: #"^\d+\s*RFT\b"#, options: .regularExpression)
-                .flatMap { firstInt(String(upper[$0])) }
+        // 4 RFT (TC 12') — también OCR «4RFf(TC 12?» (T leída como F).
+        let rftMatch = upper.range(of: #"^\d+\s*RF[TF]\b"#, options: .regularExpression)
+        if rftMatch != nil || upper.hasPrefix("RFT") || upper.hasPrefix("RFF")
+            || upper.contains("FOR TIME")
+        {
+            let rounds = rftMatch.flatMap { firstInt(String(upper[$0])) }
+                ?? (upper.hasPrefix("RFT") || upper.hasPrefix("RFF") ? nil : firstInt(upper))
             let timeCap = upper.range(of: #"(?:TC|TIME\s*CAP|CAP)\s*[:=]?\s*\d+"#,
                                       options: .regularExpression)
-                .flatMap { firstInt(String(upper[$0]).filter { $0.isNumber }) }
-            return Header(title: line, format: .forTime, cap: timeCap, rounds: rounds)
+                .flatMap { firstInt(String(upper[$0]).filter(\.isNumber)) }
+            let title = rftMatch != nil
+                ? line.replacingOccurrences(
+                    of: #"(?i)(\d+)\s*RF[TF]\b"#,
+                    with: "$1 RFT",
+                    options: .regularExpression
+                )
+                : line
+            return Header(title: title, format: .forTime, cap: timeCap, rounds: rounds)
         }
         if upper.contains("TABATA") {
             return Header(title: line, format: .tabata, cap: nil)

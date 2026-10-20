@@ -361,14 +361,31 @@ final class BusinessDataStore {
         defer { isSearchingDirectory = false }
         do {
             let rows: [BusinessOrganization] = try await client
-                .rpc("search_discoverable_organizations",
-                     params: ["p_query": query])
+                .rpc(
+                    "search_discoverable_organizations",
+                    params: DirectorySearchParams(p_query: query)
+                )
                 .execute().value
             directory = rows
+            // Solo limpiar el aviso de búsqueda; no tocar otros errores de Center.
+            if errorMessage?.hasPrefix("No se pudo buscar") == true {
+                errorMessage = nil
+            }
         } catch {
             directory = []
-            errorMessage = "No se pudo buscar centros: \(error.localizedDescription)"
+            let raw = error.localizedDescription
+            if raw.localizedCaseInsensitiveContains("could not find the function")
+                || raw.localizedCaseInsensitiveContains("PGRST202") {
+                errorMessage =
+                    "El directorio aún no está activo en el servidor. Actualiza la app o vuelve a intentarlo en unos minutos."
+            } else {
+                errorMessage = "No se pudo buscar centros. Comprueba la conexión e inténtalo de nuevo."
+            }
         }
+    }
+
+    private struct DirectorySearchParams: Encodable, Sendable {
+        let p_query: String
     }
 
     func booking(for occurrenceId: UUID) -> BusinessBooking? {

@@ -89,7 +89,8 @@ enum BoardTextRecognizer {
                 || normalized.hasPrefix("CADA ")
                 || normalized.hasPrefix("FOR TIME")
                 || normalized.hasPrefix("RFT")
-                || normalized.range(of: #"^\d+\s*RFT\b"#, options: .regularExpression) != nil
+                || normalized.hasPrefix("RFF")
+                || normalized.range(of: #"^\d+\s*RF[TF]\b"#, options: .regularExpression) != nil
             return total + (header ? 1 : 0)
         }
         return count >= 2

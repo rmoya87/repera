@@ -81,4 +81,38 @@ struct BoardScanLiteParserTests {
         #expect(blocks[0].movements[0].weightMaleKg == 30)
         #expect(blocks[0].movements[0].weightFemaleKg == 20)
     }
+
+    /// Casuística real: Vision pegó RFT→RFf y BOB sin espacio; el 3.er bloque
+    /// acababa como movimiento dentro del EVERY.
+    @Test func splitsNoisyOCRBoardIntoThreeBlocksWithBOB() {
+        let noisy = """
+        EMOM 8' @6-8
+        2 HIGH HSQ SNATCH
+        EVERY 2' X 4
+        4-3-3-2 BACK SQUAT @6-8
+        4RFf(TC 12?
+        6 POWER SNATCH 40/25
+        8BOB
+        10 BACK RACK R. LUNGES 40/25
+        1' REST
+        """
+        let result = BoardScanLiteParser.parse(ocrText: noisy, catalog: Catalog.seed())
+        #expect(result.blocks.count == 3)
+        #expect(result.blocks[2].wodFormat == .forTime)
+        #expect(result.blocks[2].rounds == 4)
+        #expect(result.blocks[2].timeCapMinutes == 12)
+        let work = result.blocks[2].movements.filter { !$0.isRest }
+        #expect(work.count == 3)
+        #expect(work[1].name == "Bar facing burpee")
+        #expect(work[1].reps == 8)
+        #expect(work[1].exerciseId != nil)
+    }
+
+    @Test func glossaryResolvesGluedBOB() {
+        let parsed = CrossFitGlossary.parseMovementLine("8BOB")
+        #expect(parsed.reps == 8)
+        #expect(parsed.name == "Bar facing burpee")
+        #expect(CrossFitGlossary.canonicalName(for: "BOB") == "Bar facing burpee")
+        #expect(CrossFitGlossary.canonicalName(for: "burpee over the bar") == "Bar facing burpee")
+    }
 }

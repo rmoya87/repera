@@ -27,6 +27,13 @@ struct SettingsView: View {
     @State private var notificationsStatus: UNAuthorizationStatus = .notDetermined
     @State private var confirmSignOut = false
     @State private var appleConnectionError: String?
+    @State private var isSyncingEverything = false
+    @State private var syncIconSpinning = false
+    /// Última sync completa (iCloud + perfil + entrenamientos).
+    @State private var lastFullSyncAt: Date? = {
+        let t = UserDefaults.standard.double(forKey: "repera.settings.lastFullSyncAt")
+        return t > 0 ? Date(timeIntervalSince1970: t) : nil
+    }()
 
     var body: some View {
         @Bindable var store = store
@@ -53,35 +60,28 @@ struct SettingsView: View {
 
                 HStack(spacing: 14) {
                     iCloudAvatarBadge
-                    VStack(alignment: .leading, spacing: 4) {
-                        TextField(
-                            "Tu nombre",
-                            text: Binding(
-                                get: { store.state.settings.profileDisplayName ?? "" },
-                                set: {
-                                    var s = store.state.settings
-                                    let trimmed = $0.trimmingCharacters(in: .whitespacesAndNewlines)
-                                    s.profileDisplayName = trimmed.isEmpty ? nil : trimmed
-                                    store.updateSettings(s)
-                                }
-                            )
-                        )
-                        .font(.headline)
-                        .onSubmit {
-                            Task {
-                                await businessAuth.updateDisplayName(
-                                    store.state.settings.profileDisplayName
-                                )
+                    TextField(
+                        "Tu nombre",
+                        text: Binding(
+                            get: { store.state.settings.profileDisplayName ?? "" },
+                            set: {
+                                var s = store.state.settings
+                                let trimmed = $0.trimmingCharacters(in: .whitespacesAndNewlines)
+                                s.profileDisplayName = trimmed.isEmpty ? nil : trimmed
+                                store.updateSettings(s)
                             }
+                        )
+                    )
+                    .font(.headline)
+                    .onSubmit {
+                        Task {
+                            await businessAuth.syncPublicProfile(
+                                displayName: store.state.settings.profileDisplayName,
+                                avatarJPEG: store.state.settings.profileAvatarJPEG
+                            )
                         }
-                        Text(iCloudBackupLabel)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)
-                    if store.isSyncingiCloud {
-                        ProgressView()
-                    }
                 }
                 .padding(.vertical, 4)
 
@@ -98,6 +98,10 @@ struct SettingsView: View {
                             var s = store.state.settings
                             s.profileAvatarJPEG = jpeg
                             store.updateSettings(s)
+                            await businessAuth.syncPublicProfile(
+                                displayName: s.profileDisplayName ?? appleAuth.displayName,
+                                avatarJPEG: jpeg
+                            )
                         }
                         photoItem = nil
                     }
@@ -108,38 +112,47 @@ struct SettingsView: View {
                         var s = store.state.settings
                         s.profileAvatarJPEG = nil
                         store.updateSettings(s)
+                        Task {
+                            await businessAuth.syncPublicProfile(
+                                displayName: s.profileDisplayName ?? appleAuth.displayName,
+                                avatarJPEG: nil
+                            )
+                        }
                     }
                 }
 
                 Button {
                     Task { await syncEverything() }
                 } label: {
-                    if store.isSyncingiCloud || workoutSync.isSyncing || businessData.isLoading {
-                        ProgressView()
-                    } else {
-                        Label("Sincronizar ahora", systemImage: "arrow.triangle.2.circlepath")
-                            .foregroundStyle(OG.label)
+                    HStack(spacing: 12) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.body.weight(.semibold))
+                            .rotationEffect(.degrees(syncIconSpinning ? 360 : 0))
+                            .animation(
+                                syncIconSpinning
+                                    ? .linear(duration: 0.85).repeatForever(autoreverses: false)
+                                    : .default,
+                                value: syncIconSpinning
+                            )
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(isSyncingEverything ? "Sincronizando…" : "Sincronizar ahora")
+                                .font(.body)
+                            if let when = lastFullSyncAt {
+                                Text("Última vez \(when.formatted(date: .abbreviated, time: .shortened))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer(minLength: 0)
                     }
+                    .foregroundStyle(OG.label)
                 }
-                .disabled(store.iCloudStatus == .signedOut
-                          || store.isSyncingiCloud
-                          || workoutSync.isSyncing)
+                .disabled(isSyncingEverything)
 
-                if let when = workoutSync.lastSyncAt {
-                    LabeledContent(
-                        "Última sync entrenamientos",
-                        value: when.formatted(date: .abbreviated, time: .shortened)
-                    )
-                }
                 if let problem = workoutSync.lastError {
                     Text(problem)
                         .font(.footnote)
                         .foregroundStyle(OG.red)
-                }
-                if let syncMsg = store.lastiCloudSyncMessage, !syncMsg.isEmpty {
-                    Text(syncMsg)
-                        .font(.footnote)
-                        .foregroundStyle(OG.label2)
                 }
 
                 Button("Cerrar sesión", role: .destructive) {
@@ -148,7 +161,7 @@ struct SettingsView: View {
             } header: {
                 Text("Cuenta")
             } footer: {
-                Text("Sincroniza iCloud, tu perfil y los entrenamientos privados. Compartir resultados con un centro se gestiona en su ficha.")
+                Text("Sincroniza copia iCloud, perfil y entrenamientos privados. Compartir resultados con un centro se gestiona en su ficha.")
             }
 
             Section {
@@ -173,8 +186,9 @@ struct SettingsView: View {
                         Task {
                             do {
                                 try await appleAuth.signIn()
-                                await businessAuth.migrateLocalProfileIfNeeded(
-                                    displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName
+                                await businessAuth.syncPublicProfile(
+                                    displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName,
+                                    avatarJPEG: store.state.settings.profileAvatarJPEG
                                 )
                                 await businessData.refresh()
                             } catch {
@@ -197,8 +211,9 @@ struct SettingsView: View {
                     Text(issue).font(.footnote).foregroundStyle(OG.red)
                     Button("Reintentar sincronización del perfil") {
                         Task {
-                            await businessAuth.migrateLocalProfileIfNeeded(
-                                displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName
+                            await businessAuth.syncPublicProfile(
+                                displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName,
+                                avatarJPEG: store.state.settings.profileAvatarJPEG
                             )
                         }
                     }
@@ -335,7 +350,7 @@ struct SettingsView: View {
                 permissionStatusRow(
                     title: "Notificaciones",
                     detail: notificationsStatusLabel,
-                    symbol: "bell.fill"
+                    symbol: "bell"
                 ) {
                     Task {
                         _ = try? await UNUserNotificationCenter.current()
@@ -344,13 +359,11 @@ struct SettingsView: View {
                     }
                 }
                 if health.isAuthorized {
-                    Label("HealthKit conectado", systemImage: "heart.fill")
+                    Label("Salud conectada", systemImage: "heart")
                         .foregroundStyle(OG.label)
                     if let kcal = health.activeEnergyTodayKcal {
                         LabeledContent("kcal hoy", value: "\(Int(kcal.rounded()))")
-                    }
-                    if let minutes = health.workoutMinutesToday {
-                        LabeledContent("minutos hoy", value: "\(Int(minutes.rounded()))")
+                            .foregroundStyle(OG.label)
                     }
                 } else {
                     Button {
@@ -366,7 +379,8 @@ struct SettingsView: View {
                         if healthBusy {
                             ProgressView()
                         } else {
-                            Label("Conectar con HealthKit", systemImage: "heart.fill")
+                            Label("Conectar con Salud", systemImage: "heart")
+                                .foregroundStyle(OG.label)
                         }
                     }
                     .disabled(!health.isAvailable || healthBusy)
@@ -381,7 +395,7 @@ struct SettingsView: View {
                 permissionStatusRow(
                     title: "Ubicación",
                     detail: location.isAuthorized ? "Permitida" : "Pendiente o denegada",
-                    symbol: "location.fill"
+                    symbol: "location"
                 ) {
                     Task {
                         let ok = await location.ensureWhenInUseAuthorized()
@@ -395,27 +409,21 @@ struct SettingsView: View {
                     }
                 }
 
-                Button("Abrir Ajustes del sistema") {
+                Button {
                     if let url = URL(string: UIApplication.openSettingsURLString) {
                         openURL(url)
                     }
+                } label: {
+                    Label("Abrir Ajustes del sistema", systemImage: "gearshape")
+                        .foregroundStyle(OG.label)
                 }
-            } header: {
-                Text("Permisos y Apple Salud")
-            } footer: {
-                Text("Calorías y tiempo salen de Salud/Watch. La ubicación guarda el pin del gym y la ruta en entrenos outdoor. Puedes denegar permisos y seguir usando la app.")
-            }
-            .task {
-                await refreshNotificationsStatus()
-                location.refreshStatus()
-            }
 
-            Section {
                 NavigationLink {
                     BodyWeightListView()
                 } label: {
                     HStack {
                         Label("Peso", systemImage: "scalemass")
+                            .foregroundStyle(OG.label)
                         Spacer()
                         if let latest = store.state.bodyWeights.first {
                             Text("\(latest.weightKg.formatted(.number.precision(.fractionLength(1)))) kg")
@@ -430,6 +438,7 @@ struct SettingsView: View {
                 }
                 HStack {
                     Text("Objetivo")
+                        .foregroundStyle(OG.label)
                     Spacer()
                     TextField("kg", text: $goalText)
                         .ogKeyboardDone()
@@ -444,11 +453,20 @@ struct SettingsView: View {
                         store.updateSettings(s)
                     }
                     .fontWeight(.semibold)
+                    .foregroundStyle(OG.label)
                 }
                 if let latest = store.state.bodyWeights.first {
-                    LabeledContent("Último", value: "\(latest.weightKg.formatted(.number.precision(.fractionLength(1)))) kg · \(latest.source.displayName)")
+                    LabeledContent(
+                        "Último",
+                        value: "\(latest.weightKg.formatted(.number.precision(.fractionLength(1)))) kg · \(latest.source.displayName)"
+                    )
+                    .foregroundStyle(OG.label)
                 } else if let kg = health.latestWeightKg {
-                    LabeledContent("Último", value: "\(kg.formatted(.number.precision(.fractionLength(1)))) kg · Salud")
+                    LabeledContent(
+                        "Último",
+                        value: "\(kg.formatted(.number.precision(.fractionLength(1)))) kg · Salud"
+                    )
+                    .foregroundStyle(OG.label)
                 }
                 if let goal = store.state.settings.bodyWeightGoalKg,
                    let latest = store.state.bodyWeights.first {
@@ -465,9 +483,13 @@ struct SettingsView: View {
                     }
                 }
             } header: {
-                Text("Peso corporal")
+                Text("Salud")
             } footer: {
-                Text("Un peso por día. El objetivo se muestra en Progreso como línea de meta. Los valores de Apple Salud aparecen en el historial.")
+                Text("Calorías de Salud/Watch; ubicación para el pin del gym. Un peso por día; el objetivo sale en Progreso. Puedes denegar permisos y seguir usando la app.")
+            }
+            .task {
+                await refreshNotificationsStatus()
+                location.refreshStatus()
             }
             .onAppear {
                 if let g = store.state.settings.bodyWeightGoalKg {
@@ -704,13 +726,31 @@ struct SettingsView: View {
         notificationsStatus = settings.authorizationStatus
     }
 
-    /// iCloud + perfil Business + espejo privado de entrenamientos (un solo gesto).
+    /// iCloud + perfil Business (nombre/avatar) + espejo privado de entrenamientos.
     private func syncEverything() async {
+        guard !isSyncingEverything else { return }
+        isSyncingEverything = true
+        syncIconSpinning = false
+        // Arranca la rotación en el siguiente frame para que `repeatForever` anime bien.
+        await Task.yield()
+        syncIconSpinning = true
+        defer {
+            syncIconSpinning = false
+            isSyncingEverything = false
+        }
+
         await store.refreshFromiCloud()
         if businessAuth.isConnected {
+            await businessAuth.syncPublicProfile(
+                displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName,
+                avatarJPEG: store.state.settings.profileAvatarJPEG
+            )
             await businessData.refresh()
             await workoutSync.sync(store: store)
         }
+        let now = Date()
+        lastFullSyncAt = now
+        UserDefaults.standard.set(now.timeIntervalSince1970, forKey: "repera.settings.lastFullSyncAt")
     }
 
     private func permissionStatusRow(
@@ -722,6 +762,7 @@ struct SettingsView: View {
         Button(action: action) {
             HStack {
                 Label(title, systemImage: symbol)
+                    .foregroundStyle(OG.label)
                 Spacer()
                 Text(detail)
                     .font(.subheadline)
@@ -748,15 +789,6 @@ struct SettingsView: View {
                     .font(.system(size: synced ? 26 : 18, weight: .regular))
                     .foregroundStyle(synced ? OG.label : OG.label2)
             }
-        }
-    }
-
-    private var iCloudBackupLabel: String {
-        switch store.iCloudStatus {
-        case .available: "Copia de seguridad activa"
-        case .signedOut: "Inicia sesión en iCloud"
-        case .restricted: "Restringido en este dispositivo"
-        case .temporarilyUnavailable: "iCloud aún no disponible"
         }
     }
 

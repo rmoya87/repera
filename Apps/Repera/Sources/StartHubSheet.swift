@@ -189,7 +189,7 @@ struct StartHubSheet: View {
                                 }
                             }
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                OGSwipeDeleteButton(systemImage: "xmark") {
+                                OGSwipeDeleteButton(systemImage: "xmark", tint: OG.label) {
                                     store.deleteRoutine(routine.id)
                                 }
                             }

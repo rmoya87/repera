@@ -160,51 +160,57 @@ struct HistoryView: View {
     }
 
     private func reperaHistoryRow(_ session: WorkoutSession) -> some View {
-        let minutes = session.durationMinutes
+        let minutes = session.displayDurationMinutes
         let kcal = session.appleActiveEnergyKcal
         let prs = prCountBySessionId[session.id] ?? 0
         let start = session.startedAt ?? session.finishedAt
+        let day = start.map { Calendar.current.startOfDay(for: $0) } ?? Date()
 
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 12) {
-                historyLeadingIcon(systemName: "checkmark", tint: OG.accent)
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                OGRegisterLeadingIcon(
+                    systemName: "figure.strengthtraining.traditional",
+                    tint: OG.accent
+                )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(WorkoutListCaption.dayTimeLine(
+                        for: day,
+                        time: start.map(SpanishDate.time)
+                    ))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(OG.label3)
+                    .tracking(0.3)
                     HStack(spacing: 6) {
                         Text(session.title)
                             .font(.system(size: 17, weight: .medium))
                             .foregroundStyle(OG.label)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         if let notes = session.notes, !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             Image(systemName: "note.text")
                                 .font(.caption)
                                 .foregroundStyle(OG.accent)
                         }
+                        historyChevron
                     }
-                    Spacer(minLength: 4)
-                    if let start {
-                        Text(SpanishDate.time(start))
-                            .font(.system(size: 13, weight: .semibold).monospacedDigit())
-                            .foregroundStyle(OG.label2)
-                    }
-                    historyChevron
                 }
             }
             .padding(.trailing, Self.historyRowPad)
 
-            // Carrusel edge-to-edge (trailing 0 en listRowInsets); inset solo en el contenido.
-            historyChipsRow {
+            // Carrusel edge-to-edge (trailing 0 en listRowInsets); mismo componente que Inicio.
+            OGRegisterChipsRow(leadingInset: Self.chipsTitleLeading) {
                 if minutes > 0 {
-                    historyChip("\(Int(minutes.rounded())) min", icon: "timer")
+                    OGRegisterChip(text: "\(Int(minutes.rounded())) min", icon: "timer")
                 }
                 if let kcal, kcal > 0 {
-                    historyChip("\(Int(kcal.rounded())) kcal", icon: "flame.fill")
+                    OGRegisterChip(text: "\(Int(kcal.rounded())) kcal", icon: "flame.fill")
                 }
                 if let review = session.sessionReview {
-                    historyChip(review.scoreLabel, icon: review.scoreSymbolName)
+                    OGRegisterChip(text: review.scoreLabel, icon: review.scoreSymbolName)
                 }
                 if prs > 0 {
-                    historyChip("\(prs) PR", icon: "trophy.fill")
+                    OGRegisterChip(text: "\(prs) PR", icon: "trophy.fill")
                 }
             }
             .padding(.leading, -Self.historyRowPad)
@@ -212,45 +218,42 @@ struct HistoryView: View {
     }
 
     private func healthHistoryRow(_ activity: HealthKitStore.ExternalActivity) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let day = Calendar.current.startOfDay(for: activity.start)
+        return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 12) {
-                historyLeadingIcon(systemName: activity.symbolName, tint: OG.red)
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(activity.title)
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(OG.label)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    Spacer(minLength: 4)
-                    Text(SpanishDate.time(activity.start))
-                        .font(.system(size: 13, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(OG.label2)
-                    historyChevron
+                OGRegisterLeadingIcon(systemName: activity.symbolName, tint: OG.red)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(WorkoutListCaption.dayTimeLine(
+                        for: day,
+                        time: SpanishDate.time(activity.start)
+                    ))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(OG.label3)
+                    .tracking(0.3)
+                    HStack(spacing: 6) {
+                        Text(activity.title)
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundStyle(OG.label)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        historyChevron
+                    }
                 }
             }
             .padding(.trailing, Self.historyRowPad)
 
-            historyChipsRow {
-                historyChip("Salud", icon: "heart.fill")
+            OGRegisterChipsRow(leadingInset: Self.chipsTitleLeading) {
+                OGRegisterChip(text: "Salud", icon: "heart.fill")
                 if activity.durationMinutes > 0 {
-                    historyChip("\(Int(activity.durationMinutes.rounded())) min", icon: "timer")
+                    OGRegisterChip(text: "\(Int(activity.durationMinutes.rounded())) min", icon: "timer")
                 }
                 if let kcal = activity.activeEnergyKcal, kcal > 0 {
-                    historyChip("\(Int(kcal.rounded())) kcal", icon: "flame.fill")
+                    OGRegisterChip(text: "\(Int(kcal.rounded())) kcal", icon: "flame.fill")
                 }
             }
             .padding(.leading, -Self.historyRowPad)
         }
-    }
-
-    private func historyLeadingIcon(systemName: String, tint: Color) -> some View {
-        ZStack {
-            Circle().fill(tint.opacity(0.22))
-            Image(systemName: systemName)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(tint)
-        }
-        .frame(width: 44, height: 44)
     }
 
     private var historyChevron: some View {
@@ -264,35 +267,6 @@ struct HistoryView: View {
     private static let historyRowPad: CGFloat = 16
     /// Row pad + icono 44 + gap 12 → chips alineados al título en reposo.
     private static let chipsTitleLeading: CGFloat = historyRowPad + 44 + 12
-
-    /// Viewport a todo el ancho de la fila; inset solo en el contenido (inicio).
-    @ViewBuilder
-    private func historyChipsRow(@ViewBuilder content: () -> some View) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                content()
-            }
-            .padding(.leading, Self.chipsTitleLeading)
-        }
-        .contentMargins(.horizontal, 0, for: .scrollContent)
-        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func historyChip(_ text: String, icon: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 10, weight: .semibold))
-            Text(text)
-                .font(.system(size: 11, weight: .semibold))
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-        }
-        .foregroundStyle(OG.label2)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(OG.surface3.opacity(0.65), in: Capsule())
-    }
 }
 
 /// Detalle visual de un entreno completado (mismo lenguaje que Entreno / preview).
@@ -433,10 +407,13 @@ struct WorkoutDetailView: View {
                     }
                 }
 
-                if let extras = healthExtras, extras.hasVisualContent {
+                // Solo métricas reales de Apple Salud (FC, ruta, ritmo). No mostrar
+                // kcal/dispositivo si solo vienen del propio Repera.
+                if let extras = healthExtras, extras.hasAuthenticSaludMetrics {
                     Section {
                         HealthSessionMetricsCard(
-                            extras: extras.preferringEnergy(session.appleActiveEnergyKcal)
+                            extras: extras,
+                            includeSourceRows: extras.hasExternalSaludSource
                         )
                             .ogCardListRow()
                     } header: {
@@ -498,31 +475,12 @@ struct WorkoutDetailView: View {
         .ogListChrome()
         .listSectionSpacing(18)
         .ogPinnedTransparentNav("Entreno")
+        .navigationBarBackButtonHidden(isEditing)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    if !isEditing {
-                        Button {
-                            isEditing = true
-                        } label: {
-                            Label("Editar", systemImage: "pencil")
-                        }
-                    }
-                    Button(role: .destructive) {
-                        showDeleteConfirm = true
-                    } label: {
-                        Label("Eliminar", systemImage: "trash")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(OG.label)
-                        .frame(width: 36, height: 36)
-                        .contentShape(Circle())
-                }
-                .accessibilityLabel("Más opciones")
-            }
             if isEditing {
+                ToolbarItem(placement: .topBarLeading) {
+                    CloseToolbarButton(action: cancelEditing, large: false)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     OGToolbarGlassButton(
                         systemName: "checkmark",
@@ -535,8 +493,35 @@ struct WorkoutDetailView: View {
                         }
                     }
                 }
+            } else {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button {
+                            isEditing = true
+                        } label: {
+                            Label("Editar", systemImage: "pencil")
+                        }
+                        Button(role: .destructive) {
+                            showDeleteConfirm = true
+                        } label: {
+                            Label("Eliminar", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                            .frame(width: 36, height: 36)
+                            .contentShape(Circle())
+                    }
+                    .accessibilityLabel("Más opciones")
+                }
             }
         }
+    }
+
+    private func cancelEditing() {
+        draft = store.state.workouts.first(where: { $0.id == sessionId })
+        isEditing = false
     }
 
     private func summaryCard(_ session: WorkoutSession) -> some View {
@@ -757,10 +742,11 @@ struct WorkoutDetailView: View {
         hideScoreArtifact: WODBlockResult? = nil
     ) -> some View {
         let visibleSets = visibleLoggedSets(for: exercise, hideScoreArtifact: hideScoreArtifact)
+        let catalogExercise = exercise.exercise
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                ExerciseThumb(exercise: exercise.exercise, size: 48)
-                Text(exercise.exercise.name)
+                ExerciseThumb(exercise: catalogExercise, size: 48)
+                Text(catalogExercise.name)
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(OG.label)
                     .lineLimit(2)
@@ -772,10 +758,21 @@ struct WorkoutDetailView: View {
                     .font(.system(size: 13))
                     .foregroundStyle(OG.label3)
             } else {
+                if isEditing {
+                    editSetColumnHeaders(
+                        exercise: catalogExercise,
+                        showsRemove: exercise.loggedSets.count > 1
+                    )
+                }
                 ForEach(Array(visibleSets.enumerated()), id: \.element.id) { setIndex, set in
                     if isEditing {
                         if let realIndex = exercise.loggedSets.firstIndex(where: { $0.id == set.id }) {
-                            editableSetRow(exIndex: exIndex, setIndex: realIndex, set: set)
+                            editableSetRow(
+                                exIndex: exIndex,
+                                setIndex: realIndex,
+                                set: set,
+                                exercise: catalogExercise
+                            )
                         }
                     } else {
                         readOnlySetRow(setIndex: setIndex, set: set)
@@ -786,6 +783,59 @@ struct WorkoutDetailView: View {
         .padding(OG.pad)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+    }
+
+    private func editSetColumnHeaders(exercise: Exercise, showsRemove: Bool) -> some View {
+        let style = exercise.loggingStyle
+        let qty = exercise.quantityFieldLabel
+        return HStack(spacing: 8) {
+            Color.clear.frame(width: 28)
+            switch style {
+            case .loadAndReps:
+                editColumnHeader(
+                    Exercise.loadStepperTitle(
+                        name: exercise.name,
+                        equipment: exercise.equipment,
+                        targetMuscle: exercise.targetMuscle,
+                        muscleGroup: exercise.muscleGroup
+                    ),
+                    flexible: true
+                )
+                editColumnHeader(qty, width: 110)
+            case .repsAndTime:
+                editColumnHeader(qty, flexible: true)
+                editColumnHeader("Tiempo", flexible: true)
+            case .machineWork:
+                editColumnHeader("Tiempo", flexible: true)
+                editColumnHeader(qty, flexible: true)
+            case .repsOnly:
+                editColumnHeader(qty, flexible: true)
+            }
+            if style.usesRIR {
+                editColumnHeader("RIR", width: 56)
+            }
+            if showsRemove {
+                Color.clear.frame(width: 28)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func editColumnHeader(_ title: String, flexible: Bool = false, width: CGFloat? = nil) -> some View {
+        let label = Text(title)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(OG.label3)
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
+            .multilineTextAlignment(.center)
+            .textCase(nil)
+        if flexible {
+            label.frame(maxWidth: .infinity, alignment: .center)
+        } else if let width {
+            label.frame(width: width, alignment: .center)
+        } else {
+            label
+        }
     }
 
     private func visibleLoggedSets(
@@ -813,7 +863,7 @@ struct WorkoutDetailView: View {
                 .foregroundStyle(OG.label)
             Spacer(minLength: 0)
             if let rir = set.rir, !set.isMachineQuantity {
-                Text("RIR \(rir)")
+                Text("RIR \(Int(rir.rounded()))")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label3)
             }
@@ -821,60 +871,206 @@ struct WorkoutDetailView: View {
         .padding(.vertical, 4)
     }
 
-    private func editableSetRow(exIndex: Int, setIndex: Int, set: LoggedSet) -> some View {
-        HStack(spacing: 8) {
+    private func editableSetRow(
+        exIndex: Int,
+        setIndex: Int,
+        set: LoggedSet,
+        exercise: Exercise
+    ) -> some View {
+        let style = exercise.loggingStyle
+        let loadField = exercise.loadField
+        let maxReps = style.quantityCap
+        let qtyStep: Int = {
+            if style == .machineWork, (set.quantityUnit ?? exercise.defaultQuantityUnit) == .meters {
+                return 50
+            }
+            if style == .repsAndTime { return 5 }
+            return 1
+        }()
+        return HStack(spacing: 8) {
             Text("S\(setIndex + 1)")
                 .font(.system(size: 12, weight: .bold).monospacedDigit())
                 .foregroundStyle(OG.label3)
                 .frame(width: 28, alignment: .leading)
 
-            OGRepeatStepper(
-                display: set.weightKg.map { String(format: "%g", $0) } ?? "—",
-                keyboard: .decimalPad,
-                onMinus: {
-                    mutateSet(exIndex: exIndex, setIndex: setIndex) { row in
-                        let current = row.weightKg ?? 0
-                        let next = max(0, ((current - weightStep) * 10).rounded() / 10)
-                        row.weightKg = next > 0 ? next : nil
-                    }
-                },
-                onPlus: {
-                    mutateSet(exIndex: exIndex, setIndex: setIndex) { row in
-                        let current = row.weightKg ?? 0
-                        row.weightKg = ((current + weightStep) * 10).rounded() / 10
-                    }
-                },
-                onCommitText: { text in
-                    mutateSet(exIndex: exIndex, setIndex: setIndex) { row in
-                        let normalized = text.replacingOccurrences(of: ",", with: ".")
-                        if normalized.isEmpty {
-                            row.weightKg = nil
-                        } else if let parsed = Double(normalized) {
-                            row.weightKg = parsed > 0 ? ((parsed * 10).rounded() / 10) : nil
+            switch style {
+            case .loadAndReps:
+                if loadField == .deficitCm {
+                    OGRepeatStepper(
+                        display: set.deficitCm.map(String.init) ?? "0",
+                        keyboard: .numberPad,
+                        onMinus: {
+                            mutateSet(exIndex: exIndex, setIndex: setIndex) {
+                                $0.deficitCm = max(0, ($0.deficitCm ?? 0) - 1)
+                            }
+                        },
+                        onPlus: {
+                            mutateSet(exIndex: exIndex, setIndex: setIndex) {
+                                $0.deficitCm = min(60, ($0.deficitCm ?? 0) + 1)
+                            }
+                        },
+                        onCommitText: { text in
+                            mutateSet(exIndex: exIndex, setIndex: setIndex) { row in
+                                if let parsed = Int(text.filter(\.isNumber)) {
+                                    row.deficitCm = min(60, max(0, parsed))
+                                }
+                            }
                         }
-                    }
+                    )
+                    .frame(maxWidth: .infinity)
+                } else {
+                    OGRepeatStepper(
+                        display: set.weightKg.map { String(format: "%g", $0) } ?? "—",
+                        keyboard: .decimalPad,
+                        onMinus: {
+                            mutateSet(exIndex: exIndex, setIndex: setIndex) { row in
+                                let current = row.weightKg ?? 0
+                                let next = max(0, ((current - weightStep) * 10).rounded() / 10)
+                                row.weightKg = next > 0 ? next : nil
+                            }
+                        },
+                        onPlus: {
+                            mutateSet(exIndex: exIndex, setIndex: setIndex) { row in
+                                let current = row.weightKg ?? 0
+                                row.weightKg = ((current + weightStep) * 10).rounded() / 10
+                            }
+                        },
+                        onCommitText: { text in
+                            mutateSet(exIndex: exIndex, setIndex: setIndex) { row in
+                                let normalized = text.replacingOccurrences(of: ",", with: ".")
+                                if normalized.isEmpty {
+                                    row.weightKg = nil
+                                } else if let parsed = Double(normalized) {
+                                    row.weightKg = parsed > 0 ? ((parsed * 10).rounded() / 10) : nil
+                                }
+                            }
+                        }
+                    )
+                    .frame(maxWidth: .infinity)
                 }
-            )
-            .frame(maxWidth: .infinity)
 
-            OGRepeatStepper(
-                display: "\(set.reps)",
-                keyboard: .numberPad,
-                onMinus: {
-                    mutateSet(exIndex: exIndex, setIndex: setIndex) { $0.reps = max(0, $0.reps - 1) }
-                },
-                onPlus: {
-                    mutateSet(exIndex: exIndex, setIndex: setIndex) { $0.reps += 1 }
-                },
-                onCommitText: { text in
-                    mutateSet(exIndex: exIndex, setIndex: setIndex) { row in
-                        if let parsed = Int(text) {
-                            row.reps = max(0, parsed)
+                OGRepeatStepper(
+                    display: "\(set.reps)",
+                    keyboard: .numberPad,
+                    onMinus: {
+                        mutateSet(exIndex: exIndex, setIndex: setIndex) {
+                            $0.reps = max(0, $0.reps - qtyStep)
+                        }
+                    },
+                    onPlus: {
+                        mutateSet(exIndex: exIndex, setIndex: setIndex) {
+                            $0.reps = min(maxReps, $0.reps + qtyStep)
+                        }
+                    },
+                    onCommitText: { text in
+                        mutateSet(exIndex: exIndex, setIndex: setIndex) { row in
+                            if let parsed = Int(text) {
+                                row.reps = min(maxReps, max(0, parsed))
+                            }
                         }
                     }
+                )
+                .frame(width: 110)
+
+            case .repsAndTime:
+                OGRepeatStepper(
+                    display: "\(set.reps)",
+                    keyboard: .numberPad,
+                    onMinus: {
+                        mutateSet(exIndex: exIndex, setIndex: setIndex) {
+                            $0.reps = max(0, $0.reps - qtyStep)
+                        }
+                    },
+                    onPlus: {
+                        mutateSet(exIndex: exIndex, setIndex: setIndex) {
+                            $0.reps = min(maxReps, $0.reps + qtyStep)
+                        }
+                    },
+                    onCommitText: { text in
+                        mutateSet(exIndex: exIndex, setIndex: setIndex) { row in
+                            if let parsed = Int(text) {
+                                row.reps = min(maxReps, max(0, parsed))
+                            }
+                        }
+                    }
+                )
+                .frame(maxWidth: .infinity)
+
+                editableDurationStepper(exIndex: exIndex, setIndex: setIndex, set: set)
+                    .frame(maxWidth: .infinity)
+
+            case .machineWork:
+                editableDurationStepper(exIndex: exIndex, setIndex: setIndex, set: set)
+                    .frame(maxWidth: .infinity)
+
+                OGRepeatStepper(
+                    display: "\(set.reps)",
+                    keyboard: .numberPad,
+                    onMinus: {
+                        mutateSet(exIndex: exIndex, setIndex: setIndex) {
+                            $0.reps = max(0, $0.reps - qtyStep)
+                        }
+                    },
+                    onPlus: {
+                        mutateSet(exIndex: exIndex, setIndex: setIndex) {
+                            $0.reps = min(maxReps, $0.reps + qtyStep)
+                        }
+                    },
+                    onCommitText: { text in
+                        mutateSet(exIndex: exIndex, setIndex: setIndex) { row in
+                            if let parsed = Int(text) {
+                                row.reps = min(maxReps, max(0, parsed))
+                            }
+                        }
+                    }
+                )
+                .frame(maxWidth: .infinity)
+
+            case .repsOnly:
+                OGRepeatStepper(
+                    display: "\(set.reps)",
+                    keyboard: .numberPad,
+                    onMinus: {
+                        mutateSet(exIndex: exIndex, setIndex: setIndex) {
+                            $0.reps = max(0, $0.reps - 1)
+                        }
+                    },
+                    onPlus: {
+                        mutateSet(exIndex: exIndex, setIndex: setIndex) {
+                            $0.reps = min(maxReps, $0.reps + 1)
+                        }
+                    },
+                    onCommitText: { text in
+                        mutateSet(exIndex: exIndex, setIndex: setIndex) { row in
+                            if let parsed = Int(text) {
+                                row.reps = min(maxReps, max(0, parsed))
+                            }
+                        }
+                    }
+                )
+                .frame(maxWidth: .infinity)
+            }
+
+            if style.usesRIR {
+                Menu {
+                    Button("Sin RIR") {
+                        mutateSet(exIndex: exIndex, setIndex: setIndex) { $0.rir = nil }
+                    }
+                    ForEach(0...5, id: \.self) { rir in
+                        Button("\(rir)") {
+                            mutateSet(exIndex: exIndex, setIndex: setIndex) {
+                                $0.rir = Double(rir)
+                            }
+                        }
+                    }
+                } label: {
+                    Text(set.rir.map { "\(Int($0.rounded()))" } ?? "RIR")
+                        .font(.system(size: 15, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(set.rir == nil ? OG.label3 : OG.label)
+                        .frame(width: 56, height: 48)
+                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-            )
-            .frame(width: 110)
+            }
 
             if exerciseSetCount(exIndex) > 1 {
                 Button {
@@ -882,11 +1078,56 @@ struct WorkoutDetailView: View {
                 } label: {
                     Image(systemName: "minus.circle.fill")
                         .font(.system(size: 20))
-                        .foregroundStyle(OG.red.opacity(0.9))
+                        .foregroundStyle(OG.label)
                 }
                 .buttonStyle(.plain)
+                .frame(width: 28)
             }
         }
+    }
+
+    private func editableDurationStepper(exIndex: Int, setIndex: Int, set: LoggedSet) -> some View {
+        let seconds = set.durationSeconds ?? 0
+        let display: String = {
+            let m = seconds / 60
+            let s = seconds % 60
+            return s == 0 ? "\(m):00" : String(format: "%d:%02d", m, s)
+        }()
+        return OGRepeatStepper(
+            display: display,
+            keyboard: .numbersAndPunctuation,
+            onMinus: {
+                mutateSet(exIndex: exIndex, setIndex: setIndex) {
+                    $0.durationSeconds = max(0, ($0.durationSeconds ?? 0) - 15)
+                }
+            },
+            onPlus: {
+                mutateSet(exIndex: exIndex, setIndex: setIndex) {
+                    $0.durationSeconds = min(3600, ($0.durationSeconds ?? 0) + 15)
+                }
+            },
+            onCommitText: { text in
+                mutateSet(exIndex: exIndex, setIndex: setIndex) { row in
+                    row.durationSeconds = parseDurationText(text)
+                }
+            }
+        )
+    }
+
+    private func parseDurationText(_ text: String) -> Int? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return nil }
+        if trimmed.contains(":") {
+            let parts = trimmed.split(separator: ":")
+            guard parts.count == 2,
+                  let m = Int(parts[0]),
+                  let s = Int(parts[1]) else { return nil }
+            return max(0, m * 60 + s)
+        }
+        if let sec = Int(trimmed.filter(\.isNumber)) {
+            return max(0, sec)
+        }
+        return nil
     }
 
     private func exerciseSetCount(_ exIndex: Int) -> Int {

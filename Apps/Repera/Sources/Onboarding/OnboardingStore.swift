@@ -64,17 +64,17 @@ final class OnboardingStore {
         advance(to: .appleSignIn)
     }
 
-    /// Tras validar SIWA: si el wizard estaba en done pero la sesión cayó, vuelve a login;
-    /// si hay sesión y el paso quedó a medias, reanuda; si done + sesión OK, no toca.
+    /// Si hay sesión completa (Apple+Supabase): avanza el wizard.
+    /// Si no hay sesión: **no** tocar el paso — bajar de `.done` a `.appleSignIn` dejaba
+    /// `OnboardingFlowView` en un `OG.bg` vacío tras reconectar (pantalla en blanco).
+    /// La puerta de login/migración la decide `ReperaApp` con Apple/Supabase.
     func reconcile(isSignedIn: Bool) {
-        if !isSignedIn {
-            if step != .appleSignIn {
-                advance(to: .appleSignIn)
-            }
-            return
-        }
+        guard isSignedIn else { return }
         if step == .appleSignIn {
-            advance(to: .permissions)
+            advance(to: priceAlreadySeen ? .done : .permissions)
+        } else if priceAlreadySeen, step != .done {
+            // Reauth / update: ya vio precios; no repetir wizard a medias.
+            advance(to: .done)
         }
     }
 }

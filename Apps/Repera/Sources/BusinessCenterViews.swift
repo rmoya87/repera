@@ -22,8 +22,9 @@ struct FindCenterTrainerView: View {
                         Task {
                             do {
                                 try await appleAuth.signIn()
-                                await businessAuth.migrateLocalProfileIfNeeded(
-                                    displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName
+                                await businessAuth.syncPublicProfile(
+                                    displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName,
+                                    avatarJPEG: store.state.settings.profileAvatarJPEG
                                 )
                                 await businessData.refresh()
                                 await businessData.searchDirectory(query: query)

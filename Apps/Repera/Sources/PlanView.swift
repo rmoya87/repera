@@ -230,7 +230,7 @@ struct PlanView: View {
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     if let routine {
-                        OGSwipeDeleteButton(systemImage: "xmark", accessibilityLabel: "Quitar") {
+                        OGSwipeDeleteButton(systemImage: "xmark", accessibilityLabel: "Quitar", tint: OG.label) {
                             store.assignRoutine(routine.id, toWeekday: nil)
                         }
                     }
@@ -1421,7 +1421,7 @@ private struct InlineWODMovementSets: View {
                         }
                     }
                 } label: {
-                    Text(draftSets[index].targetRir.map { String(format: "%g", $0) } ?? "RIR")
+                    Text(draftSets[index].targetRir.map { "\(Int($0.rounded()))" } ?? "RIR")
                         .font(.system(size: 13, weight: .semibold).monospacedDigit())
                         .foregroundStyle(draftSets[index].targetRir == nil ? OG.label3 : OG.label)
                         .frame(width: 48, height: 48)
@@ -1736,7 +1736,7 @@ struct WODMovementEditor: View {
                         }
                     }
                 } label: {
-                    Text(draftSets[index].targetRir.map { String(format: "%g", $0) } ?? "RIR")
+                    Text(draftSets[index].targetRir.map { "\(Int($0.rounded()))" } ?? "RIR")
                         .font(.system(size: 13, weight: .semibold).monospacedDigit())
                         .foregroundStyle(draftSets[index].targetRir == nil ? OG.label3 : OG.label)
                         .frame(width: 48, height: 36)
@@ -2062,7 +2062,7 @@ private struct PlannedSetConfigRow: View {
                     Button("\(rir)") { set.targetRir = Double(rir) }
                 }
             } label: {
-                Text(set.targetRir.map { String(format: "%g", $0) } ?? "RIR")
+                Text(set.targetRir.map { "\(Int($0.rounded()))" } ?? "RIR")
                     .font(.system(size: 13, weight: .semibold).monospacedDigit())
                     .foregroundStyle(set.targetRir == nil ? OG.label3 : OG.label)
                     .frame(width: 48, height: 48)

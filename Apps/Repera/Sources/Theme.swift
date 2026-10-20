@@ -32,6 +32,12 @@ enum OG {
         light: UIColor(red: 23 / 255, green: 38 / 255, blue: 32 / 255, alpha: 1),
         dark: UIColor(red: 245 / 255, green: 245 / 255, blue: 247 / 255, alpha: 1)
     )
+    /// UIKit (p. ej. `UITextField`): negro en día, casi blanco en noche.
+    static let labelUIColor = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 245 / 255, green: 245 / 255, blue: 247 / 255, alpha: 1)
+            : UIColor(red: 23 / 255, green: 38 / 255, blue: 32 / 255, alpha: 1)
+    }
     static let label2 = adaptive(
         light: UIColor(red: 93 / 255, green: 110 / 255, blue: 99 / 255, alpha: 1),
         dark: UIColor(red: 174 / 255, green: 174 / 255, blue: 178 / 255, alpha: 1)
@@ -56,8 +62,8 @@ enum OG {
 
     static let radiusCard: CGFloat = 14
     static let radiusLG: CGFloat = 16
-    /// Esquinas de sheets: radio continuo alineado al sheet nativo del iPhone (~38 pt).
-    static let sheetCornerRadius: CGFloat = 38
+    /// Esquinas de sheets: radio continuo al estilo sheet nativo del iPhone.
+    static let sheetCornerRadius: CGFloat = 44
     /// Diámetro liquid glass de botones en cabecera de contenido (= topbar del sistema).
     static let toolbarGlassSize: CGFloat = 44
     /// Glifo en esos botones glass.
@@ -411,17 +417,18 @@ private struct OGFittedSheetModifier: ViewModifier {
     }
 }
 
-/// Acción swipe destructiva: fondo rojo (no el accent verde global) e icono sin título debajo.
+/// Acción swipe: por defecto destructiva (rojo). Las X de quitar usan `tint: OG.label`.
 struct OGSwipeDeleteButton: View {
     var systemImage: String = "trash"
     var accessibilityLabel: String = "Eliminar"
+    var tint: Color = OG.red
     var action: () -> Void
 
     var body: some View {
-        Button(role: .destructive, action: action) {
+        Button(role: tint == OG.red ? .destructive : nil, action: action) {
             Image(systemName: systemImage)
         }
-        .tint(OG.red)
+        .tint(tint)
         .accessibilityLabel(accessibilityLabel)
     }
 }
@@ -544,7 +551,7 @@ private struct OGToolbarGlassModifier: ViewModifier {
     }
 }
 
-/// Botón de cierre unificado: X roja (36pt, mismo hit que el avatar de Inicio).
+/// Botón de cierre unificado: X en color de etiqueta (negro día / blanco noche).
 /// Por defecto con liquid glass (cabeceras de sheet / contenido). En `.toolbar` del sistema: `large: false`.
 struct CloseToolbarButton: View {
     var action: () -> Void
@@ -555,7 +562,7 @@ struct CloseToolbarButton: View {
         OGToolbarGlassButton(
             systemName: "xmark",
             accessibilityLabel: "Cerrar",
-            tint: OG.red,
+            tint: OG.label,
             appliesGlass: large,
             action: action
         )
@@ -772,7 +779,8 @@ struct OGNumericTextField: UIViewRepresentable {
     var allowsDecimal: Bool = true
     var textAlignment: NSTextAlignment = .center
     var fontSize: CGFloat = 15
-    var textColor: UIColor = .white
+    /// Por defecto `OG.label` (negro día / claro noche). No usar `.white` fijo.
+    var textColor: UIColor? = nil
     var autoFocus: Bool = true
     var onCommit: () -> Void
 
@@ -808,9 +816,10 @@ struct OGNumericTextField: UIViewRepresentable {
         field.keyboardType = .numbersAndPunctuation
         field.returnKeyType = .default
         field.enablesReturnKeyAutomatically = false
+        field.keyboardAppearance = .default
         field.textAlignment = textAlignment
         field.font = .monospacedDigitSystemFont(ofSize: fontSize, weight: .semibold)
-        field.textColor = textColor
+        field.textColor = textColor ?? OG.labelUIColor
         field.tintColor = UIColor(OG.accent)
         field.autocorrectionType = .no
         field.autocapitalizationType = .none
