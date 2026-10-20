@@ -206,3 +206,14 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 - Se elimina el editor y la semántica de superseries; los campos antiguos se conservan solo para lectura compatible.
 - Los editores desde Diario y la revisión del entreno se muestran mediante navegación push, no como hojas modales anidadas.
 - La acción «Añadir serie» tiene área táctil de altura mínima 44 puntos y se alinea con las filas de series.
+
+
+## Cardio exterior: altitud, meteorología y parciales
+
+- En la ficha de **Entreno** y la ficha de Apple Salud, los recorridos GPS (carrera, caminar, senderismo, bici y otras actividades exterior con ruta) permiten alternar mediante selector segmentado nativo **Cardio / Altitud** dentro de la misma tarjeta; al tocar la curva se consulta la muestra escogida de FC o distancia/altitud.
+- La altitud procede de Core Location (solo muestras con precisión vertical válida), tanto de Apple Salud como de rutas nuevas grabadas por Repera; las rutas antiguas sin altitud muestran ausencia de datos, no desnivel inventado.
+- Se conservan en la misma fila las tarjetas pequeñas de **FC mínima, máxima y velocidad media/máxima** cuando existen; no se repite la tarjeta de FC media, que se muestra junto al título del gráfico de pulso.
+- Debajo del mapa se muestra una banda compacta de **tiempo, humedad y calidad del aire**. Tiempo y humedad se consultan por hora y ubicación mediante Apple WeatherKit histórico, con atribución; si el servicio no permite consultar esa fecha o no se configuró el permiso del identificador Apple, se muestra «—». El AQI se muestra expresamente como no disponible hasta disponer de una fuente histórica de calidad de aire contrastada. **No se transforma el pronóstico de hoy en un dato histórico.**
+- **Parciales:** un registro por kilómetro GPS completo con duración de cada kilómetro, ritmo `min/km` en caminata/carrera/senderismo o velocidad `km/h` en bici, y pulso medio de las muestras del parcial cuando hay suficientes lecturas. Kilómetros calculados mediante distancia geodésica y tiempos interpolados; los saltos GPS imposibles se descartan.
+- En actividades sin GPS válido o con menos de 1 km no se inventan parciales. Natación y cardio de interior no muestran parciales estimados a partir del tiempo total.
+- Son métricas **locales**: las rutas, altitudes, FC y datos meteorológicos/AQI no se añaden al espejo de Supabase.
