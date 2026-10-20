@@ -66,6 +66,13 @@ struct SettingsView: View {
                             )
                         )
                         .font(.headline)
+                        .onSubmit {
+                            Task {
+                                await businessAuth.updateDisplayName(
+                                    store.state.settings.profileDisplayName
+                                )
+                            }
+                        }
                         Text(iCloudBackupLabel)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -124,7 +131,11 @@ struct SettingsView: View {
             }
 
             Section {
-                LabeledContent("Repera Business", value: businessAuth.isConnected ? "Conectada" : "Sin conectar")
+                LabeledContent(
+                    "Cuenta Supabase",
+                    value: businessAuth.isConnected ? "Conectada" :
+                        (businessAuth.isMigrationRequired ? "Pendiente de migrar" : "Sin conectar")
+                )
                 ForEach(businessData.centers) { center in
                     LabeledContent(center.kind == "personal_trainer" ? "Entrenador" : "Centro", value: center.name)
                 }
@@ -138,6 +149,9 @@ struct SettingsView: View {
                                 // signIn already requests a nonce-bound Apple ID token
                                 // and forwards it to BusinessAuthStore.connect.
                                 try await appleAuth.signIn()
+                                await businessAuth.migrateLocalProfileIfNeeded(
+                                    displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName
+                                )
                             } catch {
                                 appleConnectionError = error.localizedDescription
                             }
@@ -155,7 +169,19 @@ struct SettingsView: View {
                             .foregroundStyle(OG.red)
                     }
                 }
-                Text("Solo se muestran vínculos aceptados y autorizados en Supabase. El historial personal sigue siendo privado en iCloud.")
+                if let issue = businessAuth.profileMigrationErrorMessage {
+                    Text(issue)
+                        .font(.footnote)
+                        .foregroundStyle(OG.red)
+                    Button("Reintentar sincronización del perfil") {
+                        Task {
+                            await businessAuth.migrateLocalProfileIfNeeded(
+                                displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName
+                            )
+                        }
+                    }
+                }
+                Text("Los usuarios anteriores se vinculan con Apple sin volver a crear entrenamientos. Solo el nombre y la identidad se sincronizan con Supabase; el historial sigue en iCloud.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {

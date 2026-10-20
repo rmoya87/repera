@@ -214,6 +214,27 @@ final class BusinessAuthStore {
         }
     }
 
+    /// Explicit profile edit from Ajustes, separate from the one-time migration.
+    /// Keeps a visible local profile name and remote profile aligned, without
+    /// sending workout data, photos or StoreKit entitlements to Supabase.
+    func updateDisplayName(_ value: String?) async {
+        guard isConnected, let client else { return }
+        do {
+            let session = try await client.auth.session
+            guard !session.isExpired else { return }
+            let name = String((value ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .prefix(100))
+            try await client.from("profiles")
+                .update(["display_name": name])
+                .eq("id", value: session.user.id.uuidString)
+                .execute()
+            profileMigrationErrorMessage = nil
+        } catch {
+            profileMigrationErrorMessage = "No se ha podido sincronizar el nombre. Puedes reintentarlo más adelante."
+        }
+    }
+
     private struct RemoteProfileName: Decodable {
         let displayName: String?
         enum CodingKeys: String, CodingKey {
