@@ -8,7 +8,7 @@ import {handleEditorClick,handleEditorSearch,readPrescription,validatePrescripti
 const app=document.querySelector('#app');
 const auth=new ReperaAuthAPI({baseUrl:SUPABASE_URL,publishableKey:SUPABASE_PUBLISHABLE_KEY});
 const escapeHTML=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let user=null,organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],notices=[],selectedClientId=null,selectedClassId=null,classMode='calendar',calendarMonth='',planningClientId=null,activeTab='overview',selectedTemplateId=null,editingSessionId=null,view='login',busy=false,error='',notice='';
+let user=null,organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],notices=[],selectedClientId=null,selectedClassId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,activeTab='overview',selectedTemplateId=null,editingSessionId=null,view='login',busy=false,error='',notice='';
 const kindLabel={gym:'Gimnasio',personal_trainer:'Entrenador independiente',sports_center:'Centro deportivo'};
 const roleLabel={owner:'Propietario',admin:'Administrador',coach:'Entrenador',reception:'Recepción',athlete:'Deportista'};
 const message=()=>`${error?`<p class="connected-error" role="alert">${escapeHTML(error)}</p>`:''}${notice?`<p class="connected-notice" role="status">${escapeHTML(notice)}</p>`:''}`;
@@ -55,7 +55,7 @@ function enhanceWorkspace(own){
  attach('overview',renderBusinessHome({org,clients,occurrences,bookings,sessions:professionalSessions,templates}));
  attach('clients',renderClient360({clients,selected:selectedClientId,passes,bookings,occurrences,sessions:professionalSessions,notices,manager,role:own.get(selectedOrg)}));
  const members=memberships.filter(m=>m.organization_id===org.id&&m.status==='active'&&['owner','admin','coach'].includes(m.role)).map(m=>({user_id:m.user_id,label:m.user_id===user.id?'Mi cuenta':'Profesional '+m.user_id.slice(0,8)}));
- attach('services',renderClasses360({occurrences,clients,bookings,passes,details:classDetails,groups,coaches:members,selected:selectedClassId,listMode:classMode,calendarMonth,manager}));
+ attach('services',renderClasses360({occurrences,clients,bookings,passes,details:classDetails,groups,coaches:members,selected:selectedClassId,classEditor:classEditorId===selectedClassId,listMode:classMode,calendarMonth,manager}));
  attach('bonos',`<section class="connected-card"><h2>Bonos y tarifas</h2><p>Bonos reales de cortesía y saldos verificados en Supabase. Los cobros y renovaciones de pago siguen pendientes de integración.</p>${passes.map(p=>`<article class="connected-org"><strong>${escapeHTML(clients.find(c=>c.id===p.client_id)?.name||'Cliente')} · ${p.kind==='class'?'Clase':'Cita'}</strong><small>${p.remaining_credits} de ${p.total_credits} disponibles</small></article>`).join('')||'<p>No hay bonos todavía.</p>'}</section>`);
  attach('billing',`<section class="connected-card"><h2>Facturación</h2><p>La pasarela de pago y la facturación legal todavía no están habilitadas. No se muestran cobros simulados como reales.</p></section>`);
  attach('analytics',`<section class="connected-card"><h2>Analíticas del negocio</h2><div class="business-stats"><div class="business-stat"><span>Clientes</span><strong>${clients.length}</strong></div><div class="business-stat"><span>Reservas activas</span><strong>${bookings.filter(b=>b.status==='booked').length}</strong></div><div class="business-stat"><span>Sesiones programadas</span><strong>${occurrences.filter(o=>o.status==='active').length}</strong></div></div><p>Las métricas deportivas personales solo estarán disponibles con consentimiento y sincronización del atleta.</p></section>`);
@@ -120,8 +120,8 @@ app.addEventListener('click',async event=>{
  const actionable=event.target.closest('[data-action]');const action=actionable?.dataset.action;
  if(action==='detail-client'){selectedClientId=actionable.dataset.id;activeTab='clients';render();return;}
  if(action==='back-clients'){selectedClientId=null;activeTab='clients';render();return;}
- if(action==='detail-occurrence'){selectedClassId=actionable.dataset.id;activeTab='services';render();return;}
- if(action==='back-classes'){selectedClassId=null;activeTab='services';render();return;}
+ if(action==='detail-occurrence'){classEditorId=null;selectedClassId=actionable.dataset.id;activeTab='services';render();return;}
+ if(action==='back-classes'){classEditorId=null;selectedClassId=null;activeTab='services';render();return;}
  if(action==='open-class-calendar'){selectedClassId=null;classMode='calendar';activeTab='services';render();return;}
  if(action==='calendar-mode'){classMode=actionable.dataset.mode==='list'?'list':'calendar';render();return;}
  if(action==='calendar-prev'||action==='calendar-next'){
@@ -129,6 +129,7 @@ app.addEventListener('click',async event=>{
   first.setDate(1);first.setMonth(first.getMonth()+(action==='calendar-next'?1:-1));
   calendarMonth=first.toLocaleDateString('sv-SE').slice(0,7);render();return;
  }
+ if(action==='publish-class-plan'){classEditorId=actionable.dataset.id;selectedClassId=actionable.dataset.id;activeTab='services';render();return;}
  if(action==='plan-client'){planningClientId=actionable.dataset.id;activeTab='planning';selectedTemplateId=null;editingSessionId=null;render();return;}
  if(action==='find-class-for-client'){selectedClientId=actionable.dataset.id;selectedClassId=null;activeTab='services';classMode='list';notice='Selecciona una clase para inscribir a este deportista con un bono válido.';render();return;}
  if(action==='invite-client'&&!busy){const c=clients.find(c=>c.id===actionable.dataset.id);
@@ -158,7 +159,7 @@ app.addEventListener('submit',async event=>{
  const f=event.target.closest('form[data-connected]');if(!f)return;event.preventDefault();if(busy)return;
  const action=f.dataset.connected,data=new FormData(f),intent=event.submitter?.dataset.intent||'publish';
  let prescription=null;
- try{if(action==='publish-session')prescription=validatePrescription(readPrescription(f));}catch(e){error=e.message;notice='';render();return;}
+ try{if(action==='publish-session'||action==='publish-class-plan')prescription=validatePrescription(readPrescription(f));}catch(e){error=e.message;notice='';render();return;}
  busy=true;error=notice='';render();
  try{
   if(action==='login'){user=await auth.signIn(data.get('email'),data.get('password'));await reload();}
@@ -185,6 +186,10 @@ app.addEventListener('submit',async event=>{
   if(action==='assign-coach'){
    await auth.assignCoachClient({orgId:selectedOrg,clientId:data.get('client'),coachId:data.get('coach')});
    await reload();notice='Entrenador asignado al cliente.';
+  }
+  if(action==='publish-class-plan'){
+   const count=await auth.publishClassTraining({occurrenceId:data.get('occurrence'),title:data.get('title'),instructions:data.get('instructions'),prescription});
+   classEditorId=null;await loadSelectedOrg();notice='Entrenamiento publicado para '+count+' participantes vinculados.';
   }
   if(action==='service-occurrence'){
    const created=await auth.addClassSeries({orgId:selectedOrg,coachId:data.get('coach'),kind:data.get('kind'),title:data.get('title'),start:data.get('start'),end:data.get('end'),capacity:Number(data.get('capacity')),repeat:data.get('repeat')||'none',count:Number(data.get('repeatCount')||1)});
