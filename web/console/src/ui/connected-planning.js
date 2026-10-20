@@ -1,6 +1,9 @@
 import {editorMarkup,emptyPrescription,visualPrescription} from './workout-editor.js';
+import {renderMainProfessionalPlanning} from './connected-planning-main.js';
 const dateToday=()=>new Date().toLocaleDateString('sv-SE');
-export function renderProfessionalPlanning({orgId,role,sessions=[],templates=[],clients=[],memberships=[],escapeHTML,busy=false,templateId=null,sessionId=null,clientId=null}) {
+export function renderProfessionalPlanning(props) {
+ if(Object.prototype.hasOwnProperty.call(props,'draft'))return renderMainProfessionalPlanning(props);
+ const {orgId,role,sessions=[],templates=[],clients=[],memberships=[],escapeHTML,busy=false,templateId=null,sessionId=null,clientId=null}=props;
  if(!orgId)return '';
  const canEdit=['owner','admin','coach'].includes(role),manager=['owner','admin'].includes(role);
  const linked=clients.filter(c=>c.user_id&&c.status==='active');
