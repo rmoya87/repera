@@ -47,7 +47,11 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 - [`Repera-iOS.command`](Repera-iOS.command): intenta compilar y lanzar la app en Simulator; requiere macOS, Xcode con iOS 27, XcodeGen y un simulador compatible.
 - Ambos lanzadores están en la raíz del repositorio; si clonas por Git, se conserva el permiso de ejecución. No se ha generado todavía una aplicación macOS firmada ni un paquete iOS listo para distribución.
 
-**Estado:** el flujo deportista↔entrenador↔centro no está conectado completamente y el CI sigue fallando; `main` no debe recibir la rama Business sin revisión y pruebas.
+**Estado:** la administración Business y sus migraciones están implementadas en la rama profesional, pero siguen pendientes la verificación E2E con cuentas reales, los cobros, el despliegue público y la puerta de salida antes de fusionar en `main`.
+
+## Administración profesional
+
+La consola está en `web/console/` (Supabase Auth por defecto; `?demo=1` solo datos ficticios). Incluye Inicio, Clientes 360, Entrenamientos y plantillas, Clases/Citas y reservas con calendario, gestión de grupos, bonos, analíticas y configuración por tipo de negocio. Permite registrarse como centro o entrenador con prueba gratuita de siete días controlada por la base de datos. Seleccionar un plan NO activa una suscripción ni cobra dinero: Stripe B2B sigue pendiente. La web IONOS puede empaquetar `/console/`, pero aún no está desplegada. La cuenta `rmoya87@gmail.com` recibirá rol de plataforma solo al completar el registro con el email verificado. Ver [estado del desarrollo](docs/business/ESTADO_DESARROLLO.md).
 
 ## Arranque
 
@@ -79,7 +83,7 @@ Cold start: Splash nativo y pantalla de espera usan la misma UIImageView UIKit e
 ## No integrados aún en las apps
 
 - Android nativo: planificado, no implementado.
-- Backend Supabase de Repera: **siete migraciones aplicadas, 16 tablas públicas y RLS en las 16**, sin usuarios reales dados de alta. Panel profesional conectado a invitaciones, horarios, bonos de cortesía y entrenamientos fechados. iOS incluye puente Apple→Supabase y lectura de Center/Diario/Inicio/Ajustes, **pendiente compilar y validar con proveedor Apple y cuentas reales**. No hay Stripe, facturación, bonos de pago ni listas de espera. Ver [estado real](docs/business/ESTADO_DESARROLLO.md) y [criterios y accesos necesarios para cerrar la entrega](docs/business/RELEASE_GATE.md).
+- Backend Supabase de Repera: **migraciones Business 360 aplicadas a Supabase con políticas RLS; el inventario se consulta en el proyecto**, sin usuarios reales dados de alta. Panel profesional conectado a invitaciones, horarios, bonos de cortesía y entrenamientos fechados. iOS incluye puente Apple→Supabase y lectura de Center/Diario/Inicio/Ajustes, **pendiente compilar y validar con proveedor Apple y cuentas reales**. No hay Stripe, facturación, bonos de pago ni listas de espera. Ver [estado real](docs/business/ESTADO_DESARROLLO.md) y [criterios y accesos necesarios para cerrar la entrega](docs/business/RELEASE_GATE.md).
 - Coach / tips con IA (sí hay Foundation Models on-device para pizarra)
 - SDK RevenueCat en Apple Watch
 
