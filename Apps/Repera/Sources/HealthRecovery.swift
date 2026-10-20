@@ -20,6 +20,7 @@ private struct RecoveryCategoryRecord: Sendable {
     let endDate: Date
     let value: Int
     let source: String
+    let isCycleStart: Bool?
 }
 
 enum CycleEstimate: String, Sendable {
@@ -141,9 +142,18 @@ final class HealthRecoveryStore {
         }
         if cycleEnabled {
             let menstrual = await categorySamples(.menstrualFlow, days: 230)
+            // Apple Salud puede registrar una muestra por día o una única muestra
+            // que cubre varios días; expandirla para pintar el calendario completo.
+            let calendar = Calendar.current
             menstrualDays = Array(Set(menstrual
                 .filter { $0.value != HKCategoryValueMenstrualFlow.none.rawValue }
-                .map { Calendar.current.startOfDay(for: $0.startDate) })).sorted()
+                .flatMap { record -> [Date] in
+                    let start = calendar.startOfDay(for: record.startDate)
+                    let lastMoment = max(record.startDate, record.endDate.addingTimeInterval(-1))
+                    let end = calendar.startOfDay(for: lastMoment)
+                    let span = min(10, max(0, calendar.dateComponents([.day], from: start, to: end).day ?? 0))
+                    return (0...span).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+                })).sorted()
             let tests = await categorySamples(.ovulationTestResult, days: 230)
             positiveOvulationTests = tests.filter {
                 $0.value == HKCategoryValueOvulationTestResult.luteinizingHormoneSurge.rawValue
@@ -163,7 +173,8 @@ final class HealthRecoveryStore {
                 let records = (samples as? [HKCategorySample] ?? []).map {
                     RecoveryCategoryRecord(
                         startDate: $0.startDate, endDate: $0.endDate,
-                        value: $0.value, source: $0.sourceRevision.source.bundleIdentifier
+                        value: $0.value, source: $0.sourceRevision.source.bundleIdentifier,
+                        isCycleStart: $0.metadata?[HKMetadataKeyMenstrualCycleStart] as? Bool
                     )
                 }
                 continuation.resume(returning: records)
@@ -340,6 +351,29 @@ struct HealthRecoveryProgressView: View {
                     if let average = recovery.averageHours {
                         Label("Media reciente: " + String(format: "%.1f h", average), systemImage: "moon.stars.fill")
                             .font(.subheadline).foregroundStyle(OG.label2)
+                    }
+                    if recovery.nights.contains(where: { $0.deepHours > 0 || $0.remHours > 0 }) {
+                        Divider().opacity(0.3)
+                        Text("Sueño profundo y REM")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(OG.label)
+                        Chart {
+                            ForEach(Array(recovery.nights.suffix(7))) { night in
+                                BarMark(
+                                    x: .value("Noche", night.date, unit: .day),
+                                    y: .value("Horas", night.deepHours)
+                                )
+                                .foregroundStyle(by: .value("Fase", "Profundo"))
+                                BarMark(
+                                    x: .value("Noche", night.date, unit: .day),
+                                    y: .value("Horas", night.remHours)
+                                )
+                                .foregroundStyle(by: .value("Fase", "REM"))
+                            }
+                        }
+                        .chartForegroundStyleScale(["Profundo": OG.blue, "REM": OG.accent])
+                        .chartYScale(domain: .automatic(includesZero: true))
+                        .frame(height: 170)
                     }
                     Text("Las fases de sueño se estiman por el dispositivo. Las barras utilizan una sola fuente por noche para evitar duplicados.")
                         .font(.caption).foregroundStyle(OG.label3)
