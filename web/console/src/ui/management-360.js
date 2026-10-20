@@ -1,6 +1,6 @@
 import {editorMarkup,emptyPrescription} from './workout-editor.js';
 // Vistas 360 de Repera Business: nunca inventan estadísticas del atleta sin consentimiento.
-const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;':'&quot;',"'":'&#39;'}[c]));
+const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateTime=x=>x?new Date(x).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'}):'Sin fecha';
 const day=x=>x?new Date(x).toLocaleDateString('es-ES',{dateStyle:'short'}):'—';
 const short=x=>x?new Date(x).toLocaleDateString('sv-SE'):'';
