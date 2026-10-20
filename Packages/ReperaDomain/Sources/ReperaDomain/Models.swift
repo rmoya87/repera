@@ -1687,19 +1687,23 @@ public struct WorkoutRoutePoint: Codable, Sendable, Equatable, Identifiable {
     public var recordedAt: Date
     /// m/s (≥ 0). Nil si no se pudo estimar.
     public var speedMps: Double?
+    /// Altitud GPS validada, en metros sobre el nivel del mar; optional para rutas antiguas.
+    public var altitudeMeters: Double?
 
     public init(
         id: Int,
         latitude: Double,
         longitude: Double,
         recordedAt: Date = Date(),
-        speedMps: Double? = nil
+        speedMps: Double? = nil,
+        altitudeMeters: Double? = nil
     ) {
         self.id = id
         self.latitude = latitude
         self.longitude = longitude
         self.recordedAt = recordedAt
         self.speedMps = speedMps
+        self.altitudeMeters = altitudeMeters
     }
 }
 
