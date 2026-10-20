@@ -17,7 +17,7 @@ const redirectTo=()=>location.origin+location.pathname;
 
 const PRICING={
  personal_trainer:[['trainer_5','Inicio',14,'Hasta 5 clientes'],['trainer_50','Profesional',50,'Hasta 50 clientes'],['trainer_75','Crecimiento',65,'Hasta 75 clientes']],
- gym:[['gym_basic','Básico',34,'Hasta 35 usuarios'],['gym_advanced','Avanzado',44,'Hasta 70 usuarios'],['gym_expert','Experto',54,'Usuarios ilimitados']],
+ gym:[['gym_basic','Básico',39,'Hasta 35 usuarios'],['gym_advanced','Avanzado',69,'Hasta 70 usuarios'],['gym_expert','Experto',119,'Usuarios ilimitados · una sede']],
  sports_center:[['gym_basic','Básico',34,'Hasta 35 usuarios'],['gym_advanced','Avanzado',44,'Hasta 70 usuarios'],['gym_expert','Experto',54,'Usuarios ilimitados']]
 };
 function trialStatus(){
@@ -29,8 +29,8 @@ function trialStatus(){
 function renderSubscriptions(org){
  const state=trialStatus(),trial=state.rec;
  const head=state.paid?`Plan ${escapeHTML(trial.paid_plan)} activo`:state.active?`Prueba gratuita · ${state.days} días restantes`:'Prueba finalizada · elige un plan';
- const rows=(PRICING[org.kind]||PRICING.gym).map(([key,title,price,capacity])=>`<article class="business-price"><h3>${title}</h3><strong>${price} €<small> / mes</small></strong><p>${capacity}</p>${org.kind!=='personal_trainer'?'<p>Oferta introductoria de 2 meses; precio posterior pendiente de definir.</p>':''}<button type="button" class="connected-secondary" data-action="choose-plan" data-plan="${key}">Seleccionar</button></article>`).join('');
- return `<section class="connected-card business-subscriptions"><span class="connected-tag">SUSCRIPCIÓN</span><h2>${head}</h2><p>No se cobrará nada ni se activará un plan de pago hasta integrar un proveedor verificado. Seleccionar registra únicamente tu interés.</p><div class="business-prices">${rows}</div></section>`;
+ const rows=(PRICING[org.kind]||PRICING.gym).map(([key,title,price,capacity])=>`<article class="business-price"><h3>${title}</h3><strong>${price} €<small> / mes + IVA</small></strong><p>${capacity}</p>${org.kind!=='personal_trainer'?'<p>Promoción de lanzamiento: 50 % durante 2 meses. Después se aplica el precio indicado; IVA no incluido.</p>':''}<button type="button" class="connected-secondary" data-action="choose-plan" data-plan="${key}">Seleccionar</button></article>`).join('');
+ return `<section class="connected-card business-subscriptions"><span class="connected-tag">SUSCRIPCIÓN</span><h2>${head}</h2><p>Precios de referencia para una sede, sin IVA. En gimnasios proponemos un descuento del 50 % los dos primeros meses (el precio mostrado es el habitual). No se cobrará nada ni se activará un plan hasta integrar y validar la pasarela de pago. Seleccionar registra únicamente tu interés.</p><div class="business-prices">${rows}</div></section>`;
 }
 function enhanceWorkspace(own){
  const root=app.querySelector('.connected-workspace');if(!root)return;
