@@ -50,6 +50,12 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 
 **Estado:** la identidad Apple y el flujo profesional conectado con Supabase ya están en `main`. Aún requieren validación con cuentas y dispositivos reales; consulta los checks de GitHub Actions del commit actual antes de publicar en TestFlight.
 
+## Repera Business · alta de negocios y tarifas administrables
+
+El panel `/console/` usa Supabase Repera con sesión real. Para dar de alta un negocio se escoge **Entrenador personal** o **Gimnasio**: el identificador público se genera a partir del nombre comercial; no se introduce manualmente. El alta permite correo/teléfono, web, dirección y descripción, además de nombre/razón social, NIF/NIE/CIF, representante, persona de contacto, correo/domicilio de facturación y localidad. El **logotipo del gimnasio** o la **foto del entrenador** se sube como JPG/PNG/WebP al bucket público `business-branding` con permisos del propietario/administrador; su URL se vincula al perfil utilizado también por la búsqueda de Repera iOS. La información fiscal vive en `organization_legal_profiles` y **no es visible para atletas**.
+
+Los planes aparecen desde `business_plans`, configurables por el **administrador verificado de Repera** (precios, cupos, promociones y visibilidad) y separados por entrenador/gimnasio. Seleccionarlos solo crea una solicitud pendiente, nunca cobra ni da acceso de pago. Requiere la migración `business_org_identity_plans` del proyecto Repera y pruebas E2E antes de producción. Más detalles: [entorno local](docs/business/README_LOCAL.md).
+
 ## Solución: Xcode no encuentra `BusinessAuthStore` o `BusinessWorkoutSyncStore`
 
 El proyecto Xcode (`Repera.xcodeproj`) **se genera localmente** y no se versiona. Puede quedarse con la lista de fuentes anterior a la integración de Supabase, aunque los archivos Swift existan en disco. Por tanto, errores como `Cannot find 'BusinessAuthStore' in scope` o `Cannot find 'BusinessWorkoutSyncStore' in scope` (desde `BusinessAuthStore.swift:258`) suelen requerir regenerar el proyecto, **no duplicar la clase ni eliminar la limpieza de la sesión Supabase**. El validador comprueba también que el archivo esté en *Compile Sources*, no solo en el navegador de Xcode.
@@ -115,7 +121,7 @@ python3 -m unittest discover -s tests -p 'test_sync_versions.py'
 ## No integrados aún en las apps
 
 - Android nativo: planificado, no implementado.
-- Backend Supabase de Repera: **siete migraciones aplicadas, 16 tablas públicas y RLS en las 16**, sin usuarios reales dados de alta. Panel profesional conectado a invitaciones, horarios, bonos de cortesía y entrenamientos fechados. iOS incluye puente Apple→Supabase y lectura de Center/Diario/Inicio/Ajustes, **pendiente compilar y validar con proveedor Apple y cuentas reales**. No hay Stripe, facturación, bonos de pago ni listas de espera. Ver [estado real](docs/business/ESTADO_DESARROLLO.md) y [criterios y accesos necesarios para cerrar la entrega](docs/business/RELEASE_GATE.md).
+- Backend Supabase de Repera: **migraciones de negocio aplicadas en Supabase Repera y tablas públicas protegidas por RLS**, con operaciones pendientes de validación E2E. Panel profesional conectado a invitaciones, horarios, bonos de cortesía y entrenamientos fechados. iOS incluye puente Apple→Supabase y lectura de Center/Diario/Inicio/Ajustes, **pendiente compilar y validar con proveedor Apple y cuentas reales**. No hay Stripe, facturación legal ni bonos de pago; la elección de planes no cobra ni activa prestaciones. Ver [estado real](docs/business/ESTADO_DESARROLLO.md) y [criterios y accesos necesarios para cerrar la entrega](docs/business/RELEASE_GATE.md).
 - Coach / tips con IA (sí hay Foundation Models on-device para pizarra)
 - SDK RevenueCat en Apple Watch
 

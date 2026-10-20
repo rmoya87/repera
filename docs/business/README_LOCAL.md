@@ -18,6 +18,12 @@ Si Finder impide abrir un script procedente de Internet, usa el diálogo de aper
 
 **No hay todavía binario de producto terminado** ni firma/distribución TestFlight validada; los scripts facilitan pruebas locales. No fusionar `main` mientras CI iOS y seguridad E2E no estén validados.
 
+## Alta real de entrenador o gimnasio (octubre de 2026)
+
+En `/console/` la creación del negocio pide nombre comercial y genera un identificador único a partir de ese nombre. No hay una categoría de «centro»: los nuevos negocios eligen **entrenador personal** o **gimnasio** (el tipo anterior se mantiene internamente solo por compatibilidad). Se recogen datos comerciales, de contacto, fiscales y de representante, dirección postal, país ISO, y se puede subir foto de entrenador o logo. La foto se convierte en JPEG, se limita a 1 MB y es **pública** para mostrarse también en el directorio. Los datos fiscales se almacenan en una tabla separada con RLS para propietarios/administradores, no dentro de la ficha pública.
+
+El panel de **Administración Repera** permite modificar o crear planes de cada categoría (nombre, precio mensual sin IVA, límite de clientes, descuento de lanzamiento, visibilidad y orden). Los formularios de alta y suscripción leen el catálogo real de Supabase. Un plan elegido genera un interés de compra, no un cobro ni una suscripción activa. Requiere aplicar el SQL versionado `business_org_identity_plans` con Supabase Repera y validar sesión real en navegador. Hasta entonces, una columna o RPC ausente dará error: nunca reemplazarla por datos demo.
+
 ## Arranque web en 20 segundos
 
 ```bash
@@ -87,7 +93,7 @@ docs/
 - **Cafesito no se ha tocado** y los scripts jamás deben ejecutarse ahí.
 - SQL preparado para un proyecto Repera completamente nuevo, sin compartir API keys, Auth, RLS o usuarios con Cafesito.
 - Migración `0001` del repositorio GitHub original **NO** debe ejecutarse junto con este esquema. Aquella migración antigua concede lecturas generales a entrenadores y necesita sustitución antes de iniciar la sincronización.
-- Las migraciones locales todavía **no se han ejecutado ni probado en PostgreSQL real**; requieren pruebas de RLS, privilegios, transacciones paralelas y revisión de seguridad antes de desplegar.
+- Las migraciones históricas del prototipo greenfield no son equivalentes al esquema productivo. La migración `business_org_identity_plans` sí está aplicada en Supabase Repera, pero aún se necesitan pruebas E2E de RLS y carga de imágenes con usuarios reales.
 - `src/core/auth.js` conecta la ruta `/console/` con Supabase Repera mediante sesión autenticada y RLS; `src/core/backend.js` define otro contrato de transporte. Ambos son distintos de la demo y no implican validación E2E.
 
 ## IONOS y GitHub

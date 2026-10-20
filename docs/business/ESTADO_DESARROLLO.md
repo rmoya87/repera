@@ -1,3 +1,7 @@
+## Alta empresarial y catálogo comercial — 20/10/2026
+
+Se incorpora al panel conectado un formulario de alta con identificador derivado del nombre, ficha comercial, datos fiscales privados y foto/logotipo opcional, además de edición desde Ajustes. Los planes dejan de estar fijados en el frontend: catálogo `business_plans` configurable por administración verificada, con separación entrenador/gimnasio y visibilidad configurable. La selección de plan no equivale a compra ni cambia `paid_plan`/entitlement. La migración crea `organization_legal_profiles` con RLS de propietario/admin y bucket de imágenes públicas `business-branding`, con escritura restringida a miembros gerentes. **Pendiente**: validar alta real y carga de archivos en navegadores, comprobar reglas de imagen y conciliación comercial antes de producción.
+
 # Estado de desarrollo — Repera Business
 Última actualización: 2026-10-20.
 

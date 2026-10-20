@@ -1,3 +1,4 @@
+import {uniqueSlug,publicBusinessValues,legalProfileValues} from './business-profile.js';
 /**
  * Repera's limited, dependency-free GoTrue/PostgREST adapter for a STATIC console.
  * Only intended for https://uvzgujlrqohreoucirms.supabase.co.
@@ -183,27 +184,29 @@ export class ReperaAuthAPI {
  async memberships(){
   return this.#authorized('organization_memberships?select=organization_id,user_id,role,status');
  }
- async createOrganization({name,slug,kind,userId}){
-  name=String(name||'').trim();slug=String(slug||'').trim();
-  if(name.length<2||name.length>120||!(/^[a-z0-9][a-z0-9-]{2,62}$/).test(slug)||!allowedKind.has(kind))throw Error('Comprueba nombre, identificador y tipo del negocio');
+ async createOrganization({name,slug=null,kind,userId,publicValues={}}){
+  const publicData=publicBusinessValues({name,...publicValues});
+  const generatedSlug=slug?String(slug).trim():uniqueSlug(publicData.name);
+  if(!/^[a-z0-9][a-z0-9-]{2,62}$/.test(generatedSlug)||!allowedKind.has(kind))throw Error('Comprueba nombre y tipo de negocio');
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId||''))throw Error('Identidad no validada');
-  // SQL RLS verifies created_by == auth.uid(). The owner membership is created by a protected DB trigger.
-  return this.#authorized('organizations?select=id,name,slug,kind',{method:'POST',prefer:'return=representation',body:{name,slug,kind,created_by:userId}});
+  return this.#authorized('organizations?select=id,name,slug,kind',{method:'POST',prefer:'return=representation',
+   body:{...publicData,slug:generatedSlug,kind,created_by:userId}});
  }
- async renameOrganization(orgId,name){
+  async renameOrganization(orgId,name){
   name=String(name||'').trim();
   if(name.length<2||name.length>120||!/^[0-9a-f-]{36}$/i.test(orgId))throw Error('Datos de organización inválidos');
   // SQL permits only UPDATE(name), restricted by owner/admin membership.
   return this.#authorized('organizations?id=eq.'+encodeURIComponent(orgId)+'&select=id,name,slug,kind,avatar_url,tagline',{method:'PATCH',prefer:'return=representation',body:{name}});
  }
- async updateOrganizationBranding({orgId,avatarUrl='',tagline='',isDiscoverable=true}){
-  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
-  return this.#authorized('rpc/update_organization_branding',{method:'POST',body:{
-   p_org:orgId,
-   p_avatar_url:String(avatarUrl||'').trim()||null,
-   p_tagline:String(tagline||'').trim()||null,
-   p_is_discoverable:!!isDiscoverable
-  }});
+ async updateOrganizationBranding({orgId,avatarUrl,tagline,isDiscoverable}){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Negocio inválido');
+  const body={};
+  if(avatarUrl!==undefined)body.avatar_url=String(avatarUrl||'').trim()||null;
+  if(tagline!==undefined)body.tagline=String(tagline||'').trim()||null;
+  if(isDiscoverable!==undefined)body.is_discoverable=!!isDiscoverable;
+  if(!Object.keys(body).length)return [];
+  return this.#authorized('organizations?id=eq.'+encodeURIComponent(orgId)+'&select=id,avatar_url,tagline,is_discoverable',
+   {method:'PATCH',prefer:'return=representation',body});
  }
  async updateProfessionalSession({id,date,title,instructions='',prescription}){
   if(!/^[0-9a-f-]{36}$/i.test(id||''))throw Error('Sesión inválida');
@@ -223,22 +226,67 @@ export class ReperaAuthAPI {
   return this.#authorized('professional_workout_templates?id=eq.'+encodeURIComponent(id)+'&org_id=eq.'+encodeURIComponent(orgId),
     {method:'PATCH',prefer:'return=representation',body:{name:String(name||'').trim().slice(0,120),description:String(description).slice(0,1000),prescription,updated_at:new Date().toISOString()}});
  }
- async updateOrganization({orgId,name,publicEmail='',phone='',website='',address='',description='',timezone='Europe/Madrid'}){
-  if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||String(name||'').trim().length<2)throw Error('Datos del negocio inválidos');
-  const body={name:String(name).trim().slice(0,120),public_email:String(publicEmail).trim().slice(0,180)||null,
-    phone:String(phone).trim().slice(0,40)||null,website:String(website).trim().slice(0,255)||null,
-    address:String(address).trim().slice(0,300)||null,description:String(description).trim().slice(0,2000)||null,
-    timezone:String(timezone).trim().slice(0,80)||'Europe/Madrid'};
+ async updateOrganization({orgId,name,publicEmail='',phone='',website='',address='',description='',timezone='Europe/Madrid',publicValues={}}){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Datos del negocio inválidos');
+  const body=publicBusinessValues({name,public_email:publicEmail,phone,website,address,description,timezone,...publicValues});
   return this.#authorized('organizations?id=eq.'+encodeURIComponent(orgId)+'&select=id,name,slug,kind,public_email,phone,website,address,description,timezone',
     {method:'PATCH',prefer:'return=representation',body});
  }
-
- async organizationTrial(orgId){
+ async legalProfile(orgId){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Negocio inválido');
+  const rows=await this.#authorized('organization_legal_profiles?select=org_id,entity_type,legal_name,tax_id,representative_name,contact_name,billing_email,billing_address,postal_code,city,province,country&org_id=eq.'+encodeURIComponent(orgId));
+  return rows?.[0]||null;
+ }
+ async upsertLegalProfile(orgId,values){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Negocio inválido');
+  return this.#authorized('organization_legal_profiles?on_conflict=org_id',{method:'POST',
+   prefer:'resolution=merge-duplicates,return=representation',body:{org_id:orgId,...legalProfileValues(values)}});
+ }
+ async businessPlans(){
+  return this.#authorized('business_plans?select=plan_key,audience,title,description,monthly_price_cents,max_clients,discount_percent,discount_months,is_active,display_order&order=audience.asc,display_order.asc');
+ }
+ async saveBusinessPlan(v,{newPlan=false}={}){
+  const key=String(v.plan_key||'').trim().toLowerCase(),title=String(v.title||'').trim();
+  const audience=String(v.audience||''),price=Number(v.price),cents=Math.round(price*100);
+  const clients=v.max_clients===''||v.max_clients==null?null:Number(v.max_clients);
+  const discount=Number(v.discount_percent||0),months=Number(v.discount_months||0),order=Number(v.display_order||0);
+  if(!/^[a-z][a-z0-9_]{2,39}$/.test(key)||title.length<2||title.length>70||!['gym','personal_trainer'].includes(audience)
+    ||!Number.isFinite(price)||cents<0||cents>10000000||Math.abs(price*100-cents)>0.001
+    ||(clients!==null&&(!Number.isInteger(clients)||clients<1||clients>100000))
+    ||!Number.isInteger(discount)||discount<0||discount>90||!Number.isInteger(months)||months<0||months>12
+    ||!Number.isInteger(order)||order<-999||order>999)throw Error('Revisa los datos del plan');
+  const body={audience,title,description:String(v.description||'').trim().slice(0,250),monthly_price_cents:cents,
+   max_clients:clients,discount_percent:discount,discount_months:months,
+   is_active:v.is_active!==false&&v.is_active!=='false',display_order:order};
+  return this.#authorized(newPlan?'business_plans?select=plan_key':
+   'business_plans?plan_key=eq.'+encodeURIComponent(key)+'&select=plan_key',
+   {method:newPlan?'POST':'PATCH',prefer:'return=representation',body:newPlan?{plan_key:key,...body}:body});
+ }
+ async uploadBrandImage({orgId,kind,file}){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Negocio inválido');
+  if(!file?.size)return null;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>8*1024*1024)throw Error('Selecciona JPG, PNG o WebP hasta 8 MB.');
+  const bitmap=await createImageBitmap(file),scale=Math.min(1,900/Math.max(bitmap.width,bitmap.height));
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+  canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close?.();
+  const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.78));
+  if(!blob||blob.size>1048576)throw Error('La foto sigue ocupando demasiado. Usa una imagen más pequeña.');
+  const jwt=await this.token();if(!jwt)throw Error('Inicia sesión para subir la imagen');
+  const filename=kind==='personal_trainer'?'trainer.jpg':'logo.jpg',objectPath=orgId+'/'+filename;
+  const response=await this.fetcher(this.base+'/storage/v1/object/business-branding/'+objectPath,{
+   method:'POST',headers:{apikey:this.key,Authorization:'Bearer '+jwt,'Content-Type':'image/jpeg','x-upsert':'true'},
+   body:blob});
+  if(!response.ok){const problem=await response.json().catch(()=>({}));throw Error(problem.message||problem.error||'No se pudo subir la imagen');}
+  const url=this.base+'/storage/v1/object/public/business-branding/'+objectPath+'?v='+Date.now();
+  await this.updateOrganizationBranding({orgId,avatarUrl:url});
+  return url;
+ }
+  async organizationTrial(orgId){
   return this.#authorized('organization_trials?select=org_id,trial_started_at,trial_ends_at,paid_plan,paid_until&org_id=eq.'+encodeURIComponent(orgId));
  }
  async subscriptionIntent({orgId,planKey,userId}){
-  const valid=['trainer_5','trainer_50','trainer_75','gym_basic','gym_advanced','gym_expert'];
-  if(!valid.includes(planKey))throw Error('Plan desconocido');
+  if(!/^[a-z][a-z0-9_]{2,39}$/.test(planKey||''))throw Error('Plan desconocido');
   return this.#authorized('business_subscription_intents',{method:'POST',body:{org_id:orgId,plan_key:planKey,actor:userId}});
  }
  async groupMembers(orgId){
