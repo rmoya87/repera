@@ -151,3 +151,8 @@ table td{border-color:#e6ede7}tr:hover td{background:#f9fbfa}
 .connected-header .brand{padding-bottom:0}
 @media(max-width:980px){.business-360-grid{grid-template-columns:1fr}.business-prices{grid-template-columns:1fr}}
 @media(max-width:600px){.business-calendar-cell,.business-calendar-empty{min-height:67px;padding:3px}.business-calendar-event{font-size:9px;padding:3px 2px}.business-calendar-title{gap:7px}.business-profile-header{flex-wrap:wrap}.business-profile-header h2{font-size:21px}}
+
+.business-mini-chart{display:flex;align-items:flex-end;gap:20px;padding:14px 8px;border-radius:12px;background:#f4f9f5;margin:12px 0}
+.business-mini-chart>div{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px}
+.business-mini-chart span{display:block;width:100%;max-width:42px;background:linear-gradient(#50bb77,#1b7641);border-radius:8px 8px 2px 2px;min-height:8px}
+.business-mini-chart small{color:#607a68}
