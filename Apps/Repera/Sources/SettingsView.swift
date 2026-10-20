@@ -126,6 +126,17 @@ struct SettingsView: View {
                 LabeledContent("Repera Business", value: businessAuth.isConnected ? "Conectada" : "Sin conectar")
                 ForEach(businessData.centers) { center in
                     LabeledContent(center.kind == "personal_trainer" ? "Entrenador" : "Centro", value: center.name)
+                    if businessData.linkedClientByOrg[center.id] != nil {
+                        Toggle(isOn: Binding(
+                            get: { businessData.sharedHistoryOrgIds.contains(center.id) },
+                            set: { enabled in
+                                Task { await businessData.setHistorySharing(enabled, orgId: center.id) }
+                            }
+                        )) {
+                            Label("Compartir historial con \(center.name)", systemImage: "hand.raised")
+                        }
+                        .disabled(businessData.isSubmitting)
+                    }
                 }
                 if businessData.centers.isEmpty {
                     LabeledContent("Centros vinculados", value: "Ninguno")
@@ -141,7 +152,7 @@ struct SettingsView: View {
                             .foregroundStyle(OG.red)
                     }
                 }
-                Text("Solo se muestran vínculos aceptados y autorizados en Supabase. El historial personal sigue siendo privado en iCloud.")
+                Text("Puedes autorizar individualmente a cada centro o entrenador a consultar los entrenamientos que hayas sincronizado voluntariamente. Puedes revocar el permiso en cualquier momento; tu historial local de iCloud no se comparte automáticamente.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .font(.footnote)
