@@ -13,6 +13,7 @@ struct ReperaApp: App {
     @State private var locationTracker = WorkoutLocationTracker.shared
     @State private var wasBackgrounded = false
     @State private var authReady = false
+    @State private var continueLocalOnly = false
     @Environment(\.scenePhase) private var scenePhase
 
     /// UI smoke tests run on clean simulators without an Apple ID. Only Debug
@@ -42,7 +43,13 @@ struct ReperaApp: App {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .ignoresSafeArea()
                 } else if uiTestTabShell || (onboarding.isComplete && appleAuth.isSignedIn) {
-                    RootTabView()
+                    if !uiTestTabShell && businessAuth.isMigrationRequired && !continueLocalOnly {
+                        LegacyAccountMigrationView {
+                            continueLocalOnly = true
+                        }
+                    } else {
+                        RootTabView()
+                    }
                 } else {
                     OnboardingFlowView()
                 }
@@ -90,7 +97,12 @@ struct ReperaApp: App {
                     if signedIn {
                         Task(priority: .utility) {
                             await businessAuth.restoreSession()
-                            await businessData.refresh()
+                            if businessAuth.isConnected {
+                                await businessAuth.migrateLocalProfileIfNeeded(
+                                    displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName
+                                )
+                                await businessData.refresh()
+                            }
                         }
                         await warmHealthAfterHydrate()
                     }

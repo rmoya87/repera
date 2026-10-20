@@ -55,7 +55,7 @@ private struct OnboardingSignInStep: View {
                     .font(.system(size: 28, weight: .bold))
                     .foregroundStyle(OG.label)
                     .multilineTextAlignment(.center)
-                Text("Inicia sesión con Apple para sincronizar tus entrenos con iCloud y recuperarlos si reinstalas la app.")
+                Text("Accede con Apple y vincula tu identidad con Supabase. Tus entrenamientos personales siguen protegidos en tu dispositivo e iCloud.")
                     .font(.body)
                     .foregroundStyle(OG.label2)
                     .multilineTextAlignment(.center)
@@ -120,6 +120,11 @@ private struct OnboardingSignInStep: View {
                 store.updateSettings(s)
             }
             await store.refreshFromiCloud(isInitial: true)
+            // Existing Apple/iCloud members keep their local history, while
+            // their public profile name is copied into their Supabase identity.
+            await BusinessAuthStore.shared.migrateLocalProfileIfNeeded(
+                displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName
+            )
             onboarding.advance(to: .choosePlan)
         } catch let error as AppleAuthError where error == .cancelled {
             return

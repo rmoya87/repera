@@ -95,7 +95,11 @@ final class AppleAuthStore: NSObject {
             throw AppleAuthError.invalidCredential
         }
         apply(credential: credential)
-        await BusinessAuthStore.shared.connect(credential: credential, rawNonce: rawNonce)
+        guard await BusinessAuthStore.shared.connect(credential: credential, rawNonce: rawNonce) else {
+            throw AppleAuthError.businessConnectionFailed(
+                BusinessAuthStore.shared.lastErrorMessage ?? "No se pudo iniciar sesión en Supabase."
+            )
+        }
     }
 
     /// Aplica el credential ya obtenido por `SignInWithAppleButton`.
@@ -192,11 +196,13 @@ final class AppleAuthStore: NSObject {
 enum AppleAuthError: LocalizedError, Equatable {
     case invalidCredential
     case cancelled
+    case businessConnectionFailed(String)
 
     var errorDescription: String? {
         switch self {
         case .invalidCredential: return "No se pudo completar el inicio de sesión con Apple."
         case .cancelled: return "Inicio de sesión cancelado."
+        case .businessConnectionFailed(let reason): return reason
         }
     }
 }
