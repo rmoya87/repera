@@ -197,10 +197,21 @@ app.addEventListener('submit',async event=>{
     const created=await auth.createOrganization({name:data.get('name'),kind,userId:user.id,publicValues:values});
     const orgId=created?.[0]?.id;if(!orgId)throw Error('El servidor no confirmó el alta.');
     selectedOrg=orgId;
-    await auth.upsertLegalProfile(orgId,values);
-    if(data.get('avatarFile')?.size)await auth.uploadBrandImage({orgId,kind,file:data.get('avatarFile')});
-    if(data.get('planKey'))await auth.subscriptionIntent({orgId,planKey:data.get('planKey'),userId:user.id});
-    sessionStorage.removeItem(PENDING_REGISTRATION_KEY);await reload();notice='Negocio creado en Supabase. Puedes actualizar sus datos en Configuración.';
+    const pendingDetails=[];
+    try{await auth.upsertLegalProfile(orgId,values);}
+    catch(e){pendingDetails.push('datos fiscales ('+(e.message||'error')+')');}
+    if(data.get('avatarFile')?.size){
+     try{await auth.uploadBrandImage({orgId,kind,file:data.get('avatarFile')});}
+     catch(e){pendingDetails.push('imagen ('+(e.message||'error')+')');}
+    }
+    if(data.get('planKey')){
+     try{await auth.subscriptionIntent({orgId,planKey:data.get('planKey'),userId:user.id});}
+     catch(e){pendingDetails.push('interés de plan ('+(e.message||'error')+')');}
+    }
+    sessionStorage.removeItem(PENDING_REGISTRATION_KEY);
+    await reload();notice=pendingDetails.length
+     ?'Negocio creado correctamente. Completa en Configuración: '+pendingDetails.join(', ')
+     :'Negocio creado en Supabase. Puedes actualizar sus datos en Configuración.';
    }
   if(action==='invite'){await auth.issueInvitation({orgId:selectedOrg,email:data.get('email'),role:data.get('role')});await reload();notice='Invitación creada. El destinatario podrá aceptarla desde su propia cuenta verificada.';}
   if(action==='publish-session'){
