@@ -239,6 +239,9 @@ export class ReperaAuthAPI {
  async sendClientNotice({orgId,clientId,title,body}){
   return this.#authorized('rpc/send_business_client_notice',{method:'POST',body:{p_org:orgId,p_client:clientId,p_title:title,p_body:body}});
  }
+ async sharedClientHistory({orgId,clientId}) {
+  return this.#authorized('rpc/get_shared_client_history',{method:'POST',body:{p_org:orgId,p_client:clientId}});
+ }
  async changeCourtesyCredits(id,action,amount=0,until=null){
   return this.#authorized('rpc/manage_complimentary_pass',{method:'POST',body:{p_pass:id,p_action:action,p_amount:amount||null,p_until:until?new Date(until).toISOString():null}});
  }
