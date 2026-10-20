@@ -1821,7 +1821,8 @@ private extension WorkoutRoutePoint {
             latitude: latitude,
             longitude: longitude,
             date: recordedAt,
-            speedMps: speedMps
+            speedMps: speedMps,
+            altitudeMeters: altitudeMeters
         )
     }
 }
