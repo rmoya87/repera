@@ -364,7 +364,7 @@ struct HealthRecoveryProgressView: View {
                     Text("Registros de menstruación de los últimos 90 días")
                         .font(.caption).foregroundStyle(OG.label2)
                     if !recovery.positiveOvulationTests.isEmpty {
-                        Label("Pruebas de ovulación positivas registradas: \\(recovery.positiveOvulationTests.count)", systemImage: "checkmark.circle")
+                        Label("Pruebas de ovulación positivas registradas: \(recovery.positiveOvulationTests.count)", systemImage: "checkmark.circle")
                             .font(.footnote).foregroundStyle(OG.label2)
                     }
                     Text("Fase aproximada solo si hay suficientes ciclos compatibles. Nunca equivale a una ovulación confirmada ni debe utilizarse para anticoncepción.")
