@@ -1,0 +1,952 @@
+{
+  "schemaVersion": 1,
+  "source": "Packages/ReperaDomain/Sources/ReperaDomain/Catalog.swift",
+  "count": 189,
+  "exercises": [
+    {
+      "catalogKey": "catalog:Press banca",
+      "name": "Press banca",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Press banca inclinada",
+      "name": "Press banca inclinada",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Press mancuernas",
+      "name": "Press mancuernas",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Aperturas",
+      "name": "Aperturas",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Fondos",
+      "name": "Fondos",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Dominadas",
+      "name": "Dominadas",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Jalón al pecho",
+      "name": "Jalón al pecho",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Remo con barra",
+      "name": "Remo con barra",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Remo mancuerna",
+      "name": "Remo mancuerna",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Peso muerto",
+      "name": "Peso muerto",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Peso muerto rumano",
+      "name": "Peso muerto rumano",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Sentadilla",
+      "name": "Sentadilla",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Sentadilla frontal",
+      "name": "Sentadilla frontal",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Prensa",
+      "name": "Prensa",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Zancadas",
+      "name": "Zancadas",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Extensión de cuádriceps",
+      "name": "Extensión de cuádriceps",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Curl femoral",
+      "name": "Curl femoral",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Elevación de gemelos",
+      "name": "Elevación de gemelos",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Press militar",
+      "name": "Press militar",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Elevaciones laterales",
+      "name": "Elevaciones laterales",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Pájaros",
+      "name": "Pájaros",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Curl barra",
+      "name": "Curl barra",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Curl mancuernas",
+      "name": "Curl mancuernas",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Curl martillo",
+      "name": "Curl martillo",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Fondos en banco",
+      "name": "Fondos en banco",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Extensión tríceps polea",
+      "name": "Extensión tríceps polea",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Press cerrado",
+      "name": "Press cerrado",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Plancha",
+      "name": "Plancha",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Crunch",
+      "name": "Crunch",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Elevación de piernas",
+      "name": "Elevación de piernas",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Hip thrust",
+      "name": "Hip thrust",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Face pull",
+      "name": "Face pull",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Remo al mentón",
+      "name": "Remo al mentón",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Buenos días",
+      "name": "Buenos días",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Hack squat",
+      "name": "Hack squat",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Pullover",
+      "name": "Pullover",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Cinta / carrera",
+      "name": "Cinta / carrera",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Bici estática",
+      "name": "Bici estática",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Remo máquina",
+      "name": "Remo máquina",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Farmer walk",
+      "name": "Farmer walk",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Press banca declinado",
+      "name": "Press banca declinado",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Cruce de poleas",
+      "name": "Cruce de poleas",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Remo sentado",
+      "name": "Remo sentado",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Peso muerto sumo",
+      "name": "Peso muerto sumo",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Sentadilla búlgara",
+      "name": "Sentadilla búlgara",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Curl predicador",
+      "name": "Curl predicador",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Press francés",
+      "name": "Press francés",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Elevaciones frontales",
+      "name": "Elevaciones frontales",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Ab wheel",
+      "name": "Ab wheel",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Paso lateral con banda",
+      "name": "Paso lateral con banda",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Remo invertido",
+      "name": "Remo invertido",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Press Arnold",
+      "name": "Press Arnold",
+      "category": "Fuerza"
+    },
+    {
+      "catalogKey": "catalog:Arrancada",
+      "name": "Arrancada",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Zancadas inversas con barra",
+      "name": "Zancadas inversas con barra",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Arrancada de potencia",
+      "name": "Arrancada de potencia",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Arrancada colgante",
+      "name": "Arrancada colgante",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Arrancada colgante completa",
+      "name": "Arrancada colgante completa",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Hang power snatch",
+      "name": "Hang power snatch",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Arrancada muscular",
+      "name": "Arrancada muscular",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Arrancada desde bloques",
+      "name": "Arrancada desde bloques",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Arrancada con pausa",
+      "name": "Arrancada con pausa",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Balance de arrancada",
+      "name": "Balance de arrancada",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Drop snatch",
+      "name": "Drop snatch",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Tall snatch",
+      "name": "Tall snatch",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Arrancada en split",
+      "name": "Arrancada en split",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Tirón de arrancada",
+      "name": "Tirón de arrancada",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Peso muerto agarre arrancada",
+      "name": "Peso muerto agarre arrancada",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Cargada",
+      "name": "Cargada",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Cargada de potencia",
+      "name": "Cargada de potencia",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Cargada colgante",
+      "name": "Cargada colgante",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Cargada colgante completa",
+      "name": "Cargada colgante completa",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Hang power clean",
+      "name": "Hang power clean",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Cargada muscular",
+      "name": "Cargada muscular",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Cargada desde bloques",
+      "name": "Cargada desde bloques",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Cargada con pausa",
+      "name": "Cargada con pausa",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Tall clean",
+      "name": "Tall clean",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Tirón de cargada",
+      "name": "Tirón de cargada",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Cargada y press",
+      "name": "Cargada y press",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Cargada y envión",
+      "name": "Cargada y envión",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Push press",
+      "name": "Push press",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Push jerk",
+      "name": "Push jerk",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Split jerk",
+      "name": "Split jerk",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Power jerk",
+      "name": "Power jerk",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Balance de envión",
+      "name": "Balance de envión",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Strict press",
+      "name": "Strict press",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Press detrás de nuca",
+      "name": "Press detrás de nuca",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Envión detrás de nuca",
+      "name": "Envión detrás de nuca",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Sots press",
+      "name": "Sots press",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Overhead squat",
+      "name": "Overhead squat",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Front rack lunge",
+      "name": "Front rack lunge",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Sentadilla frontal con pausa",
+      "name": "Sentadilla frontal con pausa",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Sumo high pull",
+      "name": "Sumo high pull",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Dominadas estrictas",
+      "name": "Dominadas estrictas",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Dominadas kipping",
+      "name": "Dominadas kipping",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Dominadas butterfly",
+      "name": "Dominadas butterfly",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Dominadas supinas",
+      "name": "Dominadas supinas",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Chest to bar",
+      "name": "Chest to bar",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Dominadas en anillas",
+      "name": "Dominadas en anillas",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Remo en anillas",
+      "name": "Remo en anillas",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Archer pull-up",
+      "name": "Archer pull-up",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Muscle-up barra",
+      "name": "Muscle-up barra",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Muscle-up anillas",
+      "name": "Muscle-up anillas",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Muscle-up estricto barra",
+      "name": "Muscle-up estricto barra",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Muscle-up estricto anillas",
+      "name": "Muscle-up estricto anillas",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Pull-over barra",
+      "name": "Pull-over barra",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Toes to bar",
+      "name": "Toes to bar",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Toes to bar estrictos",
+      "name": "Toes to bar estrictos",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Knees to elbows",
+      "name": "Knees to elbows",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Toes to rings",
+      "name": "Toes to rings",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Hip to bar",
+      "name": "Hip to bar",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Kip swing",
+      "name": "Kip swing",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:HSPU",
+      "name": "HSPU",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:HSPU deficit",
+      "name": "HSPU deficit",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:HSPU libre",
+      "name": "HSPU libre",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Pike push-up",
+      "name": "Pike push-up",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Handstand hold",
+      "name": "Handstand hold",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Handstand walk",
+      "name": "Handstand walk",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Wall walk",
+      "name": "Wall walk",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Press to handstand",
+      "name": "Press to handstand",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Fondos en anillas",
+      "name": "Fondos en anillas",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Fondos en paralelas",
+      "name": "Fondos en paralelas",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Soporte en anillas",
+      "name": "Soporte en anillas",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:False grip hang",
+      "name": "False grip hang",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Skin the cat",
+      "name": "Skin the cat",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:German hang",
+      "name": "German hang",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Front lever tuck",
+      "name": "Front lever tuck",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Back lever tuck",
+      "name": "Back lever tuck",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Planche tuck",
+      "name": "Planche tuck",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:L-sit",
+      "name": "L-sit",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:V-sit",
+      "name": "V-sit",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Hollow hold",
+      "name": "Hollow hold",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Hollow rock",
+      "name": "Hollow rock",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Arch hold",
+      "name": "Arch hold",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Candlestick",
+      "name": "Candlestick",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Pistol squat",
+      "name": "Pistol squat",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Shrimp squat",
+      "name": "Shrimp squat",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Cossack squat",
+      "name": "Cossack squat",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Air squat",
+      "name": "Air squat",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Jumping squat",
+      "name": "Jumping squat",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Jumping lunge",
+      "name": "Jumping lunge",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:GHD sit-up",
+      "name": "GHD sit-up",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:GHD back extension",
+      "name": "GHD back extension",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Sit-up",
+      "name": "Sit-up",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:V-up",
+      "name": "V-up",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Rope climb",
+      "name": "Rope climb",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Rope climb legless",
+      "name": "Rope climb legless",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Pegboard",
+      "name": "Pegboard",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Thruster",
+      "name": "Thruster",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Thruster mancuernas",
+      "name": "Thruster mancuernas",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Thruster kettlebell",
+      "name": "Thruster kettlebell",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Cluster",
+      "name": "Cluster",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Ground to overhead",
+      "name": "Ground to overhead",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Plate ground to overhead",
+      "name": "Plate ground to overhead",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Burpee",
+      "name": "Burpee",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Burpee al cajón",
+      "name": "Burpee al cajón",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Bar facing burpee",
+      "name": "Bar facing burpee",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Burpee pull-up",
+      "name": "Burpee pull-up",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Salto al cajón",
+      "name": "Salto al cajón",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Step-up al cajón",
+      "name": "Step-up al cajón",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Box jump over",
+      "name": "Box jump over",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Broad jump",
+      "name": "Broad jump",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Walking lunge",
+      "name": "Walking lunge",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Bear crawl",
+      "name": "Bear crawl",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Swing kettlebell",
+      "name": "Swing kettlebell",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Swing americano",
+      "name": "Swing americano",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Snatch kettlebell",
+      "name": "Snatch kettlebell",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Clean kettlebell",
+      "name": "Clean kettlebell",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Turkish get-up",
+      "name": "Turkish get-up",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Goblet squat",
+      "name": "Goblet squat",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Devil press",
+      "name": "Devil press",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Man maker",
+      "name": "Man maker",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Snatch mancuerna",
+      "name": "Snatch mancuerna",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Clean mancuerna",
+      "name": "Clean mancuerna",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Wall ball",
+      "name": "Wall ball",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Ball slam",
+      "name": "Ball slam",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Medball clean",
+      "name": "Medball clean",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Sandbag clean",
+      "name": "Sandbag clean",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Sandbag over shoulder",
+      "name": "Sandbag over shoulder",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Yoke carry",
+      "name": "Yoke carry",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dobles de comba",
+      "name": "Dobles de comba",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Simples de comba",
+      "name": "Simples de comba",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Triples de comba",
+      "name": "Triples de comba",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Air bike",
+      "name": "Air bike",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Echo bike",
+      "name": "Echo bike",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:SkiErg",
+      "name": "SkiErg",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Shuttle run",
+      "name": "Shuttle run",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Sled push",
+      "name": "Sled push",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Sled pull",
+      "name": "Sled pull",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Farmer carry",
+      "name": "Farmer carry",
+      "category": "CrossFit"
+    }
+  ]
+}
