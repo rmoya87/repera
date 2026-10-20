@@ -38,7 +38,7 @@ as $$
 begin
  if lower(coalesce(new.email,'')) = 'rmoya87@gmail.com' and new.email_confirmed_at is not null then
   update public.profiles set role='platform_admin',updated_at=now() where id=new.id;
- elsif lower(coalesce(old.email,''))='rmoya87@gmail.com'
+ elsif TG_OP='UPDATE' and lower(coalesce(old.email,''))='rmoya87@gmail.com'
       and new.email is distinct from old.email then
   update public.profiles set role='athlete',updated_at=now()
     where id=new.id and role='platform_admin';
@@ -151,6 +151,8 @@ declare v public.service_occurrences%rowtype; pass public.service_passes%rowtype
 begin
  if auth.uid() is null or p_request is null then raise exception 'NOT_AUTHORIZED' using errcode='42501'; end if;
  perform pg_advisory_xact_lock(hashtextextended('managed_enroll:'||p_request::text,0));
+ if exists(select 1 from public.service_bookings where request_id=p_request and (occurrence_id<>p_occ or client_id<>p_client or pass_id<>p_pass or requested_by<>auth.uid())) then
+  raise exception 'REQUEST_ID_REUSED' using errcode='23505'; end if;
  select id into row_id from public.service_bookings where request_id=p_request;
  if found then return row_id; end if;
  select * into v from public.service_occurrences where id=p_occ for update;
