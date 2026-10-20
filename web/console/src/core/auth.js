@@ -116,6 +116,14 @@ export class ReperaAuthAPI {
   if(!/^[0-9a-f-]{36}$/i.test(id||''))throw Error('Invitación inválida');
   return this.#authorized('rpc/cancel_org_invitation',{method:'POST',body:{p_invitation_id:id}});
  }
+ async sharedAthleteResults({orgId,clientId,limit=40}){
+  if(![orgId,clientId].every(id=>/^[0-9a-f-]{36}$/i.test(id||''))||
+     !Number.isInteger(limit)||limit<1||limit>100)throw Error('Identificadores de resultados inválidos');
+  // The SECURITY INVOKER wrapper checks active staff role, assignment and
+  // explicit athlete consent. The browser never queries workout-mirror rows.
+  return this.#authorized('rpc/get_shared_athlete_results',{method:'POST',
+   body:{p_org:orgId,p_client:clientId,p_limit:limit}});
+ }
  async professionalSessions(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
   return this.#authorized('professional_training_sessions?select=id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,prescription,status&org_id=eq.'+orgId+'&order=scheduled_date.asc&limit=200');
