@@ -37,7 +37,7 @@ function enhanceWorkspace(own){
  root.querySelector('.connected-next')?.remove();
  const org=organizations.find(o=>o.id===selectedOrg);
  const kind=org?.kind,trainer=kind==='personal_trainer',manager=['owner','admin'].includes(own.get(selectedOrg));
- const tabs=org?[['overview','Inicio','dashboard'],['clients','Clientes','clients'],['planning','Entrenamientos','planning'],['services',trainer?'Citas y reservas':'Clases y reservas','calendar'],['bonos','Bonos y tarifas','products'],['billing','Facturación','billing'],['analytics','Analíticas','analytics'],...(trainer?[]:[['team','Equipo y espacios','team']]),['settings','Configuración','settings'],...(platformRole==='platform_admin'?[['platform','Administración Repera','admin']]:[])]:[['overview','Inicio','dashboard']];
+ const tabs=org?[['overview','Inicio','dashboard'],['clients','Clientes','clients'],['planning','Entrenamientos','planning'],['services',trainer?'Citas y reservas':'Clases y reservas','calendar'],['bonos','Bonos y tarifas','products'],['billing','Facturación','billing'],['analytics','Analíticas','analytics'],...(trainer?[]:[['team','Equipo y espacios','team']]),['settings','Configuración','settings'],...(platformRole==='platform_admin'?[['platform','Administración Repera','admin']]:[])]:[['overview','Inicio','dashboard'],...(platformRole==='platform_admin'?[['platform','Administración Repera','admin']]:[])];
  if(!tabs.some(t=>t[0]===activeTab))activeTab='overview';
  const nav=document.createElement('nav');nav.className='business-navigation';nav.setAttribute('aria-label','Menú profesional');
  nav.innerHTML=tabs.map(([id,label,icon])=>`<button type="button" data-workspace="${id}" aria-current="${activeTab===id?'page':'false'}">${navIcon(icon)}${escapeHTML(label)}</button>`).join('');
@@ -45,7 +45,14 @@ function enhanceWorkspace(own){
  picker.innerHTML=`<span class="sr-only">Organización activa</span><select id="workspace-org-select"><option value="">Selecciona un negocio</option>${organizations.map(o=>`<option value="${escapeHTML(o.id)}" ${o.id===selectedOrg?'selected':''}>${escapeHTML(o.name)}</option>`).join('')}</select>`;
  nav.append(picker);
  root.querySelector('.connected-heading')?.insertAdjacentElement('afterend',nav);
- if(!org)return;
+ if(!org){
+  if(platformRole==='platform_admin'){
+   const sec=document.createElement('section');sec.dataset.workspaceSection='platform';sec.className='connected-card';
+   sec.innerHTML=`<h2>Administración Repera</h2><p>Consulta de negocios, sin acceso a historial privado.</p>${platformOrgs.map(o=>`<article class="connected-org"><strong>${escapeHTML(o.name)}</strong><small>${escapeHTML(o.kind)} · ${Number(o.client_count||0)} clientes</small></article>`).join('')||'<p>Sin organizaciones registradas.</p>'}`;
+   root.append(sec);root.querySelectorAll('[data-workspace-section]').forEach(el=>el.style.display=el.dataset.workspaceSection===activeTab?'':'none');
+  }
+  return;
+ }
  root.querySelector('.connected-heading h1').textContent=org.name;
  // El panel legado no se utiliza como ficha ni agenda de operaciones.
  root.querySelector('.connected-grid')?.remove();
