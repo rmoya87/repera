@@ -288,6 +288,9 @@ struct WorkoutDetailView: View {
             draft = store.state.workouts.first(where: { $0.id == sessionId })
             guard let session = draft else { return }
             healthExtras = await health.sessionHealthExtras(for: session)
+            // Afina la nota con FC/kcal de Salud si hay.
+            await store.refineSessionReviewWithHealth(sessionId: sessionId)
+            draft = store.state.workouts.first(where: { $0.id == sessionId })
         }
         .sheet(isPresented: $showDeleteConfirm) {
             if let title = draft?.title {
@@ -327,16 +330,21 @@ struct WorkoutDetailView: View {
 
     @ViewBuilder
     private func sessionMapView(_ session: WorkoutSession) -> some View {
+        // En detalle (sin editar) el mapa es solo lectura.
+        let interactive = isEditing
         switch sessionMapContent(session) {
         case .healthRoute:
             if let extras = healthExtras {
-                HealthWorkoutRouteMap(points: extras.routePoints)
+                HealthWorkoutRouteMap(points: extras.routePoints, isInteractive: interactive)
             }
         case .ownRoute:
-            HealthWorkoutRouteMap(points: session.routePoints.map(\.asHealthRoutePoint))
+            HealthWorkoutRouteMap(
+                points: session.routePoints.map(\.asHealthRoutePoint),
+                isInteractive: interactive
+            )
         case .pin:
             if let pin = session.locationPin {
-                WorkoutLocationPinMap(pin: pin)
+                WorkoutLocationPinMap(pin: pin, isInteractive: interactive)
             }
         case .none:
             EmptyView()
@@ -345,31 +353,21 @@ struct WorkoutDetailView: View {
 
     private var detailList: some View {
         List {
-            if !subtitle.isEmpty {
-                Section {
-                    Text(subtitle)
-                        .font(.system(size: 15, weight: .regular))
-                        .foregroundStyle(OG.label2)
-                        .ogListPageHeaderRow()
-                }
-            }
-
             if let session = draft {
+                // Fecha + Tiempo/Kcal/Volumen + nota: un bloque continuo (sin título «Resultado»).
                 Section {
-                    summaryCard(session)
-                        .ogCardListRow()
-                }
-
-                if let review = session.sessionReview {
-                    Section {
-                        SessionReviewCard(review: review)
-                            .ogCardListRow()
-                    } header: {
-                        Text("Resultado")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(OG.accent)
-                            .textCase(nil)
+                    VStack(alignment: .leading, spacing: 10) {
+                        if !subtitle.isEmpty {
+                            Text(subtitle)
+                                .font(.system(size: 15, weight: .regular))
+                                .foregroundStyle(OG.label2)
+                        }
+                        summaryCard(session)
+                        if let review = session.sessionReview {
+                            SessionReviewCard(review: review)
+                        }
                     }
+                    .ogCardListRow(top: 0, bottom: 4)
                 }
 
                 // En edición el picker de lugar lleva su propio preview; no duplicar el mapa.
@@ -429,8 +427,6 @@ struct WorkoutDetailView: View {
                             WorkoutPlacePickerRow(pin: locationPinBinding)
                         } header: {
                             Text("Lugar")
-                        } footer: {
-                            Text("Busca un sitio de Apple Mapas. Si el entreno trae recorrido de Salud, ese mapa tiene prioridad.")
                         }
                     }
                 }
@@ -470,7 +466,7 @@ struct WorkoutDetailView: View {
             }
         }
         .ogListChrome()
-        .listSectionSpacing(18)
+        .listSectionSpacing(12)
         .ogPinnedTransparentNav("Entreno")
         .navigationBarBackButtonHidden(isEditing)
         .toolbar {
@@ -1477,23 +1473,21 @@ struct HealthActivityDetailView: View {
         let showRouteMap = detail.routePoints.count >= 2
 
         return List {
-            if !subtitle.isEmpty {
-                Section {
-                    Text(subtitle)
-                        .font(.system(size: 15, weight: .regular))
-                        .foregroundStyle(OG.label2)
-                        .ogListPageHeaderRow()
-                }
-            }
-
             Section {
-                summaryRow(activity, detail: detail)
-                    .ogCardListRow()
+                VStack(alignment: .leading, spacing: 10) {
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.system(size: 15, weight: .regular))
+                            .foregroundStyle(OG.label2)
+                    }
+                    summaryRow(activity, detail: detail)
+                }
+                .ogCardListRow(top: 0, bottom: 4)
             }
 
             if showRouteMap {
                 Section {
-                    HealthWorkoutRouteMap(points: detail.routePoints)
+                    HealthWorkoutRouteMap(points: detail.routePoints, isInteractive: false)
                         .frame(height: 240)
                         .clipShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
                         .ogCardListRow()
@@ -1525,7 +1519,7 @@ struct HealthActivityDetailView: View {
             }
         }
         .ogListChrome()
-        .listSectionSpacing(18)
+        .listSectionSpacing(12)
         .ogPinnedTransparentNav("Entreno")
     }
 
@@ -1643,6 +1637,8 @@ struct HealthActivityDetailView: View {
 
 struct WorkoutLocationPinMap: View {
     var pin: WorkoutLocationPin
+    /// En detalle normal el mapa no se mueve; al editar/abrir sheet sí.
+    var isInteractive: Bool = true
 
     @State private var mapItem: MKMapItem?
     @State private var cameraPosition: MapCameraPosition = .automatic
@@ -1660,15 +1656,22 @@ struct WorkoutLocationPinMap: View {
         return item
     }
 
+    private var modes: MapInteractionModes {
+        isInteractive ? [.pan, .zoom] : []
+    }
+
     var body: some View {
-        Map(position: $cameraPosition, interactionModes: [.pan, .zoom]) {
+        Map(position: $cameraPosition, interactionModes: modes) {
             Marker(item: mapItem ?? fallbackItem)
         }
         .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .all, showsTraffic: false))
         .mapControls {
-            MapCompass()
-            MapScaleView()
+            if isInteractive {
+                MapCompass()
+                MapScaleView()
+            }
         }
+        .allowsHitTesting(isInteractive)
         .task(id: pin.mapItemIdentifier ?? "\(pin.latitude),\(pin.longitude)") {
             cameraPosition = .region(
                 MKCoordinateRegion(
@@ -1708,6 +1711,7 @@ private extension WorkoutRoutePoint {
 
 struct HealthWorkoutRouteMap: View {
     var points: [HealthKitStore.RoutePoint]
+    var isInteractive: Bool = true
 
     private var segments: [SpeedSegment] {
         guard points.count >= 2 else { return [] }
@@ -1753,8 +1757,12 @@ struct HealthWorkoutRouteMap: View {
         )
     }
 
+    private var modes: MapInteractionModes {
+        isInteractive ? [.pan, .zoom] : []
+    }
+
     var body: some View {
-        Map(initialPosition: cameraPosition, interactionModes: [.pan, .zoom]) {
+        Map(initialPosition: cameraPosition, interactionModes: modes) {
             ForEach(segments) { segment in
                 MapPolyline(coordinates: [segment.start, segment.end])
                     .stroke(segment.color, lineWidth: 4)
@@ -1784,9 +1792,12 @@ struct HealthWorkoutRouteMap: View {
         }
         .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll, showsTraffic: false))
         .mapControls {
-            MapCompass()
-            MapScaleView()
+            if isInteractive {
+                MapCompass()
+                MapScaleView()
+            }
         }
+        .allowsHitTesting(isInteractive)
     }
 
     private static func speedColor(_ speed: Double, minSpeed: Double, maxSpeed: Double) -> Color {

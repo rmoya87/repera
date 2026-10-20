@@ -377,9 +377,9 @@ public enum WODPaceEstimator {
         let ref = formatSeconds(midRef)
         let summary: String = {
             if elapsedSeconds <= midRef {
-                return "Hiciste \(yours); un ritmo intermedio suele ir a ~\(ref)."
+                return "Tu tiempo fue \(yours). Un ritmo intermedio suele estar en torno a \(ref)."
             }
-            return "Hiciste \(yours); el ritmo intermedio de referencia está en ~\(ref)."
+            return "Tu tiempo fue \(yours). De referencia, un ritmo intermedio ronda los \(ref)."
         }()
         return (level, score, summary)
     }
@@ -424,9 +424,9 @@ public enum WODPaceEstimator {
         let ref = formatRounds(midRef)
         let summary: String = {
             if rounds >= midRef {
-                return "Completaste \(yours); un ritmo intermedio suele hacer ~\(ref)."
+                return "Hiciste \(yours). Un ritmo intermedio suele hacer unas \(ref)."
             }
-            return "Completaste \(yours); el ritmo intermedio de referencia está en ~\(ref)."
+            return "Hiciste \(yours). De referencia, un ritmo intermedio ronda las \(ref)."
         }()
         return (level, score, summary)
     }

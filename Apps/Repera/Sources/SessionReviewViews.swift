@@ -27,7 +27,7 @@ struct SessionReviewSheet: View {
     }
 }
 
-/// Card compacta: nota + texto; tips y ejercicios al desplegar.
+/// Card compacta: nota + nivel (subtítulo) + texto; tips al desplegar.
 struct SessionReviewCard: View {
     var review: SessionReview
     var startsExpanded: Bool = false
@@ -40,12 +40,9 @@ struct SessionReviewCard: View {
             || !review.movements.isEmpty
     }
 
-    /// Una o dos frases claras: nivel + comparación de tiempo/rondas + historial personal.
+    /// Texto bajo la nota, sin repetir el nivel (ese va como subtítulo).
     private var blurb: String {
         var sentences: [String] = []
-        if let level = review.levelLabel {
-            sentences.append(level + ".")
-        }
         if let standard = review.vsStandardSummary?.trimmingCharacters(in: .whitespacesAndNewlines),
            !standard.isEmpty {
             sentences.append(standard.hasSuffix(".") ? standard : standard + ".")
@@ -54,11 +51,11 @@ struct SessionReviewCard: View {
            !history.isEmpty,
            standardOmits(history) {
             sentences.append(history.hasSuffix(".") ? history : history + ".")
-        } else if sentences.count <= 1 {
+        } else if sentences.isEmpty {
             if !review.movements.isEmpty {
-                sentences.append("Según cómo fueron los movimientos de la sesión.")
+                sentences.append("Según cómo te fueron los movimientos.")
             } else if review.scoreBasis != nil {
-                sentences.append("Valoración orientativa de esta sesión.")
+                sentences.append("Nota orientativa de esta sesión.")
             }
         }
         return sentences.joined(separator: " ")
@@ -77,23 +74,32 @@ struct SessionReviewCard: View {
                     expanded.toggle()
                 }
             } label: {
-                HStack(alignment: .center, spacing: 14) {
-                    Text(review.scoreLabel)
-                        .font(.system(size: 28, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(OG.label)
-                        .frame(minWidth: 56, alignment: .leading)
+                HStack(alignment: .top, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(review.scoreLabel)
+                            .font(.system(size: 28, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(OG.label)
+                        if let level = review.levelLabel {
+                            Text(level)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(OG.label2)
+                        }
+                    }
+                    .frame(minWidth: 56, alignment: .leading)
 
                     Text(blurb)
                         .font(.system(size: 15))
                         .foregroundStyle(OG.label2)
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 4)
 
                     if hasDetails {
                         Image(systemName: "chevron.down")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(OG.label3)
                             .rotationEffect(.degrees(expanded ? 180 : 0))
+                            .padding(.top, 8)
                     }
                 }
                 .padding(14)
@@ -134,7 +140,7 @@ struct SessionReviewCard: View {
                         }
                     }
 
-                    Text("Niveles según bandas de catálogo, no ranking de usuarios.")
+                    Text("El nivel compara tu marca con referencias de catálogo, no con otros usuarios.")
                         .font(.system(size: 11))
                         .foregroundStyle(OG.label3)
                 }

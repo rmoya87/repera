@@ -6,7 +6,8 @@ public enum SessionReviewEngine {
         session: WorkoutSession,
         history: [WorkoutSession],
         templates: [WODTemplate] = CatalogWODs.seed(),
-        now: Date = Date()
+        now: Date = Date(),
+        cardio: SessionCardioSample? = nil
     ) -> SessionReview? {
         let prior = history.filter { $0.id != session.id }
         let scored = session.wodResults.filter {
@@ -15,6 +16,7 @@ public enum SessionReviewEngine {
                 || ($0.totalReps ?? 0) > 0
         }
 
+        let base: SessionReview?
         if let primary = pickPrimaryResult(scored),
            let built = reviewWOD(
                result: primary,
@@ -23,14 +25,40 @@ public enum SessionReviewEngine {
                templates: templates
            ) {
             let movements = reviewMovements(session: session, prior: prior)
-            return merge(built, movements: movements)
+            base = merge(built, movements: movements)
+        } else {
+            let movements = reviewMovements(session: session, prior: prior)
+            guard !movements.isEmpty || !session.exercises.filter({ !$0.loggedSets.isEmpty }).isEmpty else {
+                return nil
+            }
+            base = strengthFallback(session: session, movements: movements)
         }
 
-        let movements = reviewMovements(session: session, prior: prior)
-        guard !movements.isEmpty || !session.exercises.filter({ !$0.loggedSets.isEmpty }).isEmpty else {
-            return nil
+        guard let base else { return nil }
+        // Si hay FC/kcal de Salud, afina la nota según el esfuerzo real.
+        return SessionCardioEffort.apply(to: base, sample: enrichedCardio(cardio, session: session))
+    }
+
+    /// Completa duración/kcal de sesión si el sample no las trae.
+    private static func enrichedCardio(
+        _ cardio: SessionCardioSample?,
+        session: WorkoutSession
+    ) -> SessionCardioSample? {
+        guard var sample = cardio else {
+            // Solo kcal de sesión (sin FC): aún puede aportar señal de densidad.
+            guard let kcal = session.appleActiveEnergyKcal, kcal > 40 else { return nil }
+            return SessionCardioSample(
+                activeEnergyKcal: kcal,
+                durationMinutes: max(1, session.displayDurationMinutes)
+            )
         }
-        return strengthFallback(session: session, movements: movements)
+        if sample.activeEnergyKcal == nil {
+            sample.activeEnergyKcal = session.appleActiveEnergyKcal
+        }
+        if sample.durationMinutes == nil || (sample.durationMinutes ?? 0) <= 0 {
+            sample.durationMinutes = max(1, session.displayDurationMinutes)
+        }
+        return sample
     }
 
     // MARK: - WOD score
@@ -102,19 +130,19 @@ public enum SessionReviewEngine {
         if let level {
             switch level {
             case .elite, .advanced:
-                keep.append("Ritmo de \(level.label.lowercased()) en este WOD: mantén la misma intensidad en reintentos.")
+                keep.append("Vas a ritmo \(level.label.lowercased()). Intenta mantener esa intensidad la próxima vez.")
             case .intermediate:
-                keep.append("Estás en zona intermedia: buen equilibrio entre ritmo y técnica.")
-                improve.append("Recorta transiciones y apunta a la banda avanzada en el próximo intento.")
+                keep.append("Buen equilibrio entre ritmo y técnica.")
+                improve.append("Acorta las pausas entre movimientos para acercarte al nivel avanzado.")
             case .beginner:
-                improve.append("Baja a scaled si hace falta y prioriza unbroken en los movimientos clave.")
-                keep.append("Completar el WOD ya es progreso: anota el score para comparar.")
+                improve.append("Si se te hace largo, prueba una versión más ligera y prioriza buena técnica.")
+                keep.append("Terminar el WOD ya cuenta: guarda la marca para compararla.")
             }
         }
         if let historyNote, historyNote.contains("PR") || historyNote.contains("mejor") {
-            keep.append("Nuevo mejor marca personal en este benchmark.")
+            keep.append("Nueva mejor marca personal en este WOD.")
         } else if historyNote != nil {
-            improve.append("Revisa el PR anterior y busca un margen pequeño (5–10 %) la próxima vez.")
+            improve.append("Mira tu marca anterior e intenta mejorar un poco (un 5–10 %).")
         }
 
         return SessionReview(
@@ -198,7 +226,7 @@ public enum SessionReviewEngine {
             return (
                 level,
                 score,
-                "Estimación por For Time (\(formatSeconds(elapsed)))."
+                "Terminaste en \(formatSeconds(elapsed))."
             )
         case .totalReps:
             guard let rounds = comparableRounds(result), rounds > 0 else { return nil }
@@ -214,10 +242,10 @@ public enum SessionReviewEngine {
             return (
                 level,
                 score,
-                "Estimación por ritmo AMRAP: \(formatRounds(rounds)) (~\(String(format: "%.1f", rate))/min)."
+                "Hiciste \(formatRounds(rounds)) (unas \(String(format: "%.1f", rate)) por minuto)."
             )
         case .perMovementSets:
-            return (nil, 6, "Bloque por series: nota base de formato.")
+            return (nil, 6, "Entreno por series: nota orientativa.")
         }
     }
 
@@ -240,7 +268,7 @@ public enum SessionReviewEngine {
                 level = .beginner
             }
             let score = continuousTimeScore(elapsed: elapsed, bands: bands)
-            let summary = "Tu tiempo: \(formatSeconds(elapsed))."
+            let summary = "Tu tiempo fue \(formatSeconds(elapsed))."
             return (level, score, summary)
         }
 
@@ -288,7 +316,7 @@ public enum SessionReviewEngine {
         return (
             level,
             score,
-            "Vs tiempo típico ~\(typicalMinutes)′: \(formatSeconds(elapsedSeconds)) → \(level.label)."
+            "Tu tiempo fue \(formatSeconds(elapsedSeconds)). Lo habitual en este WOD ronda los \(typicalMinutes)′."
         )
     }
 

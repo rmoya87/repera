@@ -368,8 +368,6 @@ struct LogFinalResultsView: View {
                 WorkoutPlacePickerRow(pin: $locationPin)
             } header: {
                 Text("Lugar")
-            } footer: {
-                Text("Busca un sitio de Apple Mapas para mostrarlo en el detalle del entreno.")
             }
 
             Section("Notas") {

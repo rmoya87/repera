@@ -3,26 +3,32 @@ import MapKit
 import ReperaDomain
 import SwiftUI
 
-/// Buscador de sitios con Apple Mapas. Al abrir, mapa en tu ubicación;
-/// al enfocar el buscador, últimos 5 sitios usados.
+/// Buscador / editor de sitio MapKit.
+/// - Sin pin: mapa + búsqueda (lugar opcional: se puede cerrar sin elegir).
+/// - Con pin inicial: abre ya en ese sitio (papelera quita, buscador cambia, check guarda).
 struct PlaceSearchSheet: View {
-    var onSelect: (WorkoutLocationPin) -> Void
+    /// Sitio ya guardado (p. ej. al tocar nombre/mapa en la fila).
+    var initialPin: WorkoutLocationPin? = nil
+    /// `nil` = sin lugar (papelera o nunca elegiste).
+    var onSelect: (WorkoutLocationPin?) -> Void
 
     var body: some View {
         NavigationStack {
-            PlaceSearchRoot(onSelect: onSelect)
+            PlaceSearchRoot(initialPin: initialPin, onSelect: onSelect)
         }
         .ogSheetCorners()
     }
 }
 
-// MARK: - Host (posee estado + `.searchable`)
+// MARK: - Host
 
 private struct PlaceSearchRoot: View {
-    var onSelect: (WorkoutLocationPin) -> Void
+    var initialPin: WorkoutLocationPin?
+    var onSelect: (WorkoutLocationPin?) -> Void
 
     @StateObject private var completer = PlaceSearchCompleterModel()
     @State private var query = ""
+    @State private var isSearchPresented = false
     @State private var pendingItem: MKMapItem?
     @State private var isResolving = false
     @State private var resolveError: String?
@@ -31,12 +37,14 @@ private struct PlaceSearchRoot: View {
         followsHeading: false,
         fallback: .automatic
     )
+    @State private var didApplyInitial = false
 
     var body: some View {
         PlaceSearchContent(
             onSelect: onSelect,
             completer: completer,
             query: $query,
+            isSearchPresented: $isSearchPresented,
             pendingItem: $pendingItem,
             isResolving: $isResolving,
             resolveError: $resolveError,
@@ -45,36 +53,57 @@ private struct PlaceSearchRoot: View {
         )
         .searchable(
             text: $query,
+            isPresented: $isSearchPresented,
             placement: .navigationBarDrawer(displayMode: .always),
-            prompt: "Gimnasio, parque, dirección…"
+            prompt: "Buscar otro sitio…"
         )
         .onChange(of: query) { _, newValue in
-            if pendingItem == nil {
-                completer.update(query: newValue)
-            }
+            completer.update(query: newValue)
         }
         .task {
-            _ = await WorkoutLocationTracker.shared.ensureWhenInUseAuthorized()
-            cameraPosition = .userLocation(followsHeading: false, fallback: .automatic)
-            if let pin = await WorkoutLocationTracker.shared.capturePin() {
-                completer.setRegion(
-                    around: CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude)
-                )
-            }
             recentPins = RecentPlacesStore.load()
+            _ = await WorkoutLocationTracker.shared.ensureWhenInUseAuthorized()
+
+            if !didApplyInitial, let initialPin {
+                didApplyInitial = true
+                await applyInitialPin(initialPin)
+            } else if pendingItem == nil {
+                cameraPosition = .userLocation(followsHeading: false, fallback: .automatic)
+                if let pin = await WorkoutLocationTracker.shared.capturePin() {
+                    completer.setRegion(
+                        around: CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude)
+                    )
+                }
+            }
+        }
+    }
+
+    private func applyInitialPin(_ pin: WorkoutLocationPin) async {
+        let coord = CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude)
+        cameraPosition = .region(
+            MKCoordinateRegion(
+                center: coord,
+                span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+            )
+        )
+        completer.setRegion(around: coord)
+        pendingItem = pin.asMapItemFallback
+        if let resolved = await pin.resolveMapItem() {
+            pendingItem = resolved
         }
     }
 }
 
-// MARK: - Contenido (lee `isSearching`)
+// MARK: - Contenido
 
 private struct PlaceSearchContent: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.isSearching) private var isSearchFieldActive
+    @Environment(\.dismissSearch) private var dismissSearch
 
-    var onSelect: (WorkoutLocationPin) -> Void
+    var onSelect: (WorkoutLocationPin?) -> Void
     @ObservedObject var completer: PlaceSearchCompleterModel
     @Binding var query: String
+    @Binding var isSearchPresented: Bool
     @Binding var pendingItem: MKMapItem?
     @Binding var isResolving: Bool
     @Binding var resolveError: String?
@@ -85,42 +114,45 @@ private struct PlaceSearchContent: View {
         !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private var showsBottomPanel: Bool {
-        isTyping || isSearchFieldActive || isResolving || resolveError != nil
+    /// Resultados / recientes bajo el buscador (también al buscar otro con sitio ya elegido).
+    private var showsSearchPanel: Bool {
+        isTyping || isSearchPresented || isResolving || resolveError != nil
+    }
+
+    /// Mapa de confirmación solo si hay sitio y no estás buscando.
+    private var showsConfirmMap: Bool {
+        pendingItem != nil && !isTyping && !isSearchPresented
     }
 
     var body: some View {
         Group {
-            if let item = pendingItem {
+            if showsConfirmMap, let item = pendingItem {
                 preview(item)
             } else {
                 browseMap
             }
         }
-        .navigationTitle(pendingItem == nil ? "Buscar lugar" : "Confirmar lugar")
+        .navigationTitle(showsConfirmMap ? "Lugar" : "Buscar lugar")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                if pendingItem != nil {
-                    // Descartar este sitio y volver al mapa (mismo chrome que el resto).
+                if showsConfirmMap {
                     OGToolbarGlassButton(
                         systemName: "trash",
                         accessibilityLabel: "Quitar lugar",
                         tint: OG.label
                     ) {
-                        pendingItem = nil
-                        resolveError = nil
-                        cameraPosition = .userLocation(followsHeading: false, fallback: .automatic)
+                        clearPlaceAndDismiss()
                     }
                 } else {
                     CloseToolbarButton(action: { dismiss() }, large: false)
                 }
             }
-            if pendingItem != nil {
+            if showsConfirmMap {
                 ToolbarItem(placement: .topBarTrailing) {
                     OGToolbarGlassButton(
                         systemName: "checkmark",
-                        accessibilityLabel: "Usar este lugar",
+                        accessibilityLabel: "Guardar lugar",
                         tint: OG.label
                     ) {
                         confirmPending()
@@ -128,11 +160,19 @@ private struct PlaceSearchContent: View {
                 }
             }
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if showsSearchPanel {
+                resultsPanel
+            }
+        }
     }
 
     private var browseMap: some View {
         Map(position: $cameraPosition, interactionModes: [.pan, .zoom]) {
             UserAnnotation()
+            if let item = pendingItem {
+                Marker(item: item)
+            }
         }
         .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .all, showsTraffic: false))
         .mapControls {
@@ -140,15 +180,11 @@ private struct PlaceSearchContent: View {
             MapCompass()
             MapScaleView()
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if showsBottomPanel {
-                resultsPanel
-            }
-        }
     }
 
     private var resultsPanel: some View {
         VStack(spacing: 0) {
+            Divider()
             if isResolving {
                 HStack(spacing: 10) {
                     ProgressView()
@@ -157,48 +193,56 @@ private struct PlaceSearchContent: View {
                         .foregroundStyle(OG.label2)
                     Spacer(minLength: 0)
                 }
-                .padding(14)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
             }
             if let resolveError {
                 Text(resolveError)
                     .font(.system(size: 14))
                     .foregroundStyle(OG.yellow)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
             }
 
             if isTyping {
                 searchResultsList
-            } else if isSearchFieldActive {
+            } else if isSearchPresented {
                 recentResultsList
             }
         }
-        .background(.ultraThinMaterial)
+        .frame(maxWidth: .infinity)
+        .background(.bar)
     }
 
     @ViewBuilder
     private var searchResultsList: some View {
         if !completer.results.isEmpty {
-            List {
-                ForEach(completer.results, id: \.self) { completion in
-                    Button {
-                        Task { await select(completion) }
-                    } label: {
-                        placeResultLabel(title: completion.title, subtitle: completion.subtitle)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(completer.results, id: \.self) { completion in
+                        Button {
+                            Task { await select(completion) }
+                        } label: {
+                            placeResultLabel(title: completion.title, subtitle: completion.subtitle)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
+                        .disabled(isResolving)
+                        .buttonStyle(.plain)
+                        Divider().padding(.leading, 16)
                     }
-                    .disabled(isResolving)
-                    .listRowBackground(Color.clear)
                 }
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
             .frame(maxHeight: 280)
         } else if !isResolving, resolveError == nil {
             Text("Sin resultados cerca")
                 .font(.system(size: 14))
                 .foregroundStyle(OG.label3)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
+                .padding(16)
         }
     }
 
@@ -209,34 +253,35 @@ private struct PlaceSearchContent: View {
                 .font(.system(size: 14))
                 .foregroundStyle(OG.label3)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
+                .padding(16)
         } else {
-            List {
-                Section {
-                    ForEach(recentPins, id: \.recentIdentity) { pin in
-                        Button {
-                            selectRecent(pin)
-                        } label: {
-                            HStack(spacing: 12) {
-                                placeResultLabel(
-                                    title: pin.name?.nilIfBlank ?? "Lugar",
-                                    subtitle: nil
-                                )
-                                PlaceMapGlyph(pin: pin)
-                                    .frame(width: 32, height: 40)
-                            }
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Recientes")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(OG.label2)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+                    .padding(.bottom, 4)
+                ForEach(recentPins, id: \.recentIdentity) { pin in
+                    Button {
+                        selectRecent(pin)
+                    } label: {
+                        HStack(spacing: 12) {
+                            placeResultLabel(
+                                title: pin.name?.nilIfBlank ?? "Lugar",
+                                subtitle: nil
+                            )
+                            PlaceCategoryIcon(categoryRaw: pin.pointOfInterestCategory)
                         }
-                        .listRowBackground(Color.clear)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                     }
-                } header: {
-                    Text("Recientes")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(OG.label2)
-                        .textCase(nil)
+                    .buttonStyle(.plain)
+                    Divider().padding(.leading, 16)
                 }
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
             .frame(maxHeight: 280)
         }
     }
@@ -253,7 +298,6 @@ private struct PlaceSearchContent: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
     }
 
     private func preview(_ item: MKMapItem) -> some View {
@@ -287,8 +331,7 @@ private struct PlaceSearchContent: View {
                     }
                 }
                 Spacer(minLength: 0)
-                PlaceMapGlyph(mapItem: item)
-                    .frame(width: 36, height: 44)
+                PlaceCategoryIcon(categoryRaw: item.pointOfInterestCategory?.rawValue)
             }
             .padding(16)
             .background(.bar)
@@ -303,6 +346,22 @@ private struct PlaceSearchContent: View {
         return item.address?.shortAddress
     }
 
+    private func beginConfirm(_ item: MKMapItem) {
+        query = ""
+        completer.clear()
+        resolveError = nil
+        isSearchPresented = false
+        dismissSearch()
+        pendingItem = item
+        let coord = item.location.coordinate
+        cameraPosition = .region(
+            MKCoordinateRegion(
+                center: coord,
+                span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+            )
+        )
+    }
+
     private func select(_ completion: MKLocalSearchCompletion) async {
         isResolving = true
         resolveError = nil
@@ -314,16 +373,14 @@ private struct PlaceSearchContent: View {
                 resolveError = "No se encontró ese lugar."
                 return
             }
-            pendingItem = item
-            query = ""
-            completer.clear()
+            beginConfirm(item)
         } catch {
             resolveError = "No se pudo abrir el lugar en Mapas."
         }
     }
 
     private func selectRecent(_ pin: WorkoutLocationPin) {
-        pendingItem = pin.asMapItemFallback
+        beginConfirm(pin.asMapItemFallback)
         Task {
             if let resolved = await pin.resolveMapItem() {
                 pendingItem = resolved
@@ -345,60 +402,103 @@ private struct PlaceSearchContent: View {
         onSelect(pin)
         dismiss()
     }
+
+    private func clearPlaceAndDismiss() {
+        onSelect(nil)
+        dismiss()
+    }
 }
 
-// MARK: - Glyph nativo (mismo Marker que Mapas)
+// MARK: - Icono de categoría
 
-/// Mini `Marker(item:)` — icono y tint del sitio en Apple Mapas.
-struct PlaceMapGlyph: View {
-    private let pin: WorkoutLocationPin?
-    private let seedItem: MKMapItem?
+struct PlaceCategoryIcon: View {
+    var categoryRaw: String?
 
-    @State private var resolved: MKMapItem?
-
-    init(pin: WorkoutLocationPin) {
-        self.pin = pin
-        self.seedItem = nil
+    private var style: (symbol: String, tint: Color)? {
+        PlaceCategoryStyle.style(forRaw: categoryRaw)
     }
-
-    init(mapItem: MKMapItem) {
-        self.pin = nil
-        self.seedItem = mapItem
-    }
-
-    private var item: MKMapItem {
-        resolved ?? seedItem ?? pin?.asMapItemFallback
-            ?? MKMapItem(location: CLLocation(latitude: 0, longitude: 0), address: nil)
-    }
-
-    private var coordinate: CLLocationCoordinate2D { item.location.coordinate }
 
     var body: some View {
-        Map(
-            initialPosition: .region(
-                MKCoordinateRegion(
-                    center: coordinate,
-                    span: MKCoordinateSpan(latitudeDelta: 0.0015, longitudeDelta: 0.0015)
-                )
-            )
-        ) {
-            Marker(item: item)
-        }
-        .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll, showsTraffic: false))
-        .disabled(true)
-        .allowsHitTesting(false)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .task(id: pin?.mapItemIdentifier ?? seedItem?.identifier?.rawValue) {
-            if let seedItem {
-                resolved = seedItem
-            } else if let pin {
-                resolved = await pin.resolveMapItem() ?? pin.asMapItemFallback
-            }
+        if let style {
+            Image(systemName: style.symbol)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 32, height: 32)
+                .background(style.tint, in: Circle())
+                .accessibilityHidden(true)
         }
     }
 }
 
-// MARK: - Recientes (últimos 5)
+enum PlaceCategoryStyle {
+    static func style(forRaw raw: String?) -> (symbol: String, tint: Color)? {
+        guard let raw, !raw.isEmpty else { return nil }
+        let cat = MKPointOfInterestCategory(rawValue: raw)
+        switch cat {
+        case .fitnessCenter:
+            return ("figure.strengthtraining.traditional", .orange)
+        case .park, .nationalPark:
+            return ("tree.fill", .green)
+        case .beach:
+            return ("beach.umbrella.fill", .cyan)
+        case .restaurant, .cafe, .bakery, .foodMarket:
+            return ("fork.knife", .orange)
+        case .hotel:
+            return ("bed.double.fill", .purple)
+        case .stadium, .nightlife:
+            return ("sportscourt.fill", .blue)
+        case .store:
+            return ("bag.fill", .pink)
+        case .school, .university, .library:
+            return ("graduationcap.fill", .indigo)
+        case .hospital, .pharmacy:
+            return ("cross.case.fill", .red)
+        case .airport, .publicTransport:
+            return ("tram.fill", .blue)
+        case .parking:
+            return ("parkingsign", .blue)
+        case .gasStation:
+            return ("fuelpump.fill", Color(red: 0.2, green: 0.55, blue: 0.35))
+        case .museum, .theater, .musicVenue:
+            return ("building.columns.fill", .brown)
+        default:
+            return nil
+        }
+    }
+
+    static func label(forRaw raw: String?) -> String? {
+        guard let raw, !raw.isEmpty else { return nil }
+        let cat = MKPointOfInterestCategory(rawValue: raw)
+        switch cat {
+        case .fitnessCenter: return "Gimnasio"
+        case .park, .nationalPark: return "Parque"
+        case .beach: return "Playa"
+        case .restaurant: return "Restaurante"
+        case .cafe: return "Café"
+        case .bakery: return "Panadería"
+        case .foodMarket: return "Mercado"
+        case .hotel: return "Hotel"
+        case .stadium: return "Estadio"
+        case .nightlife: return "Ocio"
+        case .store: return "Tienda"
+        case .school: return "Colegio"
+        case .university: return "Universidad"
+        case .library: return "Biblioteca"
+        case .hospital: return "Hospital"
+        case .pharmacy: return "Farmacia"
+        case .airport: return "Aeropuerto"
+        case .publicTransport: return "Transporte"
+        case .parking: return "Parking"
+        case .gasStation: return "Gasolinera"
+        case .museum: return "Museo"
+        case .theater: return "Teatro"
+        case .musicVenue: return "Sala de conciertos"
+        default: return nil
+        }
+    }
+}
+
+// MARK: - Recientes
 
 enum RecentPlacesStore {
     private static let key = "repera.places.recent.v1"
@@ -515,19 +615,36 @@ struct WorkoutPlacePickerRow: View {
                 showSearch = true
             } label: {
                 HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(pin?.name?.nilIfBlank ?? (pin == nil ? "Añadir lugar" : "Lugar en el mapa"))
+                    if let pin {
+                        if PlaceCategoryStyle.style(forRaw: pin.pointOfInterestCategory) != nil {
+                            PlaceCategoryIcon(categoryRaw: pin.pointOfInterestCategory)
+                        } else {
+                            Image(systemName: "mappin.circle.fill")
+                                .font(.system(size: 22, weight: .semibold))
+                                .foregroundStyle(OG.label3)
+                                .frame(width: 32, height: 32)
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(pin.name?.nilIfBlank ?? "Lugar en el mapa")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(OG.label)
+                                .lineLimit(2)
+                            if let category = PlaceCategoryStyle.label(forRaw: pin.pointOfInterestCategory) {
+                                Text(category)
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(OG.label2)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    } else {
+                        Image(systemName: "mappin.and.ellipse")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(OG.accent)
+                            .frame(width: 32, height: 32)
+                        Text("Añadir lugar")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundStyle(OG.label)
-                        Text(pin == nil ? "Buscar en Apple Mapas" : "Cambiar sitio")
-                            .font(.system(size: 13))
-                            .foregroundStyle(OG.label2)
-                    }
-                    Spacer(minLength: 0)
-                    if let pin {
-                        PlaceMapGlyph(pin: pin)
-                            .frame(width: 36, height: 44)
-                    } else {
+                        Spacer(minLength: 0)
                         Image(systemName: "chevron.right")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(OG.label3)
@@ -538,13 +655,20 @@ struct WorkoutPlacePickerRow: View {
             .buttonStyle(.plain)
 
             if let pin {
-                WorkoutLocationPinMap(pin: pin)
-                    .frame(height: 160)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                Button {
+                    showSearch = true
+                } label: {
+                    WorkoutLocationPinMap(pin: pin, isInteractive: false)
+                        .frame(height: 160)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Editar lugar en el mapa")
             }
         }
         .sheet(isPresented: $showSearch) {
-            PlaceSearchSheet { selected in
+            PlaceSearchSheet(initialPin: pin) { selected in
                 pin = selected
             }
             .presentationDetents([.large])

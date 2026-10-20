@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-20 (lugar MapKit al apuntar/editar; tap ejercicio → ficha)
+Última actualización: 2026-10-20 (detalle: nota pegada a Tiempo/Kcal/Volumen)
 
 ## Tabs
 
@@ -121,7 +121,7 @@
 - Rest feedback (sonido / háptico según settings).
 - **Live Activity** de descanso (isla / pantalla bloqueo; `NSSupportsLiveActivities`).
 - Watch: confirmar ejercicio, conteo, **+1 serie** / log rápido del último ejercicio.
-- **Resultado post-entreno** (`SessionReviewEngine`): nota 1–10 por **rendimiento**. Prioridad: bandas publicadas → ritmos por movimiento/nivel → tiempo típico → formato. Blurb en frases naturales («Hiciste 9:24; el ritmo intermedio…»). Recálculo al subir `sessionReviewFormulaVersion`.
+- **Resultado post-entreno** (`SessionReviewEngine`): nota 1–10 por **rendimiento** (bandas → ritmos → típico → formato). Si Salud aporta **FC media/máx** (y/o kcal), `SessionCardioEffort` afina la nota ±2 según el esfuerzo real y lo explica en el texto. El **nivel** va como subtítulo bajo la nota. Recálculo al subir `sessionReviewFormulaVersion`.
 
 ## Salud (Apple)
 
@@ -172,8 +172,8 @@
 
 Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom, 4 escaneos/mes; Pro vía RevenueCat entitlement `pro`.
 - Historial de entrenos (Repera + Apple Salud, agrupado por día): misma fila que Inicio — línea «ENTRENO · hora» / día · hora, título debajo; icono de fuerza en Historial y **check** en Inicio; chips idénticos vía `WorkoutRegisterChips` (min / kcal / nota / PR / Notas; Salud + distancia si hay).
-- **Detalle de entreno:** resumen Tiempo/Kcal alineado con Inicio. Sección **Salud** solo con métricas auténticas (FC, ruta, ritmo); no muestra dispositivo/kcal si el origen es Repera. Series: RIR solo a la derecha, entero, sin duplicar entre paréntesis. Al **Editar**, el chevron vuelve se sustituye por **X** (cancelar). Las X de cierre usan `OG.label` (negro/blanco), no rojo. Sección **Resultado**: nota + frases naturales. Toque en **nombre o imagen** del movimiento → `ExerciseDetailView`.
-- **Lugar (entrenos propios):** al **Apuntar resultado** o **Editar**, sheet MapKit: al abrir muestra el **mapa en tu ubicación**; al enfocar el buscador, **últimos 5** sitios; al escribir, `MKLocalSearchCompleter` + confirmación con `Marker(item:)`. La fila muestra el **glyph nativo** del sitio (no chincheta genérica). Guarda `locationPin` (coords, nombre, id MapKit, categoría). En detalle se pinta el mapa centrado con el icono del sitio. Si hay **recorrido de Apple Salud**, ese mapa tiene prioridad y **no** se ofrece pin manual.
+- **Detalle de entreno:** fecha + Tiempo/Kcal/Volumen + nota en un bloque continuo (sin título «Resultado»). Sección **Salud** solo con métricas auténticas (FC, ruta, ritmo). Series: RIR solo a la derecha. Al **Editar**, chevron → **X** (cancelar). Toque en **nombre o imagen** del movimiento → `ExerciseDetailView`.
+- **Lugar (entrenos propios, opcional):** tocar nombre o mapa abre el sheet con ese sitio; papelera quita, buscador cambia, check guarda. Sin sitio: búsqueda desde tu ubicación (se puede cerrar sin elegir). Recientes/resultados bajo el buscador. Icono = categoría (no mini-mapa). Ruta Salud tiene prioridad y bloquea pin manual.
 
 ## Temporizador
 

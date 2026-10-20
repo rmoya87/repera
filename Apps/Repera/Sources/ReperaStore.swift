@@ -768,6 +768,7 @@ final class ReperaStore: NSObject {
                     upsertWorkout(updated)
                     persistWorkouts()
                 }
+                await refineSessionReviewWithHealth(sessionId: sessionId)
             }
         } else {
             _ = WorkoutLocationTracker.shared.stopRouteTracking()
@@ -935,15 +936,21 @@ final class ReperaStore: NSObject {
                 upsertWorkout(updated)
                 persistWorkouts()
             }
+            await refineSessionReviewWithHealth(sessionId: sessionId)
         }
         return session
     }
 
     /// Calcula y opcionalmente presenta la valoración post-entreno.
-    func attachSessionReview(_ session: inout WorkoutSession, present: Bool) {
+    func attachSessionReview(
+        _ session: inout WorkoutSession,
+        present: Bool,
+        cardio: SessionCardioSample? = nil
+    ) {
         let review = SessionReviewEngine.review(
             session: session,
-            history: state.workouts
+            history: state.workouts,
+            cardio: cardio
         )
         session.sessionReview = review
         if present, let review {
@@ -952,8 +959,27 @@ final class ReperaStore: NSObject {
         }
     }
 
+    /// Recalcula la nota con métricas de Salud (FC / kcal) cuando ya están disponibles.
+    @discardableResult
+    func refreshSessionReviewWithCardio(
+        sessionId: UUID,
+        cardio: SessionCardioSample,
+        presentIfPending: Bool = false
+    ) -> SessionReview? {
+        guard let idx = state.workouts.firstIndex(where: { $0.id == sessionId }) else { return nil }
+        var session = state.workouts[idx]
+        let show = presentIfPending && pendingReviewedSessionId == sessionId
+        attachSessionReview(&session, present: show, cardio: cardio)
+        state.workouts[idx] = session
+        if show, let review = session.sessionReview {
+            pendingSessionReview = review
+        }
+        persistWorkouts()
+        return session.sessionReview
+    }
+
     /// Versión de la fórmula de Resultado; al subir, se recalculan todas las notas.
-    private static let sessionReviewFormulaVersion = 5
+    private static let sessionReviewFormulaVersion = 6
 
     /// Recomputa la review con la fórmula actual y la persiste.
     @discardableResult
@@ -1155,8 +1181,40 @@ final class ReperaStore: NSObject {
                 upsertWorkout(updated)
                 persistWorkouts()
             }
+            await refineSessionReviewWithHealth(sessionId: sessionId)
         }
         return saved
+    }
+
+    /// Tras sync de Salud: relee FC/kcal y afina la nota de Resultado.
+    func refineSessionReviewWithHealth(sessionId: UUID) async {
+        guard let session = state.workouts.first(where: { $0.id == sessionId }) else { return }
+        guard let extras = await HealthKitStore.shared.sessionHealthExtras(for: session) else {
+            // Aun sin FC, recalcula con kcal de sesión si hay.
+            if session.appleActiveEnergyKcal != nil {
+                _ = refreshSessionReviewWithCardio(
+                    sessionId: sessionId,
+                    cardio: SessionCardioSample(
+                        activeEnergyKcal: session.appleActiveEnergyKcal,
+                        durationMinutes: max(1, session.displayDurationMinutes)
+                    ),
+                    presentIfPending: true
+                )
+            }
+            return
+        }
+        let cardio = SessionCardioSample(
+            averageHeartRateBpm: extras.averageHeartRateBpm,
+            maxHeartRateBpm: extras.maxHeartRateBpm,
+            heartRateBpmSamples: extras.heartRateSeries.map(\.bpm),
+            activeEnergyKcal: extras.activeEnergyKcal ?? session.appleActiveEnergyKcal,
+            durationMinutes: max(1, session.displayDurationMinutes)
+        )
+        _ = refreshSessionReviewWithCardio(
+            sessionId: sessionId,
+            cardio: cardio,
+            presentIfPending: true
+        )
     }
 
     /// Actualiza un entreno ya terminado (detalle / edición desde Inicio).

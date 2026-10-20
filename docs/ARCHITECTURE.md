@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-20 (lugar MapKit; WorkoutRegisterChips)
+Última actualización: 2026-10-20 (SessionCardioEffort en Resultado)
 
 ## Visión
 
@@ -94,7 +94,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 | `Catalog*.swift` | Seed gym / CrossFit / halterofilia / gimnasia + ES (`CatalogSpanish` 188/188: desc + guía entrenador); deporte en `sportTag`, grupo = músculo principal |
 | `CatalogWODs.swift` | Benchmarks conocidos (`WODTemplate` → `RoutineBlock` con `wodTemplateId`); `WODScoreBands` principiante→élite |
 | `WODBlockResult` / `WODResultCapture` | Score por bloque (reps AMRAP / tiempo For Time / series); `WorkoutSession.wodResults` |
-| `SessionReview` / `SessionReviewEngine` | Valoración post-entreno: nota por rendimiento (bandas / ritmos por movimiento / typical) + ajuste hasta ±2 con `ExerciseEquivalence`; tips por ejercicio; `WorkoutSession.sessionReview` |
+| `SessionReview` / `SessionReviewEngine` | Valoración post-entreno: nota por rendimiento (bandas / ritmos / typical) + ajuste ±2 con `ExerciseEquivalence` + ajuste ±2 con `SessionCardioEffort` (FC/kcal de Salud); `WorkoutSession.sessionReview` |
 | `ExerciseEquivalence` | Familias de movimiento (squat, hinge, press, pull…) y historial comparable entre ejercicios similares (mismo `loggingStyle` / `loadField`) |
 | `MovementPaceStandards` / `WODPaceEstimator` | Segundos/unidad por tipo de movimiento y nivel (principiante→élite); estima tiempo/rondas de WOD a medida |
 | `StatsEngine` | Series de progreso, PRs, métricas diarias, filtros `ProgressTimeRange` |

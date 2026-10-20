@@ -78,6 +78,7 @@ struct MovementPaceStandardsTests {
         #expect((review?.overallScore ?? 0) >= 3)
         #expect((review?.overallScore ?? 0) <= 10)
         #expect(review?.vsStandardSummary?.contains("ritmo") == true
+            || review?.vsStandardSummary?.contains("Tu tiempo") == true
             || review?.vsStandardSummary?.contains("Hiciste") == true)
     }
 
