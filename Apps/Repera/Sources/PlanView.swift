@@ -53,6 +53,7 @@ struct PlanView: View {
                 }
             }
             .ogListChrome()
+            .refreshable { await businessData.refresh() }
             .ogFixedTopBar("Diario") {
                 if section == .schedule {
                     Menu {
@@ -506,10 +507,10 @@ struct DayEditorView: View {
         Group {
             if embedsNavigationStack {
                 NavigationStack { editorForm }
-                    .preferredColorScheme(.dark)
+                    .preferredColorScheme(.light)
             } else {
                 editorForm
-                    .preferredColorScheme(.dark)
+                    .preferredColorScheme(.light)
             }
         }
     }
@@ -1743,7 +1744,7 @@ struct ExercisePickerView: View {
                 pickerContent
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
     }
 
     private var pickerContent: some View {
@@ -1895,7 +1896,7 @@ private struct RoutineImportPickerSheet: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
         .ogFittedHeight()
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
         .ogFittedSheet()
     }
 

@@ -123,7 +123,7 @@ struct DayPlusSheet: View {
                     }
                 }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
         // Congelar alto solo con pickers a pantalla completa (no con «Leyendo…»).
         .ogFittedSheet(
             expanded: isPushed,
@@ -375,7 +375,7 @@ struct BoardImportReviewView: View {
         Group {
             if embedsNavigationStack {
                 NavigationStack { reviewContent }
-                    .preferredColorScheme(.dark)
+                    .preferredColorScheme(.light)
             } else {
                 reviewContent
             }

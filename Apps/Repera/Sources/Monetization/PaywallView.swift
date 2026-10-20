@@ -74,7 +74,7 @@ struct PaywallView: View {
                 Text(subscriptions.lastErrorMessage ?? "Inténtalo de nuevo.")
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
     }
 
     private var header: some View {

@@ -143,6 +143,7 @@ struct HomeView: View {
                 .padding(.bottom, 28)
             }
             .background(OG.bg)
+            .refreshable { await businessData.refresh() }
             .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay)) {
                 OGToolbarGlassButton(
                     systemName: "plus",
@@ -228,7 +229,7 @@ struct HomeView: View {
                         }
                     }
                 )
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(.light)
             }
             .navigationDestination(item: $boardReviewPayload) { payload in
                 BoardImportReviewView(

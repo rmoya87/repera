@@ -254,7 +254,7 @@ struct WorkoutView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
         .ogFittedHeight()
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
         .ogFittedSheet()
     }
 

@@ -56,7 +56,7 @@ struct ReperaApp: App {
                 .environment(onboarding)
                 .environment(locationTracker)
                 .preferredColorScheme(.light)
-                .background(Color.black)
+                .background(Color.white)
                 .sheet(isPresented: Binding(
                     get: { subscriptions.paywall.isPresented && onboarding.isComplete },
                     set: { if !$0 { subscriptions.dismissPaywall() } }
@@ -109,6 +109,9 @@ struct ReperaApp: App {
                             await store.refreshFromiCloud()
                             await refreshHealthOnForeground(forceProgressiveIfNeeded: true)
                             await subscriptions.refreshOnForeground()
+                            // Pull latest published trainer blocks, reservations and passes
+                            // on foreground. Supabase RLS keeps personal history private.
+                            if businessAuth.isConnected { await businessData.refresh() }
                             wireSubscriptionGates()
                         }
                     }
