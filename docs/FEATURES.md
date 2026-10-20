@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-20 (Historial = misma fila/chips que Inicio)
+Última actualización: 2026-10-20 (tiles Progreso: icono+etiqueta en fila; chips Inicio=Historial)
 
 ## Tabs
 
@@ -62,7 +62,7 @@
 - Títulos de sección grises encima de cada card (actividad, cardio, peso, equilibrio…).
 - Filtro: **Hoy / Esta semana / Este mes / 90 / 180 / 360 días** (sin «Todo»). Modal fitted + glass.
 - Gráficas: día en periodos cortos; **media semanal** en 90/180; **media mensual** en 360.
-- Tiles: entrenos, tiempo medio, racha; **FC media** solo si hay lpm de Salud. Sin FC → 3 en una fila; con FC → 2×2. Números grandes centrados en la card (icono arriba, valor, etiqueta).
+- Tiles: entrenos, tiempo medio, racha; **FC media** solo si hay lpm de Salud. Sin FC → 3 en una fila; con FC → 2×2. Cabecera **icono + etiqueta** en la misma fila; valor grande (y delta) debajo.
 - Racha: semanas consecutivas con ≥1 entreno ≈ openGym `streakWeeks`.
 - **Cardio / calorías / tiles / heatmap / músculo / PRs / peso:** un `ProgressSnapshot` por periodo (`ProgressDataEngine` off-main); `ProgressViewModel` cachea por periodo+revisión y cancela preps obsoletas.
 - Selector de periodo responde al toque; si hay caché, pinta al instante; si no, loader solo en gráficas.
@@ -171,7 +171,7 @@
 ## Monetización
 
 Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom, 4 escaneos/mes; Pro vía RevenueCat entitlement `pro`.
-- Historial de entrenos (Repera + Apple Salud, agrupado por día): misma fila que Inicio — línea «ENTRENO · hora» / día · hora, título debajo, icono de fuerza (no check), chips compartidos (`OGRegisterChip`, minutos = inicio→fin).
+- Historial de entrenos (Repera + Apple Salud, agrupado por día): misma fila que Inicio — línea «ENTRENO · hora» / día · hora, título debajo; icono de fuerza en Historial y **check** en Inicio; chips idénticos vía `WorkoutRegisterChips` (min / kcal / nota / PR / Notas; Salud + distancia si hay).
 - **Detalle de entreno:** resumen Tiempo/Kcal alineado con Inicio. Sección **Salud** solo con métricas auténticas (FC, ruta, ritmo); no muestra dispositivo/kcal si el origen es Repera. Series: RIR solo a la derecha, entero, sin duplicar entre paréntesis. Al **Editar**, el chevron vuelve se sustituye por **X** (cancelar). Las X de cierre usan `OG.label` (negro/blanco), no rojo. Sección **Resultado**: nota + frases naturales.
 
 ## Temporizador

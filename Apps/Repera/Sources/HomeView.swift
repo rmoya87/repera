@@ -557,8 +557,6 @@ struct HomeView: View {
     }
 
     private func dayWorkoutCard(_ session: WorkoutSession) -> some View {
-        let minutes = session.displayDurationMinutes
-        let kcal = session.appleActiveEnergyKcal
         let prs = prCountBySessionId[session.id] ?? 0
         return registerCardWithChipsOverlay(
             open: { openWorkoutId = session.id },
@@ -567,10 +565,8 @@ struct HomeView: View {
             onDelete: { workoutPendingDelete = session },
             title: {
                 HStack(alignment: .top, spacing: 12) {
-                    OGRegisterLeadingIcon(
-                        systemName: "figure.strengthtraining.traditional",
-                        tint: OG.accent
-                    )
+                    // Completado en Inicio: check (Historial usa icono de fuerza).
+                    OGRegisterLeadingIcon(systemName: "checkmark", tint: OG.accent)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(WorkoutListCaption.dayTimeLine(
@@ -591,18 +587,7 @@ struct HomeView: View {
                 .padding(.horizontal, Self.registerCardPad)
             },
             chips: {
-                if minutes > 0 {
-                    OGRegisterChip(text: "\(Int(minutes.rounded())) min", icon: "timer")
-                }
-                if let kcal, kcal > 0 {
-                    OGRegisterChip(text: "\(Int(kcal.rounded())) kcal", icon: "flame.fill")
-                }
-                if let review = session.sessionReview {
-                    OGRegisterChip(text: review.scoreLabel, icon: review.scoreSymbolName)
-                }
-                if prs > 0 {
-                    OGRegisterChip(text: "\(prs) PR", icon: "trophy.fill")
-                }
+                WorkoutRegisterChips.repera(session: session, prCount: prs)
             }
         )
     }
@@ -636,13 +621,7 @@ struct HomeView: View {
                 .padding(.horizontal, Self.registerCardPad)
             },
             chips: {
-                OGRegisterChip(text: "Salud", icon: "heart.fill")
-                if activity.durationMinutes > 0 {
-                    OGRegisterChip(text: "\(Int(activity.durationMinutes.rounded())) min", icon: "timer")
-                }
-                if let kcal = activity.activeEnergyKcal, kcal > 0 {
-                    OGRegisterChip(text: "\(Int(kcal.rounded())) kcal", icon: "flame.fill")
-                }
+                WorkoutRegisterChips.health(activity)
             }
         )
     }

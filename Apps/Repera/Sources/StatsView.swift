@@ -435,21 +435,23 @@ struct StatsView: View {
         valueColor: Color = OG.label,
         delta: Int? = nil
     ) -> some View {
-        VStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(iconColor)
+        VStack(spacing: 8) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(iconColor)
+                Text(label)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(OG.label2)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
             Text(value)
                 .font(.system(size: 30, weight: .bold).monospacedDigit())
                 .foregroundStyle(valueColor)
                 .minimumScaleFactor(0.7)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity)
-            Text(label)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(OG.label2)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
             if let delta, delta != 0 {
                 Text(delta > 0 ? "+\(delta)" : "\(delta)")
                     .font(.system(size: 11, weight: .semibold).monospacedDigit())
@@ -457,7 +459,7 @@ struct StatsView: View {
             }
         }
         .multilineTextAlignment(.center)
-        .frame(maxWidth: .infinity, minHeight: 96, maxHeight: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity, minHeight: 88, maxHeight: .infinity, alignment: .center)
         .padding(.horizontal, 10)
         .padding(.vertical, 14)
         .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))

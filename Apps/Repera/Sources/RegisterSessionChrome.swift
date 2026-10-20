@@ -1,3 +1,4 @@
+import ReperaDomain
 import SwiftUI
 
 /// Icono circular de fila de entreno / actividad (Inicio + Historial).
@@ -52,6 +53,54 @@ struct OGRegisterChipsRow<Content: View>: View {
         .contentMargins(.horizontal, 0, for: .scrollContent)
         .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Misma secuencia de chips en Inicio e Historial (min / kcal / nota / PR [/ notas]).
+enum WorkoutRegisterChips {
+    /// Entreno Repera terminado.
+    @ViewBuilder
+    static func repera(session: WorkoutSession, prCount: Int) -> some View {
+        let minutes = session.displayDurationMinutes
+        if minutes > 0 {
+            OGRegisterChip(text: "\(Int(minutes.rounded())) min", icon: "timer")
+        }
+        if let kcal = session.appleActiveEnergyKcal, kcal > 0 {
+            OGRegisterChip(text: "\(Int(kcal.rounded())) kcal", icon: "flame.fill")
+        }
+        if let review = session.sessionReview {
+            OGRegisterChip(text: review.scoreLabel, icon: review.scoreSymbolName)
+        }
+        if prCount > 0 {
+            OGRegisterChip(text: "\(prCount) PR", icon: "trophy.fill")
+        }
+        let notes = session.notes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !notes.isEmpty {
+            OGRegisterChip(text: "Notas", icon: "note.text")
+        }
+    }
+
+    /// Actividad importada de Apple Salud.
+    @ViewBuilder
+    static func health(_ activity: HealthKitStore.ExternalActivity) -> some View {
+        OGRegisterChip(text: "Salud", icon: "heart.fill")
+        if activity.durationMinutes > 0 {
+            OGRegisterChip(text: "\(Int(activity.durationMinutes.rounded())) min", icon: "timer")
+        }
+        if let kcal = activity.activeEnergyKcal, kcal > 0 {
+            OGRegisterChip(text: "\(Int(kcal.rounded())) kcal", icon: "flame.fill")
+        }
+        if let meters = activity.distanceMeters, meters > 0 {
+            OGRegisterChip(text: distanceLabel(meters), icon: "figure.walk")
+        }
+    }
+
+    private static func distanceLabel(_ meters: Double) -> String {
+        if meters >= 1000 {
+            let km = meters / 1000
+            return String(format: "%.1f km", km)
+        }
+        return "\(Int(meters.rounded())) m"
     }
 }
 

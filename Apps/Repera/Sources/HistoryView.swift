@@ -119,6 +119,10 @@ struct HistoryView: View {
         .background(OG.bg)
         .ogPinnedTransparentNav("Historial")
         .task(id: store.workoutsEpoch) {
+            // Misma nota/PR que Inicio: asegurar review y caché de PRs.
+            for session in finishedWorkouts where session.sessionReview == nil {
+                _ = store.ensureSessionReview(for: session.id)
+            }
             prCountBySessionId = store.cachedPersonalRecordCountsBySession()
         }
         .task {
@@ -160,14 +164,15 @@ struct HistoryView: View {
     }
 
     private func reperaHistoryRow(_ session: WorkoutSession) -> some View {
-        let minutes = session.displayDurationMinutes
-        let kcal = session.appleActiveEnergyKcal
-        let prs = prCountBySessionId[session.id] ?? 0
-        let start = session.startedAt ?? session.finishedAt
+        // Preferir sesión viva del store (nota/PR recién asegurados).
+        let live = store.state.workouts.first(where: { $0.id == session.id }) ?? session
+        let prs = prCountBySessionId[live.id] ?? 0
+        let start = live.startedAt ?? live.finishedAt
         let day = start.map { Calendar.current.startOfDay(for: $0) } ?? Date()
 
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 12) {
+                // Historial: icono de fuerza (Inicio usa check).
                 OGRegisterLeadingIcon(
                     systemName: "figure.strengthtraining.traditional",
                     tint: OG.accent
@@ -181,37 +186,21 @@ struct HistoryView: View {
                     .foregroundStyle(OG.label3)
                     .tracking(0.3)
                     HStack(spacing: 6) {
-                        Text(session.title)
+                        Text(live.title)
                             .font(.system(size: 17, weight: .medium))
                             .foregroundStyle(OG.label)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                        if let notes = session.notes, !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            Image(systemName: "note.text")
-                                .font(.caption)
-                                .foregroundStyle(OG.accent)
-                        }
                         historyChevron
                     }
                 }
             }
             .padding(.trailing, Self.historyRowPad)
 
-            // Carrusel edge-to-edge (trailing 0 en listRowInsets); mismo componente que Inicio.
+            // Misma secuencia que Inicio (`WorkoutRegisterChips`).
             OGRegisterChipsRow(leadingInset: Self.chipsTitleLeading) {
-                if minutes > 0 {
-                    OGRegisterChip(text: "\(Int(minutes.rounded())) min", icon: "timer")
-                }
-                if let kcal, kcal > 0 {
-                    OGRegisterChip(text: "\(Int(kcal.rounded())) kcal", icon: "flame.fill")
-                }
-                if let review = session.sessionReview {
-                    OGRegisterChip(text: review.scoreLabel, icon: review.scoreSymbolName)
-                }
-                if prs > 0 {
-                    OGRegisterChip(text: "\(prs) PR", icon: "trophy.fill")
-                }
+                WorkoutRegisterChips.repera(session: live, prCount: prs)
             }
             .padding(.leading, -Self.historyRowPad)
         }
@@ -244,13 +233,7 @@ struct HistoryView: View {
             .padding(.trailing, Self.historyRowPad)
 
             OGRegisterChipsRow(leadingInset: Self.chipsTitleLeading) {
-                OGRegisterChip(text: "Salud", icon: "heart.fill")
-                if activity.durationMinutes > 0 {
-                    OGRegisterChip(text: "\(Int(activity.durationMinutes.rounded())) min", icon: "timer")
-                }
-                if let kcal = activity.activeEnergyKcal, kcal > 0 {
-                    OGRegisterChip(text: "\(Int(kcal.rounded())) kcal", icon: "flame.fill")
-                }
+                WorkoutRegisterChips.health(activity)
             }
             .padding(.leading, -Self.historyRowPad)
         }

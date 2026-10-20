@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-20 (filas Inicio/Historial compartidas)
+Última actualización: 2026-10-20 (WorkoutRegisterChips; check solo Inicio)
 
 ## Visión
 
@@ -141,7 +141,7 @@ La pestaña Diario prioriza **Entrenador** y conserva **Personal · Rutinas** co
 - Botones glass: `OGToolbarGlassButton` (`appliesGlass: false` en `.toolbar` del sistema)
 - Sheets: `ogFittedSheet` / `ogSheetCorners` (radio continuo 44 + **liquid glass** de fondo; estilo sheet nativo iPhone)
 - Confirmaciones (eliminar, vaciar…): `OGConfirmSheet` (mismo glass)
-- Filas Inicio/Historial: `OGRegisterLeadingIcon` + `OGRegisterChip` / `OGRegisterChipsRow` (`RegisterSessionChrome.swift`); minutos de chip = `WorkoutSession.displayDurationMinutes` (inicio→fin)
+- Filas Inicio/Historial: `OGRegisterLeadingIcon` + `WorkoutRegisterChips` / `OGRegisterChipsRow` (`RegisterSessionChrome.swift`); minutos = `displayDurationMinutes`; Inicio usa check, Historial icono de fuerza
 
 ## Datos y sync
 
