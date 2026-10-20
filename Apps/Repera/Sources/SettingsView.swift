@@ -189,6 +189,30 @@ struct SettingsView: View {
             }
 
             Section {
+                if businessData.personalNotices.isEmpty {
+                    LabeledContent("Mensajes", value: "Sin avisos")
+                } else {
+                    ForEach(businessData.personalNotices) { notification in
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(notification.title)
+                                .font(.headline)
+                            Text(notification.body)
+                                .font(.subheadline)
+                                .foregroundStyle(OG.label)
+                            Text(businessData.centerName(notification.orgId))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            } header: {
+                Text("Avisos de mis entrenadores")
+            } footer: {
+                Text("Se muestran los mensajes individuales disponibles al sincronizar con Repera Business. Las notificaciones push todavía no están habilitadas.")
+            }
+
+            Section {
                 if subscriptions.isPro {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
