@@ -71,43 +71,18 @@ final class HealthRecoveryStore {
 
     /// Índice informativo de descanso, NO una predicción clínica de recuperación.
     var sleepIndex: Int? {
-        guard let hours = lastNight?.hours else { return nil }
-        let target = max(7, min(9, averageHours ?? 8))
-        return Int((100 * min(hours / target, 1)).rounded())
+        RecoveryEngine.sleepIndex(hours: lastNight?.hours, recentAverage: averageHours)
     }
 
     var cycleEstimate: CycleEstimate {
-        guard cycleEnabled, let latest = periodStarts.last else { return .unknown }
-        let today = Calendar.current.startOfDay(for: Date())
-        let elapsed = Calendar.current.dateComponents([.day], from: latest, to: today).day ?? -1
-        guard elapsed >= 0 else { return .unknown }
-        if elapsed <= 5 && menstrualDays.contains(where: { Calendar.current.isDate($0, inSameDayAs: today) }) {
-            return .menstrual
+        guard cycleEnabled else { return .unknown }
+        switch RecoveryEngine.cyclePhase(flowDays: menstrualDays, on: Date()) {
+        case .menstrual: return .menstrual
+        case .follicular: return .follicular
+        case .ovulatory: return .ovulatory
+        case .luteal: return .luteal
+        case .unknown: return .unknown
         }
-        let starts = periodStarts
-        guard starts.count >= 3 else { return .unknown }
-        let gaps = zip(starts.dropFirst(), starts).map {
-            Calendar.current.dateComponents([.day], from: $1, to: $0).day ?? 0
-        }.filter { (21...40).contains($0) }
-        guard gaps.count >= 2 else { return .unknown }
-        let avg = Double(gaps.reduce(0, +)) / Double(gaps.count)
-        let ovulationApprox = Int(avg.rounded()) - 14
-        guard elapsed < Int(avg.rounded()) else { return .unknown }
-        if abs(elapsed - ovulationApprox) <= 1 { return .ovulatory }
-        return elapsed < ovulationApprox ? .follicular : .luteal
-    }
-
-    private var periodStarts: [Date] {
-        let days = menstrualDays.sorted()
-        var starts: [Date] = []
-        for day in days {
-            if let last = starts.last {
-                let distance = Calendar.current.dateComponents([.day], from: last, to: day).day ?? 0
-                if distance <= 10 { continue }
-            }
-            starts.append(day)
-        }
-        return starts
     }
 
     var trainingTip: String? {
