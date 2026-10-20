@@ -351,8 +351,11 @@ struct LogFinalResultsView: View {
                                 Label("Añadir serie", systemImage: "plus")
                                     .font(.system(size: 15, weight: .semibold))
                                     .foregroundStyle(OG.accent)
+                                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                    .contentShape(Rectangle())
                             }
-                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 14, trailing: 16))
+                            .buttonStyle(.plain)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                             .listRowBackground(OG.surface)
                             .listRowSeparator(.hidden)
                         } header: {
