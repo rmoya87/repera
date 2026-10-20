@@ -336,6 +336,25 @@ struct WorkoutDetailView: View {
         return .none
     }
 
+    private func displayedRoute(_ session: WorkoutSession) -> [HealthKitStore.RoutePoint] {
+        if let route = healthExtras?.routePoints, route.count >= 2 { return route }
+        return session.routePoints.map(\.asHealthRoutePoint)
+    }
+
+    private func displayedMetrics(_ session: WorkoutSession) -> HealthKitStore.SessionHealthExtras? {
+        var extras = healthExtras ?? .init()
+        if extras.routePoints.count < 2 {
+            extras.routePoints = displayedRoute(session)
+        }
+        return extras.hasAuthenticSaludMetrics ? extras : nil
+    }
+
+    private func mapCoordinates(_ session: WorkoutSession) -> (lat: Double, lon: Double)? {
+        if let point = displayedRoute(session).first { return (point.latitude, point.longitude) }
+        if let pin = session.locationPin { return (pin.latitude, pin.longitude) }
+        return nil
+    }
+
     @ViewBuilder
     private func sessionMapView(_ session: WorkoutSession) -> some View {
         // En detalle (sin editar) el mapa es solo lectura.
@@ -381,10 +400,19 @@ struct WorkoutDetailView: View {
                 // En edición el picker de lugar lleva su propio preview; no duplicar el mapa.
                 if !isEditing, sessionMapContent(session) != .none {
                     Section {
-                        sessionMapView(session)
-                            .frame(height: 240)
-                            .clipShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
-                            .ogCardListRow()
+                        VStack(spacing: 10) {
+                            sessionMapView(session)
+                                .frame(height: 240)
+                                .clipShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                            if let coordinate = mapCoordinates(session) {
+                                RouteWeatherStrip(
+                                    latitude: coordinate.lat,
+                                    longitude: coordinate.lon,
+                                    workoutDate: session.startedAt ?? .distantPast
+                                )
+                            }
+                        }
+                        .ogCardListRow()
                     } header: {
                         Text(sessionMapContent(session) == .pin ? "Ubicación" : "Recorrido")
                             .font(.system(size: 13, weight: .bold))
@@ -401,7 +429,7 @@ struct WorkoutDetailView: View {
 
                 // Solo métricas reales de Apple Salud (FC, ruta, ritmo). No mostrar
                 // kcal/dispositivo si solo vienen del propio Repera.
-                if let extras = healthExtras, extras.hasAuthenticSaludMetrics {
+                if let extras = displayedMetrics(session) {
                     Section {
                         HealthSessionMetricsCard(
                             extras: extras,
@@ -409,10 +437,28 @@ struct WorkoutDetailView: View {
                         )
                             .ogCardListRow()
                     } header: {
-                        Text("Salud")
+                        Text("Entreno")
                             .font(.system(size: 13, weight: .bold))
                             .foregroundStyle(OG.accent)
                             .textCase(nil)
+                    }
+
+                    if displayedRoute(session).count >= 2 {
+                        Section {
+                            CardioSplitsView(
+                                routePoints: displayedRoute(session),
+                                heartRate: extras.heartRateSeries,
+                                cycling: extras.activityType == .cycling ||
+                                    session.title.localizedCaseInsensitiveContains("bici") ||
+                                    session.title.localizedCaseInsensitiveContains("cicl")
+                            )
+                            .ogCardListRow()
+                        } header: {
+                            Text("Parciales")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(OG.accent)
+                                .textCase(nil)
+                        }
                     }
                 }
 
@@ -1371,14 +1417,19 @@ struct HealthSessionMetricsCard: View {
                 }
             }
 
-            if !extras.heartRateSeries.isEmpty {
+            if extras.routePoints.count >= 2 {
+                CardioAltitudeChart(extras: extras)
+            } else if !extras.heartRateSeries.isEmpty {
                 HealthHeartRateChart(series: extras.heartRateSeries, stats: extras)
-            } else if extras.averageHeartRateBpm != nil {
-                HealthHeartRateStatRow(stats: extras)
+            } else if let average = extras.averageHeartRateBpm {
+                Label("Ritmo cardíaco · media \(Int(average.rounded())) lpm", systemImage: "heart.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(OG.red)
             }
 
-            if let avg = extras.averageSpeedKmh, avg > 0 {
-                HealthSpeedStatRow(avg: avg, max: extras.maxSpeedKmh)
+            if extras.minHeartRateBpm != nil || extras.maxHeartRateBpm != nil ||
+                extras.averageSpeedKmh != nil || extras.maxSpeedKmh != nil {
+                HealthHeartRateStatRow(stats: extras)
             }
 
             if includeSourceRows, extras.sourceName != nil || extras.activeEnergyKcal != nil {
@@ -1485,7 +1536,6 @@ private struct HealthHeartRateChart: View {
             }
             .frame(height: 140)
 
-            HealthHeartRateStatRow(stats: stats)
         }
     }
 }
@@ -1494,28 +1544,40 @@ private struct HealthHeartRateStatRow: View {
     var stats: HealthKitStore.SessionHealthExtras
 
     var body: some View {
-        HStack(spacing: 8) {
-            hrPill(title: "Mín", value: stats.minHeartRateBpm, tint: OG.label2)
-            hrPill(title: "Media", value: stats.averageHeartRateBpm, tint: OG.red)
-            hrPill(title: "Máx", value: stats.maxHeartRateBpm, tint: OG.orange)
+        HStack(spacing: 7) {
+            if stats.minHeartRateBpm != nil {
+                stat("Mín", value: stats.minHeartRateBpm.map { "\(Int($0.rounded()))" }, unit: "lpm", tint: OG.label2)
+            }
+            if stats.maxHeartRateBpm != nil {
+                stat("Máx", value: stats.maxHeartRateBpm.map { "\(Int($0.rounded()))" }, unit: "lpm", tint: OG.red)
+            }
+            if stats.averageSpeedKmh != nil {
+                stat("Vel. media", value: stats.averageSpeedKmh.map { String(format: "%.1f", $0) }, unit: "km/h", tint: OG.blue)
+            }
+            if stats.maxSpeedKmh != nil {
+                stat("Vel. máx", value: stats.maxSpeedKmh.map { String(format: "%.1f", $0) }, unit: "km/h", tint: OG.accent)
+            }
         }
     }
 
-    private func hrPill(title: String, value: Double?, tint: Color) -> some View {
+    private func stat(_ title: String, value: String?, unit: String, tint: Color) -> some View {
         VStack(spacing: 4) {
             Text(title)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(OG.label3)
-            Text(value.map { "\(Int($0.rounded()))" } ?? "—")
-                .font(.system(size: 18, weight: .semibold).monospacedDigit())
-                .foregroundStyle(tint)
-            Text("lpm")
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(OG.label3)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Text(value ?? "—")
+                .font(.system(size: 17, weight: .semibold, design: .rounded).monospacedDigit())
+                .foregroundStyle(tint)
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+            Text(unit).font(.system(size: 10)).foregroundStyle(OG.label3)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
-        .background(OG.surface2.opacity(0.85), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(OG.surface2.opacity(0.85),
+                    in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -1606,10 +1668,19 @@ struct HealthActivityDetailView: View {
 
             if showRouteMap {
                 Section {
-                    HealthWorkoutRouteMap(points: detail.routePoints, isInteractive: false)
-                        .frame(height: 240)
-                        .clipShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
-                        .ogCardListRow()
+                    VStack(spacing: 10) {
+                        HealthWorkoutRouteMap(points: detail.routePoints, isInteractive: false)
+                            .frame(height: 240)
+                            .clipShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                        if let first = detail.routePoints.first {
+                            RouteWeatherStrip(
+                                latitude: first.latitude,
+                                longitude: first.longitude,
+                                workoutDate: activity.start
+                            )
+                        }
+                    }
+                    .ogCardListRow()
                 } header: {
                     sectionHeader("Recorrido")
                 } footer: {
@@ -1628,6 +1699,19 @@ struct HealthActivityDetailView: View {
                 .ogCardListRow()
             } header: {
                 sectionHeader("Entreno")
+            }
+
+            if showRouteMap {
+                Section {
+                    CardioSplitsView(
+                        routePoints: detail.routePoints,
+                        heartRate: detail.heartRateSeries,
+                        cycling: activity.activityType == .cycling
+                    )
+                    .ogCardListRow()
+                } header: {
+                    sectionHeader("Parciales")
+                }
             }
 
             Section {
