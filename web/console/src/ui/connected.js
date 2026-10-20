@@ -8,7 +8,7 @@ import {handleEditorClick,handleEditorSearch,readPrescription,validatePrescripti
 const app=document.querySelector('#app');
 const auth=new ReperaAuthAPI({baseUrl:SUPABASE_URL,publishableKey:SUPABASE_PUBLISHABLE_KEY});
 const escapeHTML=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let user=null,platformRole=null,organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],notices=[],sharedHistory=[],selectedClientId=null,selectedClassId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,activeTab='overview',selectedTemplateId=null,editingSessionId=null,view='login',busy=false,error='',notice='';
+let user=null,platformRole=null,organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],sharedHistory=[],selectedClientId=null,selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,activeTab='overview',selectedTemplateId=null,editingSessionId=null,view='login',busy=false,error='',notice='';
 const kindLabel={gym:'Gimnasio',personal_trainer:'Entrenador independiente',sports_center:'Centro deportivo'};
 const roleLabel={owner:'Propietario',admin:'Administrador',coach:'Entrenador',reception:'Recepción',athlete:'Deportista'};
 const message=()=>`${error?`<p class="connected-error" role="alert">${escapeHTML(error)}</p>`:''}${notice?`<p class="connected-notice" role="status">${escapeHTML(notice)}</p>`:''}`;
@@ -55,7 +55,7 @@ function enhanceWorkspace(own){
  attach('overview',renderBusinessHome({org,clients,occurrences,bookings,sessions:professionalSessions,templates}));
  attach('clients',renderClient360({clients,selected:selectedClientId,passes,bookings,occurrences,sessions:professionalSessions,notices,sharedHistory,manager,role:own.get(selectedOrg)}));
  const members=memberships.filter(m=>m.organization_id===org.id&&m.status==='active'&&['owner','admin','coach'].includes(m.role)).map(m=>({user_id:m.user_id,label:m.user_id===user.id?'Mi cuenta':'Profesional '+m.user_id.slice(0,8)}));
- attach('services',renderClasses360({occurrences,clients,bookings,passes,details:classDetails,groups,coaches:members,selected:selectedClassId,classEditor:classEditorId===selectedClassId,listMode:classMode,calendarMonth,manager}));
+ attach('services',renderClasses360({occurrences,clients,bookings,passes,details:classDetails,groups,groupMembers,selectedGroup:selectedGroupId,coaches:members,selected:selectedClassId,classEditor:classEditorId===selectedClassId,listMode:classMode,calendarMonth,manager}));
  attach('bonos',`<section class="connected-card"><h2>Bonos y tarifas</h2><p>Bonos reales de cortesía y saldos verificados en Supabase. Los cobros y renovaciones de pago siguen pendientes de integración.</p>${passes.map(p=>`<article class="connected-org"><strong>${escapeHTML(clients.find(c=>c.id===p.client_id)?.name||'Cliente')} · ${p.kind==='class'?'Clase':'Cita'}</strong><small>${p.remaining_credits} de ${p.total_credits} disponibles</small></article>`).join('')||'<p>No hay bonos todavía.</p>'}</section>`);
  attach('billing',`<section class="connected-card"><h2>Facturación</h2><p>La pasarela de pago y la facturación legal todavía no están habilitadas. No se muestran cobros simulados como reales.</p></section>`);
  attach('analytics',`<section class="connected-card"><h2>Analíticas del negocio</h2><div class="business-stats"><div class="business-stat"><span>Clientes</span><strong>${clients.length}</strong></div><div class="business-stat"><span>Reservas activas</span><strong>${bookings.filter(b=>b.status==='booked').length}</strong></div><div class="business-stat"><span>Sesiones programadas</span><strong>${occurrences.filter(o=>o.status==='active').length}</strong></div></div><p>Las métricas deportivas personales solo estarán disponibles con consentimiento y sincronización del atleta.</p></section>`);
@@ -114,11 +114,11 @@ async function finalizePendingRegistration(){
  sessionStorage.removeItem(PENDING_REGISTRATION_KEY);await reload();
 }
 async function loadSelectedOrg(){
- if(!selectedOrg){clients=[];occurrences=[];passes=[];bookings=[];professionalSessions=[];templates=[];trialRows=[];classDetails=[];groups=[];notices=[];return;}
- [clients,occurrences,passes,bookings,professionalSessions,templates,trialRows,classDetails,groups,notices]=await Promise.all([
+ if(!selectedOrg){clients=[];occurrences=[];passes=[];bookings=[];professionalSessions=[];templates=[];trialRows=[];classDetails=[];groups=[];groupMembers=[];notices=[];return;}
+ [clients,occurrences,passes,bookings,professionalSessions,templates,trialRows,classDetails,groups,groupMembers,notices]=await Promise.all([
  auth.clients(selectedOrg),auth.serviceOccurrences(selectedOrg),auth.servicePasses(selectedOrg),
  auth.serviceBookings(selectedOrg),auth.professionalSessions(selectedOrg),auth.workoutTemplates(selectedOrg),
- auth.organizationTrial(selectedOrg),auth.classDetails(selectedOrg),auth.groupList(selectedOrg),auth.clientNotifications(selectedOrg)]);
+ auth.organizationTrial(selectedOrg),auth.classDetails(selectedOrg),auth.groupList(selectedOrg),auth.groupMembers(selectedOrg),auth.clientNotifications(selectedOrg)]);
 }
 async function reload(){
  const [orgs,members,invites,profile]=await Promise.all([auth.organizations(),auth.memberships(),auth.invitations(),auth.myProfile()]);platformRole=profile?.role||null;
@@ -133,7 +133,9 @@ app.addEventListener('click',async event=>{
  const actionable=event.target.closest('[data-action]');const action=actionable?.dataset.action;
  if(action==='detail-client'){selectedClientId=actionable.dataset.id;sharedHistory=[];activeTab='clients';render();try{sharedHistory=await auth.sharedClientHistory({orgId:selectedOrg,clientId:selectedClientId});}catch(e){error='El historial privado no está disponible para este profesional.';}render();return;}
  if(action==='back-clients'){sharedHistory=[];selectedClientId=null;activeTab='clients';render();return;}
- if(action==='detail-occurrence'){classEditorId=null;selectedClassId=actionable.dataset.id;activeTab='services';render();return;}
+ if(action==='detail-group'){selectedGroupId=actionable.dataset.id;selectedClassId=null;activeTab='services';render();return;}
+ if(action==='back-groups'){selectedGroupId=null;activeTab='services';render();return;}
+ if(action==='detail-occurrence'){selectedGroupId=null;classEditorId=null;selectedClassId=actionable.dataset.id;activeTab='services';render();return;}
  if(action==='back-classes'){classEditorId=null;selectedClassId=null;activeTab='services';render();return;}
  if(action==='open-class-calendar'){selectedClassId=null;classMode='calendar';activeTab='services';render();return;}
  if(action==='calendar-mode'){classMode=actionable.dataset.mode==='list'?'list':'calendar';render();return;}
@@ -228,6 +230,11 @@ app.addEventListener('submit',async event=>{
   if(action==='client-notice'){
    await auth.sendClientNotice({orgId:selectedOrg,clientId:data.get('client'),title:data.get('title'),body:data.get('body')});
    await loadSelectedOrg();notice='Aviso guardado (sin push automático).';
+  }
+  if(action==='edit-group'){
+   const selected=[...f.querySelectorAll('input[name="members"]:checked')].map(n=>n.value);
+   await auth.updateBusinessGroup({groupId:data.get('group'),name:data.get('name'),description:data.get('description'),clientIds:selected});
+   await loadSelectedOrg();notice='Grupo y participantes actualizados.';
   }
   if(action==='create-group'){
    await auth.addGroup({orgId:selectedOrg,name:data.get('name'),description:data.get('description'),userId:user.id});
