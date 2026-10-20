@@ -1192,7 +1192,7 @@ final class HealthKitStore {
                 longitude: loc.coordinate.longitude,
                 date: loc.timestamp,
                 speedMps: speed,
-                altitudeMeters: loc.verticalAccuracy >= 0 ? loc.altitude : nil
+                altitudeMeters: (0...50).contains(loc.verticalAccuracy) ? loc.altitude : nil
             )
         }
     }
