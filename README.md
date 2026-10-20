@@ -43,7 +43,7 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 
 ## Arranque rápido en Mac (doble clic)
 
-- [`Repera-Business.command`](Repera-Business.command): ejecuta localmente la demostración profesional en navegador; requiere Python 3 y permanece abierta una ventana Terminal. Los datos son ficticios.
+- [`Repera-Business.command`](Repera-Business.command): abre por defecto el **panel profesional conectado a Supabase**, con login real y datos autorizados por RLS; requiere Python 3 y mantiene abierta una ventana Terminal. Para la demo aislada con datos ficticios, ejecuta `./Repera-Business.command --demo` o abre `/console/?demo=1`. El modo conectado todavía requiere validación E2E antes de usarse en producción.
 - [`Repera-Xcode.command`](Repera-Xcode.command): **abre Xcode después de regenerar el proyecto** y comprueba que `AppleAuthStore.swift`, `BusinessAuthStore.swift`, `BusinessDataStore.swift` y `BusinessWorkoutSyncStore.swift` están incluidos en las fuentes del target. Úsalo al actualizar el repositorio.
 - [`Repera-iOS.command`](Repera-iOS.command): intenta compilar y lanzar la app en Simulator; regenera y valida el proyecto antes de compilar; requiere macOS, Xcode con iOS 27, XcodeGen y un simulador compatible.
 - Ambos lanzadores están en la raíz del repositorio; si clonas por Git, se conserva el permiso de ejecución. No se ha generado todavía una aplicación macOS firmada ni un paquete iOS listo para distribución.
