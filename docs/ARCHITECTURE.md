@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-20 (editor profesional y contrato de bloques)
+Última actualización: 2026-10-20 (fichas 360, trial y consentimiento)
 
 ## Visión
 
@@ -27,6 +27,8 @@ repera/
 ```
 
 Panel profesional (`web/console/`): ES modules sin framework, Supabase Auth+RLS por defecto, `?demo=1` con datos ficticios separados. El editor se implementa en `src/ui/workout-editor.js`, y `src/ui/exercise-catalog.js` deriva su inventario de ilustraciones de `Apps/Repera/Sources/ExerciseArt.swift`. El contrato `prescription.version=1` contiene `blocks[]`: `kind`, `format`, `title`, `rounds`, `timeCap`, y `exercises[]` con `id`, `name`, `sets`, `reps`, `rir`, `weight`, `duration`, `notes`. Las plantillas viven en `professional_workout_templates` y se copian a `professional_training_sessions.prescription` para cada deportista. Las escrituras requieren RPC v2 y la migración de 2026-10-20. iOS lee el mismo contrato en `BusinessDataStore` y dibuja `BusinessWorkoutBlocksView.swift`; los resultados privados del atleta no salen de `ReperaStore`.
+
+La consola profesional incorpora `management-360.js` y funciones SQL protegidas para clases, grupos, bonos, notificaciones y sesiones fechadas. `organization_trials` fija siete días desde la creación real del negocio y su autorización se valida en Postgres; `business_subscription_intents` no activa pagos. `athlete_business_history_consents` permite consentimiento granular, revocable en Ajustes iOS; la lectura profesional consulta exclusivamente el espejo opcional `athlete_workout_mirror` por RPC con RLS/rol y cliente asignado. La consola se incluye en el paquete IONOS, pero no está desplegada. Las nuevas migraciones fueron aplicadas en el Supabase de Repera; falta E2E y pagos B2B.
 
 Marketing web (`web/`): HTML/CSS/JS sin framework; SEO (canonical, OG, sitemap, JSON-LD), banner de cookies GDPR-ready y secciones de producto. Deploy IONOS: `web/pack-ionos.sh` → zip con `.htaccess` (pretty URLs, gzip, cabeceras). Detalle en `web/README.md`.
 
