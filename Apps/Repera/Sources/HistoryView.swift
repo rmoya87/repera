@@ -345,6 +345,13 @@ struct WorkoutDetailView: View {
         var extras = healthExtras ?? .init()
         if extras.routePoints.count < 2 {
             extras.routePoints = displayedRoute(session)
+            // Rutas grabadas localmente pueden traer velocidad aunque no exista HKWorkout.
+            let speeds = extras.routePoints.compactMap(\.speedMps)
+                .filter { $0.isFinite && $0 >= 0 && $0 <= 35 }
+            if !speeds.isEmpty {
+                extras.averageSpeedKmh = speeds.reduce(0, +) / Double(speeds.count) * 3.6
+                extras.maxSpeedKmh = speeds.max().map { $0 * 3.6 }
+            }
         }
         return extras.hasAuthenticSaludMetrics ? extras : nil
     }
