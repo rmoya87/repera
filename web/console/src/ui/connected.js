@@ -87,7 +87,7 @@ app.addEventListener('click',async event=>{
 });
 app.addEventListener('input',event=>{handleEditorSearch(event);});
 app.addEventListener('change',async event=>{if(!['connected-org-select','workspace-org-select'].includes(event.target.id))return;selectedOrg=event.target.value||null;activeTab='overview';selectedTemplateId=null;editingSessionId=null;error='';clients=[];occurrences=[];passes=[];bookings=[];professionalSessions=[];templates=[];
- if(selectedOrg){try{[clients,occurrences,passes,bookings,professionalSessions]=await Promise.all([auth.clients(selectedOrg),auth.serviceOccurrences(selectedOrg),auth.servicePasses(selectedOrg),auth.serviceBookings(selectedOrg),auth.professionalSessions(selectedOrg)]);}catch(e){error=e.message;}}
+ if(selectedOrg){try{[clients,occurrences,passes,bookings,professionalSessions,templates]=await Promise.all([auth.clients(selectedOrg),auth.serviceOccurrences(selectedOrg),auth.servicePasses(selectedOrg),auth.serviceBookings(selectedOrg),auth.professionalSessions(selectedOrg),auth.workoutTemplates(selectedOrg)]);}catch(e){error=e.message;}}
  render();});
 app.addEventListener('submit',async event=>{
  const f=event.target.closest('form[data-connected]');if(!f)return;event.preventDefault();if(busy)return;
