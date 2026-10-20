@@ -26,6 +26,8 @@ struct ProgressSnapshot: Equatable, Sendable {
     var summary: ProgressHealthSummary
     var previousSummary: ProgressHealthSummary?
     var streak: Int
+    /// Racha calculada al cierre de la semana anterior (para delta del tile).
+    var previousStreak: Int
     var averageHeartRate: Double?
     var previousAverageHeartRate: Double?
     var records: [PersonalRecord]
@@ -65,6 +67,7 @@ struct ProgressSnapshot: Equatable, Sendable {
             ),
             previousSummary: nil,
             streak: 0,
+            previousStreak: 0,
             averageHeartRate: nil,
             previousAverageHeartRate: nil,
             records: [],
@@ -205,12 +208,23 @@ enum ProgressDataEngine {
         }()
         if Task.isCancelled { return nil }
 
+        let workoutDates = input.workouts.compactMap { $0.finishedAt ?? $0.startedAt }
+        let externalDates = input.externalActivities.map(\.start)
         let streak = StatsEngine.consecutiveWeekStreak(
-            workoutDates: input.workouts.compactMap { $0.finishedAt ?? $0.startedAt },
-            externalDates: input.externalActivities.map(\.start),
+            workoutDates: workoutDates,
+            externalDates: externalDates,
             weekStartsOnMonday: monday,
             now: now
         )
+        let previousStreak: Int = {
+            guard let priorWeek = cal.date(byAdding: .day, value: -7, to: now) else { return 0 }
+            return StatsEngine.consecutiveWeekStreak(
+                workoutDates: workoutDates,
+                externalDates: externalDates,
+                weekStartsOnMonday: monday,
+                now: priorWeek
+            )
+        }()
 
         let prevAvgHr: Double? = {
             let pts = input.heartRateDays.filter {
@@ -295,6 +309,7 @@ enum ProgressDataEngine {
             summary: summary,
             previousSummary: previousSummary,
             streak: streak,
+            previousStreak: previousStreak,
             averageHeartRate: charts.averageHeartRate,
             previousAverageHeartRate: prevAvgHr,
             records: records,

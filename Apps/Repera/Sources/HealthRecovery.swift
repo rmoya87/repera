@@ -38,6 +38,8 @@ final class HealthRecoveryStore {
     private let healthStore = HKHealthStore()
     private let sleepKey = "repera.privateHealth.sleepEnabled"
     private let cycleKey = "repera.privateHealth.cycleEnabled"
+    private let sleepDecisionKey = "repera.privateHealth.sleepDecisionMade"
+    private let cycleDecisionKey = "repera.privateHealth.cycleDecisionMade"
 
     var sleepEnabled: Bool {
         didSet {
@@ -51,6 +53,13 @@ final class HealthRecoveryStore {
             if !cycleEnabled { menstrualDays = []; positiveOvulationTests = [] }
         }
     }
+    /// El usuario ya aceptó o rechazó el permiso de sueño (no volver a preguntar).
+    private(set) var sleepDecisionMade: Bool {
+        didSet { UserDefaults.standard.set(sleepDecisionMade, forKey: sleepDecisionKey) }
+    }
+    private(set) var cycleDecisionMade: Bool {
+        didSet { UserDefaults.standard.set(cycleDecisionMade, forKey: cycleDecisionKey) }
+    }
     private(set) var nights: [RecoverySleepNight] = []
     private(set) var menstrualDays: [Date] = []
     private(set) var positiveOvulationTests: [Date] = []
@@ -61,6 +70,25 @@ final class HealthRecoveryStore {
     private init() {
         sleepEnabled = UserDefaults.standard.bool(forKey: sleepKey)
         cycleEnabled = UserDefaults.standard.bool(forKey: cycleKey)
+        sleepDecisionMade = UserDefaults.standard.bool(forKey: sleepDecisionKey)
+        cycleDecisionMade = UserDefaults.standard.bool(forKey: cycleDecisionKey)
+        // Migración: si ya tenía sueño/ciclo activo, la decisión ya está tomada.
+        if sleepEnabled, !sleepDecisionMade { sleepDecisionMade = true }
+        if cycleEnabled, !cycleDecisionMade { cycleDecisionMade = true }
+    }
+
+    var needsSleepDecision: Bool { !sleepDecisionMade }
+
+    /// Activaciones aún sin aceptar/rechazar (punto rojo en Ajustes).
+    var pendingHealthItems: [String] {
+        var items: [String] = []
+        if !sleepDecisionMade {
+            items.append("Analizar descanso (sueño)")
+        }
+        if !cycleDecisionMade {
+            items.append("Seguimiento del ciclo")
+        }
+        return items
     }
 
     var lastNight: RecoverySleepNight? {
@@ -104,11 +132,20 @@ final class HealthRecoveryStore {
     }
 
     func setSleep(_ enabled: Bool) async {
+        sleepDecisionMade = true
         sleepEnabled = enabled
         if enabled { await authorizeAndRefresh(types: [HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!]) }
     }
 
+    /// Rechazo explícito desde la alerta de Progreso (no vuelve a preguntar).
+    func declineSleep() async {
+        sleepDecisionMade = true
+        sleepEnabled = false
+        nights = []
+    }
+
     func setCycle(_ enabled: Bool) async {
+        cycleDecisionMade = true
         cycleEnabled = enabled
         if enabled {
             await authorizeAndRefresh(types: [
@@ -116,6 +153,13 @@ final class HealthRecoveryStore {
                 HKObjectType.categoryType(forIdentifier: .ovulationTestResult)!
             ])
         }
+    }
+
+    func declineCycle() {
+        cycleDecisionMade = true
+        cycleEnabled = false
+        menstrualDays = []
+        positiveOvulationTests = []
     }
 
     private func authorizeAndRefresh(types: Set<HKObjectType>) async {
@@ -137,7 +181,8 @@ final class HealthRecoveryStore {
         defer { loading = false }
         errorMessage = nil
         if sleepEnabled {
-            let sleep = await categorySamples(.sleepAnalysis, days: 45)
+            // Hasta ~4 meses: Progreso puede filtrar por periodo largo.
+            let sleep = await categorySamples(.sleepAnalysis, days: 120)
             nights = Self.combineSleep(sleep)
         }
         if cycleEnabled {
@@ -242,11 +287,67 @@ final class HealthRecoveryStore {
     }
 }
 
-struct HealthRecoverySettingsView: View {
+/// Detalle unificado: conexión HealthKit + sueño/ciclo (antes «Salud y recuperación»).
+struct ConnectedHealthSettingsView: View {
+    @Environment(HealthKitStore.self) private var health
+    @Environment(ReperaStore.self) private var store
     @State private var recovery = HealthRecoveryStore.shared
+    @State private var healthBusy = false
 
     var body: some View {
         Form {
+            Section {
+                if health.isAuthorized {
+                    Label("Entrenamientos y energía conectados", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(OG.label)
+                    if let kcal = health.activeEnergyTodayKcal {
+                        LabeledContent("kcal hoy", value: "\(Int(kcal.rounded()))")
+                            .foregroundStyle(OG.label)
+                    }
+                } else {
+                    Button {
+                        Task {
+                            healthBusy = true
+                            defer { healthBusy = false }
+                            await health.requestAccess()
+                            if health.isAuthorized {
+                                await store.syncBodyWeightWithHealth()
+                            }
+                        }
+                    } label: {
+                        if healthBusy {
+                            ProgressView()
+                        } else {
+                            Label("Conectar entrenamientos y energía", systemImage: "heart")
+                                .foregroundStyle(OG.label)
+                        }
+                    }
+                    .disabled(!health.isAvailable || healthBusy)
+                    if let err = health.lastError {
+                        Text(err).font(.footnote).foregroundStyle(.red)
+                    }
+                }
+            } header: {
+                Text("Apple Salud")
+            } footer: {
+                Text("Permisos de entrenamientos, ritmo cardíaco y energía activa.")
+            }
+
+            if !recovery.pendingHealthItems.isEmpty || !health.isAuthorized {
+                Section {
+                    if !health.isAuthorized {
+                        pendingRow("Entrenamientos y energía")
+                    }
+                    ForEach(recovery.pendingHealthItems, id: \.self) { item in
+                        pendingRow(item)
+                    }
+                } header: {
+                    Text("Pendiente de confirmar")
+                } footer: {
+                    Text("Acepta o rechaza cada permiso. Hasta entonces verás un aviso en Progreso → Recuperación.")
+                }
+            }
+
             Section {
                 Toggle("Analizar descanso", isOn: Binding(
                     get: { recovery.sleepEnabled },
@@ -256,9 +357,18 @@ struct HealthRecoverySettingsView: View {
                     get: { recovery.cycleEnabled },
                     set: { enabled in Task { await recovery.setCycle(enabled) } }
                 ))
+                if !recovery.cycleDecisionMade, !recovery.cycleEnabled {
+                    Button("No usar seguimiento del ciclo") {
+                        recovery.declineCycle()
+                    }
+                    .foregroundStyle(OG.label2)
+                }
+            } header: {
+                Text("Recuperación")
             } footer: {
-                Text("Los datos de sueño, menstruación y ovulación permanecen en Apple Salud y en la memoria de este dispositivo. No se envían a Supabase ni se comparten con entrenadores.")
+                Text("Sueño y ciclo se leen localmente desde Apple Salud. No se envían a Supabase ni se comparten con entrenadores.")
             }
+
             Section("Privacidad") {
                 Label("Sin sincronización de salud con Supabase", systemImage: "iphone.gen3")
                 Label("Sin compartir el ciclo ni el sueño", systemImage: "lock.shield")
@@ -272,8 +382,26 @@ struct HealthRecoverySettingsView: View {
             }
         }
         .ogListChrome()
-        .ogPinnedTransparentNav("Salud y recuperación")
+        .ogPinnedTransparentNav("Salud conectada")
         .task { await recovery.refresh() }
+    }
+
+    private func pendingRow(_ title: String) -> some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(OG.red)
+                .frame(width: 8, height: 8)
+            Text(title)
+                .foregroundStyle(OG.label)
+            Spacer()
+        }
+    }
+}
+
+/// Compat: redirige al detalle unificado.
+struct HealthRecoverySettingsView: View {
+    var body: some View {
+        ConnectedHealthSettingsView()
     }
 }
 
@@ -303,22 +431,32 @@ struct HealthRecoveryProgressView: View {
         }
     }
 
-    private var hasSleepData: Bool { recovery.sleepEnabled && !nightsInRange.isEmpty }
+    /// Si el periodo actual está vacío pero hay noches anteriores, mostrarlas (no mentir con «sin datos»).
+    private var displayNights: [RecoverySleepNight] {
+        if !nightsInRange.isEmpty { return nightsInRange }
+        return Array(recovery.nights.suffix(14))
+    }
 
-    private var isSingleNight: Bool { nightsInRange.count <= 1 || range == .today }
+    private var showingOutsideRange: Bool {
+        nightsInRange.isEmpty && !recovery.nights.isEmpty
+    }
+
+    private var hasSleepData: Bool { recovery.sleepEnabled && !displayNights.isEmpty }
+
+    private var isSingleNight: Bool { displayNights.count <= 1 || (range == .today && !showingOutsideRange) }
 
     private var headlineHours: Double? {
-        guard !nightsInRange.isEmpty else { return nil }
-        if isSingleNight { return nightsInRange.last?.hours }
-        return nightsInRange.map(\.hours).reduce(0, +) / Double(nightsInRange.count)
+        guard !displayNights.isEmpty else { return nil }
+        if isSingleNight { return displayNights.last?.hours }
+        return displayNights.map(\.hours).reduce(0, +) / Double(displayNights.count)
     }
 
     private var phaseAverages: (deep: Double, rem: Double, light: Double) {
-        guard !nightsInRange.isEmpty else { return (0, 0, 0) }
-        let n = Double(nightsInRange.count)
-        let deep = nightsInRange.map(\.deepHours).reduce(0, +) / n
-        let rem = nightsInRange.map(\.remHours).reduce(0, +) / n
-        let light = nightsInRange.map { max(0, $0.hours - $0.deepHours - $0.remHours) }.reduce(0, +) / n
+        guard !displayNights.isEmpty else { return (0, 0, 0) }
+        let n = Double(displayNights.count)
+        let deep = displayNights.map(\.deepHours).reduce(0, +) / n
+        let rem = displayNights.map(\.remHours).reduce(0, +) / n
+        let light = displayNights.map { max(0, $0.hours - $0.deepHours - $0.remHours) }.reduce(0, +) / n
         return (deep, rem, light)
     }
 
@@ -327,7 +465,10 @@ struct HealthRecoveryProgressView: View {
     }
 
     private var hoursLabel: String {
-        isSingleNight ? "Última noche" : "Media · \(range.subtitleLabel)"
+        if showingOutsideRange {
+            return displayNights.count <= 1 ? "Última noche disponible" : "Media · noches recientes"
+        }
+        return isSingleNight ? "Última noche" : "Media · \(range.subtitleLabel)"
     }
 
     var body: some View {
@@ -385,7 +526,9 @@ struct HealthRecoveryProgressView: View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Sueño")
             OGCard {
-                Text("Sin noches en \(range.subtitleLabel). Cuando haya registros de Apple Salud, verás horas y fases aquí.")
+                Text(recovery.sleepEnabled
+                     ? "Sin registros de sueño en Apple Salud todavía."
+                     : "Activa el análisis de descanso en Ajustes → Salud conectada.")
                     .font(.subheadline)
                     .foregroundStyle(OG.label2)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -412,6 +555,7 @@ struct HealthRecoveryProgressView: View {
     private var sleepContent: some View {
         OGCardSectionTitle(title: "Sueño")
         let phases = phaseAverages
+        let nights = displayNights
         sleepNightCard(
             hours: headlineHours,
             hoursCaption: hoursLabel,
@@ -419,10 +563,16 @@ struct HealthRecoveryProgressView: View {
             deep: phases.deep,
             rem: phases.rem,
             light: phases.light,
-            nights: nightsInRange,
-            caption: isSingleNight
-                ? "Fases estimadas por el dispositivo · una fuente por noche."
-                : String(format: "Media de %d noches en %@.", nightsInRange.count, range.subtitleLabel)
+            nights: nights,
+            caption: {
+                if showingOutsideRange {
+                    return "Sin noches en \(range.subtitleLabel) · mostrando registros anteriores."
+                }
+                if isSingleNight {
+                    return "Fases estimadas por el dispositivo · una fuente por noche."
+                }
+                return String(format: "Media de %d noches en %@.", nights.count, range.subtitleLabel)
+            }()
         )
     }
 
@@ -707,7 +857,7 @@ struct RecoveryHomeCard: View {
                 VStack(alignment: .leading, spacing: 8) {
                     OGCardSectionTitle(title: "Tu estado de hoy")
                     NavigationLink {
-                        HealthRecoverySettingsView()
+                        ConnectedHealthSettingsView()
                     } label: {
                         OGCard {
                             HStack(spacing: 14) {

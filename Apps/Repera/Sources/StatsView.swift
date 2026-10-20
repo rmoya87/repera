@@ -12,6 +12,8 @@ struct StatsView: View {
     @State private var heatmapMetric: HeatmapMetric = .time
     @State private var showRangePicker = false
     @State private var topic: ProgressTopic = .training
+    @State private var showSleepPermissionAlert = false
+    @State private var recoveryStore = HealthRecoveryStore.shared
 
     private enum ProgressTopic: String, CaseIterable {
         case training = "Entreno"
@@ -32,14 +34,6 @@ struct StatsView: View {
                 // VStack (no Lazy): LazyVStack al final del scroll reciclaba charts/heatmap y
                 // al subir el offset saltaba otra vez hacia abajo.
                 VStack(alignment: .leading, spacing: 12) {
-                    Picker("Categoría", selection: $topic) {
-                        ForEach(ProgressTopic.allCases, id: \.self) { option in
-                            Text(option.rawValue).tag(option)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.bottom, 6)
-
                     switch topic {
                     case .training:
                         if isPro {
@@ -110,9 +104,37 @@ struct StatsView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Filtrar periodo")
             }
+            // Tabs fijas bajo el top bar (mismo patrón safeAreaInset).
+            .safeAreaInset(edge: .top, spacing: 0) {
+                Picker("Categoría", selection: $topic) {
+                    ForEach(ProgressTopic.allCases, id: \.self) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, OG.pad)
+                .padding(.top, 4)
+                .padding(.bottom, 10)
+                .background(OG.bg)
+            }
             .sheet(isPresented: $showRangePicker) {
                 progressRangeSheet
                     .ogFittedSheet()
+            }
+            .alert("Analizar descanso", isPresented: $showSleepPermissionAlert) {
+                Button("Aceptar") {
+                    Task { await recoveryStore.setSleep(true) }
+                }
+                Button("Rechazar", role: .cancel) {
+                    Task { await recoveryStore.declineSleep() }
+                }
+            } message: {
+                Text("¿Permitir que Repera lea el sueño de Apple Salud para Recuperación? Los datos se quedan en el dispositivo.")
+            }
+            .onChange(of: topic) { _, newTopic in
+                if newTopic == .recovery, recoveryStore.needsSleepDecision {
+                    showSleepPermissionAlert = true
+                }
             }
             .task {
                 enforceFreeRangeIfNeeded()
@@ -270,7 +292,7 @@ struct StatsView: View {
                 label: "Racha",
                 value: "\(streak)",
                 iconColor: OG.orange,
-                delta: nil
+                delta: streak - snap.previousStreak
             )
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -279,7 +301,7 @@ struct StatsView: View {
     @ViewBuilder
     private var freeActivityCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Actividad · esta semana")
+            OGCardSectionTitle(title: "Actividad")
             OGCard {
                 ActivityHeatmapView(
                     workouts: snap.filteredWorkouts,
@@ -485,7 +507,7 @@ struct StatsView: View {
                 label: "Racha",
                 value: "\(streak)",
                 iconColor: OG.orange,
-                delta: nil
+                delta: streak - snap.previousStreak
             )
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -516,14 +538,22 @@ struct StatsView: View {
                 .minimumScaleFactor(0.7)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity)
-            if let delta, delta != 0 {
-                Text(delta > 0 ? "+\(delta)" : "\(delta)")
-                    .font(.system(size: 11, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(delta > 0 ? OG.accent : OG.yellow)
+            // Reserva siempre la misma altura (aunque el delta sea 0 o nil).
+            Group {
+                if let delta, delta != 0 {
+                    Text(delta > 0 ? "+\(delta)" : "\(delta)")
+                        .foregroundStyle(delta > 0 ? OG.accent : OG.yellow)
+                } else {
+                    Text("+0")
+                        .foregroundStyle(OG.label3)
+                        .opacity(0)
+                }
             }
+            .font(.system(size: 11, weight: .semibold).monospacedDigit())
+            .frame(height: 14)
         }
         .multilineTextAlignment(.center)
-        .frame(maxWidth: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity, minHeight: 86, alignment: .center)
         .padding(.horizontal, 10)
         .padding(.vertical, 10)
         .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
@@ -533,7 +563,7 @@ struct StatsView: View {
 
     private var activityCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Actividad · \(model.range.title.lowercased())")
+            OGCardSectionTitle(title: "Actividad")
             OGCard {
                 ActivityHeatmapView(
                     workouts: snap.filteredWorkouts,
@@ -556,7 +586,7 @@ struct StatsView: View {
         let tops = snap.topExerciseMaxWeights
         let listed = Array(snap.chartExercises.prefix(8))
         return VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Progreso por ejercicio · \(model.range.title.lowercased())")
+            OGCardSectionTitle(title: "Progreso por ejercicio")
             OGCard {
                 VStack(alignment: .leading, spacing: 12) {
                     if listed.isEmpty {
@@ -593,7 +623,7 @@ struct StatsView: View {
 
     private var prSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Récords (e1RM) · \(model.range.title.lowercased())")
+            OGCardSectionTitle(title: "Récords (e1RM)")
             OGCard {
                 VStack(alignment: .leading, spacing: 12) {
                     if snap.records.isEmpty {

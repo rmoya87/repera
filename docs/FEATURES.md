@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-20 (clima en mapa; Progreso free preview; sueño como sección)
+Última actualización: 2026-10-20 (WeatherKit diagnóstico; perfil altitud; Salud unificada)
 
 ## Tabs
 
@@ -200,9 +200,9 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 
 ## Sueño y ciclo (iOS 27)
 
-- Progreso agrupa **Entreno**, **Actividad** y **Recuperación** mediante controles segmentados nativos.
-- En Recuperación, **Sueño** es título de sección; **Ciclo** solo aparece si hay registros reales de menstruación.
-- Ajustes → Salud y recuperación: activación opcional y permisos separados de HealthKit.
+- Progreso agrupa **Entreno**, **Actividad** y **Recuperación** con el segmented **fijo** bajo la barra (no hace scroll con el contenido).
+- En Recuperación, **Sueño** es título de sección; **Ciclo** solo aparece si hay registros reales de menstruación. Si el periodo filtrado no tiene noches pero sí hay historial, se muestran las noches anteriores con una nota.
+- Ajustes → **Salud conectada** (único acceso): entrenamientos/energía + sueño/ciclo. Punto rojo si faltan permisos por aceptar/rechazar; al abrir se listan. En Progreso → Recuperación, si aún no se decidió el sueño, aparece alerta Aceptar/Rechazar.
 - Sueño: una sola fuente nocturna y fusión de intervalos solapados; tendencias con Swift Charts.
 - Ciclo: muestras de menstruación y pruebas de ovulación, fase solo orientativa con historial suficiente. No permite confirmar ovulación ni prever fertilidad.
 - Consejos locales durante el entrenamiento y al consultar resultados, sin modificar la nota real ni la prescripción profesional.
@@ -214,18 +214,17 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 
 ## Cardio exterior: altitud, meteorología y parciales
 
-- En la ficha de **Entreno** y la ficha de Apple Salud, los recorridos GPS (carrera, caminar, senderismo, bici y otras actividades exterior con ruta) permiten alternar mediante selector segmentado nativo **Cardio / Altitud** dentro de la misma tarjeta; al tocar la curva se consulta la muestra escogida de FC o distancia/altitud.
+- En la ficha de **Entreno** y la ficha de Apple Salud, los recorridos GPS (carrera, caminar, senderismo, bici y otras actividades exterior con ruta) permiten alternar mediante selector segmentado nativo **Cardio / Altitud** dentro de la misma tarjeta; curvas suavizadas (`catmullRom`) y clip del plot. En **Altitud**, los tiles son **máx / mín / media** de altitud (m); en **Cardio**, FC y velocidades.
 - La altitud procede de Core Location (solo muestras con precisión vertical válida), tanto de Apple Salud como de rutas nuevas grabadas por Repera; las rutas antiguas sin altitud muestran ausencia de datos, no desnivel inventado.
-- Se conservan en la misma fila las tarjetas pequeñas de **FC mínima, máxima y velocidad media/máxima** cuando existen; no se repite la tarjeta de FC media, que se muestra junto al título del gráfico de pulso.
-- El clima forma **parte de la misma card del mapa** (franja inferior): icono a la izquierda, valor y título debajo, tint negro/blanco (no verde). Tiempo y humedad vía WeatherKit histórico (~1 km + atribución); fecha del entreno = `startedAt`/`finishedAt` (nunca `.distantPast`). AQI histórico no disponible → «—». **No se transforma el pronóstico de hoy en un dato histórico.**
-- **Parciales:** un registro por kilómetro GPS completo con duración de cada kilómetro, ritmo `min/km` en caminata/carrera/senderismo o velocidad `km/h` en bici, y pulso medio de las muestras del parcial cuando hay suficientes lecturas. Kilómetros calculados mediante distancia geodésica y tiempos interpolados; los saltos GPS imposibles se descartan.
+- El clima forma **parte de la misma card del mapa** (franja inferior). **No se guarda en el entreno**: WeatherKit se consulta al abrir el detalle (~1 km + atribución); fecha = `startedAt`/`finishedAt`. AQI histórico → «—».
+- **Parciales:** columnas KM, Tiempo, **Ritmo** (valores `/km`) o `km/h` en bici, y **Frec. cardiaca** (valores en LPM). Sin pie explicativo bajo la tabla.
 - En actividades sin GPS válido o con menos de 1 km no se inventan parciales. Natación y cardio de interior no muestran parciales estimados a partir del tiempo total.
 - Son métricas **locales**: las rutas, altitudes, FC y datos meteorológicos/AQI no se añaden al espejo de Supabase.
 
 
 ### Configuración WeatherKit y límites actuales
 
-- WeatherKit requiere que el propietario active **App Services → WeatherKit** y **App Capabilities → WeatherKit** en el identificador `com.app.repera` dentro de Apple Developer; el entitlement ya figura en `project.yml`. Tras habilitarlo, regenerar el perfil de aprovisionamiento y compilar la app firmada en un iPhone.
+- WeatherKit requiere que el propietario active **App Services → WeatherKit** y **App Capabilities → WeatherKit** en el identificador `com.app.repera` dentro de Apple Developer; el entitlement ya figura en `project.yml` / `Repera.entitlements`. Si la franja muestra «—» con pie de error de autorización, casi siempre falta ese servicio en el portal o el perfil no se regeneró. Tras habilitarlo, regenerar el perfil y instalar en iPhone (el simulador suele fallar).
 - La localización del mapa se mantiene intacta y privada. Para solicitar el tiempo solo se transmite al servicio meteorológico de Apple una coordenada redondeada a 2 decimales (~1 km) y la fecha/hora del entreno.
 - No se sustituye un índice de calidad del aire histórico por valores actuales: WeatherKit no ofrece AQI histórico mediante sus consultas nativas; conectar un proveedor alternativo requiere comprobar licencia comercial, cobertura de fechas y aceptación explícita del tratamiento de coordenadas. Mientras tanto, la caja indica «—».
 - El valor de distancia en las tarjetas de resumen sustituye la repetición de «FC media» cuando existe ruta GPS. La FC media permanece visible en la cabecera de la gráfica.

@@ -21,7 +21,6 @@ struct SettingsView: View {
     @State private var showingImporter = false
     @State private var showingCSVImporter = false
     @State private var confirmReset = false
-    @State private var healthBusy = false
     @State private var photoItem: PhotosPickerItem?
     @State private var restoreMessage: String?
     @State private var notificationsStatus: UNAuthorizationStatus = .notDetermined
@@ -162,19 +161,6 @@ struct SettingsView: View {
                 Text("Cuenta")
             } footer: {
                 Text("Sincroniza copia iCloud, perfil y entrenamientos privados. Compartir resultados con un centro se gestiona en su ficha.")
-            }
-
-            Section {
-                NavigationLink {
-                    HealthRecoverySettingsView()
-                } label: {
-                    Label("Salud y recuperación", systemImage: "moon.stars")
-                        .foregroundStyle(OG.label)
-                }
-            } header: {
-                Text("Privacidad y bienestar")
-            } footer: {
-                Text("Sueño y ciclo se leen localmente desde Apple Salud. No se guardan ni comparten mediante Supabase.")
             }
 
             Section {
@@ -371,38 +357,23 @@ struct SettingsView: View {
                         await refreshNotificationsStatus()
                     }
                 }
-                if health.isAuthorized {
-                    Label("Salud conectada", systemImage: "heart")
+                NavigationLink {
+                    ConnectedHealthSettingsView()
+                } label: {
+                    HStack(spacing: 10) {
+                        Label(
+                            health.isAuthorized ? "Salud conectada" : "Conectar con Salud",
+                            systemImage: "heart"
+                        )
                         .foregroundStyle(OG.label)
-                    if let kcal = health.activeEnergyTodayKcal {
-                        LabeledContent("kcal hoy", value: "\(Int(kcal.rounded()))")
-                            .foregroundStyle(OG.label)
-                    }
-                } else {
-                    Button {
-                        Task {
-                            healthBusy = true
-                            defer { healthBusy = false }
-                            await health.requestAccess()
-                            if health.isAuthorized {
-                                await store.syncBodyWeightWithHealth()
-                            }
-                        }
-                    } label: {
-                        if healthBusy {
-                            ProgressView()
-                        } else {
-                            Label("Conectar con Salud", systemImage: "heart")
-                                .foregroundStyle(OG.label)
+                        Spacer(minLength: 8)
+                        if healthNeedsAttention {
+                            Circle()
+                                .fill(OG.red)
+                                .frame(width: 8, height: 8)
+                                .accessibilityLabel("Permisos pendientes")
                         }
                     }
-                    .disabled(!health.isAvailable || healthBusy)
-                }
-
-                if let err = health.lastError, !health.isAuthorized {
-                    Text(err)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
                 }
 
                 permissionStatusRow(
@@ -724,6 +695,10 @@ struct SettingsView: View {
                 .ogSheetChrome(detents: [.medium])
             }
         }
+    }
+
+    private var healthNeedsAttention: Bool {
+        !health.isAuthorized || !HealthRecoveryStore.shared.pendingHealthItems.isEmpty
     }
 
     private var notificationsStatusLabel: String {

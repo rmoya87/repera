@@ -280,6 +280,11 @@ struct WorkoutDetailView: View {
         return SpanishDate.sessionSubtitle(start: start, end: session.finishedAt)
     }
 
+    private var workoutNavTitle: String {
+        let name = draft?.title.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return name.isEmpty ? "Entreno" : name
+    }
+
     var body: some View {
         Group {
             if draft != nil {
@@ -392,16 +397,19 @@ struct WorkoutDetailView: View {
                 Section {
                     VStack(alignment: .leading, spacing: 10) {
                         if !subtitle.isEmpty {
+                            // Padding mínimo: sin él, la primera letra (p. ej. «V» de Viernes) se recorta.
                             Text(subtitle)
                                 .font(.system(size: 15, weight: .regular))
                                 .foregroundStyle(OG.label2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.leading, 2)
                         }
                         summaryCard(session)
                         if let review = session.sessionReview {
                             SessionReviewCard(review: review)
                         }
                     }
-                    .ogCardListRow(top: 0, bottom: 4)
+                    .ogCardListRow(top: 4, bottom: 4)
                 }
 
                 // En edición el picker de lugar lleva su propio preview; no duplicar el mapa.
@@ -544,7 +552,7 @@ struct WorkoutDetailView: View {
                 highlightSessionId: route.sessionId
             )
         }
-        .ogPinnedTransparentNav("Entreno")
+        .ogPinnedTransparentNav(workoutNavTitle)
         .navigationBarBackButtonHidden(isEditing)
         .toolbar {
             if isEditing {
@@ -1428,16 +1436,23 @@ struct HealthSessionMetricsCard: View {
             }
 
             if extras.routePoints.count >= 2 {
+                // Tiles de FC/velocidad o altitud viven dentro del selector Cardio/Altitud.
                 CardioAltitudeChart(extras: extras)
             } else if !extras.heartRateSeries.isEmpty {
                 HealthHeartRateChart(series: extras.heartRateSeries, stats: extras)
+                if extras.minHeartRateBpm != nil || extras.maxHeartRateBpm != nil ||
+                    extras.averageSpeedKmh != nil || extras.maxSpeedKmh != nil {
+                    HealthHeartRateStatRow(stats: extras)
+                }
             } else if let average = extras.averageHeartRateBpm {
                 Label("Ritmo cardíaco · media \(Int(average.rounded())) lpm", systemImage: "heart.fill")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(OG.red)
-            }
-
-            if extras.minHeartRateBpm != nil || extras.maxHeartRateBpm != nil ||
+                if extras.minHeartRateBpm != nil || extras.maxHeartRateBpm != nil ||
+                    extras.averageSpeedKmh != nil || extras.maxSpeedKmh != nil {
+                    HealthHeartRateStatRow(stats: extras)
+                }
+            } else if extras.minHeartRateBpm != nil || extras.maxHeartRateBpm != nil ||
                 extras.averageSpeedKmh != nil || extras.maxSpeedKmh != nil {
                 HealthHeartRateStatRow(stats: extras)
             }
@@ -1670,10 +1685,12 @@ struct HealthActivityDetailView: View {
                         Text(subtitle)
                             .font(.system(size: 15, weight: .regular))
                             .foregroundStyle(OG.label2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.leading, 2)
                     }
                     summaryRow(activity, detail: detail)
                 }
-                .ogCardListRow(top: 0, bottom: 4)
+                .ogCardListRow(top: 4, bottom: 4)
             }
 
             if showRouteMap {
@@ -1695,11 +1712,9 @@ struct HealthActivityDetailView: View {
             }
 
             Section {
+                // Título/distancia ya van arriba (cabecera + tiles); no duplicar aquí.
                 HealthSessionMetricsCard(
                     extras: detail.asSessionExtras,
-                    headline: activity.title,
-                    symbolName: activity.symbolName,
-                    headlineSubtitle: activity.distanceMeters.flatMap { $0 > 0 ? distanceFullLabel($0) : nil },
                     includeSourceRows: false
                 )
                 .ogCardListRow()
@@ -1729,7 +1744,7 @@ struct HealthActivityDetailView: View {
         }
         .ogListChrome()
         .listSectionSpacing(12)
-        .ogPinnedTransparentNav("Entreno")
+        .ogPinnedTransparentNav(activity.title)
     }
 
     private func sectionHeader(_ title: String) -> some View {

@@ -5,7 +5,8 @@ import SwiftUI
 struct MuscleBalanceCard: View {
     var workouts: [WorkoutSession]
     var external: [ExternalMuscleStimulus]
-    var rangeLabel: String
+    /// Reservado por compatibilidad con el call site de Progreso (el periodo va en el filtro superior).
+    var rangeLabel: String = ""
     var weekStartsOnMonday: Bool = true
     /// Precomputed loads from ProgressSnapshot (skip MainActor MuscleLoadEngine).
     var preparedLoadAll: [String: Double]? = nil
@@ -14,9 +15,16 @@ struct MuscleBalanceCard: View {
     var preparedFatigueHard: [String: Double]? = nil
     var preparedHasHardSets: Bool? = nil
 
-    @State private var hardOnly = false
+    private enum Mode: String, CaseIterable {
+        case all = "Todas"
+        case hard = "Duras"
+    }
+
+    @State private var mode: Mode = .all
     @State private var selected: String? = nil
     @State private var expanded = false
+
+    private var hardOnly: Bool { mode == .hard }
 
     private var load: [String: Double] {
         if hardOnly, let preparedLoadHard { return preparedLoadHard }
@@ -55,29 +63,15 @@ struct MuscleBalanceCard: View {
         let fatigue = self.fatigue
         let ranked = MuscleLoadEngine.ranked(load: load)
         return VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    OGCardSectionTitle(title: "Equilibrio muscular")
-                    Text("Fatiga actual · \(hardOnly ? "series duras" : "series trabajadas") · \(rangeLabel)")
-                        .font(.system(size: 12))
-                        .foregroundStyle(OG.label3)
-                        .padding(.horizontal, 4)
-                }
-                Spacer()
-                if hasHardSets {
-                    Button {
-                        hardOnly.toggle()
-                        selected = nil
-                    } label: {
-                        Text(hardOnly ? "Duras" : "Todas")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(hardOnly ? OG.yellow : OG.label2)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(OG.surface2, in: Capsule())
+            OGCardSectionTitle(title: "Equilibrio muscular")
+            if hasHardSets {
+                Picker("Series", selection: $mode) {
+                    ForEach(Mode.allCases, id: \.self) { option in
+                        Text(option.rawValue).tag(option)
                     }
-                    .buttonStyle(.plain)
                 }
+                .pickerStyle(.segmented)
+                .onChange(of: mode) { _, _ in selected = nil }
             }
             OGCard {
                 VStack(alignment: .leading, spacing: 12) {
@@ -133,7 +127,7 @@ struct MuscleBalanceCard: View {
         }()
 
         if visible.isEmpty {
-            Text("Sin series en \(rangeLabel.lowercased()).")
+            Text("Sin series en este periodo.")
                 .font(.system(size: 13))
                 .foregroundStyle(OG.label3)
         } else {

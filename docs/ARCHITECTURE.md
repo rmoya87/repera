@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-20 (SessionMapWeatherCard; Progreso free preview)
+Última actualización: 2026-10-20 (Salud unificada; altitud tiles; recovery fallback)
 
 ## Visión
 
@@ -223,16 +223,16 @@ El auditor estructural **no puede aprobar** similitud del personaje, ejecución 
 
 ### Salud y recuperación local
 
-`HealthRecoveryStore` usa HealthKit directamente en el iPhone y no entra en la capa de `BusinessWorkoutSyncStore`. Los permisos opcionales se almacenan en `UserDefaults` local y las muestras de sueño/ciclo se consultan en Apple Salud y se mantienen en memoria. No añadir estos datos a `AppSettings`, al documento iCloud de entrenamientos ni al payload de Supabase. Las sesiones sí guardan sus ejercicios, bloques, series y resultados para el entrenador con consentimiento existente. En el espejo Supabase, `privateMirrorPayload` elimina toda referencia a Apple Salud, incluido `appleDurationSeconds`.
+`HealthRecoveryStore` usa HealthKit directamente en el iPhone y no entra en la capa de `BusinessWorkoutSyncStore`. Los permisos opcionales (sueño/ciclo + flags de decisión) se almacenan en `UserDefaults` local; la UI vive en **Ajustes → Salud conectada** (`ConnectedHealthSettingsView`). Las muestras se consultan en Apple Salud y se mantienen en memoria (hasta ~120 días de sueño). No añadir estos datos a `AppSettings`, al documento iCloud de entrenamientos ni al payload de Supabase. Las sesiones sí guardan sus ejercicios, bloques, series y resultados para el entrenador con consentimiento existente. En el espejo Supabase, `privateMirrorPayload` elimina toda referencia a Apple Salud, incluido `appleDurationSeconds`.
 
 El campo histórico `supersetGroup` permanece en el formato Codable para abrir copias antiguas, pero se ignora al decodificar y no debe utilizarse para nuevas planificaciones.
 
 
 ### Cardio con GPS (solo iPhone)
 
-`CardioRouteAnalysis` (ReperaDomain) recibe coordenadas/fechas y FC, filtra saltos GPS, calcula distancia con haversine e interpola los instantes de cruce de cada kilómetro. Devuelve perfil altimétrico y parciales únicamente para tramos válidos; no hace peticiones a red. `HealthKitStore.RoutePoint.altitudeMeters` y `WorkoutRoutePoint.altitudeMeters` son opcionales, preservan rutas antiguas y pueden provenir de GPS de Apple Salud o Core Location. `CardioRouteComponents` usa Swift Charts (selección x nativa), selector Cardio/Altitud, parciales y `SessionMapWeatherCard` (clima como pie de la misma card del mapa; tint label, no accent). WeatherKit histórico usa `startedAt`/`finishedAt` (no `.distantPast`); requiere capacidad en App ID + entitlement; si falla → «—». AQI histórico sin proveedor → «—».
+`CardioRouteAnalysis` (ReperaDomain) recibe coordenadas/fechas y FC, filtra saltos GPS, calcula distancia con haversine e interpola los instantes de cruce de cada kilómetro. Devuelve perfil altimétrico y parciales únicamente para tramos válidos; no hace peticiones a red. `HealthKitStore.RoutePoint.altitudeMeters` y `WorkoutRoutePoint.altitudeMeters` son opcionales, preservan rutas antiguas y pueden provenir de GPS de Apple Salud o Core Location. `CardioRouteComponents` usa Swift Charts (selección x nativa, `catmullRom` + clip), selector Cardio/Altitud con tiles contextuales, parciales y `SessionMapWeatherCard`. WeatherKit **no se persiste**: se pide al abrir el detalle (`startedAt`/`finishedAt`, no `.distantPast`); requiere capacidad en App ID + entitlement; si falla → «—». AQI histórico sin proveedor → «—».
 
-`BusinessWorkoutSyncStore.privateMirrorPayload` elimina `routePoints`, `locationPin` y datos de HealthKit antes de transmitir a Supabase. WeatherKit se solicita localmente al abrir el detalle del entreno; la posición inicial del recorrido se redondea previamente a 2 decimales antes de consultar WeatherKit, nunca se envía el recorrido completo ni se comunica nada a Supabase.
+`BusinessWorkoutSyncStore.privateMirrorPayload` elimina `routePoints`, `locationPin` y datos de HealthKit antes de transmitir a Supabase. La posición inicial del recorrido se redondea a 2 decimales (~1 km) antes de consultar WeatherKit; nunca se envía el recorrido completo ni se comunica nada a Supabase.
 
 ### Diagnóstico CI de octubre de 2026
 
