@@ -10,7 +10,7 @@ const demo={version:1,blocks:[
 ]};
 test('El catálogo de Repera web corresponde a las ilustraciones de la app',()=>{
  assert.ok(APP_CATALOG.length>=180);
- for(const m of APP_CATALOG)assert.ok(existsSync(new URL(`../../../assets/exercises/${m.art}.jpg`,import.meta.url)),`Miniatura ausente: ${m.art}`);
+ for(const m of APP_CATALOG)assert.ok(existsSync(new URL(`../../assets/exercises/${m.art}.jpg`,import.meta.url)),`Miniatura ausente: ${m.art}`);
 });
 test('Editor renderiza miniaturas, WOD y parámetros sin ejecutar HTML inyectado',()=>{
  const html=editorMarkup(demo);
@@ -32,7 +32,7 @@ test('Validación de bloques y ejercicios controla parámetros e impide sesiones
 test('Administración visual usa superficies blancas y controles de contraste',()=>{
  const css=readFileSync(new URL('../src/admin-refresh.css',import.meta.url),'utf8');
  assert.match(css,/\.dialog\{background:#fff/);
- assert.match(css,/\.connected-primary\{background:#176a37;color:#fff/);
+ assert.match(css,/\.btn\.primary,\.connected-primary\{background:#176a37;color:#fff/);
  assert.match(navIcon('settings'),/<svg/);
  assert.match(navIcon('clients'),/<circle/);
 });
