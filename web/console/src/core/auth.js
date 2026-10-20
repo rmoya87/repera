@@ -80,6 +80,11 @@ export class ReperaAuthAPI {
   try{return await this.#request('/rest/v1/'+path,{...options,token});}
   catch(e){if(e.status===401)this.clear();throw e;}
  }
+ async myProfile(){
+  const user=await this.currentUser();if(!user?.id)return null;
+  const rows=await this.#authorized('profiles?select=id,role,display_name&id=eq.'+encodeURIComponent(user.id));
+  return rows?.[0]||null;
+ }
  async organizations(){
   return this.#authorized('organizations?select=id,name,slug,kind,public_email,phone,website,address,description,timezone,created_at&order=created_at.desc');
  }
