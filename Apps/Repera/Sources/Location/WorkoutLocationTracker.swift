@@ -188,7 +188,8 @@ extension WorkoutLocationTracker: CLLocationManagerDelegate {
                     latitude: lat,
                     longitude: lon,
                     recordedAt: date,
-                    speedMps: speed
+                    speedMps: speed,
+                    altitudeMeters: location.verticalAccuracy >= 0 ? location.altitude : nil
                 )
             )
             pointCounter += 1
