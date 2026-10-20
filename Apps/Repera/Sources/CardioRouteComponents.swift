@@ -334,7 +334,7 @@ struct RouteWeatherStrip: View {
         attributionMarkURL = nil
         // No solicitar predicciones actuales como si fueran condiciones pasadas.
         guard workoutDate <= Date(),
-              workoutDate >= Date(timeIntervalSince1970: 1_628_121_600), // Apple Weather histórico desde 2021-08-01.
+              workoutDate >= Date(timeIntervalSince1970: 1_627_776_000), // Apple Weather histórico desde 2021-08-01.
               (-90...90).contains(latitude), (-180...180).contains(longitude)
         else { return }
         do {
