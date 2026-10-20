@@ -1,4 +1,4 @@
-import {editorMarkup,emptyPrescription} from './workout-editor.js';
+import {editorMarkup,emptyPrescription,visualPrescription} from './workout-editor.js';
 const dateToday=()=>new Date().toLocaleDateString('sv-SE');
 export function renderProfessionalPlanning({orgId,role,sessions=[],templates=[],clients=[],memberships=[],escapeHTML,busy=false,templateId=null,sessionId=null,clientId=null}) {
  if(!orgId)return '';
@@ -12,7 +12,7 @@ export function renderProfessionalPlanning({orgId,role,sessions=[],templates=[],
  const sessionDay=currentSession?.scheduled_date||dateToday();
  const recipeSummary=s=>{
   const blocks=s.prescription?.blocks||[];
-  return `<div class="recipe-summary">${blocks.length?blocks.map(b=>`<span class="recipe-tag">${escapeHTML(b.title||b.kind)} · ${(b.exercises||[]).length} ejercicios</span>`).join(''):'<span class="recipe-tag">Solo instrucciones</span>'}</div>`;
+  return `<div class="recipe-summary">${blocks.length?blocks.map(b=>`<span class="recipe-tag">${escapeHTML(b.title||b.kind)} · ${((b.exercises||[]).length+(b.movements||[]).length)} ejercicios</span>`).join(''):'<span class="recipe-tag">Solo instrucciones</span>'}</div>`;
  };
  return `<section class="connected-card planning-workspace" data-workspace-section="planning">
  <div class="planning-title"><div><span class="connected-tag">PROGRAMACIÓN</span><h2>Entrenamientos y plantillas</h2><p>Construye bloques de fuerza, WOD, rondas, repeticiones y RIR. Cada cliente recibe una copia personalizable, sin modificar la plantilla original.</p></div></div>
@@ -26,7 +26,7 @@ export function renderProfessionalPlanning({orgId,role,sessions=[],templates=[],
  <div class="planning-form-row"><label class="connected-field">Deportista<select name="client" ${currentSession?'disabled':''}>${options(linked,c=>`<option value="${escapeHTML(c.id)}" ${c.id===(currentSession?.client_id||clientId)?'selected':''}>${escapeHTML(c.name)}</option>`)}</select></label>
  <label class="connected-field">Fecha<input type="date" name="date" value="${escapeHTML(sessionDay)}" min="${dateToday()}" required></label></div>
  <label class="connected-field">Título de la sesión<input name="title" minlength="2" maxlength="120" value="${escapeHTML(sessionTitle)}" required placeholder="Ej. Fuerza + AMRAP 12'"></label>
- ${editorMarkup(prescription)}
+ ${editorMarkup(visualPrescription(prescription))}
  <label class="connected-field">Indicaciones para el deportista<textarea name="instructions" rows="3" maxlength="10000" placeholder="Objetivo y recomendaciones">${escapeHTML(currentSession?.instructions||'')}</textarea></label>
  <div class="planning-template-save"><label class="connected-field">Nombre para guardar como plantilla<input name="templateName" minlength="2" maxlength="120" value="${escapeHTML(selectedTemplate?.name||sessionTitle||'')}" placeholder="Ej. Full Body A"></label>
  <label class="connected-field">Descripción de la plantilla<input name="templateDescription" maxlength="1000" value="${escapeHTML(selectedTemplate?.description||'')}" placeholder="Objetivos, equipo, nivel…"></label></div>
