@@ -1,0 +1,36 @@
+import Foundation
+import XCTest
+@testable import ReperaDomain
+
+final class RecoveryEngineTests: XCTestCase {
+    func testSleepIndexDoesNotChangeSportScoreAndHandlesMissingData() {
+        XCTAssertNil(RecoveryEngine.sleepIndex(hours: nil, recentAverage: 8))
+        XCTAssertNil(RecoveryEngine.sleepIndex(hours: -2, recentAverage: 8))
+        XCTAssertEqual(RecoveryEngine.sleepIndex(hours: 8, recentAverage: 8), 100)
+        XCTAssertEqual(RecoveryEngine.sleepIndex(hours: 4, recentAverage: 8), 50)
+        XCTAssertEqual(RecoveryEngine.sleepIndex(hours: 10, recentAverage: 8), 100)
+    }
+
+    func testUnknownWithInsufficientOrIrregularCycles() {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(secondsFromGMT: 0)!
+        func date(_ d: Int) -> Date { c.date(from: DateComponents(year: 2026, month: 1, day: d))! }
+        XCTAssertEqual(RecoveryEngine.cyclePhase(flowDays: [date(1), date(2)], on: date(15), calendar: c), .unknown)
+    }
+
+    func testRecordedMenstruationIsNotPenalized() {
+        let c = Calendar(identifier: .gregorian)
+        let now = c.startOfDay(for: Date())
+        XCTAssertEqual(RecoveryEngine.cyclePhase(flowDays: [now], on: now, calendar: c), .menstrual)
+    }
+
+    func testEstimatedPhaseOnlyWithRegularHistory() {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(secondsFromGMT: 0)!
+        let d1 = c.date(from: DateComponents(year: 2026, month: 1, day: 1))!
+        let d2 = c.date(byAdding: .day, value: 28, to: d1)!
+        let d3 = c.date(byAdding: .day, value: 28, to: d2)!
+        let day14 = c.date(byAdding: .day, value: 14, to: d3)!
+        XCTAssertEqual(RecoveryEngine.cyclePhase(flowDays: [d1,d2,d3], on: day14, calendar: c), .ovulatory)
+    }
+}
