@@ -1655,11 +1655,23 @@ public struct WorkoutLocationPin: Codable, Sendable, Equatable {
     public var latitude: Double
     public var longitude: Double
     public var recordedAt: Date
+    /// Nombre del sitio (Apple Maps / MapKit), si se eligió a mano.
+    public var name: String?
+    /// `MKMapItem.Identifier` raw value para reconstruir el marcador nativo.
+    public var mapItemIdentifier: String?
 
-    public init(latitude: Double, longitude: Double, recordedAt: Date = Date()) {
+    public init(
+        latitude: Double,
+        longitude: Double,
+        recordedAt: Date = Date(),
+        name: String? = nil,
+        mapItemIdentifier: String? = nil
+    ) {
         self.latitude = latitude
         self.longitude = longitude
         self.recordedAt = recordedAt
+        self.name = name
+        self.mapItemIdentifier = mapItemIdentifier
     }
 }
 

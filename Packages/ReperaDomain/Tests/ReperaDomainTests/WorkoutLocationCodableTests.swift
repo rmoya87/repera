@@ -20,7 +20,12 @@ final class WorkoutLocationCodableTests: XCTestCase {
 
     func testRoundTripLocationPinAndRoute() throws {
         var session = WorkoutSession(title: "Run", exercises: [])
-        session.locationPin = WorkoutLocationPin(latitude: 40.4, longitude: -3.7)
+        session.locationPin = WorkoutLocationPin(
+            latitude: 40.4,
+            longitude: -3.7,
+            name: "Retiro",
+            mapItemIdentifier: "I63802885C8189B2B"
+        )
         session.routePoints = [
             WorkoutRoutePoint(id: 0, latitude: 40.4, longitude: -3.7, speedMps: 2.5),
             WorkoutRoutePoint(id: 1, latitude: 40.41, longitude: -3.71, speedMps: 3.0),
@@ -28,6 +33,8 @@ final class WorkoutLocationCodableTests: XCTestCase {
         let data = try JSONEncoder().encode(session)
         let decoded = try JSONDecoder().decode(WorkoutSession.self, from: data)
         XCTAssertEqual(decoded.locationPin?.latitude, 40.4)
+        XCTAssertEqual(decoded.locationPin?.name, "Retiro")
+        XCTAssertEqual(decoded.locationPin?.mapItemIdentifier, "I63802885C8189B2B")
         XCTAssertEqual(decoded.routePoints.count, 2)
         XCTAssertEqual(decoded.routePoints[1].speedMps, 3.0)
     }

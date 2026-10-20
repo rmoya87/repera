@@ -372,7 +372,8 @@ struct WorkoutDetailView: View {
                     }
                 }
 
-                if sessionMapContent(session) != .none {
+                // En edición el picker de lugar lleva su propio preview; no duplicar el mapa.
+                if !isEditing, sessionMapContent(session) != .none {
                     Section {
                         sessionMapView(session)
                             .frame(height: 240)
@@ -384,7 +385,9 @@ struct WorkoutDetailView: View {
                             .foregroundStyle(OG.accent)
                             .textCase(nil)
                     } footer: {
-                        if sessionMapContent(session) != .pin {
+                        if sessionMapContent(session) == .pin, let name = session.locationPin?.name, !name.isEmpty {
+                            Text(name)
+                        } else if sessionMapContent(session) != .pin {
                             Text("Colores = velocidad (verde más lento → rojo más rápido).")
                         }
                     }
@@ -418,6 +421,17 @@ struct WorkoutDetailView: View {
                             .tint(OG.accent)
                     } header: {
                         Text("Editar")
+                    }
+
+                    // Ruta de Salud: no se pinta pin manual encima.
+                    if healthExtras?.showRouteMap != true {
+                        Section {
+                            WorkoutPlacePickerRow(pin: locationPinBinding)
+                        } header: {
+                            Text("Lugar")
+                        } footer: {
+                            Text("Busca un sitio de Apple Mapas. Si el entreno trae recorrido de Salud, ese mapa tiene prioridad.")
+                        }
                     }
                 }
 
@@ -698,19 +712,26 @@ struct WorkoutDetailView: View {
             ForEach(indices, id: \.self) { exIndex in
                 if session.exercises.indices.contains(exIndex) {
                     let exercise = session.exercises[exIndex]
-                    HStack(spacing: 12) {
-                        ExerciseThumb(exercise: exercise.exercise, size: 40)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(exercise.exercise.name)
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(OG.label)
-                                .lineLimit(2)
-                            Text(exercise.prescriptionSummaryLine)
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(OG.label2)
+                    NavigationLink {
+                        ExerciseDetailView(exerciseId: exercise.exercise.id)
+                    } label: {
+                        HStack(spacing: 12) {
+                            ExerciseThumb(exercise: exercise.exercise, size: 40)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(exercise.exercise.name)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(OG.label)
+                                    .lineLimit(2)
+                                Text(exercise.prescriptionSummaryLine)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(OG.label2)
+                            }
+                            Spacer(minLength: 0)
                         }
-                        Spacer(minLength: 0)
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Ver ficha del ejercicio")
                 }
             }
         }
@@ -727,14 +748,21 @@ struct WorkoutDetailView: View {
         let visibleSets = visibleLoggedSets(for: exercise, hideScoreArtifact: hideScoreArtifact)
         let catalogExercise = exercise.exercise
         return VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                ExerciseThumb(exercise: catalogExercise, size: 48)
-                Text(catalogExercise.name)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(OG.label)
-                    .lineLimit(2)
-                Spacer(minLength: 0)
+            NavigationLink {
+                ExerciseDetailView(exerciseId: catalogExercise.id)
+            } label: {
+                HStack(spacing: 12) {
+                    ExerciseThumb(exercise: catalogExercise, size: 48)
+                    Text(catalogExercise.name)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(OG.label)
+                        .lineLimit(2)
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .accessibilityHint("Ver ficha del ejercicio")
 
             if visibleSets.isEmpty {
                 Text(isEditing ? "Sin series" : (exercise.usesBlockScoreResult ? exercise.prescriptionSummaryLine : "Sin series"))
@@ -1165,6 +1193,13 @@ struct WorkoutDetailView: View {
         Binding(
             get: { draft?.finishedAt ?? Date() },
             set: { draft?.finishedAt = $0 }
+        )
+    }
+
+    private var locationPinBinding: Binding<WorkoutLocationPin?> {
+        Binding(
+            get: { draft?.locationPin },
+            set: { draft?.locationPin = $0 }
         )
     }
 }
@@ -1609,31 +1644,50 @@ struct HealthActivityDetailView: View {
 struct WorkoutLocationPinMap: View {
     var pin: WorkoutLocationPin
 
+    @State private var mapItem: MKMapItem?
+    @State private var cameraPosition: MapCameraPosition = .automatic
+
     private var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude)
     }
 
+    private var fallbackItem: MKMapItem {
+        let item = MKMapItem(
+            location: CLLocation(latitude: pin.latitude, longitude: pin.longitude),
+            address: nil
+        )
+        item.name = pin.name ?? "Lugar del entreno"
+        return item
+    }
+
     var body: some View {
-        Map(
-            initialPosition: .region(
-                MKCoordinateRegion(
-                    center: coordinate,
-                    span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-                )
-            ),
-            interactionModes: [.pan, .zoom]
-        ) {
-            Annotation("Entreno", coordinate: coordinate) {
-                Image(systemName: "mappin.circle.fill")
-                    .font(.system(size: 28))
-                    .foregroundStyle(OG.accent)
-                    .shadow(radius: 2)
-            }
+        Map(position: $cameraPosition, interactionModes: [.pan, .zoom]) {
+            Marker(item: mapItem ?? fallbackItem)
         }
-        .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll, showsTraffic: false))
+        .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .all, showsTraffic: false))
         .mapControls {
             MapCompass()
             MapScaleView()
+        }
+        .task(id: pin.mapItemIdentifier ?? "\(pin.latitude),\(pin.longitude)") {
+            cameraPosition = .region(
+                MKCoordinateRegion(
+                    center: coordinate,
+                    span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+                )
+            )
+            mapItem = await resolveMapItem(for: pin) ?? fallbackItem
+        }
+    }
+
+    private func resolveMapItem(for pin: WorkoutLocationPin) async -> MKMapItem? {
+        guard let raw = pin.mapItemIdentifier,
+              let identifier = MKMapItem.Identifier(rawValue: raw)
+        else { return nil }
+        do {
+            return try await MKMapItemRequest(mapItemIdentifier: identifier).mapItem
+        } catch {
+            return nil
         }
     }
 }

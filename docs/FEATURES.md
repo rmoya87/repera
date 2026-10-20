@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-20 (tiles Progreso más compactos; chips Inicio=Historial)
+Última actualización: 2026-10-20 (lugar MapKit al apuntar/editar; tap ejercicio → ficha)
 
 ## Tabs
 
@@ -172,7 +172,8 @@
 
 Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom, 4 escaneos/mes; Pro vía RevenueCat entitlement `pro`.
 - Historial de entrenos (Repera + Apple Salud, agrupado por día): misma fila que Inicio — línea «ENTRENO · hora» / día · hora, título debajo; icono de fuerza en Historial y **check** en Inicio; chips idénticos vía `WorkoutRegisterChips` (min / kcal / nota / PR / Notas; Salud + distancia si hay).
-- **Detalle de entreno:** resumen Tiempo/Kcal alineado con Inicio. Sección **Salud** solo con métricas auténticas (FC, ruta, ritmo); no muestra dispositivo/kcal si el origen es Repera. Series: RIR solo a la derecha, entero, sin duplicar entre paréntesis. Al **Editar**, el chevron vuelve se sustituye por **X** (cancelar). Las X de cierre usan `OG.label` (negro/blanco), no rojo. Sección **Resultado**: nota + frases naturales.
+- **Detalle de entreno:** resumen Tiempo/Kcal alineado con Inicio. Sección **Salud** solo con métricas auténticas (FC, ruta, ritmo); no muestra dispositivo/kcal si el origen es Repera. Series: RIR solo a la derecha, entero, sin duplicar entre paréntesis. Al **Editar**, el chevron vuelve se sustituye por **X** (cancelar). Las X de cierre usan `OG.label` (negro/blanco), no rojo. Sección **Resultado**: nota + frases naturales. Toque en **nombre o imagen** del movimiento → `ExerciseDetailView`.
+- **Lugar (entrenos propios):** al **Apuntar resultado** o **Editar**, buscador MapKit (`MKLocalSearchCompleter` + `Marker(item:)`). Guarda `locationPin` (coords, nombre, id MapKit). En detalle se pinta el mapa centrado con el icono del sitio. Si hay **recorrido de Apple Salud**, ese mapa tiene prioridad y **no** se ofrece pin manual. Actividades solo-Salud no tienen selector de lugar.
 
 ## Temporizador
 

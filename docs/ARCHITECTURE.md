@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-20 (WorkoutRegisterChips; check solo Inicio)
+Última actualización: 2026-10-20 (lugar MapKit; WorkoutRegisterChips)
 
 ## Visión
 
@@ -70,7 +70,7 @@ Fuente de verdad de la UI: ejercicios, rutinas, sesiones, peso corporal, favorit
 - El entitlement Pro **no** forma parte de `AppState` / JSON exportable.
 
 - Peso corporal: **un entry por día** (`dedupeBodyWeightsByDay` / `syncBodyWeightWithHealth`) con `BodyWeightSource` (manual / health).
-- Ubicación: al empezar sesión (`beginLocationTracking`) → `ensureWhenInUseAuthorized` (modal si `.notDetermined`) → pin en `activeSession.locationPin`; ruta GPS solo si el entreno parece outdoor.
+- Ubicación: al empezar sesión (`beginLocationTracking`) → pin GPS; ruta GPS si outdoor. Además, al apuntar/editar: `PlaceSearchSheet` (MapKit) escribe `WorkoutLocationPin` con nombre + `mapItemIdentifier`. Detalle: ruta Salud → ruta propia → pin (`Marker` nativo). Sin pin manual si hay ruta Salud.
 - Quick log: `startQuickLog` / `logQuickSets`.
 - Borrado de entreno: limpia estado local y, si hay UUID, HealthKit.
 
@@ -147,7 +147,7 @@ La pestaña Diario prioriza **Entrenador** y conserva **Personal · Rutinas** co
 
 - Estado: `AppState` Codable → JSON local (`Application Support/Repera`) + espejo iCloud Documents.
 - Bootstrap: `LaunchWarmup` solapa catálogo + `HealthDiskCache` + `app_state` con el primer frame. `ReperaStore` arranca con shell vacío; tras pintar: hydrate (reutiliza warm) → merge catálogo off-main → validar Sign in with Apple / onboarding → iCloud. Sin onboarding completo no se muestra `RootTabView`. LaunchScreen: `Splash` PNG 473∶1024 en `UIImageView.scaleAspectFit` fijada a los cuatro bordes sobre `#002E24`; durante la validación de sesión, `LaunchSplashView` usa la misma vista UIKit y los mismos límites para evitar saltos de escala al pasar del lanzamiento nativo a SwiftUI. Detalle en `docs/PERFORMANCE.md`.
-- `WorkoutSession` puede llevar `locationPin` y `routePoints` (Codable, migrable); el detalle prioriza ruta Salud → ruta propia → pin.
+- `WorkoutSession` puede llevar `locationPin` (lat/lon + `name` + `mapItemIdentifier`) y `routePoints` (Codable, migrable); el detalle prioriza ruta Salud → ruta propia → pin.
 - Conflictos: `syncRevision` + `lastWriterDeviceId` (`SyncConflictResolver`); fallback a `updatedAt` para docs legacy.
 - I/O: actor `AppStatePersistence` (encode/write atómicos, coalescing); fachada `LocalStore` en MainActor.
 - Fases: `AppSyncPhase` (`loadingLocal` → `awaitingRemote` → `ready` / `offline` / `recoveringCorrupt`).

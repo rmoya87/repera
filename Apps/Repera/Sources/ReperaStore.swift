@@ -875,7 +875,8 @@ final class ReperaStore: NSObject {
         notes: String? = nil,
         startedAt: Date = Date(),
         finishedAt: Date = Date(),
-        wodResults: [WODBlockResult] = []
+        wodResults: [WODBlockResult] = [],
+        locationPin: WorkoutLocationPin? = nil
     ) -> WorkoutSession {
         var session = SessionController.from(routine: routine, exercises: state.exercises)
         // Emparejar por posición (mismo orden que el plan).
@@ -902,6 +903,7 @@ final class ReperaStore: NSObject {
         session.finishedAt = safeEnd
         let trimmed = notes?.trimmingCharacters(in: .whitespacesAndNewlines)
         session.notes = (trimmed?.isEmpty == false) ? trimmed : nil
+        session.locationPin = locationPin
         let fallbackKcal = estimateSessionKcal(session, start: safeStart, end: safeEnd)
         session.appleActiveEnergyKcal = fallbackKcal
         session.appleDurationSeconds = max(60, safeEnd.timeIntervalSince(safeStart))

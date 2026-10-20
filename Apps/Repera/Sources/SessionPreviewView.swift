@@ -223,6 +223,7 @@ struct LogFinalResultsView: View {
     @State private var notes = ""
     @State private var startedAt = Date().addingTimeInterval(-60 * 60)
     @State private var finishedAt = Date()
+    @State private var locationPin: WorkoutLocationPin?
 
     private var weightStep: Double { store.state.settings.weightIncrementKg }
 
@@ -361,6 +362,14 @@ struct LogFinalResultsView: View {
                         }
                     }
                 }
+            }
+
+            Section {
+                WorkoutPlacePickerRow(pin: $locationPin)
+            } header: {
+                Text("Lugar")
+            } footer: {
+                Text("Busca un sitio de Apple Mapas para mostrarlo en el detalle del entreno.")
             }
 
             Section("Notas") {
@@ -887,7 +896,8 @@ struct LogFinalResultsView: View {
             notes: notes,
             startedAt: startedAt,
             finishedAt: effectiveFinished,
-            wodResults: wodResults
+            wodResults: wodResults,
+            locationPin: locationPin
         )
         onSaved()
     }
