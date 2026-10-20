@@ -81,4 +81,21 @@ final class CardioRouteAnalysisTests: XCTestCase {
         let decoded = data.flatMap { try? JSONDecoder().decode(WorkoutRoutePoint.self, from: $0) }
         XCTAssertEqual(decoded?.altitudeMeters, 700)
     }
+    func testLegacyRouteWithoutAltitudeDecodesWithoutDataLoss() throws {
+        let legacy = """
+        {"id":1,"latitude":40.45,"longitude":-3.73,
+         "recordedAt":721000000,"speedMps":3.2}
+        """
+        let point = try JSONDecoder().decode(WorkoutRoutePoint.self, from: Data(legacy.utf8))
+        XCTAssertNil(point.altitudeMeters)
+        XCTAssertEqual(point.speedMps, 3.2)
+        XCTAssertEqual(point.latitude, 40.45)
+    }
+
+    func testGradualElevationIsNotDiscardedAsNoise() {
+        let result = CardioRouteAnalysis.analyze(route: path(10) { 100 + Double($0) })
+        XCTAssertEqual(result.profile.count, 10)
+        XCTAssertEqual(result.ascentMeters, 9, accuracy: 2)
+    }
+
 }
