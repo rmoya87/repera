@@ -156,3 +156,10 @@ table td{border-color:#e6ede7}tr:hover td{background:#f9fbfa}
 .business-mini-chart>div{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px}
 .business-mini-chart span{display:block;width:100%;max-width:42px;background:linear-gradient(#50bb77,#1b7641);border-radius:8px 8px 2px 2px;min-height:8px}
 .business-mini-chart small{color:#607a68}
+
+.business-group-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:1px solid #dbe8de;border-radius:10px;padding:12px;margin:7px 0;color:#264532}
+.business-group-row strong{flex:1}.business-group-row small{flex:2;color:#63776b}.business-group-row span{color:#166a39;font-weight:750}
+.business-group-row:hover{background:#eff9f1}
+.business-group-members{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:9px}
+.business-group-members label{display:flex;align-items:center;gap:10px;border:1px solid #e0e9e2;background:#fff;padding:10px;border-radius:10px;font-size:12px}
+.business-group-members input{width:17px;height:17px;flex:none;accent-color:#17713b}
