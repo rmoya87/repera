@@ -4,7 +4,7 @@ import {renderServicesPanel} from './connected-services.js';
 import {renderProfessionalPlanning} from './connected-planning.js';
 import {navIcon} from './nav-icons.js';
 import {renderBusinessHome,renderClient360,renderClasses360} from './management-360.js';
-import {handleEditorClick,handleEditorSearch,readPrescription,validatePrescription} from './workout-editor.js';
+import {handleEditorClick,handleEditorSearch,readPrescription,validatePrescription,canonicalPrescription} from './workout-editor.js';
 const app=document.querySelector('#app');
 const auth=new ReperaAuthAPI({baseUrl:SUPABASE_URL,publishableKey:SUPABASE_PUBLISHABLE_KEY});
 const escapeHTML=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -183,7 +183,7 @@ app.addEventListener('submit',async event=>{
  const f=event.target.closest('form[data-connected]');if(!f)return;event.preventDefault();if(busy)return;
  const action=f.dataset.connected,data=new FormData(f),intent=event.submitter?.dataset.intent||'publish';
  let prescription=null;
- try{if(action==='publish-session'||action==='publish-class-plan')prescription=validatePrescription(readPrescription(f));}catch(e){error=e.message;notice='';render();return;}
+ try{if(action==='publish-session'||action==='publish-class-plan')prescription=canonicalPrescription(validatePrescription(readPrescription(f)));}catch(e){error=e.message;notice='';render();return;}
  busy=true;error=notice='';render();
  try{
   if(action==='login'){user=await auth.signIn(data.get('email'),data.get('password'));await reload();await finalizePendingRegistration();}
