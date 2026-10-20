@@ -80,12 +80,20 @@ export class ReperaAuthAPI {
   try{return await this.#request('/rest/v1/'+path,{...options,token});}
   catch(e){if(e.status===401)this.clear();throw e;}
  }
+ async platformOverview(){
+  return this.#authorized('rpc/platform_business_overview',{method:'POST',body:{}});
+ }
+ async myProfile(){
+  const user=await this.currentUser();if(!user?.id)return null;
+  const rows=await this.#authorized('profiles?select=id,role,display_name&id=eq.'+encodeURIComponent(user.id));
+  return rows?.[0]||null;
+ }
  async organizations(){
-  return this.#authorized('organizations?select=id,name,slug,kind,created_at&order=created_at.desc');
+  return this.#authorized('organizations?select=id,name,slug,kind,public_email,phone,website,address,description,timezone,created_at&order=created_at.desc');
  }
  async clients(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
-  return this.#authorized('clients?select=id,org_id,user_id,name,email,status,created_at&org_id=eq.'+encodeURIComponent(orgId)+'&order=created_at.desc');
+  return this.#authorized('clients?select=id,org_id,user_id,name,email,phone,notes,avatar_url,status,created_at&org_id=eq.'+encodeURIComponent(orgId)+'&order=created_at.desc');
  }
  async addClient({orgId,name,email,userId}){
   name=String(name||'').trim();email=String(email||'').trim().toLowerCase();
@@ -120,16 +128,12 @@ export class ReperaAuthAPI {
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
   return this.#authorized('professional_training_sessions?select=id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,prescription,status&org_id=eq.'+orgId+'&order=scheduled_date.asc&limit=200');
  }
- async publishProfessionalSession({orgId,clientId,date,title,instructions='',prescription=null,requestId=globalThis.crypto?.randomUUID?.()}){
+ async publishProfessionalSession({orgId,clientId,date,title,instructions='',prescription,requestId=globalThis.crypto?.randomUUID?.()}){
   title=String(title||'').trim();instructions=String(instructions||'');
   if(![orgId,clientId,requestId].every(id=>/^[0-9a-f-]{36}$/i.test(id||''))||title.length<2
     ||title.length>120||instructions.length>10000||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date||''))
       throw Error('Planificación inválida');
-  if(prescription){
-    if(prescription.schemaVersion!==1||!Array.isArray(prescription.blocks)||!prescription.blocks.length)throw Error('Prescripción inválida');
-    return this.#authorized('rpc/publish_structured_professional_session',{method:'POST',body:{p_org:orgId,p_client:clientId,p_day:date,p_title:title,p_instructions:instructions,p_request:requestId,p_prescription:prescription}});
-  }
-  return this.#authorized('rpc/publish_professional_session',{method:'POST',body:{p_org:orgId,p_client:clientId,p_day:date,p_title:title,p_instructions:instructions,p_request:requestId}});
+  return this.#authorized('rpc/publish_professional_session_v2',{method:'POST',body:{p_org:orgId,p_client:clientId,p_day:date,p_title:title,p_instructions:instructions,p_request:requestId,p_prescription:prescription}});
  }
  async assignCoachClient({orgId,clientId,coachId}){
   if(![orgId,clientId,coachId].every(id=>/^[0-9a-f-]{36}$/i.test(id||'')))throw Error('Asignación inválida');
@@ -141,11 +145,11 @@ export class ReperaAuthAPI {
  }
  async servicePasses(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
-  return this.#authorized('service_passes?select=id,org_id,client_id,kind,total_credits,remaining_credits,valid_until,status,issuance_type&org_id=eq.'+orgId+'&order=created_at.desc');
+  return this.#authorized('service_passes?select=id,org_id,client_id,kind,total_credits,remaining_credits,valid_from,valid_until,status,issuance_type&org_id=eq.'+orgId+'&order=created_at.desc');
  }
  async serviceBookings(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
-  return this.#authorized('service_bookings?select=id,org_id,client_id,occurrence_id,status,booked_at&org_id=eq.'+orgId+'&order=booked_at.desc&limit=300');
+  return this.#authorized('service_bookings?select=id,org_id,client_id,occurrence_id,pass_id,status,booked_at&org_id=eq.'+orgId+'&order=booked_at.desc&limit=300');
  }
  async addServiceOccurrence({orgId,coachId,kind,title,start,end,capacity}){
   title=String(title||'').trim();
@@ -191,4 +195,85 @@ export class ReperaAuthAPI {
   // SQL permits only UPDATE(name), restricted by owner/admin membership.
   return this.#authorized('organizations?id=eq.'+encodeURIComponent(orgId)+'&select=id,name,slug,kind',{method:'PATCH',prefer:'return=representation',body:{name}});
  }
+ async updateProfessionalSession({id,date,title,instructions='',prescription}){
+  if(!/^[0-9a-f-]{36}$/i.test(id||''))throw Error('Sesión inválida');
+  return this.#authorized('rpc/update_professional_session_v2',{method:'POST',body:{p_session:id,p_day:date,p_title:String(title||'').trim(),p_instructions:instructions,p_prescription:prescription}});
+ }
+ async workoutTemplates(orgId){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
+  return this.#authorized('professional_workout_templates?select=id,org_id,name,description,prescription,created_by,updated_at&org_id=eq.'+encodeURIComponent(orgId)+'&order=updated_at.desc');
+ }
+ async createWorkoutTemplate({orgId,name,description='',prescription,userId}){
+  if(![orgId,userId].every(id=>/^[0-9a-f-]{36}$/i.test(id||''))||String(name||'').trim().length<2)throw Error('Plantilla inválida');
+  return this.#authorized('professional_workout_templates?select=id,name,description',{method:'POST',prefer:'return=representation',
+    body:{org_id:orgId,created_by:userId,name:String(name).trim().slice(0,120),description:String(description).slice(0,1000),prescription}});
+ }
+ async updateWorkoutTemplate({id,orgId,name,description='',prescription}){
+  if(![id,orgId].every(x=>/^[0-9a-f-]{36}$/i.test(x||'')))throw Error('Plantilla inválida');
+  return this.#authorized('professional_workout_templates?id=eq.'+encodeURIComponent(id)+'&org_id=eq.'+encodeURIComponent(orgId),
+    {method:'PATCH',prefer:'return=representation',body:{name:String(name||'').trim().slice(0,120),description:String(description).slice(0,1000),prescription,updated_at:new Date().toISOString()}});
+ }
+ async updateOrganization({orgId,name,publicEmail='',phone='',website='',address='',description='',timezone='Europe/Madrid'}){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||String(name||'').trim().length<2)throw Error('Datos del negocio inválidos');
+  const body={name:String(name).trim().slice(0,120),public_email:String(publicEmail).trim().slice(0,180)||null,
+    phone:String(phone).trim().slice(0,40)||null,website:String(website).trim().slice(0,255)||null,
+    address:String(address).trim().slice(0,300)||null,description:String(description).trim().slice(0,2000)||null,
+    timezone:String(timezone).trim().slice(0,80)||'Europe/Madrid'};
+  return this.#authorized('organizations?id=eq.'+encodeURIComponent(orgId)+'&select=id,name,slug,kind,public_email,phone,website,address,description,timezone',
+    {method:'PATCH',prefer:'return=representation',body});
+ }
+
+ async organizationTrial(orgId){
+  return this.#authorized('organization_trials?select=org_id,trial_started_at,trial_ends_at,paid_plan,paid_until&org_id=eq.'+encodeURIComponent(orgId));
+ }
+ async subscriptionIntent({orgId,planKey,userId}){
+  const valid=['trainer_5','trainer_50','trainer_75','gym_basic','gym_advanced','gym_expert'];
+  if(!valid.includes(planKey))throw Error('Plan desconocido');
+  return this.#authorized('business_subscription_intents',{method:'POST',body:{org_id:orgId,plan_key:planKey,actor:userId}});
+ }
+ async groupMembers(orgId){
+  return this.#authorized('business_training_group_members?select=org_id,group_id,client_id&org_id=eq.'+encodeURIComponent(orgId));
+ }
+ async updateBusinessGroup({groupId,name,description='',clientIds=[]}){
+  return this.#authorized('rpc/manage_business_group',{method:'POST',body:{p_group:groupId,p_name:name,p_description:description,p_clients:clientIds}});
+ }
+ async groupList(orgId){return this.#authorized('business_training_groups?select=id,org_id,name,description&org_id=eq.'+encodeURIComponent(orgId)+'&order=name.asc');}
+ async addGroup({orgId,name,description='',userId}){
+  return this.#authorized('business_training_groups?select=id,name',{method:'POST',prefer:'return=representation',body:{org_id:orgId,name,description,created_by:userId}});
+ }
+ async classDetails(orgId){return this.#authorized('service_occurrence_details?select=occurrence_id,org_id,description,location,image_url,color,repeat_rule&org_id=eq.'+encodeURIComponent(orgId));}
+ async clientNotifications(orgId){return this.#authorized('business_client_notifications?select=id,org_id,client_id,title,body,created_at&org_id=eq.'+encodeURIComponent(orgId)+'&order=created_at.desc&limit=100');}
+ async updateClientProfile({orgId,id,name,email,phone='',notes='',avatar='',status}){
+  if(![id,orgId].every(v=>/^[0-9a-f-]{36}$/i.test(v||'')))throw Error('Cliente inválido');
+  const allowed=['lead','trial','active','paused','cancelled'];
+  if(!allowed.includes(status)||String(name||'').trim().length<2||String(notes).length>2000)throw Error('Ficha inválida');
+  return this.#authorized('clients?org_id=eq.'+encodeURIComponent(orgId)+'&id=eq.'+encodeURIComponent(id),
+    {method:'PATCH',prefer:'return=representation',body:{name:String(name).trim(),email:String(email).trim().toLowerCase(),phone:phone||null,notes:notes||null,avatar_url:avatar||null,status}});
+ }
+ async manageOccurrence({id,title,start,end,capacity,description='',location='',color='#22834d',image=''}) {
+  return this.#authorized('rpc/manage_service_occurrence',{method:'POST',body:{p_id:id,p_title:title,p_start:new Date(start).toISOString(),p_end:new Date(end).toISOString(),p_capacity:Number(capacity),p_description:description,p_location:location,p_color:color,p_image:image||null}});
+ }
+ async cancelManagedOccurrence(id){return this.#authorized('rpc/cancel_managed_occurrence',{method:'POST',body:{p_id:id}});}
+ async enrollManagedClient({occurrenceId,clientId,passId,requestId=globalThis.crypto?.randomUUID?.()}){
+  return this.#authorized('rpc/enroll_managed_client',{method:'POST',body:{p_occ:occurrenceId,p_client:clientId,p_pass:passId,p_request:requestId}});
+ }
+ async removeManagedClient(id){return this.#authorized('rpc/remove_managed_client',{method:'POST',body:{p_booking:id}});}
+ async sendClientNotice({orgId,clientId,title,body}){
+  return this.#authorized('rpc/send_business_client_notice',{method:'POST',body:{p_org:orgId,p_client:clientId,p_title:title,p_body:body}});
+ }
+ async sharedClientHistory({orgId,clientId}) {
+  return this.sharedAthleteResults({orgId,clientId,limit:100});
+ }
+ async changeCourtesyCredits(id,action,amount=0,until=null){
+  return this.#authorized('rpc/manage_complimentary_pass',{method:'POST',body:{p_pass:id,p_action:action,p_amount:amount||null,p_until:until?new Date(until).toISOString():null}});
+ }
+ async publishClassTraining({occurrenceId,title,instructions='',prescription}){
+  if(!/^[0-9a-f-]{36}$/i.test(occurrenceId||''))throw Error('Clase inválida');
+  return this.#authorized('rpc/publish_class_training',{method:'POST',body:{p_occurrence:occurrenceId,p_title:title,p_instructions:instructions,p_prescription:prescription}});
+ }
+
+ async addClassSeries({orgId,coachId,kind,title,start,end,capacity,repeat='none',count=1}){
+  return this.#authorized('rpc/create_service_series',{method:'POST',body:{p_org:orgId,p_coach:coachId,p_kind:kind,p_title:title,p_start:new Date(start).toISOString(),p_end:new Date(end).toISOString(),p_capacity:Number(capacity),p_repeat:repeat,p_count:Number(count)}});
+ }
+
 }
