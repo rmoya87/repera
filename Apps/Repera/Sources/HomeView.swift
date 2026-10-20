@@ -88,6 +88,9 @@ struct HomeView: View {
                             Text(businessData.centerName(session.orgId))
                                 .font(.caption)
                                 .foregroundStyle(OG.label2)
+                            if let prescription = session.prescription {
+                                BusinessWorkoutBlocksView(prescription: prescription)
+                            }
                             if !session.instructions.isEmpty {
                                 Text(session.instructions)
                                     .font(.footnote)
