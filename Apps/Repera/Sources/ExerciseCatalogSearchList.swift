@@ -8,6 +8,34 @@ private struct PickerRow: Identifiable, Equatable {
     let subtitle: String
 }
 
+private enum ExercisePickerFilter: Hashable, Sendable {
+    case all
+    case favorites
+    case muscle(String)
+    case sport(String)
+
+    var title: String {
+        switch self {
+        case .all: return "Todos"
+        case .favorites: return "Favoritos"
+        case .muscle(let name), .sport(let name): return name
+        }
+    }
+
+    func matches(_ doc: ExerciseSearch.Document) -> Bool {
+        switch self {
+        case .all: return true
+        case .favorites: return doc.isFavorite
+        case .muscle(let name): return doc.muscleGroup == name
+        case .sport(let tag):
+            if tag == "Fuerza" {
+                return doc.sportTag == nil && doc.muscleGroup != "Cardio"
+            }
+            return doc.sportTag == tag || (tag == "Cardio" && doc.muscleGroup == "Cardio")
+        }
+    }
+}
+
 /// Lista + `.searchable` compartida: índice/ranking off-main, filas ligeras, prefetch viewport.
 struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
     let exercises: [Exercise]
@@ -22,6 +50,7 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
     @ViewBuilder var footer: () -> Footer
 
     @State private var query = ""
+    @State private var filter: ExercisePickerFilter = .all
     @State private var searchIndex: [ExerciseSearch.Document] = []
     /// Índice ya ordenado A–Z (query vacía sin re-sort).
     @State private var alphabeticalIndex: [ExerciseSearch.Document] = []
@@ -68,6 +97,51 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
         .listStyle(.insetGrouped)
         .ogListChrome()
         .scrollDismissesKeyboard(.interactively)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        filter = .all
+                    } label: {
+                        Label("Todos", systemImage: filter == .all ? "checkmark" : "list.bullet")
+                    }
+                    Button {
+                        filter = .favorites
+                    } label: {
+                        Label("Favoritos", systemImage: filter == .favorites ? "checkmark" : "star")
+                    }
+                    Menu("Grupo muscular") {
+                        ForEach(muscleOptions, id: \.self) { muscle in
+                            Button {
+                                filter = .muscle(muscle)
+                            } label: {
+                                if filter == .muscle(muscle) {
+                                    Label(muscle, systemImage: "checkmark")
+                                } else {
+                                    Text(muscle)
+                                }
+                            }
+                        }
+                    }
+                    Menu("Disciplina") {
+                        ForEach(["Fuerza", "CrossFit", "Halterofilia", "Gimnasia", "Cardio"], id: \.self) { sport in
+                            Button {
+                                filter = .sport(sport)
+                            } label: {
+                                if filter == .sport(sport) {
+                                    Label(sport, systemImage: "checkmark")
+                                } else {
+                                    Text(sport)
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    Label(filter == .all ? "Filtrar" : filter.title, systemImage: "line.3.horizontal.decrease")
+                }
+                .accessibilityLabel("Filtrar ejercicios por grupo muscular o disciplina")
+            }
+        }
         .animation(nil, value: rowIDsToken)
         .searchable(
             text: $query,
@@ -77,7 +151,7 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
         .task(id: catalogToken) {
             await rebuildIndex()
         }
-        .task(id: "\(query)|\(searchIndex.count)") {
+        .task(id: "\(query)|\(searchIndex.count)|\(filter.title)") {
             await applyQuery()
         }
         .onAppear {
@@ -90,6 +164,10 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
         .onChange(of: rowIDsToken) { _, _ in
             prefetchWindow()
         }
+    }
+
+    private var muscleOptions: [String] {
+        Array(Set(exercises.map(\.muscleGroup))).filter { !$0.isEmpty }.sorted()
     }
 
     private var catalogToken: String {
@@ -117,6 +195,7 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
         let q = query
         let index = searchIndex
         let alpha = alphabeticalIndex
+        let selectedFilter = filter
         guard !index.isEmpty || exercises.isEmpty else { return }
 
         let trimmed = q.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -138,12 +217,12 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
         }.value
         guard !Task.isCancelled else { return }
 
-        let newRows = ranked.map {
+        let newRows = ranked.filter { selectedFilter.matches($0) }.map {
             PickerRow(id: $0.id, name: $0.displayName, subtitle: subtitle($0))
         }
         let token = String(newRows.count) + ":" + (newRows.first?.id.uuidString ?? "")
             + ":" + (newRows.last?.id.uuidString ?? "")
-            + ":" + trimmed
+            + ":" + trimmed + ":" + selectedFilter.title
         if token != rowIDsToken || newRows != rows {
             rows = newRows
             rowIDsToken = token
