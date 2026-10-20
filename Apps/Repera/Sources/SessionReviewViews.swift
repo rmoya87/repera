@@ -9,7 +9,10 @@ struct SessionReviewSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                SessionReviewCard(review: review)
+                VStack(alignment: .leading, spacing: 12) {
+                    RecoveryTrainingTip()
+                    SessionReviewCard(review: review)
+                }
                     .padding(.horizontal, OG.pad)
                     .padding(.bottom, 28)
             }
@@ -68,9 +71,6 @@ struct SessionReviewCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            RecoveryTrainingTip()
-                .padding(.horizontal, 12)
-                .padding(.top, 12)
             Button {
                 guard hasDetails else { return }
                 withAnimation(.snappy(duration: 0.22)) {
