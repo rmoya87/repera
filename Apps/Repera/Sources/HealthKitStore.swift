@@ -87,6 +87,8 @@ final class HealthKitStore {
         var date: Date
         /// m/s (≥ 0). Nil si no se pudo estimar.
         var speedMps: Double?
+        /// Altitud original de CLLocation, cuando su precisión vertical es válida.
+        var altitudeMeters: Double? = nil
     }
 
     /// Detalle ampliado (FC, ruta, etc.) al abrir un entreno de Salud.
@@ -1187,7 +1189,8 @@ final class HealthKitStore {
                 latitude: loc.coordinate.latitude,
                 longitude: loc.coordinate.longitude,
                 date: loc.timestamp,
-                speedMps: speed
+                speedMps: speed,
+                altitudeMeters: loc.verticalAccuracy >= 0 ? loc.altitude : nil
             )
         }
     }
@@ -1291,7 +1294,8 @@ final class HealthKitStore {
                 latitude: src.latitude,
                 longitude: src.longitude,
                 date: src.date,
-                speedMps: src.speedMps
+                speedMps: src.speedMps,
+                altitudeMeters: src.altitudeMeters
             )
         }
     }
