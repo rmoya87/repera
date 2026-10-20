@@ -21,9 +21,15 @@ struct ProgressCardioChartCard: View {
 
     private var yDomain: ClosedRange<Double> {
         guard let stats = periodStats else { return 60...160 }
-        let lo = max(40, stats.min * 0.92)
-        let hi = max(lo + 10, stats.max * 1.08)
+        // Margen extra: catmullRom puede salirse del min/max de los puntos.
+        let lo = max(40, stats.min - (prepared.isTeaserPreview ? 18 : 12))
+        let hi = max(lo + 24, stats.max + (prepared.isTeaserPreview ? 22 : 14))
         return lo...hi
+    }
+
+    private var lineInterpolation: InterpolationMethod {
+        // Cardinal con tensión evita el overshoot fuerte de catmullRom en el preview.
+        prepared.isTeaserPreview ? .cardinal(tension: 0.65) : .catmullRom
     }
 
     private var xDomain: ClosedRange<Date> {
@@ -63,7 +69,7 @@ struct ProgressCardioChartCard: View {
                                 )
                                 .foregroundStyle(Self.minTint)
                                 .lineStyle(StrokeStyle(lineWidth: 1.75, lineCap: .round, lineJoin: .round))
-                                .interpolationMethod(.catmullRom)
+                                .interpolationMethod(lineInterpolation)
 
                                 LineMark(
                                     x: .value("Día", point.date),
@@ -72,7 +78,7 @@ struct ProgressCardioChartCard: View {
                                 )
                                 .foregroundStyle(Self.avgTint)
                                 .lineStyle(StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round))
-                                .interpolationMethod(.catmullRom)
+                                .interpolationMethod(lineInterpolation)
 
                                 LineMark(
                                     x: .value("Día", point.date),
@@ -81,16 +87,15 @@ struct ProgressCardioChartCard: View {
                                 )
                                 .foregroundStyle(Self.maxTint)
                                 .lineStyle(StrokeStyle(lineWidth: 1.75, lineCap: .round, lineJoin: .round))
-                                .interpolationMethod(.catmullRom)
-                            }
-                            if points.count <= 4 {
-                                ForEach(points) { point in
+                                .interpolationMethod(lineInterpolation)
+
+                                if prepared.isTeaserPreview || points.count <= 4 {
                                     PointMark(
                                         x: .value("Día", point.date),
                                         y: .value("lpm", point.avgBpm)
                                     )
                                     .foregroundStyle(Self.avgTint)
-                                    .symbolSize(points.count == 1 ? 64 : 36)
+                                    .symbolSize(prepared.isTeaserPreview ? 28 : (points.count == 1 ? 64 : 36))
                                 }
                             }
                         }
@@ -101,6 +106,7 @@ struct ProgressCardioChartCard: View {
                         ])
                         .chartXScale(domain: xDomain)
                         .chartYScale(domain: yDomain)
+                        .chartPlotStyle { $0.clipped() }
                         .chartXAxis {
                             AxisMarks(values: axisValues) { _ in
                                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
@@ -186,7 +192,12 @@ struct ProgressCaloriesChartCard: View {
 
     private var yMax: Double {
         let peak = points.map(\.value).max() ?? 1
-        return max(peak * 1.12, 1)
+        let pad = prepared.isTeaserPreview ? 1.28 : 1.18
+        return max(peak * pad, 1)
+    }
+
+    private var calorieInterpolation: InterpolationMethod {
+        prepared.isTeaserPreview ? .cardinal(tension: 0.65) : .catmullRom
     }
 
     private var xDomain: ClosedRange<Date> {
@@ -230,7 +241,7 @@ struct ProgressCaloriesChartCard: View {
                                         endPoint: .bottom
                                     )
                                 )
-                                .interpolationMethod(.catmullRom)
+                                .interpolationMethod(calorieInterpolation)
 
                                 LineMark(
                                     x: .value("Día", point.date),
@@ -238,21 +249,21 @@ struct ProgressCaloriesChartCard: View {
                                 )
                                 .foregroundStyle(OG.orange)
                                 .lineStyle(StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round))
-                                .interpolationMethod(.catmullRom)
-                            }
-                            if points.count <= 4 {
-                                ForEach(points) { point in
+                                .interpolationMethod(calorieInterpolation)
+
+                                if prepared.isTeaserPreview || points.count <= 4 {
                                     PointMark(
                                         x: .value("Día", point.date),
                                         y: .value("kcal", point.value)
                                     )
                                     .foregroundStyle(OG.orange)
-                                    .symbolSize(points.count == 1 ? 64 : 36)
+                                    .symbolSize(prepared.isTeaserPreview ? 28 : (points.count == 1 ? 64 : 36))
                                 }
                             }
                         }
                         .chartXScale(domain: xDomain)
                         .chartYScale(domain: 0...yMax)
+                        .chartPlotStyle { $0.clipped() }
                         .chartXAxis {
                             AxisMarks(values: axisValues) { _ in
                                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
@@ -358,7 +369,7 @@ struct ProgressWeightChartCard: View {
             if let goal = goalKg { return (goal - 2)...(goal + 2) }
             return 60...90
         }
-        let pad = max(1, (hi0 - lo0) * 0.12)
+        let pad = max(1.2, (hi0 - lo0) * 0.22)
         return (lo0 - pad)...max(lo0 - pad + 2, hi0 + pad)
     }
 
@@ -416,20 +427,19 @@ struct ProgressWeightChartCard: View {
                                 )
                                 .foregroundStyle(OG.accent)
                                 .lineStyle(StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round))
-                                .interpolationMethod(.catmullRom)
+                                .interpolationMethod(.cardinal(tension: 0.7))
 
-                                if points.count <= 4 {
-                                    PointMark(
-                                        x: .value("Fecha", entry.date),
-                                        y: .value("kg", entry.weightKg)
-                                    )
-                                    .foregroundStyle(OG.accent)
-                                    .symbolSize(36)
-                                }
+                                PointMark(
+                                    x: .value("Fecha", entry.date),
+                                    y: .value("kg", entry.weightKg)
+                                )
+                                .foregroundStyle(OG.accent)
+                                .symbolSize(points.count <= 8 ? 32 : 18)
                             }
                         }
                         .chartXScale(domain: xDomain)
                         .chartYScale(domain: yDomain)
+                        .chartPlotStyle { $0.clipped() }
                         .chartXAxis {
                             AxisMarks(
                                 values: ProgressChartAxis.tickDates(

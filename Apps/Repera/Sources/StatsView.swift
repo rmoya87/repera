@@ -60,7 +60,7 @@ struct StatsView: View {
                         if isPro {
                             healthSections
                         } else {
-                            freeTilesGrid
+                            freeHealthPreview
                             ProTeaserCard(
                                 title: "Métricas de actividad avanzadas",
                                 bodyText: "Consulta frecuencia cardíaca, calorías y evolución de peso con Repera Pro.",
@@ -291,6 +291,29 @@ struct StatsView: View {
                 )
             }
         }
+    }
+
+    /// Preview free de Actividad: datos simulados (no Salud real) para mostrar el valor de Pro.
+    @ViewBuilder
+    private var freeHealthPreview: some View {
+        let sample = ProgressPreparedCharts.teaserSample(weekStartsOnMonday: mondayFirst)
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Así se vería con Pro")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(OG.label2)
+            ProgressCardioChartCard(prepared: sample)
+            ProgressCaloriesChartCard(prepared: sample)
+            ProgressWeightChartCard(
+                entries: [],
+                goalKg: store.state.settings.bodyWeightGoalKg ?? 75,
+                range: .week,
+                weekStartsOnMonday: mondayFirst,
+                preparedPoints: ProgressPreparedCharts.teaserWeightPoints()
+            )
+        }
+        .opacity(0.88)
+        .allowsHitTesting(false)
+        .accessibilityLabel("Vista de ejemplo de métricas de actividad")
     }
 
     private func schedulePrepare(reason: String) {

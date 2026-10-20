@@ -407,17 +407,13 @@ struct WorkoutDetailView: View {
                 // En edición el picker de lugar lleva su propio preview; no duplicar el mapa.
                 if !isEditing, sessionMapContent(session) != .none {
                     Section {
-                        VStack(spacing: 10) {
+                        let coordinate = mapCoordinates(session)
+                        SessionMapWeatherCard(
+                            latitude: coordinate?.lat,
+                            longitude: coordinate?.lon,
+                            workoutDate: session.startedAt ?? session.finishedAt ?? Date()
+                        ) {
                             sessionMapView(session)
-                                .frame(height: 240)
-                                .clipShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
-                            if let coordinate = mapCoordinates(session) {
-                                RouteWeatherStrip(
-                                    latitude: coordinate.lat,
-                                    longitude: coordinate.lon,
-                                    workoutDate: session.startedAt ?? .distantPast
-                                )
-                            }
                         }
                         .ogCardListRow()
                     } header: {
@@ -1682,17 +1678,13 @@ struct HealthActivityDetailView: View {
 
             if showRouteMap {
                 Section {
-                    VStack(spacing: 10) {
+                    let first = detail.routePoints.first
+                    SessionMapWeatherCard(
+                        latitude: first?.latitude,
+                        longitude: first?.longitude,
+                        workoutDate: activity.start
+                    ) {
                         HealthWorkoutRouteMap(points: detail.routePoints, isInteractive: false)
-                            .frame(height: 240)
-                            .clipShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
-                        if let first = detail.routePoints.first {
-                            RouteWeatherStrip(
-                                latitude: first.latitude,
-                                longitude: first.longitude,
-                                workoutDate: activity.start
-                            )
-                        }
                     }
                     .ogCardListRow()
                 } header: {

@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-20 (ExerciseSessionAppearance; nav RFT por fila)
+Última actualización: 2026-10-20 (SessionMapWeatherCard; Progreso free preview)
 
 ## Visión
 
@@ -230,7 +230,7 @@ El campo histórico `supersetGroup` permanece en el formato Codable para abrir c
 
 ### Cardio con GPS (solo iPhone)
 
-`CardioRouteAnalysis` (ReperaDomain) recibe coordenadas/fechas y FC, filtra saltos GPS, calcula distancia con haversine e interpola los instantes de cruce de cada kilómetro. Devuelve perfil altimétrico y parciales únicamente para tramos válidos; no hace peticiones a red. `HealthKitStore.RoutePoint.altitudeMeters` y `WorkoutRoutePoint.altitudeMeters` son opcionales, preservan rutas antiguas y pueden provenir de GPS de Apple Salud o Core Location. `CardioRouteComponents` usa Swift Charts (selección x nativa), un selector segmentado Cardio/Altitud, tabla de parciales y consultas WeatherKit con etiqueta temporal histórica y atribución de Apple Weather. WeatherKit requiere activar capacidad en App ID de Apple Developer, además del entitlement `com.apple.developer.weatherkit`; si falla, la interfaz muestra «—». AQI histórico no tiene proveedor conectado en esta fase y también muestra «—».
+`CardioRouteAnalysis` (ReperaDomain) recibe coordenadas/fechas y FC, filtra saltos GPS, calcula distancia con haversine e interpola los instantes de cruce de cada kilómetro. Devuelve perfil altimétrico y parciales únicamente para tramos válidos; no hace peticiones a red. `HealthKitStore.RoutePoint.altitudeMeters` y `WorkoutRoutePoint.altitudeMeters` son opcionales, preservan rutas antiguas y pueden provenir de GPS de Apple Salud o Core Location. `CardioRouteComponents` usa Swift Charts (selección x nativa), selector Cardio/Altitud, parciales y `SessionMapWeatherCard` (clima como pie de la misma card del mapa; tint label, no accent). WeatherKit histórico usa `startedAt`/`finishedAt` (no `.distantPast`); requiere capacidad en App ID + entitlement; si falla → «—». AQI histórico sin proveedor → «—».
 
 `BusinessWorkoutSyncStore.privateMirrorPayload` elimina `routePoints`, `locationPin` y datos de HealthKit antes de transmitir a Supabase. WeatherKit se solicita localmente al abrir el detalle del entreno; la posición inicial del recorrido se redondea previamente a 2 decimales antes de consultar WeatherKit, nunca se envía el recorrido completo ni se comunica nada a Supabase.
 

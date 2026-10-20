@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-20 (búsqueda EN↔ES + escáner con mismos aliases)
+Última actualización: 2026-10-20 (clima en mapa; Progreso free preview; sueño como sección)
 
 ## Tabs
 
@@ -57,8 +57,11 @@
 ### Progreso (`StatsView`)
 
 - Título arriba + periodo como subtítulo; calendario a la derecha (`ogFixedTopBar`).
-- **Gratis:** solo periodo **Esta semana** (entrenos, tiempo, racha + heatmap básico + teaser Pro). Selector visible: periodos largos marcados Pro → paywall.
+- **Gratis · Entreno:** periodo **Esta semana** (tiles entrenos/tiempo/racha + heatmap + teaser Pro). Los tiles **no** se repiten en Actividad.
+- **Gratis · Actividad:** preview ondulada (no rectas) de cardio/kcal/peso dentro del plot + teaser; sin tiles duplicados.
+- **Gratis · Recuperación:** sección **Sueño** con gráfica nocturna por puntos y fases (profundo/REM/ligero); sin CTA «Configurar Salud» ni bloque de ciclo vacío.
 - **Pro:** todos los periodos y métricas avanzadas.
+- Selector visible: periodos largos marcados Pro → paywall.
 - Títulos de sección grises encima de cada card (actividad, cardio, peso, equilibrio…).
 - Filtro: **Hoy / Esta semana / Este mes / 90 / 180 / 360 días** (sin «Todo»). Modal fitted + glass.
 - Gráficas: día en periodos cortos; **media semanal** en 90/180; **media mensual** en 360.
@@ -198,6 +201,7 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 ## Sueño y ciclo (iOS 27)
 
 - Progreso agrupa **Entreno**, **Actividad** y **Recuperación** mediante controles segmentados nativos.
+- En Recuperación, **Sueño** es título de sección; **Ciclo** solo aparece si hay registros reales de menstruación.
 - Ajustes → Salud y recuperación: activación opcional y permisos separados de HealthKit.
 - Sueño: una sola fuente nocturna y fusión de intervalos solapados; tendencias con Swift Charts.
 - Ciclo: muestras de menstruación y pruebas de ovulación, fase solo orientativa con historial suficiente. No permite confirmar ovulación ni prever fertilidad.
@@ -213,7 +217,7 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 - En la ficha de **Entreno** y la ficha de Apple Salud, los recorridos GPS (carrera, caminar, senderismo, bici y otras actividades exterior con ruta) permiten alternar mediante selector segmentado nativo **Cardio / Altitud** dentro de la misma tarjeta; al tocar la curva se consulta la muestra escogida de FC o distancia/altitud.
 - La altitud procede de Core Location (solo muestras con precisión vertical válida), tanto de Apple Salud como de rutas nuevas grabadas por Repera; las rutas antiguas sin altitud muestran ausencia de datos, no desnivel inventado.
 - Se conservan en la misma fila las tarjetas pequeñas de **FC mínima, máxima y velocidad media/máxima** cuando existen; no se repite la tarjeta de FC media, que se muestra junto al título del gráfico de pulso.
-- Debajo del mapa se muestra una banda compacta de **tiempo, humedad y calidad del aire**. Tiempo y humedad se consultan por hora y ubicación mediante Apple WeatherKit histórico con posición aproximada a ~1 km y atribución; si el servicio no permite consultar esa fecha o no se configuró el permiso del identificador Apple, se muestra «—». El AQI se muestra expresamente como no disponible hasta disponer de una fuente histórica de calidad de aire contrastada. **No se transforma el pronóstico de hoy en un dato histórico.**
+- El clima forma **parte de la misma card del mapa** (franja inferior): icono a la izquierda, valor y título debajo, tint negro/blanco (no verde). Tiempo y humedad vía WeatherKit histórico (~1 km + atribución); fecha del entreno = `startedAt`/`finishedAt` (nunca `.distantPast`). AQI histórico no disponible → «—». **No se transforma el pronóstico de hoy en un dato histórico.**
 - **Parciales:** un registro por kilómetro GPS completo con duración de cada kilómetro, ritmo `min/km` en caminata/carrera/senderismo o velocidad `km/h` en bici, y pulso medio de las muestras del parcial cuando hay suficientes lecturas. Kilómetros calculados mediante distancia geodésica y tiempos interpolados; los saltos GPS imposibles se descartan.
 - En actividades sin GPS válido o con menos de 1 km no se inventan parciales. Natación y cardio de interior no muestran parciales estimados a partir del tiempo total.
 - Son métricas **locales**: las rutas, altitudes, FC y datos meteorológicos/AQI no se añaden al espejo de Supabase.

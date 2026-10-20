@@ -257,74 +257,94 @@ struct CardioSplitsView: View {
     }
 }
 
-/// Condiciones en la fecha de entrenamiento: consulta efímera Apple WeatherKit.
-/// El proveedor no ofrece en esta integración un AQI histórico verificado.
+/// Pie meteorológico anclado al mapa (misma card): icono a la izquierda, valor + título.
+/// Condiciones en la fecha del entreno vía WeatherKit histórico (AQI histórico no disponible).
 struct RouteWeatherStrip: View {
     var latitude: Double
     var longitude: Double
     var workoutDate: Date
 
+    @Environment(\.colorScheme) private var colorScheme
     @State private var temperatureC: Double?
     @State private var humidity: Double?
     @State private var symbol = "cloud.sun"
     @State private var attributionURL: URL?
     @State private var attributionMarkURL: URL?
+    @State private var loadFailed = false
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 0) {
                 weatherStat(symbol: symbol, title: "Tiempo",
                             value: temperatureC.map { String(format: "%.0f °C", $0) } ?? "—")
-                Divider().frame(height: 38)
-                weatherStat(symbol: "humidity", title: "Humedad",
+                Divider().frame(height: 36).padding(.horizontal, 4)
+                weatherStat(symbol: "humidity.fill", title: "Humedad",
                             value: humidity.map { "\(Int(($0 * 100).rounded())) %" } ?? "—")
-                Divider().frame(height: 38)
+                Divider().frame(height: 36).padding(.horizontal, 4)
                 weatherStat(symbol: "aqi.medium", title: "Calidad aire", value: "—")
             }
             if let attributionURL, let attributionMarkURL {
                 Link(destination: attributionURL) {
                     HStack(spacing: 6) {
                         AsyncImage(url: attributionMarkURL) { image in
-                            image.resizable().scaledToFit().frame(height: 13)
+                            image.resizable().scaledToFit().frame(height: 12)
                         } placeholder: {
-                            Text("Apple Weather").font(.caption2)
+                            Text("Apple Weather")
+                                .font(.caption2)
+                                .foregroundStyle(OG.label3)
                         }
                         Text("· Histórico por hora")
                             .font(.caption2)
                             .foregroundStyle(OG.label3)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
-            } else {
-                Text("Tiempo histórico no disponible · Calidad del aire sin fuente histórica.")
+            } else if loadFailed {
+                Text("Tiempo no disponible para esta fecha · AQI histórico no ofrecido.")
                     .font(.caption2)
                     .foregroundStyle(OG.label3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Text("Calidad del aire histórica no disponible.")
+                    .font(.caption2)
+                    .foregroundStyle(OG.label3)
             }
         }
-        .padding(.vertical, 9)
-        .task(id: "\(latitude),\(longitude),\(workoutDate.timeIntervalSince1970)") {
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(OG.surface)
+        .task(id: taskKey) {
             await loadWeather()
         }
         .accessibilityElement(children: .contain)
     }
 
+    private var taskKey: String {
+        "\(latitude),\(longitude),\(workoutDate.timeIntervalSince1970)"
+    }
+
     private func weatherStat(symbol: String, title: String, value: String) -> some View {
-        VStack(spacing: 5) {
+        HStack(alignment: .center, spacing: 8) {
             Image(systemName: symbol)
-                .font(.system(size: 16))
-                .foregroundStyle(OG.accent)
-            Text(value)
-                .font(.system(size: 14, weight: .semibold, design: .rounded).monospacedDigit())
+                .font(.system(size: 22, weight: .medium))
                 .foregroundStyle(OG.label)
-            Text(title)
-                .font(.system(size: 10))
-                .foregroundStyle(OG.label2)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .frame(width: 28, height: 28)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(OG.label)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                Text(title)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(OG.label2)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func loadWeather() async {
@@ -332,11 +352,18 @@ struct RouteWeatherStrip: View {
         temperatureC = nil
         attributionURL = nil
         attributionMarkURL = nil
-        // No solicitar predicciones actuales como si fueran condiciones pasadas.
-        guard workoutDate <= Date(),
-              workoutDate >= Date(timeIntervalSince1970: 1_627_776_000), // Apple Weather histórico desde 2021-08-01.
-              (-90...90).contains(latitude), (-180...180).contains(longitude)
-        else { return }
+        loadFailed = false
+        // Evitar `.distantPast` / fechas inválidas: WeatherKit histórico desde 2021-08-01.
+        let weatherEpoch = Date(timeIntervalSince1970: 1_627_776_000)
+        let queryDate: Date = {
+            if workoutDate > Date() { return Date() }
+            if workoutDate < weatherEpoch { return weatherEpoch }
+            return workoutDate
+        }()
+        guard (-90...90).contains(latitude), (-180...180).contains(longitude) else {
+            loadFailed = true
+            return
+        }
         do {
             // Apple recibe solo la coordenada aproximada (~1 km), nunca el recorrido.
             let location = CLLocation(
@@ -345,21 +372,56 @@ struct RouteWeatherStrip: View {
             )
             let hourly = try await WeatherService.shared.weather(
                 for: location,
-                including: .hourly(startDate: workoutDate.addingTimeInterval(-3600),
-                                   endDate: workoutDate.addingTimeInterval(3600))
+                including: .hourly(
+                    startDate: queryDate.addingTimeInterval(-3600),
+                    endDate: queryDate.addingTimeInterval(3600)
+                )
             )
             guard let hour = hourly.forecast.min(by: {
-                abs($0.date.timeIntervalSince(workoutDate)) < abs($1.date.timeIntervalSince(workoutDate))
-            }), abs(hour.date.timeIntervalSince(workoutDate)) <= 3600 else { return }
+                abs($0.date.timeIntervalSince(queryDate)) < abs($1.date.timeIntervalSince(queryDate))
+            }), abs(hour.date.timeIntervalSince(queryDate)) <= 3600 else {
+                loadFailed = true
+                return
+            }
             let attribution = try await WeatherService.shared.attribution
-            // Nunca mostrar información de WeatherKit sin su atribución legal.
+            // Nunca mostrar WeatherKit sin atribución legal.
             attributionURL = attribution.legalPageURL
-            attributionMarkURL = attribution.combinedMarkLightURL
+            attributionMarkURL = colorScheme == .dark
+                ? attribution.combinedMarkDarkURL
+                : attribution.combinedMarkLightURL
             temperatureC = hour.temperature.converted(to: .celsius).value
             humidity = hour.humidity
             symbol = hour.symbolName
         } catch {
-            // Denegación de WeatherKit, histórico no cubierto o red: mostrar —.
+            loadFailed = true
         }
+    }
+}
+
+/// Mapa + franja de clima en una sola card (el clima «sale» del mapa).
+struct SessionMapWeatherCard<MapContent: View>: View {
+    var mapHeight: CGFloat = 240
+    var latitude: Double?
+    var longitude: Double?
+    var workoutDate: Date
+    @ViewBuilder var map: () -> MapContent
+
+    var body: some View {
+        VStack(spacing: 0) {
+            map()
+                .frame(height: mapHeight)
+                .frame(maxWidth: .infinity)
+                .clipped()
+            if let latitude, let longitude {
+                Divider().opacity(0.35)
+                RouteWeatherStrip(
+                    latitude: latitude,
+                    longitude: longitude,
+                    workoutDate: workoutDate
+                )
+            }
+        }
+        .background(OG.surface)
+        .clipShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
     }
 }

@@ -10,6 +10,8 @@ struct ProgressPreparedCharts: Equatable, Sendable {
     var caloriesTotal: Double
     var averageHeartRate: Double?
     var granularity: ProgressSeriesGranularity
+    /// Preview free: curvas suaves pero acotadas al dominio del chart.
+    var isTeaserPreview: Bool = false
 
     struct HeartRatePlotPoint: Identifiable, Equatable, Sendable {
         var id: Date { date }
@@ -26,8 +28,61 @@ struct ProgressPreparedCharts: Equatable, Sendable {
         calories: [],
         caloriesTotal: 0,
         averageHeartRate: nil,
-        granularity: .day
+        granularity: .day,
+        isTeaserPreview: false
     )
+
+    /// Serie ficticia ondulada (no rectas) para preview free de Actividad.
+    static func teaserSample(weekStartsOnMonday: Bool = true) -> ProgressPreparedCharts {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        var heartRate: [HeartRatePlotPoint] = []
+        var calories: [ProgressDayPoint] = []
+        for offset in (0..<7).reversed() {
+            guard let day = cal.date(byAdding: .day, value: -offset, to: today) else { continue }
+            let t = Double(6 - offset)
+            // Ondas distintas por serie para que no se vean paralelas/planas.
+            let avg = 118 + 9 * sin(t * 0.95) + 4 * cos(t * 1.7)
+            let minBpm = avg - (16 + 5 * sin(t * 1.3 + 0.4))
+            let maxBpm = avg + (28 + 8 * cos(t * 1.1 + 0.8))
+            heartRate.append(HeartRatePlotPoint(
+                date: day,
+                minBpm: minBpm.rounded(),
+                avgBpm: avg.rounded(),
+                maxBpm: maxBpm.rounded()
+            ))
+            let kcal = 480 + 140 * sin(t * 0.85 + 0.3) + 60 * cos(t * 1.6)
+            calories.append(ProgressDayPoint(
+                dayKey: "teaser-\(Int(day.timeIntervalSince1970))",
+                date: day,
+                value: max(220, kcal.rounded())
+            ))
+        }
+        let avg = heartRate.isEmpty
+            ? nil
+            : heartRate.map(\.avgBpm).reduce(0, +) / Double(heartRate.count)
+        return ProgressPreparedCharts(
+            range: .week,
+            weekStartsOnMonday: weekStartsOnMonday,
+            heartRate: heartRate,
+            calories: calories,
+            caloriesTotal: calories.reduce(0) { $0 + $1.value },
+            averageHeartRate: avg,
+            granularity: .day,
+            isTeaserPreview: true
+        )
+    }
+
+    static func teaserWeightPoints() -> [ProgressWeightPoint] {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        return (0..<7).reversed().compactMap { offset -> ProgressWeightPoint? in
+            guard let day = cal.date(byAdding: .day, value: -offset, to: today) else { return nil }
+            let t = Double(6 - offset)
+            let kg = 74.4 + 0.55 * sin(t * 1.1) - 0.12 * t + 0.18 * cos(t * 2.0)
+            return ProgressWeightPoint(date: day, weightKg: (kg * 10).rounded() / 10)
+        }
+    }
 }
 
 enum ProgressChartBuilder {
@@ -95,7 +150,8 @@ enum ProgressChartBuilder {
             calories: kcalPlot,
             caloriesTotal: kcalTotal,
             averageHeartRate: avgHr,
-            granularity: granularity
+            granularity: granularity,
+            isTeaserPreview: false
         )
     }
 
