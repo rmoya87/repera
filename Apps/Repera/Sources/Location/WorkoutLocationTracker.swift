@@ -169,6 +169,7 @@ extension WorkoutLocationTracker: CLLocationManagerDelegate {
         let lon = location.coordinate.longitude
         let date = location.timestamp
         let speed = location.speed >= 0 ? location.speed : nil
+        let altitudeMeters: Double? = (0...50).contains(location.verticalAccuracy) ? location.altitude : nil
         Task { @MainActor in
             if let finish = pendingPinContinuation {
                 pendingPinContinuation = nil
@@ -189,7 +190,7 @@ extension WorkoutLocationTracker: CLLocationManagerDelegate {
                     longitude: lon,
                     recordedAt: date,
                     speedMps: speed,
-                    altitudeMeters: (0...50).contains(location.verticalAccuracy) ? location.altitude : nil
+                    altitudeMeters: altitudeMeters
                 )
             )
             pointCounter += 1
