@@ -124,7 +124,7 @@ struct WorkoutView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 if hasMoreExercises {
-                    Button(store.nextIsSupersetPartner ? "Siguiente SS" : "Siguiente") {
+                    Button("Siguiente") {
                         store.finishCurrentExercise()
                         store.restCoordinator.skip()
                         store.workoutClock.stop()
@@ -711,13 +711,7 @@ struct WorkoutView: View {
             clusters: []
         )
         setCompletionPulse &+= 1
-        let rest: Int = {
-            if current.supersetGroup != nil {
-                return max(30, store.state.settings.defaultRestSeconds / 3)
-            }
-            return store.state.settings.defaultRestSeconds
-        }()
-        beginRest(rest)
+        beginRest(store.state.settings.defaultRestSeconds)
         restStartedPulse &+= 1
         if let updated = store.state.activeSession?.currentExercise {
             withAnimation(reduceMotion ? nil : .smooth) {
@@ -766,6 +760,7 @@ struct WorkoutView: View {
             mondayFirst: store.state.settings.weekStartsOn == .monday
         ).first { $0.exerciseName == current.exercise.name }
         return VStack(alignment: .leading, spacing: 18) {
+            RecoveryTrainingTip()
             NavigationLink {
                 ExerciseDetailView(exerciseId: current.exercise.id)
             } label: {
@@ -775,13 +770,6 @@ struct WorkoutView: View {
                         .foregroundStyle(OG.label)
                         .multilineTextAlignment(.leading)
                     HStack(spacing: 8) {
-                        if let label = SessionController.supersetLabel(current.supersetGroup) {
-                            Text(label)
-                                .font(.caption2.bold())
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(.orange.opacity(0.25), in: Capsule())
-                        }
                         Text(exerciseMetaLine(current, target: target))
                             .foregroundStyle(OG.label2)
                     }
@@ -1370,9 +1358,6 @@ struct WorkoutView: View {
             if setPhase == .warmup { return 45 }
             if setKind == .dropset { return 20 }
             if setKind == .restpause { return max(45, store.state.settings.defaultRestSeconds / 2) }
-            if current.supersetGroup != nil {
-                return max(30, store.state.settings.defaultRestSeconds / 3)
-            }
             return store.state.settings.defaultRestSeconds
         }()
         beginRest(rest)
@@ -1480,11 +1465,6 @@ struct WorkoutView: View {
                                                     .foregroundStyle(OG.label)
                                                     .lineLimit(2)
                                                     .multilineTextAlignment(.leading)
-                                                if let label = SessionController.supersetLabel(item.supersetGroup) {
-                                                    Text(label)
-                                                        .font(.caption2.bold())
-                                                        .foregroundStyle(OG.orange)
-                                                }
                                             }
                                             Text(queueRowSubtitle(item))
                                                 .font(.system(size: 12))
