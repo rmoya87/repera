@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-21 (series compactas, teclado contextual y registro unificado con Play)
+Última actualización: 2026-10-21 (Play por bloques, formatos opcionales, eliminación de resultado final)
 
 ## Tabs
 
@@ -23,7 +23,7 @@
 - Plan semanal por weekday: tocar un entreno asignado abre la misma vista previa y acción Comenzar que Inicio; deslizar a la izquierda permite quitarlo con acción roja. Solo los días sin entreno abren el selector de asignación Liquid Glass.
 - Edición de rutinas / bloques (fuerza + WOD): modal con **check** (swipe para cerrar); desde Entreno → Editar, **volver** (sin X) + check. Al añadir un bloque, el título por defecto es **Bloque 1**, **Bloque 2**, … (secuencial).
 - **Elegir WOD**: catálogo seed de benchmarks conocidos (`CatalogWODs`: Fran, Cindy, Murph…). Detalle con miniaturas de movimientos, tiempo típico y músculos → Usar.
-- **Crear WOD**: formato vacío (AMRAP, EMOM, RFT…) en página push con volver arriba y título large debajo; también los selectores de ejercicio/movimiento y la creación de movimiento libre son páginas push.
+- **Formato opcional en cualquier bloque**: tanto fuerza como WOD importado permiten escoger y cambiar en cualquier momento AMRAP, EMOM, For Time, Tabata, etc., o **Sin formato**. Los parámetros del reloj (duración, cap opcional, intervalos, trabajo/descanso, rondas) se configuran debajo del selector. Se elimina la acción redundante «Crear WOD»; «Añadir bloque» permite empezar sin formato. La selección del formato, ejercicio/movimiento y la creación de movimiento libre se presentan como páginas push.
 - Día → asignar rutina: sin X; selección con check blanco en círculo verde.
 - Favoritos de rutinas.
 - Overrides de día.
@@ -91,7 +91,7 @@
 - Captions de fase (carrusel): una acción por frase, preferiblemente 8–16 palabras, alineada al frame. Debajo, guía **Cómo hacerlo** con tono de entrenador (setup, ejecución, respiración, error típico, estándar/progresión). Sin notas editoriales (`imagen:`).
 - QA: inventario por stem en `docs/EXERCISE_ART_AUDIT.csv`; auditoría reproducible con `.venv-art/bin/python scripts/audit_exercise_art.py`. Estados: `FAIL` (defecto confirmado), `WARN` (revisar), `PENDING_VISUAL_QA` (sin aprobar visualmente). No confundir existencia en disco con veredicto OK.
 - Filtro / orden: alfabético, músculo, deporte, favoritos, **WODs** (modal).
-- Modo **WODs**: lista de benchmarks (`CatalogWODs`; favoritos arriba) con detalle: movimientos con **miniatura**, músculo, tiempo típico, progresión (`wodResults` por `wodTemplateId`). Topbar: **play** (empezar ya), **+** (apuntar resultado), **★** (`AppSettings.favoriteWODTemplateIds`).
+- Modo **WODs**: lista de benchmarks (`CatalogWODs`; favoritos arriba) con detalle: movimientos con **miniatura**, músculo, tiempo típico, progresión (`wodResults` por `wodTemplateId`). Topbar: **play** (empezar ya) y **★** (`AppSettings.favoriteWODTemplateIds`); se elimina «Apuntar resultado».
 - **Músculo** = grupo anatómico (Pecho, Piernas…). CrossFit / Halterofilia / Gimnasia no son grupos musculares: van en **Deporte** (`sportTag`) y el ejercicio se asigna al músculo principal para métricas.
 - Ficha: descripción + guía **Cómo hacerlo** (tono entrenador: setup, ejecución, error típico, estándar) para los **188**. Con carrusel, N captions de fase + coaching debajo.
 - Alta de ejercicio custom: página push (`navigationDestination`, `ogPinnedTransparentNav`), no sheet.
@@ -113,21 +113,22 @@
 
 ## Sesión de entreno
 
-- Preview (`SessionPreviewView`) → `WorkoutView`; lápiz junto al play abre la gestión de entreno con selector **Editar / Apuntar**. **Apuntar resultado**, tanto desde el menú ⋯ como desde el selector, abre exactamente la misma sesión y pantalla de registro que **Play**; no mantiene un formulario de resultado final separado.
+- Preview (`SessionPreviewView`): **Play** inicia la única pantalla de registro, `WorkoutView`; **Editar** (lápiz o menú ⋯) abre exclusivamente `DayEditorView`, sin selector Editar/Apuntar. Se elimina la opción «Apuntar resultado», su pantalla `LogFinalResultsView`, el estado y la ruta de navegación asociada y el método de persistencia exclusivo.
 - Crear entreno desde «Añadir entreno» abre editor de pantalla completa con navegación propia, no dentro del sheet compacto.
 - En el detalle de entreno, el tile de calorías se omite cuando Salud no aporta una medición auténtica.
 - **Series de fuerza / WOD** al crear y editar: tabla compacta de **Serie | Anterior | KG/Tiempo | Reps**, sin botones −/+. La columna **Anterior** muestra el peso, duración o repeticiones de la misma serie en la última sesión del ejercicio, si existe; en ejercicios de un único valor queda una sola columna editable. RIR sigue disponible como menú compacto bajo su serie. La misma retícula se usa durante Play.
 - **En sesión activa** la tabla añade un **check verde a la derecha** para marcar cada serie, por orden, iniciando el descanso correspondiente. Los objetivos sin completar no aparecen como registrados. En edición no se muestra el check de completar.
 - **Teclado de series**: foco en el valor izquierdo; retorno **Siguiente** consolida y enfoca el valor a la derecha; en el campo final, retorno **Hecho** consolida y, en sesión, marca esa serie. Se conserva un teclado numérico nativo que permite decimales para pesos y formato de tiempo donde corresponde.
-- **Apuntar series**: UI plana; **Terminar** = círculo verde + check blanco (mismo estilo topbar).
+- **Play** muestra una lista por **bloques en el mismo orden y estilo agrupado de Editar**. Omite nombre de nueva rutina, hora programada, progresión y Favorito. El título de cada bloque es fijo, no editable; a su derecha hay un botón **temporizador** que carga exactamente el formato configurado y la cuenta previa existente. Los ejercicios se seleccionan por fila; las series y sus checks se registran en la fila desplegada. El reloj **Sin formato** es ascendente y libre.
+- **Favorito** es la etiqueta única del toggle en el editor. En Play el menú ⋯ incluye **Cancelar entreno**: descarta la sesión en curso, sin guardarla.
 - Series planificadas / logueadas, superseries, WOD clocks.
-- **Play WOD por modalidad**: AMRAP → countdown al cap → confirmar **rondas + reps**; For Time / chipper / AFAP → cronómetro count-up con límite si existe → **Terminar** → confirmar tiempo; EMOM/Tabata → intervalos configurados que terminan automáticamente al agotar el último. Los temporizadores se inician con la acción Comenzar (con cuenta previa).
-- En la sesión se puede activar **Temporizador automático** o registrar las series **manualmente**. Al concluir un intervalo cronometrado se marca el bloque completado sin inventar pesos, series ni repeticiones; los ejercicios siguientes permanecen pendientes.
-- Los controles de peso/tiempo y repeticiones se disponen en una fila ancha separada de las acciones de RIR y completar serie.
-- **Apuntar resultado** desde la vista previa ya no navega a `LogFinalResultsView`: inicializa `SessionController` y muestra `WorkoutView`, igual que Play. `LogFinalResultsView` permanece en el código como editor histórico heredado pero no es destino navegable desde la vista previa.
+- **Temporizador por bloque (WOD o fuerza)**: AMRAP → countdown a la duración → confirmar rondas + reps; For Time / Chipper / AFAP → count-up con límite opcional y resultado de tiempo; EMOM/Tabata → intervalos y descansos configurados; sin formato → cronómetro libre ascendente. El botón reloj del encabezado inicia el temporizador diseñado con cuenta previa.
+- En Play se pueden **registrar series manualmente** sin activar el reloj; el temporizador es una acción opcional por bloque. Al concluir un intervalo cronometrado se marca el bloque completado sin inventar pesos, series ni repeticiones; los ejercicios siguientes permanecen pendientes.
+- Peso/tiempo y repeticiones se disponen en una fila compacta, con columna de registro anterior; el menú RIR queda debajo y la confirmación se muestra solo durante la ejecución.
+- La función histórica «Apuntar resultado» ya no tiene acción, vista ni ruta dedicada: para registrar un entreno planificado se usa **Play** y sus controles de series y scores WOD.
 - AMRAP: primero **Rondas** (completas), luego **Reps** (ronda incompleta), p. ej. 12 + 5. `OGRepeatStepper` editable a mano.
 - Estilo de apunte por ejercicio (`ExerciseLoggingStyle`): comba → **veces + tiempo** (p. ej. 50 dobles en 1:00); Air bike / Echo / SkiErg / remoerg / cinta → **tiempo + Cal o m**; dominadas/muscle-up → **lastre kg** (0 = sin lastre) + reps; HSPU → **déficit cm** + reps; resto PC → solo reps; barra/DB/KB → kg + reps. `LoggedSet.deficitCm` / `quantityUnit` / `durationSeconds`.
-- Menú **⋯**: favorito, nota, eliminar entrenamiento (sin guardar).
+- Menú **⋯**: favorito, nota y **Cancelar entreno** (descarta sin guardar).
 - Sesión en curso: swipe rojo (solo icono) para descartar.
 - Borrar un entreno guardado también lo elimina de Apple Salud.
 - Confirmaciones: `OGConfirmSheet` (liquid glass).
