@@ -465,6 +465,8 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
     public var targetWeightKg: Double?
     /// Porcentaje de 1RM prescrito; nunca convertirlo en kg sin un 1RM real.
     public var targetPercent1RM: Double?
+    /// 'Más del X%' no es lo mismo que 'X%' exacto.
+    public var targetPercent1RMIsMinimum: Bool
     /// Objetivo de RIR para esta serie (nil = sin definir).
     public var targetRir: Double?
 
@@ -473,17 +475,19 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
         targetReps: Int,
         targetWeightKg: Double? = nil,
         targetRir: Double? = nil,
-        targetPercent1RM: Double? = nil
+        targetPercent1RM: Double? = nil,
+        targetPercent1RMIsMinimum: Bool = false
     ) {
         self.id = id
         self.targetReps = targetReps
         self.targetWeightKg = targetWeightKg
         self.targetRir = targetRir
         self.targetPercent1RM = targetPercent1RM
+        self.targetPercent1RMIsMinimum = targetPercent1RMIsMinimum
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, targetReps, targetWeightKg, targetRir, targetPercent1RM
+        case id, targetReps, targetWeightKg, targetRir, targetPercent1RM, targetPercent1RMIsMinimum
     }
 
     public init(from decoder: Decoder) throws {
@@ -493,11 +497,12 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
         targetWeightKg = try c.decodeIfPresent(Double.self, forKey: .targetWeightKg)
         targetRir = try c.decodeIfPresent(Double.self, forKey: .targetRir)
         targetPercent1RM = try c.decodeIfPresent(Double.self, forKey: .targetPercent1RM)
+        targetPercent1RMIsMinimum = try c.decodeIfPresent(Bool.self, forKey: .targetPercent1RMIsMinimum) ?? false
     }
 
     /// Copia con nuevo `id` (para insertar en otra rutina).
     public func duplicatingContent() -> PlannedSet {
-        PlannedSet(targetReps: targetReps, targetWeightKg: targetWeightKg, targetRir: targetRir, targetPercent1RM: targetPercent1RM)
+        PlannedSet(targetReps: targetReps, targetWeightKg: targetWeightKg, targetRir: targetRir, targetPercent1RM: targetPercent1RM, targetPercent1RMIsMinimum: targetPercent1RMIsMinimum)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -507,6 +512,7 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
         try c.encodeIfPresent(targetWeightKg, forKey: .targetWeightKg)
         try c.encodeIfPresent(targetRir, forKey: .targetRir)
         try c.encodeIfPresent(targetPercent1RM, forKey: .targetPercent1RM)
+        if targetPercent1RMIsMinimum { try c.encode(true, forKey: .targetPercent1RMIsMinimum) }
     }
 }
 
@@ -515,17 +521,17 @@ extension [PlannedSet] {
     public var compactSummary: String {
         guard !isEmpty else { return "—" }
         if contains(where: { $0.targetPercent1RM != nil }) {
-            var groups: [(reps:Int,percent:Double?,count:Int)] = []
+            var groups: [(reps:Int,percent:Double?,isMinimum:Bool,count:Int)] = []
             for set in self {
-                if let last=groups.last,last.reps==set.targetReps,last.percent==set.targetPercent1RM {
+                if let last=groups.last,last.reps==set.targetReps,last.percent==set.targetPercent1RM,last.isMinimum==set.targetPercent1RMIsMinimum {
                     groups[groups.count-1].count += 1
                 } else {
-                    groups.append((set.targetReps,set.targetPercent1RM,1))
+                    groups.append((set.targetReps,set.targetPercent1RM,set.targetPercent1RMIsMinimum,1))
                 }
             }
             return groups.map { group in
                 let reps=group.count>1 ? "\(group.count)×\(group.reps)" : "\(group.reps)"
-                return reps + (group.percent.map { " @ \(String(format: "%g", $0))% 1RM" } ?? "")
+                return reps + (group.percent.map { " @ \(group.isMinimum ? ">" : "")\(String(format: "%g", $0))% 1RM" } ?? "")
             }.joined(separator: ", ")
         }
         // (reps, weightKg, count)
