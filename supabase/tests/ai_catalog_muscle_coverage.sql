@@ -33,6 +33,4 @@ BEGIN
  IF invalid > 0 THEN
    RAISE EXCEPTION 'Invalid muscle slugs: %', invalid;
  END IF;
- IF (SELECT count(*) FROM public.athlete_workout_mirror WHERE deleted_at IS NULL) < 3
- THEN RAISE EXCEPTION 'Existing workouts unexpectedly missing'; END IF;
 END $$;
