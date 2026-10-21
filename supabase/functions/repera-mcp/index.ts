@@ -91,6 +91,7 @@ const plannedSet = z.strictObject({
   reps: z.number().int().min(1).max(5000),
   weightKg: z.number().finite().min(0).max(1200).optional(),
   rir: z.number().finite().min(0).max(10).optional(),
+  percent1RM: z.number().finite().min(1).max(150).optional(),
 });
 const strengthEntry = z.strictObject({
   name: z.string().trim().min(2).max(120),
