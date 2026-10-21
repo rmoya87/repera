@@ -258,3 +258,8 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 - **Contexto deportivo**: sincronización del calendario de rutinas personales futuras/recurrentes (90 días), para que el asistente no proponga sesiones a ciegas. No sustituye la planificación del entrenador profesional si todavía no se ha sincronizado.
 - **MCP**: nuevas consultas de perfil, calendario, métricas semanales, catalogación y revisión de programas. Creación de un macrociclo hasta 52 semanas y sesiones detalladas en lotes de 14, con identificador opcional de programa e idempotencia.
 - El modelo de IA razona; Repera suministra métricas calculadas y limitaciones de calidad. No hay promesa de detección de lesiones ni recuperación fisiológica, ni adaptación autónoma en segundo plano sin el agente.
+
+
+### Catálogo completo de ejercicios para IA
+
+Supabase dispone de 189 fichas enriquecidas desde el catálogo nativo de Repera: 183 con músculos principales, seis de acondicionamiento con músculos secundarios y sin atribuirles ficticiamente series de fuerza. El MCP devuelve las regiones y la procedencia de los metadatos. No requiere actualizar la app para esta ampliación.
