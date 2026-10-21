@@ -58,7 +58,6 @@ private struct AIFunctionError: Decodable {
 /// the one-time sheet is dismissed.
 struct AIAccessView: View {
     @Environment(BusinessAuthStore.self) private var auth
-    @Environment(ReperaStore.self) private var store
     @State private var inbox = AITrainingInboxStore.shared
     @State private var tokens: [AIAccessTokenInfo] = []
     @State private var tokenName = ""
@@ -71,11 +70,7 @@ struct AIAccessView: View {
     var body: some View {
         Form {
             Section {
-                if !auth.isConnected {
-                    Label("Inicia sesión con Apple y conecta Repera a Supabase para crear accesos de IA.", systemImage: "lock.shield")
-                        .foregroundStyle(.secondary)
-                } else {
-                    TextField("Nombre del acceso (ej. Mi entrenador IA)", text: $tokenName)
+                TextField("Nombre del acceso (ej. Mi entrenador IA)", text: $tokenName)
                         .textInputAutocapitalization(.sentences)
                         .autocorrectionDisabled()
                     Picker("Caducidad", selection: $expiry) {
@@ -95,12 +90,9 @@ struct AIAccessView: View {
                     } label: {
                         Label(isBusy ? "Creando acceso…" : "Crear token", systemImage: "plus.circle.fill")
                     }
-                    .disabled(isBusy || tokenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
+                    .disabled(isBusy || !auth.isConnected || tokenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             } header: {
                 Text("Nuevo acceso IA")
-            } footer: {
-                Text("El token se genera en el servidor y se muestra solo una vez. Repera almacena únicamente su huella SHA-256, nunca el token original. Se transmite por HTTPS y puedes revocarlo cuando quieras.")
             }
 
             Section {
@@ -137,31 +129,20 @@ struct AIAccessView: View {
                 }
             } header: {
                 Text("Mis tokens")
-            } footer: {
-                Text("Un token concede acceso a tu historial deportivo y permite crear propuestas de entrenamientos. No da acceso a Apple Salud ni a tus rutas GPS.")
             }
 
-            Section {
-                Button {
-                    Task {
-                        _ = await inbox.sync(store: store)
-                        await refreshTokens()
+            if inbox.pendingCount > 0 || !inbox.conflicts.isEmpty {
+                Section {
+                    if inbox.pendingCount > 0 {
+                        Label("\(inbox.pendingCount) entrenamientos pendientes", systemImage: "clock")
+                            .foregroundStyle(.secondary)
                     }
-                } label: {
-                    Label("Actualizar entrenamientos de IA", systemImage: "arrow.triangle.2.circlepath")
+                    ForEach(inbox.conflicts, id: \.self) { issue in
+                        Text(issue).font(.footnote).foregroundStyle(.orange)
+                    }
+                } header: {
+                    Text("Entrenamientos enviados por la IA")
                 }
-                .disabled(inbox.isSyncing || !auth.isConnected)
-                if inbox.pendingCount > 0 {
-                    Text("\(inbox.pendingCount) entrenamientos pendientes de incorporación.")
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(inbox.conflicts, id: \.self) { issue in
-                    Text(issue).font(.footnote).foregroundStyle(.orange)
-                }
-            } header: {
-                Text("Entrenamientos enviados por la IA")
-            } footer: {
-                Text("Se incorporan automáticamente a Diario e Inicio al sincronizar. Si ya tienes un entrenamiento para una fecha, no se sobrescribe y queda pendiente.")
             }
 
             if let errorMessage {
@@ -224,7 +205,18 @@ struct AIAccessView: View {
                 }
             }
         }
-        .task { await refreshTokens() }
+        .task {
+            // Apple login happens during the regular Repera launch, not here.
+            // Recover a previously linked Supabase session if needed.
+            if !auth.isConnected, auth.hasCachedSupabaseSession {
+                await auth.restoreSession()
+            }
+            await refreshTokens()
+        }
+        .onChange(of: auth.isConnected) { _, connected in
+            if connected { Task { await refreshTokens() } }
+            else { tokens = [] }
+        }
     }
 
     @MainActor

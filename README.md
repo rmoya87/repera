@@ -129,3 +129,8 @@ python3 -m unittest discover -s tests -p 'test_sync_versions.py'
 ## Licencia
 
 Reimplementación Swift propia. openGym es AGPL — no se incorpora su código al binario.
+
+
+## Acceso IA y recepción automática
+
+Ajustes → Acceso IA crea/revoca tokens personales con la sesión Supabase del inicio normal de Repera, sin presentar otro inicio de sesión de Apple. Los entrenamientos que un asistente envía mediante el MCP aparecen en Inicio/Diario automáticamente mientras la app está abierta y se avisan con una tarjeta breve, gracias a la suscripción Realtime protegida por RLS del usuario. El botón «Sincronizar ahora» de Cuenta también recupera planes pendientes; si iOS suspende/cierra la app, se incorporan al volver al primer plano. **No hay notificaciones push cuando la app está cerrada**. Detalles y checklist en [docs/MCP_PLAN.md](docs/MCP_PLAN.md).
