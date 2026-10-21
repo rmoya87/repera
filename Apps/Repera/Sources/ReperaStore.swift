@@ -680,15 +680,10 @@ final class ReperaStore: NSObject {
             // Si aún no se pidió permiso, el modal del sistema sale aquí (Play / empezar).
             guard await tracker.ensureWhenInUseAuthorized() else { return }
             if let pin = await tracker.capturePin() {
-                if var active = state.activeSession, active.id == sessionID {
-                    // Si el usuario eligió un lugar de Mapas mientras el GPS
-                    // respondía, no sustituir ese punto elegido manualmente.
-                    guard active.locationPin?.mapItemIdentifier == nil,
-                          active.locationPin?.name == nil
-                    else {
-                        if trackRoute { tracker.startRouteTracking(sessionID: sessionID) }
-                        return
-                    }
+                if var active = state.activeSession, active.id == sessionID,
+                   active.locationPin == nil {
+                    // Respetar cualquier pin elegido por el usuario, incluso
+                    // uno sin nombre ni identificador de MapKit.
                     active.locationPin = pin
                     state.activeSession = active
                     persist()
