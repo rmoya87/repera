@@ -3,6 +3,7 @@ import { createMcpHandler, McpServer } from "npm:@modelcontextprotocol/server@2.
 import { createClient } from "npm:@supabase/supabase-js@2.58.0";
 import { z } from "npm:zod@4.3.6";
 import { registerCoachTools } from "./coach.ts";
+import { registerMutationTools } from "./mutations.ts";
 
 // Personal access token (PAT) MCP. PAT is an opaque bearer credential,
 // not an OAuth authorization code or a JWT. Always use TLS.
@@ -154,6 +155,24 @@ const workout = z.strictObject({
 });
 const inputDays = z.number().int().min(1).max(365).default(90);
 const inputLimit = z.number().int().min(1).max(100).default(30);
+const pagedInput = z.strictObject({
+  days: inputDays, limit: inputLimit,
+  cursor: z.string().max(64).optional(),
+});
+function readOffset(cursor?:string):number {
+  if(!cursor) return 0;
+  try {
+    const value=atob(cursor.replace(/-/g,"+").replace(/_/g,"/"));
+    if(!/^\\d+$/.test(value))throw Error("bad cursor");
+    const offset=Number(value);
+    if(!Number.isSafeInteger(offset)||offset<0||offset>100000)
+      throw Error("bad cursor");
+    return offset;
+  } catch { throw Error("INVALID_CURSOR: cursor no válido"); }
+}
+function nextCursor(offset:number):string {
+  return btoa(String(offset)).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"");
+}
 
 Deno.serve(async (request) => {
   const match = /^Bearer (rep_ai_[A-Za-z0-9_-]{43})$/.exec(request.headers.get("authorization") ?? "");
@@ -252,14 +271,28 @@ Deno.serve(async (request) => {
   const handler = createMcpHandler(() => {
     const server = new McpServer({ name: "repera-training", version: "0.3.0" });
     registerCoachTools(server, db, ownerId, token.id);
+    registerMutationTools(server, db, ownerId, workout);
     server.registerTool("get_workout_history", {
       description: "History of completed Repera exercises, logged sets and WOD results; no HealthKit, routes, GPS, energy, body weight or notes.",
-      inputSchema: z.strictObject({ days: inputDays, limit: inputLimit }),
+      inputSchema: pagedInput,
       annotations: { readOnlyHint: true },
-    }, async ({ days, limit }) => reply((await workouts(days, limit)).map(row => ({
-      id: row.id, title: row.title, started_at: row.started_at, finished_at: row.finished_at,
-      exercises: (row.exercises ?? []).map(projectExercise), wod_results: row.wod_results ?? [],
-    }))));
+    }, async ({ days, limit, cursor }) => {
+      const offset=readOffset(cursor);
+      const after=new Date(Date.now()-days*86400000).toISOString();
+      const {data,error}=await db.from("athlete_workouts")
+        .select("id,title,started_at,finished_at,exercises,wod_results")
+        .eq("owner_id",ownerId).gte("finished_at",after)
+        .order("finished_at",{ascending:false}).order("id",{ascending:true})
+        .range(offset,offset+limit);
+      if(error)throw Error("No se pudo consultar historial");
+      const page=(data??[]) as WorkoutRow[];
+      const hasMore=page.length>limit;
+      return reply({items:page.slice(0,limit).map(row=>({
+        id:row.id,title:row.title,started_at:row.started_at,finished_at:row.finished_at,
+        exercises:(row.exercises??[]).map(projectExercise),wod_results:row.wod_results??[],
+      })),hasMore,nextCursor:hasMore?nextCursor(offset+limit):null,
+      order:"finished_at DESC,id ASC",days});
+    });
     server.registerTool("analyze_muscle_balance", {
       description: "Estimate muscle-region weighted set volume from the user's logged workouts, not measured fatigue.",
       inputSchema: z.strictObject({ days: z.number().int().min(7).max(90).default(28) }),
@@ -282,7 +315,7 @@ Deno.serve(async (request) => {
     });
     server.registerTool("search_training_exercises", {
       description: "Search named movements in the Repera professional catalog. Do not invent unprovided anatomical metadata.",
-      inputSchema: z.strictObject({ query: z.string().trim().min(2).max(80), limit: inputLimit }),
+      inputSchema: z.strictObject({ query: z.string().trim().min(2).max(100), limit: z.number().int().min(1).max(50).default(20) }),
       annotations: { readOnlyHint: true },
     }, async ({ query, limit }) => {
       const pattern = query.replace(/[%_\\]/g, " ").trim();
@@ -293,14 +326,17 @@ Deno.serve(async (request) => {
     });
     server.registerTool("get_ai_training_plans", {
       description: "List future plans submitted to this user's Repera calendar and their sync status.",
-      inputSchema: z.strictObject({ limit: inputLimit }),
+      inputSchema: z.strictObject({limit:inputLimit,cursor:z.string().max(64).optional()}),
       annotations: { readOnlyHint: true },
-    }, async ({ limit }) => {
+    }, async ({ limit, cursor }) => {
+      const offset=readOffset(cursor);
       const { data, error } = await db.from("ai_training_plans")
-        .select("id,batch_id,title,scheduled_date,scheduled_time_minutes,payload,status,created_at")
-        .eq("owner_id", ownerId).order("scheduled_date", { ascending: true }).limit(limit);
+        .select("id,batch_id,title,scheduled_date,scheduled_time_minutes,payload,status,revision,created_at")
+        .eq("owner_id", ownerId).order("scheduled_date", { ascending: true }).order("id",{ascending:true})
+        .range(offset,offset+limit);
       if (error) throw new Error("Error al obtener planificaciones");
-      return reply(data ?? []);
+      const rows=data??[],hasMore=rows.length>limit;
+      return reply({items:rows.slice(0,limit),hasMore,nextCursor:hasMore?nextCursor(offset+limit):null});
     });
     server.registerTool("create_workout", {
       description: "Create one fully structured workout with typed strength/WOD blocks, sets, RIR, weights and schedule date. Repera imports it to Diario/Inicio, without overwriting existing day plans. Explicit user-requested write.",
