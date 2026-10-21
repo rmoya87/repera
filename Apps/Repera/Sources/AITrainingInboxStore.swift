@@ -22,6 +22,7 @@ final class AITrainingInboxStore {
     // Observation ignores networking internals while tracking visible state.
     @ObservationIgnored private var realtimeTask: Task<Void, Never>?
     @ObservationIgnored private var subscribedUserID: UUID?
+    @ObservationIgnored private var realtimeGeneration = UUID()
     @ObservationIgnored private var retrySyncAfterCurrent = false
 
     private init() {}
@@ -43,6 +44,8 @@ final class AITrainingInboxStore {
         if realtimeTask != nil && subscribedUserID == userID { return }
         stopRealtime()
         subscribedUserID = userID
+        let connectionID = UUID()
+        realtimeGeneration = connectionID
         realtimeTask = Task { [weak self, weak store] in
             guard let self, let store else { return }
             // Random topic prevents a channel from a recently cancelled task
@@ -56,12 +59,14 @@ final class AITrainingInboxStore {
             )
             do {
                 try await channel.subscribeWithError()
-                if !Task.isCancelled, self.subscribedUserID == userID,
+                if !Task.isCancelled, self.realtimeGeneration == connectionID,
+                   self.subscribedUserID == userID,
                    BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id == userID {
                     _ = await self.sync(store: store)
                 }
                 for await _ in changes {
                     guard !Task.isCancelled,
+                          self.realtimeGeneration == connectionID,
                           self.subscribedUserID == userID,
                           BusinessAuthStore.shared.isConnected,
                           BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id == userID
@@ -69,12 +74,12 @@ final class AITrainingInboxStore {
                     _ = await self.sync(store: store)
                 }
             } catch {
-                if !Task.isCancelled, self.subscribedUserID == userID {
+                if !Task.isCancelled, self.realtimeGeneration == connectionID {
                     self.lastError = "Recepción inmediata no disponible. Los planes se recuperarán al abrir Repera o al sincronizar."
                 }
             }
             await client.realtimeV2.removeChannel(channel)
-            if self.subscribedUserID == userID {
+            if self.realtimeGeneration == connectionID {
                 self.realtimeTask = nil
             }
         }
@@ -85,6 +90,7 @@ final class AITrainingInboxStore {
         realtimeTask?.cancel()
         realtimeTask = nil
         subscribedUserID = nil
+        realtimeGeneration = UUID()
     }
 
     func clearSession() {
