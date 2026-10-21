@@ -4,45 +4,27 @@ import SwiftUI
 struct FindCenterTrainerView: View {
     @Environment(BusinessAuthStore.self) private var businessAuth
     @Environment(BusinessDataStore.self) private var businessData
-    @Environment(AppleAuthStore.self) private var appleAuth
-    @Environment(ReperaStore.self) private var store
     @State private var query = ""
     @State private var selectedOrg: BusinessOrganization?
     @State private var passKind = "class"
     @State private var note = ""
-    @State private var appleConnectionError: String?
 
     var body: some View {
         List {
             if !businessAuth.isConnected {
                 Section {
-                    Text("Inicia sesión con Apple para buscar centros y entrenadores.")
+                    Label("No se han podido cargar los centros.", systemImage: "wifi.exclamationmark")
                         .foregroundStyle(OG.label2)
-                    Button {
-                        Task {
-                            do {
-                                try await appleAuth.signIn()
-                                await businessAuth.syncPublicProfile(
-                                    displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName,
-                                    avatarJPEG: store.state.settings.profileAvatarJPEG
-                                )
-                                await businessData.refresh()
-                                await businessData.searchDirectory(query: query)
-                            } catch {
-                                appleConnectionError = error.localizedDescription
-                            }
-                        }
-                    } label: {
-                        Label("Conectar con Apple", systemImage: "apple.logo")
-                            .foregroundStyle(OG.label)
+                    if let error = businessAuth.lastErrorMessage {
+                        Text(error)
+                            .font(.footnote)
+                            .foregroundStyle(OG.label2)
                     }
-                    .disabled(appleAuth.isSigningIn || businessAuth.isConnecting)
-                    if let appleConnectionError {
-                        Text(appleConnectionError).font(.footnote).foregroundStyle(OG.red)
+                    Button("Reintentar") {
+                        Task { await restoreAndLoadDirectory() }
                     }
-                    if let err = businessAuth.lastErrorMessage {
-                        Text(err).font(.footnote).foregroundStyle(OG.red)
-                    }
+                    .fontWeight(.semibold)
+                    .foregroundStyle(OG.accent)
                 }
             }
 
@@ -87,7 +69,10 @@ struct FindCenterTrainerView: View {
             }
 
             Section {
-                if businessData.isSearchingDirectory {
+                if !businessAuth.isConnected {
+                    Text("La búsqueda estará disponible al recuperar la conexión.")
+                        .foregroundStyle(OG.label2)
+                } else if businessData.isSearchingDirectory {
                     ProgressView()
                 } else if businessData.directory.isEmpty {
                     Text("No hay resultados. Prueba otro nombre o pide invitación a tu centro.")
@@ -108,8 +93,6 @@ struct FindCenterTrainerView: View {
                 }
             } header: {
                 Text("Resultados")
-            } footer: {
-                Text("Al vincularte eliges el bono y la app pasa a acceso completo mientras mantengas el vínculo. Puedes desvincularte cuando quieras.")
             }
 
             if let err = businessData.errorMessage {
@@ -128,21 +111,19 @@ struct FindCenterTrainerView: View {
         .textInputAutocapitalization(.never)
         .autocorrectionDisabled()
         .onSubmit(of: .search) {
+            guard businessAuth.isConnected else { return }
             Task { await businessData.searchDirectory(query: query) }
         }
         .onChange(of: query) { _, value in
             Task {
                 try? await Task.sleep(for: .milliseconds(350))
-                guard query == value else { return }
+                guard query == value, businessAuth.isConnected else { return }
                 await businessData.searchDirectory(query: value)
             }
         }
         .ogPinnedTransparentNav("Buscar centro o entrenador")
         .task {
-            if businessAuth.isConnected {
-                await businessData.refresh()
-                await businessData.searchDirectory(query: query)
-            }
+            await restoreAndLoadDirectory()
         }
         .sheet(item: $selectedOrg) { org in
             LinkPassSheet(
@@ -164,6 +145,19 @@ struct FindCenterTrainerView: View {
             }
             .ogSheetChrome(detents: [.medium, .large])
         }
+    }
+
+    /// Recupera la sesión Supabase creada durante el login Apple, sin otra autorización.
+    private func restoreAndLoadDirectory() async {
+        if !businessAuth.isConnected {
+            await businessAuth.restoreSession()
+            if !businessAuth.isConnected {
+                _ = businessAuth.connectFromCachedSessionIfPossible()
+            }
+        }
+        guard businessAuth.isConnected else { return }
+        await businessData.refresh()
+        await businessData.searchDirectory(query: query)
     }
 }
 
@@ -326,7 +320,7 @@ private struct LinkPassSheet: View {
                 } header: {
                     Text("Qué quieres contratar")
                 } footer: {
-                    Text("El centro confirmará el bono. Mientras estés vinculado, la app tendrá acceso completo.")
+                    Text("El centro confirmará el bono solicitado.")
                 }
 
                 Section {
