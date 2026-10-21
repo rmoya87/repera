@@ -8,6 +8,7 @@ struct OGRoutineBlockCard: View {
     var block: RoutineBlock
     /// Si true, muestra chevron (navegación / edición).
     var showsChevron: Bool = false
+    var opensExerciseDetail: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -30,7 +31,7 @@ struct OGRoutineBlockCard: View {
 
             if block.kind == .strength {
                 ForEach(block.exercises) { item in
-                    exerciseRow(
+                    linkedExerciseRow(
                         resolvedStrengthExercise(item),
                         detail: item.plannedSets.compactSummary
                     )
@@ -49,7 +50,7 @@ struct OGRoutineBlockCard: View {
                         .foregroundStyle(OG.label3)
                         .padding(.leading, 56)
                     } else {
-                        exerciseRow(resolvedWODExercise(move), detail: moveDetail(move))
+                        linkedExerciseRow(resolvedWODExercise(move), detail: moveDetail(move))
                     }
                 }
             }
@@ -64,6 +65,22 @@ struct OGRoutineBlockCard: View {
             return block.title.isEmpty ? "Fuerza" : block.title
         }
         return block.headerLabel
+    }
+
+    @ViewBuilder
+    private func linkedExerciseRow(_ exercise: Exercise, detail: String) -> some View {
+        if opensExerciseDetail,
+           let catalog = store.resolvedCatalogExercise(id: exercise.id) {
+            NavigationLink {
+                ExerciseDetailView(exerciseId: catalog.id)
+            } label: {
+                exerciseRow(exercise, detail: detail)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Abrir ficha del ejercicio")
+        } else {
+            exerciseRow(exercise, detail: detail)
+        }
     }
 
     private func exerciseRow(_ exercise: Exercise, detail: String) -> some View {
@@ -149,6 +166,7 @@ struct OGRoutineBlocksList: View {
     var blocks: [RoutineBlock]
     var showsChevron: Bool = false
     var onSelectBlock: ((RoutineBlock) -> Void)? = nil
+    var opensExerciseDetail: Bool = false
 
     var body: some View {
         ForEach(blocks) { block in
@@ -157,11 +175,11 @@ struct OGRoutineBlocksList: View {
                     Button {
                         onSelectBlock(block)
                     } label: {
-                        OGRoutineBlockCard(block: block, showsChevron: showsChevron)
+                        OGRoutineBlockCard(block: block, showsChevron: showsChevron, opensExerciseDetail: opensExerciseDetail)
                     }
                     .buttonStyle(.plain)
                 } else {
-                    OGRoutineBlockCard(block: block, showsChevron: showsChevron)
+                    OGRoutineBlockCard(block: block, showsChevron: showsChevron, opensExerciseDetail: opensExerciseDetail)
                 }
             }
             .ogCardListRow(top: 0, bottom: 8)
