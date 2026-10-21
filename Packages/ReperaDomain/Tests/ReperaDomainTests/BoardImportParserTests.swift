@@ -11,7 +11,7 @@ struct BoardImportParserTests {
         20/16 CAL*
         400M RUN
         """
-        let blocks = BoardImportParser.parseRoutineBlocks(
+        let blocks = BoardImportParser.parseBlocks(
             ocrText: board,
             catalog: Catalog.seed()
         )
