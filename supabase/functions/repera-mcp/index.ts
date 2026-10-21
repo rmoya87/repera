@@ -167,7 +167,7 @@ Deno.serve(
         });
 
         server.registerTool("analyze_muscle_balance", {
-          description: "Calculate weighted hard-working-set distribution for 18 muscle regions from recorded workouts. This is not a diagnosis of muscle fatigue.",
+          description: "Calculate weighted recorded working-set distribution for 18 muscle regions from recorded workouts. This is not a diagnosis of muscle fatigue.",
           inputSchema: z.object({
             days: z.number().int().min(7).max(90).default(28),
           }),
