@@ -6,6 +6,16 @@ enum CatalogCrossFit {
     private static let sport = "CrossFit"
 
     static let rows: [EnrichedSeed] = [
+        cf("Step-up al cajón con kettlebell goblet", equipment: "Kettlebell", target: "quads",
+           secondary: ["glutes", "core", "hamstrings"], body: "upper legs",
+           description: "Goblet alternating box step-up con kettlebell a la altura del pecho.",
+           instructions: ["Sujeta una kettlebell en goblet.", "Sube al cajón controlando rodilla y cadera.", "Alterna la pierna de apoyo y baja con control."],
+           primaries: ["quadriceps", "gluteal"], secondaries: ["hamstring", "abs"]),
+        cf("Carrera", equipment: "Peso corporal", target: "cardiovascular system",
+           secondary: ["quadriceps", "calves", "glutes"], body: "cardio",
+           description: "Carrera por distancia o tiempo, incluyendo los tramos de metcon.",
+           instructions: ["Mantén el recorrido y la distancia del WOD.", "Registra metros o tiempo, no repeticiones ficticias."],
+           primaries: [], secondaries: ["quadriceps", "calves", "gluteal"]),
         // MARK: Barra / híbridos WOD
         cf("Thruster", equipment: "Barra", target: "quads",
            secondary: ["shoulders", "triceps", "glutes", "core"], body: "full body",
