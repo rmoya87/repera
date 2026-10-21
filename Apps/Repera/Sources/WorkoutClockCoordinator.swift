@@ -25,6 +25,7 @@ final class WorkoutClockCoordinator {
     private(set) var pendingElapsedSeconds: Int = 0
     /// Cap original en countdown (para AMRAP al completar).
     private var configuredCapSeconds: Int = 0
+    private var countUpCapSeconds: Int?
 
     private(set) var intervalIndex = 0
     private(set) var totalIntervals = 0
@@ -97,6 +98,7 @@ final class WorkoutClockCoordinator {
         initialCountdown: Int,
         tabataWork: Int? = nil,
         tabataRest: Int? = nil,
+        timeCapSeconds: Int? = nil,
         sound: Bool,
         haptic: Bool
     ) {
@@ -117,7 +119,18 @@ final class WorkoutClockCoordinator {
         self.hapticEnabled = haptic
         self.hasStarted = false
         self.isRunning = false
-        self.configuredCapSeconds = countingUp ? 0 : max(0, initialCountdown)
+        countUpCapSeconds = countingUp ? timeCapSeconds.flatMap { $0 > 0 ? $0 : nil } : nil
+        if countingUp {
+            configuredCapSeconds = countUpCapSeconds ?? 0
+        } else if intervalMode {
+            if let work = tabataWork, let rest = tabataRest {
+                configuredCapSeconds = (work + rest) * max(1, totalIntervals / 2)
+            } else {
+                configuredCapSeconds = max(1, intervalLength) * max(1, totalIntervals)
+            }
+        } else {
+            configuredCapSeconds = max(0, initialCountdown)
+        }
         if countingUp {
             pausedCountUpElapsed = 0
             countUpAnchor = nil
@@ -183,7 +196,12 @@ final class WorkoutClockCoordinator {
             }
             return
         }
-        if isCountingUp { return }
+        if isCountingUp {
+            if let cap = countUpCapSeconds, displaySeconds(at: now) >= cap {
+                finishComplete()
+            }
+            return
+        }
         guard let end = phaseEndDate else { return }
         if now < end { return }
 
@@ -266,6 +284,7 @@ final class WorkoutClockCoordinator {
             isIntervalMode = false
             isTabata = false
             configuredCapSeconds = 0
+            countUpCapSeconds = nil
             exercise = nil
             title = ""
             subtitle = ""
@@ -323,14 +342,12 @@ final class WorkoutClockCoordinator {
         isRunning = false
         phaseEndDate = nil
         pausedRemaining = 0
-        if !isIntervalMode, !isCountingUp {
-            pendingElapsedSeconds = max(configuredCapSeconds, intervalLength)
-            pendingEndReason = .countdownFinished
-        }
+        // También EMOM y Tabata deben emitir fin y cerrar el reloj;
+        // las series no se inventan: las completa el modelo de sesión.
+        pendingElapsedSeconds = configuredCapSeconds
+        pendingEndReason = .countdownFinished
         RestFeedback.restComplete(sound: soundEnabled, haptic: hapticEnabled)
-        if pendingEndReason != nil {
-            isVisible = false
-        }
+        isVisible = false
     }
 
     private func scheduleFeedback() {

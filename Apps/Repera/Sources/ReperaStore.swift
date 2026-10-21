@@ -1126,6 +1126,11 @@ final class ReperaStore: NSObject {
         mutateActive { _ = $0.finishCurrentExercise() }
     }
 
+    /// El tiempo concluyó: marcar el bloque realizado sin fabricar pesos/repeticiones.
+    func finishCurrentTimedBlock() {
+        mutateActive { _ = $0.finishCurrentBlock() }
+    }
+
     func selectExercise(at index: Int) {
         mutateActive { $0.selectExercise(at: index) }
     }

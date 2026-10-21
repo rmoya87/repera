@@ -118,7 +118,9 @@
 - En el detalle de entreno, el tile de calorías se omite cuando Salud no aporta una medición auténtica.
 - **Apuntar series**: UI plana; **Terminar** = círculo verde + check blanco (mismo estilo topbar).
 - Series planificadas / logueadas, superseries, WOD clocks.
-- **Play WOD por modalidad**: AMRAP → countdown al cap → confirmar **rondas + reps**; For Time / chipper / AFAP → cronómetro count-up → **Terminar** → confirmar tiempo; EMOM/Tabata → intervalos (series por movimiento).
+- **Play WOD por modalidad**: AMRAP → countdown al cap → confirmar **rondas + reps**; For Time / chipper / AFAP → cronómetro count-up con límite si existe → **Terminar** → confirmar tiempo; EMOM/Tabata → intervalos configurados que terminan automáticamente al agotar el último. Los temporizadores se inician con la acción Comenzar (con cuenta previa).
+- En la sesión se puede activar **Temporizador automático** o registrar las series **manualmente**. Al concluir un intervalo cronometrado se marca el bloque completado sin inventar pesos, series ni repeticiones; los ejercicios siguientes permanecen pendientes.
+- Los controles de peso/tiempo y repeticiones se disponen en una fila ancha separada de las acciones de RIR y completar serie.
 - **Apuntar resultado** (`LogFinalResultsView`): misma captura (rondas+reps / tiempo / series) según `WODFormat.resultCapture`. Scores en `WODBlockResult` / `WorkoutSession.wodResults`. En series por movimiento: **cabeceras de columna** (Veces/Tiempo, Lastre/Reps, Déficit/Reps, Tiempo/Cal…) encima de los steppers; comba reparte **Veces | Tiempo** a ancho igual.
 - AMRAP: primero **Rondas** (completas), luego **Reps** (ronda incompleta), p. ej. 12 + 5. `OGRepeatStepper` editable a mano.
 - Estilo de apunte por ejercicio (`ExerciseLoggingStyle`): comba → **veces + tiempo** (p. ej. 50 dobles en 1:00); Air bike / Echo / SkiErg / remoerg / cinta → **tiempo + Cal o m**; dominadas/muscle-up → **lastre kg** (0 = sin lastre) + reps; HSPU → **déficit cm** + reps; resto PC → solo reps; barra/DB/KB → kg + reps. `LoggedSet.deficitCm` / `quantityUnit` / `durationSeconds`.

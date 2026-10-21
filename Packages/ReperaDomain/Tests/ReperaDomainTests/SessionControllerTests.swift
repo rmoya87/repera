@@ -2,6 +2,44 @@ import XCTest
 @testable import ReperaDomain
 
 final class SessionControllerTests: XCTestCase {
+    func testTimedBlockFinishesAllItsMovementsWithoutCreatingSets() {
+        var emom = RoutineBlock.wod(format: .emom, title: "EMOM")
+        emom.movements = [WODMovement(name: "Push-up", reps: 10), WODMovement(name: "Squat", reps: 10)]
+        var next = RoutineBlock.wod(format: .emom, title: "EMOM 2")
+        next.movements = [WODMovement(name: "Burpee", reps: 10)]
+        let routine = Routine(title: "Test", blocks: [emom, next])
+        var controller = SessionController(
+            session: SessionController.from(routine: routine, exercises: [])
+        )
+        controller.startOnPhone()
+        XCTAssertEqual(controller.session.exercises.count, 3)
+
+        let hasNext = controller.finishCurrentBlock()
+        XCTAssertTrue(hasNext)
+        XCTAssertEqual(controller.session.currentIndex, 2)
+        XCTAssertEqual(controller.session.phase, .ready)
+        XCTAssertTrue(controller.session.exercises[0].isCompleted)
+        XCTAssertTrue(controller.session.exercises[1].isCompleted)
+        XCTAssertFalse(controller.session.exercises[2].isCompleted)
+        XCTAssertTrue(controller.session.exercises.allSatisfy { $0.loggedSets.isEmpty })
+    }
+
+    func testFinalTimedBlockFinishesWorkout() {
+        var emom = RoutineBlock.wod(format: .emom, title: "EMOM")
+        emom.movements = [WODMovement(name: "Burpee", reps: 10)]
+        let routine = Routine(title: "Test", blocks: [emom])
+        var controller = SessionController(
+            session: SessionController.from(routine: routine, exercises: [])
+        )
+        controller.startOnPhone()
+        let hasNext = controller.finishCurrentBlock()
+        XCTAssertFalse(hasNext)
+        XCTAssertEqual(controller.session.phase, .finished)
+        XCTAssertNotNil(controller.session.finishedAt)
+        XCTAssertTrue(controller.session.exercises[0].isCompleted)
+        XCTAssertTrue(controller.session.exercises[0].loggedSets.isEmpty)
+    }
+
     func testConfirmAndFinishAdvances() {
         var controller = SessionController(session: SessionController.demoPushPull())
         controller.startOnPhone()

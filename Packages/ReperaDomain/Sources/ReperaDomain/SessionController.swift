@@ -106,6 +106,32 @@ public struct SessionController: Sendable {
         }
     }
 
+    /// Al agotar un EMOM/Tabata/cap se termina el bloque de movimientos,
+    /// pero no se registran series ficticias ni pesos que el atleta no confirmó.
+    @discardableResult
+    public mutating func finishCurrentBlock() -> Bool {
+        guard session.phase == .counting || session.phase == .ready,
+              session.exercises.indices.contains(session.currentIndex) else { return false }
+
+        let start = session.currentIndex
+        let blockID = session.exercises[start].blockId
+        var end = start
+        repeat {
+            session.exercises[end].isCompleted = true
+            end += 1
+        } while end < session.exercises.count &&
+            blockID != nil &&
+            session.exercises[end].blockId == blockID
+
+        if end < session.exercises.count {
+            session.currentIndex = end
+            session.phase = .ready
+            return true
+        }
+        finishWorkout()
+        return false
+    }
+
     public mutating func finishWorkout() {
         for i in session.exercises.indices {
             if !session.exercises[i].loggedSets.isEmpty {
