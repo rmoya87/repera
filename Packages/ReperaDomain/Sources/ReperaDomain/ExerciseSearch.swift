@@ -299,6 +299,17 @@ public enum ExerciseSearch {
         add("Clean kettlebell", "kb clean")
         add("Muscle-up barra", "bar muscle up")
         add("Muscle-up anillas", "ring muscle up")
+        // En la búsqueda mostramos las dos lecturas de siglas ambiguas:
+        // la pizarra sin contexto no asignará MU/SU/PU/BP automáticamente.
+        add("Muscle-up barra", "mu")
+        add("Muscle-up anillas", "mu")
+        add("Simples de comba", "su")
+        add("Sit-up", "su")
+        add("Dominadas", "pu")
+        add("Flexiones", "pu")
+        add("Push-up", "pu")
+        add("Press banca", "bp")
+        add("Burpee", "bp")
         add("Arrancada colgante", "hang snatch")
         add("Cargada de potencia", "power clean")
         add("Cargada colgante", "hang clean")
