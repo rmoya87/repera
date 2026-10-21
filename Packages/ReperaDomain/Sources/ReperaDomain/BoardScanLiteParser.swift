@@ -29,10 +29,22 @@ public enum BoardScanLiteParser {
                 block.emomIntervalSeconds = cur.interval ?? 60
             }
             block.movements = cur.body.map { movement(from: $0) }
-            // Preservar alternativas (BMU/C2B/Pull-up; DU/SU), cargas por sexo
-            // y anotaciones del asterisco en el texto original del bloque.
-            if cur.format == .forTime, let rest = block.movements.first(where: { $0.isRest }) {
-                block.restBetweenRoundsSeconds = rest.restSeconds
+            // 'REST BTWN' describe el descanso *entre* pasadas, no un ejercicio
+            // extra al final de la última. Se preserva la anotación original.
+            if cur.format == .forTime {
+                for (position, line) in cur.body.enumerated().reversed() {
+                    if line.uppercased().contains("BTWN") || line.uppercased().contains("BETWEEN") {
+                        if block.movements.indices.contains(position),
+                           block.movements[position].isRest {
+                            block.restBetweenRoundsSeconds = block.movements[position].restSeconds
+                            block.movements.remove(at: position)
+                        }
+                    }
+                }
+                if block.restBetweenRoundsSeconds == nil,
+                   let rest = block.movements.first(where: { $0.isRest }) {
+                    block.restBetweenRoundsSeconds = rest.restSeconds
+                }
             }
             block.wodNotes = ([cur.header] + cur.body).joined(separator: "\n")
             block.deriveEmomRoundsIfNeeded()
@@ -253,6 +265,16 @@ public enum BoardScanLiteParser {
             notes.append("RPE " + String(working[rpe]).replacingOccurrences(of: "@", with: "").trimmingCharacters(in: .whitespaces))
             working.removeSubrange(rpe)
         }
+        // Alternativas de escala "3 BMU / 6 C2B / 9 Pull-ups" o "40 DU / 80 SU".
+        // El slash con espacios NO representa carga H/M.
+        var scaleAlternative: String?
+        let alternatives = working.components(separatedBy: #" / "#)
+        if alternatives.count >= 2 {
+            working = alternatives[0].trimmingCharacters(in: .whitespaces)
+            scaleAlternative = alternatives.dropFirst()
+                .map { CrossFitGlossary.expand($0.trimmingCharacters(in: .whitespaces)) }
+                .joined(separator: " / ")
+        }
         let parsed = CrossFitGlossary.parseMovementLine(working)
         if parsed.isRest {
             return WODMovement(
@@ -269,6 +291,7 @@ public enum BoardScanLiteParser {
             calories: parsed.calories,
             weightMaleKg: parsed.weightMaleKg,
             weightFemaleKg: parsed.weightFemaleKg,
+            scaleAlternative: scaleAlternative,
             notes: (notes + [parsed.equipmentNote].compactMap { $0 }).isEmpty ? nil : (notes + [parsed.equipmentNote].compactMap { $0 }).joined(separator: " · ")
         )
     }
