@@ -20,8 +20,12 @@
 - [x] Migración aplicada en Supabase: `20261021161255_training_schema_cleanup_readonly_aliases`.
 - [x] Migración aplicada en Supabase: `20261021161538_mcp_training_explicit_consent_guards`.
 - [x] Test RLS negativo: OAuth client `unapproved-mcp-agent` obtiene **0** entrenamientos en `athlete_workouts`.
+- [x] Edge Function `repera-mcp` desplegada ACTIVE v2, inaccesible sin token OAuth y consentimiento explícito.
 - [x] Contrato MCP inicial: `get_workout_history`, `analyze_muscle_balance`, `get_exercise_progress`, `search_training_exercises`.
 - [x] Corregir «Sincronizar ahora»: no marcar éxito si falta sesión, sincronización iCloud o subida de entrenamientos. Mostrar recuentos y errores.
+- [x] Formularios de autorización web Apple/OAuth preparados en `web/oauth/consent/` (todavía no desplegados a IONOS).
+- [x] Pantalla de Ajustes para consultar y revocar permisos de asistentes; compilación nativa pendiente.
+- [x] Simulación SQL transaccional: usuario sin client_id ve 3 sesiones, OAuth con permiso temporal ve 3, cliente distinto ve 0; cambios de prueba revertidos.
 - [ ] Ejecutar suite iOS/Xcode/SwiftUI sobre la rama y E2E real con iPhone.
 - [ ] Pruebas reales del endpoint con un token válido y otro revocado, y del ciclo OAuth completo.
 
