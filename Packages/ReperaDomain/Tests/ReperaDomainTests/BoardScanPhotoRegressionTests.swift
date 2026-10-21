@@ -49,6 +49,7 @@ struct BoardScanPhotoRegressionTests {
         #expect(block.exercises.count == 1)
         #expect(block.exercises[0].plannedSets.map(\.targetReps) == [3,3,2,2,1,1,1,1])
         #expect(block.exercises[0].plannedSets.map(\.targetPercent1RM) == [70,70,75,75,80,80,80,80])
+        #expect(block.exercises[0].plannedSets.map(\.targetPercent1RMIsMinimum) == [false,false,false,false,true,true,true,true])
         #expect(block.wodNotes?.contains(">80%") == true)
     }
 
