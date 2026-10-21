@@ -22,16 +22,24 @@ private struct AIAccessTokenInfo: Decodable, Identifiable {
         case revokedAt = "revoked_at"
         case lastUsedAt = "last_used_at"
     }
+    // PostgreSQL timestamps may include fractional seconds. The default
+    // ISO8601DateFormatter rejects these without .withFractionalSeconds.
+    private static func parseTimestamp(_ raw: String) -> Date? {
+        let formatter = ISO8601DateFormatter()
+        if let date = formatter.date(from: raw) { return date }
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: raw)
+    }
+
     var isActive: Bool {
         guard revokedAt == nil else { return false }
-        guard let expiresAt, let date = ISO8601DateFormatter().date(from: expiresAt) else {
-            return expiresAt == nil
-        }
+        guard let expiresAt else { return true }
+        guard let date = Self.parseTimestamp(expiresAt) else { return false }
         return date > Date()
     }
     var expiryLabel: String {
         guard let expiresAt else { return "Sin caducidad" }
-        if let date = ISO8601DateFormatter().date(from: expiresAt) {
+        if let date = Self.parseTimestamp(expiresAt) {
             return "Caduca el \(date.formatted(date: .abbreviated, time: .omitted))"
         }
         return "Caducidad: \(expiresAt.prefix(10))"
