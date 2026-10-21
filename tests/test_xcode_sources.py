@@ -19,6 +19,8 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         (directory / "BusinessAuthStore.swift").write_text("// Supabase", encoding="utf-8")
         (directory / "BusinessDataStore.swift").write_text("// Business", encoding="utf-8")
         (directory / "BusinessWorkoutSyncStore.swift").write_text("// Workout Sync", encoding="utf-8")
+        (directory / "AITrainingInboxStore.swift").write_text("// AI inbox", encoding="utf-8")
+        (directory / "AIAccessView.swift").write_text("// AI access", encoding="utf-8")
         (self.root / "project.yml").write_text(
             "targets:\n  Repera:\n    sources:\n      - path: Apps/Repera/Sources\n"
             "    dependencies:\n      - package: Supabase\n        product: Supabase\n",
@@ -29,7 +31,9 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         self.pbx.write_text(
             "AppleAuthStore.swift in Sources\nBusinessAuthStore.swift in Sources\n"
             "BusinessDataStore.swift in Sources\n"
-            "BusinessWorkoutSyncStore.swift in Sources", encoding="utf-8"
+            "BusinessWorkoutSyncStore.swift in Sources\n"
+            "AITrainingInboxStore.swift in Sources\n"
+            "AIAccessView.swift in Sources", encoding="utf-8"
         )
 
     def test_current_generated_project(self):
@@ -57,6 +61,34 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             encoding="utf-8",
         )
         with self.assertRaisesRegex(ValueError, "BusinessWorkoutSyncStore.swift"):
+            validate(self.root)
+
+    def test_missing_ai_inbox_store_requires_checkout_update(self):
+        (self.root / "Apps/Repera/Sources/AITrainingInboxStore.swift").unlink()
+        with self.assertRaisesRegex(ValueError, "AITrainingInboxStore.swift"):
+            validate(self.root)
+
+    def test_stale_ai_inbox_target_is_rejected(self):
+        pbx = self.pbx.read_text(encoding="utf-8")
+        self.pbx.write_text(
+            pbx.replace("AITrainingInboxStore.swift in Sources", ""),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "AITrainingInboxStore.swift"):
+            validate(self.root)
+
+    def test_missing_ai_access_view_requires_checkout_update(self):
+        (self.root / "Apps/Repera/Sources/AIAccessView.swift").unlink()
+        with self.assertRaisesRegex(ValueError, "AIAccessView.swift"):
+            validate(self.root)
+
+    def test_stale_ai_access_target_is_rejected(self):
+        pbx = self.pbx.read_text(encoding="utf-8")
+        self.pbx.write_text(
+            pbx.replace("AIAccessView.swift in Sources", ""),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "AIAccessView.swift"):
             validate(self.root)
 
     def test_file_reference_without_compile_sources_is_rejected(self):
