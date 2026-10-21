@@ -135,12 +135,22 @@ const block = z.strictObject({
   if (b.kind === "wod" && (!b.wodFormat || b.movements.length === 0 || b.exercises.length > 0)) {
     ctx.addIssue({ code: "custom", message: "WOD blocks need format and movements" });
   }
+  if (b.kind === "wod" && b.wodFormat === "emom" && b.emomIntervalSeconds == null) {
+    ctx.addIssue({ code: "custom", path: ["emomIntervalSeconds"], message: "EMOM requires its interval in seconds" });
+  }
+  if (b.kind === "wod" && b.wodFormat === "forTime" && (b.rounds ?? 1) < 1) {
+    ctx.addIssue({ code: "custom", path: ["rounds"], message: "For Time must have positive rounds" });
+  }
 });
 const workout = z.strictObject({
   title: z.string().trim().min(2).max(120),
   scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   scheduledTimeMinutes: z.number().int().min(0).max(1439).optional(),
   blocks: z.array(block).min(1).max(12),
+}).superRefine((w, ctx) => {
+  if (w.scheduledTimeMinutes != null && (w.scheduledTimeMinutes < 0 || w.scheduledTimeMinutes > 1439)) {
+    ctx.addIssue({code:"custom",path:["scheduledTimeMinutes"],message:"Time must be minutes since midnight, local to the athlete"});
+  }
 });
 const inputDays = z.number().int().min(1).max(365).default(90);
 const inputLimit = z.number().int().min(1).max(100).default(30);
@@ -244,7 +254,7 @@ Deno.serve(async (request) => {
     registerCoachTools(server, db, ownerId, token.id);
     server.registerTool("get_workout_history", {
       description: "History of completed Repera exercises, logged sets and WOD results; no HealthKit, routes, GPS, energy, body weight or notes.",
-      inputSchema: z.object({ days: inputDays, limit: inputLimit }),
+      inputSchema: z.strictObject({ days: inputDays, limit: inputLimit }),
       annotations: { readOnlyHint: true },
     }, async ({ days, limit }) => reply((await workouts(days, limit)).map(row => ({
       id: row.id, title: row.title, started_at: row.started_at, finished_at: row.finished_at,
@@ -252,12 +262,12 @@ Deno.serve(async (request) => {
     }))));
     server.registerTool("analyze_muscle_balance", {
       description: "Estimate muscle-region weighted set volume from the user's logged workouts, not measured fatigue.",
-      inputSchema: z.object({ days: z.number().int().min(7).max(90).default(28) }),
+      inputSchema: z.strictObject({ days: z.number().int().min(7).max(90).default(28) }),
       annotations: { readOnlyHint: true },
     }, async ({ days }) => reply({ days, ...muscleBalance(await workouts(days, 500)) }));
     server.registerTool("get_exercise_progress", {
       description: "Exercise name search in completed sessions, reporting logged weight and reps progression.",
-      inputSchema: z.object({ name: z.string().trim().min(2).max(100), days: inputDays }),
+      inputSchema: z.strictObject({ name: z.string().trim().min(2).max(100), days: inputDays }),
       annotations: { readOnlyHint: true },
     }, async ({ name, days }) => {
       const needle = name.toLocaleLowerCase("es");
@@ -272,7 +282,7 @@ Deno.serve(async (request) => {
     });
     server.registerTool("search_training_exercises", {
       description: "Search named movements in the Repera professional catalog. Do not invent unprovided anatomical metadata.",
-      inputSchema: z.object({ query: z.string().trim().min(2).max(80), limit: inputLimit }),
+      inputSchema: z.strictObject({ query: z.string().trim().min(2).max(80), limit: inputLimit }),
       annotations: { readOnlyHint: true },
     }, async ({ query, limit }) => {
       const pattern = query.replace(/[%_\\]/g, " ").trim();
@@ -283,7 +293,7 @@ Deno.serve(async (request) => {
     });
     server.registerTool("get_ai_training_plans", {
       description: "List future plans submitted to this user's Repera calendar and their sync status.",
-      inputSchema: z.object({ limit: inputLimit }),
+      inputSchema: z.strictObject({ limit: inputLimit }),
       annotations: { readOnlyHint: true },
     }, async ({ limit }) => {
       const { data, error } = await db.from("ai_training_plans")
@@ -299,7 +309,7 @@ Deno.serve(async (request) => {
     }, async ({idempotencyKey,...args}) => reply(await saveWorkouts([args],undefined,idempotencyKey)));
     server.registerTool("create_training_plan", {
       description: "Create 1-14 dated workouts with native Repera strength and WOD blocks. Writes actual structured plans for Diario/Inicio; do this only at user request.",
-      inputSchema: z.object({ workouts: z.array(workout).min(1).max(14),
+      inputSchema: z.strictObject({ workouts: z.array(workout).min(1).max(14),
         programId: z.string().uuid().optional(), idempotencyKey: z.string().uuid().optional() }),
       annotations: { readOnlyHint: false, destructiveHint: false },
     }, async ({ workouts: items, programId, idempotencyKey }) => reply(await saveWorkouts(items, programId, idempotencyKey)));
