@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-21 (escáner TC global, alias CrossFit, teclado Repera 4×4)
+Última actualización: 2026-10-21 (cap sin rondas implícitas, flecha azul de teclado y entrada Cal H/M)
 
 ## Tabs
 
@@ -106,7 +106,7 @@
 - Detalle WOD: movimientos del bloque en **una card** separados por línea; chevron dentro; un toque → una ficha (`navigationDestination`).
 - Ficha desde entreno terminado → **Esta sesión**: WOD de catálogo = score **global**; WOD libre/series = movimiento vs anterior.
 - **Pro — Evolución:** fuerza → Tope/e1RM/top set; comba/erg → Mejor/Total/Tiempo · gráfica · resumen + **Historial**.
-- Campos solo numéricos (`OGNumericTextField`, series, formatos, movimiento libre, peso H/M y resultados): teclado **personalizado Repera 4×4** como vista real `inputView` de UIKit, sin letras ABC/DEF: filas `1 2 3 ocultar`, `4 5 6 +`, `7 8 9 −`, `. 0 borrar acción`; **flecha negra** al pasar de campo y **✓ verde** en el último. El primero consolida el campo y pasa al de la derecha; el último confirma. El tiempo admite `:` desde el accesorio. Los steppers heredados pueden seguir ofreciendo ± fuera de las tablas compactas, pero al tocar su valor usan el mismo teclado y confirmación.
+- Campos solo numéricos (`OGNumericTextField`, series, formatos, movimiento libre, peso H/M y resultados): teclado **personalizado Repera 4×4** como vista real `inputView` de UIKit, sin letras ABC/DEF: filas `1 2 3 ocultar`, `4 5 6 +`, `7 8 9 −`, `. 0 borrar acción`; **flecha azul** al pasar de campo y **✓ verde** en el último. El primero consolida el campo sin cerrar el teclado y pasa al de la derecha; el último confirma y lo cierra. El tiempo admite `:` desde el accesorio. Los steppers heredados pueden seguir ofreciendo ± fuera de las tablas compactas, pero al tocar su valor usan el mismo teclado y confirmación.
 - **Músculos y equipo**: subsecciones (Músculo / También / Equipo / Deporte); chips con `OGFlowLayout` a todo el ancho de la card.
 - Arte **edge-to-edge**; pie de foto del paso actual si hay carrusel.
 - **Carga sugerida**: slider 50–95% (paso 5) → kg según Tope 1RM de Evolución o e1RM (sin duplicar el editor de 1RM).
