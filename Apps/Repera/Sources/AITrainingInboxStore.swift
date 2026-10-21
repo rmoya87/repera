@@ -123,10 +123,14 @@ final class AITrainingInboxStore {
                         reasons.append("\(row.scheduledDate): ya existe un entreno para ese día.")
                         continue
                     }
-                    let plan = try buildRoutine(row, date: date, store: store)
-                    guard store.saveRoutine(plan) else {
-                        reasons.append("\(row.scheduledDate): no se pudo guardar la rutina.")
-                        continue
+                    // An earlier sync may already have saved this exact native routine
+                    // but lost the remote ACK. Never overwrite later user edits.
+                    if !store.state.routines.contains(where: { $0.id == row.id }) {
+                        let plan = try buildRoutine(row, date: date, store: store)
+                        guard store.saveRoutine(plan) else {
+                            reasons.append("\(row.scheduledDate): no se pudo guardar la rutina.")
+                            continue
+                        }
                     }
                     let result: [String: String] = [
                         "status": "applied",
