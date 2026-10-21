@@ -10,6 +10,7 @@ struct ReperaApp: App {
     @State private var businessAuth = BusinessAuthStore.shared
     @State private var businessData = BusinessDataStore.shared
     @State private var workoutSync = BusinessWorkoutSyncStore.shared
+    @State private var aiInbox = AITrainingInboxStore.shared
     @State private var onboarding = OnboardingStore.shared
     @State private var locationTracker = WorkoutLocationTracker.shared
     @State private var wasBackgrounded = false
@@ -56,6 +57,7 @@ struct ReperaApp: App {
                 .environment(businessAuth)
                 .environment(businessData)
                 .environment(workoutSync)
+                .environment(aiInbox)
                 .environment(onboarding)
                 .environment(locationTracker)
                 .background(OG.bg)
@@ -135,6 +137,7 @@ struct ReperaApp: App {
                             )
                             await businessData.refresh()
                             await workoutSync.sync(store: store)
+                            await aiInbox.sync(store: store)
                             wireSubscriptionGates()
                         }
                         await warmHealthAfterHydrate()
@@ -161,6 +164,7 @@ struct ReperaApp: App {
                             if businessAuth.isConnected {
                                 await businessData.refresh()
                                 await workoutSync.sync(store: store)
+                            await aiInbox.sync(store: store)
                             }
                             wireSubscriptionGates()
                         }
@@ -168,7 +172,10 @@ struct ReperaApp: App {
                 }
                 .onChange(of: businessAuth.isConnected) { _, connected in
                     if connected {
-                        Task { await workoutSync.sync(store: store) }
+                        Task {
+                            await workoutSync.sync(store: store)
+                            await aiInbox.sync(store: store)
+                        }
                     } else {
                         workoutSync.clearSession()
                         subscriptions.setBusinessSponsoredAccess(false)
