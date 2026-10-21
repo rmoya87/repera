@@ -775,7 +775,7 @@ struct OGRepeatStepper: View {
 
 /// Teclado 4×4 propio de Repera, fiel a la retícula de referencia.
 /// No es numberPad con accessory: sustituye el teclado del sistema mediante inputView.
-private final class OGNumberKeyboardView: UIInputView {
+final class OGNumberKeyboardView: UIInputView {
     enum Key: Sendable {
         case digit(String)
         case decimal
@@ -788,8 +788,6 @@ private final class OGNumberKeyboardView: UIInputView {
     var onKey: ((Key) -> Void)?
     private var decimalButton: UIButton?
     private var submitButton: UIButton?
-    private var usesTimeSeparator = false
-
     override var intrinsicContentSize: CGSize {
         CGSize(width: UIView.noIntrinsicMetric, height: 326)
     }
@@ -801,6 +799,15 @@ private final class OGNumberKeyboardView: UIInputView {
                 ? UIColor(red: 0.18, green: 0.19, blue: 0.21, alpha: 1)
                 : UIColor(red: 0.925, green: 0.934, blue: 0.948, alpha: 1)
         }
+        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
+        blur.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(blur)
+        NSLayoutConstraint.activate([
+            blur.leadingAnchor.constraint(equalTo: leadingAnchor),
+            blur.trailingAnchor.constraint(equalTo: trailingAnchor),
+            blur.topAnchor.constraint(equalTo: topAnchor),
+            blur.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
         buildKeys()
     }
 
@@ -809,7 +816,6 @@ private final class OGNumberKeyboardView: UIInputView {
     }
 
     func configure(allowsDecimal: Bool, allowsTime: Bool, lastField: Bool) {
-        usesTimeSeparator = allowsTime
         decimalButton?.setTitle(allowsTime ? ":" : ".", for: .normal)
         decimalButton?.isEnabled = allowsDecimal || allowsTime
         decimalButton?.alpha = allowsDecimal || allowsTime ? 1 : 0.45
