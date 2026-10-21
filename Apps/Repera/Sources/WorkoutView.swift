@@ -31,6 +31,7 @@ struct WorkoutView: View {
     @State private var restStartedPulse = 0
     @State private var pendingWODConfirm: PendingWODConfirm?
     @State private var usesAutomaticTimer = false
+    @State private var pendingTimerBlockID: UUID?
     @FocusState private var focusedSetField: OGSetFieldID?
 
     private struct LiveSetRow: Identifiable, Equatable {
@@ -204,6 +205,13 @@ struct WorkoutView: View {
             store.workoutClock.clearPendingEnd()
             if store.state.activeSession?.phase == .ready {
                 store.confirmCurrentOnWatchStyle()
+            }
+            if let blockID = pendingTimerBlockID {
+                pendingTimerBlockID = nil
+                if let current = store.state.activeSession?.currentExercise,
+                   current.blockId == blockID || current.id == blockID {
+                    startBlockClock(for: current)
+                }
             }
         }
         .onChange(of: store.workoutClock.pendingEndReason) { _, reason in
@@ -427,19 +435,16 @@ struct WorkoutView: View {
     private func openBlockTimer(_ block: WorkoutBlockEntry, session: WorkoutSession) {
         guard let firstIndex = block.indexes.first else { return }
         if session.currentIndex != firstIndex {
+            // El onChange detiene el reloj anterior y después abre el solicitado.
+            pendingTimerBlockID = block.id
             store.selectExercise(at: firstIndex)
+            return
         }
-        // La selección restaura el estado de la fila; lanzamos el reloj
-        // después de que SwiftUI procese el cambio de ejercicio.
-        Task { @MainActor in
-            await Task.yield()
-            guard let current = store.state.activeSession?.currentExercise,
-                  current.blockId == block.id || current.id == block.id else { return }
-            if store.state.activeSession?.phase == .ready {
-                store.confirmCurrentOnWatchStyle()
-            }
-            startBlockClock(for: current)
+        guard let current = store.state.activeSession?.currentExercise else { return }
+        if store.state.activeSession?.phase == .ready {
+            store.confirmCurrentOnWatchStyle()
         }
+        startBlockClock(for: current)
     }
 
     /// Notas y ajustes del entreno (visibles en la sesión, no solo en el toolbar).
