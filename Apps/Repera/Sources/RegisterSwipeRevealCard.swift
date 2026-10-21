@@ -36,7 +36,8 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
             SmoothSwipeCardHost(
                 revealWidth: revealWidth,
                 chipsBandHeight: chipsBandHeight,
-                onOpen: onOpen
+                onOpen: onOpen,
+                onDelete: onDelete
             ) {
                 VStack(alignment: .leading, spacing: 8) {
                     title()
@@ -92,10 +93,11 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
     var revealWidth: CGFloat
     var chipsBandHeight: CGFloat
     var onOpen: () -> Void
+    var onDelete: () -> Void
     @ViewBuilder var content: () -> Content
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(revealWidth: revealWidth, chipsBandHeight: chipsBandHeight, onOpen: onOpen)
+        Coordinator(revealWidth: revealWidth, chipsBandHeight: chipsBandHeight, onOpen: onOpen, onDelete: onDelete)
     }
 
     func makeUIView(context: Context) -> SwipeCardContainerView {
@@ -133,6 +135,7 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
         context.coordinator.revealWidth = revealWidth
         context.coordinator.chipsBandHeight = chipsBandHeight
         context.coordinator.onOpen = onOpen
+        context.coordinator.onDelete = onDelete
         // Crítico: no recrear el árbol SwiftUI a mitad del swipe (causa temblor).
         guard !context.coordinator.isDragging else { return }
         context.coordinator.updateContent(content())
@@ -156,6 +159,7 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
         var revealWidth: CGFloat
         var chipsBandHeight: CGFloat
         var onOpen: () -> Void
+        var onDelete: () -> Void
 
         var host: UIHostingController<Content>?
         weak var cardView: UIView?
@@ -166,10 +170,11 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
         private var currentX: CGFloat = 0
         private var lockedHorizontal: Bool?
 
-        init(revealWidth: CGFloat, chipsBandHeight: CGFloat, onOpen: @escaping () -> Void) {
+        init(revealWidth: CGFloat, chipsBandHeight: CGFloat, onOpen: @escaping () -> Void, onDelete: @escaping () -> Void) {
             self.revealWidth = revealWidth
             self.chipsBandHeight = chipsBandHeight
             self.onOpen = onOpen
+            self.onDelete = onDelete
         }
 
         func ensureHost(content: Content) -> UIHostingController<Content> {
@@ -187,9 +192,18 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
             host?.rootView = content
         }
 
-        @objc func handleTap() {
-            if abs(currentX) > 1 {
-                settle(to: 0)
+        @objc func handleTap(_ tap: UITapGestureRecognizer) {
+            guard let view = tap.view else { return }
+            let point = tap.location(in: view)
+            // El UIHostingController ocupa también la zona revelada y bloquea
+            // el botón SwiftUI de debajo. Entregar la pulsación desde UIKit.
+            if currentX < -1 {
+                if point.x >= view.bounds.width - revealWidth {
+                    settle(to: 0)
+                    onDelete()
+                } else {
+                    settle(to: 0)
+                }
             } else {
                 onOpen()
             }
