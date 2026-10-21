@@ -2,6 +2,40 @@ import XCTest
 @testable import ReperaDomain
 
 final class SessionControllerTests: XCTestCase {
+    func testTimeCapSkipsIncompleteBlockAndPreservesActualResultStatus() throws {
+        var forTime = RoutineBlock.wod(format: .forTime, title: "For Time TC 14")
+        forTime.timeCapMinutes = 14
+        forTime.rounds = nil
+        forTime.movements = [
+            WODMovement(name: "Cinta / carrera", distanceMeters: 400),
+            WODMovement(name: "Air bike", calories: 20)
+        ]
+        var next = RoutineBlock.wod(format: .amrap, title: "Next")
+        next.movements = [WODMovement(name: "Burpee", reps: 8)]
+        var controller = SessionController(session:
+            SessionController.from(routine: Routine(title: "Test", blocks: [forTime, next]), exercises: [])
+        )
+        controller.startOnPhone()
+
+        let nextAvailable = controller.skipCurrentTimedBlock()
+        XCTAssertTrue(nextAvailable)
+        XCTAssertEqual(controller.session.currentIndex, 2)
+        XCTAssertFalse(controller.session.exercises[0].isCompleted)
+        XCTAssertFalse(controller.session.exercises[1].isCompleted)
+        XCTAssertFalse(controller.session.exercises[2].isCompleted)
+
+        let capped = WODBlockResult(id: forTime.id, format: .forTime,
+                                    elapsedSeconds: 14 * 60, hitTimeCap: true)
+        XCTAssertEqual(capped.summaryLabel, "TC · 14:00")
+        let restored = try JSONDecoder().decode(WODBlockResult.self, from: JSONEncoder().encode(capped))
+        XCTAssertEqual(restored.hitTimeCap, true)
+        XCTAssertEqual(restored.elapsedSeconds, 840)
+        let finished = WODBlockResult(id: forTime.id, format: .forTime,
+                                      elapsedSeconds: 11 * 60 + 45, hitTimeCap: false)
+        XCTAssertEqual(finished.summaryLabel, "11:45")
+    }
+
+
     func testCardioUnitsPersistFromRoutineIntoWorkoutAndThroughJSON() throws {
         let bike = Exercise(name: "Air Bike", muscleGroup: "Cardio")
         let block = RoutineBlock.strength(
