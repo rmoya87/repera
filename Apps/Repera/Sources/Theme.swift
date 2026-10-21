@@ -1212,3 +1212,81 @@ private struct OGSetNumericCell: View {
         value == "—" ? "" : value
     }
 }
+
+
+/// Número editable sin botones +/- para configurar duración, rondas e intervalos.
+/// Emplea el mismo teclado contextual que la retícula de series.
+struct OGFormatNumberField: View {
+    var title: String
+    var unit: String = ""
+    @Binding var value: Int
+    var range: ClosedRange<Int>
+    var focus: FocusState<OGSetFieldID?>.Binding
+    var fieldID: OGSetFieldID
+    var nextID: OGSetFieldID? = nil
+    @State private var draft = ""
+
+    var body: some View {
+        VStack(alignment: .center, spacing: 5) {
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(OG.label3)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            HStack(spacing: 2) {
+                TextField("0", text: $draft)
+                    .font(.system(size: 16, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(OG.label)
+                    .multilineTextAlignment(.center)
+                    .keyboardType(.numbersAndPunctuation)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(nextID == nil ? .done : .next)
+                    .focused(focus, equals: fieldID)
+                    .onSubmit {
+                        commit()
+                        focus.wrappedValue = nextID
+                    }
+                if !unit.isEmpty {
+                    Text(unit)
+                        .font(.system(size: 11))
+                        .foregroundStyle(OG.label3)
+                }
+            }
+            .frame(height: 44)
+            .padding(.horizontal, 7)
+            .frame(maxWidth: .infinity)
+            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+        }
+        .frame(maxWidth: .infinity)
+        .onAppear { draft = String(value) }
+        .onChange(of: value) { _, newValue in
+            if focus.wrappedValue != fieldID {
+                draft = String(newValue)
+            }
+        }
+        .onChange(of: focus.wrappedValue) { previous, current in
+            if previous == fieldID && current != fieldID { commit() }
+            if current == fieldID {
+                draft = String(value)
+                DispatchQueue.main.async {
+                    UIApplication.shared.sendAction(
+                        #selector(UIResponder.selectAll(_:)),
+                        to: nil, from: nil, for: nil
+                    )
+                }
+            }
+        }
+        .onChange(of: draft) { _, text in
+            let cleaned = text.filter { $0.isNumber }
+            if cleaned != text { draft = cleaned }
+        }
+    }
+
+    private func commit() {
+        if let entered = Int(draft) {
+            value = min(range.upperBound, max(range.lowerBound, entered))
+        }
+        draft = String(value)
+    }
+}
