@@ -816,6 +816,8 @@ struct OGNumericTextField: UIViewRepresentable {
         field.inputView = pad
         field.inputAccessoryView = nil
         context.coordinator.pad = pad
+        context.coordinator.submitsToNextField = submitTitle != "✓"
+            && submitTitle.lowercased() != "listo"
 
         if autoFocus && isFocused == nil {
             DispatchQueue.main.async { field.becomeFirstResponder(); field.selectAll(nil) }
@@ -831,6 +833,7 @@ struct OGNumericTextField: UIViewRepresentable {
         c.onFocused = onFocused
         c.onFocusLost = onFocusLost
         c.onCommit = onCommit
+        c.submitsToNextField = submitTitle != "✓" && submitTitle.lowercased() != "listo"
         c.pad?.update(
             allowsDecimal: allowsDecimal,
             allowsTime: allowsTimeSeparator,
@@ -840,18 +843,17 @@ struct OGNumericTextField: UIViewRepresentable {
         if field.text != text {
             field.text = text
         }
-        if let isFocused {
-            c.desiredFocus = isFocused
-            if isFocused && !field.isFirstResponder {
+        // Un cambio del Binding de texto actualiza SwiftUI después de CADA tecla.
+        // Un false temporal de @FocusState no implica que el usuario haya pedido
+        // ocultar el teclado. Solo el teclado, el foco de otro UITextField o
+        // una acción explícita deben abandonar el primer respondedor.
+        if isFocused == true {
+            c.desiredFocus = true
+            if !field.isFirstResponder {
                 DispatchQueue.main.async { [weak field, weak c] in
                     guard c?.desiredFocus == true else { return }
                     field?.becomeFirstResponder()
                     field?.selectAll(nil)
-                }
-            } else if !isFocused && field.isFirstResponder {
-                DispatchQueue.main.async { [weak field, weak c] in
-                    guard c?.desiredFocus == false else { return }
-                    field?.resignFirstResponder()
                 }
             }
         }
@@ -881,6 +883,7 @@ struct OGNumericTextField: UIViewRepresentable {
         var onFocusLost: (() -> Void)?
         var onCommit: () -> Void
         var desiredFocus: Bool?
+        var submitsToNextField = false
         weak var field: UITextField?
         fileprivate weak var pad: OGReperaNumericKeypad?
         private var suppressNextEndCommit = false
@@ -907,7 +910,10 @@ struct OGNumericTextField: UIViewRepresentable {
         }
 
         func textFieldDidChangeSelection(_ textField: UITextField) {
-            text.wrappedValue = textField.text ?? ""
+            let nextValue = textField.text ?? ""
+            if text.wrappedValue != nextValue {
+                text.wrappedValue = nextValue
+            }
         }
 
         func textFieldDidEndEditing(_ textField: UITextField) {
@@ -927,11 +933,18 @@ struct OGNumericTextField: UIViewRepresentable {
         @objc func commitFromKeyboard() {
             guard let field else { return }
             text.wrappedValue = field.text ?? ""
-            // Evita registrar dos veces el valor/serie cuando resignFirstResponder
-            // dispara textFieldDidEndEditing tras pulsar Siguiente o ✓.
+            // Evita registrar dos veces una serie al transferir el foco.
             suppressNextEndCommit = true
+            let advances = submitsToNextField
             onCommit()
-            field.resignFirstResponder()
+            if !advances {
+                // ✓ cierra; Siguiente deja la entrada visible y el foco
+                // pasa directamente al próximo UITextField sin parpadeo.
+                field.resignFirstResponder()
+                if field.isFirstResponder {
+                    suppressNextEndCommit = false
+                }
+            }
         }
 
         @objc func keypadKey(_ sender: UIButton) {
