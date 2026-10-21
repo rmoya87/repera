@@ -657,8 +657,29 @@ public enum BoardImportParser {
             let parts = working.components(separatedBy: "/")
             if parts.count >= 2 {
                 working = parts[0].trimmingCharacters(in: .whitespaces)
-                scale = CrossFitGlossary.expand(parts[1].trimmingCharacters(in: .whitespaces))
+                scale = parts.dropFirst().map { value in
+                    let parsed = CrossFitGlossary.parseMovementLine(value.trimmingCharacters(in: .whitespaces))
+                    return [parsed.reps.map(String.init), parsed.name]
+                        .compactMap { $0 }
+                        .joined(separator: " ")
+                }.joined(separator: " / ")
             }
+        }
+
+        // 20/16 CAL* son calorías H/M, nunca pesos de barra.
+        if working.range(of: #"^\s*\d+\s*/\s*\d+\s*CALS?\b"#,
+                         options: [.regularExpression, .caseInsensitive]) != nil {
+            let parsed = CrossFitGlossary.parseMovementLine(working)
+            let match = bestMatch(for: parsed.name, in: catalog)
+            var detail = notes
+            if let equip = parsed.equipmentNote { detail.append(equip) }
+            if line.contains("*") { detail.append("Marcador * de la pizarra") }
+            return [WODMovement(
+                exerciseId: match?.id,
+                name: match?.name ?? parsed.name,
+                calories: parsed.calories,
+                notes: detail.isEmpty ? nil : detail.joined(separator: " · ")
+            )]
         }
 
         var male: Double?
