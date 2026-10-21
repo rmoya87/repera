@@ -92,6 +92,7 @@ const plannedSet = z.strictObject({
   weightKg: z.number().finite().min(0).max(1200).optional(),
   rir: z.number().finite().min(0).max(10).optional(),
   percent1RM: z.number().finite().min(1).max(150).optional(),
+  percent1RMIsMinimum: z.boolean().optional(),
 });
 const strengthEntry = z.strictObject({
   name: z.string().trim().min(2).max(120),
