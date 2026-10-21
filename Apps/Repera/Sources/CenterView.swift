@@ -24,13 +24,13 @@ struct CenterView: View {
                     if !auth.isConnected {
                         OGCard {
                             VStack(alignment: .leading, spacing: 10) {
-                                Label("Conecta tu cuenta para consultar tus centros", systemImage: "person.crop.circle.badge.questionmark")
+                                Label("No se han podido cargar tus centros", systemImage: "wifi.exclamationmark")
                                     .font(.headline)
-                                Text("En Ajustes puedes autorizar tu identidad Apple en Repera Business. Tus entrenamientos personales no se comparten.")
-                                    .font(.subheadline)
-                                    .foregroundStyle(OG.label2)
-                                NavigationLink("Abrir Ajustes") { SettingsView() }
-                                    .foregroundStyle(OG.accent)
+                                Button("Reintentar") {
+                                    Task { await refreshCenters() }
+                                }
+                                .fontWeight(.semibold)
+                                .foregroundStyle(OG.accent)
                             }
                         }
                     } else {
@@ -116,10 +116,10 @@ struct CenterView: View {
             .background(OG.bg)
             .ogFixedTopBar("Center") {
                 OGToolbarGlassButton(systemName: "arrow.clockwise", accessibilityLabel: "Actualizar Center") {
-                    Task { await business.refresh() }
+                    Task { await refreshCenters() }
                 }
             }
-            .task { await business.refresh() }
+            .task { await refreshCenters() }
             .confirmationDialog(
                 "¿Cancelar la reserva?",
                 isPresented: Binding(
@@ -138,6 +138,18 @@ struct CenterView: View {
                 Text(cancellationNotice)
             }
         }
+    }
+
+    /// Recuperación silenciosa de la sesión Business ya creada durante el login.
+    private func refreshCenters() async {
+        if !auth.isConnected {
+            await auth.restoreSession()
+            if !auth.isConnected {
+                _ = auth.connectFromCachedSessionIfPossible()
+            }
+        }
+        guard auth.isConnected else { return }
+        await business.refresh()
     }
 
     private var cancellationNotice: String {
