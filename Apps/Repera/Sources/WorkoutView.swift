@@ -273,6 +273,15 @@ struct WorkoutView: View {
         }
     }
 
+    /// Lugar de la sesión real, no de la plantilla de entrenamiento.
+    /// Seleccionarlo desde Play se guarda al momento.
+    private var activeLocationPin: Binding<WorkoutLocationPin?> {
+        Binding(
+            get: { store.state.activeSession?.locationPin },
+            set: { store.updateActiveSessionLocation($0) }
+        )
+    }
+
     private var hasMoreExercises: Bool {
         guard let session = store.state.activeSession else { return false }
         return session.currentIndex + 1 < session.exercises.count
@@ -449,6 +458,11 @@ struct WorkoutView: View {
                     }
                     .textCase(nil)
                 }
+            }
+
+            Section("Lugar") {
+                WorkoutPlacePickerRow(pin: activeLocationPin)
+                    .listRowBackground(OG.surface)
             }
 
             Section("Notas del entreno") {
