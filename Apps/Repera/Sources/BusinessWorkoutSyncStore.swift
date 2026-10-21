@@ -137,14 +137,22 @@ final class BusinessWorkoutSyncStore {
 
     /// Uploads changed finished sessions; restores only *unknown* remote IDs,
     /// after iCloud recovery completed. Known local deletions are never revived.
-    func sync(store: ReperaStore) async {
+    /// True only when the authenticated remote mirror was actually read and updated.
+    /// Silent early exits must never appear as a successful manual synchronization.
+    @discardableResult
+    func sync(store: ReperaStore) async -> Bool {
         guard BusinessAuthStore.shared.isConnected,
-              let client = BusinessAuthStore.shared.apiClient,
-              store.isHydrated, store.didCompleteInitialRemoteSync, !store.isSyncingiCloud
-        else { return }
+              let client = BusinessAuthStore.shared.apiClient else {
+            lastError = "No hay una sesión activa de Supabase. Reconecta tu cuenta en Ajustes."
+            return false
+        }
+        guard store.isHydrated, store.didCompleteInitialRemoteSync, !store.isSyncingiCloud else {
+            lastError = "Esperando a que termine la recuperación local/iCloud. Reintenta la sincronización."
+            return false
+        }
         if isSyncing {
             retryRequested = true
-            return
+            return false
         }
         isSyncing = true
         let run = generation
@@ -158,10 +166,10 @@ final class BusinessWorkoutSyncStore {
 
         do {
             let session = try await client.auth.session
-            guard !session.isExpired else { return }
+            guard !session.isExpired else { return false }
             let user = session.user.id
             let originalUser = BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id
-            guard originalUser == user else { return }
+            guard originalUser == user else { return false }
 
             // Workouts are paginated so a long-lived athlete account is not
             // silently truncated at Supabase/PostgREST's default 1,000 rows.
@@ -183,7 +191,7 @@ final class BusinessWorkoutSyncStore {
 
             guard run == generation, BusinessAuthStore.shared.isConnected,
                   BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id == user
-            else { return }
+            else { return false }
 
             var seen = fingerprints(user)
             let existing = Dictionary(uniqueKeysWithValues: remote.map { ($0.id, $0) })
@@ -245,7 +253,7 @@ final class BusinessWorkoutSyncStore {
             for batch in pending.chunked(into: 30) {
                 guard run == generation, BusinessAuthStore.shared.isConnected,
                       BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id == user
-                else { return }
+                else { return false }
                 try await client.from("athlete_workout_mirror")
                     .upsert(batch, onConflict: "id").execute()
                 for entry in batch { seen[entry.id.uuidString] = digest(entry.payload) }
@@ -253,16 +261,18 @@ final class BusinessWorkoutSyncStore {
             }
             guard run == generation, BusinessAuthStore.shared.isConnected,
                   BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id == user
-            else { return }
+            else { return false }
             UserDefaults.standard.set(seen, forKey: key(user, suffix: "fingerprints"))
-            mirroredCount = existing.values.filter { $0.deletedAt == nil }.count + pending.count
+            mirroredCount = Set(existing.values.filter { $0.deletedAt == nil }.map(\.id)).union(pending.map(\.id)).count
             lastSyncAt = Date()
             lastError = nil
             await refreshSharing()
+            return true
         } catch {
-            guard run == generation else { return }
+            guard run == generation else { return false }
             lastError = "La sincronización con Supabase está pendiente: \(error.localizedDescription)"
             // Never mark failed uploads as synced; retries keep local files safe.
+            return false
         }
     }
 
