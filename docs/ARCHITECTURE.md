@@ -277,3 +277,10 @@ Los 189 ejercicios del catálogo profesional han heredado de los cuatro catálog
 ## Apple profile/avatars y material de IA (21/10/2026)
 
 Apple sigue siendo la identidad de la cuenta. `BusinessAuthStore` reutiliza la sesión Supabase validada y copia únicamente nombre/avatar públicos a `profiles`, tras crear `avatar_url` y almacenamiento `profile-avatars` con rutas restringidas a `{auth.uid()}/avatar.jpg`. Nunca se comparten datos sanitarios. Las tareas concurrentes se esperan antes del «Sincronizar ahora» manual y se detallan los errores por componente. La vista de Centro no debe mostrar errores de identidad pública. `training_exercise_metadata.required_equipment` enumera requisitos del equipo y `joint_demands` describe cargas articulares orientativas, nunca compatibilidad clínica. El MCP pregunta por disponibilidad de material antes de ofrecer sustituciones. Los permisos de descanso y ciclo no son requeridos para completar HealthKit ni aparecen como pendientes por defecto.
+
+
+## Escáner de pizarras + entregas AI (22/10/2026)
+
+`BoardScanLiteParser` conserva sección Metcon/Weightlifting, For Time con cap global y tramos secuenciales, intervalos ON/OFF, descansos entre rondas, A/B alterno, series `Every 90s` y porcentajes de 1RM (incluyendo `>80%` como mínimo, no 80% exacto). `PlannedSet.targetPercent1RM` y `targetPercent1RMIsMinimum` son opcionales para mantener compatibilidad con rutinas anteriores y evitar inventar kilogramos. Cinco pruebas con las transcripciones de fotos externas protegen la estructura. Cuatro entradas nuevas de `CatalogGimnasia`/`CatalogCrossFit` se versionan también en Supabase para que IA y buscador utilicen la misma identidad.
+
+Los programas IA se consultan en `PlanView` → Diario/Programado, junto a las sesiones de entrenadores. `SessionPreviewView` enlaza las filas que tienen un ID resoluble con `ExerciseDetailView`. En Cuenta, avatar Apple, nombre y correo comparten una única fila y el estado de sincronización es subtítulo del botón.

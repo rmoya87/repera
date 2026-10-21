@@ -71,7 +71,7 @@ struct SessionPreviewView: View {
                     if routine.blocks.isEmpty {
                         flatExercises(routine)
                     } else {
-                        OGRoutineBlocksList(blocks: routine.blocks)
+                        OGRoutineBlocksList(blocks: routine.blocks, opensExerciseDetail: true)
                     }
                 }
             } else if active == nil {
@@ -201,7 +201,7 @@ struct SessionPreviewView: View {
     @ViewBuilder
     private func flatExercises(_ routine: Routine) -> some View {
         let synthetic = RoutineBlock.strength(title: "Ejercicios", exercises: routine.exercises)
-        OGRoutineBlockCard(block: synthetic)
+        OGRoutineBlockCard(block: synthetic, opensExerciseDetail: true)
             .ogCardListRow(top: 0, bottom: 8)
     }
 }

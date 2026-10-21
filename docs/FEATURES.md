@@ -271,3 +271,13 @@ Supabase dispone de 189 fichas enriquecidas desde el catálogo nativo de Repera:
 - «Sincronizar ahora» espera tareas en marcha y explica qué componente está pendiente, en lugar de «operación incompleta» para cualquier fallo.
 - Apple Salud muestra solamente permisos autorizados, sin «Pendiente de confirmar» para métricas no solicitadas ni aviso rojo por sueño/ciclo no elegidos.
 - Para la IA se conoce material real por ficha de ejercicio y demandas articulares no clínicas solo en un subconjunto verificado. Las recomendaciones de ejercicios alternativos requieren disponibilidad de material declarada en el chat.
+
+
+### MCP seguro, escáner foto y pulido iOS (22/10/2026)
+
+- **Diario**: sección «De tu entrenador IA» con los programas propuestos/activos/pausados y navegación al detalle; se elimina el acceso redundante desde Ajustes.
+- **Previo al entreno**: toca un movimiento reconocido para abrir su ficha de ejercicio, ver técnica e historial.
+- **Cuenta**: foto editable tocando el avatar con sello Apple abajo a la derecha; nombre y «Sesión iniciada · email» a la derecha. «Sincronizar ahora» muestra el resultado en un subtítulo, no en fila propia. Quitados controles separados de cambiar/quitar foto y leyenda descriptiva bajo Salud.
+- **Compras**: StoreKit 2 es el fallback disponible sin clave pública de RevenueCat; no mostrar errores internos «build no configurado» a clientes. Si App Store Connect no devuelve ofertas, sí mostrar un estado de indisponibilidad y reintento. Una compra real requiere IDs vigentes en App Store Connect y pruebas sandbox/TestFlight.
+- **Scan**: mantiene varios tramos de un mismo For Time, cap global, intervalos, descansos entre rondas y A/B con cinco rondas. Series de Squat Snatch al 70/75/>80% quedan como prescripción porcentual y notas; no se derivan kg sin referencia de 1RM. Nuevos movimientos: Carrera, Dominadas lastradas, Remo pliométrico en anillas pies elevados, Step-up al cajón con kettlebell goblet.
+- **MCP**: herramientas de editar, archivar y restaurar propuestas/programas con versión y control de propietario. PAT con permisos de lectura/escritura, paginación y schemas estrictos. No reemplaza un entrenamiento ya importado al dispositivo ni implementa OAuth de terceros.

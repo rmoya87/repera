@@ -5,6 +5,16 @@ enum CatalogGimnasia {
     private static let sport = "Gimnasia"
 
     static let rows: [EnrichedSeed] = [
+        gy("Dominadas lastradas", equipment: "Peso corporal", target: "lats",
+           secondary: ["biceps", "forearms", "core"], body: "back",
+           description: "Pull-up estricto con carga externa; cinturón o chaleco lastrado.",
+           instructions: ["Asegura el lastre sin balanceos.", "Inicia desde suspensión controlada.", "Sube barbilla sobre barra y baja con control."],
+           primaries: ["upper-back", "biceps"], secondaries: ["forearm", "abs"]),
+        gy("Remo pliométrico en anillas pies elevados", equipment: "Peso corporal", target: "upper back",
+           secondary: ["biceps", "rear delts", "core"], body: "back",
+           description: "Plyo ring row con pies elevados: tirón explosivo en anillas, no remo convencional.",
+           instructions: ["Eleva pies en soporte estable.", "Tira con velocidad manteniendo control escapular.", "Recibe anillas y retorna al inicio sin perder alineación."],
+           primaries: ["upper-back"], secondaries: ["biceps", "deltoids", "abs"]),
         // MARK: Dominadas / tirón
         gy("Dominadas estrictas", equipment: "Peso corporal", target: "lats",
            secondary: ["biceps", "upper back", "core"], body: "back",

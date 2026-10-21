@@ -26,6 +26,8 @@ final class AITrainingContextStore {
         let reps: Int
         let weightKg: Double?
         let rir: Double?
+        let percent1RM: Double?
+        let percent1RMIsMinimum: Bool
     }
     private struct Movement: Encodable {
         let name: String
@@ -109,7 +111,9 @@ final class AITrainingContextStore {
                             name: movement?.name ?? "Ejercicio sin catálogo",
                             catalogKey: movement?.catalogId,
                             plannedSets: e.plannedSets.map {
-                                Planned(reps: $0.targetReps, weightKg: $0.targetWeightKg, rir: $0.targetRir)
+                                Planned(reps: $0.targetReps, weightKg: $0.targetWeightKg,
+                                        rir: $0.targetRir, percent1RM: $0.targetPercent1RM,
+                                        percent1RMIsMinimum: $0.targetPercent1RMIsMinimum)
                             }
                         )
                     }

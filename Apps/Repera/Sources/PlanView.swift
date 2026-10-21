@@ -1,4 +1,5 @@
 import ReperaDomain
+import Supabase
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -21,6 +22,8 @@ struct PlanView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(SubscriptionManager.self) private var subscriptions
     @Environment(BusinessDataStore.self) private var businessData
+    @Environment(BusinessAuthStore.self) private var businessAuth
+    @State private var aiPrograms: [AIProgramSummary] = []
     @Binding var section: DiarioSection
     var onOpenRoutine: (Routine) -> Void = { _ in }
     @State private var editing: Routine?
@@ -28,6 +31,40 @@ struct PlanView: View {
     @State private var confirmClearSchedule = false
     @State private var assigningDay: Int?
     @State private var copyWeekFlash: Int?
+
+    private struct AIProgramSummary: Decodable, Identifiable {
+        let id: UUID
+        let title: String
+        let startDate: String
+        let durationWeeks: Int
+        let status: String
+        enum CodingKeys: String, CodingKey {
+            case id, title, status
+            case startDate = "start_date"
+            case durationWeeks = "duration_weeks"
+        }
+    }
+
+    @MainActor
+    private func refreshAIPrograms() async {
+        guard businessAuth.isConnected, let client = businessAuth.apiClient else {
+            aiPrograms = []
+            return
+        }
+        do {
+            let session = try await client.auth.session
+            guard !session.isExpired else { return }
+            let rows: [AIProgramSummary] = try await client.from("athlete_training_programs")
+                .select("id,title,start_date,duration_weeks,status")
+                .eq("owner_id", value: session.user.id.uuidString)
+                .in("status", values: ["active","proposed","paused"])
+                .order("start_date", ascending: false).limit(30).execute().value
+            guard businessAuth.apiClient?.auth.currentSession?.user.id == session.user.id else { return }
+            aiPrograms = rows
+        } catch {
+            // Calendar remains usable offline; return to read on next foreground.
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -51,7 +88,14 @@ struct PlanView: View {
             }
             .listStyle(.insetGrouped)
             .ogListChrome()
-            .refreshable { await businessData.refresh() }
+            .refreshable {
+                await businessData.refresh()
+                await refreshAIPrograms()
+            }
+            .task { await refreshAIPrograms() }
+            .onChange(of: businessAuth.isConnected) { _, _ in
+                Task { await refreshAIPrograms() }
+            }
             .ogFixedTopBar("Diario") {
                 if section == .schedule {
                     Menu {
@@ -140,6 +184,29 @@ struct PlanView: View {
 
     @ViewBuilder
     private var scheduleContent: some View {
+        if !aiPrograms.isEmpty {
+            Section {
+                ForEach(aiPrograms) { program in
+                    NavigationLink {
+                        AITrainingProgramsView()
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "figure.strengthtraining.traditional")
+                                .foregroundStyle(OG.accent)
+                                .frame(width: 42, height: 42)
+                                .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10))
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(program.title).font(.headline).foregroundStyle(OG.label)
+                                Text("\(program.durationWeeks) semanas · \(program.startDate) · \(program.status == "active" ? "Activo" : program.status == "paused" ? "En pausa" : "Propuesto")")
+                                    .font(.caption).foregroundStyle(OG.label2)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text("De tu entrenador IA")
+            }
+        }
         if !businessData.trainingSessions.isEmpty {
             Section {
                 ForEach(businessData.trainingSessions) { session in

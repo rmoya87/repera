@@ -11,10 +11,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG = ROOT / "Packages/ReperaDomain/Sources/ReperaDomain"
 SQL = (ROOT / "supabase/migrations/20261021235000_complete_ai_catalog_muscle_mappings.sql").read_text("utf-8")
+SQL_EXTRA = (ROOT / "supabase/migrations/20261022003500_new_photo_movements_crossfit.sql").read_text("utf-8")
+EXTRA_NAMES = {
+    "Carrera", "Dominadas lastradas",
+    "Remo pliométrico en anillas pies elevados",
+    "Step-up al cajón con kettlebell goblet",
+}
+
 FILES = {
     "CatalogHalterofilia.swift": ("h", 40),
-    "CatalogGimnasia.swift": ("gy", 56),
-    "CatalogCrossFit.swift": ("cf", 44),
+    "CatalogGimnasia.swift": ("gy", 58),
+    "CatalogCrossFit.swift": ("cf", 46),
 }
 CANONICAL = {
     "trapezius", "deltoids", "chest", "upper-back", "serratus",
@@ -63,19 +70,24 @@ class CatalogMetadataParityTests(unittest.TestCase):
                 if not primary:
                     cardio_names.append(name)
                     self.assertTrue(secondary, name)
-                prefix = "('catalog:" + name.replace("'", "''") + "', " + sql_array(primary)
-                self.assertIn(prefix, SQL, name)
-                self.assertIn(
-                    sql_array(primary) + ", " + sql_array(secondary) + ", " + sql_array(equipment),
-                    SQL, name,
-                )
-                self.assertIn("'native:" + filename.removesuffix(".swift") + "'", SQL)
-        self.assertEqual(total, 140)
+                if name in EXTRA_NAMES:
+                    self.assertIn("'catalog:" + name + "'", SQL_EXTRA, name)
+                    self.assertIn(sql_array(primary), SQL_EXTRA, name)
+                    self.assertIn(sql_array(secondary), SQL_EXTRA, name)
+                else:
+                    prefix = "('catalog:" + name.replace("'", "''") + "', " + sql_array(primary)
+                    self.assertIn(prefix, SQL, name)
+                    self.assertIn(
+                        sql_array(primary) + ", " + sql_array(secondary) + ", " + sql_array(equipment),
+                        SQL, name,
+                    )
+                    self.assertIn("'native:" + filename.removesuffix(".swift") + "'", SQL)
+        self.assertEqual(total, 144)
         self.assertEqual(len(set(all_names)), total)
         self.assertEqual(
             set(cardio_names),
             {"Dobles de comba", "Simples de comba", "Triples de comba",
-             "Air bike", "Echo bike", "Shuttle run"},
+             "Air bike", "Echo bike", "Shuttle run", "Carrera"},
         )
 
     def test_migration_is_non_destructive_and_tracks_provenance(self):

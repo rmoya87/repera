@@ -125,6 +125,8 @@ final class AITrainingInboxStore {
         let reps: Int
         let weightKg: Double?
         let rir: Double?
+        let percent1RM: Double?
+        let percent1RMIsMinimum: Bool?
     }
     private struct InputExercise: Decodable {
         let name: String
@@ -279,11 +281,14 @@ final class AITrainingInboxStore {
         guard !sets.isEmpty, sets.count <= 30,
               sets.allSatisfy({ $0.reps > 0 && $0.reps <= 5000 &&
                   ($0.weightKg == nil || ($0.weightKg!.isFinite && $0.weightKg! >= 0)) &&
-                  ($0.rir == nil || ($0.rir!.isFinite && (0...10).contains($0.rir!))) })
+                  ($0.rir == nil || ($0.rir!.isFinite && (0...10).contains($0.rir!))) &&
+                  ($0.percent1RM == nil || ($0.percent1RM!.isFinite && (1...150).contains($0.percent1RM!))) })
         else { throw ImportError.invalidPayload }
         return sets.map { PlannedSet(targetReps: $0.reps,
                                       targetWeightKg: $0.weightKg,
-                                      targetRir: $0.rir) }
+                                      targetRir: $0.rir,
+                                      targetPercent1RM: $0.percent1RM,
+                                      targetPercent1RMIsMinimum: $0.percent1RMIsMinimum ?? false) }
     }
 
     private func catalogExercise(name: String, key: String?, store: ReperaStore) -> Exercise {

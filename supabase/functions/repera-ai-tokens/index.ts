@@ -29,8 +29,14 @@ Deno.serve(async (request) => {
   if (Number(request.headers.get("content-length") || 0) > 2048) {
     return reply(413, { error: "Solicitud demasiado grande" });
   }
-  let body: { label?: unknown; expiry?: unknown };
+  let body: { label?: unknown; expiry?: unknown; canWrite?: unknown };
   try { body = await request.json(); } catch { return reply(400, { error: "JSON inválido" }); }
+  if (!body || typeof body !== "object" || Object.keys(body).some(k => !["label","expiry","canWrite"].includes(k))) {
+    return reply(400,{error:{code:"UNKNOWN_FIELD",field:"body",message:"Parámetro desconocido"}});
+  }
+  if (body.canWrite != null && typeof body.canWrite !== "boolean")
+    return reply(400,{error:{code:"INVALID_SCOPE",field:"canWrite",message:"Debe ser un booleano"}});
+  const scopes=body.canWrite === false ? ["training:read"] : ["training:read","training:write"];
   const label = typeof body.label === "string" ? body.label.trim() : "";
   const options = new Set(["7d", "30d", "90d", "365d", "unlimited"]);
   const expiry = body.expiry;
@@ -50,8 +56,8 @@ Deno.serve(async (request) => {
   const durations: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90, "365d": 365 };
   const expires = expiry === "unlimited" ? null : new Date(Date.now() + durations[expiry] * 86_400_000).toISOString();
   const { data, error } = await db.from("ai_access_tokens")
-    .insert({ owner_id: user.id, label, token_hash: hash, token_prefix: token.slice(0, 18), expires_at: expires })
-    .select("id,label,token_prefix,created_at,expires_at").single();
+    .insert({ owner_id: user.id, label, token_hash: hash, token_prefix: token.slice(0, 18), expires_at: expires, scopes })
+    .select("id,label,token_prefix,created_at,expires_at,scopes").single();
   if (error || !data) return reply(503, { error: "No se pudo crear el token" });
   return reply(201, {
     ...data, token,

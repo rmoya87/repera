@@ -51,7 +51,7 @@ final class StoreKitEntitlementProvider: EntitlementProviding, @unchecked Sendab
         guard !products.isEmpty else {
             return CommercialOfferings(
                 packages: [],
-                unavailableReason: "No hay productos StoreKit. Revisa App Store Connect o el archivo ReperaProducts.storekit del scheme."
+                unavailableReason: "No hay suscripciones disponibles en este momento. Vuelve a intentarlo."
             )
         }
         let packages = products.compactMap(Self.mapProduct(_:))
