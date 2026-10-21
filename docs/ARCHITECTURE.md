@@ -230,7 +230,7 @@ El auditor estructural **no puede aprobar** similitud del personaje, ejecución 
 
 ### Salud y recuperación local
 
-`HealthRecoveryStore` usa HealthKit directamente en el iPhone y no entra en la capa de `BusinessWorkoutSyncStore`. Los permisos opcionales (sueño/ciclo + flags de decisión) se almacenan en `UserDefaults` local; la UI vive en **Ajustes → Salud conectada** (`ConnectedHealthSettingsView`). Las muestras se consultan en Apple Salud y se mantienen en memoria (hasta ~120 días de sueño). No añadir estos datos a `AppSettings`, al documento iCloud de entrenamientos ni al payload de Supabase. Las sesiones sí guardan sus ejercicios, bloques, series y resultados para el entrenador con consentimiento existente. En el espejo Supabase, `privateMirrorPayload` elimina toda referencia a Apple Salud, incluido `appleDurationSeconds`.
+`HealthRecoveryStore` usa HealthKit directamente en el iPhone y no entra en la capa de `BusinessWorkoutSyncStore`. Los permisos opcionales (sueño/ciclo + flags de decisión) se almacenan en `UserDefaults` local; la UI vive en **Ajustes → Apple Salud** (`ConnectedHealthSettingsView`). Las muestras se consultan en Apple Salud y se mantienen en memoria (hasta ~120 días de sueño). No añadir estos datos a `AppSettings`, al documento iCloud de entrenamientos ni al payload de Supabase. Las sesiones sí guardan sus ejercicios, bloques, series y resultados para el entrenador con consentimiento existente. En el espejo Supabase, `privateMirrorPayload` elimina toda referencia a Apple Salud, incluido `appleDurationSeconds`.
 
 El campo histórico `supersetGroup` permanece en el formato Codable para abrir copias antiguas, pero se ignora al decodificar y no debe utilizarse para nuevas planificaciones.
 
@@ -264,7 +264,7 @@ La integración requiere pruebas reales de MCP con PAT, Xcode/TestFlight, renova
 
 ## Coach IA — perfil, calendario y programas (21/10/2026)
 
-Además del espejo local-first de entrenamientos terminados, `AITrainingContextStore` sincroniza una fotografía reducida de las rutinas personales futuras/recurrentes a `athlete_training_calendar_snapshots` (hasta 90 días): nombre, fecha/weekday, bloques, identidades y prescripción deportiva. Nunca envía notas privadas, Salud, GPS ni el JSON completo de las rutinas; la app/iCloud sigue siendo la fuente de verdad. `AITrainingProfileView` edita en Supabase las preferencias deportivas con RLS propia; `AITrainingProgramsView` lista los macrociclos de `athlete_training_programs` y permite activarlos o pausarlos.
+Además del espejo local-first de entrenamientos terminados, `AITrainingContextStore` sincroniza una fotografía reducida de las rutinas personales futuras/recurrentes a `athlete_training_calendar_snapshots` (hasta 90 días): nombre, fecha/weekday, bloques, identidades y prescripción deportiva. Nunca envía notas privadas, Salud, GPS ni el JSON completo de las rutinas; la app/iCloud sigue siendo la fuente de verdad. el MCP deduce hábitos desde el historial y recoge por chat las preferencias explícitamente confirmadas en `athlete_training_profiles` (sin formulario en iOS); `AITrainingProgramsView` lista los macrociclos de `athlete_training_programs` y permite activarlos o pausarlos.
 
 El MCP despliega `coach.ts` con análisis semanal, calidad de datos, perfil, calendario, catálogo enriquecido, programas de 1–52 semanas y revisión por versión. `training_exercise_metadata` vincula el catálogo de negocio a los ID nativos de `CatalogEnrichment` sin inventar metadatos faltantes. Se permite emitir a Repera un máximo de 14 sesiones concretas por petición MCP; las propuestas quedan separadas de la definición del macrociclo y se importan al calendario sin sobrescribir rutinas existentes. Los tokens PAT, RLS y el filtro `owner_id` siguen protegiendo los datos individuales. Ver [MCP_PLAN.md](MCP_PLAN.md) para aceptación y límites.
 
@@ -272,3 +272,8 @@ El MCP despliega `coach.ts` con análisis semanal, calidad de datos, perfil, cal
 ## Catálogo muscular para MCP (21/10/2026)
 
 Los 189 ejercicios del catálogo profesional han heredado de los cuatro catálogos Swift sus músculos y equipamiento; la migración SQL preserva la procedencia en `training_exercise_metadata.metadata_source`. 183 asignan grupos musculares principales, mientras seis actividades cardiovasculares intencionalmente solo asignan músculos secundarios. No se ha alterado ningún archivo de la app para este enriquecimiento.
+
+
+## Apple profile/avatars y material de IA (21/10/2026)
+
+Apple sigue siendo la identidad de la cuenta. `BusinessAuthStore` reutiliza la sesión Supabase validada y copia únicamente nombre/avatar públicos a `profiles`, tras crear `avatar_url` y almacenamiento `profile-avatars` con rutas restringidas a `{auth.uid()}/avatar.jpg`. Nunca se comparten datos sanitarios. Las tareas concurrentes se esperan antes del «Sincronizar ahora» manual y se detallan los errores por componente. La vista de Centro no debe mostrar errores de identidad pública. `training_exercise_metadata.required_equipment` enumera requisitos del equipo y `joint_demands` describe cargas articulares orientativas, nunca compatibilidad clínica. El MCP pregunta por disponibilidad de material antes de ofrecer sustituciones. Los permisos de descanso y ciclo no son requeridos para completar HealthKit ni aparecen como pendientes por defecto.
