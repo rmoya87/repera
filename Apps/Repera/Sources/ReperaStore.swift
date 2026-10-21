@@ -918,7 +918,8 @@ final class ReperaStore: NSObject {
         guard var session = state.activeSession else { return }
         session.wodResults.removeAll { $0.id == result.id }
         session.wodResults.append(result)
-        if result.totalReps != nil || result.elapsedSeconds != nil {
+        if result.hitTimeCap != true,
+           result.totalReps != nil || result.elapsedSeconds != nil {
             for i in session.exercises.indices where session.exercises[i].blockId == result.id {
                 session.exercises[i].isCompleted = true
             }
@@ -1056,6 +1057,10 @@ final class ReperaStore: NSObject {
     /// El tiempo concluyó: marcar el bloque realizado sin fabricar pesos/repeticiones.
     func finishCurrentTimedBlock() {
         mutateActive { _ = $0.finishCurrentBlock() }
+    }
+
+    func skipCurrentTimedBlock() {
+        mutateActive { _ = $0.skipCurrentTimedBlock() }
     }
 
     func selectExercise(at index: Int) {
