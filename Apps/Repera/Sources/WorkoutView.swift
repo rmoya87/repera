@@ -492,9 +492,6 @@ struct WorkoutView: View {
             ? "Déficit cm"
             : (style == .loadAndReps ? "KG" : "Tiempo")
         return VStack(alignment: .leading, spacing: 12) {
-            Text("Series")
-                .font(.headline)
-
             OGSetEntryHeader(
                 firstTitle: style == .repsOnly ? qtyLabel : loadLabel,
                 secondTitle: style == .repsOnly ? nil : qtyLabel,
@@ -515,9 +512,8 @@ struct WorkoutView: View {
             .buttonStyle(.plain)
             .padding(.top, 4)
         }
-        .padding(OG.pad)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
     }
 
     private func liveSetRow(index: Int, row: LiveSetRow, current: SessionExercise) -> some View {
