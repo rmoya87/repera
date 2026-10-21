@@ -125,7 +125,7 @@ export function registerCoachTools(
   }
   server.registerTool("get_training_profile", {
     description: "Infer only observed training habits from the saved workout history. Return missing goals, material availability and duration as questions for conversation; do not assume equipment is available because it was used before.",
-    inputSchema: z.object({}), annotations:{readOnlyHint:true},
+    inputSchema: z.strictObject({}), annotations:{readOnlyHint:true},
   }, async () => {
     const {data,error}=await db.from("athlete_training_profiles").select(
       "primary_goal,experience_level,training_days_per_week,preferred_weekdays,session_minutes,equipment,preferences,coaching_enabled,updated_at"
@@ -193,7 +193,7 @@ export function registerCoachTools(
   });
   server.registerTool("get_training_calendar", {
     description: "Read a current local-first snapshot of personal scheduled and recurring workouts, plus AI proposals; check freshness and never overwrite occupied days.",
-    inputSchema: z.object({days:z.number().int().min(7).max(180).default(90)}),
+    inputSchema: z.strictObject({days:z.number().int().min(7).max(180).default(90)}),
     annotations:{readOnlyHint:true},
   }, async ({days})=>{
     const [snapshot, ai]=await Promise.all([
@@ -213,12 +213,12 @@ export function registerCoachTools(
   });
   server.registerTool("get_training_analysis",{
     description:"Reliable historical weekly volume, exercise progression and missing-data coverage. No Apple Health, location or medical readiness.",
-    inputSchema:z.object({days:z.number().int().min(7).max(365).default(90)}),
+    inputSchema:z.strictObject({days:z.number().int().min(7).max(365).default(90)}),
     annotations:{readOnlyHint:true},
   },async({days})=>result({days,...scoreSessions(await history(days))}));
   server.registerTool("get_exercise_performance",{
     description:"Exercise-specific progression by stable catalog key (preferred) or normalized name; includes Epley estimate and RIR coverage.",
-    inputSchema:z.object({catalogKey:z.string().min(3).max(160).optional(),
+    inputSchema:z.strictObject({catalogKey:z.string().min(3).max(160).optional(),
       name:z.string().min(2).max(120).optional(),days:z.number().int().min(7).max(365).default(180)}),
     annotations:{readOnlyHint:true},
   },async({catalogKey,name,days})=>{
@@ -250,7 +250,7 @@ export function registerCoachTools(
   });
   server.registerTool("get_exercise_alternatives", {
     description:"Look up VERIFIED substitutions, metadata and ES/EN aliases. Return an empty list when metadata is not known; never hallucinate substitutions.",
-    inputSchema:z.object({catalogKey:z.string().min(3).max(160)}),
+    inputSchema:z.strictObject({catalogKey:z.string().min(3).max(160)}),
     annotations:{readOnlyHint:true},
   }, async({catalogKey})=>{
     const {data,error}=await db.from("training_exercise_metadata")
@@ -261,7 +261,7 @@ export function registerCoachTools(
   });
   server.registerTool("find_equipment_alternatives", {
     description:"Find candidates matching the main muscle groups AND confirmed available equipment. Joint demand hints are non-clinical and do not certify safety or exercise equivalence. Ask the user about available gear first.",
-    inputSchema:z.object({
+    inputSchema:z.strictObject({
       catalogKey:z.string().min(3).max(160),
       availableEquipment:z.array(z.string().min(2).max(80)).max(25),
       avoidJointDemands:z.array(z.enum(["shoulder","elbow","wrist","hip","knee","ankle","spine"])).max(7).default([]),
@@ -306,7 +306,7 @@ export function registerCoachTools(
   });
   server.registerTool("search_training_exercises_enriched",{
     description:"Find stable exercise IDs, localized alias matches and verified movement metadata in Repera's full exercise catalog.",
-    inputSchema:z.object({query:z.string().trim().min(2).max(100),limit:z.number().int().min(1).max(50).default(20)}),
+    inputSchema:z.strictObject({query:z.string().trim().min(2).max(100),limit:z.number().int().min(1).max(50).default(20)}),
     annotations:{readOnlyHint:true},
   },async({query,limit})=>{
     const raw=query.replace(/[%_\\]/g," ").trim(); const term=normalized(raw);
@@ -324,7 +324,7 @@ export function registerCoachTools(
   });
   server.registerTool("get_training_programs",{
     description:"List saved macrocycles, revision and phases. Programs are proposals; local exercise sessions are authoritative.",
-    inputSchema:z.object({limit:z.number().int().min(1).max(50).default(20)}),
+    inputSchema:z.strictObject({limit:z.number().int().min(1).max(50).default(20)}),
     annotations:{readOnlyHint:true},
   },async({limit})=>{
     const {data,error}=await db.from("athlete_training_programs")
@@ -335,7 +335,7 @@ export function registerCoachTools(
   });
   server.registerTool("create_training_program",{
     description:"Persist a 1–52 week program with validated phases. Does not overwrite calendar or schedule sessions; use create_training_plan to queue next 14 workouts explicitly.",
-    inputSchema:z.object({title:z.string().trim().min(2).max(120),
+    inputSchema:z.strictObject({title:z.string().trim().min(2).max(120),
       primaryGoal:z.string().trim().min(2).max(500),startDate:day,durationWeeks:weeks,
       phases:z.array(phase).min(1).max(12)}),
     annotations:{readOnlyHint:false,destructiveHint:false},
@@ -355,7 +355,7 @@ export function registerCoachTools(
   });
   server.registerTool("review_training_program",{
     description:"Review completion, gaps and weekly trends for a program, without inferring recovery, readiness or success from unlogged sessions.",
-    inputSchema:z.object({programId:z.string().uuid()}),annotations:{readOnlyHint:true},
+    inputSchema:z.strictObject({programId:z.string().uuid()}),annotations:{readOnlyHint:true},
   },async({programId})=>{
     const {data:program,error}=await db.from("athlete_training_programs").select(
       "id,title,start_date,duration_weeks,phases,primary_goal,status,revision"
@@ -379,7 +379,7 @@ export function registerCoachTools(
   });
   server.registerTool("adjust_training_program",{
     description:"Explicit user-requested revision of a stored program's future phases; optimistic revision check. Does not modify completed workouts or already queued daily sessions.",
-    inputSchema:z.object({programId:z.string().uuid(),expectedRevision:z.number().int().min(1),
+    inputSchema:z.strictObject({programId:z.string().uuid(),expectedRevision:z.number().int().min(1),
       phases:z.array(phase).min(1).max(12),reason:z.string().trim().min(3).max(500)}),
     annotations:{readOnlyHint:false,destructiveHint:false},
   },async({programId,expectedRevision,phases,reason})=>{
