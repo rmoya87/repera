@@ -194,11 +194,17 @@ struct WorkoutView: View {
         .onAppear {
             prefill()
             bootstrapQuickLogIfNeeded()
+            if store.state.activeSession?.phase == .ready {
+                store.confirmCurrentOnWatchStyle()
+            }
         }
         .onChange(of: store.state.activeSession?.currentIndex) { _, _ in
             prefill()
             store.workoutClock.stop()
             store.workoutClock.clearPendingEnd()
+            if store.state.activeSession?.phase == .ready {
+                store.confirmCurrentOnWatchStyle()
+            }
         }
         .onChange(of: store.workoutClock.pendingEndReason) { _, reason in
             guard reason != nil else { return }
@@ -283,36 +289,156 @@ struct WorkoutView: View {
         store.confirmCurrentOnWatchStyle()
     }
 
+    /// Play comparte la jerarquía visual del editor: un bloque, sus ejercicios
+    /// y las series editables. No ofrece controles de creación ni de planificación.
+    private struct WorkoutBlockEntry: Identifiable {
+        let id: UUID
+        let title: String
+        let format: WODFormat?
+        var indexes: [Int]
+    }
+
+    private func workoutBlocks(_ session: WorkoutSession) -> [WorkoutBlockEntry] {
+        var blocks: [WorkoutBlockEntry] = []
+        for (index, exercise) in session.exercises.enumerated() {
+            let id = exercise.blockId ?? exercise.id
+            if let lastIndex = blocks.indices.last, blocks[lastIndex].id == id {
+                blocks[lastIndex].indexes.append(index)
+            } else {
+                blocks.append(
+                    WorkoutBlockEntry(
+                        id: id,
+                        title: exercise.blockHeader ?? "Bloque \(blocks.count + 1)",
+                        format: exercise.wodFormat,
+                        indexes: [index]
+                    )
+                )
+            }
+        }
+        return blocks
+    }
+
     private func content(_ session: WorkoutSession) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                if let current = session.currentExercise {
-                    currentCard(current, session: session)
-                    setsBoard(current)
-                    if !isQuickLogSession {
-                        workoutOptionsCard
-                        DisclosureGroup("Opciones avanzadas de serie") {
-                            logForm(current)
-                                .padding(.top, 8)
+        List {
+            Section {
+                Text(session.title)
+                    .font(.system(size: 15))
+                    .foregroundStyle(OG.label2)
+                    .listRowBackground(Color.clear)
+            }
+
+            ForEach(workoutBlocks(session)) { block in
+                Section {
+                    HStack(spacing: 12) {
+                        Text(block.title)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                            .lineLimit(2)
+                        Spacer(minLength: 8)
+                        Button {
+                            openBlockTimer(block, session: session)
+                        } label: {
+                            Image(systemName: "timer")
+                                .font(.system(size: 19, weight: .semibold))
+                                .foregroundStyle(OG.accent)
+                                .frame(width: 44, height: 44)
+                                .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
-                        .tint(OG.label2)
-                        .font(.system(size: 14, weight: .semibold))
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Temporizador de \(block.title)")
                     }
-                }
-                if !isQuickLogSession {
-                    exerciseQueue(session)
+                    .listRowBackground(OG.surface)
+
+                    ForEach(block.indexes, id: \.self) { index in
+                        let entry = session.exercises[index]
+                        Button {
+                            guard session.currentIndex != index else { return }
+                            store.selectExercise(at: index)
+                        } label: {
+                            HStack(spacing: 12) {
+                                ExerciseThumb(exercise: entry.exercise, size: 48)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(entry.exercise.name)
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundStyle(OG.label)
+                                    Text(entry.plannedSets.compactSummary)
+                                        .font(.caption)
+                                        .foregroundStyle(OG.label2)
+                                }
+                                Spacer(minLength: 6)
+                                if entry.isCompleted {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(OG.accent)
+                                } else if session.currentIndex == index {
+                                    Image(systemName: "chevron.down")
+                                        .foregroundStyle(OG.accent)
+                                } else {
+                                    Image(systemName: "chevron.right")
+                                        .foregroundStyle(OG.label3)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(OG.surface)
+
+                        if session.currentIndex == index {
+                            setsBoard(entry)
+                                .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 8, trailing: 12))
+                                .listRowBackground(OG.surface)
+                                .listRowSeparator(.hidden)
+                        }
+                    }
+                } header: {
+                    HStack(spacing: 6) {
+                        Text("Bloque")
+                        if let format = block.format {
+                            Text("· \(format.displayName)")
+                        } else {
+                            Text("· Libre")
+                        }
+                    }
+                    .textCase(nil)
                 }
             }
-            .padding(.horizontal, OG.pad)
-            .padding(.top, 0)
-            .padding(.bottom, store.restCoordinator.isActive ? 88 : 28)
-            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Section {
+                workoutOptionsCard
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                DisclosureGroup("Opciones avanzadas de serie") {
+                    if let current = session.currentExercise {
+                        logForm(current)
+                    }
+                }
+                .font(.system(size: 14, weight: .semibold))
+                .tint(OG.label2)
+            }
         }
+        .listStyle(.insetGrouped)
+        .ogListChrome()
         .task(id: session.id) {
             while !Task.isCancelled, store.state.activeSession?.id == session.id {
                 await HealthKitStore.shared.refreshLiveMetrics()
                 try? await Task.sleep(for: .seconds(15))
             }
+        }
+    }
+
+    private func openBlockTimer(_ block: WorkoutBlockEntry, session: WorkoutSession) {
+        guard let firstIndex = block.indexes.first else { return }
+        if session.currentIndex != firstIndex {
+            store.selectExercise(at: firstIndex)
+        }
+        // La selección restaura el estado de la fila; lanzamos el reloj
+        // después de que SwiftUI procese el cambio de ejercicio.
+        Task { @MainActor in
+            await Task.yield()
+            guard let current = store.state.activeSession?.currentExercise,
+                  current.blockId == block.id || current.id == block.id else { return }
+            if store.state.activeSession?.phase == .ready {
+                store.confirmCurrentOnWatchStyle()
+            }
+            startBlockClock(for: current)
         }
     }
 
@@ -1034,7 +1160,20 @@ struct WorkoutView: View {
                     haptic: haptic
                 )
             }
-        case .strength, .none:
+        case .none:
+            store.workoutClock.configure(
+                exercise: current.exercise,
+                title: current.blockHeader ?? current.exercise.name,
+                subtitle: "Cronómetro libre",
+                countingUp: true,
+                intervalMode: false,
+                intervalLength: 0,
+                totalIntervals: 0,
+                initialCountdown: 0,
+                sound: sound,
+                haptic: haptic
+            )
+        case .strength:
             if let mins = current.blockTimeCapMinutes, mins > 0 {
                 let seconds = mins * 60
                 store.workoutClock.configure(
