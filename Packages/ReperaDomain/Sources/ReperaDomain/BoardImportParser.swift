@@ -961,6 +961,11 @@ public enum CrossFitGlossary {
         "clean and jerk": "Cargada y envión",
 
         // Press / overhead
+        "gtoh": "Ground to overhead",
+        "g2oh": "Ground to overhead",
+        "ground to overhead": "Ground to overhead",
+        "ground-to-overhead": "Ground to overhead",
+        "ground 2 overhead": "Ground to overhead",
         "pp": "Push press",
         "push press": "Push press",
         "push press bn": "Press detrás de nuca",
@@ -1056,6 +1061,10 @@ public enum CrossFitGlossary {
         "db row": "Remo mancuerna",
         "dumbbell row": "Remo mancuerna",
         "mu": "Muscle-up barra",
+        "bmu": "Muscle-up barra",
+        "bar muscle up": "Muscle-up barra",
+        "bar muscle-up": "Muscle-up barra",
+        "bar muscle ups": "Muscle-up barra",
         "bmú": "Muscle-up barra",
         "rmu": "Muscle-up anillas",
         "pull up": "Dominadas",
@@ -1100,6 +1109,9 @@ public enum CrossFitGlossary {
         "thrusters": "Thruster",
         "kb swing": "Swing kettlebell",
         "american swing": "Swing americano",
+        "akbs": "Swing americano",
+        "american kettlebell swings": "Swing americano",
+        "american kb swings": "Swing americano",
         "american kb swing": "Swing americano",
         "american kettlebell swing": "Swing americano",
         "kb american swing": "Swing americano",
@@ -1270,6 +1282,22 @@ public enum CrossFitGlossary {
         ) {
             calories = firstIntToken(in: String(working[cr]))
             working.removeSubrange(cr)
+        }
+
+        // 20/16 CAL* = calorías M/F (Air Bike), no kilos.
+        // Conservar el objetivo femenino en notas, al no haber campo tipado M/F para cal.
+        if let calPair = working.range(
+            of: #"^\s*(\d+)\s*/\s*(\d+)\s*CALS?\b"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) {
+            let values = String(working[calPair])
+                .split { !$0.isNumber }
+                .compactMap { Int($0) }
+            if values.count == 2 {
+                calories = values[0]
+                rangeNote = "Calorías H/M: \(values[0])/\(values[1])"
+                working = "CAL"
+            }
         }
 
         // Carga M/F al final: 20/12,5 o 45/30. Siempre mayor = hombre, menor = mujer.
