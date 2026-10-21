@@ -2,6 +2,62 @@ import XCTest
 @testable import ReperaDomain
 
 final class SessionControllerTests: XCTestCase {
+    func testStrengthBlocksRetainOptionalTimerFormatsInPlay() {
+        let exercise = Exercise(name: "Back Squat", muscleGroup: "Piernas")
+        var amrap = RoutineBlock.strength(
+            title: "Bloque 1",
+            exercises: [RoutineExercise(
+                exerciseId: exercise.id,
+                plannedSets: [PlannedSet(targetReps: 8, targetWeightKg: 60)]
+            )]
+        )
+        amrap.wodFormat = .amrap
+        amrap.timeCapMinutes = 14
+        let routine = Routine(title: "Sesión", blocks: [amrap])
+        let session = SessionController.from(routine: routine, exercises: [exercise])
+        XCTAssertEqual(session.exercises.count, 1)
+        XCTAssertEqual(session.currentExercise?.wodFormat, .amrap)
+        XCTAssertEqual(session.currentExercise?.blockTimeCapMinutes, 14)
+        XCTAssertEqual(session.currentExercise?.blockHeader, "Bloque 1")
+        XCTAssertEqual(session.currentExercise?.plannedSets.first?.targetWeightKg, 60)
+    }
+
+    func testStrengthBlockWithoutFormatOpensAsFreeClock() {
+        let exercise = Exercise(name: "Push-up", muscleGroup: "Pecho")
+        let block = RoutineBlock.strength(
+            title: "Bloque libre",
+            exercises: [RoutineExercise(
+                exerciseId: exercise.id,
+                plannedSets: [PlannedSet(targetReps: 10)]
+            )]
+        )
+        let routine = Routine(title: "Libre", blocks: [block])
+        let session = SessionController.from(routine: routine, exercises: [exercise])
+        XCTAssertNil(session.currentExercise?.wodFormat)
+        XCTAssertNil(session.currentExercise?.blockTimeCapMinutes)
+        XCTAssertEqual(session.currentExercise?.blockHeader, "Bloque libre")
+    }
+
+    func testStrengthBlockEmomDerivesIntervalsFromTimeCap() {
+        let exercise = Exercise(name: "Deadlift", muscleGroup: "Piernas")
+        var block = RoutineBlock.strength(
+            title: "Deadlift Every 2",
+            exercises: [RoutineExercise(
+                exerciseId: exercise.id,
+                plannedSets: [PlannedSet(targetReps: 4)]
+            )]
+        )
+        block.wodFormat = .emom
+        block.timeCapMinutes = 12
+        block.emomIntervalSeconds = 120
+        let session = SessionController.from(
+            routine: Routine(title: "Strength", blocks: [block]),
+            exercises: [exercise]
+        )
+        XCTAssertEqual(session.currentExercise?.plannedIntervals, 6)
+        XCTAssertEqual(session.currentExercise?.blockIntervalSeconds, 120)
+    }
+
     func testTimedBlockFinishesAllItsMovementsWithoutCreatingSets() {
         var emom = RoutineBlock.wod(format: .emom, title: "EMOM")
         emom.movements = [WODMovement(name: "Push-up", reps: 10), WODMovement(name: "Squat", reps: 10)]
