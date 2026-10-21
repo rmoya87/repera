@@ -459,6 +459,11 @@ struct SettingsView: View {
                     Label("Perfil deportivo IA", systemImage: "figure.strengthtraining.traditional")
                 }
                 NavigationLink {
+                    AITrainingProgramsView()
+                } label: {
+                    Label("Programas de entrenamiento IA", systemImage: "calendar.badge.clock")
+                }
+                NavigationLink {
                     HistoryView()
                 } label: {
                     Label("Historial", systemImage: "clock")
