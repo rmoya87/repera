@@ -172,7 +172,7 @@ Deno.serve(async (request) => {
     return (data ?? []) as WorkoutRow[];
   }
 
-  async function saveWorkouts(items: z.infer<typeof workout>[], programId?: string) {
+  async function saveWorkouts(items: z.infer<typeof workout>[], programId?: string, idempotencyKey?: string) {
     const now = Date.now();
     let program: {start_date:string;duration_weeks:number}|null = null;
     if (programId) {
@@ -198,7 +198,23 @@ Deno.serve(async (request) => {
       if (unique.has(item.scheduledDate)) throw new Error("No repitas una fecha dentro del mismo plan");
       unique.add(item.scheduledDate);
     }
-    const batchId = crypto.randomUUID();
+    // Stable deterministic UUID per owner+request: a retry cannot duplicate
+    // dated proposals. Existing records are never silently overwritten.
+    let batchId = crypto.randomUUID();
+    if (idempotencyKey) {
+      const digest = new Uint8Array(await crypto.subtle.digest("SHA-256",
+        new TextEncoder().encode(ownerId+":"+idempotencyKey)));
+      digest[6] = (digest[6] & 0x0f) | 0x50;
+      digest[8] = (digest[8] & 0x3f) | 0x80;
+      const hex = Array.from(digest.slice(0,16),b=>b.toString(16).padStart(2,"0")).join("");
+      batchId = [hex.slice(0,8),hex.slice(8,12),hex.slice(12,16),hex.slice(16,20),hex.slice(20,32)].join("-");
+      const {data:existing,error:readError} = await db.from("ai_training_plans")
+        .select("id,title,scheduled_date,status")
+        .eq("owner_id",ownerId).eq("batch_id",batchId).limit(14);
+      if (readError) throw new Error("No se pudo comprobar idempotencia");
+      if (existing?.length) return {batch_id:batchId,workouts:existing,
+        idempotent_replay:true,notice:"Solicitud ya aplicada; se conservan los entrenamientos originales."};
+    }
     const { data, error } = await db.from("ai_training_plans").insert(items.map(item => ({
       owner_id: ownerId,
       created_by_token_id: token.id,
@@ -210,6 +226,12 @@ Deno.serve(async (request) => {
       payload: { schemaVersion: 1, blocks: item.blocks },
       status: "pending",
     }))).select("id,title,scheduled_date,status");
+    if (error?.code === "23505" && idempotencyKey) {
+      const {data:already,error:readError} = await db.from("ai_training_plans")
+        .select("id,title,scheduled_date,status").eq("owner_id",ownerId)
+        .eq("batch_id",batchId).limit(14);
+      if (!readError && already?.length) return {batch_id:batchId,workouts:already,idempotent_replay:true};
+    }
     if (error) throw new Error("No se pudo guardar la planificación validada");
     return {
       batch_id: batchId, workouts: data ?? [],
@@ -272,14 +294,15 @@ Deno.serve(async (request) => {
     });
     server.registerTool("create_workout", {
       description: "Create one fully structured workout with typed strength/WOD blocks, sets, RIR, weights and schedule date. Repera imports it to Diario/Inicio, without overwriting existing day plans. Explicit user-requested write.",
-      inputSchema: workout,
+      inputSchema: workout.extend({ idempotencyKey: z.string().uuid().optional() }),
       annotations: { readOnlyHint: false, destructiveHint: false },
-    }, async (args) => reply(await saveWorkouts([args])));
+    }, async ({idempotencyKey,...args}) => reply(await saveWorkouts([args],undefined,idempotencyKey)));
     server.registerTool("create_training_plan", {
       description: "Create 1-14 dated workouts with native Repera strength and WOD blocks. Writes actual structured plans for Diario/Inicio; do this only at user request.",
-      inputSchema: z.object({ workouts: z.array(workout).min(1).max(14), programId: z.string().uuid().optional() }),
+      inputSchema: z.object({ workouts: z.array(workout).min(1).max(14),
+        programId: z.string().uuid().optional(), idempotencyKey: z.string().uuid().optional() }),
       annotations: { readOnlyHint: false, destructiveHint: false },
-    }, async ({ workouts: items, programId }) => reply(await saveWorkouts(items, programId)));
+    }, async ({ workouts: items, programId, idempotencyKey }) => reply(await saveWorkouts(items, programId, idempotencyKey)));
     return server;
   });
   const response = await handler.fetch(request);
