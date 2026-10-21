@@ -839,7 +839,18 @@ struct OGNumericTextField: UIViewRepresentable {
             allowsTime: allowsTimeSeparator,
             actionTitle: submitTitle
         )
-        configure(field, coordinator: c)
+        // No volver a establecer keyboardType / returnKeyType en cada cifra:
+        // UIKit puede reconstruir el inputView y ocultar el teclado activo.
+        // Las propiedades estáticas se configuran una sola vez en makeUIView.
+        if field.textAlignment != textAlignment {
+            field.textAlignment = textAlignment
+        }
+        if field.font?.pointSize != fontSize {
+            field.font = .monospacedDigitSystemFont(ofSize: fontSize, weight: .semibold)
+        }
+        if let textColor, field.textColor != textColor {
+            field.textColor = textColor
+        }
         if field.text != text {
             field.text = text
         }
