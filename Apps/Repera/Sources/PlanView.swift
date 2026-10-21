@@ -459,6 +459,8 @@ struct DayEditorView: View {
     @State private var showWODCatalog = false
     @State private var selectFormatForBlock: UUID?
     @State private var saveAsFavorite = false
+    @FocusState private var focusedFormatField: OGSetFieldID?
+    @State private var showsReorder = false
 
     var body: some View {
         Group {
@@ -1004,117 +1006,135 @@ struct DayEditorView: View {
         }
     }
 
-    /// Formato y parámetros editables en cualquier bloque, sin imponer un WOD.
+    private enum BlockNumberField: Int, Hashable {
+        case duration, interval, rounds, work, rest, roundRest
+
+        var title: String {
+            switch self {
+            case .duration: return "Tiempo"
+            case .interval: return "Intervalo"
+            case .rounds: return "Rondas"
+            case .work: return "Trabajo"
+            case .rest: return "Descanso"
+            case .roundRest: return "Entre rondas"
+            }
+        }
+
+        var unit: String {
+            switch self {
+            case .duration: return "min"
+            case .rounds: return ""
+            case .interval, .work, .rest, .roundRest: return "s"
+            }
+        }
+
+        var range: ClosedRange<Int> {
+            switch self {
+            case .duration: return 1...120
+            case .rounds: return 1...99
+            case .interval: return 15...900
+            case .work, .rest: return 1...300
+            case .roundRest: return 0...600
+            }
+        }
+    }
+
+    private func fieldsForFormat(_ block: RoutineBlock) -> [BlockNumberField] {
+        guard let format = block.wodFormat else { return [] }
+        switch format {
+        case .tabata: return [.work, .rest, .rounds]
+        case .emom, .circuit: return [.duration, .interval]
+        case .amrap: return [.duration]
+        case .forTime:
+            return block.timeCapMinutes == nil ? [.rounds] : [.rounds, .duration, .roundRest]
+        case .chipper, .afap, .ladder:
+            return block.timeCapMinutes == nil ? [] : [.duration]
+        case .deathBy, .roundsForQuality, .partner:
+            return block.timeCapMinutes == nil ? [.rounds] : [.rounds, .duration]
+        case .buyInCashOut, .maxEffort, .strength:
+            return block.timeCapMinutes == nil ? [] : [.duration]
+        }
+    }
+
+    private func numberBinding(_ field: BlockNumberField, blockIndex: Int) -> Binding<Int> {
+        Binding(
+            get: {
+                guard routine.blocks.indices.contains(blockIndex) else { return 0 }
+                let block = routine.blocks[blockIndex]
+                switch field {
+                case .duration: return block.timeCapMinutes ?? 12
+                case .interval: return block.emomIntervalSeconds ?? 60
+                case .rounds: return block.rounds ?? 8
+                case .work: return block.workSeconds ?? 20
+                case .rest: return block.restSeconds ?? 10
+                case .roundRest: return block.restBetweenRoundsSeconds ?? 0
+                }
+            },
+            set: { value in
+                guard routine.blocks.indices.contains(blockIndex) else { return }
+                switch field {
+                case .duration: routine.blocks[blockIndex].timeCapMinutes = value
+                case .interval: routine.blocks[blockIndex].emomIntervalSeconds = value
+                case .rounds: routine.blocks[blockIndex].rounds = value
+                case .work: routine.blocks[blockIndex].workSeconds = value
+                case .rest: routine.blocks[blockIndex].restSeconds = value
+                case .roundRest: routine.blocks[blockIndex].restBetweenRoundsSeconds = value
+                }
+            }
+        )
+    }
+
+    /// Los parámetros de un formato se muestran como campos compactos en una sola fila.
     @ViewBuilder
     private func formatSettings(index: Int) -> some View {
         Button {
             selectFormatForBlock = routine.blocks[index].id
         } label: {
-            HStack {
+            HStack(spacing: 10) {
                 Text("Formato")
+                    .foregroundStyle(OG.label)
                 Spacer()
                 Text(routine.blocks[index].wodFormat?.displayName ?? "Sin formato")
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(OG.label2)
                 Image(systemName: "chevron.right")
                     .font(.footnote)
                     .foregroundStyle(OG.label3)
             }
         }
+        .buttonStyle(.plain)
 
         if let format = routine.blocks[index].wodFormat {
-            Text(format.detail).font(.caption).foregroundStyle(.secondary)
-        }
-
-            if let format = routine.blocks[index].wodFormat {
-                if format == .amrap || format == .emom {
-                    Stepper(
-                        "Duración: \(routine.blocks[index].timeCapMinutes ?? 12) min",
-                        value: Binding(
-                            get: { routine.blocks[index].timeCapMinutes ?? 12 },
-                            set: { routine.blocks[index].timeCapMinutes = $0 }
-                        ),
-                        in: 1...120
-                    )
-                } else if format != .tabata {
-                    Toggle("Límite de tiempo", isOn: Binding(
-                        get: { routine.blocks[index].timeCapMinutes != nil },
-                        set: { enabled in
-                            routine.blocks[index].timeCapMinutes = enabled ? (routine.blocks[index].timeCapMinutes ?? 12) : nil
-                        }
-                    ))
-                    if routine.blocks[index].timeCapMinutes != nil {
-                        Stepper(
-                            "Límite: \(routine.blocks[index].timeCapMinutes ?? 12) min",
-                            value: Binding(
-                                get: { routine.blocks[index].timeCapMinutes ?? 12 },
-                                set: { routine.blocks[index].timeCapMinutes = $0 }
-                            ),
-                            in: 1...120
+            let fields = fieldsForFormat(routine.blocks[index])
+            if !fields.isEmpty {
+                HStack(alignment: .bottom, spacing: 6) {
+                    ForEach(Array(fields.enumerated()), id: \.element) { position, field in
+                        OGFormatNumberField(
+                            title: field.title,
+                            unit: field.unit,
+                            value: numberBinding(field, blockIndex: index),
+                            range: field.range,
+                            focus: $focusedFormatField,
+                            fieldID: OGSetFieldID(rowID: routine.blocks[index].id, column: position),
+                            nextID: position + 1 < fields.count
+                                ? OGSetFieldID(rowID: routine.blocks[index].id, column: position + 1)
+                                : nil
                         )
                     }
                 }
+                .padding(.vertical, 4)
             }
-            if routine.blocks[index].wodFormat.map({ [.forTime, .deathBy, .emom, .circuit, .roundsForQuality, .partner].contains($0) }) == true {
-                Stepper(
-                    "Rondas: \(emomOrRFTRounds(at: index))",
-                    value: Binding(
-                        get: { emomOrRFTRounds(at: index) },
-                        set: { routine.blocks[index].rounds = $0 }
-                    ),
-                    in: 1...30
-                )
+            if ![WODFormat.amrap, .emom, .tabata, .circuit].contains(format) {
+                Toggle("Límite de tiempo", isOn: Binding(
+                    get: { routine.blocks[index].timeCapMinutes != nil },
+                    set: { enabled in
+                        routine.blocks[index].timeCapMinutes = enabled
+                            ? (routine.blocks[index].timeCapMinutes ?? 12) : nil
+                    }
+                ))
+                .tint(OG.accent)
             }
-            if routine.blocks[index].wodFormat == .forTime {
-                Stepper(
-                    "Descanso entre rondas: \(routine.blocks[index].restBetweenRoundsSeconds ?? 0)s",
-                    value: Binding(
-                        get: { routine.blocks[index].restBetweenRoundsSeconds ?? 0 },
-                        set: { routine.blocks[index].restBetweenRoundsSeconds = $0 }
-                    ),
-                    in: 0...300,
-                    step: 15
-                )
-            }
-            if routine.blocks[index].wodFormat == .emom || routine.blocks[index].wodFormat == .circuit {
-                Stepper(
-                    "Intervalo: \(routine.blocks[index].emomIntervalSeconds ?? 60)s",
-                    value: Binding(
-                        get: { routine.blocks[index].emomIntervalSeconds ?? 60 },
-                        set: { routine.blocks[index].emomIntervalSeconds = $0 }
-                    ),
-                    in: 30...180,
-                    step: 15
-                )
-            }
-            if routine.blocks[index].wodFormat == .tabata {
-                Stepper(
-                    "Trabajo: \(routine.blocks[index].workSeconds ?? 20)s",
-                    value: Binding(
-                        get: { routine.blocks[index].workSeconds ?? 20 },
-                        set: { routine.blocks[index].workSeconds = $0 }
-                    ),
-                    in: 5...60,
-                    step: 5
-                )
-                Stepper(
-                    "Descanso: \(routine.blocks[index].restSeconds ?? 10)s",
-                    value: Binding(
-                        get: { routine.blocks[index].restSeconds ?? 10 },
-                        set: { routine.blocks[index].restSeconds = $0 }
-                    ),
-                    in: 5...60,
-                    step: 5
-                )
-                Stepper(
-                    "Rondas: \(routine.blocks[index].rounds ?? 8)",
-                    value: Binding(
-                        get: { routine.blocks[index].rounds ?? 8 },
-                        set: { routine.blocks[index].rounds = $0 }
-                    ),
-                    in: 1...30
-                )
-            }
-
+        }
     }
 
     @ViewBuilder
