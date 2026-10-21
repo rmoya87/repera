@@ -257,7 +257,8 @@ public enum BoardImportParser {
 
         var block = RoutineBlock.wod(format: header.format, title: header.title)
         block.timeCapMinutes = header.timeCapMinutes
-        block.rounds = header.rounds ?? block.rounds
+        // For Time sin «N RFT»: TC 14' no son 14 rondas ni series.
+        block.rounds = header.format == .forTime ? header.rounds : (header.rounds ?? block.rounds)
         block.emomIntervalSeconds = header.intervalSeconds ?? block.emomIntervalSeconds
         block.restBetweenRoundsSeconds = header.restBetween
         block.movements = movements
