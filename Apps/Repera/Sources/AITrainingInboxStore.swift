@@ -15,10 +15,82 @@ final class AITrainingInboxStore {
     private(set) var conflicts: [String] = []
     private(set) var pendingCount = 0
     private(set) var isSyncing = false
+    /// A small in-app banner informs the athlete as a new plan is imported.
+    private(set) var lastImportedTitle: String?
+
+    // The subscription belongs to the signed-in athlete, never to a service token.
+    // Observation ignores networking internals while tracking visible state.
+    @ObservationIgnored private var realtimeTask: Task<Void, Never>?
+    @ObservationIgnored private var subscribedUserID: UUID?
+    @ObservationIgnored private var retrySyncAfterCurrent = false
 
     private init() {}
 
+    func dismissArrival() {
+        lastImportedTitle = nil
+    }
+
+    /// Starts a single foreground-only, owner-filtered Realtime stream.
+    /// Register before subscribing, then fetch pending plans to close the race
+    /// between the previous sync and the websocket becoming active.
+    func startRealtime(store: ReperaStore) {
+        guard BusinessAuthStore.shared.isConnected,
+              let client = BusinessAuthStore.shared.apiClient,
+              let session = client.auth.currentSession, !session.isExpired,
+              store.isHydrated, store.didCompleteInitialRemoteSync, !store.isSyncingiCloud else { return }
+
+        let userID = session.user.id
+        if realtimeTask != nil && subscribedUserID == userID { return }
+        stopRealtime()
+        subscribedUserID = userID
+        realtimeTask = Task { [weak self, weak store] in
+            guard let self, let store else { return }
+            // Random topic prevents a channel from a recently cancelled task
+            // being inadvertently reused during account changes.
+            let channel = client.realtimeV2.channel("ai-plans-\(UUID().uuidString)")
+            let changes = channel.postgresChange(
+                InsertAction.self,
+                schema: "public",
+                table: "ai_training_plans",
+                filter: .eq("owner_id", value: userID.uuidString.lowercased())
+            )
+            do {
+                try await channel.subscribeWithError()
+                if !Task.isCancelled, self.subscribedUserID == userID,
+                   BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id == userID {
+                    _ = await self.sync(store: store)
+                }
+                for await _ in changes {
+                    guard !Task.isCancelled,
+                          self.subscribedUserID == userID,
+                          BusinessAuthStore.shared.isConnected,
+                          BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id == userID
+                    else { break }
+                    _ = await self.sync(store: store)
+                }
+            } catch {
+                if !Task.isCancelled, self.subscribedUserID == userID {
+                    self.lastError = "Recepción inmediata no disponible. Los planes se recuperarán al abrir Repera o al sincronizar."
+                }
+            }
+            await client.realtimeV2.removeChannel(channel)
+            if self.subscribedUserID == userID {
+                self.realtimeTask = nil
+            }
+        }
+    }
+
+    /// Always close the old user's channel on logout and when backgrounded.
+    func stopRealtime() {
+        realtimeTask?.cancel()
+        realtimeTask = nil
+        subscribedUserID = nil
+    }
+
     func clearSession() {
+        stopRealtime()
+        lastImportedTitle = nil
+        retrySyncAfterCurrent = false
         lastError = nil
         importedCount = 0
         pendingCount = 0
@@ -95,12 +167,24 @@ final class AITrainingInboxStore {
     /// One deferred plan per calendar day; a conflicting user-written plan is
     /// never silently replaced. Pending plans can be retried after editing the day.
     func sync(store: ReperaStore) async -> Bool {
-        guard !isSyncing else { return false }
+        if isSyncing {
+            retrySyncAfterCurrent = true
+            return false
+        }
         guard store.isHydrated, store.didCompleteInitialRemoteSync, !store.isSyncingiCloud,
               BusinessAuthStore.shared.isConnected,
               let client = BusinessAuthStore.shared.apiClient else { return false }
         isSyncing = true
-        defer { isSyncing = false }
+        defer {
+            isSyncing = false
+            if retrySyncAfterCurrent {
+                retrySyncAfterCurrent = false
+                Task { [weak self, weak store] in
+                    guard let self, let store else { return }
+                    _ = await self.sync(store: store)
+                }
+            }
+        }
         do {
             let session = try await client.auth.session
             guard !session.isExpired else { return false }
@@ -150,6 +234,7 @@ final class AITrainingInboxStore {
                         .eq("status", value: "pending")
                         .execute()
                     imported += 1
+                    lastImportedTitle = row.title
                 } catch {
                     reasons.append("\(row.scheduledDate): \(error.localizedDescription)")
                 }
