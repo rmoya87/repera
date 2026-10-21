@@ -45,15 +45,6 @@ struct SessionPreviewView: View {
 
     var body: some View {
         List {
-            if active == nil, !dayLabel.isEmpty {
-                Section {
-                    Text(dayLabel)
-                        .font(.system(size: 15, weight: .regular))
-                        .foregroundStyle(OG.label2)
-                        .ogListPageHeaderRow()
-                }
-            }
-
             if let active {
                 Section {
                     Button {
@@ -92,6 +83,17 @@ struct SessionPreviewView: View {
         }
         .ogListChrome()
         .ogPinnedTransparentNav(active != nil ? "Sesión" : "Entreno")
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if active == nil, !dayLabel.isEmpty {
+                Text("Entreno · \(dayLabel)")
+                    .font(.system(size: 15))
+                    .foregroundStyle(OG.label2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, OG.pad)
+                    .padding(.bottom, 8)
+                    .background(OG.bg)
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 CloseToolbarButton(action: onClose, large: false)
@@ -122,26 +124,17 @@ struct SessionPreviewView: View {
                     .accessibilityLabel("Más opciones")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    OGToolbarGlassButton(
-                        systemName: "pencil",
-                        accessibilityLabel: "Editar o apuntar",
-                        tint: OG.accent
-                    ) {
-                        if let routine = liveRoutine {
-                            onEdit(routine)
-                        }
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    OGToolbarGlassButton(
-                        systemName: "play.fill",
-                        accessibilityLabel: "Comenzar",
-                        tint: OG.accent
-                    ) {
+                    Button {
                         guard let routine = liveRoutine else { return }
                         store.startSession(from: routine)
                         onStart()
+                    } label: {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 15, weight: .semibold))
                     }
+                    .buttonStyle(.borderedProminent)
+                    .tint(OG.accent)
+                    .accessibilityLabel("Comenzar")
                 }
             }
         }
