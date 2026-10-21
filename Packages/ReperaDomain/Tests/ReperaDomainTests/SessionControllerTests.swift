@@ -2,6 +2,24 @@ import XCTest
 @testable import ReperaDomain
 
 final class SessionControllerTests: XCTestCase {
+    func testCardioUnitsPersistFromRoutineIntoWorkoutAndThroughJSON() throws {
+        let bike = Exercise(name: "Air Bike", muscleGroup: "Cardio")
+        let block = RoutineBlock.strength(
+            title: "Bike",
+            exercises: [RoutineExercise(
+                exerciseId: bike.id,
+                plannedSets: [PlannedSet(targetReps: 500)],
+                quantityUnit: .meters
+            )]
+        )
+        let routine = Routine(title: "Cardio", blocks: [block])
+        let restored = try JSONDecoder().decode(Routine.self, from: JSONEncoder().encode(routine))
+        XCTAssertEqual(restored.blocks.first?.exercises.first?.quantityUnit, .meters)
+        let session = SessionController.from(routine: restored, exercises: [bike])
+        XCTAssertEqual(session.currentExercise?.quantityUnit, .meters)
+        XCTAssertEqual(session.currentExercise?.plannedSets.first?.targetReps, 500)
+    }
+
     func testStrengthBlocksRetainOptionalTimerFormatsInPlay() {
         let exercise = Exercise(name: "Back Squat", muscleGroup: "Piernas")
         var amrap = RoutineBlock.strength(
