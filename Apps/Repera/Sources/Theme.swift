@@ -817,6 +817,7 @@ final class OGNumberKeyboardView: UIInputView {
 
     func configure(allowsDecimal: Bool, allowsTime: Bool, lastField: Bool) {
         decimalButton?.setTitle(allowsTime ? ":" : ".", for: .normal)
+        decimalButton?.accessibilityLabel = allowsTime ? "Dos puntos" : "Decimal"
         decimalButton?.isEnabled = allowsDecimal || allowsTime
         decimalButton?.alpha = allowsDecimal || allowsTime ? 1 : 0.45
         submitButton?.backgroundColor = lastField ? .systemGreen : .systemBlue
@@ -871,6 +872,10 @@ final class OGNumberKeyboardView: UIInputView {
         button.setTitleColor(UIColor { trait in
             trait.userInterfaceStyle == .dark ? .white : UIColor(red: 0.02, green: 0.07, blue: 0.16, alpha: 1)
         }, for: .normal)
+        button.tintColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? .white : UIColor(red: 0.02, green: 0.07, blue: 0.16, alpha: 1)
+        }
 
         if tag <= 9 {
             button.setTitle(String(tag), for: .normal)
