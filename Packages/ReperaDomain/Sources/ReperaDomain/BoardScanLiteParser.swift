@@ -29,6 +29,8 @@ public enum BoardScanLiteParser {
                 block.emomIntervalSeconds = cur.interval ?? 60
             }
             block.movements = cur.body.map { movement(from: $0) }
+            // Preservar alternativas (BMU/C2B/Pull-up; DU/SU), cargas por sexo
+            // y anotaciones del asterisco en el texto original del bloque.
             if cur.format == .forTime, let rest = block.movements.first(where: { $0.isRest }) {
                 block.restBetweenRoundsSeconds = rest.restSeconds
             }
@@ -191,11 +193,14 @@ public enum BoardScanLiteParser {
         if rftMatch != nil || upper.hasPrefix("RFT") || upper.hasPrefix("RFF")
             || upper.contains("FOR TIME")
         {
+            // El número de TC 14' es un límite de TIEMPO del bloque completo.
+            // Nunca usarlo como número de rondas ni de series de cada movimiento.
             let rounds = rftMatch.flatMap { firstInt(String(upper[$0])) }
-                ?? (upper.hasPrefix("RFT") || upper.hasPrefix("RFF") ? nil : firstInt(upper))
+                ?? upper.range(of: #"^\s*(\d+)\s+ROUNDS?\b"#, options: .regularExpression)
+                    .flatMap { firstInt(String(upper[$0])) }
             let timeCap = upper.range(of: #"(?:TC|TIME\s*CAP|CAP)\s*[:=]?\s*\d+"#,
                                       options: .regularExpression)
-                .flatMap { firstInt(String(upper[$0]).filter(\.isNumber)) }
+                .flatMap { firstInt(String(upper[$0])) }
             let title = rftMatch != nil
                 ? line.replacingOccurrences(
                     of: #"(?i)(\d+)\s*RF[TF]\b"#,
