@@ -510,13 +510,24 @@ struct WorkoutView: View {
 
     /// Las notas se escriben directamente en Play; guardado silencioso y persistente.
     private var inlineWorkoutNotes: some View {
-        TextEditor(text: $notesDraft)
-            .font(.system(size: 15))
-            .foregroundStyle(OG.label)
-            .scrollContentBackground(.hidden)
-            .frame(minHeight: 116)
-            .padding(.vertical, 6)
-            .accessibilityLabel("Notas del entreno")
+        ZStack(alignment: .topLeading) {
+            if notesDraft.isEmpty {
+                Text("Cómo te has sentido, molestias, marcas personales…")
+                    .font(.system(size: 15))
+                    .foregroundStyle(OG.label3)
+                    .padding(.top, 14)
+                    .padding(.leading, 5)
+                    .allowsHitTesting(false)
+            }
+            TextEditor(text: $notesDraft)
+                .font(.system(size: 15))
+                .foregroundStyle(OG.label)
+                .scrollContentBackground(.hidden)
+                .frame(minHeight: 116)
+                .opacity(notesDraft.isEmpty ? 0.82 : 1)
+                .accessibilityLabel("Notas del entreno")
+        }
+        .padding(.vertical, 6)
             .task(id: notesDraft) {
                 do {
                     try await Task.sleep(for: .milliseconds(400))
