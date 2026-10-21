@@ -22,7 +22,6 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         (directory / "AITrainingInboxStore.swift").write_text("// AI inbox", encoding="utf-8")
         (directory / "AIAccessView.swift").write_text("// AI access", encoding="utf-8")
         (directory / "AITrainingContextStore.swift").write_text("// AI context", encoding="utf-8")
-        (directory / "AITrainingProfileView.swift").write_text("// AI profile", encoding="utf-8")
         (directory / "AITrainingProgramsView.swift").write_text("// AI programs", encoding="utf-8")
         (self.root / "project.yml").write_text(
             "targets:\n  Repera:\n    sources:\n      - path: Apps/Repera/Sources\n"
@@ -38,7 +37,6 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "AITrainingInboxStore.swift in Sources\n"
             "AIAccessView.swift in Sources\n"
             "AITrainingContextStore.swift in Sources\n"
-            "AITrainingProfileView.swift in Sources\n"
             "AITrainingProgramsView.swift in Sources", encoding="utf-8"
         )
 
@@ -98,7 +96,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             validate(self.root)
 
     def test_stale_coaching_target_is_rejected(self):
-        for name in ("AITrainingContextStore.swift", "AITrainingProfileView.swift", "AITrainingProgramsView.swift"):
+        for name in ("AITrainingContextStore.swift", "AITrainingProgramsView.swift"):
             original = self.pbx.read_text(encoding="utf-8")
             self.pbx.write_text(original.replace(f"{name} in Sources", ""), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, name):
@@ -106,7 +104,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             self.pbx.write_text(original, encoding="utf-8")
 
     def test_missing_coaching_source_requires_checkout_update(self):
-        for name in ("AITrainingContextStore.swift", "AITrainingProfileView.swift", "AITrainingProgramsView.swift"):
+        for name in ("AITrainingContextStore.swift", "AITrainingProgramsView.swift"):
             path = self.root / "Apps/Repera/Sources" / name
             original = path.read_text(encoding="utf-8")
             path.unlink()
