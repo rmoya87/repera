@@ -1367,6 +1367,8 @@ public enum CrossFitGlossary {
         "cals": "Air bike",
         "calorie": "Air bike",
         "calories": "Air bike",
+        "row": "Remo máquina",
+        "cal row": "Remo máquina",
         "cal ski": "SkiErg",
         "ski": "SkiErg",
         "tgu": "Turkish get-up",
@@ -1381,7 +1383,7 @@ public enum CrossFitGlossary {
         "cinta / carrera": "Cinta / carrera",
         "cinta/carrera": "Cinta / carrera",
         "jog": "Cinta / carrera",
-        "shuttle run": "Cinta / carrera",
+        "shuttle run": "Shuttle run",
 
         // Formatos (para reconocer cabeceras, no ejercicios)
         "amrap": "AMRAP",
