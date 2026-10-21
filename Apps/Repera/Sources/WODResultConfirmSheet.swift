@@ -14,6 +14,8 @@ struct WODResultConfirmSheet: View {
     @State private var roundsText = ""
     @State private var repsText = ""
     @State private var timeText = ""
+    @State private var numericGroupID = UUID()
+    @FocusState private var numericFocus: OGSetFieldID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -40,15 +42,15 @@ struct WODResultConfirmSheet: View {
 
             if capture == .totalReps {
                 HStack(spacing: 12) {
-                    numberInput("Rondas", text: $roundsText)
-                    numberInput("Repeticiones", text: $repsText)
+                    numberInput("Rondas", text: $roundsText, column: 0, nextColumn: 1)
+                    numberInput("Repeticiones", text: $repsText, column: 1)
                 }
                 Text("Rondas completas y repeticiones de la última ronda.")
                     .font(.footnote)
                     .foregroundStyle(OG.label2)
                     .fixedSize(horizontal: false, vertical: true)
             } else if capture == .elapsedTime {
-                numberInput("Tiempo · m:ss", text: $timeText, allowsTime: true)
+                numberInput("Tiempo · m:ss", text: $timeText, column: 0, allowsTime: true)
                 Text("Puedes ajustar el tiempo si paraste el reloj tarde o pronto.")
                     .font(.footnote)
                     .foregroundStyle(OG.label2)
@@ -97,6 +99,8 @@ struct WODResultConfirmSheet: View {
     private func numberInput(
         _ label: String,
         text: Binding<String>,
+        column: Int,
+        nextColumn: Int? = nil,
         allowsTime: Bool = false
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -108,7 +112,21 @@ struct WODResultConfirmSheet: View {
                 allowsDecimal: allowsTime,
                 allowsTimeSeparator: allowsTime,
                 autoFocus: false,
-                onCommit: { commitDrafts() }
+                isFocused: numericFocus == OGSetFieldID(rowID: numericGroupID, column: column),
+                submitTitle: nextColumn == nil ? "✓" : "Siguiente",
+                onFocused: {
+                    numericFocus = OGSetFieldID(rowID: numericGroupID, column: column)
+                },
+                onFocusLost: {
+                    commitDrafts()
+                    if numericFocus == OGSetFieldID(rowID: numericGroupID, column: column) {
+                        numericFocus = nil
+                    }
+                },
+                onCommit: {
+                    commitDrafts()
+                    numericFocus = nextColumn.map { OGSetFieldID(rowID: numericGroupID, column: $0) }
+                }
             )
             .frame(height: 48)
             .padding(.horizontal, 12)
