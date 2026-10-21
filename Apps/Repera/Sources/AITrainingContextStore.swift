@@ -12,6 +12,7 @@ final class AITrainingContextStore {
     private var lastSnapshot: Data?
     private var lastOwner: UUID?
     private var syncing = false
+    var isSyncing: Bool { syncing }
     private var retry = false
     private init() {}
 
