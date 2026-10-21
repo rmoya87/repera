@@ -252,6 +252,11 @@ struct WorkoutView: View {
                 rebuildLiveSets(from: current)
             }
         }
+        .onChange(of: store.state.activeSession?.currentExercise?.quantityUnit) { _, _ in
+            if let current = store.state.activeSession?.currentExercise {
+                syncLiveQuantityUnit(from: current)
+            }
+        }
         .onChange(of: store.workoutClock.pendingEndReason) { _, reason in
             guard reason != nil else { return }
             presentWODConfirmIfNeeded()
@@ -362,13 +367,18 @@ struct WorkoutView: View {
             if blocks[last].kind == .strength {
                 blocks[last].exercises.append(RoutineExercise(
                     exerciseId: exercise.exercise.id,
-                    plannedSets: exercise.plannedSets
+                    plannedSets: exercise.plannedSets,
+                    quantityUnit: exercise.quantityUnit
                 ))
             } else {
                 blocks[last].movements.append(WODMovement(
                     exerciseId: exercise.exercise.id,
                     name: exercise.exercise.name,
                     reps: exercise.plannedSets.first?.targetReps ?? 8,
+                    distanceMeters: exercise.quantityUnit == .meters
+                        ? exercise.plannedSets.first?.targetReps : nil,
+                    calories: exercise.quantityUnit == .calories
+                        ? exercise.plannedSets.first?.targetReps : nil,
                     explicitPlannedSets: exercise.plannedSets
                 ))
             }
@@ -739,7 +749,7 @@ struct WorkoutView: View {
         if let unit = current.loggedSets.compactMap(\.quantityUnit).last {
             liveQuantityUnit = unit
         } else {
-            liveQuantityUnit = current.exercise.defaultQuantityUnit
+            liveQuantityUnit = current.quantityUnit ?? current.exercise.defaultQuantityUnit
         }
     }
 
