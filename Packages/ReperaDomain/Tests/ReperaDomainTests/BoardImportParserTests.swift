@@ -23,6 +23,12 @@ struct BoardImportParserTests {
         #expect(bikes.count == 2)
         #expect(bikes.allSatisfy { $0.calories == 20 && $0.weightMaleKg == nil })
         #expect(bikes.allSatisfy { $0.notes?.contains("16") == true })
+        let capOnly = BoardImportParser.parseWODBlock(
+            ocrText: "RFT (TC 14')\n400M RUN",
+            catalog: Catalog.seed()
+        )
+        #expect(capOnly?.rounds == nil)
+        #expect(capOnly?.timeCapMinutes == 14)
     }
 
 
