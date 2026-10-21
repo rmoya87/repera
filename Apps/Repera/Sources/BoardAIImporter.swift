@@ -70,7 +70,12 @@ enum BoardAIImporter {
         - Separa cada bloque (Weightlifting, Metcon, Strength, AMRAP, EMOM, For Time…).
         - format debe ser uno de: emom, amrap, forTime, strength, ladder, tabata, chipper, partner, circuit, afap, deathBy, maxEffort, buyInCashOut, roundsForQuality.
         - Every 90s For 12min → emom, intervalSeconds=90, timeCapMinutes=12, rounds si hay (8 Series).
-        - For Time (20min Cap) → forTime, timeCapMinutes=20.
+        - For Time (TC 14') → forTime, timeCapMinutes=14, rounds=nil si no hay rondas expresas; NUNCA 14 series por movimiento.
+        - For Time / Time Cap contabiliza el tiempo global de toda la secuencia, no sets ni reps.
+        - AMRAP 16' → amrap, timeCapMinutes=16. Conserva los bloques independientes.
+        - Acrónimos: GTOH=Ground to overhead; BMU=Muscle-up barra; AKBS=Swing americano; C2B=Chest to bar; DU=Dobles de comba; SU=Simples de comba.
+        - CAL* y 20/16 CAL son calorías en Air bike, NO 20/16 kg. Preserva alternativas de escala y la anotación femenina en notes.
+        - "1' REST BTWN" es descanso entre rondas donde existan, NO otra serie.
         - Conserva cargas M/F (40/25), %, series 1-2, metros, rondas distintas como movimientos en orden.
         - Notas tipo "NO Touch & Go" van en notes del bloque.
         - Corrige typos obvios (Push Jek → Push Jerk).
