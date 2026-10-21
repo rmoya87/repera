@@ -210,9 +210,7 @@ struct ReperaApp: App {
                             wireSubscriptionGates()
                         }
                     } else if phase == .active, businessAuth.isConnected {
-                        if scenePhase == .active {
-                                aiInbox.startRealtime(store: store)
-                            }
+                        aiInbox.startRealtime(store: store)
                     }
                 }
                 .onChange(of: businessAuth.isConnected) { _, connected in
