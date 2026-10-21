@@ -2433,6 +2433,8 @@ private struct FreeWODMovementCreatePage: View {
     @State private var repsText = "10"
     @State private var maleWeightText = ""
     @State private var femaleWeightText = ""
+    @State private var numericGroupID = UUID()
+    @FocusState private var numericFocus: OGSetFieldID?
 
     private var trimmedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2444,14 +2446,11 @@ private struct FreeWODMovementCreatePage: View {
                 TextField("Nombre", text: $name)
                     .textInputAutocapitalization(.words)
                     .autocorrectionDisabled()
-                TextField("Repeticiones", text: $repsText)
-                    .keyboardType(.numberPad)
+                numericRow("Repeticiones", text: $repsText, column: 0, nextColumn: 1, decimal: false)
             }
             Section("Carga opcional · kg") {
-                TextField("Carga masculina", text: $maleWeightText)
-                    .keyboardType(.decimalPad)
-                TextField("Carga femenina", text: $femaleWeightText)
-                    .keyboardType(.decimalPad)
+                numericRow("Carga masculina", text: $maleWeightText, column: 1, nextColumn: 2, decimal: true)
+                numericRow("Carga femenina", text: $femaleWeightText, column: 2, nextColumn: nil, decimal: true)
             }
         }
         .ogListChrome()
@@ -2473,6 +2472,41 @@ private struct FreeWODMovementCreatePage: View {
             }
         }
     }
+    private func numericRow(
+        _ label: String,
+        text: Binding<String>,
+        column: Int,
+        nextColumn: Int?,
+        decimal: Bool
+    ) -> some View {
+        let field = OGSetFieldID(rowID: numericGroupID, column: column)
+        return HStack(spacing: 10) {
+            Text(label)
+                .foregroundStyle(OG.label)
+            Spacer(minLength: 8)
+            OGNumericTextField(
+                text: text,
+                allowsDecimal: decimal,
+                fontSize: 17,
+                autoFocus: false,
+                isFocused: numericFocus == field,
+                submitTitle: nextColumn == nil ? "✓" : "Siguiente",
+                onFocused: { numericFocus = field },
+                onFocusLost: {
+                    if numericFocus == field { numericFocus = nil }
+                },
+                onCommit: {
+                    numericFocus = nextColumn.map {
+                        OGSetFieldID(rowID: numericGroupID, column: $0)
+                    }
+                }
+            )
+            .frame(width: 105, height: 44)
+            .padding(.horizontal, 8)
+            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+        }
+    }
+
 }
 
 /// Selección del formato como subpágina, nunca confirmationDialog.
