@@ -981,7 +981,6 @@ public enum CrossFitGlossary {
         "akb": "Swing americano",
         "american kettlebell swings": "Swing americano",
         "american kb swings": "Swing americano",
-        "american kb swings": "Swing americano",
         "swing americano": "Swing americano",
         "wall balls": "Wall ball",
         "wallball": "Wall ball",
