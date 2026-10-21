@@ -1744,6 +1744,9 @@ public enum CrossFitGlossary {
         // Sustituir primero frases largas
         let ordered = aliases.keys.sorted { $0.count > $1.count }
         for key in ordered {
+            // AS es Air Squat como sigla aislada, pero «as» aparece en inglés
+            // corriente («as many...»). No expandirlo dentro de frases.
+            if key == "as" && normalize(raw) != "as" { continue }
             guard let value = aliases[key] else { continue }
             let pattern = #"\b"# + NSRegularExpression.escapedPattern(for: key) + #"\b"#
             s = s.replacingOccurrences(of: pattern, with: value, options: [.regularExpression, .caseInsensitive])
@@ -1788,6 +1791,7 @@ public enum CrossFitGlossary {
         // Alias como palabra completa (no "mu" ⊂ "muerto"). Ej. "kipping hspu" → HSPU.
         for key in ordered {
             guard key.count >= 2, let value = aliases[key], !value.isEmpty else { continue }
+            if key == "as" && n != key { continue }
             if n == key { return value }
             let pattern = #"\b"# + NSRegularExpression.escapedPattern(for: key) + #"\b"#
             if n.range(of: pattern, options: .regularExpression) != nil {
