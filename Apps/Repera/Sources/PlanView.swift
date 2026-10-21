@@ -620,8 +620,8 @@ struct DayEditorView: View {
             guard let blockIndex = routine.blocks.firstIndex(where: { $0.id == blockId }) else { return }
             applyStrengthExerciseReorder(to: &routine.blocks[blockIndex].exercises, difference: difference)
         }
-        .sheet(isPresented: $showsReorder) {
-            NavigationStack { reorderSheet }
+        .navigationDestination(isPresented: $showsReorder) {
+            reorderSheet
         }
         .modifier(DayEditorChromeModifier(
             title: navTitle,
@@ -951,6 +951,8 @@ struct DayEditorView: View {
               let exerciseID = UUID(uuidString: parts[2]),
               let sourceIndex = routine.blocks.firstIndex(where: { $0.id == sourceBlockID })
         else { return }
+        // Soltar una fila en su propio hueco anterior no cambia el orden.
+        if sourceBlockID == destinationID && itemID == exerciseID { return }
         let source = routine.blocks[sourceIndex]
         let targetKind = routine.blocks[targetIndex].kind
         if parts[0] == "exercise" {
