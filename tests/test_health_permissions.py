@@ -23,9 +23,10 @@ class UnifiedHealthPermissionsTests(unittest.TestCase):
 
     def test_onboarding_uses_same_health_permission_action(self):
         source = self.read("Onboarding/OnboardingFlowView.swift")
-        self.assertIn('subtitle: "Entrenos, calorías, pulso y sueño"', source)
+        self.assertIn('subtitle: "Entrenos, calorías y pulso"', source)
         self.assertIn("await health.requestAccess()", source)
-        self.assertIn("health.isAuthorized && !recovery.needsSleepDecision", source)
+        self.assertIn("private var healthPermissionsComplete: Bool", source)
+        self.assertNotIn("health.isAuthorized && !recovery.needsSleepDecision", source)
 
     def test_progress_does_not_show_independent_sleep_alert(self):
         source = self.read("StatsView.swift")
@@ -38,7 +39,7 @@ class UnifiedHealthPermissionsTests(unittest.TestCase):
         setter = setter.split("func acceptSleepFromHealthAuthorization()", 1)[0]
         self.assertIn("HealthKitStore.shared.requestAccess(includeSleep: true)", setter)
         self.assertNotIn("healthStore.requestAuthorization", setter)
-        self.assertIn("!sleepDecisionMade || sleepEnabled", source)
+        self.assertIn("var shouldRequestSleepWithHealth: Bool { sleepEnabled }", source)
 
 
 if __name__ == "__main__":
