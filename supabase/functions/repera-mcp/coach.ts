@@ -177,7 +177,7 @@ export function registerCoachTools(
     annotations:{readOnlyHint:true},
   }, async({catalogKey})=>{
     const {data,error}=await db.from("training_exercise_metadata")
-      .select("catalog_key,native_catalog_id,aliases,primary_muscles,secondary_muscles,equipment,movement_pattern,skill_level,alternatives")
+      .select("catalog_key,native_catalog_id,metadata_source,aliases,primary_muscles,secondary_muscles,equipment,movement_pattern,skill_level,alternatives")
       .eq("catalog_key",catalogKey).maybeSingle();
     if(error) throw new Error("No se pudo leer metadatos del ejercicio");
     return result(data??{catalog_key:catalogKey,alternatives:[],warning:"No hay equivalencias validadas"});
@@ -192,7 +192,7 @@ export function registerCoachTools(
       .select("catalog_key,name,category").limit(1500);
     if(error) throw new Error("Catálogo no disponible");
     const {data:metadata,error:metaError}=await db.from("training_exercise_metadata")
-      .select("catalog_key,native_catalog_id,aliases,primary_muscles,secondary_muscles,equipment,movement_pattern,skill_level,alternatives").limit(1500);
+      .select("catalog_key,native_catalog_id,metadata_source,aliases,primary_muscles,secondary_muscles,equipment,movement_pattern,skill_level,alternatives").limit(1500);
     if(metaError) throw new Error("Metadatos de catálogo no disponibles");
     const index=new Map((metadata??[]).map(m=>[m.catalog_key,m]));
     const matches=(all??[]).filter(e=>normalized(e.name).includes(term)
