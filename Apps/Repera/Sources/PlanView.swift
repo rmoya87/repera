@@ -641,7 +641,11 @@ struct DayEditorView: View {
                         PlannedSet(targetReps: amount, targetWeightKg: nil)
                     }
                     routine.blocks[idx].exercises.append(
-                        RoutineExercise(exerciseId: exercise.id, plannedSets: sets)
+                        RoutineExercise(
+                            exerciseId: exercise.id,
+                            plannedSets: sets,
+                            quantityUnit: style == .machineWork ? exercise.defaultQuantityUnit : nil
+                        )
                     )
                 }
                 pickExerciseForBlock = nil
@@ -839,6 +843,8 @@ struct DayEditorView: View {
                     exerciseId: item.exerciseId,
                     name: name,
                     reps: item.plannedSets.first?.targetReps ?? 8,
+                    distanceMeters: item.quantityUnit == .meters ? item.plannedSets.first?.targetReps : nil,
+                    calories: item.quantityUnit == .calories ? item.plannedSets.first?.targetReps : nil,
                     weightMaleKg: item.plannedSets.first?.targetWeightKg,
                     explicitPlannedSets: item.plannedSets
                 )
@@ -880,7 +886,8 @@ struct DayEditorView: View {
                 guard let resolvedID = catalogID else { return }
                 targetExercise = RoutineExercise(
                     exerciseId: resolvedID,
-                    plannedSets: move.explicitPlannedSets ?? move.plannedSetsFromReps
+                    plannedSets: move.explicitPlannedSets ?? move.plannedSetsFromReps,
+                    quantityUnit: move.prescribedQuantityUnit
                 )
             }
             let draggedDown = sourceIndex == targetIndex
@@ -1104,8 +1111,23 @@ struct DayEditorView: View {
                     }
                 }
 
+                if ex.loggingStyle == .machineWork, ex.allowsCalorieOrDistanceToggle {
+                    Picker("Unidad de cardio", selection: Binding(
+                        get: { routine.blocks[index].exercises[exIndex].quantityUnit ?? ex.defaultQuantityUnit },
+                        set: { routine.blocks[index].exercises[exIndex].quantityUnit = $0 }
+                    )) {
+                        Text("Calorías").tag(ExerciseQuantityUnit.calories)
+                        Text("Metros").tag(ExerciseQuantityUnit.meters)
+                    }
+                    .pickerStyle(.segmented)
+                }
+
                 OGSetEntryHeader(
-                    firstTitle: ex.loggingStyle == .loadAndReps ? (ex.loadField == .deficitCm ? "Déficit" : "KG") : ex.quantityFieldLabel,
+                    firstTitle: ex.loggingStyle == .loadAndReps
+                        ? (ex.loadField == .deficitCm ? "Déficit" : "KG")
+                        : (ex.loggingStyle == .machineWork
+                            ? (item.quantityUnit ?? ex.defaultQuantityUnit).shortLabel
+                            : ex.quantityFieldLabel),
                     secondTitle: ex.loggingStyle == .loadAndReps ? "Reps" : nil,
                     showsRIR: ex.loggingStyle.usesRIR
                 )
@@ -2038,10 +2060,22 @@ struct RoutineExerciseEditor: View {
             }
 
             Section {
+                if let exercise, exercise.loggingStyle == .machineWork, exercise.allowsCalorieOrDistanceToggle {
+                    Picker("Unidad de cardio", selection: Binding(
+                        get: { item.quantityUnit ?? exercise.defaultQuantityUnit },
+                        set: { item.quantityUnit = $0 }
+                    )) {
+                        Text("Calorías").tag(ExerciseQuantityUnit.calories)
+                        Text("Metros").tag(ExerciseQuantityUnit.meters)
+                    }
+                    .pickerStyle(.segmented)
+                }
                 OGSetEntryHeader(
                     firstTitle: exercise?.loggingStyle == .loadAndReps
                         ? (exercise?.loadField == .deficitCm ? "Déficit" : "KG")
-                        : (exercise?.quantityFieldLabel ?? "Reps"),
+                        : (exercise?.loggingStyle == .machineWork
+                            ? (item.quantityUnit ?? exercise?.defaultQuantityUnit ?? .calories).shortLabel
+                            : (exercise?.quantityFieldLabel ?? "Reps")),
                     secondTitle: exercise?.loggingStyle == .loadAndReps ? "Reps" : nil,
                     showsRIR: exercise?.loggingStyle.usesRIR ?? false
                 )
