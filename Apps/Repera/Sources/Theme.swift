@@ -1264,6 +1264,7 @@ private struct OGSetNumericCell: View {
             onFocused: { focus.wrappedValue = fieldID },
             onFocusLost: {
                 onCommit(draft.trimmingCharacters(in: .whitespacesAndNewlines))
+                if focus.wrappedValue == fieldID { focus.wrappedValue = nil }
             },
             onCommit: {
                 onCommit(draft.trimmingCharacters(in: .whitespacesAndNewlines))
@@ -1330,7 +1331,10 @@ struct OGFormatNumberField: View {
                     isFocused: focus.wrappedValue == fieldID,
                     submitTitle: nextID == nil ? "✓" : "Siguiente",
                     onFocused: { focus.wrappedValue = fieldID },
-                    onFocusLost: { commit() },
+                    onFocusLost: {
+                        commit()
+                        if focus.wrappedValue == fieldID { focus.wrappedValue = nil }
+                    },
                     onCommit: {
                         commit()
                         focus.wrappedValue = nextID
