@@ -335,8 +335,8 @@ export function registerCoachTools(
     let offset=0;
     if(cursor) {
       try {
-        const encoded=atob(cursor.replace(/-/g,"+").replace(/_/g,"/"));
-        if(!/^\\d+$/.test(encoded))throw Error("bad");
+        const encoded=atob(cursor);
+        if(!/^[0-9]+$/.test(encoded))throw Error("bad");
         offset=Number(encoded);
         if(!Number.isSafeInteger(offset)||offset<0||offset>100000)throw Error("bad");
       }catch{throw Error("INVALID_CURSOR: paginación no válida");}
@@ -347,7 +347,7 @@ export function registerCoachTools(
       .range(offset,offset+limit);
     if(error) throw new Error("No se pudieron leer los programas");
     const rows=data??[],hasMore=rows.length>limit;
-    const nextCursor=hasMore?btoa(String(offset+limit)).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,""):null;
+    const nextCursor=hasMore?btoa(String(offset+limit)).replace(/=+$/,""):null;
     return result({items:rows.slice(0,limit),hasMore,nextCursor});
   });
   server.registerTool("create_training_program",{
