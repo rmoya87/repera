@@ -140,8 +140,10 @@ struct RootTabView: View {
                 onStart: openWorkout,
                 onContinue: openWorkout,
                 onLogResults: { routine in
+                    // Apuntar comparte exactamente la misma sesión y tabla que ▶ Comenzar.
                     previewRoutine = routine
-                    flowPath.append(.logFinalResults(routineId: routine.id))
+                    store.startSession(from: routine)
+                    openWorkout()
                 },
                 onEdit: { routine in
                     previewRoutine = routine
@@ -157,7 +159,7 @@ struct RootTabView: View {
                     routine: routine,
                     initialMode: .results,
                     onEditSaved: { if !flowPath.isEmpty { flowPath.removeLast() } },
-                    onResultsSaved: { flowPath = [] }
+                    onResultsSaved: { flowPath = [.workout] }
                 )
             } else {
                 Color.clear
@@ -237,6 +239,7 @@ private struct WorkoutManageView: View {
     var onResultsSaved: () -> Void
 
     @State private var mode: WorkoutManageMode
+    @Environment(ReperaStore.self) private var store
 
     init(
         routine: Routine,
@@ -274,11 +277,17 @@ private struct WorkoutManageView: View {
                         usesPageCloseHeader: true
                     )
                 case .results:
-                    LogFinalResultsView(routine: routine, onSaved: onResultsSaved)
+                    ProgressView("Preparando registro…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
         }
         .background(OG.bg)
+        .onChange(of: mode) { _, newMode in
+            guard newMode == .results else { return }
+            store.startSession(from: routine)
+            onResultsSaved()
+        }
     }
 }
 
