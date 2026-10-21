@@ -804,8 +804,35 @@ struct DayEditorView: View {
                 .font(.system(size: 14))
                 .foregroundStyle(OG.label)
             Spacer()
-            Image(systemName: "line.3.horizontal")
-                .foregroundStyle(OG.label3)
+            Menu {
+                Button("Subir ejercicio", systemImage: "arrow.up") {
+                    moveExercise(type: type, blockID: blockID, itemID: itemID, offset: -1)
+                }
+                Button("Bajar ejercicio", systemImage: "arrow.down") {
+                    moveExercise(type: type, blockID: blockID, itemID: itemID, offset: 1)
+                }
+                if routine.blocks.count > 1 {
+                    Menu {
+                        ForEach(routine.blocks.filter { $0.id != blockID }) { target in
+                            Button(target.title) {
+                                withAnimation(.smooth) {
+                                    applyReorder(
+                                        "\(type):\(blockID.uuidString):\(itemID.uuidString)",
+                                        into: target.id,
+                                        before: nil
+                                    )
+                                }
+                            }
+                        }
+                    } label: {
+                        Label("Mover a otro bloque", systemImage: "arrowshape.turn.up.right")
+                    }
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .foregroundStyle(OG.accent)
+                    .frame(width: 32, height: 44)
+            }
         }
         .frame(minHeight: 44)
         .contentShape(Rectangle())
@@ -816,6 +843,25 @@ struct DayEditorView: View {
                 applyReorder(token, into: blockID, before: itemID)
             }
             return true
+        }
+    }
+
+    private func moveExercise(type: String, blockID: UUID, itemID: UUID, offset: Int) {
+        guard let blockIndex = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
+        if type == "exercise" {
+            guard let old = routine.blocks[blockIndex].exercises.firstIndex(where: { $0.id == itemID }),
+                  routine.blocks[blockIndex].exercises.indices.contains(old + offset) else { return }
+            withAnimation(.smooth) {
+                let item = routine.blocks[blockIndex].exercises.remove(at: old)
+                routine.blocks[blockIndex].exercises.insert(item, at: old + offset)
+            }
+        } else if type == "movement" {
+            guard let old = routine.blocks[blockIndex].movements.firstIndex(where: { $0.id == itemID }),
+                  routine.blocks[blockIndex].movements.indices.contains(old + offset) else { return }
+            withAnimation(.smooth) {
+                let item = routine.blocks[blockIndex].movements.remove(at: old)
+                routine.blocks[blockIndex].movements.insert(item, at: old + offset)
+            }
         }
     }
 
