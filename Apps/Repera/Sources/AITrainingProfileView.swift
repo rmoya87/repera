@@ -72,10 +72,10 @@ struct AITrainingProfileView: View {
         Form {
             Section("Objetivos deportivos") {
                 Picker("Objetivo principal", selection: $goal) {
-                    ForEach(goals, id: \.0) { item in Text(item.1).tag(item.0) }
+                    ForEach(goals.indices, id: \.self) { index in Text(goals[index].1).tag(goals[index].0) }
                 }
                 Picker("Nivel", selection: $experience) {
-                    ForEach(levels, id: \.0) { item in Text(item.1).tag(item.0) }
+                    ForEach(levels.indices, id: \.self) { index in Text(levels[index].1).tag(levels[index].0) }
                 }
             }
             Section("Disponibilidad") {
