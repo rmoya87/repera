@@ -1849,6 +1849,10 @@ struct WODMovementEditor: View {
     @State private var draftSets: [PlannedSet] = []
     @State private var didSeedSets = false
     @FocusState private var focusedSetField: OGSetFieldID?
+    @State private var weightFieldRowID = UUID()
+    @State private var maleWeightDraft = ""
+    @State private var femaleWeightDraft = ""
+    @FocusState private var weightFieldFocus: OGSetFieldID?
 
     private var weightStep: Double { store.state.settings.weightIncrementKg }
 
@@ -1959,24 +1963,13 @@ struct WODMovementEditor: View {
                     ), in: 0...5000, step: 50)
                 }
                 if loggingStyle == .loadAndReps {
-                    HStack {
+                    HStack(spacing: 8) {
                         Text("Peso H/M (kg)")
-                        TextField("50", text: Binding(
-                            get: { movement.weightMaleKg.map { String(format: "%g", $0) } ?? "" },
-                            set: {
-                                movement.weightMaleKg = Double($0.replacingOccurrences(of: ",", with: "."))
-                                applyMovementWeightToEmptySets()
-                            }
-                        ))
-                        .ogKeyboardDone()
-                        .multilineTextAlignment(.trailing)
-                        Text("/")
-                        TextField("35", text: Binding(
-                            get: { movement.weightFemaleKg.map { String(format: "%g", $0) } ?? "" },
-                            set: { movement.weightFemaleKg = Double($0.replacingOccurrences(of: ",", with: ".")) }
-                        ))
-                        .ogKeyboardDone()
-                        .multilineTextAlignment(.trailing)
+                            .font(.system(size: 13, weight: .medium))
+                        Spacer(minLength: 4)
+                        weightField(text: $maleWeightDraft, column: 0, nextColumn: 1)
+                        Text("/").foregroundStyle(OG.label2)
+                        weightField(text: $femaleWeightDraft, column: 1, nextColumn: nil)
                     }
                 }
                 TextField("Escala alternativa (ej. 100 SU)", text: Binding(
@@ -1995,7 +1988,49 @@ struct WODMovementEditor: View {
         }
         .ogListChrome()
         .ogPinnedTransparentNav("Movimiento WOD")
-        .onAppear { seedSetsIfNeeded() }
+        .onAppear {
+            seedSetsIfNeeded()
+            maleWeightDraft = movement.weightMaleKg.map { String(format: "%g", $0) } ?? ""
+            femaleWeightDraft = movement.weightFemaleKg.map { String(format: "%g", $0) } ?? ""
+        }
+    }
+
+    private func weightField(
+        text: Binding<String>,
+        column: Int,
+        nextColumn: Int?
+    ) -> some View {
+        let id = OGSetFieldID(rowID: weightFieldRowID, column: column)
+        return OGNumericTextField(
+            text: text,
+            allowsDecimal: true,
+            fontSize: 16,
+            autoFocus: false,
+            isFocused: weightFieldFocus == id,
+            submitTitle: nextColumn == nil ? "✓" : "Siguiente",
+            onFocused: { weightFieldFocus = id },
+            onFocusLost: {
+                commitWeightDraft(column: column)
+                if weightFieldFocus == id { weightFieldFocus = nil }
+            },
+            onCommit: {
+                commitWeightDraft(column: column)
+                weightFieldFocus = nextColumn.map {
+                    OGSetFieldID(rowID: weightFieldRowID, column: $0)
+                }
+            }
+        )
+        .frame(width: 80, height: 44)
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func commitWeightDraft(column: Int) {
+        if column == 0 {
+            movement.weightMaleKg = Double(maleWeightDraft.replacingOccurrences(of: ",", with: "."))
+            applyMovementWeightToEmptySets()
+        } else {
+            movement.weightFemaleKg = Double(femaleWeightDraft.replacingOccurrences(of: ",", with: "."))
+        }
     }
 
     private func seedSetsIfNeeded() {
