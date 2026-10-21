@@ -719,6 +719,8 @@ public struct RoutineExercise: Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var exerciseId: UUID
     public var plannedSets: [PlannedSet]
+    /// Cantidad preferida para máquina / cardio (Cal o metros), independiente del peso.
+    public var quantityUnit: ExerciseQuantityUnit?
     public var restSeconds: Int?
     /// Campo histórico conservado para leer rutinas existentes; no activa superseries.
     public var supersetGroup: Int?
@@ -727,18 +729,20 @@ public struct RoutineExercise: Identifiable, Codable, Sendable, Hashable {
         id: UUID = UUID(),
         exerciseId: UUID,
         plannedSets: [PlannedSet],
+        quantityUnit: ExerciseQuantityUnit? = nil,
         restSeconds: Int? = nil,
         supersetGroup: Int? = nil
     ) {
         self.id = id
         self.exerciseId = exerciseId
         self.plannedSets = plannedSets
+        self.quantityUnit = quantityUnit
         self.restSeconds = restSeconds
         self.supersetGroup = supersetGroup
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, exerciseId, plannedSets, restSeconds, supersetGroup
+        case id, exerciseId, plannedSets, quantityUnit, restSeconds, supersetGroup
     }
 
     public init(from decoder: Decoder) throws {
@@ -746,6 +750,7 @@ public struct RoutineExercise: Identifiable, Codable, Sendable, Hashable {
         id = try c.decode(UUID.self, forKey: .id)
         exerciseId = try c.decode(UUID.self, forKey: .exerciseId)
         plannedSets = try c.decodeIfPresent([PlannedSet].self, forKey: .plannedSets) ?? []
+        quantityUnit = try c.decodeIfPresent(ExerciseQuantityUnit.self, forKey: .quantityUnit)
         restSeconds = try c.decodeIfPresent(Int.self, forKey: .restSeconds)
         supersetGroup = nil // Compatibilidad de lectura, sin restaurar agrupaciones.
     }
@@ -755,6 +760,7 @@ public struct RoutineExercise: Identifiable, Codable, Sendable, Hashable {
         RoutineExercise(
             exerciseId: exerciseId,
             plannedSets: plannedSets.map { $0.duplicatingContent() },
+            quantityUnit: quantityUnit,
             restSeconds: restSeconds,
             supersetGroup: nil
         )
@@ -1450,6 +1456,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var exercise: Exercise
     public var plannedSets: [PlannedSet]
+    public var quantityUnit: ExerciseQuantityUnit?
     public var loggedSets: [LoggedSet]
     public var completedReps: Int
     public var isCompleted: Bool
@@ -1470,6 +1477,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         id: UUID = UUID(),
         exercise: Exercise,
         plannedSets: [PlannedSet],
+        quantityUnit: ExerciseQuantityUnit? = nil,
         loggedSets: [LoggedSet] = [],
         completedReps: Int = 0,
         isCompleted: Bool = false,
@@ -1487,6 +1495,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         self.id = id
         self.exercise = exercise
         self.plannedSets = plannedSets
+        self.quantityUnit = quantityUnit
         self.loggedSets = loggedSets
         self.completedReps = completedReps
         self.isCompleted = isCompleted
