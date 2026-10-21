@@ -3,6 +3,14 @@
 **Inicio:** 21/10/2026. **Proyecto:** Supabase `uvzgujlrqohreoucirms`. **Rama:** `feat/repera-mcp-training-data`. 
 **Estado:** infraestructura de lectura y seguridad implantada parcialmente; NO se considera lista para público ni clientes de IA reales.
 
+## Estado de integración (21/10/2026)
+
+La integración operativa usa **tokens personales Repera (PAT)**. En Ajustes → Acceso IA, el usuario puede crear un token aleatorio de 256 bits, elegir caducidad y revocarlo. El servicio `repera-ai-tokens` valida el JWT de la sesión nativa mediante Supabase Auth, almacena exclusivamente SHA-256 y devuelve el secreto una sola vez. El endpoint `repera-mcp` exige el PAT, rechaza expirados/revocados y restringe las consultas por `owner_id` resuelto a partir del hash. Puede devolver historial, progreso muscular y catálogo, además de recibir propuestas de planificación estructurada para la bandeja del iPhone. Todas las herramientas de escritura necesitan petición expresa del usuario en su asistente.
+
+**Importante:** el modo PAT requiere un cliente MCP que permita configurar manualmente `Authorization: Bearer <token>`. No equivale a la conexión OAuth 2.1 nativa que un cliente pueda descubrir automáticamente. La pantalla `web/oauth/consent` es preparación para una futura conexión OAuth y no debe anunciarse como funcional ni habilitar registro dinámico sin auditar todas las RLS. `mcp_user_consents` protege el eventual flujo OAuth y no sustituye a los PAT.
+
+En la entrega se incluyen `ai_access_tokens` y `ai_training_plans` con políticas RLS y permisos mínimos. El administrador no debe exponer el `SUPABASE_SERVICE_ROLE_KEY` ni configurar el endpoint para descargar tokens. Supabase contiene las funciones `repera-ai-tokens` y `repera-mcp`; la web OAuth no está publicada. La integración ha de validarse en un iPhone real y con un cliente MCP real antes del lanzamiento.
+
 ## 1. Situación comprobada
 
 - Repera iOS es local-first y conserva JSON/iCloud como fuente principal; `BusinessWorkoutSyncStore` sube sesiones terminadas al espejo privado `athlete_workout_mirror`.
