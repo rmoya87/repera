@@ -40,12 +40,12 @@ class MCPV2Contracts(unittest.TestCase):
         token=read("supabase/functions/repera-ai-tokens/index.ts")
         index=read("supabase/functions/repera-mcp/index.ts")
         ios=read("Apps/Repera/Sources/AIAccessView.swift")
-        for phrase in ('scopes =', 'canWrite', 'training:read'):
+        for phrase in ("scopes", "canWrite", "training:read"):
             self.assertTrue(phrase in index or phrase in token,phrase)
         self.assertIn("if (canWrite) registerMutationTools",index)
         self.assertIn('server.registerTool("get_mcp_access_info"',index)
         self.assertIn("canWrite",ios)
-        self.assertIn('"scopes"',ios)
+        self.assertIn("case scopes",ios)
         self.assertIn("revoke",ios)
         self.assertIn("ai_access_tokens_scope_vocabulary",
                       read("supabase/migrations/20261022004000_ai_pat_scopes.sql"))
