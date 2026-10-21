@@ -30,7 +30,7 @@ struct WorkoutView: View {
     @State private var setCompletionPulse = 0
     @State private var restStartedPulse = 0
     @State private var pendingWODConfirm: PendingWODConfirm?
-    @State private var usesAutomaticTimer = true
+    @State private var usesAutomaticTimer = false
 
     private struct LiveSetRow: Identifiable, Equatable {
         let id: UUID
@@ -1558,6 +1558,9 @@ struct WorkoutView: View {
             liveSets = []
             return
         }
+        // Fuerza: registro manual y pesos visibles; WOD cronometrado: reloj por defecto.
+        usesAutomaticTimer = (current.wodFormat != nil && current.wodFormat != .strength)
+            || (current.blockTimeCapMinutes ?? 0) > 0
         let suggested = current.lastLoggedWeight
             ?? store.cachedLastWorkingWeight(for: current.exercise.id)
             ?? current.plannedSets.first?.targetWeightKg
