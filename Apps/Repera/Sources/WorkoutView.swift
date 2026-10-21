@@ -33,6 +33,8 @@ struct WorkoutView: View {
     @State private var usesAutomaticTimer = false
     @State private var pendingTimerBlockID: UUID?
     @FocusState private var focusedSetField: OGSetFieldID?
+    @State private var advancedFieldRowID = UUID()
+    @FocusState private var advancedFocusedField: OGSetFieldID?
 
     private struct LiveSetRow: Identifiable, Equatable {
         let id: UUID
@@ -1362,10 +1364,30 @@ struct WorkoutView: View {
                             .font(.caption.monospacedDigit())
                     }
                     HStack(spacing: 10) {
-                        TextField("kg drop", text: $dropWeightText)
-                            .ogKeyboardDone()
-                        TextField("reps", text: $dropRepsText)
-                            .ogNumericKeyboard(allowsDecimal: false)
+                        OGNumericTextField(
+                            text: $dropWeightText,
+                            allowsDecimal: true,
+                            autoFocus: false,
+                            isFocused: advancedFocusedField == OGSetFieldID(rowID: advancedFieldRowID, column: 0),
+                            submitTitle: "Siguiente",
+                            onFocused: { advancedFocusedField = OGSetFieldID(rowID: advancedFieldRowID, column: 0) },
+                            onFocusLost: { if advancedFocusedField?.column == 0 { advancedFocusedField = nil } },
+                            onCommit: { advancedFocusedField = OGSetFieldID(rowID: advancedFieldRowID, column: 1) }
+                        )
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
+                        OGNumericTextField(
+                            text: $dropRepsText,
+                            allowsDecimal: false,
+                            autoFocus: false,
+                            isFocused: advancedFocusedField == OGSetFieldID(rowID: advancedFieldRowID, column: 1),
+                            submitTitle: "✓",
+                            onFocused: { advancedFocusedField = OGSetFieldID(rowID: advancedFieldRowID, column: 1) },
+                            onFocusLost: { if advancedFocusedField?.column == 1 { advancedFocusedField = nil } },
+                            onCommit: { advancedFocusedField = nil }
+                        )
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
 
                         Button("Añadir") {
                             let reps = Int(dropRepsText) ?? 0
@@ -1390,8 +1412,18 @@ struct WorkoutView: View {
                             .font(.caption.monospacedDigit())
                     }
                     HStack(spacing: 10) {
-                        TextField("reps", text: $clusterRepsText)
-                            .ogNumericKeyboard(allowsDecimal: false)
+                        OGNumericTextField(
+                            text: $clusterRepsText,
+                            allowsDecimal: false,
+                            autoFocus: false,
+                            isFocused: advancedFocusedField == OGSetFieldID(rowID: advancedFieldRowID, column: 2),
+                            submitTitle: "✓",
+                            onFocused: { advancedFocusedField = OGSetFieldID(rowID: advancedFieldRowID, column: 2) },
+                            onFocusLost: { if advancedFocusedField?.column == 2 { advancedFocusedField = nil } },
+                            onCommit: { advancedFocusedField = nil }
+                        )
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
 
                         Stepper("\(clusterRest)s", value: $clusterRest, in: 5...30, step: 5)
                         Button("Añadir") {
