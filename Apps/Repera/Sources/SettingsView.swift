@@ -214,6 +214,20 @@ struct SettingsView: View {
             }
 
             Section {
+                NavigationLink {
+                    MCPConnectionsView()
+                } label: {
+                    Label("Asistentes de IA conectados", systemImage: "brain.head.profile")
+                        .foregroundStyle(OG.label)
+                }
+                Text("Consulta y revoca qué asistentes pueden leer tus entrenamientos. Los datos de Apple Salud y GPS no se comparten.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Privacidad e IA")
+            }
+
+            Section {
                 if subscriptions.businessSponsoredAccess {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
