@@ -21,7 +21,6 @@ struct WorkoutView: View {
     @State private var clusterRepsText = ""
     @State private var clusterRest = 15
     @State private var pendingClusters: [RestPauseCluster] = []
-    @State private var showNotes = false
     @State private var editingRoutine: Routine?
     @State private var notesDraft = ""
     /// Filas editables del ejercicio actual (objetivo por serie + check para registrar).
@@ -72,30 +71,28 @@ struct WorkoutView: View {
                     .padding(.bottom, 12)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            if store.workoutClock.isVisible {
-                wodFullscreenClock
-                    .transition(.opacity)
-                    .zIndex(10)
-            }
         }
         .animation(reduceMotion ? nil : .snappy, value: store.restCoordinator.isActive)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: store.workoutClock.isVisible)
         .sensoryFeedback(.success, trigger: setCompletionPulse)
         .sensoryFeedback(.impact(flexibility: .soft), trigger: restStartedPulse)
         .background(OG.bg)
-        .ogPinnedTransparentNav("Entreno")
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if let session = store.state.activeSession {
-                Text(session.title)
-                    .font(.system(size: 15))
-                    .foregroundStyle(OG.label2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, OG.pad)
-                    .padding(.bottom, 8)
-                    .background(OG.bg)
+        // El nombre real del entreno vive en la barra superior (siempre visible).
+        .navigationTitle(store.state.activeSession?.title ?? "Entreno")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .ogTransparentNav()
+        // Cubrir también status bar y safe areas, sin heredar el fondo claro de Play.
+        .fullScreenCover(isPresented: Binding(
+            get: { store.workoutClock.isVisible },
+            set: { visible in
+                if !visible { store.workoutClock.stop() }
             }
+        )) {
+            wodFullscreenClock
+                .preferredColorScheme(.dark)
+                .background(Color.black.ignoresSafeArea())
+                .statusBarHidden()
         }
-        .toolbar(store.workoutClock.isVisible ? .hidden : .automatic, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 CloseToolbarButton(action: { closeFlow() }, large: false)
@@ -116,15 +113,6 @@ struct WorkoutView: View {
                             systemImage: activeIsFavorite ? "star.fill" : "star"
                         )
                     }
-                    Button {
-                        notesDraft = store.state.activeSession?.notes ?? ""
-                        showNotes = true
-                    } label: {
-                        Label(
-                            hasSessionNotes ? "Editar nota" : "Añadir nota",
-                            systemImage: hasSessionNotes ? "note.text" : "square.and.pencil"
-                        )
-                    }
                     Divider()
                     Button(role: .destructive) {
                         store.workoutClock.stop()
@@ -143,34 +131,40 @@ struct WorkoutView: View {
                 .accessibilityLabel("Más opciones")
             }
             ToolbarItem(placement: .topBarTrailing) {
-                if hasMoreExercises {
-                    Button("Siguiente") {
-                        store.finishCurrentExercise()
-                        store.restCoordinator.skip()
-                        store.workoutClock.stop()
-                        if store.state.activeSession == nil {
-                            closeFlow()
+                HStack(spacing: 8) {
+                    if let index = store.state.activeSession?.currentIndex, index > 0 {
+                        Button {
+                            store.selectExercise(at: index - 1)
+                        } label: {
+                            Label("Anterior", systemImage: "arrow.left")
                         }
+                        .accessibilityLabel("Ejercicio anterior")
+                        .tint(OG.accent)
                     }
-                    .fontWeight(.semibold)
-                    .foregroundStyle(OG.accent)
-                } else {
-                    // Terminar: círculo verde + check blanco.
-                    OGToolbarGlassButton(
-                        systemName: "checkmark",
-                        accessibilityLabel: "Terminar",
-                        tint: OG.accent,
-                        appliesGlass: false
-                    ) {
-                        store.workoutClock.stop()
-                        store.endActiveSession(save: true)
-                        closeFlow()
+                    if let index = store.state.activeSession?.currentIndex, hasMoreExercises {
+                        Button {
+                            // Navegar no finaliza ni inventa resultados del ejercicio.
+                            store.selectExercise(at: index + 1)
+                        } label: {
+                            Label("Siguiente", systemImage: "arrow.right")
+                        }
+                        .accessibilityLabel("Ejercicio siguiente")
+                        .tint(OG.accent)
+                    } else {
+                        Button {
+                            store.workoutClock.stop()
+                            store.endActiveSession(save: true)
+                            closeFlow()
+                        } label: {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 16, weight: .bold))
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(OG.accent)
+                        .accessibilityLabel("Terminar entreno")
                     }
                 }
             }
-        }
-        .sheet(isPresented: $showNotes) {
-            workoutNotesSheet
         }
         .sheet(item: $editingRoutine) { draft in
             NavigationStack {
@@ -226,6 +220,7 @@ struct WorkoutView: View {
             )
         }
         .onAppear {
+            notesDraft = store.state.activeSession?.notes ?? ""
             prefill()
             bootstrapQuickLogIfNeeded()
             if store.state.activeSession?.phase == .ready {
@@ -279,43 +274,6 @@ struct WorkoutView: View {
 
     private var hasSessionNotes: Bool {
         !(store.state.activeSession?.notes?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
-    }
-
-    private var workoutNotesSheet: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Button("Cancelar") { showNotes = false }
-                    .foregroundStyle(OG.label2)
-                Spacer()
-                Text("Notas del entreno")
-                    .font(.headline)
-                    .foregroundStyle(OG.label)
-                Spacer()
-                Button("Guardar") {
-                    store.updateActiveSessionNotes(notesDraft)
-                    showNotes = false
-                }
-                .fontWeight(.semibold)
-                .foregroundStyle(OG.accent)
-            }
-            .padding(.top, 4)
-
-            Text("Cómo te sentiste, sueño, molestias, PRs…")
-                .font(.system(size: 14))
-                .foregroundStyle(OG.label2)
-            TextEditor(text: $notesDraft)
-                .scrollContentBackground(.hidden)
-                .padding(12)
-                .frame(height: 180)
-                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
-                .foregroundStyle(OG.label)
-        }
-        .padding(.horizontal, OG.pad)
-        .padding(.bottom, 8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .fixedSize(horizontal: false, vertical: true)
-        .ogFittedHeight()
-        .ogFittedSheet()
     }
 
     private var hasMoreExercises: Bool {
@@ -504,9 +462,8 @@ struct WorkoutView: View {
                 }
             }
 
-            Section {
-                workoutOptionsCard
-                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+            Section("Notas del entreno") {
+                inlineWorkoutNotes
             }
         }
         .listStyle(.insetGrouped)
@@ -534,42 +491,30 @@ struct WorkoutView: View {
         startBlockClock(for: current)
     }
 
-    /// Notas y ajustes del entreno (visibles en la sesión, no solo en el toolbar).
-    private var workoutOptionsCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Opciones del entreno")
-            Button {
-                notesDraft = store.state.activeSession?.notes ?? ""
-                showNotes = true
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: hasSessionNotes ? "note.text" : "square.and.pencil")
-                        .foregroundStyle(hasSessionNotes ? OG.accent : OG.label2)
-                        .frame(width: 28)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(hasSessionNotes ? "Editar notas" : "Añadir notas")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(OG.label)
-                        Text(hasSessionNotes
-                             ? (store.state.activeSession?.notes ?? "")
-                             : "Cómo te sentiste, sueño, molestias…")
-                            .font(.system(size: 12))
-                            .foregroundStyle(OG.label2)
-                            .lineLimit(2)
-                    }
-                    Spacer(minLength: 8)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(OG.label3)
+    /// Las notas se escriben directamente en Play; guardado silencioso y persistente.
+    private var inlineWorkoutNotes: some View {
+        TextEditor(text: $notesDraft)
+            .font(.system(size: 15))
+            .foregroundStyle(OG.label)
+            .scrollContentBackground(.hidden)
+            .frame(minHeight: 116)
+            .padding(.vertical, 6)
+            .accessibilityLabel("Notas del entreno")
+            .task(id: notesDraft) {
+                do {
+                    try await Task.sleep(for: .milliseconds(400))
+                } catch {
+                    return
                 }
-                .padding(12)
-                .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                guard !Task.isCancelled else { return }
+                let saved = store.state.activeSession?.notes ?? ""
+                if notesDraft.trimmingCharacters(in: .whitespacesAndNewlines) != saved {
+                    store.updateActiveSessionNotes(notesDraft)
+                }
             }
-            .buttonStyle(.plain)
-        }
-        .padding(OG.pad)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+            .onDisappear {
+                store.updateActiveSessionNotes(notesDraft)
+            }
     }
 
     private func setsBoard(_ current: SessionExercise) -> some View {
