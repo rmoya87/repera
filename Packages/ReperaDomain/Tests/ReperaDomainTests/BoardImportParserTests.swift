@@ -2,6 +2,59 @@ import Testing
 @testable import ReperaDomain
 
 struct BoardImportParserTests {
+    @Test func coachAcronymsResolveToCatalogWithoutDuplicatingMovements() {
+        // Nomenclatura de boxes ES/EN: halterofilia, gimnasia, ergómetros y WOD.
+        let catalog = Catalog.seed()
+        let pairs: [(String, String)] = [
+            ("BS", "Sentadilla"),
+            ("FS", "Sentadilla frontal"),
+            ("HPC", "Hang power clean"),
+            ("HPS", "Hang power snatch"),
+            ("SDHP", "Sumo high pull"),
+            ("GHD SU", "GHD sit-up"),
+            ("WW", "Wall walk"),
+            ("RC", "Rope climb"),
+            ("RMU", "Muscle-up anillas"),
+            ("WBS", "Wall ball"),
+            ("CTB", "Chest to bar"),
+            ("BJO", "Box jump over"),
+            ("ROW", "Remo máquina"),
+            ("CAL ROW", "Remo máquina"),
+            ("CAL SKI", "SkiErg"),
+            ("ASS BIKE", "Air bike"),
+            ("RKBS", "Swing kettlebell"),
+            ("AKBS", "Swing americano"),
+            ("T2R", "Toes to rings"),
+            ("WALL WALKS", "Wall walk"),
+            ("PUSH JERK", "Push jerk"),
+        ]
+        for (alias, canonical) in pairs {
+            #expect(CrossFitGlossary.canonicalName(for: alias) == canonical)
+            #expect(catalog.contains(where: { $0.name == canonical }),
+                    "No existe en catálogo: \(canonical) para \(alias)")
+        }
+        let row = CrossFitGlossary.parseMovementLine("15 CAL ROW")
+        #expect(row.name == "Remo máquina")
+        #expect(row.calories == 15)
+        let ski = CrossFitGlossary.parseMovementLine("12 CAL SKI")
+        #expect(ski.name == "SkiErg")
+        #expect(ski.calories == 12)
+    }
+
+    @Test func standaloneAmbiguousAcronymsAreNotSilentlyMisassigned() {
+        // SU también significa Sit-up, PU puede ser Push-up y MU puede ser Ring MU.
+        for token in ["SU", "PU", "MU", "BP"] {
+            #expect(CrossFitGlossary.canonicalName(for: token) == token)
+        }
+        // Con descripción suficiente sí se identifica el movimiento concreto.
+        #expect(CrossFitGlossary.canonicalName(for: "SINGLE UNDERS") == "Simples de comba")
+        #expect(CrossFitGlossary.canonicalName(for: "SIT UPS") == "Sit-up")
+        #expect(CrossFitGlossary.canonicalName(for: "RING MUSCLE UP") == "Muscle-up anillas")
+        #expect(CrossFitGlossary.canonicalName(for: "BENCH PRESS") == "Press banca")
+        #expect(CrossFitGlossary.expand("40 DU / 80 SU").contains("Simples de comba"))
+    }
+
+
     @Test func fullParserForTimeTCIsGlobalLimitNot14Rounds() {
         let board = """
         FOR TIME (TC 14')
