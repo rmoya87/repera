@@ -656,7 +656,9 @@ public enum BoardImportParser {
             let parts = working.components(separatedBy: "/")
             if parts.count >= 2 {
                 working = parts[0].trimmingCharacters(in: .whitespaces)
-                scale = CrossFitGlossary.expand(parts[1].trimmingCharacters(in: .whitespaces))
+                scale = parts.dropFirst()
+                    .map { CrossFitGlossary.expand($0.trimmingCharacters(in: .whitespaces)) }
+                    .joined(separator: " / ")
             }
         }
 
@@ -960,6 +962,34 @@ public enum CrossFitGlossary {
         "cj": "Cargada y envión",
         "clean and jerk": "Cargada y envión",
 
+        // Acrónimos de CrossFit, nombre largo EN, español y variantes OCR.
+        "gtoh": "Ground to overhead",
+        "g2oh": "Ground to overhead",
+        "g2o": "Ground to overhead",
+        "g to oh": "Ground to overhead",
+        "ground to overhead": "Ground to overhead",
+        "ground-to-overhead": "Ground to overhead",
+        "suelo a overhead": "Ground to overhead",
+        "suelo sobre cabeza": "Ground to overhead",
+        "bmu": "Muscle-up barra",
+        "bar muscle up": "Muscle-up barra",
+        "bar muscle-up": "Muscle-up barra",
+        "bar muscle ups": "Muscle-up barra",
+        "bar muscle-ups": "Muscle-up barra",
+        "muscle up barra": "Muscle-up barra",
+        "akbs": "Swing americano",
+        "akb": "Swing americano",
+        "american kettlebell swings": "Swing americano",
+        "american kb swings": "Swing americano",
+        "american kb swings": "Swing americano",
+        "swing americano": "Swing americano",
+        "wall balls": "Wall ball",
+        "wallball": "Wall ball",
+        "airbike": "Air bike",
+        "assault bike": "Air bike",
+        "assaultbike": "Air bike",
+        "cal air bike": "Air bike",
+
         // Press / overhead
         "pp": "Push press",
         "push press": "Push press",
@@ -1251,6 +1281,24 @@ public enum CrossFitGlossary {
             } else {
                 scheme = wave.scheme
                 working = wave.rest
+            }
+        }
+
+        // Objetivo de cardio por sexo: 20/16 CAL* no es 20/16 kg.
+        // La variante femenina se conserva explícitamente en notas.
+        if let pair = working.range(
+            of: #"(?i)^\s*(\d+)\s*/\s*(\d+)\s*CALS?(?:ORIES)?\b"#,
+            options: .regularExpression
+        ) {
+            let nums = String(working[pair])
+                .split { !$0.isNumber }
+                .compactMap { Int($0) }
+            if nums.count == 2 {
+                return ParsedMovementLine(
+                    name: "Air bike",
+                    calories: nums[0],
+                    equipmentNote: "Cal mujeres: \(nums[1])" + (working.contains("*") ? " · *" : "")
+                )
             }
         }
 
