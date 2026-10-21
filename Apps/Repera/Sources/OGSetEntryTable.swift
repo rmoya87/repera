@@ -1,5 +1,6 @@
 import ReperaDomain
 import SwiftUI
+import UIKit
 
 /// Identidad estable del campo para avanzar horizontalmente con la tecla Siguiente.
 struct OGSetFieldID: Hashable {
@@ -33,7 +34,7 @@ struct OGSetEntryHeader: View {
 
     private func caption(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 9, weight: .semibold))
+            .font(.system(size: 10, weight: .semibold))
             .foregroundStyle(OG.label3)
             .lineLimit(1)
             .minimumScaleFactor(0.65)
@@ -171,6 +172,14 @@ private struct OGSetNumericCell: View {
                 }
                 if newFocus == fieldID {
                     draft = normalized(display)
+                    // Al entrar, seleccionar el valor completo para sobrescribirlo
+                    // directamente sin tener que borrar manualmente los datos previos.
+                    DispatchQueue.main.async {
+                        UIApplication.shared.sendAction(
+                            #selector(UIResponder.selectAll(_:)),
+                            to: nil, from: nil, for: nil
+                        )
+                    }
                 }
             }
             .onChange(of: draft) { _, value in
