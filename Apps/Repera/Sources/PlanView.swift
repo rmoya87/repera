@@ -416,18 +416,31 @@ private struct DayEditorChromeModifier: ViewModifier {
         }
     }
 
+    @ViewBuilder
     private var confirmButton: some View {
-        OGToolbarGlassButton(
-            systemName: "checkmark",
-            accessibilityLabel: confirmTitle,
-            tint: .white,
-            appliesGlass: true,
-            glassTint: OG.accent
-        ) {
-            onConfirm()
+        if usesPageCloseHeader {
+            // La toolbar de iOS 27 dibuja el círculo; no aplicar otro glass manual.
+            Button(action: onConfirm) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 16, weight: .bold))
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(OG.accent)
+            .accessibilityLabel(confirmTitle)
+            .opacity(canConfirm ? 1 : 0.4)
+            .disabled(!canConfirm)
+        } else {
+            OGToolbarGlassButton(
+                systemName: "checkmark",
+                accessibilityLabel: confirmTitle,
+                tint: .white,
+                appliesGlass: true,
+                glassTint: OG.accent,
+                action: onConfirm
+            )
+            .opacity(canConfirm ? 1 : 0.4)
+            .disabled(!canConfirm)
         }
-        .opacity(canConfirm ? 1 : 0.4)
-        .disabled(!canConfirm)
     }
 }
 
