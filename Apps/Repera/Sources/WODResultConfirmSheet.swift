@@ -8,6 +8,8 @@ struct WODResultConfirmSheet: View {
     @Binding var totalReps: Int
     @Binding var elapsedSeconds: Int
     @Binding var roundsCompleted: Int
+    @Binding var hitTimeCap: Bool
+    var timeCapMinutes: Int? = nil
     var onSave: () -> Void
     var onCancel: () -> Void
 
@@ -50,11 +52,23 @@ struct WODResultConfirmSheet: View {
                     .foregroundStyle(OG.label2)
                     .fixedSize(horizontal: false, vertical: true)
             } else if capture == .elapsedTime {
-                numberInput("Tiempo · m:ss", text: $timeText, column: 0, allowsTime: true)
-                Text("Puedes ajustar el tiempo si paraste el reloj tarde o pronto.")
-                    .font(.footnote)
-                    .foregroundStyle(OG.label2)
-                    .fixedSize(horizontal: false, vertical: true)
+                numberInput("Tiempo real · m:ss", text: $timeText, column: 0, allowsTime: true)
+                if let timeCapMinutes {
+                    Toggle("Tiempo límite agotado (TC \(timeCapMinutes)')", isOn: $hitTimeCap)
+                        .font(.system(size: 14, weight: .medium))
+                        .tint(OG.accent)
+                    Text(hitTimeCap
+                         ? "No se marca el bloque como completado. Registra el tiempo real o el tiempo límite y las series realizadas."
+                         : "Entreno completado. Registra el tiempo real, aunque haya superado el tiempo límite.")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text("Puedes ajustar el tiempo real si paraste el reloj tarde o pronto.")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             } else {
                 Text("Este bloque se registra por series.")
                     .foregroundStyle(OG.label2)
