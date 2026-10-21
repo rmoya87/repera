@@ -83,7 +83,18 @@ struct WorkoutView: View {
         .sensoryFeedback(.success, trigger: setCompletionPulse)
         .sensoryFeedback(.impact(flexibility: .soft), trigger: restStartedPulse)
         .background(OG.bg)
-        .ogPinnedTransparentNav(store.state.activeSession?.title ?? "Entreno")
+        .ogPinnedTransparentNav("Entreno")
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if let session = store.state.activeSession {
+                Text(session.title)
+                    .font(.system(size: 15))
+                    .foregroundStyle(OG.label2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, OG.pad)
+                    .padding(.bottom, 8)
+                    .background(OG.bg)
+            }
+        }
         .toolbar(store.workoutClock.isVisible ? .hidden : .automatic, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -391,13 +402,6 @@ struct WorkoutView: View {
 
     private func content(_ session: WorkoutSession) -> some View {
         List {
-            Section {
-                Text(session.title)
-                    .font(.system(size: 15))
-                    .foregroundStyle(OG.label2)
-                    .listRowBackground(Color.clear)
-            }
-
             ForEach(workoutBlocks(session)) { block in
                 Section {
                     HStack(spacing: 12) {
