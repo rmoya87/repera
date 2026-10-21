@@ -882,6 +882,8 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
     public var elapsedSeconds: Int?
     public var roundsCompleted: Int?
     public var wodTemplateId: String?
+    /// For Time: true si se agotó el TC; nil para registros antiguos o sin TC.
+    public var hitTimeCap: Bool?
 
     public init(
         id: UUID,
@@ -889,7 +891,8 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
         totalReps: Int? = nil,
         elapsedSeconds: Int? = nil,
         roundsCompleted: Int? = nil,
-        wodTemplateId: String? = nil
+        wodTemplateId: String? = nil,
+        hitTimeCap: Bool? = nil
     ) {
         self.id = id
         self.format = format
@@ -897,13 +900,15 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
         self.elapsedSeconds = elapsedSeconds
         self.roundsCompleted = roundsCompleted
         self.wodTemplateId = wodTemplateId
+        self.hitTimeCap = hitTimeCap
     }
 
     public var summaryLabel: String {
         if let elapsedSeconds {
             let m = elapsedSeconds / 60
             let s = elapsedSeconds % 60
-            return String(format: "%d:%02d", m, s)
+            let clock = String(format: "%d:%02d", m, s)
+            return hitTimeCap == true ? "TC · \(clock)" : clock
         }
         if let totalReps {
             if let roundsCompleted {
