@@ -252,7 +252,12 @@ public enum BoardScanLiteParser {
 
         // 3 BMU / 6 C2B / 9 PULL UPS y 40 DU / 80 SU son
         // alternativas de escala, NO tres ejercicios secuenciales.
-        let options = working.components(separatedBy: " / ")
+        // Calorías 20 / 16 CAL tienen barra H/M, NO son escalas alternativas.
+        let caloriePair = working.range(
+            of: #"^\s*\d+\s*/\s*\d+\s*CALS?\b"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) != nil
+        let options = caloriePair ? [working] : working.components(separatedBy: " / ")
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         let hasAlternatives = options.count > 1
