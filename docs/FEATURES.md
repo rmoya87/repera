@@ -153,7 +153,8 @@
 
 ## Ajustes: centros, entrenadores y contratos
 
-- **Buscar centro o entrenador**: directorio descubrible + invitaciones; al vincularse se elige el bono deseado y la app pasa a **acceso completo** mientras exista el vínculo (sin freemium). Desvincular revoca ese acceso salvo Repera Pro por App Store.
+- **Centro y entrenador**: la conexión Business reutiliza automáticamente la sesión Supabase obtenida al iniciar sesión con Apple; no hay un segundo botón «Conectar con Apple» ni en Ajustes, ni en el buscador, ni en Center. Si se pierde el token, se intenta restaurar desde Keychain y se ofrece «Reintentar» sin volver a pedir Sign in with Apple. Se mantienen búsqueda, invitaciones, vinculación, selección de bono y desvinculación. Las secciones de Cuenta y Centro y entrenador no muestran pies explicativos redundantes.
+- La vinculación conserva los beneficios de acceso completo mientras el vínculo sea válido y revoca ese acceso al desvincular, salvo suscripción Repera Pro.
 - Ficha del centro vinculado: avatar, bonos/sesiones, planificación, compartir resultados y desvincular.
 - **Sincronizar ahora** unifica iCloud + datos Business + espejo privado de entrenamientos.
 - Mensajes en Inicio (topbar), no en Ajustes. Avatares de org en app y en Repera Business.
