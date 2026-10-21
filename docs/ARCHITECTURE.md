@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-21 (planificación cardio con unidad persistente en sesión activa)
+Última actualización: 2026-10-21 (edición unificada de entrenos terminados, snapshot de bloques)
 
 ## Unidad de cardio en rutinas y sesiones
 
@@ -108,6 +108,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 | `BoardImportParser` / `CrossFitGlossary` | OCR texto → fuerza+WOD; equipo DB → variante mancuerna (`resolveCatalogName` / `preferEquipmentVariant`) |
 | `RoutineBlock.plannedSets(for:)` | Series al apuntar según formato (EMOM/RFT/Tabata/…) |
 | `SessionController` | Ciclo de vida de la sesión |
+| `CompletedWorkoutEditing` | Adaptador bidireccional entre `WorkoutSession` terminada y el editor de `RoutineBlock`: muestra valores registrados, preserva IDs y técnicas, permite reordenar y no convierte series sin registrar en realizadas. `WorkoutSession.routineBlocks` guarda el snapshot de estructura (incluidos descansos WOD) de forma opcional y compatible con históricos. |
 | `ProgressionEngine` | Off / lineal / doble / Greyskull / triple |
 | `PlateMath` | 1RM Epley (`epleyOneRM`); preferencia `testedOneRMKg` por ejercicio |
 | `LoadSuggestion` | `%` de 1RM → kg (pizarra / ficha); también kg para reps+RIR (Epley inverso) en el editor de series |

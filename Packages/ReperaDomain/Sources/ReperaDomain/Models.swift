@@ -1735,6 +1735,9 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     public var healthKitWorkoutUUID: UUID?
     /// Scores de bloques WOD (AMRAP reps, For Time tiempo…).
     public var wodResults: [WODBlockResult]
+    /// Snapshot de la estructura ejecutada (incluye descansos WOD y orden),
+    /// independiente de cambios posteriores en la plantilla.
+    public var routineBlocks: [RoutineBlock]?
     /// Valoración post-entreno (histórico + bandas de catálogo).
     public var sessionReview: SessionReview?
     /// Ubicación al empezar (pin del gym / sitio).
@@ -1756,6 +1759,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         appleDurationSeconds: TimeInterval? = nil,
         healthKitWorkoutUUID: UUID? = nil,
         wodResults: [WODBlockResult] = [],
+        routineBlocks: [RoutineBlock]? = nil,
         sessionReview: SessionReview? = nil,
         locationPin: WorkoutLocationPin? = nil,
         routePoints: [WorkoutRoutePoint] = []
@@ -1773,6 +1777,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         self.appleDurationSeconds = appleDurationSeconds
         self.healthKitWorkoutUUID = healthKitWorkoutUUID
         self.wodResults = wodResults
+        self.routineBlocks = routineBlocks
         self.sessionReview = sessionReview
         self.locationPin = locationPin
         self.routePoints = routePoints
@@ -1782,7 +1787,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         case id, title, routineId, exercises, currentIndex, phase
         case startedAt, finishedAt, notes
         case appleActiveEnergyKcal, appleDurationSeconds, healthKitWorkoutUUID
-        case wodResults, sessionReview
+        case wodResults, routineBlocks, sessionReview
         case locationPin, routePoints
     }
 
@@ -1801,6 +1806,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         appleDurationSeconds = try c.decodeIfPresent(TimeInterval.self, forKey: .appleDurationSeconds)
         healthKitWorkoutUUID = try c.decodeIfPresent(UUID.self, forKey: .healthKitWorkoutUUID)
         wodResults = try c.decodeIfPresent([WODBlockResult].self, forKey: .wodResults) ?? []
+        routineBlocks = try c.decodeIfPresent([RoutineBlock].self, forKey: .routineBlocks)
         sessionReview = try c.decodeIfPresent(SessionReview.self, forKey: .sessionReview)
         locationPin = try c.decodeIfPresent(WorkoutLocationPin.self, forKey: .locationPin)
         routePoints = try c.decodeIfPresent([WorkoutRoutePoint].self, forKey: .routePoints) ?? []
@@ -1821,6 +1827,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         try c.encodeIfPresent(appleDurationSeconds, forKey: .appleDurationSeconds)
         try c.encodeIfPresent(healthKitWorkoutUUID, forKey: .healthKitWorkoutUUID)
         try c.encode(wodResults, forKey: .wodResults)
+        try c.encodeIfPresent(routineBlocks, forKey: .routineBlocks)
         try c.encodeIfPresent(sessionReview, forKey: .sessionReview)
         try c.encodeIfPresent(locationPin, forKey: .locationPin)
         try c.encode(routePoints, forKey: .routePoints)

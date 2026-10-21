@@ -1074,6 +1074,7 @@ final class ReperaStore: NSObject {
         let current = session.currentExercise
         var remaining = session.exercises
 
+        session.routineBlocks = routine.blocks
         session.exercises = fresh.exercises.map { planned in
             var updated = planned
             let oldIndex = remaining.firstIndex(where: { old in
@@ -1263,8 +1264,25 @@ final class ReperaStore: NSObject {
         if let start = draft.startedAt, let end = draft.finishedAt, end < start {
             draft.finishedAt = start.addingTimeInterval(60)
         }
+        if draft.phase == .finished {
+            // Sin workout externo enlazado, kcal y duración son estimaciones locales
+            // y deben seguir las series/fechas corregidas. Nunca alterar una
+            // medición auténtica de Salud/Watch.
+            if draft.healthKitWorkoutUUID == nil,
+               let start = draft.startedAt, let end = draft.finishedAt {
+                draft.appleDurationSeconds = max(60, end.timeIntervalSince(start))
+                draft.appleActiveEnergyKcal = estimateSessionKcal(draft, start: start, end: end)
+            }
+            // La valoración anterior ya no corresponde a series/orden/carga editados.
+            attachSessionReview(&draft, present: false)
+        }
         upsertWorkout(draft)
         persistWorkouts()
+        if draft.phase == .finished {
+            Task {
+                await refineSessionReviewWithHealth(sessionId: draft.id)
+            }
+        }
     }
 
     func removeLastSet() {

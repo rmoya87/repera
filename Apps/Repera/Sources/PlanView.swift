@@ -463,6 +463,9 @@ struct DayEditorView: View {
     var onClose: (() -> Void)? = nil
     /// Si no es nil, el check aplica el draft y cierra sin guardar en el store (revisión de pizarra).
     var onApplyDraft: ((Routine) -> Void)? = nil
+    /// Edición de una sesión terminada usando exactamente los mismos bloques/reordenación.
+    var onApplyCompleted: ((Routine, WorkoutSession) -> Void)? = nil
+    var completedSession: WorkoutSession? = nil
     var embedsNavigationStack: Bool = true
     /// Página push (Entreno → Editar): título large + chevron volver; sin X.
     var usesPageCloseHeader: Bool = false
@@ -475,6 +478,7 @@ struct DayEditorView: View {
     @State private var saveAsFavorite = false
     @FocusState private var focusedFormatField: OGSetFieldID?
     @State private var showsReorder = false
+    @State private var completedDetails: WorkoutSession?
 
     var body: some View {
         Group {
@@ -534,15 +538,41 @@ struct DayEditorView: View {
             } footer: {
                 switch mode {
                 case .session:
-                    Text(onApplyDraft == nil
-                         ? "Solo empieza la sesión. El plan semanal se gestiona en Diario."
-                         : "Los cambios se aplican al revisar la pizarra; aún no se guarda el día.")
+                    Text(onApplyCompleted != nil
+                         ? "Edita los datos registrados sin modificar la rutina programada."
+                         : onApplyDraft == nil
+                            ? "Solo empieza la sesión. El plan semanal se gestiona en Diario."
+                            : "Los cambios se aplican al revisar la pizarra; aún no se guarda el día.")
                 case .favorite:
                     Text("Los favoritos se reutilizan desde Crear. Opcionalmente puedes asignarlos a un día en Programado.")
                 case .oneOff:
                     Text("Entreno solo para este día. No aparece en el plan semanal de Diario.")
                 case .plan:
                     Text("La rutina es reutilizable. En Programado puedes cambiar el día sin editar el contenido.")
+                }
+            }
+
+            if onApplyCompleted != nil {
+                Section {
+                    DatePicker("Inicio", selection: completedDateBinding(isEnd: false),
+                               displayedComponents: [.date, .hourAndMinute])
+                        .tint(OG.accent)
+                    DatePicker("Fin", selection: completedDateBinding(isEnd: true),
+                               displayedComponents: [.date, .hourAndMinute])
+                        .tint(OG.accent)
+                    TextField("Notas del entreno", text: Binding(
+                        get: { completedDetails?.notes ?? "" },
+                        set: { completedDetails?.notes = $0.isEmpty ? nil : $0 }
+                    ), axis: .vertical)
+                    .lineLimit(2...5)
+                    if completedDetails?.routePoints.isEmpty == true {
+                        WorkoutPlacePickerRow(pin: Binding(
+                            get: { completedDetails?.locationPin },
+                            set: { completedDetails?.locationPin = $0 }
+                        ))
+                    }
+                } header: {
+                    Text("Datos del entreno realizado")
                 }
             }
 
@@ -573,6 +603,24 @@ struct DayEditorView: View {
                             .accessibilityLabel("Opciones del bloque \(block.title)")
                         }
                         formatSettings(index: index)
+                        if let result = completedDetails?.wodResults.first(where: { $0.id == block.id }) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Resultado registrado")
+                                    .font(.subheadline.weight(.semibold))
+                                if result.totalReps != nil {
+                                    TextField("Repeticiones", value: completedScoreBinding(id: block.id, field: .reps), format: .number)
+                                        .keyboardType(.numberPad)
+                                }
+                                if result.roundsCompleted != nil {
+                                    TextField("Rondas", value: completedScoreBinding(id: block.id, field: .rounds), format: .number)
+                                        .keyboardType(.numberPad)
+                                }
+                                if result.elapsedSeconds != nil {
+                                    TextField("Tiempo (segundos)", value: completedScoreBinding(id: block.id, field: .seconds), format: .number)
+                                        .keyboardType(.numberPad)
+                                }
+                            }
+                        }
                     }
                     .listRowSeparator(.hidden)
                     if block.kind == .strength {
@@ -614,7 +662,10 @@ struct DayEditorView: View {
         }
         .listStyle(.insetGrouped)
         .ogListChrome()
-        .onAppear { ensureStrengthPlannedSets() }
+        .onAppear {
+            if completedDetails == nil { completedDetails = completedSession }
+            ensureStrengthPlannedSets()
+        }
         .reorderContainer(for: RoutineExercise.self, in: UUID.self) { difference in
             let blockId = difference.destination.collectionID
             guard let blockIndex = routine.blocks.firstIndex(where: { $0.id == blockId }) else { return }
@@ -1082,7 +1133,7 @@ struct DayEditorView: View {
     }
 
     private var navTitle: String {
-        if onApplyDraft != nil { return "Editar entreno" }
+        if onApplyDraft != nil || onApplyCompleted != nil { return "Editar entreno" }
         switch mode {
         case .session: return "Crear entreno"
         case .oneOff(let isNew): return isNew ? "Entreno del día" : "Editar entreno"
@@ -1093,6 +1144,7 @@ struct DayEditorView: View {
     }
 
     private var confirmTitle: String {
+        if onApplyCompleted != nil { return "Guardar" }
         if onApplyDraft != nil { return "Listo" }
         switch mode {
         case .session: return "Empezar"
@@ -1101,7 +1153,7 @@ struct DayEditorView: View {
     }
 
     private var canConfirm: Bool {
-        if onApplyDraft != nil {
+        if onApplyDraft != nil || onApplyCompleted != nil {
             return routine.blocks.contains { block in
                 switch block.kind {
                 case .strength: return !block.exercises.isEmpty
@@ -1122,6 +1174,29 @@ struct DayEditorView: View {
     }
 
     private func confirm() {
+        if let onApplyCompleted, let completedDetails {
+            var edited = routine
+            for index in edited.blocks.indices { edited.blocks[index].deriveEmomRoundsIfNeeded() }
+            if edited.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                edited.title = "Entreno"
+            }
+            if saveAsFavorite {
+                // La rutina original puede seguir programada: crear una copia
+                // independiente, nunca sobrescribir su ID con valores ya registrados.
+                let favorite = Routine(
+                    title: edited.title,
+                    blocks: edited.blocks.map { $0.duplicatingContent() },
+                    isFavorite: true
+                )
+                guard store.saveRoutine(favorite) else {
+                    presentRoutineLimitPaywall()
+                    return
+                }
+            }
+            onApplyCompleted(edited, completedDetails)
+            closeEditor()
+            return
+        }
         if let onApplyDraft {
             var draft = routine
             for i in draft.blocks.indices {
@@ -1191,6 +1266,44 @@ struct DayEditorView: View {
         }
     }
 
+    private enum CompletedScoreField { case reps, rounds, seconds }
+
+    private func completedScoreBinding(id: UUID, field: CompletedScoreField) -> Binding<Int> {
+        Binding(
+            get: {
+                guard let result = completedDetails?.wodResults.first(where: { $0.id == id }) else { return 0 }
+                switch field {
+                case .reps: return result.totalReps ?? 0
+                case .rounds: return result.roundsCompleted ?? 0
+                case .seconds: return result.elapsedSeconds ?? 0
+                }
+            },
+            set: { value in
+                guard let index = completedDetails?.wodResults.firstIndex(where: { $0.id == id }) else { return }
+                switch field {
+                case .reps: completedDetails?.wodResults[index].totalReps = max(0, value)
+                case .rounds: completedDetails?.wodResults[index].roundsCompleted = max(0, value)
+                case .seconds: completedDetails?.wodResults[index].elapsedSeconds = max(0, value)
+                }
+            }
+        )
+    }
+
+    private func completedDateBinding(isEnd: Bool) -> Binding<Date> {
+        Binding(
+            get: {
+                if isEnd {
+                    return completedDetails?.finishedAt ?? completedDetails?.startedAt ?? Date()
+                }
+                return completedDetails?.startedAt ?? completedDetails?.finishedAt ?? Date()
+            },
+            set: { date in
+                if isEnd { completedDetails?.finishedAt = date }
+                else { completedDetails?.startedAt = date }
+            }
+        )
+    }
+
     private func presentRoutineLimitPaywall() {
         let decision = store.lastAccessDenial
             ?? subscriptions.canCreateLibraryRoutine(isNew: true)
@@ -1202,7 +1315,8 @@ struct DayEditorView: View {
         let blockId = routine.blocks[index].id
         let weightStep = store.state.settings.weightIncrementKg
         ForEach(Array(routine.blocks[index].exercises.enumerated()), id: \.element.id) { exIndex, item in
-            if let ex = store.state.exercises.first(where: { $0.id == item.exerciseId }) {
+            if let ex = store.state.exercises.first(where: { $0.id == item.exerciseId })
+                ?? completedDetails?.exercises.first(where: { $0.exercise.id == item.exerciseId })?.exercise {
                 NavigationLink {
                     ExerciseDetailView(exerciseId: ex.id)
                 } label: {

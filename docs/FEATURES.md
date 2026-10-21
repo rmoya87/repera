@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-21 (solicitud única de Apple Salud con sueño y sin alerta adicional)
+Última actualización: 2026-10-21 (editor completo de entrenos realizados y recálculo de resultados)
 
 ## Tabs
 
@@ -191,6 +191,7 @@
 
 Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom, 4 escaneos/mes; Pro vía RevenueCat entitlement `pro`.
 - Historial de entrenos (Repera + Apple Salud, agrupado por día): misma fila que Inicio — línea «ENTRENO · hora» / día · hora, título debajo; icono de fuerza en Historial y **check** en Inicio; chips idénticos vía `WorkoutRegisterChips` (min / kcal / nota / PR / Notas; Salud + distancia si hay).
+- **Edición de entreno completado:** abre el mismo editor jerárquico de bloques y ejercicios que un entreno pendiente, con añadir, eliminar, reordenar (incluido drag entre bloques), WOD y movimientos libres. Precarga los sets efectivamente registrados (kg/reps/RIR), los scores WOD, fechas, lugar y notas. El resultado se recalcula al guardar, también con cardio de Salud si existe; no se modifica la plantilla programada. El snapshot de bloques conserva descansos WOD y orden aunque la plantilla cambie.
 - **Detalle de entreno:** fecha + tres tarjetas fijas **Tiempo, Kcal y Volumen** (o **Distancia** si hay recorrido GPS), aunque falten datos; se muestra «—» y no se inventan kcal si Salud no proporciona energía auténtica ni kg si no hay volumen registrado. La primera letra del subtítulo (p. ej. «Miércoles») tiene gutter interno antirrecorte, compensado con offset para mantener intacta su alineación y posición. Todo en un bloque continuo (sin título «Resultado»). Sección **Salud** solo con métricas auténticas (FC, ruta, ritmo). Series: RIR solo a la derecha. Al **Editar**, chevron → **X** (cancelar). Toque en **nombre o imagen** del movimiento → `ExerciseDetailView`.
 - **Lugar (entrenos propios, opcional):** tocar nombre o mapa abre el sheet con ese sitio; papelera quita, buscador cambia, check guarda. Sin sitio: búsqueda desde tu ubicación (se puede cerrar sin elegir). Recientes/resultados bajo el buscador. Icono = categoría (no mini-mapa). Ruta Salud tiene prioridad y bloquea pin manual.
 

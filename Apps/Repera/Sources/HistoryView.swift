@@ -262,6 +262,7 @@ struct WorkoutDetailView: View {
 
     @State private var draft: WorkoutSession?
     @State private var isEditing = false
+    @State private var showCompletedEditor = false
     @State private var showDeleteConfirm = false
     @State private var healthExtras: HealthKitStore.SessionHealthExtras?
     /// Un solo destino: evita apilar fichas si hay varios links en la misma card.
@@ -550,6 +551,35 @@ struct WorkoutDetailView: View {
         }
         .ogListChrome()
         .listSectionSpacing(12)
+        .navigationDestination(isPresented: $showCompletedEditor) {
+            if let session = draft {
+                DayEditorView(
+                    routine: CompletedWorkoutEditing.routine(
+                        from: session,
+                        sourceRoutine: session.routineId.flatMap { id in
+                            store.state.routines.first(where: { $0.id == id })
+                        }
+                    ),
+                    mode: .session,
+                    onClose: { showCompletedEditor = false },
+                    onApplyCompleted: { routine, details in
+                        let updated = CompletedWorkoutEditing.applying(
+                            routine, to: details, catalog: store.state.exercises
+                        )
+                        store.saveWorkout(updated)
+                        draft = store.state.workouts.first(where: { $0.id == sessionId })
+                        Task {
+                            await store.refineSessionReviewWithHealth(sessionId: sessionId)
+                            draft = store.state.workouts.first(where: { $0.id == sessionId })
+                            if let draft { healthExtras = await health.sessionHealthExtras(for: draft) }
+                        }
+                    },
+                    completedSession: session,
+                    embedsNavigationStack: false,
+                    usesPageCloseHeader: true
+                )
+            }
+        }
         .navigationDestination(item: $exerciseRoute) { route in
             ExerciseDetailView(
                 exerciseId: route.exerciseId,
@@ -579,7 +609,7 @@ struct WorkoutDetailView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
-                            isEditing = true
+                            showCompletedEditor = true
                         } label: {
                             Label("Editar", systemImage: "pencil")
                         }
