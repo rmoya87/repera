@@ -178,6 +178,7 @@ struct ReperaApp: App {
                         }
                     } else {
                         workoutSync.clearSession()
+                        aiInbox.clearSession()
                         subscriptions.setBusinessSponsoredAccess(false)
                     }
                     wireSubscriptionGates()
