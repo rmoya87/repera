@@ -271,9 +271,21 @@ Deno.serve(async (request) => {
   }
 
   const handler = createMcpHandler(() => {
-    const server = new McpServer({ name: "repera-training", version: "0.3.0" });
+    const server = new McpServer({ name: "repera-training", version: "0.4.0" });
     registerCoachTools(server, db, ownerId, token.id, canWrite);
     if (canWrite) registerMutationTools(server, db, ownerId, workout);
+    server.registerTool("get_mcp_access_info", {
+      description:"Display the current personal token's permission scopes, expiry and revocation instructions. No credential contents are exposed.",
+      inputSchema:z.strictObject({}),annotations:{readOnlyHint:true},
+    },async()=>reply({
+      token_id:token.id,
+      scopes:token.scopes ?? ["training:read","training:write"],
+      expires_at:token.expires_at ?? null,
+      expires:token.expires_at!=null,
+      revoke_in:"Repera iOS → Ajustes → Acceso IA → Revocar token",
+      protocol:"Personal HTTPS Bearer token (PAT), not OAuth. Do not forward to third parties.",
+      date_semantics:"scheduledDate YYYY-MM-DD is the athlete's local calendar day; scheduledTimeMinutes is wall-clock minutes after local midnight. No universal UTC timestamp is implied.",
+    }));
     server.registerTool("get_workout_history", {
       description: "History of completed Repera exercises, logged sets and WOD results; no HealthKit, routes, GPS, energy, body weight or notes.",
       inputSchema: pagedInput,
