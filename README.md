@@ -16,6 +16,7 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 | [docs/MONETIZATION.md](docs/MONETIZATION.md) | Freemium, RevenueCat, límites Gratis/Pro |
 | [web/](web/) | Sitio estático (producto, precios, privacidad, términos, FAQ) |
 | [docs/MAINTENANCE.md](docs/MAINTENANCE.md) | Cómo mantener docs al día |
+| [docs/MCP_PLAN.md](docs/MCP_PLAN.md) | MCP Repera: estado real, migraciones, privacidad, fases y seguridad |
 | [docs/ios27-modernization/](docs/ios27-modernization/) | Canvas modernización iOS 27 |
 | [docs/decisions/](docs/decisions/) | ADRs (persistencia, timers, nav, HK, arte) |
 | [AGENTS.md](AGENTS.md) | Instrucciones para agentes Cursor |
