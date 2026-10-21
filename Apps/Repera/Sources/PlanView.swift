@@ -855,7 +855,11 @@ struct DayEditorView: View {
                     }
                 }
 
-                OGSetEntryHeader(firstTitle: "KG", secondTitle: "REPS")
+                OGSetEntryHeader(
+                    firstTitle: ex.loggingStyle == .loadAndReps ? (ex.loadField == .deficitCm ? "Déficit" : "KG") : ex.quantityFieldLabel,
+                    secondTitle: ex.loggingStyle == .loadAndReps ? "Reps" : nil,
+                    showsRIR: ex.loggingStyle.usesRIR
+                )
                 .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 4, trailing: 16))
 
                 ForEach(Array(routine.blocks[index].exercises[exIndex].plannedSets.enumerated()), id: \.element.id) { setIndex, _ in
@@ -863,6 +867,7 @@ struct DayEditorView: View {
                         index: setIndex + 1,
                         set: plannedSetBinding(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex),
                         weightStep: weightStep,
+                        exerciseStyle: ex.loggingStyle,
                         previous: {
                             let sets = store.cachedLastWorkingSession(for: ex.id)?.sets
                             return (sets?.indices.contains(setIndex) == true) ? sets?[setIndex] : nil
@@ -1747,7 +1752,13 @@ struct RoutineExerciseEditor: View {
             }
 
             Section {
-                OGSetEntryHeader(firstTitle: "KG", secondTitle: "REPS")
+                OGSetEntryHeader(
+                    firstTitle: exercise?.loggingStyle == .loadAndReps
+                        ? (exercise?.loadField == .deficitCm ? "Déficit" : "KG")
+                        : (exercise?.quantityFieldLabel ?? "Reps"),
+                    secondTitle: exercise?.loggingStyle == .loadAndReps ? "Reps" : nil,
+                    showsRIR: exercise?.loggingStyle.usesRIR ?? false
+                )
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 4, trailing: 16))
 
@@ -1756,6 +1767,7 @@ struct RoutineExerciseEditor: View {
                         index: index + 1,
                         set: binding(for: index),
                         weightStep: weightStep,
+                        exerciseStyle: exercise?.loggingStyle ?? .loadAndReps,
                         previous: {
                             let sets = store.cachedLastWorkingSession(for: exerciseId)?.sets
                             return (sets?.indices.contains(index) == true) ? sets?[index] : nil
@@ -1892,50 +1904,44 @@ private struct PlannedSetConfigRow: View {
     var index: Int
     @Binding var set: PlannedSet
     var weightStep: Double
+    var exerciseStyle: ExerciseLoggingStyle = .loadAndReps
     var previous: ExerciseLastSession.WorkSet? = nil
     var canDelete: Bool
     var onDelete: () -> Void
     @FocusState private var focusedSetField: OGSetFieldID?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            OGSetEntryRow(
-                rowID: set.id,
-                index: index,
-                previous: OGSetEntryRow.previousText(previous),
-                firstValue: set.targetWeightKg.map { String(format: "%g", $0) } ?? "0",
-                secondValue: "\(set.targetReps)",
-                showsConfirmation: false,
-                focus: $focusedSetField,
-                onFirstCommit: { text in
+        OGSetEntryRow(
+            rowID: set.id,
+            index: index,
+            previous: OGSetEntryRow.previousText(previous),
+            firstValue: exerciseStyle == .loadAndReps
+                ? (set.targetWeightKg.map { String(format: "%g", $0) } ?? "0")
+                : "\(set.targetReps)",
+            secondValue: exerciseStyle == .loadAndReps ? "\(set.targetReps)" : nil,
+            firstAllowsDecimal: exerciseStyle == .loadAndReps,
+            rir: set.targetRir,
+            showsRIR: exerciseStyle.usesRIR,
+            onRIRChange: { set.targetRir = $0 },
+            focus: $focusedSetField,
+            onFirstCommit: { text in
+                if exerciseStyle == .loadAndReps {
                     let normalized = text.replacingOccurrences(of: ",", with: ".")
                     if normalized.isEmpty {
                         set.targetWeightKg = nil
                     } else if let value = Double(normalized) {
                         set.targetWeightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
                     }
-                },
-                onSecondCommit: { text in
-                    if let value = Int(text), value > 0 {
-                        set.targetReps = min(50, value)
-                    }
+                } else if let value = Int(text), value > 0 {
+                    set.targetReps = min(exerciseStyle.quantityCap, value)
                 }
-            )
-
-            Menu {
-                Button("Sin RIR") { set.targetRir = nil }
-                ForEach(0...5, id: \.self) { rir in
-                    Button("\(rir)") { set.targetRir = Double(rir) }
+            },
+            onSecondCommit: { text in
+                if let value = Int(text), value > 0 {
+                    set.targetReps = min(exerciseStyle.quantityCap, value)
                 }
-            } label: {
-                Text(set.targetRir.map { "RIR \(Int($0.rounded()))" } ?? "RIR —")
-                    .font(.system(size: 11, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(set.targetRir == nil ? OG.label3 : OG.label2)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(OG.surface2, in: Capsule())
             }
-        }
+        )
         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if canDelete {
