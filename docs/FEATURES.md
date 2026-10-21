@@ -216,7 +216,7 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 
 - Progreso agrupa **Entreno**, **Actividad** y **Recuperación** con el segmented **fijo** bajo la barra (no hace scroll con el contenido).
 - En Recuperación, **Sueño** es título de sección; **Ciclo** solo aparece si hay registros reales de menstruación. Si el periodo filtrado no tiene noches pero sí hay historial, se muestran las noches anteriores con una nota.
-- **Sueño** se incluye en la solicitud conjunta de Apple Salud desde onboarding (con entrenos, energía, pulso, peso y rutas); **no hay alerta independiente en Progreso → Recuperación**. La selección se guarda solo en el dispositivo y HealthKit no permite comprobar si el permiso de lectura fue concedido.
+- **Sueño** no se solicita automáticamente en el onboarding ni aparece como pendiente sin respuesta. Solo se solicita desde la activación expresa «Analizar descanso» en Apple Salud; **no hay alerta independiente en Progreso → Recuperación**. La selección se guarda solo en el dispositivo y HealthKit no permite comprobar si el permiso de lectura fue concedido.
 - Ajustes → **Salud conectada**: activación/desactivación del sueño, ciclo y métricas generales. Al activar sueño más tarde se usa la misma solicitud unificada de HealthKit; una negativa explícita se respeta. Punto rojo para decisiones pendientes, sin interrumpir Progreso.
 - Sueño: una sola fuente nocturna y fusión de intervalos solapados; tendencias con Swift Charts.
 - Ciclo: muestras de menstruación y pruebas de ovulación, fase solo orientativa con historial suficiente. No permite confirmar ovulación ni prever fertilidad.
@@ -253,7 +253,7 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 
 ### Coach IA · planificación deportiva de 1 a 52 semanas
 
-- **Ajustes → Entrenamiento → Perfil deportivo IA**: objetivo, nivel, días/minutos y material. Guardado voluntario y sin preguntas médicas ni Apple Salud.
+- **Perfil deportivo por conversación MCP**: se resumen hábitos del historial y se pregunta en chat por objetivo actual, disponibilidad y material cuando no están acreditados. No hay formulario «Perfil deportivo IA» en Ajustes ni permisos de Salud implícitos.
 - **Ajustes → Entrenamiento → Programas de entrenamiento IA**: revisión visual de fases y activación/pausa de macrociclos generados por un asistente con token personal.
 - **Contexto deportivo**: sincronización del calendario de rutinas personales futuras/recurrentes (90 días), para que el asistente no proponga sesiones a ciegas. No sustituye la planificación del entrenador profesional si todavía no se ha sincronizado.
 - **MCP**: nuevas consultas de perfil, calendario, métricas semanales, catalogación y revisión de programas. Creación de un macrociclo hasta 52 semanas y sesiones detalladas en lotes de 14, con identificador opcional de programa e idempotencia.
@@ -263,3 +263,11 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 ### Catálogo completo de ejercicios para IA
 
 Supabase dispone de 189 fichas enriquecidas desde el catálogo nativo de Repera: 183 con músculos principales, seis de acondicionamiento con músculos secundarios y sin atribuirles ficticiamente series de fuerza. El MCP devuelve las regiones y la procedencia de los metadatos. No requiere actualizar la app para esta ampliación.
+
+
+### Corrección de permisos y sincronización de cuenta
+
+- La cuenta Apple y Supabase guardan ahora nombre/avatar en columnas y Storage existentes, con RLS por usuario y JPEG de 2 MB máximo. Los errores no aparecen bajo Centro/Entrenamiento; se comunican desde Cuenta, si afectan una sincronización solicitada.
+- «Sincronizar ahora» espera tareas en marcha y explica qué componente está pendiente, en lugar de «operación incompleta» para cualquier fallo.
+- Apple Salud muestra solamente permisos autorizados, sin «Pendiente de confirmar» para métricas no solicitadas ni aviso rojo por sueño/ciclo no elegidos.
+- Para la IA se conoce material real por ficha de ejercicio y demandas articulares no clínicas solo en un subconjunto verificado. Las recomendaciones de ejercicios alternativos requieren disponibilidad de material declarada en el chat.

@@ -168,23 +168,6 @@ struct SettingsView: View {
 
                 // La identidad Apple y la sesión Supabase se obtienen en el login.
                 // Ajustes nunca solicita otra autorización Apple para Business.
-                if !businessAuth.isConnected, let error = businessAuth.lastErrorMessage {
-                    Label(error, systemImage: "exclamationmark.triangle")
-                        .font(.footnote)
-                        .foregroundStyle(OG.label2)
-                }
-                if let issue = businessAuth.profileMigrationErrorMessage {
-                    Text(issue).font(.footnote).foregroundStyle(OG.red)
-                    Button("Reintentar sincronización del perfil") {
-                        Task {
-                            await businessAuth.syncPublicProfile(
-                                displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName,
-                                avatarJPEG: store.state.settings.profileAvatarJPEG
-                            )
-                        }
-                    }
-                    .foregroundStyle(OG.label)
-                }
             } header: {
                 Text("Centro y entrenador")
             }
@@ -328,23 +311,18 @@ struct SettingsView: View {
                 } label: {
                     HStack(spacing: 10) {
                         Label(
-                            health.isAuthorized ? "Salud conectada" : "Conectar con Salud",
+                            health.isAuthorized ? "Apple Salud" : "Conectar con Salud",
                             systemImage: "heart"
                         )
                         .foregroundStyle(OG.label)
                         Spacer(minLength: 8)
-                        if healthNeedsAttention {
-                            Circle()
-                                .fill(OG.red)
-                                .frame(width: 8, height: 8)
-                                .accessibilityLabel("Permisos pendientes")
-                        }
+
                     }
                 }
 
                 permissionStatusRow(
                     title: "Ubicación",
-                    detail: location.isAuthorized ? "Permitida" : "Pendiente o denegada",
+                    detail: location.isAuthorized ? "Permitida" : "No permitida",
                     symbol: "location"
                 ) {
                     Task {
@@ -453,11 +431,6 @@ struct SettingsView: View {
             }
 
             Section("Entrenamiento") {
-                NavigationLink {
-                    AITrainingProfileView()
-                } label: {
-                    Label("Perfil deportivo IA", systemImage: "figure.strengthtraining.traditional")
-                }
                 NavigationLink {
                     AITrainingProgramsView()
                 } label: {
@@ -694,15 +667,11 @@ struct SettingsView: View {
         }
     }
 
-    private var healthNeedsAttention: Bool {
-        !health.isAuthorized || !HealthRecoveryStore.shared.pendingHealthItems.isEmpty
-    }
-
     private var notificationsStatusLabel: String {
         switch notificationsStatus {
         case .authorized, .provisional, .ephemeral: return "Permitidas"
         case .denied: return "Denegadas"
-        default: return "Pendiente"
+        default: return "Sin configurar"
         }
     }
 
@@ -730,8 +699,14 @@ struct SettingsView: View {
             syncFeedback = "Error de sincronización: no se ha confirmado iCloud."
             return
         }
+        if !businessAuth.isConnected {
+            await businessAuth.restoreSession()
+            if !businessAuth.isConnected {
+                _ = businessAuth.connectFromCachedSessionIfPossible()
+            }
+        }
         guard businessAuth.isConnected else {
-            syncFeedback = "Error de sincronización: Supabase no está conectado."
+            syncFeedback = "iCloud sincronizado. La sesión de Supabase no está disponible con esta cuenta Apple; vuelve a iniciar sesión para recuperar la conexión."
             return
         }
         await businessAuth.syncPublicProfile(
@@ -739,16 +714,41 @@ struct SettingsView: View {
             avatarJPEG: store.state.settings.profileAvatarJPEG
         )
         await businessData.refresh()
+        // App launch, foreground handlers and Realtime can trigger the same
+        // stores concurrently. Wait for the in-flight tasks instead of
+        // incorrectly reporting an operation as failed due to an active sync.
+        for _ in 0..<80 {
+            if !workoutSync.isSyncing,
+               !AITrainingInboxStore.shared.isSyncing,
+               !AITrainingContextStore.shared.isSyncing {
+                break
+            }
+            try? await Task.sleep(for: .milliseconds(150))
+        }
         let workoutsUploaded = await workoutSync.sync(store: store)
         let plansSynced = await AITrainingInboxStore.shared.sync(store: store)
         let calendarSynced = await AITrainingContextStore.shared.syncCalendar(store: store)
-        guard workoutsUploaded, plansSynced, calendarSynced,
-              businessAuth.profileMigrationErrorMessage == nil else {
-            syncFeedback = "Error de sincronización: \(workoutSync.lastError ?? AITrainingInboxStore.shared.lastError ?? "operación incompleta")."
-            return
+        // Perfil público es opcional: un error al subir una foto jamás bloquea
+        // el historial deportivo. El diagnóstico se comunica en Cuenta.
+        var incomplete: [String] = []
+        if !workoutsUploaded {
+            incomplete.append(workoutSync.lastError ?? "entrenamientos pendientes (iCloud o Supabase no están listos)")
         }
-        syncFeedback = "Sincronización completada."
-        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "repera.settings.lastFullSyncAt")
+        if !plansSynced {
+            incomplete.append(AITrainingInboxStore.shared.lastError ?? "propuestas de IA pendientes")
+        }
+        if !calendarSynced {
+            incomplete.append("calendario deportivo pendiente de envío")
+        }
+        if let profileError = businessAuth.profileMigrationErrorMessage {
+            incomplete.append(profileError)
+        }
+        if incomplete.isEmpty {
+            syncFeedback = "Sincronización completada."
+            UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "repera.settings.lastFullSyncAt")
+        } else {
+            syncFeedback = "iCloud actualizado. Pendiente: " + incomplete.joined(separator: " · ")
+        }
     }
 
     private func permissionStatusRow(

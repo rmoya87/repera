@@ -240,7 +240,7 @@ struct OnboardingPermissionsStep: View {
     }
 
     private var healthPermissionsComplete: Bool {
-        health.isAuthorized && !recovery.needsSleepDecision
+        health.isAuthorized
     }
 
     private var permissionsContent: some View {
@@ -255,7 +255,7 @@ struct OnboardingPermissionsStep: View {
             Text("Permisos")
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(OG.label)
-            Text("Actívalos ahora para avisos de descanso, métricas de Salud (incluido el sueño) y la ubicación de tus entrenos. Puedes cambiarlos después en Ajustes.")
+            Text("Puedes activar notificaciones, entrenamientos de Salud y ubicación si los necesitas. El sueño y el ciclo solo se solicitarán si los activas expresamente en Ajustes.")
                 .font(.body)
                 .foregroundStyle(OG.label2)
 
@@ -271,7 +271,7 @@ struct OnboardingPermissionsStep: View {
 
             permissionRow(
                 title: "Salud",
-                subtitle: "Entrenos, calorías, pulso y sueño",
+                subtitle: "Entrenos, calorías y pulso",
                 symbol: "heart",
                 statusText: healthPermissionsComplete ? "Conectado" : "Pendiente",
                 isDone: healthPermissionsComplete

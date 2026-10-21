@@ -78,8 +78,9 @@ final class HealthRecoveryStore {
     }
 
     var needsSleepDecision: Bool { !sleepDecisionMade }
-    /// No solicitar sueño cuando el usuario lo rechazó explícitamente en Repera.
-    var shouldRequestSleepWithHealth: Bool { !sleepDecisionMade || sleepEnabled }
+    /// Sueño solo se solicita si el usuario lo activó expresamente.
+    /// No determinado no implica consentimiento ni un permiso pendiente obligatorio.
+    var shouldRequestSleepWithHealth: Bool { sleepEnabled }
 
     /// Activaciones aún sin aceptar/rechazar (punto rojo en Ajustes).
     var pendingHealthItems: [String] {
@@ -313,7 +314,7 @@ struct ConnectedHealthSettingsView: View {
         Form {
             Section {
                 if health.isAuthorized {
-                    Label("Entrenamientos y energía conectados", systemImage: "checkmark.circle.fill")
+                    Label("Apple Salud con permisos activos", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(OG.label)
                     if let kcal = health.activeEnergyTodayKcal {
                         LabeledContent("kcal hoy", value: "\(Int(kcal.rounded()))")
@@ -348,21 +349,6 @@ struct ConnectedHealthSettingsView: View {
                 Text("Permisos de entrenamientos, ritmo cardíaco y energía activa.")
             }
 
-            if !recovery.pendingHealthItems.isEmpty || !health.isAuthorized {
-                Section {
-                    if !health.isAuthorized {
-                        pendingRow("Entrenamientos y energía")
-                    }
-                    ForEach(recovery.pendingHealthItems, id: \.self) { item in
-                        pendingRow(item)
-                    }
-                } header: {
-                    Text("Pendiente de confirmar")
-                } footer: {
-                    Text("Activa las métricas que quieras desde esta pantalla. El sueño se solicita junto con los demás datos de Apple Salud.")
-                }
-            }
-
             Section {
                 Toggle("Analizar descanso", isOn: Binding(
                     get: { recovery.sleepEnabled },
@@ -375,22 +361,12 @@ struct ConnectedHealthSettingsView: View {
                     }
                 ))
                 .disabled(healthBusy)
-                if !recovery.sleepDecisionMade, !recovery.sleepEnabled {
-                    Button("No usar análisis de descanso") {
-                        Task { await recovery.declineSleep() }
-                    }
-                    .foregroundStyle(OG.label2)
-                }
+
                 Toggle("Seguimiento del ciclo", isOn: Binding(
                     get: { recovery.cycleEnabled },
                     set: { enabled in Task { await recovery.setCycle(enabled) } }
                 ))
-                if !recovery.cycleDecisionMade, !recovery.cycleEnabled {
-                    Button("No usar seguimiento del ciclo") {
-                        recovery.declineCycle()
-                    }
-                    .foregroundStyle(OG.label2)
-                }
+
             } header: {
                 Text("Recuperación")
             } footer: {

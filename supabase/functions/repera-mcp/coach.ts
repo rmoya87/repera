@@ -20,6 +20,25 @@ type Entry = { exercise?: { name?: string; catalogId?: string; targetMuscle?: st
     kind?: string; toFailure?: boolean; quantityUnit?: string; durationSeconds?: number }> };
 type Session = { id: string; finished_at: string; exercises: Entry[] };
 function normalized(v: string) { return v.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
+const gearAliases: Record<string,string> = {
+  "barra":"barbell","barra olimpica":"barbell","barbell":"barbell",
+  "mancuernas":"dumbbells","mancuerna":"dumbbells","dumbbells":"dumbbells",
+  "gomas":"resistance_band","bandas":"resistance_band","bandas elasticas":"resistance_band",
+  "resistance bands":"resistance_band","resistance_band":"resistance_band",
+  "anillas":"gymnastic_rings","rings":"gymnastic_rings",
+  "cajon":"plyometric_box","cajon pliometrico":"plyometric_box","box":"plyometric_box",
+  "kettlebell":"kettlebell","pesa rusa":"kettlebell",
+  "comba":"jump_rope","cuerda de saltar":"jump_rope","jump_rope":"jump_rope",
+  "peso corporal":"bodyweight","sin material":"bodyweight","bodyweight":"bodyweight",
+  "disco":"weight_plate","weight_plate":"weight_plate",
+  "polea":"cable_machine","cable_machine":"cable_machine",
+  "balon medicinal":"medicine_ball","medicine_ball":"medicine_ball",
+  "trineo":"sled","sled":"sled","saco":"sandbag","sandbag":"sandbag",
+  "air bike":"air_bike","air_bike":"air_bike","echo bike":"echo_bike","echo_bike":"echo_bike",
+  "bicicleta estatica":"stationary_bike","stationary_bike":"stationary_bike",
+};
+function canonicalGear(v:string):string { return gearAliases[normalized(v)] ?? normalized(v); }
+
 function isoWeek(date: string): string {
   const d = new Date(date.slice(0, 10) + "T12:00:00Z");
   const offset = (d.getUTCDay() + 6) % 7;
@@ -105,14 +124,72 @@ export function registerCoachTools(
     return data as Session[] ?? [];
   }
   server.registerTool("get_training_profile", {
-    description: "Retrieve the athlete's explicit training goals, experience, weekly days, equipment and time; do not infer missing preferences or medical conditions.",
+    description: "Infer only observed training habits from the saved workout history. Return missing goals, material availability and duration as questions for conversation; do not assume equipment is available because it was used before.",
     inputSchema: z.object({}), annotations:{readOnlyHint:true},
   }, async () => {
     const {data,error}=await db.from("athlete_training_profiles").select(
       "primary_goal,experience_level,training_days_per_week,preferred_weekdays,session_minutes,equipment,preferences,coaching_enabled,updated_at"
     ).eq("owner_id",ownerId).maybeSingle();
-    if(error) throw new Error("Error al leer el perfil deportivo");
-    return result(data ?? {configured:false,missing:["primary_goal","experience_level","training_days_per_week","equipment","session_minutes"]});
+    if(error) throw new Error("Error al leer las preferencias deportivas");
+    const recent = await history(90);
+    const days = new Set(recent.map(r => (r.finished_at || "").slice(0,10)).filter(Boolean));
+    const weeks = new Set(recent.map(r => isoWeek(r.finished_at || "")).filter(Boolean));
+    const names = new Map<string,number>();
+    for (const row of recent) for (const entry of row.exercises ?? []) {
+      const name = entry.exercise?.name?.trim();
+      if (name) names.set(name,(names.get(name) ?? 0)+1);
+    }
+    const frequentlyUsed = [...names.entries()].sort((a,b)=>b[1]-a[1]).slice(0,15)
+      .map(([name, entries]) => ({name, entries}));
+    const missingQuestions = [];
+    if (!data || data.primary_goal === "general") missingQuestions.push("¿Qué objetivo quieres priorizar ahora?");
+    if (!data?.training_days_per_week) missingQuestions.push("¿Cuántos días a la semana quieres entrenar, y cuáles tienes libres?");
+    if (!data?.session_minutes) missingQuestions.push("¿De cuánto tiempo dispones por sesión?");
+    if (!data?.equipment?.length) missingQuestions.push("¿Con qué material cuentas para tus próximos entrenamientos: barra, mancuernas, gomas, anillas, máquinas o solo peso corporal?");
+    return result({
+      explicit_preferences: data ?? null,
+      observed_from_history: {
+        window_days:90, completed_workouts:recent.length,
+        distinct_training_days:days.size, active_weeks:weeks.size,
+        average_sessions_per_active_week: weeks.size ? Number((recent.length/weeks.size).toFixed(2)) : null,
+        frequently_logged_movements:frequentlyUsed,
+      },
+      questions_to_ask_before_building_a_program:missingQuestions,
+      reliability:recent.length<6?"insufficient_history_for_stable_habits":"observational_only",
+      caveat:"Observed frequency is not available training time. Observed equipment is not a declaration of what is available. Never infer injury status, preferences, commitment or physiology from workouts.",
+    });
+  });
+  server.registerTool("set_training_preferences", {
+    description: "Save sporting goals and available gear explicitly confirmed in conversation by the athlete. Ask first; never save guessed availability, health details or injuries.",
+    inputSchema: z.strictObject({
+      confirmedByAthlete: z.literal(true),
+      primaryGoal: z.enum(["general","strength","hypertrophy","endurance","crossfit","weightlifting","mobility"]),
+      trainingDaysPerWeek: z.number().int().min(1).max(7).optional(),
+      preferredWeekdays: z.array(z.number().int().min(1).max(7)).max(7).optional(),
+      sessionMinutes: z.number().int().min(15).max(240).optional(),
+      availableEquipment: z.array(z.string().trim().min(2).max(60)).max(20).optional(),
+    }),
+    annotations:{readOnlyHint:false,destructiveHint:false},
+  },async ({primaryGoal,trainingDaysPerWeek,preferredWeekdays,sessionMinutes,availableEquipment})=>{
+    const {data:old,error:readError}=await db.from("athlete_training_profiles")
+      .select("primary_goal,experience_level,training_days_per_week,preferred_weekdays,session_minutes,equipment,preferences")
+      .eq("owner_id",ownerId).maybeSingle();
+    if(readError)throw new Error("No se pudieron consultar las preferencias existentes");
+    // An upsert updates all columns, so preserve previously confirmed fields
+    // instead of silently resetting availability when the athlete edits a goal.
+    const patch: Record<string,unknown> = {
+      owner_id:ownerId,primary_goal:primaryGoal,
+      experience_level:old?.experience_level??"unspecified",
+      training_days_per_week:trainingDaysPerWeek??old?.training_days_per_week??null,
+      preferred_weekdays:preferredWeekdays!=null?[...new Set(preferredWeekdays)].sort():old?.preferred_weekdays??[],
+      session_minutes:sessionMinutes??old?.session_minutes??null,
+      equipment:availableEquipment!=null?[...new Set(availableEquipment.map(canonicalGear))]:old?.equipment??[],
+      preferences:old?.preferences??{},coaching_enabled:true,updated_at:new Date().toISOString(),
+    };
+    const {data,error}=await db.from("athlete_training_profiles").upsert(patch,{onConflict:"owner_id"})
+      .select("primary_goal,training_days_per_week,preferred_weekdays,session_minutes,equipment,updated_at").single();
+    if(error) throw new Error("No se pudieron guardar las preferencias confirmadas");
+    return result({saved:data,source:"explicit_chat_confirmation"});
   });
   server.registerTool("get_training_calendar", {
     description: "Read a current local-first snapshot of personal scheduled and recurring workouts, plus AI proposals; check freshness and never overwrite occupied days.",
@@ -177,10 +254,55 @@ export function registerCoachTools(
     annotations:{readOnlyHint:true},
   }, async({catalogKey})=>{
     const {data,error}=await db.from("training_exercise_metadata")
-      .select("catalog_key,native_catalog_id,metadata_source,aliases,primary_muscles,secondary_muscles,equipment,movement_pattern,skill_level,alternatives")
+      .select("catalog_key,native_catalog_id,metadata_source,aliases,primary_muscles,secondary_muscles,equipment,required_equipment,joint_demands,movement_pattern,skill_level,alternatives")
       .eq("catalog_key",catalogKey).maybeSingle();
     if(error) throw new Error("No se pudo leer metadatos del ejercicio");
     return result(data??{catalog_key:catalogKey,alternatives:[],warning:"No hay equivalencias validadas"});
+  });
+  server.registerTool("find_equipment_alternatives", {
+    description:"Find candidates matching the main muscle groups AND confirmed available equipment. Joint demand hints are non-clinical and do not certify safety or exercise equivalence. Ask the user about available gear first.",
+    inputSchema:z.object({
+      catalogKey:z.string().min(3).max(160),
+      availableEquipment:z.array(z.string().min(2).max(80)).max(25),
+      avoidJointDemands:z.array(z.enum(["shoulder","elbow","wrist","hip","knee","ankle","spine"])).max(7).default([]),
+      limit:z.number().int().min(1).max(15).default(8),
+    }),annotations:{readOnlyHint:true},
+  },async ({catalogKey,availableEquipment,avoidJointDemands,limit})=>{
+    const {data:origin,error:originError}=await db.from("training_exercise_metadata")
+      .select("catalog_key,primary_muscles,required_equipment,joint_demands,movement_pattern")
+      .eq("catalog_key",catalogKey).maybeSingle();
+    if(originError||!origin) throw new Error("No se encontró el ejercicio solicitado");
+    if(!origin.primary_muscles?.length)
+      return result({candidates:[],reason:"El ejercicio carece de músculo principal de fuerza; no se infiere equivalencia de cardio."});
+    const {data:meta,error:metaError}=await db.from("training_exercise_metadata")
+      .select("catalog_key,primary_muscles,secondary_muscles,required_equipment,joint_demands,metadata_source,movement_pattern")
+      .limit(1500);
+    const {data:names,error:namesError}=await db.from("business_exercise_catalog")
+      .select("catalog_key,name,category").limit(1500);
+    if(metaError||namesError)throw new Error("No se pudieron consultar alternativas");
+    const gear=new Set(availableEquipment.map(canonicalGear));
+    const labels=new Map((names??[]).map(x=>[x.catalog_key,x]));
+    const candidates=(meta??[]).filter(x=>{
+      if(x.catalog_key===catalogKey || !x.primary_muscles?.length) return false;
+      if(!x.required_equipment?.length || x.required_equipment.includes("gym_machine_unspecified")) return false;
+      if(!x.required_equipment.every((g:string)=>g==="bodyweight" || gear.has(normalized(g))))return false;
+      if(avoidJointDemands.length) {
+        // Unknown joint demands are explicitly excluded when requested.
+        if(!x.joint_demands?.length) return false;
+        if(x.joint_demands.some((j:string)=>avoidJointDemands.includes(j as typeof avoidJointDemands[number]))) return false;
+      }
+      return x.primary_muscles.some((m:string)=>origin.primary_muscles.includes(m));
+    }).map(x=>({
+      catalog_key:x.catalog_key,
+      name:labels.get(x.catalog_key)?.name??x.catalog_key,
+      required_equipment:x.required_equipment,
+      joint_demands:x.joint_demands,
+      metadata_source:x.metadata_source,
+      shared_primary_muscles:x.primary_muscles.filter((m:string)=>origin.primary_muscles.includes(m)),
+      is_verified_equivalent:false,
+    })).sort((a,b)=>b.shared_primary_muscles.length-a.shared_primary_muscles.length || a.name.localeCompare(b.name));
+    return result({candidates:candidates.slice(0,limit),total_candidates:candidates.length,
+      caution:"Candidates share muscle regions and available equipment, not proven interchangeable mechanics. Joint tags are incomplete, not a safety screening; ask the athlete about pain/limitations and seek qualified advice if needed."});
   });
   server.registerTool("search_training_exercises_enriched",{
     description:"Find stable exercise IDs, localized alias matches and verified movement metadata in Repera's full exercise catalog.",
@@ -192,7 +314,7 @@ export function registerCoachTools(
       .select("catalog_key,name,category").limit(1500);
     if(error) throw new Error("Catálogo no disponible");
     const {data:metadata,error:metaError}=await db.from("training_exercise_metadata")
-      .select("catalog_key,native_catalog_id,metadata_source,aliases,primary_muscles,secondary_muscles,equipment,movement_pattern,skill_level,alternatives").limit(1500);
+      .select("catalog_key,native_catalog_id,metadata_source,aliases,primary_muscles,secondary_muscles,equipment,required_equipment,joint_demands,movement_pattern,skill_level,alternatives").limit(1500);
     if(metaError) throw new Error("Metadatos de catálogo no disponibles");
     const index=new Map((metadata??[]).map(m=>[m.catalog_key,m]));
     const matches=(all??[]).filter(e=>normalized(e.name).includes(term)
