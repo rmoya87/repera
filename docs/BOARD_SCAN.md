@@ -157,3 +157,7 @@ xcrun devicectl device info files --device <udid> \
   --domain-type appDataContainer --domain-identifier com.app.repera \
   --subdirectory Documents
 ```
+
+### Robustez del OCR con espacios
+
+La variante `20 / 16 CAL*` también se interpreta como **calorías H/M**, no una alternativa de escala. El bloque For Time sin prefijo N RFT debe mantener `rounds=nil` tanto en `BoardScanLiteParser` como en `BoardImportParser` pese a los valores por defecto del constructor, y `plannedSets` contiene una sola prescripción por movimiento.
