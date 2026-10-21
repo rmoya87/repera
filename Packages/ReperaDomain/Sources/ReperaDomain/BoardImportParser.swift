@@ -1738,11 +1738,15 @@ public enum CrossFitGlossary {
         return (hi, lo, remaining)
     }
 
+    /// Orden precalculado: el escáner ligero resuelve cada movimiento por turno
+    /// y no debe reordenar centenares de alias por cada línea del OCR.
+    private static let aliasKeysByLength: [String] = aliases.keys.sorted { $0.count > $1.count }
+
     /// Expande abreviaturas sueltas y compuestos conocidos en una línea de movimiento.
     public static func expand(_ raw: String) -> String {
         var s = raw
         // Sustituir primero frases largas
-        let ordered = aliases.keys.sorted { $0.count > $1.count }
+        let ordered = aliasKeysByLength
         for key in ordered {
             // AS es Air Squat como sigla aislada, pero «as» aparece en inglés
             // corriente («as many...»). No expandirlo dentro de frases.
@@ -1773,7 +1777,7 @@ public enum CrossFitGlossary {
         if let fromSearch = ExerciseSearch.scannerCatalogName(forNormalizedQuery: rawNorm) {
             return fromSearch
         }
-        let ordered = aliases.keys.sorted { $0.count > $1.count }
+        let ordered = aliasKeysByLength
         for key in ordered {
             guard key.count >= 4, let value = aliases[key], !value.isEmpty else { continue }
             let pattern = #"\b"# + NSRegularExpression.escapedPattern(for: key) + #"\b"#
