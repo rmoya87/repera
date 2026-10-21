@@ -632,7 +632,14 @@ struct DayEditorView: View {
         .navigationDestination(item: $pickExerciseForBlock) { blockID in
             ExercisePickerView(embedsNavigationStack: false) { exercise in
                 if let idx = routine.blocks.firstIndex(where: { $0.id == blockID }) {
-                    let sets = (0..<3).map { _ in PlannedSet(targetReps: 8, targetWeightKg: nil) }
+                    let style = exercise.loggingStyle
+                    let amount = style == .machineWork
+                        ? (exercise.defaultQuantityUnit == .meters ? 500 : 15)
+                        : (style == .repsAndTime ? 50 : 8)
+                    let count = style.usesDuration ? 1 : 3
+                    let sets = (0..<count).map { _ in
+                        PlannedSet(targetReps: amount, targetWeightKg: nil)
+                    }
                     routine.blocks[idx].exercises.append(
                         RoutineExercise(exerciseId: exercise.id, plannedSets: sets)
                     )
@@ -1995,25 +2002,28 @@ struct RoutineExerciseEditor: View {
                 }
             }
 
-            Section {
-                ExerciseLoadGuideCard(
-                    exerciseId: exerciseId,
-                    targetReps: referenceSet.targetReps,
-                    targetRir: referenceSet.targetRir,
-                    onApplySuggestedKg: { kg in
-                        applySuggestedLoad(kg)
-                    },
-                    onApplyLastSession: { last in
-                        applyLastSession(last)
-                    }
-                )
-                .listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
-                .listRowBackground(OG.surface)
-            } header: {
-                Text("Referencia")
-            } footer: {
-                Text("Aplicar escala la última sesión al kg sugerido (misma progresión, reps y RIR).")
-            }
+            if exercise?.loggingStyle == .loadAndReps {
+                Section {
+                    ExerciseLoadGuideCard(
+                        exerciseId: exerciseId,
+                        targetReps: referenceSet.targetReps,
+                        targetRir: referenceSet.targetRir,
+                        onApplySuggestedKg: { kg in
+                            applySuggestedLoad(kg)
+                        },
+                        onApplyLastSession: { last in
+                            applyLastSession(last)
+                        }
+                    )
+                    .listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
+                    .listRowBackground(OG.surface)
+                } header: {
+                    Text("Referencia")
+                } footer: {
+                    Text("Aplicar escala la última sesión al kg sugerido (misma progresión, reps y RIR).")
+                }
+                }
+
 
             Section {
                 OGSetEntryHeader(
@@ -2055,7 +2065,9 @@ struct RoutineExerciseEditor: View {
             } header: {
                 Text("Objetivo por serie")
             } footer: {
-                Text("Cada serie puede tener peso, reps y RIR distintos.")
+                Text(exercise?.loggingStyle == .machineWork
+                     ? "Introduce calorías o metros por serie; el cardio no utiliza kilogramos."
+                     : "Cada serie puede tener cantidad, peso y RIR distintos según el movimiento.")
             }
 
             Section {
@@ -2069,7 +2081,11 @@ struct RoutineExerciseEditor: View {
         .ogPinnedTransparentNav(exerciseName)
         .onAppear {
             if item.plannedSets.isEmpty {
-                item.plannedSets = [PlannedSet(targetReps: 8, targetWeightKg: nil)]
+                let style = exercise?.loggingStyle ?? .loadAndReps
+                let qty = style == .machineWork
+                    ? (exercise?.defaultQuantityUnit == .meters ? 500 : 15)
+                    : (style == .repsAndTime ? 50 : 8)
+                item.plannedSets = [PlannedSet(targetReps: qty, targetWeightKg: nil)]
             }
         }
     }
