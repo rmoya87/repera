@@ -20,6 +20,25 @@ type Entry = { exercise?: { name?: string; catalogId?: string; targetMuscle?: st
     kind?: string; toFailure?: boolean; quantityUnit?: string; durationSeconds?: number }> };
 type Session = { id: string; finished_at: string; exercises: Entry[] };
 function normalized(v: string) { return v.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
+const gearAliases: Record<string,string> = {
+  "barra":"barbell","barra olimpica":"barbell","barbell":"barbell",
+  "mancuernas":"dumbbells","mancuerna":"dumbbells","dumbbells":"dumbbells",
+  "gomas":"resistance_band","bandas":"resistance_band","bandas elasticas":"resistance_band",
+  "resistance bands":"resistance_band","resistance_band":"resistance_band",
+  "anillas":"gymnastic_rings","rings":"gymnastic_rings",
+  "cajon":"plyometric_box","cajon pliometrico":"plyometric_box","box":"plyometric_box",
+  "kettlebell":"kettlebell","pesa rusa":"kettlebell",
+  "comba":"jump_rope","cuerda de saltar":"jump_rope","jump_rope":"jump_rope",
+  "peso corporal":"bodyweight","sin material":"bodyweight","bodyweight":"bodyweight",
+  "disco":"weight_plate","weight_plate":"weight_plate",
+  "polea":"cable_machine","cable_machine":"cable_machine",
+  "balon medicinal":"medicine_ball","medicine_ball":"medicine_ball",
+  "trineo":"sled","sled":"sled","saco":"sandbag","sandbag":"sandbag",
+  "air bike":"air_bike","air_bike":"air_bike","echo bike":"echo_bike","echo_bike":"echo_bike",
+  "bicicleta estatica":"stationary_bike","stationary_bike":"stationary_bike",
+};
+function canonicalGear(v:string):string { return gearAliases[normalized(v)] ?? normalized(v); }
+
 function isoWeek(date: string): string {
   const d = new Date(date.slice(0, 10) + "T12:00:00Z");
   const offset = (d.getUTCDay() + 6) % 7;
@@ -152,11 +171,21 @@ export function registerCoachTools(
     }),
     annotations:{readOnlyHint:false,destructiveHint:false},
   },async ({primaryGoal,trainingDaysPerWeek,preferredWeekdays,sessionMinutes,availableEquipment})=>{
-    const patch: Record<string,unknown> = {owner_id:ownerId,primary_goal:primaryGoal,coaching_enabled:true,updated_at:new Date().toISOString()};
-    if (trainingDaysPerWeek!=null) patch.training_days_per_week=trainingDaysPerWeek;
-    if (preferredWeekdays!=null) patch.preferred_weekdays=[...new Set(preferredWeekdays)].sort();
-    if (sessionMinutes!=null) patch.session_minutes=sessionMinutes;
-    if (availableEquipment!=null) patch.equipment=availableEquipment;
+    const {data:old,error:readError}=await db.from("athlete_training_profiles")
+      .select("primary_goal,experience_level,training_days_per_week,preferred_weekdays,session_minutes,equipment,preferences")
+      .eq("owner_id",ownerId).maybeSingle();
+    if(readError)throw new Error("No se pudieron consultar las preferencias existentes");
+    // An upsert updates all columns, so preserve previously confirmed fields
+    // instead of silently resetting availability when the athlete edits a goal.
+    const patch: Record<string,unknown> = {
+      owner_id:ownerId,primary_goal:primaryGoal,
+      experience_level:old?.experience_level??"unspecified",
+      training_days_per_week:trainingDaysPerWeek??old?.training_days_per_week??null,
+      preferred_weekdays:preferredWeekdays!=null?[...new Set(preferredWeekdays)].sort():old?.preferred_weekdays??[],
+      session_minutes:sessionMinutes??old?.session_minutes??null,
+      equipment:availableEquipment!=null?[...new Set(availableEquipment.map(canonicalGear))]:old?.equipment??[],
+      preferences:old?.preferences??{},coaching_enabled:true,updated_at:new Date().toISOString(),
+    };
     const {data,error}=await db.from("athlete_training_profiles").upsert(patch,{onConflict:"owner_id"})
       .select("primary_goal,training_days_per_week,preferred_weekdays,session_minutes,equipment,updated_at").single();
     if(error) throw new Error("No se pudieron guardar las preferencias confirmadas");
@@ -251,7 +280,7 @@ export function registerCoachTools(
     const {data:names,error:namesError}=await db.from("business_exercise_catalog")
       .select("catalog_key,name,category").limit(1500);
     if(metaError||namesError)throw new Error("No se pudieron consultar alternativas");
-    const gear=new Set(availableEquipment.map(x=>normalized(x)));
+    const gear=new Set(availableEquipment.map(canonicalGear));
     const labels=new Map((names??[]).map(x=>[x.catalog_key,x]));
     const candidates=(meta??[]).filter(x=>{
       if(x.catalog_key===catalogKey || !x.primary_muscles?.length) return false;
