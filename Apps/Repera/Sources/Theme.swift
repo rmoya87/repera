@@ -998,20 +998,24 @@ struct OGSetEntryHeader: View {
     var firstTitle: String
     var secondTitle: String? = nil
     var showsConfirmation = false
+    var showsRIR = false
 
     var body: some View {
-        HStack(spacing: 6) {
-            caption("SERIE").frame(width: 34)
-            caption("ANTERIOR").frame(width: 60)
+        HStack(spacing: 4) {
+            caption("SERIE").frame(width: 30)
+            caption("ANTERIOR").frame(width: 52)
             caption(firstTitle.uppercased()).frame(maxWidth: .infinity)
             if let secondTitle {
                 caption(secondTitle.uppercased()).frame(maxWidth: .infinity)
+            }
+            if showsRIR {
+                caption("RIR").frame(width: 43)
             }
             if showsConfirmation {
                 Image(systemName: "checkmark")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(OG.label3)
-                    .frame(width: 36)
+                    .frame(width: 34)
                     .accessibilityHidden(true)
             }
         }
@@ -1039,26 +1043,29 @@ struct OGSetEntryRow: View {
     var enabled = true
     var showsConfirmation = false
     var completed = false
+    var rir: Double? = nil
+    var showsRIR = false
+    var onRIRChange: (Double?) -> Void = { _ in }
     var focus: FocusState<OGSetFieldID?>.Binding
     var onFirstCommit: (String) -> Void
     var onSecondCommit: (String) -> Void = { _ in }
     var onConfirm: () -> Void = {}
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             Text("\(index)")
                 .font(.system(size: 13, weight: .bold).monospacedDigit())
                 .foregroundStyle(OG.label)
-                .frame(width: 34, height: 44)
-                .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                .frame(width: 30, height: 36)
+                .background(OG.surface2, in: Circle())
                 .accessibilityLabel("Serie \(index)")
 
             Text(previous ?? "—")
-                .font(.system(size: 11, weight: .medium).monospacedDigit())
+                .font(.system(size: 10, weight: .medium).monospacedDigit())
                 .foregroundStyle(previous == nil ? OG.label3 : OG.label2)
                 .lineLimit(1)
-                .minimumScaleFactor(0.65)
-                .frame(width: 60, height: 44)
+                .minimumScaleFactor(0.6)
+                .frame(width: 52, height: 44)
                 .accessibilityLabel(previous.map { "Anterior: \($0)" } ?? "Sin registro anterior")
 
             OGSetNumericCell(
@@ -1087,12 +1094,29 @@ struct OGSetEntryRow: View {
                 .frame(maxWidth: .infinity)
             }
 
+            if showsRIR {
+                Menu {
+                    Button("Sin RIR") { onRIRChange(nil) }
+                    ForEach(0...5, id: \.self) { value in
+                        Button("RIR \(value)") { onRIRChange(Double(value)) }
+                    }
+                } label: {
+                    Text(rir.map { "\(Int($0.rounded()))" } ?? "—")
+                        .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(rir == nil ? OG.label3 : OG.label)
+                        .frame(width: 43, height: 44)
+                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .disabled(!enabled || completed)
+                .accessibilityLabel("RIR serie \(index)")
+            }
+
             if showsConfirmation {
                 Button(action: onConfirm) {
                     Image(systemName: completed ? "checkmark.circle.fill" : "checkmark")
                         .font(.system(size: completed ? 20 : 17, weight: .bold))
                         .foregroundStyle(completed ? OG.onAccent : OG.accent)
-                        .frame(width: 36, height: 44)
+                        .frame(width: 34, height: 44)
                         .background(
                             completed ? OG.accent : OG.surface2,
                             in: RoundedRectangle(cornerRadius: 11, style: .continuous)
