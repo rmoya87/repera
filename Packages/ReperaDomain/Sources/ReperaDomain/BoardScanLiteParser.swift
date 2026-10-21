@@ -345,7 +345,10 @@ public enum BoardScanLiteParser {
                    let reps = Int(fields[2]), let percent = Double(fields[3]),
                    start > 0 && end <= 30 && start <= end else { continue }
                 for index in start...end {
-                    plan[index] = PlannedSet(targetReps: reps, targetPercent1RM: percent)
+                    plan[index] = PlannedSet(
+                        targetReps: reps, targetPercent1RM: percent,
+                        targetPercent1RMIsMinimum: line.contains("#>")
+                    )
                 }
             }
             let expected = rounds ?? plan.count
