@@ -1,6 +1,6 @@
 # Escáner de pizarra / TV
 
-Última actualización: 2026-10-20 (alias EN variantes + tabla compartida con ExerciseSearch)
+Última actualización: 2026-10-21 (For Time TC sin rondas implícitas, alias CrossFit y cargas/calorías por sexo)
 
 ## Objetivo
 
@@ -31,6 +31,15 @@ Regresión del 19/10/2026: pizarra con tres bloques:
 1. `EMOM 8’ @6-8`: 8 minutos, 2 High Hang Squat Snatch por estación; intensidad original conservada.
 2. `EVERY 2’ X 4` + `4-3-3-2 BACK SQUAT @6-8`: **bloque de fuerza** con series 4, 3, 3 y 2; la cadencia y el RPE quedan en notas, nunca convertidos arbitrariamente en RIR.
 3. `4 RFT (TC 12’)`: 4 rondas, cap 12 min, 6 Power Snatch 40/25, 8 BOB (**Bar facing burpee** / burpee over the bar), 10 Back Rack Reverse Lunges 40/25 y descanso de 60 s. Si OCR pega `4RFf` o `8BOB`, sigue siendo cabecera RFT + movimiento BOB (no un «Movimiento» suelto dentro del EVERY).
+
+## Ejemplo de regresión: AMRAP + For Time con time cap
+
+La pizarra `AMRAP 16'` seguida de `FOR TIME (TC 14')` son **dos bloques distintos**. El segundo es una secuencia de movimientos a completar en un máximo de 14 minutos, **no 14 rondas ni 14 series**. Solo un prefijo explícito `4 RFT` o similar establece rondas. El modelo debe mantener `rounds = nil` y una serie prescrita por movimiento cuando no hay rondas.
+
+- AMRAP: `3 GTOH 60/40` → Ground to overhead; `3 BMU / 6 C2B / 9 Pull-ups` son escalas alternativas; `10 Wall Ball 9/7`; `15 AKBS 24/16` → Swing americano; `40 DU / 80 SU` son escalas alternativas.
+- For Time: `400m Run → 20/16 CAL* → 400m Run → 20/16 CAL* → 400m Run`. `CAL` en esta pizarra es **Air bike**: `20/16` son calorías hombre/mujer, **nunca kilogramos**. Conserva los movimientos repetidos en el orden original. `1' REST BTWN**` se preserva como descanso de 60 segundos y nota contextual; el alcance de `**` no se inventa cuando no se ve.
+- El reloj For Time cuenta hacia arriba. Terminar antes permite registrar el tiempo realmente empleado; al agotarse el TC, el resultado conserva el tiempo y el estado **TC agotado** sin marcar ejercicios restantes como completados. Si se continúa fuera de tiempo, el valor se puede editar manualmente.
+- El glosario y la búsqueda de catálogo comparten acrónimos, nombres ingleses completos y variantes ES/EN: GTOH/G2OH, BMU, AKBS, C2B, DU/SU, etc. Cuando no se encuentra un ejercicio, se conserva el nombre para editarlo, sin asignarlo arbitrariamente a otro.
 
 El catálogo resuelve abreviaturas en inglés y español vía `CrossFitGlossary.canonicalName` (y, si falta en el glosario, la misma tabla EN↔catálogo que `ExerciseSearch`). Así `chin up`, `walking lunge`, `ring pull-up`, etc. caen en la ficha concreta. Una variante no encontrada no debe descartarse: se conserva como movimiento WOD editable. El emparejamiento local utiliza mapa indexado de nombres/canónicos, no comparación difusa por ejercicio; si se añaden nuevos alias, actualizarlos en `CrossFitGlossary` y/o `ExerciseSearch.bilingualPhrases`. En fuerza, se asigna `targetRir` **solo** cuando se identifica explícitamente `@RIR N`; `@6-8` no significa RIR y se mantiene como nota.
 
