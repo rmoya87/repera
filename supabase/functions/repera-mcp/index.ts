@@ -181,13 +181,14 @@ Deno.serve(async (request) => {
   // Tokens are never logged, sent to third-party services, or stored in plaintext.
   const hash = await sha256(match[1]);
   const { data: token, error: tokenError } = await db.from("ai_access_tokens")
-    .select("id,owner_id,expires_at")
+    .select("id,owner_id,expires_at,scopes")
     .eq("token_hash", hash).is("revoked_at", null).maybeSingle();
   if (tokenError) return fail(503, "No se pudo verificar el token");
   if (!token || (token.expires_at && Date.parse(token.expires_at) <= Date.now())) {
     return fail(401, "Token caducado o revocado");
   }
   const ownerId: string = token.owner_id;
+  const canWrite = (token.scopes ?? ["training:read","training:write"]).includes("training:write");
   // Only owner-scoped reads and inserts. Service role cannot leak other athletes.
   await db.from("ai_access_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", token.id).eq("owner_id", ownerId);
   if (Number(request.headers.get("content-length") || 0) > 150_000) return fail(413, "Petición demasiado grande");
@@ -271,8 +272,8 @@ Deno.serve(async (request) => {
 
   const handler = createMcpHandler(() => {
     const server = new McpServer({ name: "repera-training", version: "0.3.0" });
-    registerCoachTools(server, db, ownerId, token.id);
-    registerMutationTools(server, db, ownerId, workout);
+    registerCoachTools(server, db, ownerId, token.id, canWrite);
+    if (canWrite) registerMutationTools(server, db, ownerId, workout);
     server.registerTool("get_workout_history", {
       description: "History of completed Repera exercises, logged sets and WOD results; no HealthKit, routes, GPS, energy, body weight or notes.",
       inputSchema: pagedInput,
@@ -339,6 +340,7 @@ Deno.serve(async (request) => {
       const rows=data??[],hasMore=rows.length>limit;
       return reply({items:rows.slice(0,limit),hasMore,nextCursor:hasMore?nextCursor(offset+limit):null});
     });
+    if (canWrite) {
     server.registerTool("create_workout", {
       description: "Create one fully structured workout with typed strength/WOD blocks, sets, RIR, weights and schedule date. Repera imports it to Diario/Inicio, without overwriting existing day plans. Explicit user-requested write.",
       inputSchema: workout.extend({ idempotencyKey: z.string().uuid().optional() }),
@@ -350,6 +352,7 @@ Deno.serve(async (request) => {
         programId: z.string().uuid().optional(), idempotencyKey: z.string().uuid().optional() }),
       annotations: { readOnlyHint: false, destructiveHint: false },
     }, async ({ workouts: items, programId, idempotencyKey }) => reply(await saveWorkouts(items, programId, idempotencyKey)));
+    }
     return server;
   });
   const response = await handler.fetch(request);
