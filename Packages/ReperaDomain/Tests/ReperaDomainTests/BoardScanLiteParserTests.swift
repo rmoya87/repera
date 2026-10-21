@@ -2,6 +2,31 @@ import Testing
 @testable import ReperaDomain
 
 struct BoardScanLiteParserTests {
+    @Test func scansCoachAcronymsWithCatalogLinkingAndCardioUnits() {
+        let board = """
+        AMRAP 10'
+        5 HPC 60/40
+        12 GHD SU
+        15 WBS 9/6
+        20 CAL ROW
+        5 RMU
+        """
+        let parsed = BoardScanLiteParser.parse(ocrText: board, catalog: Catalog.seed())
+        #expect(parsed.blocks.count == 1)
+        let movements = parsed.blocks[0].movements
+        #expect(movements.count == 5)
+        let expected = ["Hang power clean", "GHD sit-up", "Wall ball", "Remo máquina", "Muscle-up anillas"]
+        for (move, name) in zip(movements, expected) {
+            #expect(move.name == name)
+            #expect(move.exerciseId != nil)
+        }
+        #expect(movements[0].weightMaleKg == 60)
+        #expect(movements[0].weightFemaleKg == 40)
+        #expect(movements[3].calories == 20)
+        #expect(movements[3].weightMaleKg == nil)
+    }
+
+
     @Test func spacedSexSpecificCaloriesDoNotBecomeScalingAlternatives() {
         let blocks = BoardScanLiteParser.parse(ocrText: """
             FOR TIME (TC 14')
