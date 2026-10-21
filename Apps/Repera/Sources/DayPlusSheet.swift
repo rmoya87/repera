@@ -105,24 +105,36 @@ struct DayPlusSheet: View {
                 }) {
                     LibraryPicker(image: $captured).ignoresSafeArea()
                 }
-                .navigationDestination(isPresented: $showDayEditor) {
-                    DayEditorView(
-                        routine: Routine(
-                            title: "Entreno · \(dayName)",
-                            weekday: nil,
-                            scheduledDate: dayStart,
-                            blocks: [.strength(title: "Bloque 1")],
-                            progression: .off
-                        ),
-                        mode: .oneOff(isNew: true),
-                        embedsNavigationStack: false,
-                        usesPageCloseHeader: true
-                    )
-                    .onDisappear {
-                        if store.routineForDay(dayStart)?.isOneOff == true {
-                            dismiss()
+                .fullScreenCover(isPresented: $showDayEditor) {
+                    NavigationStack {
+                        DayEditorView(
+                            routine: Routine(
+                                title: "Entreno · \(dayName)",
+                                weekday: nil,
+                                scheduledDate: dayStart,
+                                blocks: [.strength(title: "Bloque 1")],
+                                progression: .off
+                            ),
+                            mode: .oneOff(isNew: true),
+                            onClose: {
+                                showDayEditor = false
+                                dismiss()
+                            },
+                            embedsNavigationStack: false,
+                            usesPageCloseHeader: true
+                        )
+                        .toolbar {
+                            ToolbarItem(placement: .topBarLeading) {
+                                Button {
+                                    showDayEditor = false
+                                } label: {
+                                    Image(systemName: "chevron.left")
+                                }
+                                .accessibilityLabel("Volver")
+                            }
                         }
                     }
+                    .tint(OG.accent)
                 }
         }
         // Congelar alto solo con pickers a pantalla completa (no con «Leyendo…»).

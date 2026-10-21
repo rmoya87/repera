@@ -603,9 +603,11 @@ struct WorkoutDetailView: View {
     }
 
     private func summaryCard(_ session: WorkoutSession) -> some View {
-        // Misma fuente que Inicio: kcal guardadas en la sesión (estimación o Apple sync).
-        // `healthExtras` a veces trae energía ambiente / sample viejo y pisa el valor correcto.
-        let kcal = session.appleActiveEnergyKcal ?? healthExtras?.activeEnergyKcal
+        // Solo mostrar calorías cuando Salud ofrece energía activa real.
+        // No usar el fallback MET estimado guardado en appleActiveEnergyKcal.
+        let kcal = healthExtras?.hasExternalSaludSource == true
+            ? healthExtras?.activeEnergyKcal
+            : nil
         let minutes: Double = {
             if let start = session.startedAt {
                 let end = session.finishedAt ?? start.addingTimeInterval(60)
@@ -621,12 +623,14 @@ struct WorkoutDetailView: View {
                 icon: "clock.fill",
                 tint: OG.blue
             )
-            summaryTile(
-                title: "Kcal",
-                value: kcal.map { "\(Int($0.rounded()))" } ?? "—",
-                icon: "flame.fill",
-                tint: OG.orange
-            )
+            if let kcal, kcal > 0 {
+                summaryTile(
+                    title: "Kcal",
+                    value: "\(Int(kcal.rounded()))",
+                    icon: "flame.fill",
+                    tint: OG.orange
+                )
+            }
             if displayedRoute(session).count >= 2 {
                 let path = displayedRoute(session).map {
                     CardioRouteAnalysis.Sample(

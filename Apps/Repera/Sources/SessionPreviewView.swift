@@ -131,6 +131,17 @@ struct SessionPreviewView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     OGToolbarGlassButton(
+                        systemName: "pencil",
+                        accessibilityLabel: "Editar o apuntar",
+                        tint: OG.accent
+                    ) {
+                        if let routine = liveRoutine {
+                            onEdit(routine)
+                        }
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    OGToolbarGlassButton(
                         systemName: "play.fill",
                         accessibilityLabel: "Comenzar",
                         tint: OG.accent

@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-20 (WeatherKit diagnóstico; perfil altitud; Salud unificada)
+Última actualización: 2026-10-21 (Diario, edición y apuntes, creación y reloj)
 
 ## Tabs
 
@@ -20,7 +20,7 @@
 - Selector **Programado · Rutinas**. En Programado aparecen la semana Lu–Do y, si hay vínculo, los entrenos publicados por el entrenador/centro. Rutinas conserva las plantillas locales.
 
 - Título arriba (`ogFixedTopBar`) + menú ⋯ en la misma fila (Programado).
-- Plan semanal por weekday.
+- Plan semanal por weekday: tocar un entreno asignado abre la misma vista previa y acción Comenzar que Inicio; deslizar a la izquierda permite quitarlo con acción roja. Solo los días sin entreno abren el selector de asignación Liquid Glass.
 - Edición de rutinas / bloques (fuerza + WOD): modal con **check** (swipe para cerrar); desde Entreno → Editar, **volver** (sin X) + check. Al añadir un bloque, el título por defecto es **Bloque 1**, **Bloque 2**, … (secuencial).
 - **Elegir WOD**: catálogo seed de benchmarks conocidos (`CatalogWODs`: Fran, Cindy, Murph…). Detalle con miniaturas de movimientos, tiempo típico y músculos → Usar.
 - **Crear WOD**: formato vacío (AMRAP, EMOM, RFT…) en página push con volver arriba y título large debajo; también los selectores de ejercicio/movimiento y la creación de movimiento libre son páginas push.
@@ -113,7 +113,9 @@
 
 ## Sesión de entreno
 
-- Preview (`SessionPreviewView`) → `WorkoutView`.
+- Preview (`SessionPreviewView`) → `WorkoutView`; lápiz junto al play abre una misma página de gestión con selector **Editar / Apuntar** (también accesible desde ⋯).
+- Crear entreno desde «Añadir entreno» abre editor de pantalla completa con navegación propia, no dentro del sheet compacto.
+- En el detalle de entreno, el tile de calorías se omite cuando Salud no aporta una medición auténtica.
 - **Apuntar series**: UI plana; **Terminar** = círculo verde + check blanco (mismo estilo topbar).
 - Series planificadas / logueadas, superseries, WOD clocks.
 - **Play WOD por modalidad**: AMRAP → countdown al cap → confirmar **rondas + reps**; For Time / chipper / AFAP → cronómetro count-up → **Terminar** → confirmar tiempo; EMOM/Tabata → intervalos (series por movimiento).

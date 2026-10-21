@@ -21,11 +21,11 @@ struct PlanView: View {
     @Environment(SubscriptionManager.self) private var subscriptions
     @Environment(BusinessDataStore.self) private var businessData
     @Binding var section: DiarioSection
+    var onOpenRoutine: (Routine) -> Void = { _ in }
     @State private var editing: Routine?
     @State private var isCreating = false
     @State private var confirmClearSchedule = false
     @State private var assigningDay: Int?
-    @State private var dayActionRoutine: Routine?
     @State private var copyWeekFlash: Int?
 
     var body: some View {
@@ -105,33 +105,6 @@ struct PlanView: View {
                     }
                 )
             }
-            .confirmationDialog(
-                dayActionRoutine?.title ?? "Día",
-                isPresented: Binding(
-                    get: { dayActionRoutine != nil },
-                    set: { if !$0 { dayActionRoutine = nil } }
-                ),
-                titleVisibility: .visible
-            ) {
-                if let routine = dayActionRoutine {
-                    Button("Editar rutina") {
-                        isCreating = false
-                        editing = routine
-                        dayActionRoutine = nil
-                    }
-                    Button("Cambiar asignación") {
-                        assigningDay = routine.weekday
-                        dayActionRoutine = nil
-                    }
-                    Button("Quitar del día", role: .destructive) {
-                        store.assignRoutine(routine.id, toWeekday: nil)
-                        dayActionRoutine = nil
-                    }
-                    Button("Cancelar", role: .cancel) {
-                        dayActionRoutine = nil
-                    }
-                }
-            }
             .sheet(isPresented: $confirmClearSchedule) {
                 OGConfirmSheet(
                     systemImage: "calendar.badge.minus",
@@ -185,7 +158,7 @@ struct PlanView: View {
                 let routine = store.routine(forWeekday: day)
                 Button {
                     if let routine {
-                        dayActionRoutine = routine
+                        onOpenRoutine(routine)
                     } else {
                         assigningDay = day
                     }
@@ -234,7 +207,7 @@ struct PlanView: View {
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     if let routine {
-                        OGSwipeDeleteButton(systemImage: "xmark", accessibilityLabel: "Quitar", tint: OG.label) {
+                        OGSwipeDeleteButton(systemImage: "trash", accessibilityLabel: "Quitar del día", tint: OG.red) {
                             store.assignRoutine(routine.id, toWeekday: nil)
                         }
                     }

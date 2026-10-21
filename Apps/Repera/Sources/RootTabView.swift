@@ -42,7 +42,7 @@ struct RootTabView: View {
                 }
 
                 SwiftUI.Tab("Diario", systemImage: "calendar", value: AppTab.plan) {
-                    PlanView(section: $planSection)
+                    PlanView(section: $planSection, onOpenRoutine: openRoutinePreview)
                 }
 
                 if showsCenterTab {
@@ -153,7 +153,12 @@ struct RootTabView: View {
         case .logFinalResults(let routineId):
             // Nested route: keep system back gesture into the session preview.
             if let routine = resolvePreviewRoutine(id: routineId) {
-                LogFinalResultsView(routine: routine, onSaved: { flowPath = [] })
+                WorkoutManageView(
+                    routine: routine,
+                    initialMode: .results,
+                    onEditSaved: { if !flowPath.isEmpty { flowPath.removeLast() } },
+                    onResultsSaved: { flowPath = [] }
+                )
             } else {
                 Color.clear
                     .onAppear {
@@ -163,14 +168,11 @@ struct RootTabView: View {
 
         case .editWorkout(let routineId):
             if let routine = resolvePreviewRoutine(id: routineId) {
-                DayEditorView(
+                WorkoutManageView(
                     routine: routine,
-                    mode: routine.isOneOff ? .oneOff(isNew: false) : .plan(isNew: false),
-                    onClose: {
-                        if !flowPath.isEmpty { flowPath.removeLast() }
-                    },
-                    embedsNavigationStack: false,
-                    usesPageCloseHeader: true
+                    initialMode: .edit,
+                    onEditSaved: { if !flowPath.isEmpty { flowPath.removeLast() } },
+                    onResultsSaved: { flowPath = [] }
                 )
             } else {
                 Color.clear
@@ -215,6 +217,68 @@ struct RootTabView: View {
     private func openRoutinePreview(_ routine: Routine) {
         previewRoutine = routine
         flowPath = [.sessionPreview(routineId: routine.id)]
+    }
+}
+
+
+enum WorkoutManageMode: String, CaseIterable, Identifiable {
+    case edit
+    case results
+
+    var id: String { rawValue }
+    var title: String { self == .edit ? "Editar" : "Apuntar" }
+}
+
+/// Ambas acciones usan una misma pantalla, sin navegar entre dos flujos diferentes.
+private struct WorkoutManageView: View {
+    var routine: Routine
+    var initialMode: WorkoutManageMode
+    var onEditSaved: () -> Void
+    var onResultsSaved: () -> Void
+
+    @State private var mode: WorkoutManageMode
+
+    init(
+        routine: Routine,
+        initialMode: WorkoutManageMode,
+        onEditSaved: @escaping () -> Void,
+        onResultsSaved: @escaping () -> Void
+    ) {
+        self.routine = routine
+        self.initialMode = initialMode
+        self.onEditSaved = onEditSaved
+        self.onResultsSaved = onResultsSaved
+        _mode = State(initialValue: initialMode)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("Gestión de entreno", selection: $mode) {
+                ForEach(WorkoutManageMode.allCases) { tab in
+                    Text(tab.title).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, OG.pad)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
+
+            Group {
+                switch mode {
+                case .edit:
+                    DayEditorView(
+                        routine: routine,
+                        mode: routine.isOneOff ? .oneOff(isNew: false) : .plan(isNew: false),
+                        onClose: onEditSaved,
+                        embedsNavigationStack: false,
+                        usesPageCloseHeader: true
+                    )
+                case .results:
+                    LogFinalResultsView(routine: routine, onSaved: onResultsSaved)
+                }
+            }
+        }
+        .background(OG.bg)
     }
 }
 
