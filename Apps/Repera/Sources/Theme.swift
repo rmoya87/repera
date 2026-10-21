@@ -819,7 +819,7 @@ struct OGNumericTextField: UIViewRepresentable {
             )
             buttons.append(colon)
         }
-        buttons.append(.flexibleSpace())
+        buttons.append(UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil))
         let submit = UIBarButtonItem(
             title: submitTitle,
             style: .done,
@@ -1347,49 +1347,20 @@ private struct OGSetNumericCell: View {
     @State private var draft = ""
 
     var body: some View {
-        TextField("0", text: $draft)
-            .font(.system(size: 17, weight: .semibold).monospacedDigit())
-            .foregroundStyle(OG.label)
-            .multilineTextAlignment(.center)
-            .keyboardType(.numbersAndPunctuation)
-            .textInputAutocapitalization(.never)
-            .autocorrectionDisabled()
-            .submitLabel(nextID == nil ? .done : .next)
-            .focused(focus, equals: fieldID)
-            .frame(height: 44)
-            .frame(maxWidth: .infinity)
-            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-            .opacity(enabled ? 1 : 0.55)
-            .disabled(!enabled)
-            .onAppear { draft = normalized(display) }
-            .onChange(of: display) { _, newValue in
-                if focus.wrappedValue != fieldID {
-                    draft = normalized(newValue)
-                }
-            }
-            .onChange(of: focus.wrappedValue) { oldFocus, newFocus in
-                if oldFocus == fieldID, newFocus != fieldID {
-                    onCommit(draft.trimmingCharacters(in: .whitespacesAndNewlines))
-                }
-                if newFocus == fieldID {
-                    draft = normalized(display)
-                    // Al entrar, seleccionar el valor completo para sobrescribirlo
-                    // directamente sin tener que borrar manualmente los datos previos.
-                    DispatchQueue.main.async {
-                        UIApplication.shared.sendAction(
-                            #selector(UIResponder.selectAll(_:)),
-                            to: nil, from: nil, for: nil
-                        )
-                    }
-                }
-            }
-            .onChange(of: draft) { _, value in
-                let valid = value.filter { character in
-                    character.isNumber || (allowsDecimal && (character == "." || character == "," || character == ":"))
-                }
-                if valid != value { draft = valid }
-            }
-            .onSubmit {
+        OGNumericTextField(
+            text: $draft,
+            allowsDecimal: allowsDecimal,
+            allowsTimeSeparator: allowsDecimal && display.contains(":"),
+            textAlignment: .center,
+            fontSize: 17,
+            autoFocus: false,
+            isFocused: focus.wrappedValue == fieldID,
+            submitTitle: nextID == nil ? "✓" : "Siguiente",
+            onFocused: { focus.wrappedValue = fieldID },
+            onFocusLost: {
+                onCommit(draft.trimmingCharacters(in: .whitespacesAndNewlines))
+            },
+            onCommit: {
                 onCommit(draft.trimmingCharacters(in: .whitespacesAndNewlines))
                 if let nextID {
                     focus.wrappedValue = nextID
@@ -1398,6 +1369,24 @@ private struct OGSetNumericCell: View {
                     onLastSubmit()
                 }
             }
+        )
+        .frame(height: 44)
+        .frame(maxWidth: .infinity)
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .opacity(enabled ? 1 : 0.55)
+        .disabled(!enabled)
+        .onAppear { draft = normalized(display) }
+        .onChange(of: display) { _, newValue in
+            if focus.wrappedValue != fieldID {
+                draft = normalized(newValue)
+            }
+        }
+        .onChange(of: draft) { _, value in
+            let valid = value.filter {
+                $0.isNumber || (allowsDecimal && ($0 == "." || $0 == "," || $0 == ":"))
+            }
+            if valid != value { draft = valid }
+        }
     }
 
     private func normalized(_ value: String) -> String {
@@ -1426,19 +1415,20 @@ struct OGFormatNumberField: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             HStack(spacing: 2) {
-                TextField("0", text: $draft)
-                    .font(.system(size: 16, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(OG.label)
-                    .multilineTextAlignment(.center)
-                    .keyboardType(.numbersAndPunctuation)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .submitLabel(nextID == nil ? .done : .next)
-                    .focused(focus, equals: fieldID)
-                    .onSubmit {
+                OGNumericTextField(
+                    text: $draft,
+                    allowsDecimal: false,
+                    fontSize: 16,
+                    autoFocus: false,
+                    isFocused: focus.wrappedValue == fieldID,
+                    submitTitle: nextID == nil ? "✓" : "Siguiente",
+                    onFocused: { focus.wrappedValue = fieldID },
+                    onFocusLost: { commit() },
+                    onCommit: {
                         commit()
                         focus.wrappedValue = nextID
                     }
+                )
                 if !unit.isEmpty {
                     Text(unit)
                         .font(.system(size: 11))
@@ -1455,18 +1445,6 @@ struct OGFormatNumberField: View {
         .onChange(of: value) { _, newValue in
             if focus.wrappedValue != fieldID {
                 draft = String(newValue)
-            }
-        }
-        .onChange(of: focus.wrappedValue) { previous, current in
-            if previous == fieldID && current != fieldID { commit() }
-            if current == fieldID {
-                draft = String(value)
-                DispatchQueue.main.async {
-                    UIApplication.shared.sendAction(
-                        #selector(UIResponder.selectAll(_:)),
-                        to: nil, from: nil, for: nil
-                    )
-                }
             }
         }
         .onChange(of: draft) { _, text in
