@@ -403,8 +403,6 @@ struct SettingsView: View {
                 }
             } header: {
                 Text("Salud")
-            } footer: {
-                EmptyView()
             }
             .task {
                 await refreshNotificationsStatus()
