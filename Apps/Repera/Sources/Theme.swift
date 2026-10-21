@@ -966,110 +966,6 @@ struct OGNumericTextField: UIViewRepresentable {
     }
 }
 
-/// El `decimalPad` / `numberPad` de SwiftUI no tienen return; por eso no usamos `TextField`+`.keyboardType`.
-struct OGNumericTextField: UIViewRepresentable {
-    @Binding var text: String
-    var allowsDecimal: Bool = true
-    var textAlignment: NSTextAlignment = .center
-    var fontSize: CGFloat = 15
-    /// Por defecto `OG.label` (negro día / claro noche). No usar `.white` fijo.
-    var textColor: UIColor? = nil
-    var autoFocus: Bool = true
-    var onCommit: () -> Void
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, allowsDecimal: allowsDecimal, onCommit: onCommit)
-    }
-
-    func makeUIView(context: Context) -> UITextField {
-        let field = UITextField()
-        field.delegate = context.coordinator
-        applyChrome(to: field)
-        field.text = text
-        if autoFocus {
-            DispatchQueue.main.async {
-                field.becomeFirstResponder()
-            }
-        }
-        return field
-    }
-
-    func updateUIView(_ field: UITextField, context: Context) {
-        context.coordinator.text = $text
-        context.coordinator.allowsDecimal = allowsDecimal
-        context.coordinator.onCommit = onCommit
-        applyChrome(to: field)
-        if field.text != text {
-            field.text = text
-        }
-    }
-
-    private func applyChrome(to field: UITextField) {
-        // numberPad/decimalPad no tienen intro; este teclado sí (en ES: «intro»).
-        field.keyboardType = .numbersAndPunctuation
-        field.returnKeyType = .default
-        field.enablesReturnKeyAutomatically = false
-        field.keyboardAppearance = .default
-        field.textAlignment = textAlignment
-        field.font = .monospacedDigitSystemFont(ofSize: fontSize, weight: .semibold)
-        field.textColor = textColor ?? OG.labelUIColor
-        field.tintColor = UIColor(OG.accent)
-        field.autocorrectionType = .no
-        field.autocapitalizationType = .none
-        field.smartQuotesType = .no
-        field.smartDashesType = .no
-        field.borderStyle = .none
-        field.backgroundColor = .clear
-        field.inputAccessoryView = nil
-    }
-
-    final class Coordinator: NSObject, UITextFieldDelegate {
-        var text: Binding<String>
-        var allowsDecimal: Bool
-        var onCommit: () -> Void
-
-        init(text: Binding<String>, allowsDecimal: Bool, onCommit: @escaping () -> Void) {
-            self.text = text
-            self.allowsDecimal = allowsDecimal
-            self.onCommit = onCommit
-        }
-
-        func textFieldDidChangeSelection(_ textField: UITextField) {
-            text.wrappedValue = textField.text ?? ""
-        }
-
-        func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-            textField.resignFirstResponder()
-            return true
-        }
-
-        func textFieldDidEndEditing(_ textField: UITextField) {
-            text.wrappedValue = textField.text ?? ""
-            onCommit()
-        }
-
-        func textField(
-            _ textField: UITextField,
-            shouldChangeCharactersIn range: NSRange,
-            replacementString string: String
-        ) -> Bool {
-            if string.isEmpty { return true }
-            let allowed = allowsDecimal
-                ? CharacterSet(charactersIn: "0123456789.,")
-                : CharacterSet.decimalDigits
-            guard string.unicodeScalars.allSatisfy({ allowed.contains($0) }) else { return false }
-            let current = textField.text ?? ""
-            guard let swiftRange = Range(range, in: current) else { return false }
-            let next = current.replacingCharacters(in: swiftRange, with: string)
-            if allowsDecimal {
-                let separators = next.filter { $0 == "." || $0 == "," }
-                if separators.count > 1 { return false }
-            }
-            return true
-        }
-    }
-}
-
 extension View {
     /// Teclado con **intro** para `TextField` SwiftUI (sin barra «Listo»).
     /// Ojo: no combines con `.keyboardType(.decimalPad)` — ese gana y pierdes el intro.
@@ -1078,16 +974,25 @@ extension View {
         onSubmit: (() -> Void)? = nil
     ) -> some View {
         self
-            .keyboardType(.numbersAndPunctuation)
+            .keyboardType(allowsDecimal ? .decimalPad : .numberPad)
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
-            .submitLabel(.return)
-            .onSubmit {
-                onSubmit?()
-                UIApplication.shared.sendAction(
-                    #selector(UIResponder.resignFirstResponder),
-                    to: nil, from: nil, for: nil
-                )
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button {
+                        onSubmit?()
+                        UIApplication.shared.sendAction(
+                            #selector(UIResponder.resignFirstResponder),
+                            to: nil, from: nil, for: nil
+                        )
+                    } label: {
+                        Image(systemName: "checkmark")
+                            .fontWeight(.bold)
+                    }
+                    .tint(OG.accent)
+                    .accessibilityLabel("Confirmar número")
+                }
             }
     }
 
