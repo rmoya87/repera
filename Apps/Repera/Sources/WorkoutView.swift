@@ -746,10 +746,12 @@ struct WorkoutView: View {
     }
 
     private func syncLiveQuantityUnit(from current: SessionExercise) {
-        if let unit = current.loggedSets.compactMap(\.quantityUnit).last {
+        if let configured = current.quantityUnit {
+            liveQuantityUnit = configured
+        } else if let unit = current.loggedSets.compactMap(\.quantityUnit).last {
             liveQuantityUnit = unit
         } else {
-            liveQuantityUnit = current.quantityUnit ?? current.exercise.defaultQuantityUnit
+            liveQuantityUnit = current.exercise.defaultQuantityUnit
         }
     }
 
