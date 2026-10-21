@@ -627,6 +627,16 @@ struct SettingsView: View {
             if health.isAuthorized {
                 await health.refreshToday()
             }
+            // Reutilizar el inicio de sesión Apple → Supabase, sin otra CTA.
+            if !businessAuth.isConnected {
+                await businessAuth.restoreSession()
+                if !businessAuth.isConnected {
+                    _ = businessAuth.connectFromCachedSessionIfPossible()
+                }
+            }
+            if businessAuth.isConnected {
+                await businessData.refresh()
+            }
         }
         .sheet(isPresented: $confirmReset) {
             OGConfirmSheet(
