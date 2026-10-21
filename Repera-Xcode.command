@@ -23,7 +23,9 @@ echo
 # de main; únicamente actualizamos automáticamente si la copia Git está limpia.
 bash "$ROOT/scripts/update_repera_checkout.sh" "$ROOT"
 
-for source in AppleAuthStore.swift BusinessAuthStore.swift BusinessDataStore.swift BusinessWorkoutSyncStore.swift AITrainingInboxStore.swift AIAccessView.swift; do
+# AppleAuthStore.swift lives in Sources/Onboarding; the Python validator
+# checks nested paths. These newer stores are direct children of Sources/.
+for source in BusinessAuthStore.swift BusinessDataStore.swift BusinessWorkoutSyncStore.swift AITrainingInboxStore.swift AIAccessView.swift; do
   if [[ ! -f "Apps/Repera/Sources/$source" ]]; then
     echo "ERROR: Falta $source en esta copia local de Repera."
     echo "Actualiza los archivos con: git pull origin main"
