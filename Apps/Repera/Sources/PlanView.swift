@@ -805,10 +805,13 @@ struct DayEditorView: View {
             return false
         }
         _ = provider.loadObject(ofClass: NSString.self) { object, _ in
-            guard let token = object as? NSString else { return }
-            DispatchQueue.main.async {
+            guard let value = object as? NSString else { return }
+            // NSString es mutable/no Sendable. Convertirlo antes de cruzar al
+            // MainActor evita capturar el objeto UIKit entre aislaciones Swift 6.
+            let payload = String(value)
+            DispatchQueue.main.async { [payload, blockID, itemID] in
                 withAnimation(.smooth) {
-                    applyReorder(String(token), into: blockID, before: itemID)
+                    applyReorder(payload, into: blockID, before: itemID)
                 }
             }
         }
