@@ -424,10 +424,15 @@ struct SettingsView: View {
                     Text("Objetivo")
                         .foregroundStyle(OG.label)
                     Spacer()
-                    TextField("kg", text: $goalText)
-                        .ogKeyboardDone()
-                        .multilineTextAlignment(.trailing)
-                        .frame(maxWidth: 100)
+                    OGNumericTextField(
+                        text: $goalText,
+                        allowsDecimal: true,
+                        textAlignment: .right,
+                        autoFocus: false,
+                        onCommit: {}
+                    )
+                    .frame(width: 92, height: 44)
+                    .accessibilityLabel("Objetivo de peso en kilogramos")
                     Button("Guardar") {
                         var s = store.state.settings
                         let trimmed = goalText.trimmingCharacters(in: .whitespacesAndNewlines)
