@@ -166,21 +166,20 @@ struct WorkoutView: View {
                 }
             }
         }
-        .sheet(item: $editingRoutine) { draft in
-            NavigationStack {
-                DayEditorView(
-                    routine: draft,
-                    mode: draft.isOneOff ? .oneOff(isNew: false) : .plan(isNew: false),
-                    onClose: {
-                        if let saved = store.state.routines.first(where: { $0.id == draft.id }) {
-                            store.refreshActiveSessionPlan(from: saved)
-                        }
-                        editingRoutine = nil
-                    },
-                    embedsNavigationStack: false,
-                    usesPageCloseHeader: true
-                )
-            }
+        // Edición como destino push en NavigationStack, no hoja modal.
+        .navigationDestination(item: $editingRoutine) { draft in
+            DayEditorView(
+                routine: draft,
+                mode: draft.isOneOff ? .oneOff(isNew: false) : .plan(isNew: false),
+                onClose: {
+                    if let saved = store.state.routines.first(where: { $0.id == draft.id }) {
+                        store.refreshActiveSessionPlan(from: saved)
+                    }
+                    editingRoutine = nil
+                },
+                embedsNavigationStack: false,
+                usesPageCloseHeader: true
+            )
         }
         .sheet(item: $pendingWODConfirm) { pending in
             WODResultConfirmSheet(
