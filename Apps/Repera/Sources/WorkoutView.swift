@@ -247,6 +247,11 @@ struct WorkoutView: View {
                 }
             }
         }
+        .onChange(of: store.state.activeSession?.currentExercise?.plannedSets) { _, _ in
+            if let current = store.state.activeSession?.currentExercise {
+                rebuildLiveSets(from: current)
+            }
+        }
         .onChange(of: store.workoutClock.pendingEndReason) { _, reason in
             guard reason != nil else { return }
             presentWODConfirmIfNeeded()
