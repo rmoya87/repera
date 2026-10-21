@@ -1,6 +1,6 @@
 # Mantenimiento de la documentación
 
-Última actualización: 2026-10-20 (recuperación segura del proyecto Xcode local)
+Última actualización: 2026-10-21 (sincronización de archivos Swift con el proyecto Xcode generado)
 
 ## Regla de oro
 
@@ -29,6 +29,14 @@ No acumular docs obsoletas. Preferir editar y borrar a añadir páginas huérfan
 3. ¿FEATURES describe la UI tal como la ve el usuario?
 4. ¿Hay menciones a bots, APIs o pantallas que ya no existen? → borrarlas.
 5. Poner **Última actualización: YYYY-MM-DD** en docs tocados.
+
+## Proyecto Xcode generado y nuevos archivos Swift
+
+El target iOS se define en `project.yml` con el directorio `Apps/Repera/Sources`; el archivo `Repera.xcodeproj` se genera localmente y no está versionado. Si se añade un nuevo `.swift`, abrir un proyecto Xcode generado antes de ese commit puede dar errores `Cannot find type in scope` aunque el fichero exista.
+
+- Regenerar desde la raíz con `xcodegen generate` y volver a abrir `Repera.xcodeproj` cuando se añadan o eliminen archivos Swift.
+- Al corregir errores que afectan a personas con proyectos ya generados, es preferible mantener componentes pequeños en un archivo **ya incluido** hasta que se regenere el proyecto. La tabla compacta de series (`OGSetFieldID`, `OGSetEntryHeader`, `OGSetEntryRow`) se encuentra en `Apps/Repera/Sources/Theme.swift` precisamente por este motivo.
+- No introducir definiciones duplicadas entre `Theme.swift` y archivos independientes: XcodeGen acabaría compilando ambas.
 
 ## Docs históricas
 
