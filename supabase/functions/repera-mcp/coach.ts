@@ -147,8 +147,22 @@ export function registerCoachTools(
   },async({catalogKey,name,days})=>{
     if(!catalogKey&&!name) return result({error:"Proporciona catalogKey o name"});
     const key=normalized(name||"");
+    let nativeId: string|null = null;
+    let officialName = "";
+    if (catalogKey) {
+      const {data:byKey}=await db.from("training_exercise_metadata")
+        .select("native_catalog_id").eq("catalog_key",catalogKey).maybeSingle();
+      nativeId=byKey?.native_catalog_id??null;
+      const {data:label}=await db.from("business_exercise_catalog")
+        .select("name").eq("catalog_key",catalogKey).maybeSingle();
+      officialName=normalized(label?.name??"");
+    }
     const out=(await history(days)).flatMap(row=>(row.exercises??[])
-      .filter(e=>catalogKey ? e.exercise?.catalogId===catalogKey : normalized(e.exercise?.name||"")===key)
+      .filter(e=>catalogKey ? (
+        e.exercise?.catalogId===catalogKey
+        || (nativeId!=null && e.exercise?.catalogId===nativeId)
+        || (officialName.length>0 && normalized(e.exercise?.name||"")===officialName)
+      ) : normalized(e.exercise?.name||"")===key)
       .map(e=>({date:row.finished_at,exercise:e.exercise?.name,catalog_key:e.exercise?.catalogId||null,
         sets:(e.loggedSets??[]).filter(s=>s.phase!=="warmup").map(s=>({
           reps:s.reps??null,kg:s.weightKg??null,rir:s.rir??null,unit:s.quantityUnit??"reps",
@@ -163,7 +177,7 @@ export function registerCoachTools(
     annotations:{readOnlyHint:true},
   }, async({catalogKey})=>{
     const {data,error}=await db.from("training_exercise_metadata")
-      .select("catalog_key,aliases,primary_muscles,secondary_muscles,equipment,movement_pattern,skill_level,alternatives")
+      .select("catalog_key,native_catalog_id,aliases,primary_muscles,secondary_muscles,equipment,movement_pattern,skill_level,alternatives")
       .eq("catalog_key",catalogKey).maybeSingle();
     if(error) throw new Error("No se pudo leer metadatos del ejercicio");
     return result(data??{catalog_key:catalogKey,alternatives:[],warning:"No hay equivalencias validadas"});
@@ -178,7 +192,7 @@ export function registerCoachTools(
       .select("catalog_key,name,category").limit(1500);
     if(error) throw new Error("Catálogo no disponible");
     const {data:metadata,error:metaError}=await db.from("training_exercise_metadata")
-      .select("catalog_key,aliases,primary_muscles,secondary_muscles,equipment,movement_pattern,skill_level,alternatives").limit(1500);
+      .select("catalog_key,native_catalog_id,aliases,primary_muscles,secondary_muscles,equipment,movement_pattern,skill_level,alternatives").limit(1500);
     if(metaError) throw new Error("Metadatos de catálogo no disponibles");
     const index=new Map((metadata??[]).map(m=>[m.catalog_key,m]));
     const matches=(all??[]).filter(e=>normalized(e.name).includes(term)
