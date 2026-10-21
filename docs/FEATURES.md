@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-21 (Diario, edición y apuntes, creación y reloj)
+Última actualización: 2026-10-21 (series compactas, teclado contextual y registro unificado con Play)
 
 ## Tabs
 
@@ -113,15 +113,18 @@
 
 ## Sesión de entreno
 
-- Preview (`SessionPreviewView`) → `WorkoutView`; lápiz junto al play abre una misma página de gestión con selector **Editar / Apuntar** (también accesible desde ⋯).
+- Preview (`SessionPreviewView`) → `WorkoutView`; lápiz junto al play abre la gestión de entreno con selector **Editar / Apuntar**. **Apuntar resultado**, tanto desde el menú ⋯ como desde el selector, abre exactamente la misma sesión y pantalla de registro que **Play**; no mantiene un formulario de resultado final separado.
 - Crear entreno desde «Añadir entreno» abre editor de pantalla completa con navegación propia, no dentro del sheet compacto.
 - En el detalle de entreno, el tile de calorías se omite cuando Salud no aporta una medición auténtica.
+- **Series de fuerza / WOD** al crear y editar: tabla compacta de **Serie | Anterior | KG/Tiempo | Reps**, sin botones −/+. La columna **Anterior** muestra el peso, duración o repeticiones de la misma serie en la última sesión del ejercicio, si existe; en ejercicios de un único valor queda una sola columna editable. RIR sigue disponible como menú compacto bajo su serie. La misma retícula se usa durante Play.
+- **En sesión activa** la tabla añade un **check verde a la derecha** para marcar cada serie, por orden, iniciando el descanso correspondiente. Los objetivos sin completar no aparecen como registrados. En edición no se muestra el check de completar.
+- **Teclado de series**: foco en el valor izquierdo; retorno **Siguiente** consolida y enfoca el valor a la derecha; en el campo final, retorno **Hecho** consolida y, en sesión, marca esa serie. Se conserva un teclado numérico nativo que permite decimales para pesos y formato de tiempo donde corresponde.
 - **Apuntar series**: UI plana; **Terminar** = círculo verde + check blanco (mismo estilo topbar).
 - Series planificadas / logueadas, superseries, WOD clocks.
 - **Play WOD por modalidad**: AMRAP → countdown al cap → confirmar **rondas + reps**; For Time / chipper / AFAP → cronómetro count-up con límite si existe → **Terminar** → confirmar tiempo; EMOM/Tabata → intervalos configurados que terminan automáticamente al agotar el último. Los temporizadores se inician con la acción Comenzar (con cuenta previa).
 - En la sesión se puede activar **Temporizador automático** o registrar las series **manualmente**. Al concluir un intervalo cronometrado se marca el bloque completado sin inventar pesos, series ni repeticiones; los ejercicios siguientes permanecen pendientes.
 - Los controles de peso/tiempo y repeticiones se disponen en una fila ancha separada de las acciones de RIR y completar serie.
-- **Apuntar resultado** (`LogFinalResultsView`): misma captura (rondas+reps / tiempo / series) según `WODFormat.resultCapture`. Scores en `WODBlockResult` / `WorkoutSession.wodResults`. En series por movimiento: **cabeceras de columna** (Veces/Tiempo, Lastre/Reps, Déficit/Reps, Tiempo/Cal…) encima de los steppers; comba reparte **Veces | Tiempo** a ancho igual.
+- **Apuntar resultado** desde la vista previa ya no navega a `LogFinalResultsView`: inicializa `SessionController` y muestra `WorkoutView`, igual que Play. `LogFinalResultsView` permanece en el código como editor histórico heredado pero no es destino navegable desde la vista previa.
 - AMRAP: primero **Rondas** (completas), luego **Reps** (ronda incompleta), p. ej. 12 + 5. `OGRepeatStepper` editable a mano.
 - Estilo de apunte por ejercicio (`ExerciseLoggingStyle`): comba → **veces + tiempo** (p. ej. 50 dobles en 1:00); Air bike / Echo / SkiErg / remoerg / cinta → **tiempo + Cal o m**; dominadas/muscle-up → **lastre kg** (0 = sin lastre) + reps; HSPU → **déficit cm** + reps; resto PC → solo reps; barra/DB/KB → kg + reps. `LoggedSet.deficitCm` / `quantityUnit` / `durationSeconds`.
 - Menú **⋯**: favorito, nota, eliminar entrenamiento (sin guardar).
