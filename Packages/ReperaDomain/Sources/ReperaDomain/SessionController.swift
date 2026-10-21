@@ -164,7 +164,7 @@ public struct SessionController: Sendable {
                                 blockTimeCapMinutes: block.timeCapMinutes,
                                 blockIntervalSeconds: block.emomIntervalSeconds,
                                 blockRounds: block.rounds,
-                                blockHeader: block.headerLabel,
+                                blockHeader: block.title,
                                 blockWorkSeconds: block.workSeconds,
                                 blockRestSeconds: block.restSeconds
                             )
@@ -197,7 +197,7 @@ public struct SessionController: Sendable {
                                 blockTimeCapMinutes: resolved.timeCapMinutes,
                                 blockIntervalSeconds: resolved.emomIntervalSeconds,
                                 blockRounds: resolved.rounds,
-                                blockHeader: resolved.headerLabel,
+                                blockHeader: resolved.title,
                                 blockWorkSeconds: resolved.workSeconds,
                                 blockRestSeconds: resolved.restSeconds
                             )
