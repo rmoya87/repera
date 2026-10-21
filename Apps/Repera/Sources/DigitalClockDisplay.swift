@@ -185,7 +185,13 @@ struct BlockTimerScreen: View {
     /// Top bar: X liquid glass alineada con el título grande.
     private var topBar: some View {
         HStack(alignment: .center, spacing: 12) {
-            CloseToolbarButton(action: onClose)
+            OGToolbarGlassButton(
+                systemName: "xmark",
+                accessibilityLabel: "Cerrar temporizador",
+                tint: .white,
+                appliesGlass: true,
+                action: onClose
+            )
             if !title.isEmpty {
                 Text(title)
                     .font(.system(size: isLandscape ? 26 : 28, weight: .bold))
