@@ -243,3 +243,12 @@ El campo histórico `supersetGroup` permanece en el formato Codable para abrir c
 ### Diagnóstico CI de octubre de 2026
 
 La configuración `.github/workflows/ios27-ci.yml` completó correctamente los cuatro jobs el 20-10-2026 a las 13:52 UTC (run 39434137818). En las ejecuciones posteriores los cuatro jobs, incluidos los basados en `ubuntu-latest`, han fallado antes del primer paso (`steps: null`), sin logs disponibles a través del conector. Esto es distinto de un error del compilador y requiere investigar GitHub Actions/runner facturación o límites de cuenta desde la interfaz administrativa. No desactivar los tests para forzar resultados verdes.
+
+
+## MCP y esquema deportivo de análisis (21/10/2026)
+
+`athlete_workout_mirror` sigue siendo la tabla física privada a la que escriben las versiones actuales iOS mediante `upsert(id)`. `athlete_workouts` es una VIEW `security_invoker`, de solo lectura, que expone únicamente fecha/título, ejercicios, series y resultados WOD (no HealthKit, GPS, peso ni notas). `training_exercise_catalog` es el alias de consulta de `business_exercise_catalog` mientras se enriquece el catálogo. Las cinco tablas vacías del prototipo anterior se retiraron mediante la migración `20261021161255` (guard contra contenido + RESTRICT).
+
+`mcp_user_consents` aplica permisos revocables por identidad y `client_id` OAuth. La política del espejo niega por defecto SELECT a clientes OAuth sin consentimiento y bloquea todas sus escrituras; los tokens nativos sin client_id mantienen el flujo previo. La Edge Function `repera-mcp` usa middleware OAuth verificado, cliente RLS de usuario y herramientas exclusivamente de lectura. **No activar OAuth externo sin auditoría RLS global, frontend de consentimiento y pruebas E2E.** Documento rector: [plan MCP](MCP_PLAN.md).
+
+Ajustes no marca «Sincronizar ahora» como completado si iCloud, perfil o el espejo no se han confirmado: las omisiones de subida ya muestran estado pendiente, evitando el anterior falso positivo. La validación de compilación iOS y la integración OAuth siguen abiertas.
