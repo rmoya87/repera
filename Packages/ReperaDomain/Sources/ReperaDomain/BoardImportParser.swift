@@ -556,8 +556,12 @@ public enum BoardImportParser {
             }
             // "3 RFT" → rounds; "For Time: (20min Cap)" sin N delante → nil
             let rounds: Int? = {
-                if upper.contains("RFT") { return firstInt(in: trimmed) }
-                if trimmed.range(of: #"^\s*\d+\s+ROUNDS?\b"#, options: [.regularExpression, .caseInsensitive]) != nil {
+                // RFT (TC 14') sin N delante sigue siendo una secuencia,
+                // no 14 rondas. Solo "3 RFT" define 3 rondas.
+                if trimmed.range(
+                    of: #"^\s*\d+\s*(?:RFT|ROUNDS?)\b"#,
+                    options: [.regularExpression, .caseInsensitive]
+                ) != nil {
                     return firstInt(in: trimmed)
                 }
                 return nil
