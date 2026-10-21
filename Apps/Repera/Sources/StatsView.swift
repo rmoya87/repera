@@ -12,8 +12,6 @@ struct StatsView: View {
     @State private var heatmapMetric: HeatmapMetric = .time
     @State private var showRangePicker = false
     @State private var topic: ProgressTopic = .training
-    @State private var showSleepPermissionAlert = false
-    @State private var recoveryStore = HealthRecoveryStore.shared
 
     private enum ProgressTopic: String, CaseIterable {
         case training = "Entreno"
@@ -120,21 +118,6 @@ struct StatsView: View {
             .sheet(isPresented: $showRangePicker) {
                 progressRangeSheet
                     .ogFittedSheet()
-            }
-            .alert("Analizar descanso", isPresented: $showSleepPermissionAlert) {
-                Button("Aceptar") {
-                    Task { await recoveryStore.setSleep(true) }
-                }
-                Button("Rechazar", role: .cancel) {
-                    Task { await recoveryStore.declineSleep() }
-                }
-            } message: {
-                Text("¿Permitir que Repera lea el sueño de Apple Salud para Recuperación? Los datos se quedan en el dispositivo.")
-            }
-            .onChange(of: topic) { _, newTopic in
-                if newTopic == .recovery, recoveryStore.needsSleepDecision {
-                    showSleepPermissionAlert = true
-                }
             }
             .task {
                 enforceFreeRangeIfNeeded()

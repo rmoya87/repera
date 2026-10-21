@@ -78,6 +78,8 @@ final class HealthRecoveryStore {
     }
 
     var needsSleepDecision: Bool { !sleepDecisionMade }
+    /// No solicitar sueño cuando el usuario lo rechazó explícitamente en Repera.
+    var shouldRequestSleepWithHealth: Bool { !sleepDecisionMade || sleepEnabled }
 
     /// Activaciones aún sin aceptar/rechazar (punto rojo en Ajustes).
     var pendingHealthItems: [String] {
@@ -131,13 +133,26 @@ final class HealthRecoveryStore {
         return nil
     }
 
+    /// Activar sueño vuelve a abrir el panel unificado (entrenos, pulso, energía y sueño).
     func setSleep(_ enabled: Bool) async {
-        sleepDecisionMade = true
-        sleepEnabled = enabled
-        if enabled { await authorizeAndRefresh(types: [HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!]) }
+        if enabled {
+            await HealthKitStore.shared.requestAccess(includeSleep: true)
+        } else {
+            sleepDecisionMade = true
+            sleepEnabled = false
+            nights = []
+        }
     }
 
-    /// Rechazo explícito desde la alerta de Progreso (no vuelve a preguntar).
+    /// Se invoca solo al finalizar la solicitud conjunta de Apple Salud.
+    /// Salud no revela a terceros si se aceptó la lectura: habilitar no implica tener muestras.
+    func acceptSleepFromHealthAuthorization() async {
+        sleepDecisionMade = true
+        sleepEnabled = true
+        await refresh()
+    }
+
+    /// Rechazo explícito desde los ajustes de Salud (no vuelve a preguntar).
     func declineSleep() async {
         sleepDecisionMade = true
         sleepEnabled = false
@@ -344,15 +359,28 @@ struct ConnectedHealthSettingsView: View {
                 } header: {
                     Text("Pendiente de confirmar")
                 } footer: {
-                    Text("Acepta o rechaza cada permiso. Hasta entonces verás un aviso en Progreso → Recuperación.")
+                    Text("Activa las métricas que quieras desde esta pantalla. El sueño se solicita junto con los demás datos de Apple Salud.")
                 }
             }
 
             Section {
                 Toggle("Analizar descanso", isOn: Binding(
                     get: { recovery.sleepEnabled },
-                    set: { enabled in Task { await recovery.setSleep(enabled) } }
+                    set: { enabled in
+                        Task {
+                            healthBusy = true
+                            defer { healthBusy = false }
+                            await recovery.setSleep(enabled)
+                        }
+                    }
                 ))
+                .disabled(healthBusy)
+                if !recovery.sleepDecisionMade, !recovery.sleepEnabled {
+                    Button("No usar análisis de descanso") {
+                        Task { await recovery.declineSleep() }
+                    }
+                    .foregroundStyle(OG.label2)
+                }
                 Toggle("Seguimiento del ciclo", isOn: Binding(
                     get: { recovery.cycleEnabled },
                     set: { enabled in Task { await recovery.setCycle(enabled) } }
@@ -373,6 +401,8 @@ struct ConnectedHealthSettingsView: View {
                 Label("Sin sincronización de salud con Supabase", systemImage: "iphone.gen3")
                 Label("Sin compartir el ciclo ni el sueño", systemImage: "lock.shield")
                 if recovery.loading { ProgressView("Leyendo Apple Salud…") }
+                if healthBusy { ProgressView("Solicitando permisos…") }
+                if let message = health.lastError { Text(message).foregroundStyle(OG.orange) }
                 if let message = recovery.errorMessage { Text(message).foregroundStyle(OG.orange) }
                 Button("Actualizar desde Apple Salud") { Task { await recovery.refresh() } }
             }

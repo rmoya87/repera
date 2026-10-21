@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-21 (lugar editable en Play, tres métricas visibles y subtítulo sin recorte)
+Última actualización: 2026-10-21 (solicitud única de Apple Salud con sueño y sin alerta adicional)
 
 ## Tabs
 
@@ -168,7 +168,7 @@
 - Mascota Repera: saludo en login (`MascotWelcome`), thumbs-up en permisos (`MascotPermissions`); plan Pro usa `MascotHero` (PNG con fondo transparente). En permisos, tras conceder, el CTA pasa de «Permitir» a «Hecho».
 - Plan Pro del onboarding: precios y cargos desde StoreKit / App Store Connect (RevenueCat si hay API key).
 - Sin iCloud del sistema: usable en local; aviso para activarlo y poder recuperar tras reinstalar.
-- Denegar permisos no bloquea el avance; se pueden reintentar en Ajustes.
+- Denegar permisos no bloquea el avance; se pueden reintentar en Ajustes. El botón único **Salud** solicita entrenos, energía, pulso, peso, rutas y sueño en el mismo diálogo de HealthKit; si se rechaza el sueño explícitamente desde Repera, no se vuelve a pedir sin acción del usuario.
 - LaunchScreen: imageset `Splash` (PNG en asset catalog) centrado con constraint de aspecto 473∶1024 (no anclado a 4 bordes; evita el estirado del snapshot de SpringBoard) sobre verde `#002E24`.
 
 ## UI / chrome
@@ -215,7 +215,8 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 
 - Progreso agrupa **Entreno**, **Actividad** y **Recuperación** con el segmented **fijo** bajo la barra (no hace scroll con el contenido).
 - En Recuperación, **Sueño** es título de sección; **Ciclo** solo aparece si hay registros reales de menstruación. Si el periodo filtrado no tiene noches pero sí hay historial, se muestran las noches anteriores con una nota.
-- Ajustes → **Salud conectada** (único acceso): entrenamientos/energía + sueño/ciclo. Punto rojo si faltan permisos por aceptar/rechazar; al abrir se listan. En Progreso → Recuperación, si aún no se decidió el sueño, aparece alerta Aceptar/Rechazar.
+- **Sueño** se incluye en la solicitud conjunta de Apple Salud desde onboarding (con entrenos, energía, pulso, peso y rutas); **no hay alerta independiente en Progreso → Recuperación**. La selección se guarda solo en el dispositivo y HealthKit no permite comprobar si el permiso de lectura fue concedido.
+- Ajustes → **Salud conectada**: activación/desactivación del sueño, ciclo y métricas generales. Al activar sueño más tarde se usa la misma solicitud unificada de HealthKit; una negativa explícita se respeta. Punto rojo para decisiones pendientes, sin interrumpir Progreso.
 - Sueño: una sola fuente nocturna y fusión de intervalos solapados; tendencias con Swift Charts.
 - Ciclo: muestras de menstruación y pruebas de ovulación, fase solo orientativa con historial suficiente. No permite confirmar ovulación ni prever fertilidad.
 - Consejos locales durante el entrenamiento y al consultar resultados, sin modificar la nota real ni la prescripción profesional.

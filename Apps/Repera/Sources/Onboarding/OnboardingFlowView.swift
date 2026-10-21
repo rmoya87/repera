@@ -204,6 +204,7 @@ struct OnboardingPermissionsStep: View {
     @Environment(HealthKitStore.self) private var health
     @Environment(OnboardingStore.self) private var onboarding
     @Environment(WorkoutLocationTracker.self) private var location
+    @State private var recovery = HealthRecoveryStore.shared
     @Environment(\.openURL) private var openURL
 
     @State private var notificationsStatus: UNAuthorizationStatus = .notDetermined
@@ -235,7 +236,11 @@ struct OnboardingPermissionsStep: View {
     }
 
     private var allPermissionsGranted: Bool {
-        notificationsGranted && health.isAuthorized && location.isAuthorized
+        notificationsGranted && healthPermissionsComplete && location.isAuthorized
+    }
+
+    private var healthPermissionsComplete: Bool {
+        health.isAuthorized && !recovery.needsSleepDecision
     }
 
     private var permissionsContent: some View {
@@ -250,7 +255,7 @@ struct OnboardingPermissionsStep: View {
             Text("Permisos")
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(OG.label)
-            Text("Actívalos ahora para avisos de descanso, calorías reales y el mapa de dónde entrenaste. Puedes cambiarlos después en Ajustes.")
+            Text("Actívalos ahora para avisos de descanso, métricas de Salud (incluido el sueño) y la ubicación de tus entrenos. Puedes cambiarlos después en Ajustes.")
                 .font(.body)
                 .foregroundStyle(OG.label2)
 
@@ -266,10 +271,10 @@ struct OnboardingPermissionsStep: View {
 
             permissionRow(
                 title: "Salud",
-                subtitle: "Calorías, tiempo y entrenos del Watch",
+                subtitle: "Entrenos, calorías, pulso y sueño",
                 symbol: "heart",
-                statusText: health.isAuthorized ? "Conectado" : "Pendiente",
-                isDone: health.isAuthorized
+                statusText: healthPermissionsComplete ? "Conectado" : "Pendiente",
+                isDone: healthPermissionsComplete
             ) {
                 healthBusy = true
                 defer { healthBusy = false }

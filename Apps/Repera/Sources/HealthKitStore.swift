@@ -196,7 +196,9 @@ final class HealthKitStore {
         }
     }
 
-    func requestAccess() async {
+    /// Solicita sueño con las métricas generales en un único panel de Apple Salud.
+    /// `nil` respeta una negativa explícita previa del usuario a analizar el sueño.
+    func requestAccess(includeSleep: Bool? = nil) async {
         guard isAvailable else {
             lastError = "HealthKit no disponible en este dispositivo"
             isAuthorized = false
@@ -209,6 +211,10 @@ final class HealthKitStore {
             HKObjectType.workoutType(),
         ]
         read.insert(HKSeriesType.workoutRoute())
+        let includeSleepInRequest = includeSleep ?? HealthRecoveryStore.shared.shouldRequestSleepWithHealth
+        if includeSleepInRequest, let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) {
+            read.insert(sleepType)
+        }
         let share: Set<HKSampleType> = [
             HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
             HKObjectType.quantityType(forIdentifier: .bodyMass)!,
@@ -216,6 +222,11 @@ final class HealthKitStore {
         ]
         do {
             try await store.requestAuthorization(toShare: share, read: read)
+            if includeSleepInRequest {
+                // HealthKit no permite consultar si se ha concedido la lectura.
+                // Se registra la elección de solicitarla, nunca una concesión supuesta.
+                await HealthRecoveryStore.shared.acceptSleepFromHealthAuthorization()
+            }
             refreshAuthorizationStatus()
             if isAuthorized {
                 lastError = nil
