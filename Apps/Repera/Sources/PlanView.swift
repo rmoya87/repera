@@ -457,7 +457,6 @@ struct DayEditorView: View {
     @State private var createFreeMovementForBlock: UUID?
     @State private var showRoutinePicker = false
     @State private var showWODCatalog = false
-    @State private var showCreateWODFormat = false
     @State private var selectFormatForBlock: UUID?
     @State private var saveAsFavorite = false
 
@@ -490,14 +489,14 @@ struct DayEditorView: View {
                     Picker("Progresión (fuerza)", selection: $routine.progression) {
                         ForEach(ProgressionPolicy.allCases, id: \.self) { Text($0.displayName).tag($0) }
                     }
-                    Toggle("También en favoritos", isOn: $routine.isFavorite)
+                    Toggle("Favorito", isOn: $routine.isFavorite)
                 case .oneOff:
                     if let date = routine.scheduledDate {
                         Text(SpanishDate.long(date))
                             .foregroundStyle(OG.label2)
                     }
                     scheduledTimeControls
-                    Toggle("También en favoritos", isOn: $routine.isFavorite)
+                    Toggle("Favorito", isOn: $routine.isFavorite)
                 case .favorite:
                     Toggle("Favorito", isOn: $routine.isFavorite)
                         .disabled(true)
@@ -513,7 +512,7 @@ struct DayEditorView: View {
                     scheduledTimeControls
                 case .session:
                     if onApplyDraft == nil {
-                        Toggle("Guardar en favoritos", isOn: $saveAsFavorite)
+                        Toggle("Favorito", isOn: $saveAsFavorite)
                     }
                 }
             } footer: {
@@ -541,13 +540,14 @@ struct DayEditorView: View {
                             Image(systemName: "trash").foregroundStyle(OG.orange)
                         }
                     }
+                    formatSettings(index: index)
                     if block.kind == .strength {
                         strengthBlock(index: index)
                     } else {
                         wodBlock(index: index)
                     }
                 } header: {
-                    Text(block.kind == .wod ? "Bloque · \(block.headerLabel)" : block.title)
+                    Text(block.title)
                 }
             }
 
@@ -562,11 +562,6 @@ struct DayEditorView: View {
                 } label: {
                     Label("Elegir WOD", systemImage: "list.bullet.rectangle.portrait")
                 }
-                Button {
-                    showCreateWODFormat = true
-                } label: {
-                    Label("Crear WOD", systemImage: "timer")
-                }
                 if !importableRoutines.isEmpty {
                     Button {
                         showRoutinePicker = true
@@ -577,9 +572,9 @@ struct DayEditorView: View {
             } footer: {
                 switch mode {
                 case .session:
-                    Text("Elegir WOD usa benchmarks conocidos (Fran, Cindy…). Crear WOD parte de un formato vacío. También puedes pegar una rutina existente.")
+                    Text("Cada bloque permite configurar un formato de reloj opcional. Elegir WOD añade un benchmark; también puedes añadir una rutina.")
                 case .oneOff, .plan, .favorite:
-                    Text("Elegir WOD copia un benchmark. Crear WOD / Añadir rutina para formatos libres o plantillas propias.")
+                    Text("Configura el formato en cualquier bloque o déjalo sin formato. Elegir WOD importa benchmarks; Añadir rutina copia bloques.")
                 }
             }
         }
@@ -650,10 +645,12 @@ struct DayEditorView: View {
                 showWODCatalog = false
             }
         }
-        .navigationDestination(isPresented: $showCreateWODFormat) {
+        .navigationDestination(item: $selectFormatForBlock) { blockID in
             WODFormatPickerPage { format in
-                routine.blocks.append(.wod(format: format, title: nextDefaultBlockTitle()))
-                showCreateWODFormat = false
+                if let index = routine.blocks.firstIndex(where: { $0.id == blockID }) {
+                    setWODFormat(format, at: index)
+                }
+                selectFormatForBlock = nil
             }
         }
     }
@@ -982,8 +979,9 @@ struct DayEditorView: View {
         return 4
     }
 
-    private func setWODFormat(_ format: WODFormat, at index: Int) {
+    private func setWODFormat(_ format: WODFormat?, at index: Int) {
         routine.blocks[index].wodFormat = format
+        guard let format else { return }
         if format == .tabata {
             routine.blocks[index].workSeconds = routine.blocks[index].workSeconds ?? 20
             routine.blocks[index].restSeconds = routine.blocks[index].restSeconds ?? 10
@@ -1001,15 +999,16 @@ struct DayEditorView: View {
         }
     }
 
+    /// Formato y parámetros editables en cualquier bloque, sin imponer un WOD.
     @ViewBuilder
-    private func wodBlock(index: Int) -> some View {
+    private func formatSettings(index: Int) -> some View {
         Button {
             selectFormatForBlock = routine.blocks[index].id
         } label: {
             HStack {
                 Text("Formato")
                 Spacer()
-                Text((routine.blocks[index].wodFormat ?? .amrap).displayName)
+                Text(routine.blocks[index].wodFormat?.displayName ?? "Sin formato")
                     .foregroundStyle(OG.label2)
                 Image(systemName: "chevron.right")
                     .font(.footnote)
@@ -1094,6 +1093,10 @@ struct DayEditorView: View {
                 )
             }
 
+    }
+
+    @ViewBuilder
+    private func wodBlock(index: Int) -> some View {
         ForEach(Array(routine.blocks[index].movements.enumerated()), id: \.element.id) { mIndex, move in
             let resolved = resolvedExercise(for: move)
             let hasCatalog = !move.isRest && store.state.exercises.contains(where: { $0.id == resolved.id })
@@ -2013,28 +2016,42 @@ private struct FreeWODMovementCreatePage: View {
 
 /// Selección del formato como subpágina, nunca confirmationDialog.
 private struct WODFormatPickerPage: View {
-    var onPick: (WODFormat) -> Void
+    var onPick: (WODFormat?) -> Void
 
     var body: some View {
         List {
+            Button {
+                onPick(nil)
+            } label: {
+                Label("Sin formato · libre", systemImage: "minus.circle")
+                    .foregroundStyle(OG.label)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+
             ForEach(WODFormat.allCases, id: \.self) { format in
                 Button {
                     onPick(format)
                 } label: {
                     HStack {
-                        Text(format.displayName)
-                            .foregroundStyle(OG.label)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(format.displayName).foregroundStyle(OG.label)
+                            Text(format.detail)
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                        }
                         Spacer()
                         Image(systemName: "chevron.right")
                             .foregroundStyle(OG.label3)
                     }
+                    .frame(minHeight: 44)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
         .ogListChrome()
-        .ogPinnedTransparentNav("Tipo de WOD")
+        .ogPinnedTransparentNav("Formato del bloque")
     }
 }
 
