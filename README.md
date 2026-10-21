@@ -45,7 +45,7 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 ## Arranque rápido en Mac (doble clic)
 
 - [`Repera-Business.command`](Repera-Business.command): abre por defecto el **panel profesional conectado a Supabase**, con login real y datos autorizados por RLS; requiere Python 3 y mantiene abierta una ventana Terminal. Para la demo aislada con datos ficticios, ejecuta `./Repera-Business.command --demo` o abre `/console/?demo=1`. El modo conectado todavía requiere validación E2E antes de usarse en producción.
-- [`Repera-Xcode.command`](Repera-Xcode.command): **abre Xcode después de regenerar el proyecto** y comprueba que `AppleAuthStore.swift`, `BusinessAuthStore.swift`, `BusinessDataStore.swift` y `BusinessWorkoutSyncStore.swift` están incluidos en las fuentes del target. Úsalo al actualizar el repositorio.
+- [`Repera-Xcode.command`](Repera-Xcode.command): **abre Xcode después de regenerar el proyecto** y comprueba que los almacenes Apple/Supabase, `AITrainingInboxStore.swift` y `AIAccessView.swift` están incluidos en *Compile Sources* del target. Úsalo al actualizar el repositorio.
 - [`Repera-iOS.command`](Repera-iOS.command): intenta compilar y lanzar la app en Simulator; regenera y valida el proyecto antes de compilar; requiere macOS, Xcode con iOS 27, XcodeGen y un simulador compatible.
 - Ambos lanzadores están en la raíz del repositorio; si clonas por Git, se conserva el permiso de ejecución. No se ha generado todavía una aplicación macOS firmada ni un paquete iOS listo para distribución.
 
@@ -57,13 +57,13 @@ El panel `/console/` usa Supabase Repera con sesión real. Para dar de alta un n
 
 Los planes aparecen desde `business_plans`, configurables por el **administrador verificado de Repera** (precios, cupos, promociones y visibilidad) y separados por entrenador/gimnasio. Seleccionarlos solo crea una solicitud pendiente, nunca cobra ni da acceso de pago. Requiere la migración `business_org_identity_plans` del proyecto Repera y pruebas E2E antes de producción. Más detalles: [entorno local](docs/business/README_LOCAL.md).
 
-## Solución: Xcode no encuentra `BusinessAuthStore` o `BusinessWorkoutSyncStore`
+## Solución: Xcode no encuentra `AITrainingInboxStore`, `AIAccessView` o los almacenes Supabase
 
-El proyecto Xcode (`Repera.xcodeproj`) **se genera localmente** y no se versiona. Puede quedarse con la lista de fuentes anterior a la integración de Supabase, aunque los archivos Swift existan en disco. Por tanto, errores como `Cannot find 'BusinessAuthStore' in scope` o `Cannot find 'BusinessWorkoutSyncStore' in scope` (desde `BusinessAuthStore.swift:258`) suelen requerir regenerar el proyecto, **no duplicar la clase ni eliminar la limpieza de la sesión Supabase**. El validador comprueba también que el archivo esté en *Compile Sources*, no solo en el navegador de Xcode.
+El proyecto Xcode (`Repera.xcodeproj`) **se genera localmente** y no se versiona. Puede quedarse con la lista de fuentes anterior a la integración de Supabase, aunque los archivos Swift existan en disco. Por tanto, errores como `Cannot find 'AITrainingInboxStore' in scope` (desde `ReperaApp.swift`), `Cannot find 'AIAccessView' in scope` (desde Ajustes), `Cannot find 'BusinessAuthStore' in scope` o `Cannot find 'BusinessWorkoutSyncStore' in scope` suelen requerir regenerar el proyecto, **no duplicar la clase ni eliminar la limpieza de la sesión Supabase**. El validador comprueba también que el archivo esté en *Compile Sources*, no solo en el navegador de Xcode.
 
-Cierra Xcode y haz doble clic en [`Repera-Xcode.command`](Repera-Xcode.command). **Este lanzador ahora comprueba `origin/main` y hace solo un fast-forward cuando trabajas en `main` y no hay cambios sin confirmar**; después ejecuta XcodeGen, comprueba que los cuatro almacenes Apple/Supabase están realmente en *Compile Sources* y abre el proyecto regenerado. [`Repera-iOS.command`](Repera-iOS.command) usa la misma reparación antes de lanzar Simulator.
+Cierra Xcode y haz doble clic en [`Repera-Xcode.command`](Repera-Xcode.command). **Este lanzador ahora comprueba `origin/main` y hace solo un fast-forward cuando trabajas en `main` y no hay cambios sin confirmar**; después ejecuta XcodeGen, comprueba que los almacenes Apple/Supabase y los dos nuevos archivos IA están realmente en *Compile Sources* y abre el proyecto regenerado. [`Repera-iOS.command`](Repera-iOS.command) usa la misma reparación antes de lanzar Simulator.
 
-Si la carpeta local tiene cambios sin confirmar, otra rama o no hay conexión, el lanzador **no sobrescribe, descarta ni fusiona nada**: avisa y utiliza el código disponible. Si falta `BusinessWorkoutSyncStore.swift`, guarda tus cambios y actualiza `main`; regenerar un proyecto no puede inventar un archivo Swift ausente. Alternativa:
+Si la carpeta local tiene cambios sin confirmar, otra rama o no hay conexión, el lanzador **no sobrescribe, descarta ni fusiona nada**: avisa y utiliza el código disponible. Si faltan `AITrainingInboxStore.swift`, `AIAccessView.swift` o `BusinessWorkoutSyncStore.swift`, guarda tus cambios y actualiza `main`; regenerar un proyecto no puede inventar un archivo Swift ausente. Alternativa:
 
 ```bash
 cd /Users/ramon/Proyectos/repera
@@ -73,7 +73,7 @@ python3 scripts/check_xcode_sources.py
 open Repera.xcodeproj
 ```
 
-Si falta `BusinessAuthStore.swift` o `BusinessWorkoutSyncStore.swift` en la copia local, la herramienta avisa de que hay que actualizar Git. La generación **no borra datos de entrenamientos**, simuladores ni DerivedData, y conserva la versión del proyecto según `Configs/Version.xcconfig`.
+Si falta alguno de los archivos de autenticación o IA en la copia local, la herramienta avisa de que hay que actualizar Git. Si ya existen, **no los dupliques ni borres la clase**: cierra Xcode y regenera el proyecto con XcodeGen, porque `Repera.xcodeproj` está excluido de Git. Si tienes cambios locales sin confirmar, haz una copia o confírmalos antes de ejecutar el `git pull` manual. La generación **no borra datos de entrenamientos**, simuladores ni DerivedData, y conserva la versión del proyecto según `Configs/Version.xcconfig`.
 
 ## Arranque
 
