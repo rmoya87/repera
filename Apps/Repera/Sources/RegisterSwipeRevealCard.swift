@@ -123,7 +123,7 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
         context.coordinator.pan = pan
         context.coordinator.cardView = host.view
 
-        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap))
+        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
         tap.cancelsTouchesInView = false
         tap.require(toFail: pan)
         container.addGestureRecognizer(tap)
