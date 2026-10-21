@@ -2,6 +2,32 @@ import Testing
 @testable import ReperaDomain
 
 struct BoardImportParserTests {
+    @Test func forTimeCapAndCaloriePairAreNotRoundsOrKilograms() {
+        let board = """
+        FOR TIME (TC 14')
+        400M RUN
+        20/16 CAL*
+        400M RUN
+        20/16 CAL*
+        400M RUN
+        """
+        let blocks = BoardImportParser.parseRoutineBlocks(
+            ocrText: board,
+            catalog: Catalog.seed()
+        )
+        #expect(blocks.count == 1)
+        #expect(blocks[0].wodFormat == .forTime)
+        #expect(blocks[0].timeCapMinutes == 14)
+        #expect(blocks[0].rounds == nil)
+        let moves = blocks[0].movements
+        #expect(moves.count == 5)
+        #expect(moves[1].calories == 20)
+        #expect(moves[1].weightMaleKg == nil)
+        #expect(moves[1].name == "Air bike")
+        #expect(moves[3].calories == 20)
+    }
+
+
     @Test func parsesSetsRepsAndWeight() {
         let catalog = Catalog.seed()
         let lines = BoardImportParser.parse(
