@@ -34,66 +34,68 @@ struct SettingsView: View {
         Form {
             Section {
                 HStack(spacing: 12) {
-                    Image(systemName: "apple.logo")
-                        .font(.title2)
-                        .foregroundStyle(OG.label)
+                    PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
+                        ZStack(alignment: .bottomTrailing) {
+                            iCloudAvatarBadge
+                                .frame(width: 52, height: 52)
+                            Image(systemName: "apple.logo")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(width: 20, height: 20)
+                                .background(.black, in: Circle())
+                                .overlay(Circle().stroke(OG.bg, lineWidth: 2))
+                                .offset(x: 2, y: 2)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Cambiar foto de perfil")
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(appleAuth.displayName ?? store.state.settings.profileDisplayName ?? "Cuenta Apple")
-                            .font(.headline)
-                        Text(appleAuth.isSignedIn ? "Sesión activa" : "Sin sesión")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        if let email = appleAuth.email {
-                            Text(email)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Spacer(minLength: 0)
-                }
-
-                HStack(spacing: 14) {
-                    iCloudAvatarBadge
-                    TextField(
-                        "Tu nombre",
-                        text: Binding(
-                            get: { store.state.settings.profileDisplayName ?? "" },
-                            set: {
-                                var s = store.state.settings
-                                let trimmed = $0.trimmingCharacters(in: .whitespacesAndNewlines)
-                                s.profileDisplayName = trimmed.isEmpty ? nil : trimmed
-                                store.updateSettings(s)
-                            }
-                        )
-                    )
-                    .font(.headline)
-                    .onSubmit {
-                        Task {
-                            await businessAuth.syncPublicProfile(
-                                displayName: store.state.settings.profileDisplayName,
-                                avatarJPEG: store.state.settings.profileAvatarJPEG
+                        TextField(
+                            "Tu nombre",
+                            text: Binding(
+                                get: { store.state.settings.profileDisplayName ?? appleAuth.displayName ?? "" },
+                                set: {
+                                    var settings = store.state.settings
+                                    let trimmed = $0.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    settings.profileDisplayName = trimmed.isEmpty ? nil : trimmed
+                                    store.updateSettings(settings)
+                                }
                             )
+                        )
+                        .font(.headline)
+                        .onSubmit {
+                            Task {
+                                await businessAuth.syncPublicProfile(
+                                    displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName,
+                                    avatarJPEG: store.state.settings.profileAvatarJPEG
+                                )
+                            }
                         }
+                        HStack(spacing: 5) {
+                            Text(appleAuth.isSignedIn ? "Sesión iniciada" : "Sin sesión")
+                            if let email = appleAuth.email, !email.isEmpty {
+                                Text("·")
+                                Text(email).lineLimit(1).truncationMode(.middle)
+                            }
+                        }
+                        .font(.caption)
+                        .foregroundStyle(OG.label2)
                     }
                     Spacer(minLength: 0)
                 }
-                .padding(.vertical, 4)
-
-                let hasAvatar = store.state.settings.profileAvatarJPEG != nil
-                PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
-                    ProfilePhotoPickerLabel(hasPhoto: hasAvatar)
-                }
+                .padding(.vertical, 6)
                 .onChange(of: photoItem) { _, item in
                     guard let item else { return }
                     Task { @MainActor in
                         if let data = try? await item.loadTransferable(type: Data.self),
                            let image = UIImage(data: data),
                            let jpeg = ProfileAvatar.jpegData(from: image) {
-                            var s = store.state.settings
-                            s.profileAvatarJPEG = jpeg
-                            store.updateSettings(s)
+                            var settings = store.state.settings
+                            settings.profileAvatarJPEG = jpeg
+                            store.updateSettings(settings)
                             await businessAuth.syncPublicProfile(
-                                displayName: s.profileDisplayName ?? appleAuth.displayName,
+                                displayName: settings.profileDisplayName ?? appleAuth.displayName,
                                 avatarJPEG: jpeg
                             )
                         }
@@ -101,20 +103,7 @@ struct SettingsView: View {
                     }
                 }
 
-                if store.state.settings.profileAvatarJPEG != nil {
-                    Button("Quitar foto", role: .destructive) {
-                        var s = store.state.settings
-                        s.profileAvatarJPEG = nil
-                        store.updateSettings(s)
-                        Task {
-                            await businessAuth.syncPublicProfile(
-                                displayName: s.profileDisplayName ?? appleAuth.displayName,
-                                avatarJPEG: nil
-                            )
-                        }
-                    }
-                }
-
+                Divider()
                 Button {
                     Task { await syncEverything() }
                 } label: {
@@ -128,19 +117,21 @@ struct SettingsView: View {
                                     : .default,
                                 value: syncIconSpinning
                             )
-                        Text(isSyncingEverything ? "Sincronizando…" : "Sincronizar ahora")
-                            .font(.body)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(isSyncingEverything ? "Sincronizando…" : "Sincronizar ahora")
+                                .font(.body)
+                            if let syncFeedback {
+                                Text(syncFeedback)
+                                    .font(.caption)
+                                    .foregroundStyle(syncFeedback == "Sincronización completada." ? OG.accent : OG.red)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
                         Spacer(minLength: 0)
                     }
                     .foregroundStyle(OG.label)
                 }
                 .disabled(isSyncingEverything)
-
-                if let syncFeedback {
-                    Text(syncFeedback)
-                        .font(.footnote)
-                        .foregroundStyle(syncFeedback == "Sincronización completada." ? OG.accent : OG.red)
-                }
 
                 Button("Cerrar sesión", role: .destructive) {
                     confirmSignOut = true
@@ -239,11 +230,6 @@ struct SettingsView: View {
                     }
                     .disabled(subscriptions.purchaseInFlight)
                     .foregroundStyle(OG.label)
-                }
-                if !CommercialConfig.isConfigured {
-                    Text("Compras no configuradas en este build (falta RevenueCatPublicAPIKey).")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
             } header: {
                 Text("Acceso")
@@ -418,7 +404,7 @@ struct SettingsView: View {
             } header: {
                 Text("Salud")
             } footer: {
-                Text("Calorías de Salud/Watch; ubicación para el pin del gym. Un peso por día; el objetivo sale en Progreso. Puedes denegar permisos y seguir usando la app.")
+                EmptyView()
             }
             .task {
                 await refreshNotificationsStatus()
@@ -431,11 +417,6 @@ struct SettingsView: View {
             }
 
             Section("Entrenamiento") {
-                NavigationLink {
-                    AITrainingProgramsView()
-                } label: {
-                    Label("Programas de entrenamiento IA", systemImage: "calendar.badge.clock")
-                }
                 NavigationLink {
                     HistoryView()
                 } label: {
