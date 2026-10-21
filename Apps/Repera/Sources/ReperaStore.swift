@@ -1073,11 +1073,15 @@ final class ReperaStore: NSObject {
 
         session.exercises = fresh.exercises.map { planned in
             var updated = planned
-            if let oldIndex = remaining.firstIndex(where: { old in
+            let oldIndex = remaining.firstIndex(where: { old in
                 old.blockId == planned.blockId
                     && (old.exercise.id == planned.exercise.id
                         || old.exercise.name.localizedCaseInsensitiveCompare(planned.exercise.name) == .orderedSame)
-            }) {
+            }) ?? remaining.firstIndex(where: { old in
+                old.exercise.id == planned.exercise.id
+                    || old.exercise.name.localizedCaseInsensitiveCompare(planned.exercise.name) == .orderedSame
+            })
+            if let oldIndex {
                 let old = remaining.remove(at: oldIndex)
                 updated.loggedSets = old.loggedSets
                 updated.completedReps = old.completedReps
@@ -1090,6 +1094,9 @@ final class ReperaStore: NSObject {
                $0.blockId == current.blockId
                    && ($0.exercise.id == current.exercise.id
                        || $0.exercise.name.localizedCaseInsensitiveCompare(current.exercise.name) == .orderedSame)
+           }) ?? session.exercises.firstIndex(where: {
+               $0.exercise.id == current.exercise.id
+                   || $0.exercise.name.localizedCaseInsensitiveCompare(current.exercise.name) == .orderedSame
            }) {
             session.currentIndex = index
         } else {
