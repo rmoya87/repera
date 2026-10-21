@@ -2,6 +2,30 @@ import XCTest
 @testable import ReperaDomain
 
 final class ExerciseSearchTests: XCTestCase {
+    func testCrossFitAcronymsRankExistingCatalogExercises() {
+        let catalog = Catalog.seed()
+        let cases: [(String, String)] = [
+            ("GTOH", "Ground to overhead"),
+            ("G2OH", "Ground to overhead"),
+            ("BMU", "Muscle-up barra"),
+            ("Bar Muscle Up", "Muscle-up barra"),
+            ("AKBS", "Swing americano"),
+            ("American kettlebell swing", "Swing americano"),
+            ("C2B", "Chest to bar"),
+            ("DU", "Dobles de comba"),
+            ("SU", "Simples de comba"),
+            ("CAL", "Air bike")
+        ]
+        for (alias, expected) in cases {
+            XCTAssertEqual(
+                ExerciseSearch.ranked(catalog, query: alias).first?.name,
+                expected,
+                "La búsqueda de \(alias) debe devolver el ejercicio del catálogo."
+            )
+        }
+    }
+
+
     private func exercise(
         name: String,
         muscle: String,
