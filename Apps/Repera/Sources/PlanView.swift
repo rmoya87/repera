@@ -1049,7 +1049,7 @@ struct DayEditorView: View {
                     }
                 }
             }
-            if [.forTime, .deathBy, .emom, .circuit, .roundsForQuality, .partner].contains(routine.blocks[index].wodFormat) {
+            if routine.blocks[index].wodFormat.map({ [.forTime, .deathBy, .emom, .circuit, .roundsForQuality, .partner].contains($0) }) == true {
                 Stepper(
                     "Rondas: \(emomOrRFTRounds(at: index))",
                     value: Binding(
