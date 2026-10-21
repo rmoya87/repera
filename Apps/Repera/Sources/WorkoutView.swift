@@ -434,7 +434,7 @@ struct WorkoutView: View {
 
     private func openBlockTimer(_ block: WorkoutBlockEntry, session: WorkoutSession) {
         guard let firstIndex = block.indexes.first else { return }
-        if session.currentIndex != firstIndex {
+        if !block.indexes.contains(session.currentIndex) {
             // El onChange detiene el reloj anterior y después abre el solicitado.
             pendingTimerBlockID = block.id
             store.selectExercise(at: firstIndex)
