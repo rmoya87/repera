@@ -1018,6 +1018,28 @@ public enum CrossFitGlossary {
         "assaultbike": "Air bike",
         "cal air bike": "Air bike",
 
+        // Variantes de las pizarras reales: mantener material y estímulo distintos.
+        "run": "Carrera",
+        "running": "Carrera",
+        "run meters": "Carrera",
+        "correr": "Carrera",
+        "weighted pull up": "Dominadas lastradas",
+        "weighted pull-up": "Dominadas lastradas",
+        "weighted pull ups": "Dominadas lastradas",
+        "weighted pullups": "Dominadas lastradas",
+        "plyo ring row": "Remo pliométrico en anillas pies elevados",
+        "plyo ring rows": "Remo pliométrico en anillas pies elevados",
+        "plyo ring row feet elevated": "Remo pliométrico en anillas pies elevados",
+        "ring row feet elevated": "Remo pliométrico en anillas pies elevados",
+        "kb goblet alt box step up": "Step-up al cajón con kettlebell goblet",
+        "kb goblet alternating box step up": "Step-up al cajón con kettlebell goblet",
+        "kettlebell goblet box step up": "Step-up al cajón con kettlebell goblet",
+        "american kb swing": "Swing americano",
+        "american kettlebell swing": "Swing americano",
+        "squat snatch": "Arrancada",
+        "squat snatches": "Arrancada",
+        "burpees over the bar": "Bar facing burpee",
+
         // Press / overhead
         "pp": "Push press",
         "push press": "Push press",
