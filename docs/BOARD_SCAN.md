@@ -1,6 +1,6 @@
 # Escáner de pizarra / TV
 
-Última actualización: 2026-10-20 (alias EN variantes + tabla compartida con ExerciseSearch)
+Última actualización: 2026-10-21 (187 alias CrossFit contrastados y compartidos en escáner + búsqueda)
 
 ## Objetivo
 
@@ -33,6 +33,29 @@ Regresión del 19/10/2026: pizarra con tres bloques:
 3. `4 RFT (TC 12’)`: 4 rondas, cap 12 min, 6 Power Snatch 40/25, 8 BOB (**Bar facing burpee** / burpee over the bar), 10 Back Rack Reverse Lunges 40/25 y descanso de 60 s. Si OCR pega `4RFf` o `8BOB`, sigue siendo cabecera RFT + movimiento BOB (no un «Movimiento» suelto dentro del EVERY).
 
 El catálogo resuelve abreviaturas en inglés y español vía `CrossFitGlossary.canonicalName` (y, si falta en el glosario, la misma tabla EN↔catálogo que `ExerciseSearch`). Así `chin up`, `walking lunge`, `ring pull-up`, etc. caen en la ficha concreta. Una variante no encontrada no debe descartarse: se conserva como movimiento WOD editable. El emparejamiento local utiliza mapa indexado de nombres/canónicos, no comparación difusa por ejercicio; si se añaden nuevos alias, actualizarlos en `CrossFitGlossary` y/o `ExerciseSearch.bilingualPhrases`. En fuerza, se asigna `targetRir` **solo** cuando se identifica explícitamente `@RIR N`; `@6-8` no significa RIR y se mantiene como nota.
+
+## Diccionario de entrenadores: OCR y búsqueda de ejercicios
+
+Se han contrastado acrónimos, nombres completos y equivalencias ES/EN con el [glosario oficial de CrossFit](https://www.crossfit.com/essentials/crossfit-terms-explained), el [catálogo de movimientos de CrossFit](https://www.crossfit.com/crossfit-movements), [CrossFit Costa Blanca](https://crossfitcostablanca.es/diccionario-crossfit-todos-los-terminos-de-crossfit/), [CrossFit Olavide](https://www.crossfitolavide.com/diccionario-de-crossfit) y el [diccionario de Decathlon](https://consejosdeportivos.decathlon.es/diccionario-de-crossfit).
+
+La **fuente única** es `CrossFitGlossary.aliases` (`ReperaDomain/BoardImportParser.swift`): `BoardScanLiteParser` / `BoardImportParser` la utilizan para reconocer movimientos y `ExerciseSearch.englishAliasesByCatalogName` la indexa para filtrar en el selector. Se han incorporado **187 entradas nuevas** (sin nuevas fichas de ejercicio), por ejemplo:
+
+| Familia | Abreviaturas / nombres | Entrada existente de catálogo |
+| --- | --- | --- |
+| Fuerza | BS/BSQ, FS/FSQ, SDL, SDHP | Sentadilla, Sentadilla frontal, Peso muerto sumo, Sumo high pull |
+| Halterofilia | CLN, SC, HPC, HPS, SN, SJ, C&J | Cargada, Hang power clean, Hang power snatch, Arrancada, Split jerk, Cargada y envión |
+| Gimnasia | TTB/T2B, T2R, K2E, HSPU, HSW, WW, RC, LLRC, BMU, RMU, CTB/C2B, GHD SU | Ejercicios concretos del catálogo, sin confundir anillas con barra |
+| WOD | BJ, BJO, WBS, BFB, RKBS, AKBS, DU, SU con contexto | Cajón, balón, burpees, swings rusos/americanos y comba |
+| Cardio | ROW/ROWERG/CAL ROW, SKI/CAL SKI, ASS BIKE, ECHO BIKE | Remo máquina, SkiErg, Air bike, Echo bike |
+
+**Precauciones de interpretación:**
+
+- Siglas aisladas **SU**, **PU**, **MU**, **BP** son ambiguas (Single Under / Sit-up, Pull-up / Push-up, muscle-up de barra / anillas, Bench Press / Burpee): `canonicalName` las deja para revisión en lugar de adjudicar automáticamente una ficha incorrecta. El buscador muestra alternativas, como SU → Sit-up y Simples de comba.
+- El contexto **DU / SU** sí permite leer SU como Single Under; GHD SU es GHD sit-up; BMU y RMU son movimientos diferentes.
+- `ROW` y `CAL ROW` significan remoergómetro, **nunca Air bike**; `SKI` corresponde a SkiErg. `CAL` sin especificar máquina mantiene el comportamiento heredado que favorece Air Bike, pero en pizarras nuevas se recomienda especificar aparato.
+- **AS** (Air Squat) solo se expande cuando es una sigla exacta, evitando convertir el inglés corriente *as many rounds* en una sentadilla.
+- Un alias nuevo se añade solo si su movimiento canónico ya existe o si hay una regla explícita de equivalencia fiable. No se duplican entradas del catálogo por cada abreviatura.
+- La búsqueda tiene pruebas en `ExerciseSearchTests`; la canonicalización, las ambigüedades y las máquinas se prueban en `BoardImportParserTests`.
 
 ## OCR (`BoardTextRecognizer`)
 
