@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that generated Xcode project actually compiles the current Auth stores.
+"""Check that the generated Xcode project compiles Auth and AI feature stores.
 
 XcodeGen project files are local/generated and can be older than checked-out Swift.
 Never delete them or change app data: regenerate with `xcodegen generate`.
@@ -16,6 +16,8 @@ REQUIRED = (
     "BusinessAuthStore.swift",
     "BusinessDataStore.swift",
     "BusinessWorkoutSyncStore.swift",
+    "AITrainingInboxStore.swift",
+    "AIAccessView.swift",
 )
 
 
@@ -24,7 +26,7 @@ def validate(root: Path) -> None:
     missing = [name for name in REQUIRED if not list(app.rglob(name))]
     if missing:
         raise ValueError(
-            "Faltan fuentes de autenticación: " + ", ".join(missing)
+            "Faltan fuentes Swift del target Repera: " + ", ".join(missing)
             + ". Ejecuta git pull origin main; no basta con regenerar Xcode."
         )
 
@@ -58,7 +60,7 @@ def main() -> int:
     except (OSError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
-    print("OK: todos los almacenes Apple/Supabase, incluido BusinessWorkoutSyncStore.swift, están en Compile Sources.")
+    print("OK: fuentes de autenticación, sincronización y funciones IA en Compile Sources del target Repera.")
     return 0
 
 
