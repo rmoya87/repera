@@ -1265,8 +1265,9 @@ private struct InlineWODMovementSets: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             OGSetEntryHeader(
-                firstTitle: loggingStyle == .loadAndReps ? (resolvedLoadField == .deficitCm ? "Déficit" : "KG") : "Reps",
-                secondTitle: loggingStyle == .loadAndReps ? "Reps" : nil
+                firstTitle: loggingStyle == .loadAndReps ? (resolvedLoadField == .deficitCm ? "Déficit" : "KG") : (loggingStyle == .machineWork ? movement.prescribedQuantityUnit.shortLabel : "Reps"),
+                secondTitle: loggingStyle == .loadAndReps ? "Reps" : nil,
+                showsRIR: loggingStyle.usesRIR
             )
             ForEach(Array(draftSets.enumerated()), id: \.element.id) { index, _ in
                 setRow(index: index)
@@ -1327,6 +1328,12 @@ private struct InlineWODMovementSets: View {
                     : "\(draftSets[index].targetReps)",
                 secondValue: style == .loadAndReps ? "\(draftSets[index].targetReps)" : nil,
                 firstAllowsDecimal: style == .loadAndReps && resolvedLoadField == .weightKg,
+                rir: draftSets[index].targetRir,
+                showsRIR: style.usesRIR,
+                onRIRChange: { value in
+                    draftSets[index].targetRir = value
+                    writeSetsToMovement()
+                },
                 focus: $focusedSetField,
                 onFirstCommit: { text in
                     if style == .loadAndReps {
@@ -1351,27 +1358,7 @@ private struct InlineWODMovementSets: View {
                     }
                 }
             )
-            if style.usesRIR {
-                Menu {
-                    Button("Sin RIR") {
-                        draftSets[index].targetRir = nil
-                        writeSetsToMovement()
-                    }
-                    ForEach(0...5, id: \.self) { rir in
-                        Button("\(rir)") {
-                            draftSets[index].targetRir = Double(rir)
-                            writeSetsToMovement()
-                        }
-                    }
-                } label: {
-                    Text(draftSets[index].targetRir.map { "RIR \(Int($0.rounded()))" } ?? "RIR —")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(OG.label2)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(OG.surface2, in: Capsule())
-                }
-            }
+
         }
     }
 
@@ -1597,6 +1584,12 @@ struct WODMovementEditor: View {
                     : "\(draftSets[index].targetReps)",
                 secondValue: style == .loadAndReps ? "\(draftSets[index].targetReps)" : nil,
                 firstAllowsDecimal: style == .loadAndReps && resolvedLoadField == .weightKg,
+                rir: draftSets[index].targetRir,
+                showsRIR: style.usesRIR,
+                onRIRChange: { value in
+                    draftSets[index].targetRir = value
+                    writeSetsToMovement()
+                },
                 focus: $focusedSetField,
                 onFirstCommit: { text in
                     if style == .loadAndReps {
@@ -1621,27 +1614,7 @@ struct WODMovementEditor: View {
                     }
                 }
             )
-            if style.usesRIR {
-                Menu {
-                    Button("Sin RIR") {
-                        draftSets[index].targetRir = nil
-                        writeSetsToMovement()
-                    }
-                    ForEach(0...5, id: \.self) { rir in
-                        Button("\(rir)") {
-                            draftSets[index].targetRir = Double(rir)
-                            writeSetsToMovement()
-                        }
-                    }
-                } label: {
-                    Text(draftSets[index].targetRir.map { "RIR \(Int($0.rounded()))" } ?? "RIR —")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(OG.label2)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(OG.surface2, in: Capsule())
-                }
-            }
+
         }
     }
 
