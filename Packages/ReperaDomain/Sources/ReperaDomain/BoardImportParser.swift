@@ -662,6 +662,19 @@ public enum BoardImportParser {
             }
         }
 
+        // "20/16 CAL*" es Air Bike por sexos, no una carga de barra.
+        if working.range(of: #"(?i)^\s*\d+\s*/\s*\d+\s*CALS?(?:ORIES)?\b"#,
+                         options: .regularExpression) != nil {
+            let parsed = CrossFitGlossary.parseMovementLine(working)
+            let match = bestMatch(for: parsed.name, in: catalog)
+            return [WODMovement(
+                exerciseId: match?.id,
+                name: match?.name ?? parsed.name,
+                calories: parsed.calories,
+                notes: parsed.equipmentNote
+            )]
+        }
+
         var male: Double?
         var female: Double?
         // #40/25kg o 40/25 — mayor = hombre, menor = mujer.
