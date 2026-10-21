@@ -59,6 +59,15 @@ struct BoardScanLiteParserTests {
         #expect(forTime.movements[3].calories == 20)
         #expect(forTime.restBetweenRoundsSeconds == 60)
         #expect(forTime.wodNotes?.contains("REST BTWN") == true)
+        // Iniciar Play no debe convertir un TC de 14 min en 14 series por ejercicio.
+        let session = SessionController.from(
+            routine: Routine(title: "Pizarra", blocks: result.blocks),
+            exercises: Catalog.seed()
+        )
+        #expect(session.exercises.count == 10)
+        #expect(session.exercises.filter { $0.blockId == forTime.id }.count == 5)
+        #expect(session.exercises.filter { $0.blockId == forTime.id }
+            .allSatisfy { $0.plannedSets.count == 1 })
     }
 
     @Test func fullNamesAndAcronymsShareCanonicalExercises() {
