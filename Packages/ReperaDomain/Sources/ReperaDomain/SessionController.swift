@@ -157,6 +157,7 @@ public struct SessionController: Sendable {
                             SessionExercise(
                                 exercise: exercise,
                                 plannedSets: item.plannedSets,
+                                quantityUnit: item.quantityUnit ?? exercise.defaultQuantityUnit,
                                 supersetGroup: nil,
                                 blockId: block.id,
                                 blockKind: .strength,
@@ -191,6 +192,7 @@ public struct SessionController: Sendable {
                             SessionExercise(
                                 exercise: exercise,
                                 plannedSets: resolved.plannedSets(for: move),
+                                quantityUnit: exercise.loggingStyle == .machineWork ? move.prescribedQuantityUnit : nil,
                                 blockId: resolved.id,
                                 blockKind: .wod,
                                 wodFormat: resolved.wodFormat,
