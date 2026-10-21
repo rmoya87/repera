@@ -249,3 +249,12 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 - **Ajustes → Acceso IA:** creación, copia puntual, listado y revocación de tokens personales; no aparece una pantalla adicional para iniciar sesión con Apple. La autenticación se recupera al arrancar Repera. La vista es compacta: sin footers descriptivos ni botón de actualización de planes.
 - La IA que guarda un entrenamiento en `ai_training_plans` hace que **Inicio y Diario** actualicen sus rutinas en primer plano mediante Supabase Realtime, con aviso temporal de llegada. No se sobrescribe un plan personal ya asociado a ese día.
 - **Cuenta → Sincronizar ahora** mantiene la recuperación explícita de iCloud, Supabase e Inbox IA. Al volver de segundo plano se recuperan cambios perdidos aunque Realtime se haya desconectado. No hay notificaciones APNs en segundo plano en esta versión.
+
+
+### Coach IA · planificación deportiva de 1 a 52 semanas
+
+- **Ajustes → Entrenamiento → Perfil deportivo IA**: objetivo, nivel, días/minutos y material. Guardado voluntario y sin preguntas médicas ni Apple Salud.
+- **Ajustes → Entrenamiento → Programas de entrenamiento IA**: revisión visual de fases y activación/pausa de macrociclos generados por un asistente con token personal.
+- **Contexto deportivo**: sincronización del calendario de rutinas personales futuras/recurrentes (90 días), para que el asistente no proponga sesiones a ciegas. No sustituye la planificación del entrenador profesional si todavía no se ha sincronizado.
+- **MCP**: nuevas consultas de perfil, calendario, métricas semanales, catalogación y revisión de programas. Creación de un macrociclo hasta 52 semanas y sesiones detalladas en lotes de 14, con identificador opcional de programa e idempotencia.
+- El modelo de IA razona; Repera suministra métricas calculadas y limitaciones de calidad. No hay promesa de detección de lesiones ni recuperación fisiológica, ni adaptación autónoma en segundo plano sin el agente.
