@@ -2,6 +2,26 @@ import Testing
 @testable import ReperaDomain
 
 struct BoardScanLiteParserTests {
+    @Test func spacedSexSpecificCaloriesDoNotBecomeScalingAlternatives() {
+        let blocks = BoardScanLiteParser.parse(ocrText: """
+            FOR TIME (TC 14')
+            400M RUN
+            20 / 16 CAL*
+            400M RUN
+            """, catalog: Catalog.seed()).blocks
+        #expect(blocks.count == 1)
+        #expect(blocks[0].wodFormat == .forTime)
+        #expect(blocks[0].timeCapMinutes == 14)
+        #expect(blocks[0].rounds == nil)
+        #expect(blocks[0].movements.count == 3)
+        #expect(blocks[0].movements[1].name == "Air bike")
+        #expect(blocks[0].movements[1].calories == 20)
+        #expect(blocks[0].movements[1].scaleAlternative == nil)
+        #expect(blocks[0].movements[1].weightMaleKg == nil)
+        #expect(blocks[0].plannedSets(for: blocks[0].movements[1]).count == 1)
+    }
+
+
     @Test func scanAmrapAndForTimeWithCapButNoInventedRounds() {
         let board = """
         AMRAP 16'
