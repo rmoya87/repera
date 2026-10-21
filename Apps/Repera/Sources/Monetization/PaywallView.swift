@@ -125,7 +125,7 @@ struct PaywallView: View {
                         .font(.headline)
                         .foregroundStyle(OG.label)
                     Text(subscriptions.offerings.unavailableReason
-                         ?? "Configura RevenueCat y App Store Connect para activar Repera Pro.")
+                         ?? "No se han podido cargar las suscripciones. Comprueba la conexión e inténtalo de nuevo.")
                         .font(.footnote)
                         .foregroundStyle(OG.label2)
                 }
