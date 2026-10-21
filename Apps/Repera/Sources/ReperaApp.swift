@@ -169,7 +169,7 @@ struct ReperaApp: App {
                             )
                             await businessData.refresh()
                             await workoutSync.sync(store: store)
-                            await aiInbox.sync(store: store)
+                            _ = await aiInbox.sync(store: store)
                             if scenePhase == .active {
                                 aiInbox.startRealtime(store: store)
                             }
@@ -202,7 +202,7 @@ struct ReperaApp: App {
                             if businessAuth.isConnected {
                                 await businessData.refresh()
                                 await workoutSync.sync(store: store)
-                                await aiInbox.sync(store: store)
+                                _ = await aiInbox.sync(store: store)
                                 if scenePhase == .active {
                                     aiInbox.startRealtime(store: store)
                                 }
@@ -217,7 +217,7 @@ struct ReperaApp: App {
                     if connected {
                         Task {
                             await workoutSync.sync(store: store)
-                            await aiInbox.sync(store: store)
+                            _ = await aiInbox.sync(store: store)
                             if scenePhase == .active {
                                 aiInbox.startRealtime(store: store)
                             }
@@ -236,7 +236,7 @@ struct ReperaApp: App {
                     if finished && businessAuth.isConnected {
                         Task {
                             await workoutSync.sync(store: store)
-                            await aiInbox.sync(store: store)
+                            _ = await aiInbox.sync(store: store)
                             if scenePhase == .active {
                                 aiInbox.startRealtime(store: store)
                             }
