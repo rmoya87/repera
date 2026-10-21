@@ -54,6 +54,8 @@ struct WorkoutView: View {
         var roundsCompleted: Int
         let wodTemplateId: String?
         let title: String
+        var hitTimeCap = false
+        var timeCapMinutes: Int? = nil
     }
 
     var body: some View {
@@ -197,6 +199,11 @@ struct WorkoutView: View {
                     get: { pendingWODConfirm?.roundsCompleted ?? pending.roundsCompleted },
                     set: { pendingWODConfirm?.roundsCompleted = $0 }
                 ),
+                hitTimeCap: Binding(
+                    get: { pendingWODConfirm?.hitTimeCap ?? pending.hitTimeCap },
+                    set: { pendingWODConfirm?.hitTimeCap = $0 }
+                ),
+                timeCapMinutes: pending.timeCapMinutes,
                 onSave: {
                     guard let current = pendingWODConfirm else { return }
                     store.applyWODResult(
@@ -206,11 +213,17 @@ struct WorkoutView: View {
                             totalReps: current.capture == .totalReps ? current.totalReps : nil,
                             elapsedSeconds: current.capture == .elapsedTime ? current.elapsedSeconds : nil,
                             roundsCompleted: current.roundsCompleted > 0 ? current.roundsCompleted : nil,
-                            wodTemplateId: current.wodTemplateId
+                            wodTemplateId: current.wodTemplateId,
+                            hitTimeCap: current.capture == .elapsedTime && current.timeCapMinutes != nil
+                                ? current.hitTimeCap : nil
                         )
                     )
                     pendingWODConfirm = nil
-                    store.finishCurrentTimedBlock()
+                    if current.hitTimeCap && current.capture == .elapsedTime {
+                        store.skipCurrentTimedBlock()
+                    } else {
+                        store.finishCurrentTimedBlock()
+                    }
                     if store.state.activeSession == nil {
                         closeFlow()
                     }
@@ -1096,12 +1109,13 @@ struct WorkoutView: View {
                 elapsedSeconds: max(1, elapsed),
                 roundsCompleted: current.blockRounds ?? 0,
                 wodTemplateId: templateId,
-                title: current.blockHeader ?? format.displayName
+                title: current.blockHeader ?? format.displayName,
+                hitTimeCap: reason == .countdownFinished && current.blockTimeCapMinutes != nil,
+                timeCapMinutes: current.blockTimeCapMinutes
             )
         case .perMovementSets:
             break
         }
-        _ = reason
     }
 
     /// Reloj a pantalla completa para cualquier tipo de bloque (EMOM, AMRAP, fuerza…).
