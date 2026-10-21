@@ -1213,6 +1213,7 @@ private struct InlineWODMovementSets: View {
 
     @State private var draftSets: [PlannedSet] = []
     @State private var didSeedSets = false
+    @FocusState private var focusedSetField: OGSetFieldID?
 
     private var weightStep: Double { store.state.settings.weightIncrementKg }
 
@@ -1238,6 +1239,10 @@ private struct InlineWODMovementSets: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            OGSetEntryHeader(
+                firstTitle: loggingStyle == .loadAndReps ? (resolvedLoadField == .deficitCm ? "Déficit" : "KG") : "Reps",
+                secondTitle: loggingStyle == .loadAndReps ? "Reps" : nil
+            )
             ForEach(Array(draftSets.enumerated()), id: \.element.id) { index, _ in
                 setRow(index: index)
                     .contextMenu {
@@ -1281,99 +1286,46 @@ private struct InlineWODMovementSets: View {
     @ViewBuilder
     private func setRow(index: Int) -> some View {
         let style = loggingStyle
-        let maxReps = style.quantityCap
-        let qtyStep: Int = {
-            if style == .machineWork, movement.prescribedQuantityUnit == .meters { return 50 }
-            if style == .repsAndTime { return 5 }
-            return 1
-        }()
-        HStack(spacing: 12) {
-            Text("\(index + 1)")
-                .font(.system(size: 13, weight: .bold).monospacedDigit())
-                .foregroundStyle(OG.label)
-                .frame(width: 28, height: 28)
-                .background(OG.surface2, in: Circle())
-
-            if style == .loadAndReps {
-                if resolvedLoadField == .deficitCm {
-                    OGRepeatStepper(
-                        display: draftSets[index].targetWeightKg.map { String(format: "%.0f", $0) } ?? "0",
-                        compact: true,
-                        keyboard: .numberPad,
-                        onMinus: {
-                            let current = draftSets[index].targetWeightKg ?? 0
-                            let next = max(0, current - 1)
-                            draftSets[index].targetWeightKg = next > 0 ? next : nil
-                            writeSetsToMovement()
-                        },
-                        onPlus: {
-                            let current = draftSets[index].targetWeightKg ?? 0
-                            draftSets[index].targetWeightKg = min(60, current + 1)
-                            writeSetsToMovement()
-                        },
-                        onCommitText: { text in
-                            if let parsed = Int(text.filter(\.isNumber)) {
-                                let v = min(60, max(0, parsed))
-                                draftSets[index].targetWeightKg = v > 0 ? Double(v) : nil
-                            }
-                            writeSetsToMovement()
+        let catalogName = CrossFitGlossary.resolveCatalogName(movement.name, notes: movement.notes)
+        let catalogExercise = store.state.exercises.first {
+            $0.name.localizedCaseInsensitiveCompare(catalogName) == .orderedSame
+        }
+        let oldSets = catalogExercise.flatMap { store.cachedLastWorkingSession(for: $0.id)?.sets }
+        let oldSet = (oldSets?.indices.contains(index) == true) ? oldSets?[index] : nil
+        VStack(alignment: .leading, spacing: 6) {
+            OGSetEntryRow(
+                rowID: draftSets[index].id,
+                index: index + 1,
+                previous: OGSetEntryRow.previousText(oldSet),
+                firstValue: style == .loadAndReps
+                    ? (draftSets[index].targetWeightKg.map { String(format: "%g", $0) } ?? "0")
+                    : "\(draftSets[index].targetReps)",
+                secondValue: style == .loadAndReps ? "\(draftSets[index].targetReps)" : nil,
+                firstAllowsDecimal: style == .loadAndReps && resolvedLoadField == .weightKg,
+                focus: $focusedSetField,
+                onFirstCommit: { text in
+                    if style == .loadAndReps {
+                        let normalized = text.replacingOccurrences(of: ",", with: ".")
+                        if let parsed = Double(normalized) {
+                            let value = resolvedLoadField == .deficitCm
+                                ? min(60, max(0, parsed))
+                                : max(0, parsed)
+                            draftSets[index].targetWeightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
+                        } else if normalized.isEmpty {
+                            draftSets[index].targetWeightKg = nil
                         }
-                    )
-                    .frame(minWidth: 128, maxWidth: .infinity)
-                    .layoutPriority(1)
-                } else {
-                    OGRepeatStepper(
-                        display: draftSets[index].targetWeightKg.map { String(format: "%g", $0) } ?? "—",
-                        compact: true,
-                        keyboard: .decimalPad,
-                        onMinus: {
-                            let current = draftSets[index].targetWeightKg ?? 0
-                            let next = max(0, ((current - weightStep) * 10).rounded() / 10)
-                            draftSets[index].targetWeightKg = next > 0 ? next : nil
-                            writeSetsToMovement()
-                        },
-                        onPlus: {
-                            let current = draftSets[index].targetWeightKg ?? 0
-                            draftSets[index].targetWeightKg = ((current + weightStep) * 10).rounded() / 10
-                            writeSetsToMovement()
-                        },
-                        onCommitText: { text in
-                            let normalized = text.replacingOccurrences(of: ",", with: ".")
-                            if normalized.isEmpty {
-                                draftSets[index].targetWeightKg = nil
-                            } else if let parsed = Double(normalized) {
-                                draftSets[index].targetWeightKg = parsed > 0 ? ((parsed * 10).rounded() / 10) : nil
-                            }
-                            writeSetsToMovement()
-                        }
-                    )
-                    .frame(minWidth: 128, maxWidth: .infinity)
-                    .layoutPriority(1)
-                }
-            }
-
-            OGRepeatStepper(
-                display: "\(draftSets[index].targetReps)",
-                compact: true,
-                keyboard: .numberPad,
-                onMinus: {
-                    draftSets[index].targetReps = max(1, draftSets[index].targetReps - qtyStep)
+                    } else if let parsed = Int(text) {
+                        draftSets[index].targetReps = min(style.quantityCap, max(1, parsed))
+                    }
                     writeSetsToMovement()
                 },
-                onPlus: {
-                    draftSets[index].targetReps = min(maxReps, draftSets[index].targetReps + qtyStep)
-                    writeSetsToMovement()
-                },
-                onCommitText: { text in
+                onSecondCommit: { text in
                     if let parsed = Int(text) {
-                        draftSets[index].targetReps = min(maxReps, max(1, parsed))
+                        draftSets[index].targetReps = min(style.quantityCap, max(1, parsed))
                         writeSetsToMovement()
                     }
                 }
             )
-            .frame(width: style == .loadAndReps ? 108 : nil)
-            .frame(maxWidth: style == .loadAndReps ? nil : .infinity)
-
             if style.usesRIR {
                 Menu {
                     Button("Sin RIR") {
@@ -1387,11 +1339,12 @@ private struct InlineWODMovementSets: View {
                         }
                     }
                 } label: {
-                    Text(draftSets[index].targetRir.map { "\(Int($0.rounded()))" } ?? "RIR")
-                        .font(.system(size: 13, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(draftSets[index].targetRir == nil ? OG.label3 : OG.label)
-                        .frame(width: 48, height: 48)
-                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    Text(draftSets[index].targetRir.map { "RIR \(Int($0.rounded()))" } ?? "RIR —")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(OG.label2)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(OG.surface2, in: Capsule())
                 }
             }
         }
@@ -1456,6 +1409,7 @@ struct WODMovementEditor: View {
 
     @State private var draftSets: [PlannedSet] = []
     @State private var didSeedSets = false
+    @FocusState private var focusedSetField: OGSetFieldID?
 
     private var weightStep: Double { store.state.settings.weightIncrementKg }
 
@@ -1491,6 +1445,10 @@ struct WODMovementEditor: View {
                 TextField("Nombre", text: $movement.name)
 
                 Section {
+                    OGSetEntryHeader(
+                        firstTitle: loggingStyle == .loadAndReps ? (resolvedLoadField == .deficitCm ? "Déficit" : "KG") : "Reps",
+                        secondTitle: loggingStyle == .loadAndReps ? "Reps" : nil
+                    )
                     ForEach(Array(draftSets.enumerated()), id: \.element.id) { index, _ in
                         wodSetRow(index: index)
                             .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
@@ -1598,97 +1556,46 @@ struct WODMovementEditor: View {
 
     private func wodSetRow(index: Int) -> some View {
         let style = loggingStyle
-        let maxReps = style.quantityCap
-        let qtyLabel: String = {
-            switch style {
-            case .machineWork: return movement.prescribedQuantityUnit.shortLabel
-            case .repsAndTime: return "Veces"
-            default: return "Reps"
-            }
-        }()
-        let qtyStep: Int = {
-            if style == .machineWork, movement.prescribedQuantityUnit == .meters { return 50 }
-            if style == .repsAndTime { return 5 }
-            return 1
-        }()
-        return HStack(spacing: 8) {
-            if style == .loadAndReps {
-                if resolvedLoadField == .deficitCm {
-                    OGRepeatStepper(
-                        display: draftSets[index].targetWeightKg.map { String(format: "%.0f", $0) } ?? "0",
-                        keyboard: .numberPad,
-                        onMinus: {
-                            let current = draftSets[index].targetWeightKg ?? 0
-                            let next = max(0, current - 1)
-                            draftSets[index].targetWeightKg = next > 0 ? next : nil
-                            writeSetsToMovement()
-                        },
-                        onPlus: {
-                            let current = draftSets[index].targetWeightKg ?? 0
-                            draftSets[index].targetWeightKg = min(60, current + 1)
-                            writeSetsToMovement()
-                        },
-                        onCommitText: { text in
-                            if let parsed = Int(text.filter(\.isNumber)) {
-                                let v = min(60, max(0, parsed))
-                                draftSets[index].targetWeightKg = v > 0 ? Double(v) : nil
-                            }
-                            writeSetsToMovement()
+        let catalogName = CrossFitGlossary.resolveCatalogName(movement.name, notes: movement.notes)
+        let catalogExercise = store.state.exercises.first {
+            $0.name.localizedCaseInsensitiveCompare(catalogName) == .orderedSame
+        }
+        let oldSets = catalogExercise.flatMap { store.cachedLastWorkingSession(for: $0.id)?.sets }
+        let oldSet = (oldSets?.indices.contains(index) == true) ? oldSets?[index] : nil
+        return VStack(alignment: .leading, spacing: 6) {
+            OGSetEntryRow(
+                rowID: draftSets[index].id,
+                index: index + 1,
+                previous: OGSetEntryRow.previousText(oldSet),
+                firstValue: style == .loadAndReps
+                    ? (draftSets[index].targetWeightKg.map { String(format: "%g", $0) } ?? "0")
+                    : "\(draftSets[index].targetReps)",
+                secondValue: style == .loadAndReps ? "\(draftSets[index].targetReps)" : nil,
+                firstAllowsDecimal: style == .loadAndReps && resolvedLoadField == .weightKg,
+                focus: $focusedSetField,
+                onFirstCommit: { text in
+                    if style == .loadAndReps {
+                        let normalized = text.replacingOccurrences(of: ",", with: ".")
+                        if let parsed = Double(normalized) {
+                            let value = resolvedLoadField == .deficitCm
+                                ? min(60, max(0, parsed))
+                                : max(0, parsed)
+                            draftSets[index].targetWeightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
+                        } else if normalized.isEmpty {
+                            draftSets[index].targetWeightKg = nil
                         }
-                    )
-                    .frame(maxWidth: .infinity)
-                    .accessibilityLabel("Déficit cm")
-                } else {
-                    OGRepeatStepper(
-                        display: draftSets[index].targetWeightKg.map { String(format: "%g", $0) } ?? "—",
-                        keyboard: .decimalPad,
-                        onMinus: {
-                            let current = draftSets[index].targetWeightKg ?? 0
-                            let next = max(0, ((current - weightStep) * 10).rounded() / 10)
-                            draftSets[index].targetWeightKg = next > 0 ? next : nil
-                            writeSetsToMovement()
-                        },
-                        onPlus: {
-                            let current = draftSets[index].targetWeightKg ?? 0
-                            draftSets[index].targetWeightKg = ((current + weightStep) * 10).rounded() / 10
-                            writeSetsToMovement()
-                        },
-                        onCommitText: { text in
-                            let normalized = text.replacingOccurrences(of: ",", with: ".")
-                            if normalized.isEmpty {
-                                draftSets[index].targetWeightKg = nil
-                            } else if let parsed = Double(normalized) {
-                                draftSets[index].targetWeightKg = parsed > 0 ? ((parsed * 10).rounded() / 10) : nil
-                            }
-                            writeSetsToMovement()
-                        }
-                    )
-                    .frame(maxWidth: .infinity)
-                }
-            }
-
-            OGRepeatStepper(
-                display: "\(draftSets[index].targetReps)",
-                keyboard: .numberPad,
-                onMinus: {
-                    draftSets[index].targetReps = max(1, draftSets[index].targetReps - qtyStep)
+                    } else if let parsed = Int(text) {
+                        draftSets[index].targetReps = min(style.quantityCap, max(1, parsed))
+                    }
                     writeSetsToMovement()
                 },
-                onPlus: {
-                    draftSets[index].targetReps = min(maxReps, draftSets[index].targetReps + qtyStep)
-                    writeSetsToMovement()
-                },
-                onCommitText: { text in
+                onSecondCommit: { text in
                     if let parsed = Int(text) {
-                        draftSets[index].targetReps = min(maxReps, max(1, parsed))
+                        draftSets[index].targetReps = min(style.quantityCap, max(1, parsed))
                         writeSetsToMovement()
                     }
                 }
             )
-            .frame(width: style == .loadAndReps ? 88 : nil)
-            .frame(maxWidth: style == .loadAndReps ? nil : .infinity)
-            .accessibilityLabel(qtyLabel)
-
             if style.usesRIR {
                 Menu {
                     Button("Sin RIR") {
@@ -1702,11 +1609,12 @@ struct WODMovementEditor: View {
                         }
                     }
                 } label: {
-                    Text(draftSets[index].targetRir.map { "\(Int($0.rounded()))" } ?? "RIR")
-                        .font(.system(size: 13, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(draftSets[index].targetRir == nil ? OG.label3 : OG.label)
-                        .frame(width: 48, height: 36)
-                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    Text(draftSets[index].targetRir.map { "RIR \(Int($0.rounded()))" } ?? "RIR —")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(OG.label2)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(OG.surface2, in: Capsule())
                 }
             }
         }
