@@ -87,13 +87,12 @@ struct WODTemplateDetailView: View {
     var onUse: (() -> Void)? = nil
     /// Historial del usuario (progresión) — opcional.
     var history: [WODBlockResult] = []
-    /// Biblioteca: play / apuntar / favorito en topbar.
+    /// Biblioteca: play y favorito en topbar.
     var showSessionActions: Bool = false
     var onOpenedWorkout: (() -> Void)? = nil
     /// Gratis: marca actual + último; Pro: historial completo.
     var unlockFullHistory: Bool = false
 
-    @State private var logRoutine: Routine?
 
     private var isFavorite: Bool {
         store.isWODTemplateFavorite(template.id)
@@ -211,15 +210,6 @@ struct WODTemplateDetailView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     OGToolbarGlassButton(
-                        systemName: "plus",
-                        accessibilityLabel: "Apuntar resultado",
-                        tint: OG.accent
-                    ) {
-                        logRoutine = store.routineFromWODTemplate(template)
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    OGToolbarGlassButton(
                         systemName: "play.fill",
                         accessibilityLabel: "Empezar ahora",
                         tint: OG.accent
@@ -228,9 +218,6 @@ struct WODTemplateDetailView: View {
                     }
                 }
             }
-        }
-        .navigationDestination(item: $logRoutine) { routine in
-            LogFinalResultsView(routine: routine, onSaved: { logRoutine = nil })
         }
         .onAppear {
             let thumbs = template.movements
