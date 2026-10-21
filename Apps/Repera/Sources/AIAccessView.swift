@@ -13,6 +13,7 @@ private struct AIAccessTokenInfo: Decodable, Identifiable {
     let expiresAt: String?
     let revokedAt: String?
     let lastUsedAt: String?
+    let scopes: [String]?
 
     enum CodingKeys: String, CodingKey {
         case id, label
@@ -21,6 +22,7 @@ private struct AIAccessTokenInfo: Decodable, Identifiable {
         case expiresAt = "expires_at"
         case revokedAt = "revoked_at"
         case lastUsedAt = "last_used_at"
+        case scopes
     }
     // PostgreSQL timestamps may include fractional seconds. The default
     // ISO8601DateFormatter rejects these without .withFractionalSeconds.
@@ -62,6 +64,7 @@ struct AIAccessView: View {
     @State private var tokens: [AIAccessTokenInfo] = []
     @State private var tokenName = ""
     @State private var expiry = "90d"
+    @State private var canWrite = true
     @State private var createdToken: String?
     @State private var isBusy = false
     @State private var errorMessage: String?
@@ -80,6 +83,8 @@ struct AIAccessView: View {
                         Text("1 año").tag("365d")
                         Text("Ilimitado").tag("unlimited")
                     }
+                    Toggle("Permitir enviar y editar entrenamientos", isOn: $canWrite)
+                        .tint(OG.accent)
                     if expiry == "unlimited" {
                         Label("Un token ilimitado seguirá funcionando hasta que lo revoques. Úsalo solo con asistentes de confianza.", systemImage: "exclamationmark.shield")
                             .font(.footnote)
@@ -114,6 +119,9 @@ struct AIAccessView: View {
                         Text("\(token.tokenPrefix)…")
                             .font(.caption.monospaced())
                             .foregroundStyle(.secondary)
+                        Text(token.scopes?.contains("training:write") == true
+                             ? "Lectura y escritura" : "Solo lectura")
+                            .font(.caption).foregroundStyle(.secondary)
                         Text(token.revokedAt != nil ? "Revocado" : token.expiryLabel)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -226,7 +234,7 @@ struct AIAccessView: View {
             let session = try await client.auth.session
             guard !session.isExpired else { return }
             let items: [AIAccessTokenInfo] = try await client.from("ai_access_tokens")
-                .select("id,label,token_prefix,created_at,expires_at,revoked_at,last_used_at")
+                .select("id,label,token_prefix,created_at,expires_at,revoked_at,last_used_at,scopes")
                 .eq("owner_id", value: session.user.id.uuidString)
                 .order("created_at", ascending: false)
                 .execute().value
@@ -254,7 +262,8 @@ struct AIAccessView: View {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONSerialization.data(withJSONObject: [
                 "label": tokenName.trimmingCharacters(in: .whitespacesAndNewlines),
-                "expiry": expiry
+                "expiry": expiry,
+                "canWrite": canWrite
             ])
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else { throw AccessError.server }
