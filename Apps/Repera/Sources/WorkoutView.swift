@@ -367,7 +367,7 @@ struct WorkoutView: View {
             OGSetEntryHeader(
                 firstTitle: style == .repsOnly ? qtyLabel : loadLabel,
                 secondTitle: style == .repsOnly ? nil : qtyLabel,
-                showsConfirmation: true
+                showsConfirmation: store.state.activeSession?.phase != .ready
             )
 
             ForEach(Array(liveSets.enumerated()), id: \.element.id) { index, row in
@@ -423,7 +423,7 @@ struct WorkoutView: View {
                 firstValue: firstValue,
                 secondValue: style == .repsOnly ? nil : "\(row.reps)",
                 firstAllowsDecimal: style != .repsOnly && current.exercise.loadField == .weightKg,
-                showsConfirmation: true,
+                showsConfirmation: store.state.activeSession?.phase != .ready,
                 completed: row.completed,
                 focus: $focusedSetField,
                 onFirstCommit: { text in
@@ -444,6 +444,7 @@ struct WorkoutView: View {
                     if let value = Int(text), value > 0 { setLiveReps(at: index, reps: value) }
                 },
                 onConfirm: {
+                    guard store.state.activeSession?.phase != .ready else { return }
                     if row.completed {
                         if index == liveSets.count - 1 || index == current.loggedSets.count - 1 {
                             store.removeLastSet()
