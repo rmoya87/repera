@@ -41,7 +41,7 @@ struct MCPConnectionsView: View {
                     ForEach(consents) { consent in
                         HStack(spacing: 12) {
                             Image(systemName: consent.enabled ? "checkmark.shield" : "lock.shield")
-                                .foregroundStyle(consent.enabled ? .green : .secondary)
+                                .foregroundStyle(consent.enabled ? Color.green : Color.secondary)
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Cliente OAuth")
                                     .font(.headline)
