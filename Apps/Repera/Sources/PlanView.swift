@@ -1020,19 +1020,36 @@ struct DayEditorView: View {
             Text(format.detail).font(.caption).foregroundStyle(.secondary)
         }
 
-            if routine.blocks[index].wodFormat == .amrap || routine.blocks[index].wodFormat == .forTime
-                || routine.blocks[index].wodFormat == .emom || routine.blocks[index].wodFormat == .chipper {
-                Stepper(
-                    "Time cap: \(routine.blocks[index].timeCapMinutes ?? 12) min",
-                    value: Binding(
-                        get: { routine.blocks[index].timeCapMinutes ?? 12 },
-                        set: { routine.blocks[index].timeCapMinutes = $0 }
-                    ),
-                    in: 1...60
-                )
+            if let format = routine.blocks[index].wodFormat {
+                if format == .amrap || format == .emom {
+                    Stepper(
+                        "Duración: \(routine.blocks[index].timeCapMinutes ?? 12) min",
+                        value: Binding(
+                            get: { routine.blocks[index].timeCapMinutes ?? 12 },
+                            set: { routine.blocks[index].timeCapMinutes = $0 }
+                        ),
+                        in: 1...120
+                    )
+                } else if format != .tabata {
+                    Toggle("Límite de tiempo", isOn: Binding(
+                        get: { routine.blocks[index].timeCapMinutes != nil },
+                        set: { enabled in
+                            routine.blocks[index].timeCapMinutes = enabled ? (routine.blocks[index].timeCapMinutes ?? 12) : nil
+                        }
+                    ))
+                    if routine.blocks[index].timeCapMinutes != nil {
+                        Stepper(
+                            "Límite: \(routine.blocks[index].timeCapMinutes ?? 12) min",
+                            value: Binding(
+                                get: { routine.blocks[index].timeCapMinutes ?? 12 },
+                                set: { routine.blocks[index].timeCapMinutes = $0 }
+                            ),
+                            in: 1...120
+                        )
+                    }
+                }
             }
-            if routine.blocks[index].wodFormat == .forTime || routine.blocks[index].wodFormat == .deathBy
-                || routine.blocks[index].wodFormat == .emom {
+            if [.forTime, .deathBy, .emom, .circuit, .roundsForQuality, .partner].contains(routine.blocks[index].wodFormat) {
                 Stepper(
                     "Rondas: \(emomOrRFTRounds(at: index))",
                     value: Binding(
@@ -1053,7 +1070,7 @@ struct DayEditorView: View {
                     step: 15
                 )
             }
-            if routine.blocks[index].wodFormat == .emom {
+            if routine.blocks[index].wodFormat == .emom || routine.blocks[index].wodFormat == .circuit {
                 Stepper(
                     "Intervalo: \(routine.blocks[index].emomIntervalSeconds ?? 60)s",
                     value: Binding(
