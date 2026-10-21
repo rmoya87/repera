@@ -847,15 +847,17 @@ struct OGNumericTextField: UIViewRepresentable {
         // Un false temporal de @FocusState no implica que el usuario haya pedido
         // ocultar el teclado. Solo el teclado, el foco de otro UITextField o
         // una acción explícita deben abandonar el primer respondedor.
-        if isFocused == true {
-            c.desiredFocus = true
-            if !field.isFirstResponder {
+        if let isFocused {
+            c.desiredFocus = isFocused
+            if isFocused && !field.isFirstResponder {
                 DispatchQueue.main.async { [weak field, weak c] in
                     guard c?.desiredFocus == true else { return }
                     field?.becomeFirstResponder()
                     field?.selectAll(nil)
                 }
             }
+            // Un false se guarda para invalidar un focus pendiente, pero
+            // jamás se traduce en resignFirstResponder al teclear.
         }
     }
 
