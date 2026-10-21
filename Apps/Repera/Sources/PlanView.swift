@@ -902,6 +902,7 @@ struct DayEditorView: View {
               let sourceID = UUID(uuidString: String(parts[1])),
               let source = routine.blocks.firstIndex(where: { $0.id == sourceID })
         else { return }
+        if destinationID == sourceID { return }
         let moved = routine.blocks.remove(at: source)
         let destination = destinationID.flatMap { id in
             routine.blocks.firstIndex(where: { $0.id == id })
@@ -2664,12 +2665,16 @@ private struct RoutineReorderDropSlot: View {
                 .fill(highlighted ? OG.accent : OG.surface2)
                 .frame(height: highlighted ? 5 : 2)
             if highlighted {
+                Text("Soltar aquí")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(OG.accent)
                 Image(systemName: "arrow.down.to.line")
                     .foregroundStyle(OG.accent)
             }
         }
         .padding(.horizontal, 16)
-        .frame(height: highlighted ? 32 : 20)
+        .frame(height: highlighted ? 42 : 30)
+        .animation(.easeOut(duration: 0.12), value: highlighted)
         .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
         .dropDestination(
