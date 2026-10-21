@@ -57,6 +57,13 @@ public enum BoardScanLiteParser {
             if let header = detectHeader(line) {
                 flush()
                 current = (header.title, header.format, header.cap, header.rounds, header.interval, [])
+            } else if isQualityAnnotation(line) {
+                // Vision puede separar «EMOM 9' @FOR QUALITY» en @FOR + QUALITY.
+                // Es una instrucción de ejecución, nunca un ejercicio.
+                if let title = current?.header, !title.uppercased().contains("QUALITY") {
+                    current?.header = title.uppercased().hasSuffix("@FOR")
+                        ? title + " QUALITY" : title + " · FOR QUALITY"
+                }
             } else if current != nil {
                 current?.body.append(line)
             } else {
@@ -173,6 +180,12 @@ public enum BoardScanLiteParser {
                 with: "TC $1",
                 options: .regularExpression
             )
+            // 10BBJO / 10BBJ0 (Vision confunde O y 0) → "10 BBJO"
+            .replacingOccurrences(
+                of: #"(?i)(\d+)\s*BBJ[O0]\b"#,
+                with: "$1 BBJO",
+                options: .regularExpression
+            )
             // 8BOB / 8BFB → "8 BOB"
             .replacingOccurrences(
                 of: #"(?i)(\d+)(BOB|BFB)\b"#,
@@ -187,12 +200,26 @@ public enum BoardScanLiteParser {
             )
     }
 
+    /// Metadatos breves de calidad, incluso cuando el OCR corta «@FOR QUALITY».
+    /// No captura líneas como «5 KIPPING RING DIPS» ni cabeceras con rondas.
+    static func isQualityAnnotation(_ line: String) -> Bool {
+        let normalized = line.uppercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: " @:.-"))
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+        return ["QUALITY", "FOR QUALITY", "FQ", "RFQ", "FOR"].contains(normalized)
+    }
+
     private static func detectHeader(_ line: String) -> Header? {
         let upper = line.uppercased()
             .replacingOccurrences(of: "’", with: "'")
             .replacingOccurrences(of: "′", with: "'")
             .replacingOccurrences(of: "×", with: "X")
 
+        if upper.range(of: #"^\d+\s+ROUNDS?\s+(?:FOR\s+QUALITY|RFQ)\b"#,
+                       options: .regularExpression) != nil {
+            return Header(title: line, format: .roundsForQuality, cap: nil, rounds: firstInt(upper))
+        }
         if upper.hasPrefix("EMOM") {
             let mins = firstInt(upper) ?? 10
             return Header(title: line, format: .emom, cap: mins)

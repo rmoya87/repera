@@ -147,6 +147,11 @@ enum CatalogGimnasia {
            primaries: ["deltoids", "abs"], secondaries: ["triceps"]),
 
         // MARK: Fondos / anillas
+        gy("Fondos en anillas kipping", equipment: "Peso corporal", target: "triceps",
+           secondary: ["chest", "shoulders", "core"], body: "upper arms",
+           description: "Kipping ring dips: fondos en anillas con impulso coordinado de cadera.",
+           instructions: ["Estabiliza el soporte en anillas.", "Desciende con control y coordina el kip.", "Extiende los codos y recupera el soporte."],
+           primaries: ["triceps", "chest"], secondaries: ["deltoids", "abs"]),
         gy("Fondos en anillas", equipment: "Peso corporal", target: "triceps",
            secondary: ["chest", "shoulders", "core"], body: "upper arms",
            description: "Ring dips.",

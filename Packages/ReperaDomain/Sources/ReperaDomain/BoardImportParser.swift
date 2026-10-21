@@ -224,7 +224,10 @@ public enum BoardImportParser {
             if sectionLabelTitle(body) != nil || detectFormatHeader(body) != nil {
                 break
             }
-            if isFootnote(body) {
+            if BoardScanLiteParser.isQualityAnnotation(body) {
+                // @FOR QUALITY puede caer en otra línea OCR, sin ser una estación.
+                footnotes.append("FOR QUALITY")
+            } else if isFootnote(body) {
                 footnotes.append(body.trimmingCharacters(in: CharacterSet(charactersIn: "*• ")))
             } else if !isNoise(body) {
                 movementLines.append(body)
@@ -1042,6 +1045,20 @@ public enum CrossFitGlossary {
         "wallballs": "Wall ball",
         "wall ball shot": "Wall ball",
         "bjo": "Box jump over",
+        // BBJO añade un burpee antes de saltar el cajón: no es BJO.
+        "bbjo": "Burpee box jump over",
+        "bbjos": "Burpee box jump over",
+        "burpee box jump over": "Burpee box jump over",
+        "burpee box jump overs": "Burpee box jump over",
+        "burpee box jump-over": "Burpee box jump over",
+        "burpee box jump-overs": "Burpee box jump over",
+        "burpee box jump": "Burpee box jump over",
+        "burpee box jump over(s)": "Burpee box jump over",
+        "kipping ring dip": "Fondos en anillas kipping",
+        "kipping ring dips": "Fondos en anillas kipping",
+        "ring dip": "Fondos en anillas",
+        "ring dips": "Fondos en anillas",
+        "strict ring dips": "Fondos en anillas",
         "box jump": "Salto al cajón",
         "bj": "Salto al cajón",
         "burpee": "Burpee",
@@ -1375,7 +1392,19 @@ public enum CrossFitGlossary {
             name: canonical.isEmpty ? working : canonical,
             equipment: equipment
         )
-        let noteParts = [rangeNote, equipment].compactMap { $0 }.filter { !$0.isEmpty }
+        // El OCR también aporta estilo/técnica; no dejar que ALT o T&G
+        // se pierdan al limpiar el nombre para enlazar con el catálogo.
+        var technique: [String] = []
+        if raw.range(of: #"\bALT(?:ERNATING)?\b"#,
+                     options: [.regularExpression, .caseInsensitive]) != nil {
+            technique.append("Alternando")
+        }
+        if raw.range(of: #"\bT\s*&\s*G\b|\bTOUCH\s*(?:&|AND|-)?\s*GO\b"#,
+                     options: [.regularExpression, .caseInsensitive]) != nil {
+            technique.append("Touch & go")
+        }
+        let noteParts = ([rangeNote, equipment].compactMap { $0 } + technique)
+            .filter { !$0.isEmpty }
 
         return ParsedMovementLine(
             name: name.isEmpty ? working : name,
@@ -1405,6 +1434,9 @@ public enum CrossFitGlossary {
 
         switch kind {
         case .dumbbell, .doubleDumbbell:
+            if n.contains("cargada y envion") || n.contains("clean and jerk") || n.contains("c&j") {
+                return "Cargada y envión con mancuerna"
+            }
             if isSnatchFamily(n) { return "Snatch mancuerna" }
             if isCleanFamily(n) { return "Clean mancuerna" }
             if n.contains("thruster") { return "Thruster mancuernas" }

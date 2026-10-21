@@ -217,4 +217,87 @@ struct BoardScanLiteParserTests {
         #expect(CrossFitGlossary.canonicalName(for: "BOB") == "Bar facing burpee")
         #expect(CrossFitGlossary.canonicalName(for: "burpee over the bar") == "Bar facing burpee")
     }
+    @Test func importsQualityEmomAndSpecificMovementsFromActualBoard() {
+        let photo = """
+        EMOM 12'
+        4-3-3-2 PUSH PRESS @7-8
+        2 DEADLIFT T&G @6-8
+        1' REST
+
+        EMOM 9' @FOR
+        QUALITY
+        5-10 KIPPING RING DIPS
+        6-10 ALT PISTOL SQUAT
+        1' REST
+
+        AMRAP 8'
+        20 ALT DB HANG C&J 22,5/15
+        10 BBJO
+        """
+        let catalog = Catalog.seed()
+        let result = BoardScanLiteParser.parse(ocrText: photo, catalog: catalog)
+        #expect(result.blocks.count == 3)
+
+        let strength = result.blocks[0]
+        #expect(strength.wodFormat == .emom)
+        #expect(strength.timeCapMinutes == 12)
+        #expect(strength.movements.count == 3)
+        #expect(strength.movements[0].repScheme == [4, 3, 3, 2])
+        #expect(strength.movements[0].notes?.contains("RPE 7-8") == true)
+        #expect(strength.movements[1].name == "Peso muerto")
+        #expect(strength.movements[1].notes?.contains("Touch & go") == true)
+        #expect(strength.movements[2].restSeconds == 60)
+
+        let quality = result.blocks[1]
+        #expect(quality.wodFormat == .emom)
+        #expect(quality.timeCapMinutes == 9)
+        #expect(quality.wodNotes?.contains("FOR QUALITY") == true)
+        #expect(quality.movements.count == 3) // 2 ejercicios + descanso; QUALITY no es ejercicio.
+        #expect(quality.movements[0].name == "Fondos en anillas kipping")
+        #expect(quality.movements[0].exerciseId != nil)
+        #expect(quality.movements[0].reps == 10)
+        #expect(quality.movements[0].notes?.contains("5-10") == true)
+        #expect(quality.movements[1].name == "Pistol squat")
+        #expect(quality.movements[1].notes?.contains("Alternando") == true)
+        #expect(quality.movements[1].notes?.contains("6-10") == true)
+        #expect(quality.movements[2].restSeconds == 60)
+
+        let amrap = result.blocks[2]
+        #expect(amrap.wodFormat == .amrap)
+        #expect(amrap.timeCapMinutes == 8)
+        #expect(amrap.movements.count == 2)
+        #expect(amrap.movements[0].name == "Cargada y envión con mancuerna")
+        #expect(amrap.movements[0].exerciseId != nil)
+        #expect(amrap.movements[0].weightMaleKg == 22.5)
+        #expect(amrap.movements[0].weightFemaleKg == 15)
+        #expect(amrap.movements[0].notes?.contains("Alternando") == true)
+        #expect(amrap.movements[1].name == "Burpee box jump over")
+        #expect(amrap.movements[1].exerciseId != nil)
+        #expect(amrap.movements[1].reps == 10)
+        #expect(amrap.movements[1].name != "Box jump over")
+    }
+
+    @Test func qualityNotesDoNotSpawnGhostExercisesAndOCRBBJZeroIsCorrected() {
+        let board = """
+        EMOM 9'
+        @FOR QUALITY
+        5 KIPPING RING DIPS
+        10BBJ0
+
+        3 ROUNDS FOR QUALITY
+        6 RING DIPS
+        """
+        let result = BoardScanLiteParser.parse(ocrText: board, catalog: Catalog.seed())
+        #expect(result.blocks.count == 2)
+        #expect(result.blocks[0].movements.count == 2)
+        #expect(result.blocks[0].movements[0].name == "Fondos en anillas kipping")
+        #expect(result.blocks[0].movements[1].name == "Burpee box jump over")
+        #expect(result.blocks[0].movements[1].reps == 10)
+        #expect(result.blocks[1].wodFormat == .roundsForQuality)
+        #expect(result.blocks[1].rounds == 3)
+        #expect(result.blocks[1].movements.count == 1)
+        #expect(result.blocks[1].movements[0].name == "Fondos en anillas")
+        #expect(result.blocks[1].movements[0].exerciseId != nil)
+    }
+
 }
