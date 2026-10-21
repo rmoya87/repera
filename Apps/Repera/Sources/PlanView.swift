@@ -1499,6 +1499,31 @@ private struct InlineWODMovementSets: View {
         return Exercise.loggingStyle(name: catalogName, equipment: movement.notes)
     }
 
+    private var cardioUnitPicker: some View {
+        Picker("Unidad de cardio", selection: Binding(
+            get: { movement.prescribedQuantityUnit },
+            set: { unit in
+                let amount = draftSets.first?.targetReps ?? 10
+                switch unit {
+                case .calories:
+                    movement.calories = amount
+                    movement.distanceMeters = nil
+                case .meters:
+                    movement.distanceMeters = amount
+                    movement.calories = nil
+                case .reps:
+                    movement.calories = nil
+                    movement.distanceMeters = nil
+                }
+                writeSetsToMovement()
+            }
+        )) {
+            Text("Calorías").tag(ExerciseQuantityUnit.calories)
+            Text("Metros").tag(ExerciseQuantityUnit.meters)
+        }
+        .pickerStyle(.segmented)
+    }
+
     private var resolvedLoadField: ExerciseLoadField {
         let catalogName = CrossFitGlossary.resolveCatalogName(movement.name, notes: movement.notes)
         if let match = store.state.exercises.first(where: {
@@ -1511,6 +1536,7 @@ private struct InlineWODMovementSets: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if loggingStyle == .machineWork { cardioUnitPicker }
             OGSetEntryHeader(
                 firstTitle: loggingStyle == .loadAndReps ? (resolvedLoadField == .deficitCm ? "Déficit" : "KG") : (loggingStyle == .machineWork ? movement.prescribedQuantityUnit.shortLabel : "Reps"),
                 secondTitle: loggingStyle == .loadAndReps ? "Reps" : nil,
@@ -1682,6 +1708,31 @@ struct WODMovementEditor: View {
         return Exercise.loggingStyle(name: catalogName, equipment: movement.notes)
     }
 
+    private var cardioUnitPicker: some View {
+        Picker("Unidad de cardio", selection: Binding(
+            get: { movement.prescribedQuantityUnit },
+            set: { unit in
+                let amount = draftSets.first?.targetReps ?? 10
+                switch unit {
+                case .calories:
+                    movement.calories = amount
+                    movement.distanceMeters = nil
+                case .meters:
+                    movement.distanceMeters = amount
+                    movement.calories = nil
+                case .reps:
+                    movement.calories = nil
+                    movement.distanceMeters = nil
+                }
+                writeSetsToMovement()
+            }
+        )) {
+            Text("Calorías").tag(ExerciseQuantityUnit.calories)
+            Text("Metros").tag(ExerciseQuantityUnit.meters)
+        }
+        .pickerStyle(.segmented)
+    }
+
     private var resolvedLoadField: ExerciseLoadField {
         let catalogName = CrossFitGlossary.resolveCatalogName(movement.name, notes: movement.notes)
         if let match = store.state.exercises.first(where: {
@@ -1704,9 +1755,11 @@ struct WODMovementEditor: View {
                 TextField("Nombre", text: $movement.name)
 
                 Section {
+                    if loggingStyle == .machineWork { cardioUnitPicker }
                     OGSetEntryHeader(
-                        firstTitle: loggingStyle == .loadAndReps ? (resolvedLoadField == .deficitCm ? "Déficit" : "KG") : "Reps",
-                        secondTitle: loggingStyle == .loadAndReps ? "Reps" : nil
+                        firstTitle: loggingStyle == .loadAndReps ? (resolvedLoadField == .deficitCm ? "Déficit" : "KG") : (loggingStyle == .machineWork ? movement.prescribedQuantityUnit.shortLabel : (loggingStyle == .repsAndTime ? "Veces" : "Reps")),
+                        secondTitle: loggingStyle == .loadAndReps ? "Reps" : nil,
+                        showsRIR: loggingStyle.usesRIR
                     )
                     ForEach(Array(draftSets.enumerated()), id: \.element.id) { index, _ in
                         wodSetRow(index: index)
@@ -1745,16 +1798,7 @@ struct WODMovementEditor: View {
                     }
                 }
 
-                if loggingStyle == .machineWork {
-                    Stepper("Calorías: \(movement.calories ?? 0)", value: Binding(
-                        get: { movement.calories ?? 0 },
-                        set: { movement.calories = $0 == 0 ? nil : $0 }
-                    ), in: 0...500, step: 1)
-                    Stepper("Metros: \(movement.distanceMeters ?? 0)", value: Binding(
-                        get: { movement.distanceMeters ?? 0 },
-                        set: { movement.distanceMeters = $0 == 0 ? nil : $0 }
-                    ), in: 0...20_000, step: 50)
-                } else {
+                if loggingStyle != .machineWork {
                     Stepper("Metros: \(movement.distanceMeters ?? 0)", value: Binding(
                         get: { movement.distanceMeters ?? 0 },
                         set: { movement.distanceMeters = $0 == 0 ? nil : $0 }
