@@ -23,9 +23,10 @@ class AICoachContractTests(unittest.TestCase):
     def test_native_screens_and_sync_are_wired(self):
         app=source("Apps/Repera/Sources/ReperaApp.swift")
         settings=source("Apps/Repera/Sources/SettingsView.swift")
+        self.assertNotIn("AITrainingProfileView()", settings)
         for feature in ("AITrainingContextStore.shared.syncCalendar", "AITrainingContextStore.shared.clearSession"):
             self.assertIn(feature,app)
-        for feature in ("AITrainingProfileView()", "AITrainingProgramsView()",
+        for feature in ("AITrainingProgramsView()",
                         "AITrainingContextStore.shared.syncCalendar"):
             self.assertIn(feature,settings)
 
