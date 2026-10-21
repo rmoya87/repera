@@ -4,7 +4,6 @@ import UIKit
 
 enum WorkoutFlowRoute: Hashable {
     case sessionPreview(routineId: UUID?)
-    case logFinalResults(routineId: UUID)
     case editWorkout(routineId: UUID)
     case workout
 }
@@ -151,22 +150,6 @@ struct RootTabView: View {
                 }
             )
             .navigationBarBackButtonHidden(true)
-
-        case .logFinalResults(let routineId):
-            // Nested route: keep system back gesture into the session preview.
-            if let routine = resolvePreviewRoutine(id: routineId) {
-                WorkoutManageView(
-                    routine: routine,
-                    initialMode: .results,
-                    onEditSaved: { if !flowPath.isEmpty { flowPath.removeLast() } },
-                    onResultsSaved: { flowPath = [.workout] }
-                )
-            } else {
-                Color.clear
-                    .onAppear {
-                        if !flowPath.isEmpty { flowPath.removeLast() }
-                    }
-            }
 
         case .editWorkout(let routineId):
             if let routine = resolvePreviewRoutine(id: routineId) {
