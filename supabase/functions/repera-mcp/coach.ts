@@ -114,6 +114,7 @@ function scoreSessions(rows: Session[]) {
 
 export function registerCoachTools(
   server: McpServer, db: SupabaseClient, ownerId: string, tokenId: string,
+  canWrite = true,
 ) {
   async function history(days: number): Promise<Session[]> {
     const after = new Date(Date.now()-days*86400000).toISOString();
@@ -159,6 +160,7 @@ export function registerCoachTools(
       caveat:"Observed frequency is not available training time. Observed equipment is not a declaration of what is available. Never infer injury status, preferences, commitment or physiology from workouts.",
     });
   });
+  if (canWrite) {
   server.registerTool("set_training_preferences", {
     description: "Save sporting goals and available gear explicitly confirmed in conversation by the athlete. Ask first; never save guessed availability, health details or injuries.",
     inputSchema: z.strictObject({
@@ -191,6 +193,7 @@ export function registerCoachTools(
     if(error) throw new Error("No se pudieron guardar las preferencias confirmadas");
     return result({saved:data,source:"explicit_chat_confirmation"});
   });
+  }
   server.registerTool("get_training_calendar", {
     description: "Read a current local-first snapshot of personal scheduled and recurring workouts, plus AI proposals; check freshness and never overwrite occupied days.",
     inputSchema: z.strictObject({days:z.number().int().min(7).max(180).default(90)}),
@@ -350,6 +353,7 @@ export function registerCoachTools(
     const nextCursor=hasMore?btoa(String(offset+limit)).replace(/=+$/,""):null;
     return result({items:rows.slice(0,limit),hasMore,nextCursor});
   });
+  if (canWrite) {
   server.registerTool("create_training_program",{
     description:"Persist a 1–52 week program with validated phases. Does not overwrite calendar or schedule sessions; use create_training_plan to queue next 14 workouts explicitly.",
     inputSchema:z.strictObject({title:z.string().trim().min(2).max(120),
@@ -370,6 +374,7 @@ export function registerCoachTools(
     if(error) throw new Error("No se pudo guardar el programa");
     return result({program:data,delivery:"Macroprograma guardado. Para recibir sesiones concretas en Repera, envía un máximo de 14 cada vez con create_training_plan y programId."});
   });
+  }
   server.registerTool("review_training_program",{
     description:"Review completion, gaps and weekly trends for a program, without inferring recovery, readiness or success from unlogged sessions.",
     inputSchema:z.strictObject({programId:z.string().uuid()}),annotations:{readOnlyHint:true},
@@ -394,6 +399,7 @@ export function registerCoachTools(
       adherence_proxy:plannedDays.size?Math.round(matching/plannedDays.size*100):null,
       limitations:"Same-day completion is a proxy, not proven linkage. Workouts outside Repera or unlogged are unknown. Review goals before adapting future sessions."});
   });
+  if (canWrite) {
   server.registerTool("adjust_training_program",{
     description:"Explicit user-requested revision of a stored program's future phases; optimistic revision check. Does not modify completed workouts or already queued daily sessions.",
     inputSchema:z.strictObject({programId:z.string().uuid(),expectedRevision:z.number().int().min(1),
@@ -411,5 +417,6 @@ export function registerCoachTools(
       .select("id,revision,status,phases").maybeSingle();
     if(error||!data)throw Error("Revisión obsoleta o fallo de actualización: recarga el programa antes de reintentar");
     return result({program:data,reason,notice:"No se han reescrito sesiones existentes; crea nuevas propuestas fechadas explícitamente."});
-  });
+  });  }
+
 }
