@@ -1,5 +1,17 @@
 # Repera IA — tokens personales, planificación y MCP
 
+## Recepción automática en primer plano (21/10/2026)
+
+- Ajustes → **Acceso IA** muestra creación y revocación de tokens sin tarjeta de inicio de sesión Apple, sin textos auxiliares debajo de las tarjetas ni botón manual de actualización de planes. El login y recuperación de sesión corresponden al arranque habitual de Repera.
+- **Supabase Realtime**: la migración `20261021171000_ai_training_plans_realtime_publication.sql` publica únicamente `public.ai_training_plans` bajo `supabase_realtime`; la tabla aplica RLS de SELECT para `owner_id = auth.uid()` y no expone tokens ni entrenamientos históricos.
+- `AITrainingInboxStore.startRealtime(store:)` escucha inserciones del propietario autenticado con `InsertAction` y `filter: .eq("owner_id", value: uid)`, y relee desde la base de datos tras establecer la suscripción para evitar perder eventos durante la conexión. El evento no incluye datos de otros usuarios.
+- Al recibir un entrenamiento, se importa mediante el flujo actual `saveRoutine` (sin reemplazar sesiones de ese día) y Repera muestra un aviso flotante breve. Diario e Inicio observan el estado del calendario.
+- La suscripción se detiene al dejar el primer plano o cerrar sesión y se vuelve a establecer cuando regresa la app; `Sincronizar ahora` en **Cuenta** sigue sincronizando explícitamente iCloud, entrenamientos y planes IA pendientes.
+- **Límite**: una app iOS suspendida o terminada no recibe eventos Realtime en segundo plano; al volver se realiza `sync` y backfill. Para alertas en pantalla de bloqueo con la app cerrada se necesita APNs/Push de servidor (fuera de esta migración); no anunciar notificaciones push hasta implementarlas.
+- Validación SQL transaccional: propietario ve su plan de prueba; otro usuario no lo ve; rollback conserva datos. Pendiente prueba de iPhone físico y entrega desde un cliente MCP.
+
+
+
 **Rama**: `feat/repera-mcp-training-data` — **Proyecto Supabase**: `uvzgujlrqohreoucirms` — **Fecha**: 21/10/2026.
 
 ## Estado aplicado
