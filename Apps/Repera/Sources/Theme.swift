@@ -1255,7 +1255,7 @@ private struct OGSetNumericCell: View {
         OGNumericTextField(
             text: $draft,
             allowsDecimal: allowsDecimal,
-            allowsTimeSeparator: allowsDecimal && display.contains(":"),
+            allowsTimeSeparator: display.contains(":"),
             textAlignment: .center,
             fontSize: 17,
             autoFocus: false,
@@ -1288,7 +1288,9 @@ private struct OGSetNumericCell: View {
         }
         .onChange(of: draft) { _, value in
             let valid = value.filter {
-                $0.isNumber || (allowsDecimal && ($0 == "." || $0 == "," || $0 == ":"))
+                $0.isNumber
+                    || (allowsDecimal && ($0 == "." || $0 == ","))
+                    || (display.contains(":") && $0 == ":")
             }
             if valid != value { draft = valid }
         }
