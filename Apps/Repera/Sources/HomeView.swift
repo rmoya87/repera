@@ -444,7 +444,7 @@ struct HomeView: View {
                     metricTile(
                         title: "Nota",
                         value: dayScore.map { "\($0)/10" } ?? "—",
-                        icon: dayScore.map { SessionReview.scoreSymbolName(for: $0) } ?? "star.circle",
+                        icon: "star.fill",
                         tint: OG.accent
                     )
                 }
