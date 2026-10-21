@@ -52,7 +52,8 @@ struct AITrainingProgramsView: View {
                         Text(program.primaryGoal).font(.subheadline)
                         Label(statusLabel(program.status), systemImage: "flag")
                             .font(.caption).foregroundStyle(.secondary)
-                        ForEach(Array(program.phases.enumerated()), id: \.offset) { _, phase in
+                        ForEach(program.phases.indices, id: \.self) { ix in
+                            let phase = program.phases[ix]
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("\(phase.title) · \(phase.weeks) sem.").font(.subheadline.bold())
                                 Text(phase.focus).font(.footnote)
