@@ -773,8 +773,156 @@ struct OGRepeatStepper: View {
     }
 }
 
-/// Teclado de números con accesorio nativo Siguiente / ✓.
-/// A diferencia de numberPad SwiftUI, siempre permite confirmar el último campo.
+/// Teclado 4×4 propio de Repera, fiel a la retícula de referencia.
+/// No es numberPad con accessory: sustituye el teclado del sistema mediante inputView.
+private final class OGNumberKeyboardView: UIInputView {
+    enum Key: Sendable {
+        case digit(String)
+        case decimal
+        case step(Int)
+        case backspace
+        case hide
+        case submit
+    }
+
+    var onKey: ((Key) -> Void)?
+    private var decimalButton: UIButton?
+    private var submitButton: UIButton?
+    private var usesTimeSeparator = false
+
+    override var intrinsicContentSize: CGSize {
+        CGSize(width: UIView.noIntrinsicMetric, height: 326)
+    }
+
+    init() {
+        super.init(frame: CGRect(x: 0, y: 0, width: 0, height: 326), inputViewStyle: .keyboard)
+        backgroundColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0.18, green: 0.19, blue: 0.21, alpha: 1)
+                : UIColor(red: 0.925, green: 0.934, blue: 0.948, alpha: 1)
+        }
+        buildKeys()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("Use init()")
+    }
+
+    func configure(allowsDecimal: Bool, allowsTime: Bool, lastField: Bool) {
+        usesTimeSeparator = allowsTime
+        decimalButton?.setTitle(allowsTime ? ":" : ".", for: .normal)
+        decimalButton?.isEnabled = allowsDecimal || allowsTime
+        decimalButton?.alpha = allowsDecimal || allowsTime ? 1 : 0.45
+        submitButton?.backgroundColor = lastField ? .systemGreen : .systemBlue
+        submitButton?.setImage(
+            UIImage(systemName: lastField ? "checkmark" : "arrow.right",
+                    withConfiguration: UIImage.SymbolConfiguration(pointSize: 27, weight: .medium)),
+            for: .normal
+        )
+        submitButton?.accessibilityLabel = lastField ? "Confirmar" : "Siguiente campo"
+    }
+
+    private func buildKeys() {
+        let rows: [[Int]] = [
+            [1, 2, 3, 10],
+            [4, 5, 6, 11],
+            [7, 8, 9, 12],
+            [13, 0, 14, 15]
+        ]
+        let vertical = UIStackView()
+        vertical.axis = .vertical
+        vertical.distribution = .fillEqually
+        vertical.spacing = 8
+        vertical.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(vertical)
+        NSLayoutConstraint.activate([
+            vertical.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
+            vertical.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
+            vertical.topAnchor.constraint(equalTo: topAnchor, constant: 9),
+            vertical.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -13)
+        ])
+
+        for tags in rows {
+            let horizontal = UIStackView()
+            horizontal.axis = .horizontal
+            horizontal.distribution = .fillEqually
+            horizontal.spacing = 8
+            for tag in tags {
+                let button = makeButton(tag: tag)
+                horizontal.addArrangedSubview(button)
+            }
+            vertical.addArrangedSubview(horizontal)
+        }
+    }
+
+    private func makeButton(tag: Int) -> UIButton {
+        let button = UIButton(type: .system)
+        button.tag = tag
+        button.layer.cornerRadius = 14
+        button.layer.cornerCurve = .continuous
+        button.clipsToBounds = true
+        button.titleLabel?.font = .systemFont(ofSize: 30, weight: .regular)
+        button.setTitleColor(UIColor { trait in
+            trait.userInterfaceStyle == .dark ? .white : UIColor(red: 0.02, green: 0.07, blue: 0.16, alpha: 1)
+        }, for: .normal)
+
+        if tag <= 9 {
+            button.setTitle(String(tag), for: .normal)
+            button.backgroundColor = UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.26, alpha: 1) : .white }
+            button.accessibilityLabel = String(tag)
+        } else {
+            button.backgroundColor = UIColor { $0.userInterfaceStyle == .dark
+                ? UIColor(white: 0.33, alpha: 1)
+                : UIColor(red: 0.87, green: 0.88, blue: 0.90, alpha: 1)
+            }
+            switch tag {
+            case 10:
+                button.setImage(UIImage(systemName: "keyboard.chevron.compact.down"), for: .normal)
+                button.accessibilityLabel = "Ocultar teclado"
+            case 11:
+                button.setImage(UIImage(systemName: "plus"), for: .normal)
+                button.accessibilityLabel = "Aumentar valor"
+            case 12:
+                button.setImage(UIImage(systemName: "minus"), for: .normal)
+                button.accessibilityLabel = "Reducir valor"
+            case 13:
+                button.setTitle(".", for: .normal)
+                button.backgroundColor = .clear
+                decimalButton = button
+                button.accessibilityLabel = "Decimal"
+            case 14:
+                button.setImage(UIImage(systemName: "delete.left"), for: .normal)
+                button.backgroundColor = .clear
+                button.accessibilityLabel = "Borrar"
+            case 15:
+                button.backgroundColor = .systemGreen
+                button.tintColor = .white
+                submitButton = button
+            default: break
+            }
+        }
+        button.addTarget(self, action: #selector(keyPressed(_:)), for: .touchUpInside)
+        return button
+    }
+
+    @objc private func keyPressed(_ sender: UIButton) {
+        let key: Key
+        switch sender.tag {
+        case 0...9: key = .digit(String(sender.tag))
+        case 10: key = .hide
+        case 11: key = .step(1)
+        case 12: key = .step(-1)
+        case 13: key = .decimal
+        case 14: key = .backspace
+        case 15: key = .submit
+        default: return
+        }
+        onKey?(key)
+    }
+}
+
+/// Campo UIKit con inputView propio (cuatro columnas de teclas grandes).
+/// El mismo componente se usa en series, formato, score y alta de movimientos.
 struct OGNumericTextField: UIViewRepresentable {
     @Binding var text: String
     var allowsDecimal: Bool = true
@@ -803,37 +951,25 @@ struct OGNumericTextField: UIViewRepresentable {
     func makeUIView(context: Context) -> UITextField {
         let field = UITextField()
         field.delegate = context.coordinator
-        context.coordinator.field = field
-        configure(field, coordinator: context.coordinator)
         field.text = text
-        let toolbar = UIToolbar()
-        toolbar.sizeToFit()
-        toolbar.barTintColor = UIColor.systemBackground
-        var buttons: [UIBarButtonItem] = []
-        if allowsTimeSeparator {
-            let colon = UIBarButtonItem(
-                title: ":",
-                style: .plain,
-                target: context.coordinator,
-                action: #selector(Coordinator.insertColon)
-            )
-            buttons.append(colon)
+        context.coordinator.field = field
+        let keypad = OGNumberKeyboardView()
+        keypad.onKey = { [weak coordinator = context.coordinator] key in
+            coordinator?.handleKey(key)
         }
-        buttons.append(UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil))
-        let submit = UIBarButtonItem(
-            title: submitTitle,
-            style: .done,
-            target: context.coordinator,
-            action: #selector(Coordinator.commitFromKeyboard)
+        context.coordinator.keypad = keypad
+        field.inputView = keypad
+        applyChrome(to: field)
+        keypad.configure(
+            allowsDecimal: allowsDecimal,
+            allowsTime: allowsTimeSeparator,
+            lastField: submitTitle != "Siguiente"
         )
-        submit.tintColor = UIColor(OG.accent)
-        buttons.append(submit)
-        toolbar.items = buttons
-        field.inputAccessoryView = toolbar
-        context.coordinator.submitButton = submit
-
         if autoFocus && isFocused == nil {
-            DispatchQueue.main.async { field.becomeFirstResponder(); field.selectAll(nil) }
+            DispatchQueue.main.async {
+                field.becomeFirstResponder()
+                field.selectAll(nil)
+            }
         }
         return field
     }
@@ -846,11 +982,13 @@ struct OGNumericTextField: UIViewRepresentable {
         c.onFocused = onFocused
         c.onFocusLost = onFocusLost
         c.onCommit = onCommit
-        c.submitButton?.title = submitTitle
-        configure(field, coordinator: c)
-        if field.text != text {
-            field.text = text
-        }
+        c.keypad?.configure(
+            allowsDecimal: allowsDecimal,
+            allowsTime: allowsTimeSeparator,
+            lastField: submitTitle != "Siguiente"
+        )
+        applyChrome(to: field)
+        if field.text != text { field.text = text }
         if let isFocused {
             c.desiredFocus = isFocused
             if isFocused && !field.isFirstResponder {
@@ -868,8 +1006,9 @@ struct OGNumericTextField: UIViewRepresentable {
         }
     }
 
-    private func configure(_ field: UITextField, coordinator: Coordinator) {
-        field.keyboardType = allowsTimeSeparator ? .numberPad : (allowsDecimal ? .decimalPad : .numberPad)
+    private func applyChrome(to field: UITextField) {
+        // inputView personalizada tiene prioridad sobre keyboardType.
+        field.keyboardType = .numberPad
         field.keyboardAppearance = .default
         field.textAlignment = textAlignment
         field.font = .monospacedDigitSystemFont(ofSize: fontSize, weight: .semibold)
@@ -881,7 +1020,7 @@ struct OGNumericTextField: UIViewRepresentable {
         field.smartDashesType = .no
         field.borderStyle = .none
         field.backgroundColor = .clear
-        field.returnKeyType = .done
+        field.inputAccessoryView = nil
     }
 
     final class Coordinator: NSObject, UITextFieldDelegate {
@@ -893,7 +1032,7 @@ struct OGNumericTextField: UIViewRepresentable {
         var onCommit: () -> Void
         var desiredFocus: Bool?
         weak var field: UITextField?
-        weak var submitButton: UIBarButtonItem?
+        var keypad: OGNumberKeyboardView?
 
         init(
             text: Binding<String>,
@@ -926,21 +1065,48 @@ struct OGNumericTextField: UIViewRepresentable {
         }
 
         func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-            commitFromKeyboard()
+            commitFromKeypad()
             return false
         }
 
-        @objc func commitFromKeyboard() {
+        func handleKey(_ key: OGNumberKeyboardView.Key) {
+            guard let field else { return }
+            switch key {
+            case .digit(let value):
+                field.insertText(value)
+            case .decimal:
+                field.insertText(allowsTimeSeparator ? ":" : ".")
+            case .backspace:
+                field.deleteBackward()
+            case .hide:
+                field.resignFirstResponder()
+                return
+            case .step(let direction):
+                if allowsTimeSeparator {
+                    let components = (field.text ?? "").split(separator: ":").compactMap { Int($0) }
+                    let sec = components.count == 2
+                        ? (components[0] * 60 + components[1])
+                        : (components.first ?? 0)
+                    let next = max(0, sec + direction)
+                    field.text = String(format: "%d:%02d", next / 60, next % 60)
+                } else {
+                    let value = Double((field.text ?? "").replacingOccurrences(of: ",", with: ".")) ?? 0
+                    let next = max(0, value + Double(direction))
+                    field.text = allowsDecimal ? String(format: "%g", next) : String(Int(next))
+                }
+                field.sendActions(for: .editingChanged)
+            case .submit:
+                commitFromKeypad()
+                return
+            }
+            text.wrappedValue = field.text ?? ""
+        }
+
+        private func commitFromKeypad() {
             guard let field else { return }
             text.wrappedValue = field.text ?? ""
             onCommit()
-            // Para campos autónomos; en una fila con Siguiente, el foco
-            // pasa al próximo campo desde la propia acción onCommit.
             if desiredFocus == nil { field.resignFirstResponder() }
-        }
-
-        @objc func insertColon() {
-            field?.insertText(":")
         }
 
         func textField(
@@ -957,10 +1123,12 @@ struct OGNumericTextField: UIViewRepresentable {
             let current = textField.text ?? ""
             guard let swiftRange = Range(range, in: current) else { return false }
             let next = current.replacingCharacters(in: swiftRange, with: string)
-            if !allowsTimeSeparator && allowsDecimal {
-                if next.filter({ $0 == "." || $0 == "," }).count > 1 { return false }
+            if !allowsTimeSeparator && allowsDecimal && next.filter({ $0 == "." || $0 == "," }).count > 1 {
+                return false
             }
-            if allowsTimeSeparator && next.filter({ $0 == ":" }).count > 1 { return false }
+            if allowsTimeSeparator && next.filter({ $0 == ":" }).count > 1 {
+                return false
+            }
             return true
         }
     }
