@@ -7,27 +7,29 @@ struct SessionReviewSheet: View {
     var onDismiss: () -> Void
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    RecoveryTrainingTip()
-                    SessionReviewCard(review: review)
-                }
-                    .padding(.horizontal, OG.pad)
-                    .padding(.bottom, 28)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                Text("Resultado")
+                    .font(.system(size: 23, weight: .bold))
+                    .foregroundStyle(OG.label)
+                Spacer()
+                Button("Listo", action: onDismiss)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(OG.accent)
             }
-            .background(OG.bg)
-            .navigationTitle("Resultado")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Listo", action: onDismiss)
-                        .fontWeight(.semibold)
-                }
-            }
+
+            RecoveryTrainingTip()
+            SessionReviewCard(review: review)
         }
-        .ogSheetChrome(detents: [.medium, .large])
+        .padding(.horizontal, OG.pad)
+        .padding(.top, 28)
+        .padding(.bottom, 18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(OG.bg)
+        .ogFittedHeight()
+        .ogFittedSheet()
     }
+
 }
 
 /// Card compacta: nota + nivel (subtítulo) + texto; tips al desplegar.
