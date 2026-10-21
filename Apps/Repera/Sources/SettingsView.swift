@@ -454,6 +454,11 @@ struct SettingsView: View {
 
             Section("Entrenamiento") {
                 NavigationLink {
+                    AITrainingProfileView()
+                } label: {
+                    Label("Perfil deportivo IA", systemImage: "figure.strengthtraining.traditional")
+                }
+                NavigationLink {
                     HistoryView()
                 } label: {
                     Label("Historial", systemImage: "clock")
@@ -731,7 +736,8 @@ struct SettingsView: View {
         await businessData.refresh()
         let workoutsUploaded = await workoutSync.sync(store: store)
         let plansSynced = await AITrainingInboxStore.shared.sync(store: store)
-        guard workoutsUploaded, plansSynced,
+        let calendarSynced = await AITrainingContextStore.shared.syncCalendar(store: store)
+        guard workoutsUploaded, plansSynced, calendarSynced,
               businessAuth.profileMigrationErrorMessage == nil else {
             syncFeedback = "Error de sincronización: \(workoutSync.lastError ?? AITrainingInboxStore.shared.lastError ?? "operación incompleta")."
             return
