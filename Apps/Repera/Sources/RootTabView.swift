@@ -138,12 +138,6 @@ struct RootTabView: View {
                 onClose: { flowPath = [] },
                 onStart: openWorkout,
                 onContinue: openWorkout,
-                onLogResults: { routine in
-                    // Apuntar comparte exactamente la misma sesión y tabla que ▶ Comenzar.
-                    previewRoutine = routine
-                    store.startSession(from: routine)
-                    openWorkout()
-                },
                 onEdit: { routine in
                     previewRoutine = routine
                     flowPath.append(.editWorkout(routineId: routine.id))
@@ -153,11 +147,12 @@ struct RootTabView: View {
 
         case .editWorkout(let routineId):
             if let routine = resolvePreviewRoutine(id: routineId) {
-                WorkoutManageView(
+                DayEditorView(
                     routine: routine,
-                    initialMode: .edit,
-                    onEditSaved: { if !flowPath.isEmpty { flowPath.removeLast() } },
-                    onResultsSaved: { flowPath = [] }
+                    mode: routine.isOneOff ? .oneOff(isNew: false) : .plan(isNew: false),
+                    onClose: { if !flowPath.isEmpty { flowPath.removeLast() } },
+                    embedsNavigationStack: false,
+                    usesPageCloseHeader: true
                 )
             } else {
                 Color.clear
@@ -206,73 +201,6 @@ struct RootTabView: View {
 }
 
 
-enum WorkoutManageMode: String, CaseIterable, Identifiable {
-    case edit
-    case results
-
-    var id: String { rawValue }
-    var title: String { self == .edit ? "Editar" : "Apuntar" }
-}
-
-/// Ambas acciones usan una misma pantalla, sin navegar entre dos flujos diferentes.
-private struct WorkoutManageView: View {
-    var routine: Routine
-    var initialMode: WorkoutManageMode
-    var onEditSaved: () -> Void
-    var onResultsSaved: () -> Void
-
-    @State private var mode: WorkoutManageMode
-    @Environment(ReperaStore.self) private var store
-
-    init(
-        routine: Routine,
-        initialMode: WorkoutManageMode,
-        onEditSaved: @escaping () -> Void,
-        onResultsSaved: @escaping () -> Void
-    ) {
-        self.routine = routine
-        self.initialMode = initialMode
-        self.onEditSaved = onEditSaved
-        self.onResultsSaved = onResultsSaved
-        _mode = State(initialValue: initialMode)
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Picker("Gestión de entreno", selection: $mode) {
-                ForEach(WorkoutManageMode.allCases) { tab in
-                    Text(tab.title).tag(tab)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, OG.pad)
-            .padding(.top, 8)
-            .padding(.bottom, 4)
-
-            Group {
-                switch mode {
-                case .edit:
-                    DayEditorView(
-                        routine: routine,
-                        mode: routine.isOneOff ? .oneOff(isNew: false) : .plan(isNew: false),
-                        onClose: onEditSaved,
-                        embedsNavigationStack: false,
-                        usesPageCloseHeader: true
-                    )
-                case .results:
-                    ProgressView("Preparando registro…")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
-        }
-        .background(OG.bg)
-        .onChange(of: mode) { _, newMode in
-            guard newMode == .results else { return }
-            store.startSession(from: routine)
-            onResultsSaved()
-        }
-    }
-}
 
 private struct ContinueAccessoryModifier: ViewModifier {
     var model: ContinueAccessoryModel?
