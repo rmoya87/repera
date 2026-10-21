@@ -28,12 +28,7 @@ struct SettingsView: View {
     @State private var isSyncingEverything = false
     @State private var syncIconSpinning = false
     @State private var syncFeedback: String?
-    /// Última sync completa (iCloud + perfil + entrenamientos).
-    @State private var lastFullSyncAt: Date? = {
-        let t = UserDefaults.standard.double(forKey: "repera.settings.lastFullSyncAt")
-        return t > 0 ? Date(timeIntervalSince1970: t) : nil
-    }()
-
+ 
     var body: some View {
         @Bindable var store = store
         Form {
@@ -133,37 +128,18 @@ struct SettingsView: View {
                                     : .default,
                                 value: syncIconSpinning
                             )
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(isSyncingEverything ? "Sincronizando…" : "Sincronizar ahora")
-                                .font(.body)
-                            if let when = lastFullSyncAt {
-                                Text("Última vez \(when.formatted(date: .abbreviated, time: .shortened))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+                        Text(isSyncingEverything ? "Sincronizando…" : "Sincronizar ahora")
+                            .font(.body)
                         Spacer(minLength: 0)
                     }
                     .foregroundStyle(OG.label)
                 }
                 .disabled(isSyncingEverything)
 
-                if workoutSync.lastSyncAt != nil {
-                    let localCompleted = store.state.workouts.filter { $0.finishedAt != nil }.count
-                    Text("\(localCompleted) entrenamientos finalizados en el iPhone · \(workoutSync.mirroredCount) en Supabase")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                if let problem = workoutSync.lastError {
-                    Text(problem)
-                        .font(.footnote)
-                        .foregroundStyle(OG.red)
-                }
                 if let syncFeedback {
                     Text(syncFeedback)
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(syncFeedback == "Sincronización completada." ? OG.accent : OG.red)
                 }
 
                 Button("Cerrar sesión", role: .destructive) {
@@ -213,19 +189,6 @@ struct SettingsView: View {
                 Text("Centro y entrenador")
             }
 
-            Section {
-                NavigationLink {
-                    MCPConnectionsView()
-                } label: {
-                    Label("Asistentes de IA conectados", systemImage: "brain.head.profile")
-                        .foregroundStyle(OG.label)
-                }
-                Text("Consulta y revoca qué asistentes pueden leer tus entrenamientos. Los datos de Apple Salud y GPS no se comparten.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            } header: {
-                Text("Privacidad e IA")
-            }
 
             Section {
                 if subscriptions.businessSponsoredAccess {
@@ -604,6 +567,12 @@ struct SettingsView: View {
             }
 
             Section("Datos") {
+                NavigationLink {
+                    AIAccessView()
+                } label: {
+                    Label("Acceso IA", systemImage: "brain.head.profile")
+                        .foregroundStyle(OG.label)
+                }
                 LabeledContent("Entrenamientos", value: "\(store.state.workouts.count)")
                 LabeledContent("Ejercicios", value: "\(store.state.exercises.count)")
                 LabeledContent("Rutinas", value: "\(store.state.routines.count)")
@@ -747,8 +716,12 @@ struct SettingsView: View {
 
         syncFeedback = nil
         await store.refreshFromiCloud()
+        guard store.syncPhase == .ready else {
+            syncFeedback = "Error de sincronización: no se ha confirmado iCloud."
+            return
+        }
         guard businessAuth.isConnected else {
-            syncFeedback = "iCloud comprobado. Supabase no está conectado; el historial deportivo no se ha subido."
+            syncFeedback = "Error de sincronización: Supabase no está conectado."
             return
         }
         await businessAuth.syncPublicProfile(
@@ -757,15 +730,14 @@ struct SettingsView: View {
         )
         await businessData.refresh()
         let workoutsUploaded = await workoutSync.sync(store: store)
-        guard workoutsUploaded, store.syncPhase == .ready,
+        let plansSynced = await AITrainingInboxStore.shared.sync(store: store)
+        guard workoutsUploaded, plansSynced,
               businessAuth.profileMigrationErrorMessage == nil else {
-            syncFeedback = "Sincronización incompleta. Conservamos todos los datos locales; consulta el error y reintenta."
+            syncFeedback = "Error de sincronización: \(workoutSync.lastError ?? AITrainingInboxStore.shared.lastError ?? "operación incompleta")."
             return
         }
-        let now = Date()
-        lastFullSyncAt = now
-        syncFeedback = "\(workoutSync.mirroredCount) entrenamientos en Supabase; iCloud y perfil sincronizados."
-        UserDefaults.standard.set(now.timeIntervalSince1970, forKey: "repera.settings.lastFullSyncAt")
+        syncFeedback = "Sincronización completada."
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "repera.settings.lastFullSyncAt")
     }
 
     private func permissionStatusRow(
