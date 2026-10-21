@@ -2,6 +2,30 @@ import Testing
 @testable import ReperaDomain
 
 struct BoardImportParserTests {
+    @Test func fullParserForTimeTCIsGlobalLimitNot14Rounds() {
+        let board = """
+        FOR TIME (TC 14')
+        400M RUN
+        20/16 CAL*
+        400M RUN
+        20/16 CAL*
+        400M RUN
+        (1' REST BTWN**)
+        """
+        let blocks = BoardImportParser.parseBlocks(ocrText: board, catalog: Catalog.seed())
+        #expect(blocks.count == 1)
+        let block = blocks[0]
+        #expect(block.wodFormat == .forTime)
+        #expect(block.rounds == nil)
+        #expect(block.timeCapMinutes == 14)
+        #expect(block.movements.filter { !$0.isRest }.count == 5)
+        let bikes = block.movements.filter { $0.name == "Air bike" }
+        #expect(bikes.count == 2)
+        #expect(bikes.allSatisfy { $0.calories == 20 && $0.weightMaleKg == nil })
+        #expect(bikes.allSatisfy { $0.notes?.contains("16") == true })
+    }
+
+
     @Test func parsesSetsRepsAndWeight() {
         let catalog = Catalog.seed()
         let lines = BoardImportParser.parse(
