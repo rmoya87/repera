@@ -23,7 +23,7 @@ echo
 # de main; únicamente actualizamos automáticamente si la copia Git está limpia.
 bash "$ROOT/scripts/update_repera_checkout.sh" "$ROOT"
 
-for source in BusinessAuthStore.swift BusinessDataStore.swift BusinessWorkoutSyncStore.swift; do
+for source in AppleAuthStore.swift BusinessAuthStore.swift BusinessDataStore.swift BusinessWorkoutSyncStore.swift AITrainingInboxStore.swift AIAccessView.swift; do
   if [[ ! -f "Apps/Repera/Sources/$source" ]]; then
     echo "ERROR: Falta $source en esta copia local de Repera."
     echo "Actualiza los archivos con: git pull origin main"
@@ -47,5 +47,5 @@ python3 scripts/check_xcode_sources.py
 
 echo "Abriendo Repera.xcodeproj en Xcode..."
 open "$ROOT/Repera.xcodeproj"
-echo "El target Repera incluye BusinessAuthStore.swift, BusinessDataStore.swift y BusinessWorkoutSyncStore.swift."
+echo "El target Repera incluye los archivos de autenticación, sincronización y las nuevas fuentes IA."
 echo "Puedes compilar con ⌘B y ejecutar con ⌘R."
