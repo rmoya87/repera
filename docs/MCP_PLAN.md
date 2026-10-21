@@ -1,78 +1,84 @@
-# Repera MCP + datos deportivos — plan de trabajo
+# Repera IA — tokens personales, planificación y MCP
 
-**Inicio:** 21/10/2026. **Proyecto:** Supabase `uvzgujlrqohreoucirms`. **Rama:** `feat/repera-mcp-training-data`. 
-**Estado:** infraestructura de lectura y seguridad implantada parcialmente; NO se considera lista para público ni clientes de IA reales.
+**Rama**: `feat/repera-mcp-training-data` — **Proyecto Supabase**: `uvzgujlrqohreoucirms` — **Fecha**: 21/10/2026.
 
-## Estado de integración (21/10/2026)
+## Estado aplicado
 
-La integración operativa usa **tokens personales Repera (PAT)**. En Ajustes → Acceso IA, el usuario puede crear un token aleatorio de 256 bits, elegir caducidad y revocarlo. El servicio `repera-ai-tokens` valida el JWT de la sesión nativa mediante Supabase Auth, almacena exclusivamente SHA-256 y devuelve el secreto una sola vez. El endpoint `repera-mcp` exige el PAT, rechaza expirados/revocados y restringe las consultas por `owner_id` resuelto a partir del hash. Puede devolver historial, progreso muscular y catálogo, además de recibir propuestas de planificación estructurada para la bandeja del iPhone. Todas las herramientas de escritura necesitan petición expresa del usuario en su asistente.
+- [x] Eliminadas las 5 tablas vacías obsoletas del prototipo (sin `CASCADE`). Conservar `athlete_workout_mirror` físico: la app iOS publicada aún escribe mediante `upsert`. Exponer `athlete_workouts` y `training_exercise_catalog` como vistas `security_invoker`.
+- [x] Verificados 3 entrenamientos privados, 20 entradas de ejercicio, 58 series y 189 ejercicios del catálogo profesional; no se han trasladado datos Apple Salud ni GPS.
+- [x] Migración `20261021163724_ai_personal_tokens_training_inbox` aplicada: `ai_access_tokens` y `ai_training_plans`, RLS, derechos de columnas mínimos.
+- [x] Migración `20261021164545_retire_oauth_client_grants_for_personal_tokens` aplicada: OAuth web y grants antiguos retirados. Los JWT con `client_id` no pueden acceder al espejo personal por Data API.
+- [x] `repera-ai-tokens` Edge Function ACTIVE: emite tokens `rep_ai_…` de 32 bytes mediante RNG criptográfico, verifica JWT de usuario con Auth, y almacena **solo SHA-256 del token**, metadatos de vencimiento y prefijo en claro.
+- [x] `repera-mcp` Edge Function ACTIVE v3: verifica el hash del token en cada petición, comprueba caducidad/revocación y accede a Supabase exclusivamente en el backend, filtrando **TODAS** las consultas/escrituras privadas por `owner_id` derivado de la credencial.
+- [x] Herramientas MCP: `get_workout_history`, `analyze_muscle_balance`, `get_exercise_progress`, `search_training_exercises`, `get_ai_training_plans`, `create_workout`, `create_training_plan`.
+- [x] iOS: Ajustes → Datos → Acceso IA; crear token con nombre/7,30,90,365 días o ilimitado; mostrar una sola vez; copia de portapapeles con caducidad; listado enmascarado y revocación.
+- [x] Receptor iOS `AITrainingInboxStore`: convierte bloques tipados de fuerza, RIR, series, WOD, EMOM, AMRAP, For Time, Tabata y otros formatos a `Routine`, `RoutineBlock` y `WODMovement`; importa una vez por ID, confirma recepción al backend, sincroniza con iCloud vía `saveRoutine`.
+- [x] Inicio ya soporta `Routine.scheduledDate`; Diario muestra ahora una sección «Entrenamientos con fecha».
+- [x] Si ya hay entrenamiento en esa fecha, NO reemplazar: mantener el plan IA pendiente e informar en Acceso IA.
+- [x] «Sincronizar ahora»: mostrar exclusivamente texto de éxito o error, sin recuentos ni fecha.
+- [x] Prueba SQL transaccional: una sesión propietaria lee/revoca metadatos del token y confirma planes; otro usuario no accede; el hash nunca es seleccionable con privilegios authenticated. La transacción se revierte y deja 0 tokens de prueba.
+- [ ] Compilar Repera con Xcode iOS 27 y ejecutar test de TestFlight/iPhone real. Los GitHub Actions disponibles fallan ANTES del primer step (logs no disponibles), por lo que una deploy exitosa no significa compilación validada.
+- [ ] Prueba MCP real con un PAT emitido desde Ajustes, incluida rotación/revocación, caducidad y escritura de un WOD; comprobar que iPhone hace la importación y el ACK.
+- [ ] Validar el esquema de herramientas MCP contra el cliente de IA elegido; algunos conectores solo aceptan OAuth interactivo y no un `Authorization: Bearer` personalizado.
+- [ ] Medir rendimiento/rate-limit, evitar repetición de tool calls y definir cuota de planes y observabilidad antes de comercializar.
 
-**Importante:** el modo PAT requiere un cliente MCP que permita configurar manualmente `Authorization: Bearer <token>`. No equivale a la conexión OAuth 2.1 nativa que un cliente pueda descubrir automáticamente. La pantalla `web/oauth/consent` es preparación para una futura conexión OAuth y no debe anunciarse como funcional ni habilitar registro dinámico sin auditar todas las RLS. `mcp_user_consents` protege el eventual flujo OAuth y no sustituye a los PAT.
+## Modelo de seguridad de token
 
-En la entrega se incluyen `ai_access_tokens` y `ai_training_plans` con políticas RLS y permisos mínimos. El administrador no debe exponer el `SUPABASE_SERVICE_ROLE_KEY` ni configurar el endpoint para descargar tokens. Supabase contiene las funciones `repera-ai-tokens` y `repera-mcp`; la web OAuth no está publicada. La integración ha de validarse en un iPhone real y con un cliente MCP real antes del lanzamiento.
+**No es OAuth 2.1 interactivo**: es un *personal access token* (PAT), compatible con clientes MCP que permiten configurar un encabezado `Authorization: Bearer rep_ai_…`. No prometer conexión nativa a ChatGPT sin comprobar soporte de autenticación personalizada.
 
-## 1. Situación comprobada
+- **Nunca guardar el token reversible**, aunque esté cifrado: para verificarlo es más seguro un hash SHA-256 irreversible, con 256 bits de entropía. TLS en tránsito, valor completo una única vez en el dispositivo, revocación y expiración controlados desde Supabase.
+- `repera-ai-tokens`: acepta únicamente la sesión real de Supabase Auth, nunca un PAT ni una llamada anónima. El token se genera en backend, máximo 10 tokens activos por usuario, y solo su `token_prefix` es visible al volver a abrir Ajustes.
+- `repera-mcp`: el entorno Supabase mantiene la clave privilegiada solo en Edge, nunca en iOS ni en un agente. El servicio valida hash, revocación, vencimiento y `owner_id` en **cada llamada**. No confiar en IDs de usuario incluidos por el agente.
+- RLS de `ai_access_tokens`: owner SELECT sin hash, owner UPDATE exclusivamente `revoked_at`, nunca owner INSERT. RLS de `ai_training_plans`: owner SELECT y confirmación de estado pendiente→aplicado/descartado. La IA solamente escribe a través de su servidor propietario, en el buzón pendiente.
+- Todas las llamadas MCP se efectúan con credencial PAT, no con tokens de Apple Salud, contraseñas de usuario ni `service_role` enviado al cliente.
+- No dar a las herramientas acceso a HealthKit, rutas de GPS, peso corporal, sueño, frecuencia cardíaca, ni notas privadas de la sesión.
 
-- Repera iOS es local-first y conserva JSON/iCloud como fuente principal; `BusinessWorkoutSyncStore` sube sesiones terminadas al espejo privado `athlete_workout_mirror`.
-- En producción se comprobaron 1 identidad de Auth, 3 entrenos no borrados, 20 entradas de ejercicios, 58 series y 189 entradas del catálogo Business.
-- Los tres payloads existentes carecen de claves HealthKit, kcal de Salud, rutas, GPS y notas privadas.
-- Las cinco tablas `exercises`, `routines`, `routine_exercises`, `workouts`, `workout_sets` estaban vacías (0 filas), sin funciones SQL actuales que las consulten. Se eliminaron vía migración con comprobación de vacío y `DROP ... RESTRICT`, sin afectar los espejos.
-- `athlete_workouts` es una VIEW de solo lectura y `security_invoker=true` de entrenamientos terminados, con campos `exercises` y `wod_results` exclusivamente deportivos. `training_exercise_catalog` es la vista de consulta del catálogo profesional existente.
-- **NO renombrar físicamente `athlete_workout_mirror`** todavía: las versiones iOS existentes hacen upsert sobre esta tabla, y una VIEW no permite asumir semántica PostgREST `onConflict=id`. Migración expand → cambiar todos los clientes → comprobar dispositivos antiguos → retirar alias físico.
-- `mcp_user_consents` almacena consentimiento revocable de cada pareja usuario/cliente OAuth. Solo una sesión normal, sin claim OAuth `client_id`, puede otorgar/revocar ese consentimiento. Las políticas RLS impiden leer historial con un cliente no autorizado y prohíben escrituras por tokens OAuth.
-- El servidor `repera-mcp` está desplegado como Edge Function con validación OAuth en middleware, doble comprobación de consentimiento y herramientas **exclusivamente de lectura**. El flag `verify_jwt=false` de la gateway es necesario para discovery OAuth, **pero la función autentica mediante `withSupabase({auth:'user'})`**; nunca usa `service_role`.
+## Contrato de creación de entrenamientos para IA
 
-## 2. Trabajo realizado en esta rama
+La herramienta `create_training_plan` acepta hasta 14 entrenamientos con fecha `scheduledDate` (`YYYY-MM-DD`), título y bloques ordenados. `create_workout` utiliza exactamente el mismo modelo para una fecha.
 
-- [x] Auditoría de tablas heredadas, datos reales, funciones y RLS.
-- [x] Migración aplicada en Supabase: `20261021161255_training_schema_cleanup_readonly_aliases`.
-- [x] Migración aplicada en Supabase: `20261021161538_mcp_training_explicit_consent_guards`.
-- [x] Test RLS negativo: OAuth client `unapproved-mcp-agent` obtiene **0** entrenamientos en `athlete_workouts`.
-- [x] Edge Function `repera-mcp` desplegada ACTIVE v2, inaccesible sin token OAuth y consentimiento explícito.
-- [x] Contrato MCP inicial: `get_workout_history`, `analyze_muscle_balance`, `get_exercise_progress`, `search_training_exercises`.
-- [x] Corregir «Sincronizar ahora»: no marcar éxito si falta sesión, sincronización iCloud o subida de entrenamientos. Mostrar recuentos y errores.
-- [x] Formularios de autorización web Apple/OAuth preparados en `web/oauth/consent/` (todavía no desplegados a IONOS).
-- [x] Pantalla de Ajustes para consultar y revocar permisos de asistentes; compilación nativa pendiente.
-- [x] Simulación SQL transaccional: usuario sin client_id ve 3 sesiones, OAuth con permiso temporal ve 3, cliente distinto ve 0; cambios de prueba revertidos.
-- [ ] Ejecutar suite iOS/Xcode/SwiftUI sobre la rama y E2E real con iPhone.
-- [ ] Pruebas reales del endpoint con un token válido y otro revocado, y del ciclo OAuth completo.
+```json
+{
+  "title": "Fuerza y acondicionamiento",
+  "scheduledDate": "2026-10-23",
+  "scheduledTimeMinutes": 540,
+  "blocks": [
+    {
+      "title": "Fuerza",
+      "kind": "strength",
+      "exercises": [
+        {
+          "name": "Back squat",
+          "plannedSets": [
+            {"reps": 5, "weightKg": 60, "rir": 2},
+            {"reps": 5, "weightKg": 60, "rir": 2},
+            {"reps": 5, "weightKg": 60, "rir": 2}
+          ],
+          "restSeconds": 120
+        }
+      ]
+    },
+    {
+      "title": "Metcon",
+      "kind": "wod",
+      "wodFormat": "amrap",
+      "timeCapMinutes": 12,
+      "movements": [{"name": "Burpees", "reps": 10}, {"name": "Air squat", "reps": 15}]
+    }
+  ]
+}
+```
 
-## 3. Puerta de seguridad para activar OAuth real
+- Cada ejercicio puede incluir `catalogKey`. La app intenta unirlo al catálogo local o por nombre normalizado (ES/EN); los libres se crean como movimientos personalizados, sin inventar metadatos musculares.
+- Cada bloque `strength` requiere `exercises` con `plannedSets`; cada bloque `wod` requiere `wodFormat` y `movements`. El servidor rechaza estructura incoherente, pesos/repeticiones o fechas fuera de límites, y WOD desconocidos.
+- La app convierte al modelo `ReperaDomain`; `saveRoutine` lo coloca en calendario y en iCloud. Si falta el ACK de Supabase no se reimporta ni se pisan los cambios que haya hecho el usuario.
+- Ninguna operación MCP escribe una sesión terminada o altera las marcas/series ya realizadas.
 
-**No habilitar acceso externo todavía.** Requiere obligatoriamente:
+## Secuencia de verificación antes de integrar en main
 
-1. Entorno staging aislado, backup, CI verde y pruebas cruzadas con dos usuarios.
-2. Auditar **TODAS** las políticas RLS y RPC accesibles con JWT que tenga claim `client_id`. El consentimiento del historial NO convierte en seguras otras tablas que den acceso a cualquier usuario autenticado. Aplicar denegación específica para OAuth a tablas sensibles o un rol/audience segregado antes de abrir registro dinámico de clientes.
-3. En Supabase Auth → OAuth Server, habilitar OAuth 2.1, JWT asimétrico ES256/RS256, definir Authorization Path y registrar clientes confiables. La activación puede requerir operaciones manuales del administrador y no ha sido verificada.
-4. Implementar y publicar pantalla web de login + consentimiento OAuth accesible desde iPhone y navegador; asociar grant explícito a `mcp_user_consents` usando **sesión de usuario normal**, no desde el propio agente. Añadir listado y revocación en Ajustes.
-5. Comprobar discovery MCP, consentimiento rechazado, scopes limitados en aplicación (los scopes OAuth estándar actuales NO protegen tablas por sí solos), y expiración/refresco de tokens.
-6. Inspeccionar los avisos actuales del linter Supabase: `public.search_discoverable_organizations` SECURITY DEFINER y protección de contraseñas filtradas desactivada. Tratar antes de publicación. 
-7. Pruebas de fuzzing / paginación / límites, rate limit y cuotas; observabilidad y protección ante prompt injection. No implementar escrituras MCP sin confirmación explícita.
-
-## 4. Plan de evolución
-
-| Fase | Entregable | Aceptación |
-|---|---|---|
-| A — higiene y compatibilidad | Tablas vacías eliminadas, vistas canónicas, RLS, migraciones | 3 entrenos conservados, cliente no autorizado = 0 |
-| B — sincronización | Estado de iCloud/Supabase, contadores local/remoto, backfill de sesiones terminadas | Igualdad de historiales, sin duplicados, sin falsa confirmación |
-| C — catálogo | Unificar `Exercise` Swift ↔ catálogo servidor: claves, ES/EN, músculos, equipo, patrones y alternativas | No hay movimientos huérfanos en plan profesional ni IA |
-| D — seguridad MCP | OAuth con consentimiento visible, política RLS global para clientes, revocación, MFA según perfil, límites | Aislamiento con 2 usuarios y varios clientes OAuth |
-| E — análisis deportivo | Progresión, carga muscular con `MuscleTaxonomy` y validación frente a motores Swift | Métricas reproducibles, advertencia sobre estimación de fatiga |
-| F — recomendaciones | Rutinas basadas en objetivos, días, historial, equipo y restricciones | Borrador explicable; el atleta aprueba antes de guardar |
-| G — lanzamiento | E2E iOS + Supabase + MCP + despliegue controlado + documentación | CI verde y sin accesos indebidos |
-
-## 5. Convenciones de privacidad
-
-- Permitidos: título/fecha de entreno, ejercicio, catálogo, series, repeticiones, cargas, RIR, formato y puntuación WOD.
-- Excluidos: HealthKit, sueño, FC, calorías de Apple Salud, peso corporal, fertilidad/ciclo, GPS/rutas, notas libres y perfiles fiscales.
-- No copiar datos sanitarios ni `service_role` en OAuth/MCP.
-- La fatiga que resulte de series/tiempo es **estimación deportiva** y no indica un diagnóstico o recuperación medida.
-- Priorizar informes agregados y datos mínimos: el agente nunca necesita un volcado completo de la cuenta por defecto.
-
-## 6. Comprobaciones previas a merge
-
-- `swift test` y build iOS 27 con Xcode.
-- Test en dispositivo con historial antiguo y carga nueva, internet intermitente y dos identidades Apple.
-- Pruebas SQL: usuario A vs B, cliente OAuth no autorizado, cliente revocado, prohibición de OAuth UPDATE/INSERT.
-- `get_advisors(security)` y documentación actualizada; no desactivar alertas.
-- Refrescar el esquema de migraciones pendientes anteriores de Business en staging antes de reproducir producción.
+1. Ejecutar build iOS, `swift test`, tests del paquete de negocio y comprobar logs de Edge Functions.
+2. Crear token de corta duración desde un iPhone real y probar `tools/list`, `get_workout_history`, `create_workout`, `create_training_plan` y revocación.
+3. Comprobar, tras abrir iPhone, presencia en **Inicio** para el día y sección **Diario → Programado → Entrenamientos con fecha**.
+4. Probar ejercicio libre, movimiento de catálogo ES/EN, WOD RFT/EMOM/tabata, series con RIR, time cap y orden de bloques.
+5. Simular dos cuentas y múltiples tokens; comprobar que no hay acceso cruzado ni escritura sobre sesiones terminadas.
+6. Resolver los avisos preexistentes del asesor Supabase: SECURITY DEFINER en búsqueda de organizaciones y comprobación de contraseñas filtradas.
