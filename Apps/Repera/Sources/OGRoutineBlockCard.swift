@@ -36,8 +36,21 @@ struct OGRoutineBlockCard: View {
                     )
                 }
             } else {
-                ForEach(block.movements.filter { !$0.isRest }) { move in
-                    exerciseRow(resolvedWODExercise(move), detail: moveDetail(move))
+                ForEach(block.movements) { move in
+                    if move.isRest {
+                        HStack(spacing: 8) {
+                            Image(systemName: "pause.circle")
+                            Text("Descanso")
+                            Spacer(minLength: 0)
+                            Text(restDetail(move))
+                                .monospacedDigit()
+                        }
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(OG.label3)
+                        .padding(.leading, 56)
+                    } else {
+                        exerciseRow(resolvedWODExercise(move), detail: moveDetail(move))
+                    }
                 }
             }
         }
@@ -91,14 +104,32 @@ struct OGRoutineBlockCard: View {
         return Exercise(name: canonical.isEmpty ? move.name : canonical, muscleGroup: "WOD", isCustom: true)
     }
 
+    private func restDetail(_ move: WODMovement) -> String {
+        let seconds = move.restSeconds ?? 60
+        return seconds % 60 == 0 ? "\(seconds / 60) min" : "\(seconds) s"
+    }
+
     private func moveDetail(_ move: WODMovement) -> String {
         if let scheme = move.repScheme, !scheme.isEmpty {
             var parts = [scheme.map(String.init).joined(separator: "-")]
             if let eq = move.notes, !eq.isEmpty { parts.append(eq) }
             return parts.joined(separator: " · ")
         }
+        // 5-10 / 6-10 son rangos prescritos, no «10 reps · 5-10».
+        var noteParts = (move.notes ?? "").components(separatedBy: " · ")
+            .filter { !$0.isEmpty }
+        let rangeIndex = noteParts.firstIndex {
+            $0.range(of: #"^\d+\s*[-–]\s*\d+$"#, options: .regularExpression) != nil
+        }
         var parts: [String] = []
-        if let reps = move.reps { parts.append("\(reps) reps") }
+        if let reps = move.reps {
+            if let rangeIndex {
+                let range = noteParts.remove(at: rangeIndex)
+                parts.append("\(range) reps")
+            } else {
+                parts.append("\(reps) reps")
+            }
+        }
         if let m = move.distanceMeters { parts.append("\(m) m") }
         if let cal = move.calories { parts.append("\(cal) cal") }
         if let w = move.weightMaleKg {
@@ -108,7 +139,7 @@ struct OGRoutineBlockCard: View {
                 parts.append(String(format: "%g kg", w))
             }
         }
-        if let eq = move.notes, !eq.isEmpty { parts.append(eq) }
+        parts.append(contentsOf: noteParts)
         return parts.isEmpty ? "Movimiento" : parts.joined(separator: " · ")
     }
 }
