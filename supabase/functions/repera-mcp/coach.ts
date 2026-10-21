@@ -230,6 +230,51 @@ export function registerCoachTools(
     if(error) throw new Error("No se pudo leer metadatos del ejercicio");
     return result(data??{catalog_key:catalogKey,alternatives:[],warning:"No hay equivalencias validadas"});
   });
+  server.registerTool("find_equipment_alternatives", {
+    description:"Find candidates matching the main muscle groups AND confirmed available equipment. Joint demand hints are non-clinical and do not certify safety or exercise equivalence. Ask the user about available gear first.",
+    inputSchema:z.object({
+      catalogKey:z.string().min(3).max(160),
+      availableEquipment:z.array(z.string().min(2).max(80)).max(25),
+      avoidJointDemands:z.array(z.enum(["shoulder","elbow","wrist","hip","knee","ankle","spine"])).max(7).default([]),
+      limit:z.number().int().min(1).max(15).default(8),
+    }),annotations:{readOnlyHint:true},
+  },async ({catalogKey,availableEquipment,avoidJointDemands,limit})=>{
+    const {data:origin,error:originError}=await db.from("training_exercise_metadata")
+      .select("catalog_key,primary_muscles,required_equipment,joint_demands,movement_pattern")
+      .eq("catalog_key",catalogKey).maybeSingle();
+    if(originError||!origin) throw new Error("No se encontró el ejercicio solicitado");
+    if(!origin.primary_muscles?.length)
+      return result({candidates:[],reason:"El ejercicio carece de músculo principal de fuerza; no se infiere equivalencia de cardio."});
+    const {data:meta,error:metaError}=await db.from("training_exercise_metadata")
+      .select("catalog_key,primary_muscles,secondary_muscles,required_equipment,joint_demands,metadata_source,movement_pattern")
+      .limit(1500);
+    const {data:names,error:namesError}=await db.from("business_exercise_catalog")
+      .select("catalog_key,name,category").limit(1500);
+    if(metaError||namesError)throw new Error("No se pudieron consultar alternativas");
+    const gear=new Set(availableEquipment.map(x=>normalized(x)));
+    const labels=new Map((names??[]).map(x=>[x.catalog_key,x]));
+    const candidates=(meta??[]).filter(x=>{
+      if(x.catalog_key===catalogKey || !x.primary_muscles?.length) return false;
+      if(!x.required_equipment?.length || x.required_equipment.includes("gym_machine_unspecified")) return false;
+      if(!x.required_equipment.every((g:string)=>g==="bodyweight" || gear.has(normalized(g))))return false;
+      if(avoidJointDemands.length) {
+        // Unknown joint demands are explicitly excluded when requested.
+        if(!x.joint_demands?.length) return false;
+        if(x.joint_demands.some((j:string)=>avoidJointDemands.includes(j as typeof avoidJointDemands[number]))) return false;
+      }
+      return x.primary_muscles.some((m:string)=>origin.primary_muscles.includes(m));
+    }).map(x=>({
+      catalog_key:x.catalog_key,
+      name:labels.get(x.catalog_key)?.name??x.catalog_key,
+      required_equipment:x.required_equipment,
+      joint_demands:x.joint_demands,
+      metadata_source:x.metadata_source,
+      shared_primary_muscles:x.primary_muscles.filter((m:string)=>origin.primary_muscles.includes(m)),
+      is_verified_equivalent:false,
+    })).sort((a,b)=>b.shared_primary_muscles.length-a.shared_primary_muscles.length || a.name.localeCompare(b.name));
+    return result({candidates:candidates.slice(0,limit),total_candidates:candidates.length,
+      caution:"Candidates share muscle regions and available equipment, not proven interchangeable mechanics. Joint tags are incomplete, not a safety screening; ask the athlete about pain/limitations and seek qualified advice if needed."});
+  });
   server.registerTool("search_training_exercises_enriched",{
     description:"Find stable exercise IDs, localized alias matches and verified movement metadata in Repera's full exercise catalog.",
     inputSchema:z.object({query:z.string().trim().min(2).max(100),limit:z.number().int().min(1).max(50).default(20)}),
