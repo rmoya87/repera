@@ -219,10 +219,12 @@ export function registerCoachTools(
   server.registerTool("get_exercise_performance",{
     description:"Exercise-specific progression by stable catalog key (preferred) or normalized name; includes Epley estimate and RIR coverage.",
     inputSchema:z.strictObject({catalogKey:z.string().min(3).max(160).optional(),
-      name:z.string().min(2).max(120).optional(),days:z.number().int().min(7).max(365).default(180)}),
+      name:z.string().min(2).max(120).optional(),days:z.number().int().min(7).max(365).default(180)})
+      .refine(v=>(v.catalogKey!=null)!==(v.name!=null),{
+        message:"Use exactly one of catalogKey or name, never both",path:["catalogKey"],
+      }),
     annotations:{readOnlyHint:true},
   },async({catalogKey,name,days})=>{
-    if(!catalogKey&&!name) return result({error:"Proporciona catalogKey o name"});
     const key=normalized(name||"");
     let nativeId: string|null = null;
     let officialName = "";
@@ -324,14 +326,29 @@ export function registerCoachTools(
   });
   server.registerTool("get_training_programs",{
     description:"List saved macrocycles, revision and phases. Programs are proposals; local exercise sessions are authoritative.",
-    inputSchema:z.strictObject({limit:z.number().int().min(1).max(50).default(20)}),
+    inputSchema:z.strictObject({
+      limit:z.number().int().min(1).max(50).default(20),
+      cursor:z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).optional(),
+    }),
     annotations:{readOnlyHint:true},
-  },async({limit})=>{
+  },async({limit,cursor})=>{
+    let offset=0;
+    if(cursor) {
+      try {
+        const encoded=atob(cursor.replace(/-/g,"+").replace(/_/g,"/"));
+        if(!/^\\d+$/.test(encoded))throw Error("bad");
+        offset=Number(encoded);
+        if(!Number.isSafeInteger(offset)||offset<0||offset>100000)throw Error("bad");
+      }catch{throw Error("INVALID_CURSOR: paginación no válida");}
+    }
     const {data,error}=await db.from("athlete_training_programs")
       .select("id,title,primary_goal,start_date,duration_weeks,phases,status,revision,updated_at")
-      .eq("owner_id",ownerId).order("created_at",{ascending:false}).limit(limit);
+      .eq("owner_id",ownerId).order("created_at",{ascending:false}).order("id",{ascending:true})
+      .range(offset,offset+limit);
     if(error) throw new Error("No se pudieron leer los programas");
-    return result(data??[]);
+    const rows=data??[],hasMore=rows.length>limit;
+    const nextCursor=hasMore?btoa(String(offset+limit)).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,""):null;
+    return result({items:rows.slice(0,limit),hasMore,nextCursor});
   });
   server.registerTool("create_training_program",{
     description:"Persist a 1–52 week program with validated phases. Does not overwrite calendar or schedule sessions; use create_training_plan to queue next 14 workouts explicitly.",
