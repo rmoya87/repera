@@ -132,6 +132,27 @@ public struct SessionController: Sendable {
         return false
     }
 
+    /// TC agotado: avanzar al siguiente bloque sin marcar movimientos como completados.
+    @discardableResult
+    public mutating func skipCurrentTimedBlock() -> Bool {
+        guard (session.phase == .counting || session.phase == .ready),
+              session.exercises.indices.contains(session.currentIndex) else { return false }
+        let currentID = session.exercises[session.currentIndex].blockId
+        var next = session.currentIndex + 1
+        while next < session.exercises.count,
+              currentID != nil,
+              session.exercises[next].blockId == currentID {
+            next += 1
+        }
+        if next < session.exercises.count {
+            session.currentIndex = next
+            session.phase = .ready
+            return true
+        }
+        finishWorkout()
+        return false
+    }
+
     public mutating func finishWorkout() {
         for i in session.exercises.indices {
             if !session.exercises[i].loggedSets.isEmpty {
