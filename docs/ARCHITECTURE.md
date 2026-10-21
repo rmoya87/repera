@@ -1,6 +1,12 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-20 (Salud unificada; altitud tiles; recovery fallback)
+Última actualización: 2026-10-21 (planificación cardio con unidad persistente en sesión activa)
+
+## Unidad de cardio en rutinas y sesiones
+
+`RoutineExercise.quantityUnit` es un campo `Codable` opcional (Cal o metros) que controla la unidad de las series de cardio en una rutina de fuerza o bloque. `SessionController.from` propaga el valor a `SessionExercise.quantityUnit`, que usa Play para inicializar el registro en la unidad elegida. Para movimientos WOD se reutiliza `WODMovement.prescribedQuantityUnit`. La ausencia del campo en JSON antiguo conserva la compatibilidad: se usa la unidad por defecto del ejercicio. Las series continúan registrándose en `LoggedSet.quantityUnit` y no como kilogramos.
+
+La edición durante una sesión activa reconstituye la planificación y reasocia las series registradas mediante identidad de bloque y ejercicio; el ID de la sesión, los tiempos y las series previamente anotadas no se sustituyen.
 
 ## Visión
 
