@@ -560,17 +560,17 @@ struct DayEditorView: View {
                     DatePicker("Fin", selection: completedDateBinding(isEnd: true),
                                displayedComponents: [.date, .hourAndMinute])
                         .tint(OG.accent)
-                    TextField("Notas del entreno", text: Binding(
-                        get: { completedDetails?.notes ?? "" },
-                        set: { completedDetails?.notes = $0.isEmpty ? nil : $0 }
-                    ), axis: .vertical)
-                    .lineLimit(2...5)
                     if completedDetails?.routePoints.isEmpty == true {
                         WorkoutPlacePickerRow(pin: Binding(
                             get: { completedDetails?.locationPin },
                             set: { completedDetails?.locationPin = $0 }
                         ))
                     }
+                    TextField("Notas del entreno", text: Binding(
+                        get: { completedDetails?.notes ?? "" },
+                        set: { completedDetails?.notes = $0.isEmpty ? nil : $0 }
+                    ), axis: .vertical)
+                    .lineLimit(2...5)
                 } header: {
                     Text("Datos del entreno realizado")
                 }
