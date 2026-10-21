@@ -714,6 +714,17 @@ struct SettingsView: View {
             avatarJPEG: store.state.settings.profileAvatarJPEG
         )
         await businessData.refresh()
+        // App launch, foreground handlers and Realtime can trigger the same
+        // stores concurrently. Wait for the in-flight tasks instead of
+        // incorrectly reporting an operation as failed due to an active sync.
+        for _ in 0..<80 {
+            if !workoutSync.isSyncing,
+               !AITrainingInboxStore.shared.isSyncing,
+               !AITrainingContextStore.shared.isSyncing {
+                break
+            }
+            try? await Task.sleep(for: .milliseconds(150))
+        }
         let workoutsUploaded = await workoutSync.sync(store: store)
         let plansSynced = await AITrainingInboxStore.shared.sync(store: store)
         let calendarSynced = await AITrainingContextStore.shared.syncCalendar(store: store)
