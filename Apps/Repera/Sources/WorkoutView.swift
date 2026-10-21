@@ -495,7 +495,8 @@ struct WorkoutView: View {
             OGSetEntryHeader(
                 firstTitle: style == .repsOnly ? qtyLabel : loadLabel,
                 secondTitle: style == .repsOnly ? nil : qtyLabel,
-                showsConfirmation: store.state.activeSession?.phase != .ready
+                showsConfirmation: store.state.activeSession?.phase != .ready,
+                showsRIR: style.usesRIR
             )
 
             ForEach(Array(liveSets.enumerated()), id: \.element.id) { index, row in
@@ -552,6 +553,9 @@ struct WorkoutView: View {
                 firstAllowsDecimal: style != .repsOnly && current.exercise.loadField == .weightKg,
                 showsConfirmation: store.state.activeSession?.phase != .ready,
                 completed: row.completed,
+                rir: row.rir,
+                showsRIR: style.usesRIR,
+                onRIRChange: { setLiveRir(at: index, rir: $0) },
                 focus: $focusedSetField,
                 onFirstCommit: { text in
                     switch style {
@@ -584,23 +588,7 @@ struct WorkoutView: View {
             )
             .accessibilityLabel("Serie \(index + 1), \(qtyLabel)")
 
-            if style.usesRIR {
-                Menu {
-                    Button("Sin RIR") { setLiveRir(at: index, rir: nil) }
-                    ForEach(0...5, id: \.self) { value in
-                        Button("\(value)") { setLiveRir(at: index, rir: Double(value)) }
-                    }
-                } label: {
-                    Text(row.rir.map { "RIR \(Int($0.rounded()))" } ?? "RIR —")
-                        .font(.system(size: 11, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(row.rir == nil ? OG.label3 : OG.label2)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(OG.surface2, in: Capsule())
-                }
-                .disabled(row.completed)
-                .accessibilityLabel("Esfuerzo RIR de la serie \(index + 1)")
-            }
+
         }
         .padding(.vertical, 3)
     }
