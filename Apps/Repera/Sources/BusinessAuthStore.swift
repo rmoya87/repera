@@ -371,6 +371,9 @@ final class BusinessAuthStore {
             var avatarURL: String?
 
             if let jpeg = avatarJPEG, !jpeg.isEmpty {
+                guard jpeg.count <= 2_097_152 else {
+                    throw ProfileSyncError.photoTooLarge
+                }
                 _ = try await client.storage
                     .from("profile-avatars")
                     .upload(
@@ -406,8 +409,14 @@ final class BusinessAuthStore {
             AuthSessionTrace.event("syncPublicProfile OK")
         } catch {
             profileMigrationErrorMessage =
-                "No se pudo sincronizar nombre/avatar con Supabase. Los datos locales quedan intactos."
+                "El nombre o la foto no se han sincronizado. Tus datos locales siguen guardados. Reintenta desde Cuenta."
             AuthSessionTrace.event("syncPublicProfile FAIL: \(error.localizedDescription)")
+        }
+    }
+    private enum ProfileSyncError: LocalizedError {
+        case photoTooLarge
+        var errorDescription: String? {
+            "La foto de perfil debe ocupar como máximo 2 MB."
         }
     }
     private struct ProfilePublicPatch: Encodable {
@@ -416,6 +425,17 @@ final class BusinessAuthStore {
         enum CodingKeys: String, CodingKey {
             case displayName = "display_name"
             case avatarURL = "avatar_url"
+        }
+        func encode(to encoder: Encoder) throws {
+            var values = encoder.container(keyedBy: CodingKeys.self)
+            try values.encode(displayName, forKey: .displayName)
+            // A removed avatar MUST be encoded as SQL NULL, not omitted
+            // by Optional's default synthesized encodeIfPresent.
+            if let avatarURL {
+                try values.encode(avatarURL, forKey: .avatarURL)
+            } else {
+                try values.encodeNil(forKey: .avatarURL)
+            }
         }
     }
 
