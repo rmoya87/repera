@@ -148,6 +148,13 @@ struct SettingsView: View {
                 }
                 .disabled(isSyncingEverything)
 
+                if workoutSync.lastSyncAt != nil {
+                    let localCompleted = store.state.workouts.filter { $0.finishedAt != nil }.count
+                    Text("\(localCompleted) entrenamientos finalizados en el iPhone · \(workoutSync.mirroredCount) en Supabase")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
                 if let problem = workoutSync.lastError {
                     Text(problem)
                         .font(.footnote)
