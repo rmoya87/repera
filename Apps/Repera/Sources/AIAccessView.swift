@@ -196,7 +196,7 @@ struct AIAccessView: View {
                         .textSelection(.enabled)
                         .padding()
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
+                        .background(Color.secondary.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
                     Button {
                         if let createdToken {
                             // Explicit copy; expire clipboard data after two minutes.
