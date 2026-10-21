@@ -18,6 +18,13 @@ final class AITrainingInboxStore {
 
     private init() {}
 
+    func clearSession() {
+        lastError = nil
+        importedCount = 0
+        pendingCount = 0
+        conflicts = []
+    }
+
     private struct PlanRow: Decodable {
         let id: UUID
         let title: String
