@@ -113,7 +113,7 @@ struct WorkoutView: View {
                         store.endActiveSession(save: false)
                         closeFlow()
                     } label: {
-                        Label("Eliminar entreno", systemImage: "trash")
+                        Label("Cancelar entreno", systemImage: "xmark.circle")
                     }
                 } label: {
                     Image(systemName: "ellipsis")
@@ -1074,7 +1074,7 @@ struct WorkoutView: View {
                 ?? 8
             store.workoutClock.configure(
                 exercise: current.exercise,
-                title: current.exercise.name,
+                title: current.blockHeader ?? current.exercise.name,
                 subtitle: subtitleDefault ?? "EMOM",
                 countingUp: false,
                 intervalMode: true,
@@ -1090,7 +1090,7 @@ struct WorkoutView: View {
             let rounds = max(1, current.blockRounds ?? 8)
             store.workoutClock.configure(
                 exercise: current.exercise,
-                title: current.exercise.name,
+                title: current.blockHeader ?? current.exercise.name,
                 subtitle: "Tabata · trabajo",
                 countingUp: false,
                 intervalMode: true,
@@ -1107,7 +1107,7 @@ struct WorkoutView: View {
             let seconds = max(60, mins * 60)
             store.workoutClock.configure(
                 exercise: current.exercise,
-                title: current.exercise.name,
+                title: current.blockHeader ?? current.exercise.name,
                 subtitle: subtitleDefault ?? format?.displayName ?? "WOD",
                 countingUp: false,
                 intervalMode: false,
@@ -1120,7 +1120,7 @@ struct WorkoutView: View {
         case .forTime, .chipper, .afap:
             store.workoutClock.configure(
                 exercise: current.exercise,
-                title: current.exercise.name,
+                title: current.blockHeader ?? current.exercise.name,
                 subtitle: subtitleDefault ?? format?.displayName ?? "For Time",
                 countingUp: true,
                 intervalMode: false,
@@ -1136,7 +1136,7 @@ struct WorkoutView: View {
                 let seconds = mins * 60
                 store.workoutClock.configure(
                     exercise: current.exercise,
-                    title: current.exercise.name,
+                    title: current.blockHeader ?? current.exercise.name,
                     subtitle: subtitleDefault ?? format?.displayName ?? "Bloque",
                     countingUp: false,
                     intervalMode: false,
@@ -1149,7 +1149,7 @@ struct WorkoutView: View {
             } else {
                 store.workoutClock.configure(
                     exercise: current.exercise,
-                    title: current.exercise.name,
+                    title: current.blockHeader ?? current.exercise.name,
                     subtitle: subtitleDefault ?? format?.displayName ?? "Bloque",
                     countingUp: true,
                     intervalMode: false,
@@ -1178,7 +1178,7 @@ struct WorkoutView: View {
                 let seconds = mins * 60
                 store.workoutClock.configure(
                     exercise: current.exercise,
-                    title: current.exercise.name,
+                    title: current.blockHeader ?? current.exercise.name,
                     subtitle: subtitleDefault ?? "Fuerza",
                     countingUp: false,
                     intervalMode: false,
@@ -1191,7 +1191,7 @@ struct WorkoutView: View {
             } else {
                 store.workoutClock.configure(
                     exercise: current.exercise,
-                    title: current.exercise.name,
+                    title: current.blockHeader ?? current.exercise.name,
                     subtitle: subtitleDefault ?? "Fuerza",
                     countingUp: true,
                     intervalMode: false,
