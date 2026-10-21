@@ -804,6 +804,7 @@ struct OGNumericTextField: UIViewRepresentable {
         let field = UITextField()
         field.delegate = context.coordinator
         context.coordinator.field = field
+        context.coordinator.isNextField = submitTitle == "Siguiente"
         configure(field, coordinator: context.coordinator)
         field.text = text
         // Vista real de teclado 4×4, no el numberPad/decimalPad del sistema.
@@ -831,6 +832,7 @@ struct OGNumericTextField: UIViewRepresentable {
         c.onFocused = onFocused
         c.onFocusLost = onFocusLost
         c.onCommit = onCommit
+        c.isNextField = submitTitle == "Siguiente"
         c.pad?.update(
             allowsDecimal: allowsDecimal,
             allowsTime: allowsTimeSeparator,
@@ -884,6 +886,7 @@ struct OGNumericTextField: UIViewRepresentable {
         weak var field: UITextField?
         fileprivate weak var pad: OGReperaNumericKeypad?
         private var suppressNextEndCommit = false
+        var isNextField = false
 
         init(
             text: Binding<String>,
@@ -931,7 +934,9 @@ struct OGNumericTextField: UIViewRepresentable {
             // dispara textFieldDidEndEditing tras pulsar Siguiente o ✓.
             suppressNextEndCommit = true
             onCommit()
-            field.resignFirstResponder()
+            // Siguiente: mantener el teclado abierto al transferir foco.
+            // ✓: cerrar tras consolidar el último campo.
+            if !isNextField { field.resignFirstResponder() }
         }
 
         @objc func keypadKey(_ sender: UIButton) {
@@ -1091,7 +1096,7 @@ fileprivate final class OGReperaNumericKeypad: UIInputView {
             case "submit":
                 let isNext = actionTitle != "✓" && actionTitle.lowercased() != "listo"
                 button.backgroundColor = isNext
-                    ? .black
+                    ? UIColor(red: 0.03, green: 0.53, blue: 1.0, alpha: 1)
                     : UIColor(red: 0.10, green: 0.79, blue: 0.33, alpha: 1)
                 button.tintColor = .white
                 button.setImage(UIImage(systemName: isNext ? "arrow.right" : "checkmark"), for: .normal)
