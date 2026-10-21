@@ -817,9 +817,10 @@ struct DayEditorView: View {
         if parts.count == 2, parts[0] == "block", let id = UUID(uuidString: parts[1]),
            let sourceIndex = routine.blocks.firstIndex(where: { $0.id == id }),
            sourceIndex != targetIndex {
+            let goingDown = sourceIndex < targetIndex
             let moved = routine.blocks.remove(at: sourceIndex)
             guard let destinationIndex = routine.blocks.firstIndex(where: { $0.id == destinationID }) else { return }
-            routine.blocks.insert(moved, at: destinationIndex)
+            routine.blocks.insert(moved, at: destinationIndex + (goingDown ? 1 : 0))
             return
         }
         guard parts.count == 3,
@@ -842,12 +843,18 @@ struct DayEditorView: View {
                     explicitPlannedSets: item.plannedSets
                 )
             } else { targetMovement = nil }
+            let draggedDown = sourceIndex == targetIndex
+                && itemID.flatMap { targetID in
+                    source.exercises.firstIndex(where: { $0.id == targetID })
+                }.map { targetPosition in
+                    (source.exercises.firstIndex(where: { $0.id == exerciseID }) ?? 0) < targetPosition
+                } == true
             routine.blocks[sourceIndex].exercises.removeAll { $0.id == exerciseID }
             if targetKind == .strength {
                 let position = itemID.flatMap { id in
                     routine.blocks[targetIndex].exercises.firstIndex(where: { $0.id == id })
                 } ?? routine.blocks[targetIndex].exercises.count
-                routine.blocks[targetIndex].exercises.insert(item, at: position)
+                routine.blocks[targetIndex].exercises.insert(item, at: position + (draggedDown ? 1 : 0))
             } else if let targetMovement {
                 let position = itemID.flatMap { id in
                     routine.blocks[targetIndex].movements.firstIndex(where: { $0.id == id })
@@ -876,12 +883,18 @@ struct DayEditorView: View {
                     plannedSets: move.explicitPlannedSets ?? move.plannedSetsFromReps
                 )
             }
+            let draggedDown = sourceIndex == targetIndex
+                && itemID.flatMap { targetID in
+                    source.movements.firstIndex(where: { $0.id == targetID })
+                }.map { targetPosition in
+                    (source.movements.firstIndex(where: { $0.id == exerciseID }) ?? 0) < targetPosition
+                } == true
             routine.blocks[sourceIndex].movements.removeAll { $0.id == exerciseID }
             if targetKind == .wod {
                 let position = itemID.flatMap { id in
                     routine.blocks[targetIndex].movements.firstIndex(where: { $0.id == id })
                 } ?? routine.blocks[targetIndex].movements.count
-                routine.blocks[targetIndex].movements.insert(move, at: position)
+                routine.blocks[targetIndex].movements.insert(move, at: position + (draggedDown ? 1 : 0))
             } else if let targetExercise {
                 let position = itemID.flatMap { id in
                     routine.blocks[targetIndex].exercises.firstIndex(where: { $0.id == id })
@@ -2022,8 +2035,7 @@ struct RoutineExerciseEditor: View {
                 } footer: {
                     Text("Aplicar escala la última sesión al kg sugerido (misma progresión, reps y RIR).")
                 }
-                }
-
+            }
 
             Section {
                 OGSetEntryHeader(
