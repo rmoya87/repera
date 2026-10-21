@@ -1211,7 +1211,7 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
             wodFormat: format,
             timeCapMinutes: format == .amrap || format == .forTime ? 12 : (isTabata ? 4 : 10),
             emomIntervalSeconds: 60,
-            rounds: isTabata ? 8 : (format == .forTime ? 4 : nil),
+            rounds: isTabata ? 8 : nil,
             workSeconds: isTabata ? 20 : nil,
             restSeconds: isTabata ? 10 : nil
         )
