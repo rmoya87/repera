@@ -1091,7 +1091,7 @@ fileprivate final class OGReperaNumericKeypad: UIInputView {
             case "submit":
                 let isNext = actionTitle != "✓" && actionTitle.lowercased() != "listo"
                 button.backgroundColor = isNext
-                    ? UIColor(red: 0.02, green: 0.56, blue: 0.99, alpha: 1)
+                    ? .black
                     : UIColor(red: 0.10, green: 0.79, blue: 0.33, alpha: 1)
                 button.tintColor = .white
                 button.setImage(UIImage(systemName: isNext ? "arrow.right" : "checkmark"), for: .normal)
