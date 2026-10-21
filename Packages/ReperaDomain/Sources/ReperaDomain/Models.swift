@@ -463,6 +463,8 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var targetReps: Int
     public var targetWeightKg: Double?
+    /// Porcentaje de 1RM prescrito; nunca convertirlo en kg sin un 1RM real.
+    public var targetPercent1RM: Double?
     /// Objetivo de RIR para esta serie (nil = sin definir).
     public var targetRir: Double?
 
@@ -470,16 +472,18 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
         id: UUID = UUID(),
         targetReps: Int,
         targetWeightKg: Double? = nil,
-        targetRir: Double? = nil
+        targetRir: Double? = nil,
+        targetPercent1RM: Double? = nil
     ) {
         self.id = id
         self.targetReps = targetReps
         self.targetWeightKg = targetWeightKg
         self.targetRir = targetRir
+        self.targetPercent1RM = targetPercent1RM
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, targetReps, targetWeightKg, targetRir
+        case id, targetReps, targetWeightKg, targetRir, targetPercent1RM
     }
 
     public init(from decoder: Decoder) throws {
@@ -488,11 +492,12 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
         targetReps = try c.decode(Int.self, forKey: .targetReps)
         targetWeightKg = try c.decodeIfPresent(Double.self, forKey: .targetWeightKg)
         targetRir = try c.decodeIfPresent(Double.self, forKey: .targetRir)
+        targetPercent1RM = try c.decodeIfPresent(Double.self, forKey: .targetPercent1RM)
     }
 
     /// Copia con nuevo `id` (para insertar en otra rutina).
     public func duplicatingContent() -> PlannedSet {
-        PlannedSet(targetReps: targetReps, targetWeightKg: targetWeightKg, targetRir: targetRir)
+        PlannedSet(targetReps: targetReps, targetWeightKg: targetWeightKg, targetRir: targetRir, targetPercent1RM: targetPercent1RM)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -501,6 +506,7 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
         try c.encode(targetReps, forKey: .targetReps)
         try c.encodeIfPresent(targetWeightKg, forKey: .targetWeightKg)
         try c.encodeIfPresent(targetRir, forKey: .targetRir)
+        try c.encodeIfPresent(targetPercent1RM, forKey: .targetPercent1RM)
     }
 }
 
@@ -508,6 +514,20 @@ extension [PlannedSet] {
     /// Resumen compacto para listas: `3×8 · 60 kg`, `2×3, 2×1 · 150 kg`, `3 @ 100, 2 @ 110`.
     public var compactSummary: String {
         guard !isEmpty else { return "—" }
+        if contains(where: { $0.targetPercent1RM != nil }) {
+            var groups: [(reps:Int,percent:Double?,count:Int)] = []
+            for set in self {
+                if let last=groups.last,last.reps==set.targetReps,last.percent==set.targetPercent1RM {
+                    groups[groups.count-1].count += 1
+                } else {
+                    groups.append((set.targetReps,set.targetPercent1RM,1))
+                }
+            }
+            return groups.map { group in
+                let reps=group.count>1 ? "\(group.count)×\(group.reps)" : "\(group.reps)"
+                return reps + (group.percent.map { " @ \(String(format: "%g", $0))% 1RM" } ?? "")
+            }.joined(separator: ", ")
+        }
         // (reps, weightKg, count)
         var groups: [(Int, Double?, Int)] = []
         for set in self {
