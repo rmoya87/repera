@@ -24,7 +24,8 @@ public enum BoardScanLiteParser {
                 title: cur.header.isEmpty ? cur.format.rawValue : cur.header
             )
             block.timeCapMinutes = cur.cap
-            block.rounds = cur.rounds ?? block.rounds
+            // El TC limita el bloque completo: solo un prefijo N RFT fija rondas.
+            block.rounds = cur.rounds
             if cur.format == .emom {
                 block.emomIntervalSeconds = cur.interval ?? 60
             }
@@ -191,8 +192,8 @@ public enum BoardScanLiteParser {
         if rftMatch != nil || upper.hasPrefix("RFT") || upper.hasPrefix("RFF")
             || upper.contains("FOR TIME")
         {
+            // FOR TIME (TC 14') NO significa 14 rondas/series.
             let rounds = rftMatch.flatMap { firstInt(String(upper[$0])) }
-                ?? (upper.hasPrefix("RFT") || upper.hasPrefix("RFF") ? nil : firstInt(upper))
             let timeCap = upper.range(of: #"(?:TC|TIME\s*CAP|CAP)\s*[:=]?\s*\d+"#,
                                       options: .regularExpression)
                 .flatMap { firstInt(String(upper[$0]).filter(\.isNumber)) }
@@ -248,14 +249,34 @@ public enum BoardScanLiteParser {
             notes.append("RPE " + String(working[rpe]).replacingOccurrences(of: "@", with: "").trimmingCharacters(in: .whitespaces))
             working.removeSubrange(rpe)
         }
+
+        // 3 BMU / 6 C2B / 9 PULL UPS y 40 DU / 80 SU son
+        // alternativas de escala, NO tres ejercicios secuenciales.
+        let options = working.components(separatedBy: " / ")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        let hasAlternatives = options.count > 1
+            && options.dropFirst().allSatisfy {
+                $0.range(of: #"^\d+\s+[A-Za-z]"#, options: .regularExpression) != nil
+            }
+        if hasAlternatives {
+            working = options[0]
+        }
         let parsed = CrossFitGlossary.parseMovementLine(working)
         if parsed.isRest {
-            return WODMovement(
-                name: "REST",
-                isRest: true,
-                restSeconds: parsed.restSeconds
-            )
+            return WODMovement(name: "REST", isRest: true, restSeconds: parsed.restSeconds)
         }
+        if let equipment = parsed.equipmentNote { notes.append(equipment) }
+        let scale = hasAlternatives
+            ? options.dropFirst().map { option in
+                let detail = CrossFitGlossary.parseMovementLine(option)
+                return "\(detail.reps.map(String.init) ?? "") \(detail.name)"
+                    .trimmingCharacters(in: .whitespaces)
+            }.joined(separator: " / ")
+            : nil
+        // El * indica que hay una nota externa no visible; preservarlo.
+        if line.contains("*") { notes.append("Marcador * de la pizarra (nota no visible)") }
+
         return WODMovement(
             name: parsed.name,
             reps: parsed.reps,
@@ -264,7 +285,8 @@ public enum BoardScanLiteParser {
             calories: parsed.calories,
             weightMaleKg: parsed.weightMaleKg,
             weightFemaleKg: parsed.weightFemaleKg,
-            notes: (notes + [parsed.equipmentNote].compactMap { $0 }).isEmpty ? nil : (notes + [parsed.equipmentNote].compactMap { $0 }).joined(separator: " · ")
+            scaleAlternative: scale,
+            notes: notes.isEmpty ? nil : notes.joined(separator: " · ")
         )
     }
 
