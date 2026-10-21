@@ -22,6 +22,7 @@ struct WorkoutView: View {
     @State private var clusterRest = 15
     @State private var pendingClusters: [RestPauseCluster] = []
     @State private var showNotes = false
+    @State private var editingRoutine: Routine?
     @State private var notesDraft = ""
     /// Filas editables del ejercicio actual (objetivo por serie + check para registrar).
     @State private var liveSets: [LiveSetRow] = []
@@ -92,6 +93,11 @@ struct WorkoutView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button {
+                        editingRoutine = routineForEditing()
+                    } label: {
+                        Label("Editar entreno", systemImage: "pencil")
+                    }
+                    Button {
                         _ = store.saveActiveSessionAsFavorite()
                     } label: {
                         Label(
@@ -154,6 +160,22 @@ struct WorkoutView: View {
         }
         .sheet(isPresented: $showNotes) {
             workoutNotesSheet
+        }
+        .sheet(item: $editingRoutine) { draft in
+            NavigationStack {
+                DayEditorView(
+                    routine: draft,
+                    mode: draft.isOneOff ? .oneOff(isNew: false) : .plan(isNew: false),
+                    onClose: {
+                        if let saved = store.state.routines.first(where: { $0.id == draft.id }) {
+                            store.refreshActiveSessionPlan(from: saved)
+                        }
+                        editingRoutine = nil
+                    },
+                    embedsNavigationStack: false,
+                    usesPageCloseHeader: true
+                )
+            }
         }
         .sheet(item: $pendingWODConfirm) { pending in
             WODResultConfirmSheet(
@@ -297,6 +319,47 @@ struct WorkoutView: View {
         store.confirmCurrentOnWatchStyle()
     }
 
+    /// Reconstruye un borrador editable incluso para sesiones creadas sin guardar rutina.
+    private func routineForEditing() -> Routine? {
+        guard let session = store.state.activeSession else { return nil }
+        if let id = session.routineId,
+           let routine = store.state.routines.first(where: { $0.id == id }) {
+            return routine
+        }
+        var blocks: [RoutineBlock] = []
+        for exercise in session.exercises {
+            let id = exercise.blockId ?? exercise.id
+            if blocks.last?.id != id {
+                blocks.append(RoutineBlock(
+                    id: id,
+                    title: exercise.blockHeader ?? "Bloque \(blocks.count + 1)",
+                    kind: exercise.blockKind ?? .strength,
+                    wodFormat: exercise.wodFormat,
+                    timeCapMinutes: exercise.blockTimeCapMinutes,
+                    emomIntervalSeconds: exercise.blockIntervalSeconds,
+                    rounds: exercise.blockRounds,
+                    workSeconds: exercise.blockWorkSeconds,
+                    restSeconds: exercise.blockRestSeconds
+                ))
+            }
+            guard let last = blocks.indices.last else { continue }
+            if blocks[last].kind == .strength {
+                blocks[last].exercises.append(RoutineExercise(
+                    exerciseId: exercise.exercise.id,
+                    plannedSets: exercise.plannedSets
+                ))
+            } else {
+                blocks[last].movements.append(WODMovement(
+                    exerciseId: exercise.exercise.id,
+                    name: exercise.exercise.name,
+                    reps: exercise.plannedSets.first?.targetReps ?? 8,
+                    explicitPlannedSets: exercise.plannedSets
+                ))
+            }
+        }
+        return Routine(id: session.routineId ?? UUID(), title: session.title, blocks: blocks)
+    }
+
     /// Play comparte la jerarquía visual del editor: un bloque, sus ejercicios
     /// y las series editables. No ofrece controles de creación ni de planificación.
     private struct WorkoutBlockEntry: Identifiable {
@@ -392,10 +455,22 @@ struct WorkoutView: View {
 
                         if session.currentIndex == index {
                             setsBoard(entry)
-                                .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 8, trailing: 12))
+                                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
                                 .listRowBackground(OG.surface)
                                 .listRowSeparator(.hidden)
                         }
+                    }
+
+                    if block.indexes.contains(session.currentIndex),
+                       let current = session.currentExercise {
+                        DisclosureGroup("Técnicas de serie · dropset / rest-pause") {
+                            logForm(current)
+                                .padding(.top, 8)
+                        }
+                        .font(.system(size: 13, weight: .medium))
+                        .tint(OG.label2)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        .listRowBackground(OG.surface)
                     }
                 } header: {
                     HStack(spacing: 6) {
@@ -413,13 +488,6 @@ struct WorkoutView: View {
             Section {
                 workoutOptionsCard
                     .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-                DisclosureGroup("Opciones avanzadas de serie") {
-                    if let current = session.currentExercise {
-                        logForm(current)
-                    }
-                }
-                .font(.system(size: 14, weight: .semibold))
-                .tint(OG.label2)
             }
         }
         .listStyle(.insetGrouped)
