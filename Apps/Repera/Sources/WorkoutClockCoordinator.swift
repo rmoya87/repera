@@ -26,6 +26,14 @@ final class WorkoutClockCoordinator {
     /// Cap original en countdown (para AMRAP al completar).
     private var configuredCapSeconds: Int = 0
     private var countUpCapSeconds: Int?
+    private var didNotifyCountUpCap = false
+
+    /// TC en For Time es un límite informativo. El reloj sigue midiendo
+    /// el tiempo real si el atleta supera el cap y aún no ha terminado.
+    var isOverTimeCap: Bool {
+        guard isCountingUp, hasStarted, let cap = countUpCapSeconds else { return false }
+        return displaySeconds >= cap
+    }
 
     private(set) var intervalIndex = 0
     private(set) var totalIntervals = 0
@@ -120,6 +128,7 @@ final class WorkoutClockCoordinator {
         self.hasStarted = false
         self.isRunning = false
         countUpCapSeconds = countingUp ? timeCapSeconds.flatMap { $0 > 0 ? $0 : nil } : nil
+        didNotifyCountUpCap = false
         if countingUp {
             configuredCapSeconds = countUpCapSeconds ?? 0
         } else if intervalMode {
@@ -197,8 +206,12 @@ final class WorkoutClockCoordinator {
             return
         }
         if isCountingUp {
-            if let cap = countUpCapSeconds, displaySeconds(at: now) >= cap {
-                finishComplete()
+            if let cap = countUpCapSeconds, displaySeconds(at: now) >= cap,
+               !didNotifyCountUpCap {
+                didNotifyCountUpCap = true
+                // Avisar al TC una sola vez, pero nunca fabricar un tiempo
+                // final de 14:00: el resultado será el elapsed al pulsar Terminar.
+                RestFeedback.intervalBeep(sound: soundEnabled, haptic: hapticEnabled)
             }
             return
         }
