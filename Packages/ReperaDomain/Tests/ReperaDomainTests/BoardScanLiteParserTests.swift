@@ -2,6 +2,79 @@ import Testing
 @testable import ReperaDomain
 
 struct BoardScanLiteParserTests {
+    @Test func scanAmrapAndForTimeWithCapButNoInventedRounds() {
+        let board = """
+        AMRAP 16'
+        3 GTOH 60/40
+        3 BMU / 6 C2B / 9 PULL UPS
+        10 WALL BALL 9/7
+        15 AKBS 24/16
+        40 DU / 80 SU
+
+        FOR TIME (TC 14')
+        400M RUN
+        20/16 CAL*
+        400M RUN
+        20/16 CAL*
+        400M RUN
+        (1' REST BTWN**)
+        """
+        let result = BoardScanLiteParser.parse(ocrText: board, catalog: Catalog.seed())
+        #expect(result.blocks.count == 2)
+
+        let amrap = result.blocks[0]
+        #expect(amrap.wodFormat == .amrap)
+        #expect(amrap.timeCapMinutes == 16)
+        #expect(amrap.movements.count == 5)
+        #expect(amrap.movements[0].name == "Ground to overhead")
+        #expect(amrap.movements[0].exerciseId != nil)
+        #expect(amrap.movements[0].reps == 3)
+        #expect(amrap.movements[0].weightMaleKg == 60)
+        #expect(amrap.movements[0].weightFemaleKg == 40)
+        #expect(amrap.movements[1].name == "Muscle-up barra")
+        #expect(amrap.movements[1].exerciseId != nil)
+        #expect(amrap.movements[1].scaleAlternative?.contains("Chest to bar") == true)
+        #expect(amrap.movements[1].scaleAlternative?.contains("Dominadas") == true)
+        #expect(amrap.movements[3].name == "Swing americano")
+        #expect(amrap.movements[3].exerciseId != nil)
+        #expect(amrap.movements[3].weightMaleKg == 24)
+        #expect(amrap.movements[3].weightFemaleKg == 16)
+        #expect(amrap.movements[4].name == "Dobles de comba")
+        #expect(amrap.movements[4].scaleAlternative?.contains("Simples de comba") == true)
+
+        let forTime = result.blocks[1]
+        #expect(forTime.wodFormat == .forTime)
+        #expect(forTime.timeCapMinutes == 14)
+        #expect(forTime.rounds == nil)
+        #expect(forTime.movements.count == 5)
+        #expect(forTime.movements[0].distanceMeters == 400)
+        #expect(forTime.movements[2].distanceMeters == 400)
+        #expect(forTime.movements[4].distanceMeters == 400)
+        #expect(forTime.movements[1].name == "Air bike")
+        #expect(forTime.movements[1].exerciseId != nil)
+        #expect(forTime.movements[1].calories == 20)
+        #expect(forTime.movements[1].weightMaleKg == nil)
+        #expect(forTime.movements[1].weightFemaleKg == nil)
+        #expect(forTime.movements[1].notes?.contains("16") == true)
+        #expect(forTime.movements[3].calories == 20)
+        #expect(forTime.restBetweenRoundsSeconds == 60)
+        #expect(forTime.wodNotes?.contains("REST BTWN") == true)
+    }
+
+    @Test func fullNamesAndAcronymsShareCanonicalExercises() {
+        #expect(CrossFitGlossary.canonicalName(for: "GTOH") == "Ground to overhead")
+        #expect(CrossFitGlossary.canonicalName(for: "ground-to-overhead") == "Ground to overhead")
+        #expect(CrossFitGlossary.canonicalName(for: "BMU") == "Muscle-up barra")
+        #expect(CrossFitGlossary.canonicalName(for: "bar muscle up") == "Muscle-up barra")
+        #expect(CrossFitGlossary.canonicalName(for: "AKBS") == "Swing americano")
+        #expect(CrossFitGlossary.canonicalName(for: "american kettlebell swing") == "Swing americano")
+        let calories = CrossFitGlossary.parseMovementLine("20/16 CAL*")
+        #expect(calories.name == "Air bike")
+        #expect(calories.calories == 20)
+        #expect(calories.weightMaleKg == nil)
+        #expect(calories.weightFemaleKg == nil)
+    }
+
     @Test func importsActualScreenshotAsThreeEditableBlocks() {
         let board = """
         EMOM 8' @6-8
