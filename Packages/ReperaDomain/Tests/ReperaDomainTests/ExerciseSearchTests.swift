@@ -2,6 +2,52 @@ import XCTest
 @testable import ReperaDomain
 
 final class ExerciseSearchTests: XCTestCase {
+    func testCoachAcronymsAppearInExerciseSearch() {
+        let catalog = Catalog.seed()
+        let cases: [(query: String, expected: String)] = [
+            ("HPC", "Hang power clean"),
+            ("HPS", "Hang power snatch"),
+            ("SDHP", "Sumo high pull"),
+            ("CTB", "Chest to bar"),
+            ("GHD SU", "GHD sit-up"),
+            ("WW", "Wall walk"),
+            ("RC", "Rope climb"),
+            ("BS", "Sentadilla"),
+            ("FS", "Sentadilla frontal"),
+            ("WBS", "Wall ball"),
+            ("RKBS", "Swing kettlebell"),
+            ("AKBS", "Swing americano"),
+            ("rowerg", "Remo máquina"),
+            ("cal row", "Remo máquina"),
+            ("cal ski", "SkiErg"),
+            ("ass bike", "Air bike"),
+            ("dobles comba", "Dobles de comba"),
+            ("front squat", "Sentadilla frontal"),
+            ("bench press", "Press banca")
+        ]
+        for item in cases {
+            let matches = ExerciseSearch.ranked(catalog, query: item.query)
+            XCTAssertTrue(
+                matches.contains(where: { $0.name == item.expected }),
+                "La búsqueda \(item.query) no encuentra \(item.expected)"
+            )
+        }
+    }
+
+    func testAmbiguousAbbreviationsOfferAlternativeMatches() {
+        let catalog = Catalog.seed()
+        let su = ExerciseSearch.ranked(catalog, query: "SU").map(\.name)
+        XCTAssertTrue(su.contains("Simples de comba"))
+        XCTAssertTrue(su.contains("Sit-up"))
+        let mu = ExerciseSearch.ranked(catalog, query: "MU").map(\.name)
+        XCTAssertTrue(mu.contains("Muscle-up barra"))
+        XCTAssertTrue(mu.contains("Muscle-up anillas"))
+        let bp = ExerciseSearch.ranked(catalog, query: "BP").map(\.name)
+        XCTAssertTrue(bp.contains("Press banca"))
+        XCTAssertTrue(bp.contains("Burpee"))
+    }
+
+
     private func exercise(
         name: String,
         muscle: String,
