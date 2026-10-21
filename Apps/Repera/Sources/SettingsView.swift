@@ -27,6 +27,7 @@ struct SettingsView: View {
     @State private var confirmSignOut = false
     @State private var isSyncingEverything = false
     @State private var syncIconSpinning = false
+    @State private var syncFeedback: String?
     /// Última sync completa (iCloud + perfil + entrenamientos).
     @State private var lastFullSyncAt: Date? = {
         let t = UserDefaults.standard.double(forKey: "repera.settings.lastFullSyncAt")
@@ -151,6 +152,11 @@ struct SettingsView: View {
                     Text(problem)
                         .font(.footnote)
                         .foregroundStyle(OG.red)
+                }
+                if let syncFeedback {
+                    Text(syncFeedback)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
 
                 Button("Cerrar sesión", role: .destructive) {
@@ -718,17 +724,26 @@ struct SettingsView: View {
             isSyncingEverything = false
         }
 
+        syncFeedback = nil
         await store.refreshFromiCloud()
-        if businessAuth.isConnected {
-            await businessAuth.syncPublicProfile(
-                displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName,
-                avatarJPEG: store.state.settings.profileAvatarJPEG
-            )
-            await businessData.refresh()
-            await workoutSync.sync(store: store)
+        guard businessAuth.isConnected else {
+            syncFeedback = "iCloud comprobado. Supabase no está conectado; el historial deportivo no se ha subido."
+            return
+        }
+        await businessAuth.syncPublicProfile(
+            displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName,
+            avatarJPEG: store.state.settings.profileAvatarJPEG
+        )
+        await businessData.refresh()
+        let workoutsUploaded = await workoutSync.sync(store: store)
+        guard workoutsUploaded, store.syncPhase == .ready,
+              businessAuth.profileMigrationErrorMessage == nil else {
+            syncFeedback = "Sincronización incompleta. Conservamos todos los datos locales; consulta el error y reintenta."
+            return
         }
         let now = Date()
         lastFullSyncAt = now
+        syncFeedback = "\(workoutSync.mirroredCount) entrenamientos en Supabase; iCloud y perfil sincronizados."
         UserDefaults.standard.set(now.timeIntervalSince1970, forKey: "repera.settings.lastFullSyncAt")
     }
 
