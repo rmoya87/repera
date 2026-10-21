@@ -243,3 +243,9 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 - La localización del mapa se mantiene intacta y privada. Para solicitar el tiempo solo se transmite al servicio meteorológico de Apple una coordenada redondeada a 2 decimales (~1 km) y la fecha/hora del entreno.
 - No se sustituye un índice de calidad del aire histórico por valores actuales: WeatherKit no ofrece AQI histórico mediante sus consultas nativas; conectar un proveedor alternativo requiere comprobar licencia comercial, cobertura de fechas y aceptación explícita del tratamiento de coordenadas. Mientras tanto, la caja indica «—».
 - El valor de distancia en las tarjetas de resumen sustituye la repetición de «FC media» cuando existe ruta GPS. La FC media permanece visible en la cabecera de la gráfica.
+
+### Acceso IA y planes entrantes (iOS 27)
+
+- **Ajustes → Acceso IA:** creación, copia puntual, listado y revocación de tokens personales; no aparece una pantalla adicional para iniciar sesión con Apple. La autenticación se recupera al arrancar Repera. La vista es compacta: sin footers descriptivos ni botón de actualización de planes.
+- La IA que guarda un entrenamiento en `ai_training_plans` hace que **Inicio y Diario** actualicen sus rutinas en primer plano mediante Supabase Realtime, con aviso temporal de llegada. No se sobrescribe un plan personal ya asociado a ese día.
+- **Cuenta → Sincronizar ahora** mantiene la recuperación explícita de iCloud, Supabase e Inbox IA. Al volver de segundo plano se recuperan cambios perdidos aunque Realtime se haya desconectado. No hay notificaciones APNs en segundo plano en esta versión.
