@@ -78,8 +78,9 @@ final class HealthRecoveryStore {
     }
 
     var needsSleepDecision: Bool { !sleepDecisionMade }
-    /// No solicitar sueño cuando el usuario lo rechazó explícitamente en Repera.
-    var shouldRequestSleepWithHealth: Bool { !sleepDecisionMade || sleepEnabled }
+    /// Sueño solo se solicita si el usuario lo activó expresamente.
+    /// No determinado no implica consentimiento ni un permiso pendiente obligatorio.
+    var shouldRequestSleepWithHealth: Bool { sleepEnabled }
 
     /// Activaciones aún sin aceptar/rechazar (punto rojo en Ajustes).
     var pendingHealthItems: [String] {
