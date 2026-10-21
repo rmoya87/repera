@@ -157,3 +157,5 @@ xcrun devicectl device info files --device <udid> \
   --domain-type appDataContainer --domain-identifier com.app.repera \
   --subdirectory Documents
 ```
+
+La variante OCR `20 / 16 CAL*` con espacios a ambos lados de la barra también debe leerse como calorías Air Bike por sexo, no como dos movimientos alternativos. El parser completo y el ligero dejan `rounds=nil` en For Time sin prefijo N RFT.
