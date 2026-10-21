@@ -716,12 +716,30 @@ struct DayEditorView: View {
                         Text(block.wodFormat?.displayName ?? "Libre")
                             .font(.caption)
                             .foregroundStyle(OG.label2)
+                        Menu {
+                            Button("Subir bloque", systemImage: "arrow.up") {
+                                moveBlock(block.id, offset: -1)
+                            }
+                            .disabled(routine.blocks.first?.id == block.id)
+                            Button("Bajar bloque", systemImage: "arrow.down") {
+                                moveBlock(block.id, offset: 1)
+                            }
+                            .disabled(routine.blocks.last?.id == block.id)
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .foregroundStyle(OG.accent)
+                                .frame(width: 32, height: 44)
+                        }
                     }
                     .frame(minHeight: 48)
                     .contentShape(Rectangle())
-                    .onDrag { NSItemProvider(object: "block:\(block.id.uuidString)" as NSString) }
-                    .onDrop(of: [UTType.plainText.identifier], isTargeted: nil) { providers in
-                        acceptDrop(providers, into: block.id, before: nil)
+                    .draggable("block:\(block.id.uuidString)")
+                    .dropDestination(for: String.self) { tokens, _ in
+                        guard let token = tokens.first else { return false }
+                        withAnimation(.smooth) {
+                            applyReorder(token, into: block.id, before: nil)
+                        }
+                        return true
                     }
 
                     if block.kind == .strength {
@@ -758,7 +776,7 @@ struct DayEditorView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            Text("Arrastra los bloques o los ejercicios a otra posición. También puedes mover un ejercicio a otro bloque.")
+            Text("Mantén pulsado y arrastra un bloque o ejercicio. También puedes usar el menú de cada bloque.")
                 .font(.footnote)
                 .foregroundStyle(OG.label2)
                 .padding(.horizontal, OG.pad)
@@ -788,34 +806,25 @@ struct DayEditorView: View {
         }
         .frame(minHeight: 44)
         .contentShape(Rectangle())
-        .onDrag {
-            NSItemProvider(object: "\(type):\(blockID.uuidString):\(itemID.uuidString)" as NSString)
-        }
-        .onDrop(of: [UTType.plainText.identifier], isTargeted: nil) { providers in
-            acceptDrop(providers, into: blockID, before: itemID)
+        .draggable("\(type):\(blockID.uuidString):\(itemID.uuidString)")
+        .dropDestination(for: String.self) { tokens, _ in
+            guard let token = tokens.first else { return false }
+            withAnimation(.smooth) {
+                applyReorder(token, into: blockID, before: itemID)
+            }
+            return true
         }
     }
 
-    private func acceptDrop(
-        _ providers: [NSItemProvider],
-        into blockID: UUID,
-        before itemID: UUID?
-    ) -> Bool {
-        guard let provider = providers.first(where: { $0.canLoadObject(ofClass: NSString.self) }) else {
-            return false
+    private func moveBlock(_ id: UUID, offset: Int) {
+        guard let old = routine.blocks.firstIndex(where: { $0.id == id }),
+              routine.blocks.indices.contains(old + offset) else { return }
+        withAnimation(.smooth) {
+            routine.blocks.move(
+                fromOffsets: IndexSet(integer: old),
+                toOffset: old + offset + (offset > 0 ? 1 : 0)
+            )
         }
-        _ = provider.loadObject(ofClass: NSString.self) { object, _ in
-            guard let value = object as? NSString else { return }
-            // NSString es mutable/no Sendable. Convertirlo antes de cruzar al
-            // MainActor evita capturar el objeto UIKit entre aislaciones Swift 6.
-            let payload = String(value)
-            DispatchQueue.main.async { [payload, blockID, itemID] in
-                withAnimation(.smooth) {
-                    applyReorder(payload, into: blockID, before: itemID)
-                }
-            }
-        }
-        return true
     }
 
     private func applyReorder(_ token: String, into destinationID: UUID, before itemID: UUID?) {
