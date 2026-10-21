@@ -52,6 +52,10 @@ struct BoardImportParserTests {
         #expect(CrossFitGlossary.canonicalName(for: "RING MUSCLE UP") == "Muscle-up anillas")
         #expect(CrossFitGlossary.canonicalName(for: "BENCH PRESS") == "Press banca")
         #expect(CrossFitGlossary.expand("40 DU / 80 SU").contains("Simples de comba"))
+        #expect(CrossFitGlossary.parseMovementLine("20 SU").name == "SU")
+        #expect(CrossFitGlossary.parseMovementLine("15 PU").name == "PU")
+        #expect(CrossFitGlossary.expand("as many rounds as possible") == "as many rounds as possible")
+        #expect(CrossFitGlossary.canonicalName(for: "AS") == "Air squat")
     }
 
 
