@@ -397,12 +397,16 @@ struct WorkoutDetailView: View {
                 Section {
                     VStack(alignment: .leading, spacing: 10) {
                         if !subtitle.isEmpty {
-                            // Padding mínimo: sin él, la primera letra (p. ej. «V» de Viernes) se recorta.
+                            // Gutter interno para que la «M» de Miércoles nunca
+                            // se recorte. El offset mantiene idéntica su posición visible:
+                            // 8 pt de padding - 6 pt de offset = 2 pt originales.
                             Text(subtitle)
                                 .font(.system(size: 15, weight: .regular))
                                 .foregroundStyle(OG.label2)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.leading, 8)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.leading, 2)
+                                .offset(x: -6)
                         }
                         summaryCard(session)
                         if let review = session.sessionReview {
@@ -603,9 +607,10 @@ struct WorkoutDetailView: View {
     }
 
     private func summaryCard(_ session: WorkoutSession) -> some View {
-        // Solo mostrar calorías cuando Salud ofrece energía activa real.
-        // No usar el fallback MET estimado guardado en appleActiveEnergyKcal.
-        let kcal = healthExtras?.hasExternalSaludSource == true
+        // Tres tarjetas estables: no colapsar el resultado a una sola cuando
+        // Apple Salud no aporta kcal o la sesión no tiene series con peso.
+        // Kcal solo si vienen de una fuente real de Salud, nunca de MET estimados.
+        let actualKcal = healthExtras?.hasExternalSaludSource == true
             ? healthExtras?.activeEnergyKcal
             : nil
         let minutes: Double = {
@@ -616,6 +621,20 @@ struct WorkoutDetailView: View {
             }
             return session.durationMinutes
         }()
+
+        let route = displayedRoute(session)
+        let distanceMeters: Double? = {
+            guard route.count >= 2 else { return nil }
+            let samples = route.map {
+                CardioRouteAnalysis.Sample(
+                    date: $0.date, latitude: $0.latitude,
+                    longitude: $0.longitude, altitudeMeters: $0.altitudeMeters
+                )
+            }
+            let meters = CardioRouteAnalysis.analyze(route: samples).distanceMeters
+            return meters > 0 ? meters : nil
+        }()
+
         return HStack(spacing: 10) {
             summaryTile(
                 title: "Tiempo",
@@ -623,32 +642,25 @@ struct WorkoutDetailView: View {
                 icon: "clock.fill",
                 tint: OG.blue
             )
-            if let kcal, kcal > 0 {
-                summaryTile(
-                    title: "Kcal",
-                    value: "\(Int(kcal.rounded()))",
-                    icon: "flame.fill",
-                    tint: OG.orange
-                )
-            }
-            if displayedRoute(session).count >= 2 {
-                let path = displayedRoute(session).map {
-                    CardioRouteAnalysis.Sample(
-                        date: $0.date, latitude: $0.latitude,
-                        longitude: $0.longitude, altitudeMeters: $0.altitudeMeters
-                    )
-                }
-                let meters = CardioRouteAnalysis.analyze(route: path).distanceMeters
+            summaryTile(
+                title: "Kcal",
+                value: actualKcal.flatMap { $0 > 0 ? "\(Int($0.rounded()))" : nil } ?? "—",
+                icon: "flame.fill",
+                tint: OG.orange
+            )
+            if let distanceMeters {
                 summaryTile(
                     title: "Distancia",
-                    value: meters > 0 ? String(format: "%.2f km", meters / 1000) : "—",
+                    value: String(format: "%.2f km", distanceMeters / 1000),
                     icon: "point.bottomleft.forward.to.point.topright.scurvepath",
                     tint: OG.accent
                 )
-            } else if session.totalVolumeKg > 0 {
+            } else {
                 summaryTile(
                     title: "Volumen",
-                    value: "\(Int(session.totalVolumeKg))",
+                    value: session.totalVolumeKg > 0
+                        ? "\(Int(session.totalVolumeKg.rounded()))"
+                        : "—",
                     icon: "scalemass.fill",
                     tint: OG.accent
                 )
