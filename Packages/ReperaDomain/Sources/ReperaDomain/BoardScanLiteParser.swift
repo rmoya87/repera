@@ -24,7 +24,8 @@ public enum BoardScanLiteParser {
                 title: cur.header.isEmpty ? cur.format.rawValue : cur.header
             )
             block.timeCapMinutes = cur.cap
-            block.rounds = cur.rounds ?? block.rounds
+            // El TC pertenece al bloque entero; no crear rondas por defecto.
+            block.rounds = cur.format == .forTime ? cur.rounds : (cur.rounds ?? block.rounds)
             if cur.format == .emom {
                 block.emomIntervalSeconds = cur.interval ?? 60
             }
@@ -268,7 +269,12 @@ public enum BoardScanLiteParser {
         // Alternativas de escala "3 BMU / 6 C2B / 9 Pull-ups" o "40 DU / 80 SU".
         // El slash con espacios NO representa carga H/M.
         var scaleAlternative: String?
-        let alternatives = working.components(separatedBy: #" / "#)
+        let caloriePair = working.range(
+            of: #"(?i)^\s*\d+\s*/\s*\d+\s*CALS?(?:ORIES)?\b"#,
+            options: .regularExpression
+        ) != nil
+        // «20 / 16 CAL» sigue siendo objetivo H/M aunque OCR añada espacios.
+        let alternatives = caloriePair ? [working] : working.components(separatedBy: #" / "#)
         if alternatives.count >= 2 {
             working = alternatives[0].trimmingCharacters(in: .whitespaces)
             scaleAlternative = alternatives.dropFirst()
