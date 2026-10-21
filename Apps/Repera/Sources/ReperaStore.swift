@@ -1062,6 +1062,46 @@ final class ReperaStore: NSObject {
         mutateActive { $0.selectExercise(at: index) }
     }
 
+    /// Reaplica una rutina editada durante Play sin perder series ni duración.
+    /// Conservar estado por ID de bloque y ejercicio, no por índice (pueden reordenarse).
+    func refreshActiveSessionPlan(from routine: Routine) {
+        guard var session = state.activeSession else { return }
+        let fresh = SessionController.from(routine: routine, exercises: state.exercises)
+        guard !fresh.exercises.isEmpty else { return }
+        let current = session.currentExercise
+        var remaining = session.exercises
+
+        session.exercises = fresh.exercises.map { planned in
+            var updated = planned
+            if let oldIndex = remaining.firstIndex(where: { old in
+                old.blockId == planned.blockId
+                    && (old.exercise.id == planned.exercise.id
+                        || old.exercise.name.localizedCaseInsensitiveCompare(planned.exercise.name) == .orderedSame)
+            }) {
+                let old = remaining.remove(at: oldIndex)
+                updated.loggedSets = old.loggedSets
+                updated.completedReps = old.completedReps
+                updated.isCompleted = old.isCompleted
+            }
+            return updated
+        }
+        if let current,
+           let index = session.exercises.firstIndex(where: {
+               $0.blockId == current.blockId
+                   && ($0.exercise.id == current.exercise.id
+                       || $0.exercise.name.localizedCaseInsensitiveCompare(current.exercise.name) == .orderedSame)
+           }) {
+            session.currentIndex = index
+        } else {
+            session.currentIndex = min(session.currentIndex, session.exercises.count - 1)
+        }
+        // Mantener el ID, las marcas de tiempo, el reloj y las series ya apuntadas.
+        state.activeSession = session
+        persist()
+        pushActiveToWatch(immediate: true)
+    }
+
+
     func logSet(
         reps: Int,
         weightKg: Double?,
