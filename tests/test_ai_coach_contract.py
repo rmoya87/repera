@@ -26,9 +26,9 @@ class AICoachContractTests(unittest.TestCase):
         self.assertNotIn("AITrainingProfileView()", settings)
         for feature in ("AITrainingContextStore.shared.syncCalendar", "AITrainingContextStore.shared.clearSession"):
             self.assertIn(feature,app)
-        for feature in ("AITrainingProgramsView()",
-                        "AITrainingContextStore.shared.syncCalendar"):
-            self.assertIn(feature,settings)
+        self.assertIn("AITrainingContextStore.shared.syncCalendar", settings)
+        self.assertNotIn("AITrainingProgramsView()", settings)
+        self.assertIn("AITrainingProgramsView()", source("Apps/Repera/Sources/PlanView.swift"))
 
     def test_coaching_server_has_owner_scoped_tools(self):
         code=source("supabase/functions/repera-mcp/coach.ts")
