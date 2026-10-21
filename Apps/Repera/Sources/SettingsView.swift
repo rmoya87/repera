@@ -311,7 +311,7 @@ struct SettingsView: View {
                 } label: {
                     HStack(spacing: 10) {
                         Label(
-                            health.isAuthorized ? "Salud conectada" : "Conectar con Salud",
+                            health.isAuthorized ? "Apple Salud" : "Conectar con Salud",
                             systemImage: "heart"
                         )
                         .foregroundStyle(OG.label)
