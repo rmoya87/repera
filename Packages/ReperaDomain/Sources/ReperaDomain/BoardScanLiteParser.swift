@@ -370,8 +370,8 @@ public enum BoardScanLiteParser {
               let right = capture(#"(?i)^B:\s*(\d+)\s+(.+)$"#, from: b),
               left.count == 2, right.count == 2,
               let lReps = Int(left[0]), let rReps = Int(right[0]),
-              let pull = catalog.first(where: { name($0.name) == name("Dominadas") }),
-              let row = catalog.first(where: { name($0.name) == name("Remo en anillas") })
+              let pull = catalog.first(where: { name($0.name) == name("Dominadas lastradas") }),
+              let row = catalog.first(where: { name($0.name) == name("Remo pliométrico en anillas pies elevados") })
         else { return nil }
         let percent = capture(#"#\s*(\d+)\s*%"#, from: left[1])?.first.flatMap(Double.init)
         var block = RoutineBlock.strength(title: header, exercises: [
