@@ -2,6 +2,82 @@ import Testing
 @testable import ReperaDomain
 
 struct BoardScanLiteParserTests {
+    @Test func scannerKeepsTimeCapSeparateFromRoundsAndResolvesRealCrossFitBoard() {
+        let board = """
+        AMRAP 16'
+        3 GTOH 60/40
+        3 BMU / 6 C2B / 9 PULL UPS
+        10 WALL BALL 9/7
+        15 AKBS 24/16
+        40 DU / 80 SU
+
+        FOR TIME (TC 14')
+        400M RUN
+        20/16 CAL*
+        400M RUN
+        20/16 CAL*
+        400M RUN
+        (1' REST BTWN**)
+        """
+        let blocks = BoardScanLiteParser.parse(ocrText: board, catalog: Catalog.seed()).blocks
+        #expect(blocks.count == 2)
+
+        let amrap = blocks[0]
+        #expect(amrap.wodFormat == .amrap)
+        #expect(amrap.timeCapMinutes == 16)
+        #expect(amrap.movements.count == 5)
+        #expect(amrap.movements[0].name == "Ground to overhead")
+        #expect(amrap.movements[0].reps == 3)
+        #expect(amrap.movements[0].weightMaleKg == 60)
+        #expect(amrap.movements[0].weightFemaleKg == 40)
+        #expect(amrap.movements[0].exerciseId != nil)
+        #expect(amrap.movements[1].name == "Muscle-up barra")
+        #expect(amrap.movements[1].scaleAlternative?.contains("6 Chest to bar") == true)
+        #expect(amrap.movements[1].scaleAlternative?.contains("9 Dominadas") == true)
+        #expect(amrap.movements[2].name == "Wall ball")
+        #expect(amrap.movements[3].name == "Swing americano")
+        #expect(amrap.movements[3].weightMaleKg == 24)
+        #expect(amrap.movements[3].weightFemaleKg == 16)
+        #expect(amrap.movements[3].exerciseId != nil)
+        #expect(amrap.movements[4].name == "Dobles de comba")
+        #expect(amrap.movements[4].scaleAlternative == "80 Simples de comba")
+
+        let forTime = blocks[1]
+        #expect(forTime.wodFormat == .forTime)
+        #expect(forTime.timeCapMinutes == 14)
+        #expect(forTime.rounds == nil)
+        #expect(forTime.movements.filter { !$0.isRest }.count == 5)
+        let work = forTime.movements.filter { !$0.isRest }
+        #expect(work[0].distanceMeters == 400)
+        #expect(work[2].distanceMeters == 400)
+        #expect(work[4].distanceMeters == 400)
+        #expect(work[1].name == "Air bike")
+        #expect(work[1].calories == 20)
+        #expect(work[1].weightMaleKg == nil)
+        #expect(work[1].notes?.contains("20/16") == true)
+        #expect(work[1].exerciseId != nil)
+        #expect(work[3].calories == 20)
+        #expect(forTime.movements.last?.isRest == true)
+        #expect(forTime.restBetweenRoundsSeconds == 60)
+        #expect(forTime.plannedSets(for: work[1]).count == 1)
+        #expect(forTime.plannedSets(for: work[0]).count == 1)
+    }
+
+    @Test func forTimeCapAloneDoesNotGenerateRoundsOrSets() {
+        let blocks = BoardScanLiteParser.parse(ocrText: """
+            FOR TIME (TC 14')
+            400M RUN
+            20/16 CAL*
+            """, catalog: Catalog.seed()).blocks
+        #expect(blocks.count == 1)
+        #expect(blocks[0].timeCapMinutes == 14)
+        #expect(blocks[0].rounds == nil)
+        #expect(blocks[0].movements.count == 2)
+        #expect(blocks[0].plannedSets(for: blocks[0].movements[0]).count == 1)
+        #expect(blocks[0].plannedSets(for: blocks[0].movements[1]).count == 1)
+    }
+
+
     @Test func importsActualScreenshotAsThreeEditableBlocks() {
         let board = """
         EMOM 8' @6-8
