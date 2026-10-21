@@ -157,7 +157,7 @@ public struct SessionController: Sendable {
                             SessionExercise(
                                 exercise: exercise,
                                 plannedSets: item.plannedSets,
-                                quantityUnit: item.quantityUnit ?? exercise.defaultQuantityUnit,
+                                quantityUnit: item.quantityUnit,
                                 supersetGroup: nil,
                                 blockId: block.id,
                                 blockKind: .strength,
