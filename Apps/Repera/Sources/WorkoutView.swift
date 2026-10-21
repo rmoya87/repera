@@ -1040,7 +1040,9 @@ struct WorkoutView: View {
         return TimelineView(.periodic(from: .now, by: 0.25)) { context in
             BlockTimerScreen(
                 title: clock.title,
-                subtitle: clock.isPreCountdown ? "Cuenta atrás" : clock.subtitle,
+                subtitle: clock.isPreCountdown
+                    ? "Cuenta atrás"
+                    : (clock.isOverTimeCap ? "TC superado · tiempo real" : clock.subtitle),
                 exercise: clock.exercise,
                 roundNumber: roundDisplay,
                 totalRounds: clock.isIntervalMode ? clock.totalIntervals : nil,
