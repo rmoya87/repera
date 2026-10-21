@@ -1067,7 +1067,7 @@ struct WorkoutView: View {
         let subtitleDefault = wodPlanLabel(for: current)
 
         switch format {
-        case .emom:
+        case .emom, .circuit:
             let interval = max(15, current.blockIntervalSeconds ?? 60)
             let rounds = current.plannedIntervals
                 ?? current.blockRounds
@@ -1118,7 +1118,7 @@ struct WorkoutView: View {
                 sound: sound,
                 haptic: haptic
             )
-        case .forTime, .chipper, .afap:
+        case .forTime, .chipper, .afap, .ladder:
             store.workoutClock.configure(
                 exercise: current.exercise,
                 title: current.blockHeader ?? current.exercise.name,
@@ -1132,7 +1132,7 @@ struct WorkoutView: View {
                 sound: sound,
                 haptic: haptic
             )
-        case .ladder, .partner, .buyInCashOut, .roundsForQuality, .circuit:
+        case .partner, .buyInCashOut, .roundsForQuality:
             if let mins = current.blockTimeCapMinutes, mins > 0 {
                 let seconds = mins * 60
                 store.workoutClock.configure(
