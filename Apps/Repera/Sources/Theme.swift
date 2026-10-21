@@ -882,7 +882,8 @@ struct OGNumericTextField: UIViewRepresentable {
         var onCommit: () -> Void
         var desiredFocus: Bool?
         weak var field: UITextField?
-        weak var pad: OGReperaNumericKeypad?
+        fileprivate weak var pad: OGReperaNumericKeypad?
+        private var suppressNextEndCommit = false
 
         init(
             text: Binding<String>,
@@ -911,7 +912,11 @@ struct OGNumericTextField: UIViewRepresentable {
 
         func textFieldDidEndEditing(_ textField: UITextField) {
             text.wrappedValue = textField.text ?? ""
-            (onFocusLost ?? onCommit)()
+            if suppressNextEndCommit {
+                suppressNextEndCommit = false
+            } else {
+                (onFocusLost ?? onCommit)()
+            }
         }
 
         func textFieldShouldReturn(_ textField: UITextField) -> Bool {
@@ -922,8 +927,10 @@ struct OGNumericTextField: UIViewRepresentable {
         @objc func commitFromKeyboard() {
             guard let field else { return }
             text.wrappedValue = field.text ?? ""
+            // Evita registrar dos veces el valor/serie cuando resignFirstResponder
+            // dispara textFieldDidEndEditing tras pulsar Siguiente o ✓.
+            suppressNextEndCommit = true
             onCommit()
-            // La acción avanza el foco en SwiftUI; la instancia antigua se cierra.
             field.resignFirstResponder()
         }
 
@@ -987,7 +994,7 @@ struct OGNumericTextField: UIViewRepresentable {
 
 /// Repera 4×4, reproducción nativa del pad solicitado (sin letras):
 /// 1 2 3 ocultar / 4 5 6 + / 7 8 9 − / . 0 borrar Siguiente/✓.
-private final class OGReperaNumericKeypad: UIInputView {
+fileprivate final class OGReperaNumericKeypad: UIInputView {
     private weak var coordinator: OGNumericTextField.Coordinator?
     private var buttons: [String: UIButton] = [:]
     private var allowsDecimal = false
