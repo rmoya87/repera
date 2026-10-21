@@ -399,35 +399,27 @@ struct WorkoutView: View {
 
                     ForEach(block.indexes, id: \.self) { index in
                         let entry = session.exercises[index]
-                        Button {
-                            guard session.currentIndex != index else { return }
-                            store.selectExercise(at: index)
-                        } label: {
-                            HStack(spacing: 12) {
-                                ExerciseThumb(exercise: entry.exercise, size: 48)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(entry.exercise.name)
-                                        .font(.system(size: 16, weight: .semibold))
-                                        .foregroundStyle(OG.label)
-                                    Text(entry.plannedSets.compactSummary)
-                                        .font(.caption)
-                                        .foregroundStyle(OG.label2)
+                        Group {
+                            if session.currentIndex == index {
+                                // Ya expandido: tocar miniatura o nombre abre la ficha real.
+                                NavigationLink {
+                                    ExerciseDetailView(
+                                        exerciseId: entry.exercise.id,
+                                        highlightSessionId: session.id
+                                    )
+                                } label: {
+                                    workoutExerciseRow(entry, isOpen: true)
                                 }
-                                Spacer(minLength: 6)
-                                if entry.isCompleted {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(OG.accent)
-                                } else if session.currentIndex == index {
-                                    Image(systemName: "chevron.down")
-                                        .foregroundStyle(OG.accent)
-                                } else {
-                                    Image(systemName: "chevron.right")
-                                        .foregroundStyle(OG.label3)
+                            } else {
+                                // Cerrado: un toque expande sus series (no navega).
+                                Button {
+                                    store.selectExercise(at: index)
+                                } label: {
+                                    workoutExerciseRow(entry, isOpen: false)
                                 }
+                                .buttonStyle(.plain)
                             }
-                            .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
                         .listRowBackground(OG.surface)
 
                         if session.currentIndex == index {
@@ -474,6 +466,31 @@ struct WorkoutView: View {
                 try? await Task.sleep(for: .seconds(15))
             }
         }
+    }
+
+    private func workoutExerciseRow(_ entry: SessionExercise, isOpen: Bool) -> some View {
+        HStack(spacing: 12) {
+            ExerciseThumb(exercise: entry.exercise, size: 48)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(entry.exercise.name)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                Text(entry.plannedSets.compactSummary)
+                    .font(.caption)
+                    .foregroundStyle(OG.label2)
+            }
+            Spacer(minLength: 6)
+            if entry.isCompleted {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(OG.accent)
+            } else if !isOpen {
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(OG.label3)
+            }
+            // Sin chevron hacia abajo: la fila abierta lleva a la ficha.
+        }
+        .contentShape(Rectangle())
     }
 
     private func openBlockTimer(_ block: WorkoutBlockEntry, session: WorkoutSession) {
