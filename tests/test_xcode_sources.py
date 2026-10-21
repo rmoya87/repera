@@ -21,6 +21,9 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         (directory / "BusinessWorkoutSyncStore.swift").write_text("// Workout Sync", encoding="utf-8")
         (directory / "AITrainingInboxStore.swift").write_text("// AI inbox", encoding="utf-8")
         (directory / "AIAccessView.swift").write_text("// AI access", encoding="utf-8")
+        (directory / "AITrainingContextStore.swift").write_text("// AI context", encoding="utf-8")
+        (directory / "AITrainingProfileView.swift").write_text("// AI profile", encoding="utf-8")
+        (directory / "AITrainingProgramsView.swift").write_text("// AI programs", encoding="utf-8")
         (self.root / "project.yml").write_text(
             "targets:\n  Repera:\n    sources:\n      - path: Apps/Repera/Sources\n"
             "    dependencies:\n      - package: Supabase\n        product: Supabase\n",
@@ -33,7 +36,10 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "BusinessDataStore.swift in Sources\n"
             "BusinessWorkoutSyncStore.swift in Sources\n"
             "AITrainingInboxStore.swift in Sources\n"
-            "AIAccessView.swift in Sources", encoding="utf-8"
+            "AIAccessView.swift in Sources\n"
+            "AITrainingContextStore.swift in Sources\n"
+            "AITrainingProfileView.swift in Sources\n"
+            "AITrainingProgramsView.swift in Sources", encoding="utf-8"
         )
 
     def test_current_generated_project(self):
@@ -90,6 +96,23 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "AIAccessView.swift"):
             validate(self.root)
+
+    def test_stale_coaching_target_is_rejected(self):
+        for name in ("AITrainingContextStore.swift", "AITrainingProfileView.swift", "AITrainingProgramsView.swift"):
+            original = self.pbx.read_text(encoding="utf-8")
+            self.pbx.write_text(original.replace(f"{name} in Sources", ""), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, name):
+                validate(self.root)
+            self.pbx.write_text(original, encoding="utf-8")
+
+    def test_missing_coaching_source_requires_checkout_update(self):
+        for name in ("AITrainingContextStore.swift", "AITrainingProfileView.swift", "AITrainingProgramsView.swift"):
+            path = self.root / "Apps/Repera/Sources" / name
+            original = path.read_text(encoding="utf-8")
+            path.unlink()
+            with self.assertRaisesRegex(ValueError, name):
+                validate(self.root)
+            path.write_text(original, encoding="utf-8")
 
     def test_file_reference_without_compile_sources_is_rejected(self):
         pbx = self.pbx.read_text(encoding="utf-8")

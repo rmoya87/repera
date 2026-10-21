@@ -18,6 +18,9 @@ REQUIRED = (
     "BusinessWorkoutSyncStore.swift",
     "AITrainingInboxStore.swift",
     "AIAccessView.swift",
+    "AITrainingContextStore.swift",
+    "AITrainingProfileView.swift",
+    "AITrainingProgramsView.swift",
 )
 
 

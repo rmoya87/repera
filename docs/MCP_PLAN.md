@@ -1,5 +1,22 @@
 # Repera IA — tokens personales, planificación y MCP
 
+## Evolución: Coach IA con programas y contexto deportivo (21/10/2026)
+
+**Cambios implementados (aditivos, compatibles con el espejo iOS):**
+- `athlete_training_profiles`: objetivos deportivos, experiencia, días, minutos, material y opt-in de coaching. Solo configuración voluntaria mediante **Ajustes → Entrenamiento → Perfil deportivo IA**; excluye Apple Salud, lesiones, rutas, medidas físicas y notas privadas.
+- `athlete_training_calendar_snapshots`: fotografía atómica de rutinas **personales** fechadas y recurrentes hasta 90 días. La app sube únicamente título, identidad de ejercicio, series previstas y formato WOD; no sube el objeto bruto `Routine`, notas ni GPS. Se actualiza con la sesión, iCloud y el botón Cuenta → Sincronizar ahora. El iPhone sigue siendo fuente de verdad y el MCP avisa si falta la fotografía.
+- `training_exercise_metadata`: tabla común unida al catálogo profesional (189 entradas), con campos de alias, músculos, equipamiento y variantes. Se ha sembrado solo la anatomía verificada de 52 entradas de `CatalogEnrichment.swift` y 50 IDs nativos `catalogId`. Los demás quedan sin datos, no inferidos. `search_training_exercises_enriched` y `get_exercise_performance` resuelven ambas identidades; `get_exercise_alternatives` nunca inventa variantes no curadas.
+- `athlete_training_programs`: macrociclos persistentes propuestos/activos/pausados, duración 1–52 semanas, fases con progresión, revisión optimista por `revision`, y vinculación opcional a los planes diarios mediante `ai_training_plans.program_id`. Repera permite ver y activar programas desde Ajustes. Una fase de meses **no inserta cientos de entrenamientos** automáticamente: el asistente envía las siguientes 1–14 sesiones con `create_training_plan`.
+- El MCP incorpora `get_training_profile`, `get_training_calendar`, `get_training_analysis`, `get_exercise_performance`, `get_exercise_alternatives`, `search_training_exercises_enriched`, `get_training_programs`, `create_training_program`, `review_training_program` y `adjust_training_program`. No entrena un modelo propio: usa métricas reproducibles y deja al asistente el razonamiento y la explicación.
+- `create_workout` y `create_training_plan` aceptan `idempotencyKey` UUID. La base de datos evita repeticiones de fecha en el mismo lote; una petición repetida no sobreescribe la original. Para vincular sesiones a un macrociclo se usa `programId`.
+
+**Interpretación de métricas:** `get_training_analysis` agrega por semanas el volumen de fuerza, repeticiones, kg, RIR disponible y máximos estimados mediante Epley (solo series de 1–12 repeticiones con carga). Ningún dato describe recuperación fisiológica o riesgo médico. Los RIR ausentes, cargas inexistentes y ejercicios sin ID se identifican como calidad faltante. Las clases profesionales y entrenamientos aún no sincronizados desde iCloud pueden faltar; se indica frescura y limitaciones del calendario.
+
+**Seguridad:** RLS con `owner_id=auth.uid()` en perfil, calendario y programas; clientes OAuth con `client_id` no pueden leer las tablas personales nuevas; el MCP PAT resuelve el `owner_id` a partir de un hash de token y filtra todas las lecturas y escrituras; solo publica Realtime `ai_training_plans`. Prueba SQL de privacidad con dos identidades simuladas, en transacción revertida.
+
+**Pendiente de aceptar como lanzamiento:** compilar Swift y prueba de dispositivo real, autorización de un PAT real y flujo E2E; contrastar las métricas del servidor con `StatsEngine`, `ProgressionEngine` y `MuscleTaxonomy` de Swift; revisar al menos 139 ejercicios todavía sin anatomía verificada y los alias/alternativas; conectar el calendario profesional para que quede completo; desarrollar gestión de revisiones y avisos push si se desea coaching autónomo con la app cerrada. Este hito no afirma que exista un entrenador autónomo en segundo plano.
+
+
 ## Recepción automática en primer plano (21/10/2026)
 
 - Ajustes → **Acceso IA** muestra creación y revocación de tokens sin tarjeta de inicio de sesión Apple, sin textos auxiliares debajo de las tarjetas ni botón manual de actualización de planes. El login y recuperación de sesión corresponden al arranque habitual de Repera.

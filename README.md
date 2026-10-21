@@ -134,3 +134,8 @@ Reimplementación Swift propia. openGym es AGPL — no se incorpora su código a
 ## Acceso IA y recepción automática
 
 Ajustes → Acceso IA crea/revoca tokens personales con la sesión Supabase del inicio normal de Repera, sin presentar otro inicio de sesión de Apple. Los entrenamientos que un asistente envía mediante el MCP aparecen en Inicio/Diario automáticamente mientras la app está abierta y se avisan con una tarjeta breve, gracias a la suscripción Realtime protegida por RLS del usuario. El botón «Sincronizar ahora» de Cuenta también recupera planes pendientes; si iOS suspende/cierra la app, se incorporan al volver al primer plano. **No hay notificaciones push cuando la app está cerrada**. Detalles y checklist en [docs/MCP_PLAN.md](docs/MCP_PLAN.md).
+
+
+## Coach deportivo IA
+
+El MCP Repera también expone un perfil de entrenamiento voluntario (objetivo, experiencia, tiempo, equipo), la agenda de rutinas personales próximas sin notas ni Salud, el catálogo de ejercicios enlazado con ID nativos y los programas por fases hasta 52 semanas. Desde **Ajustes → Entrenamiento** se puede configurar el perfil, revisar/activar programas y seguir usando **Cuenta → Sincronizar ahora**. El asistente puede crear programas persistentes y propuestas concretas de hasta 14 entrenamientos por petición. Las métricas del backend son estimaciones de esfuerzo deportivo, no un sistema clínico. La sincronización completa con entrenadores y la verificación E2E en dispositivo siguen abiertas; detalles en [docs/MCP_PLAN.md](docs/MCP_PLAN.md).

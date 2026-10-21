@@ -170,6 +170,7 @@ struct ReperaApp: App {
                             await businessData.refresh()
                             await workoutSync.sync(store: store)
                             _ = await aiInbox.sync(store: store)
+                            _ = await AITrainingContextStore.shared.syncCalendar(store: store)
                             if scenePhase == .active {
                                 aiInbox.startRealtime(store: store)
                             }
@@ -203,6 +204,7 @@ struct ReperaApp: App {
                                 await businessData.refresh()
                                 await workoutSync.sync(store: store)
                                 _ = await aiInbox.sync(store: store)
+                            _ = await AITrainingContextStore.shared.syncCalendar(store: store)
                                 if scenePhase == .active {
                                     aiInbox.startRealtime(store: store)
                                 }
@@ -218,6 +220,7 @@ struct ReperaApp: App {
                         Task {
                             await workoutSync.sync(store: store)
                             _ = await aiInbox.sync(store: store)
+                            _ = await AITrainingContextStore.shared.syncCalendar(store: store)
                             if scenePhase == .active {
                                 aiInbox.startRealtime(store: store)
                             }
@@ -225,6 +228,7 @@ struct ReperaApp: App {
                     } else {
                         workoutSync.clearSession()
                         aiInbox.clearSession()
+                        AITrainingContextStore.shared.clearSession()
                         subscriptions.setBusinessSponsoredAccess(false)
                     }
                     wireSubscriptionGates()
@@ -237,6 +241,7 @@ struct ReperaApp: App {
                         Task {
                             await workoutSync.sync(store: store)
                             _ = await aiInbox.sync(store: store)
+                            _ = await AITrainingContextStore.shared.syncCalendar(store: store)
                             if scenePhase == .active {
                                 aiInbox.startRealtime(store: store)
                             }
@@ -249,6 +254,9 @@ struct ReperaApp: App {
                     }
                 }
                 .onChange(of: store.state.syncRevision) { _, _ in
+                    if businessAuth.isConnected, scenePhase == .active {
+                        Task { _ = await AITrainingContextStore.shared.syncCalendar(store: store) }
+                    }
                     // Solo refresca conteos de cuota; no rehace sort de rutinas.
                     subscriptions.syncCounts(
                         libraryRoutines: store.libraryRoutineCount,
