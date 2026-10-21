@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-21 (Play por bloques, formatos opcionales, eliminación de resultado final)
+Última actualización: 2026-10-21 (reordenamiento jerárquico, campos compactos, Play editable, swipe Inicio y unidades de cardio)
 
 ## Tabs
 
@@ -12,7 +12,7 @@
 - Métricas del día: tiempo; **kcal = max(energía activa del día en Salud, suma de chips Repera+Salud del día)**. Por entreno: kcal de sesión = Watch/Salud **solo si la energía es creíble**; si en la franja solo hay ambiente (p. ej. 2 kcal), manda el **estimado Repera** (MET / time caps). **Tiempo mostrado = inicio→fin**. Detalle alineado con Inicio. Recalc al arrancar (v2026_10_19e).
 - Lista de entrenos Repera del día + actividades externas de Salud (etiqueta «DÍA · hora» misma tipografía; chips min/kcal/**nota**/PR como Historial; tile del día «Nota» en lugar de nº de ejercicios). Notas recalculadas al arrancar si cambia la fórmula (`sessionReviewFormulaVersion`).
 - Acciones: empezar, **Añadir entreno** (`DayPlusSheet`), escanear pizarra → revisión como **página** (no modal) titulada «Añadir entreno».
-- Swipe en filas de entreno: círculo rojo + papelera; **toda la card (chips incluidos)** se desliza. El gesto solo nace fuera del carrusel (sobre chips solo scroll); confirmación glass.
+- Swipe en filas de entreno: círculo rojo + papelera; **toda la card (chips incluidos)** se desliza. El gesto solo nace fuera del carrusel (sobre chips solo scroll); confirmación glass. La capa UIKit del swipe remite explícitamente los toques de la zona revelada a `onDelete`, para que la papelera funcione pese a la vista hospedada superpuesta.
 - También en **entrenos planificados** del día (aún sin registro): swipe borra el suelto o quita la plantilla del weekday (igual que desde el detalle).
 
 ### Diario (`PlanView`)
@@ -21,9 +21,9 @@
 
 - Título arriba (`ogFixedTopBar`) + menú ⋯ en la misma fila (Programado).
 - Plan semanal por weekday: tocar un entreno asignado abre la misma vista previa y acción Comenzar que Inicio; deslizar a la izquierda permite quitarlo con acción roja. Solo los días sin entreno abren el selector de asignación Liquid Glass.
-- Edición de rutinas / bloques (fuerza + WOD): modal con **check** (swipe para cerrar); desde Entreno → Editar, **volver** (sin X) + check. Al añadir un bloque, el título por defecto es **Bloque 1**, **Bloque 2**, … (secuencial).
+- Crear y Editar usan **DayEditorView**, con los mismos controles. El nombre del bloque tiene a su derecha **⋯ Liquid Glass** (sin papelera inmediata): **Eliminar bloque** y **Reordenar**. Reordenar abre una lista jerárquica donde los ejercicios están indentados y admite **arrastrar y soltar** para reordenar bloques, reordenar ejercicios y moverlos a otro bloque (conversión fuerza ↔ WOD preservando series). El check es un único círculo verde, sin doble glass en la toolbar. Los nuevos bloques se denominan **Bloque 1**, **Bloque 2**...
 - **Elegir WOD**: catálogo seed de benchmarks conocidos (`CatalogWODs`: Fran, Cindy, Murph…). Detalle con miniaturas de movimientos, tiempo típico y músculos → Usar.
-- **Formato opcional en cualquier bloque**: tanto fuerza como WOD importado permiten escoger y cambiar en cualquier momento AMRAP, EMOM, For Time, Tabata, etc., o **Sin formato**. Los parámetros del reloj (duración, cap opcional, intervalos, trabajo/descanso, rondas) se configuran debajo del selector. Se elimina la acción redundante «Crear WOD»; «Añadir bloque» permite empezar sin formato. La selección del formato, ejercicio/movimiento y la creación de movimiento libre se presentan como páginas push.
+- **Formato opcional en cualquier bloque**: fuerza y WOD importado admiten AMRAP, EMOM, For Time, Tabata, etc., o **Sin formato**. Duración, intervalos, trabajo/descanso y rondas se editan en una sola fila de celdas numéricas, sin +/− y con el teclado Siguiente/Hecho de las series. El time cap es opcional cuando procede. No existe «Crear WOD»: «Añadir bloque» crea un bloque libre y se selecciona el formato después.
 - Día → asignar rutina: sin X; selección con check blanco en círculo verde.
 - Favoritos de rutinas.
 - Overrides de día.
@@ -113,13 +113,13 @@
 
 ## Sesión de entreno
 
-- Preview (`SessionPreviewView`): **Play** inicia la única pantalla de registro, `WorkoutView`; **Editar** (lápiz o menú ⋯) abre exclusivamente `DayEditorView`, sin selector Editar/Apuntar. Se elimina la opción «Apuntar resultado», su pantalla `LogFinalResultsView`, el estado y la ruta de navegación asociada y el método de persistencia exclusivo.
+- Preview (`SessionPreviewView`): **Play** (único botón prominente verde con icono blanco) inicia el registro; **Editar** está exclusivamente dentro de ⋯, sin lápiz duplicado, y abre `DayEditorView`. El subtítulo queda alineado a la izquierda, junto al título y sin margen de lista excesivo. Ya no existe el flujo «Apuntar resultado».
 - Crear entreno desde «Añadir entreno» abre editor de pantalla completa con navegación propia, no dentro del sheet compacto.
 - En el detalle de entreno, el tile de calorías se omite cuando Salud no aporta una medición auténtica.
-- **Series de fuerza / WOD** al crear y editar: tabla compacta de **Serie | Anterior | KG/Tiempo | Reps**, sin botones −/+. La columna **Anterior** muestra el peso, duración o repeticiones de la misma serie en la última sesión del ejercicio, si existe; en ejercicios de un único valor queda una sola columna editable. RIR sigue disponible como menú compacto bajo su serie. La misma retícula se usa durante Play.
-- **En sesión activa** la tabla añade un **check verde a la derecha** para marcar cada serie, por orden, iniciando el descanso correspondiente. Los objetivos sin completar no aparecen como registrados. En edición no se muestra el check de completar.
+- **Series de fuerza / WOD** en Crear, Editar y Play: misma retícula **Serie (número circular) | Anterior | KG, tiempo o cantidad | Reps | RIR** (si procede), sin +/−. El número circular no parece editable y RIR se ajusta en la misma fila. Los ejercicios de máquina/cardiovascular usan **Cal o metros**, nunca KG cuando su estilo de registro no utiliza carga; en movimientos WOD se puede elegir Cal/Metros con selector segmentado. El teclado del campo numérico usa Siguiente / Hecho. Los registros anteriores se muestran si existen.
+- **En sesión activa** la tabla añade un **check verde a la derecha** para marcar cada serie, por orden, iniciando el descanso correspondiente. Las técnicas de dropset y rest-pause se despliegan **dentro del bloque actual**, no en una sección global más estrecha. Los objetivos sin completar no aparecen como registrados. En edición no se muestra el check de completar.
 - **Teclado de series**: foco en el valor izquierdo; retorno **Siguiente** consolida y enfoca el valor a la derecha; en el campo final, retorno **Hecho** consolida y, en sesión, marca esa serie. Se conserva un teclado numérico nativo que permite decimales para pesos y formato de tiempo donde corresponde.
-- **Play** muestra una lista por **bloques en el mismo orden y estilo agrupado de Editar**. Omite nombre de nueva rutina, hora programada, progresión y Favorito. El título de cada bloque es fijo, no editable; a su derecha hay un botón **temporizador** que carga exactamente el formato configurado y la cuenta previa existente. Los ejercicios se seleccionan por fila; las series y sus checks se registran en la fila desplegada. El reloj **Sin formato** es ascendente y libre.
+- **Play** muestra bloques agrupados como Editar, omitiendo configuración inicial de rutina, hora, progresión y Favorito. Los nombres de bloque son fijos; el reloj a su derecha carga la modalidad configurada o cronómetro libre. Los ejercicios y series se expanden dentro del bloque. Desde el menú ⋯ de la sesión se puede **Editar entreno**; al guardar se reestructura la sesión activa sin perder las series ya registradas ni las marcas temporales. El título grande es «Entreno» y el subtítulo, alineado a la izquierda, muestra el nombre de la sesión.
 - **Favorito** es la etiqueta única del toggle en el editor. En Play el menú ⋯ incluye **Cancelar entreno**: descarta la sesión en curso, sin guardarla.
 - Series planificadas / logueadas, superseries, WOD clocks.
 - **Temporizador por bloque (WOD o fuerza)**: AMRAP → countdown a la duración → confirmar rondas + reps; For Time / Chipper / AFAP → count-up con límite opcional y resultado de tiempo; EMOM/Circuito/Tabata → intervalos y descansos configurados; Ladder → tiempo ascendente; sin formato → cronómetro libre ascendente. El botón reloj del encabezado inicia el temporizador diseñado con cuenta previa.
