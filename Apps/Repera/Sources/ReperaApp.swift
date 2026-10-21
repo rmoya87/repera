@@ -164,7 +164,7 @@ struct ReperaApp: App {
                             if businessAuth.isConnected {
                                 await businessData.refresh()
                                 await workoutSync.sync(store: store)
-                            await aiInbox.sync(store: store)
+                                await aiInbox.sync(store: store)
                             }
                             wireSubscriptionGates()
                         }
@@ -187,7 +187,10 @@ struct ReperaApp: App {
                 }
                 .onChange(of: store.didCompleteInitialRemoteSync) { _, finished in
                     if finished && businessAuth.isConnected {
-                        Task { await workoutSync.sync(store: store) }
+                        Task {
+                            await workoutSync.sync(store: store)
+                            await aiInbox.sync(store: store)
+                        }
                     }
                 }
                 .onChange(of: store.workoutsEpoch) { _, _ in
