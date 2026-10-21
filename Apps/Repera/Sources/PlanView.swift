@@ -1,5 +1,6 @@
 import ReperaDomain
 import SwiftUI
+import UniformTypeIdentifiers
 
 enum DiarioSection: String, CaseIterable, Identifiable {
     case schedule
@@ -534,13 +535,28 @@ struct DayEditorView: View {
 
             ForEach(Array(routine.blocks.enumerated()), id: \.element.id) { index, block in
                 Section {
-                    HStack {
+                    HStack(spacing: 10) {
                         TextField("Nombre", text: $routine.blocks[index].title)
-                        Button(role: .destructive) {
-                            routine.blocks.remove(at: index)
+                            .font(.system(size: 16, weight: .semibold))
+                        Menu {
+                            Button {
+                                showsReorder = true
+                            } label: {
+                                Label("Reordenar", systemImage: "arrow.up.arrow.down")
+                            }
+                            Button(role: .destructive) {
+                                routine.blocks.removeAll { $0.id == block.id }
+                            } label: {
+                                Label("Eliminar bloque", systemImage: "trash")
+                            }
                         } label: {
-                            Image(systemName: "trash").foregroundStyle(OG.orange)
+                            Image(systemName: "ellipsis")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(OG.label)
+                                .frame(width: 38, height: 38)
+                                .glassEffect(.regular.interactive(), in: .circle)
                         }
+                        .accessibilityLabel("Opciones del bloque \(block.title)")
                     }
                     formatSettings(index: index)
                     if block.kind == .strength {
@@ -587,6 +603,9 @@ struct DayEditorView: View {
             let blockId = difference.destination.collectionID
             guard let blockIndex = routine.blocks.firstIndex(where: { $0.id == blockId }) else { return }
             applyStrengthExerciseReorder(to: &routine.blocks[blockIndex].exercises, difference: difference)
+        }
+        .sheet(isPresented: $showsReorder) {
+            NavigationStack { reorderSheet }
         }
         .modifier(DayEditorChromeModifier(
             title: navTitle,
@@ -653,6 +672,201 @@ struct DayEditorView: View {
                     setWODFormat(format, at: index)
                 }
                 selectFormatForBlock = nil
+            }
+        }
+    }
+
+    /// Ordenación por arrastre: bloque → bloque, ejercicio → posición en cualquier bloque.
+    /// La lista indentada hace evidente la jerarquía y mantiene el orden del modelo.
+    private var reorderSheet: some View {
+        List {
+            ForEach(routine.blocks) { block in
+                Section {
+                    HStack(spacing: 10) {
+                        Image(systemName: "line.3.horizontal")
+                            .foregroundStyle(OG.label3)
+                        Text(block.title)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                        Spacer()
+                        Text(block.wodFormat?.displayName ?? "Libre")
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                    }
+                    .frame(minHeight: 48)
+                    .contentShape(Rectangle())
+                    .onDrag { NSItemProvider(object: "block:\(block.id.uuidString)" as NSString) }
+                    .onDrop(of: [UTType.plainText.identifier], isTargeted: nil) { providers in
+                        acceptDrop(providers, into: block.id, before: nil)
+                    }
+
+                    if block.kind == .strength {
+                        ForEach(block.exercises) { exercise in
+                            reorderExerciseRow(
+                                store.state.exercises.first(where: { $0.id == exercise.exerciseId })?.name ?? "Ejercicio",
+                                blockID: block.id,
+                                itemID: exercise.id,
+                                type: "exercise"
+                            )
+                        }
+                    } else {
+                        ForEach(block.movements) { move in
+                            reorderExerciseRow(
+                                move.isRest ? "Descanso" : move.name,
+                                blockID: block.id,
+                                itemID: move.id,
+                                type: "movement"
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .ogListChrome()
+        .navigationTitle("Reordenar")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Listo") { showsReorder = false }
+                    .fontWeight(.semibold)
+                    .foregroundStyle(OG.accent)
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            Text("Arrastra los bloques o los ejercicios a otra posición. También puedes mover un ejercicio a otro bloque.")
+                .font(.footnote)
+                .foregroundStyle(OG.label2)
+                .padding(.horizontal, OG.pad)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity)
+                .background(OG.bg)
+        }
+    }
+
+    private func reorderExerciseRow(
+        _ name: String,
+        blockID: UUID,
+        itemID: UUID,
+        type: String
+    ) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "arrow.turn.down.right")
+                .font(.system(size: 12))
+                .foregroundStyle(OG.label3)
+                .padding(.leading, 18)
+            Text(name)
+                .font(.system(size: 14))
+                .foregroundStyle(OG.label)
+            Spacer()
+            Image(systemName: "line.3.horizontal")
+                .foregroundStyle(OG.label3)
+        }
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
+        .onDrag {
+            NSItemProvider(object: "\(type):\(blockID.uuidString):\(itemID.uuidString)" as NSString)
+        }
+        .onDrop(of: [UTType.plainText.identifier], isTargeted: nil) { providers in
+            acceptDrop(providers, into: blockID, before: itemID)
+        }
+    }
+
+    private func acceptDrop(
+        _ providers: [NSItemProvider],
+        into blockID: UUID,
+        before itemID: UUID?
+    ) -> Bool {
+        guard let provider = providers.first(where: { $0.canLoadObject(ofClass: NSString.self) }) else {
+            return false
+        }
+        _ = provider.loadObject(ofClass: NSString.self) { object, _ in
+            guard let token = object as? NSString else { return }
+            DispatchQueue.main.async {
+                withAnimation(.smooth) {
+                    applyReorder(String(token), into: blockID, before: itemID)
+                }
+            }
+        }
+        return true
+    }
+
+    private func applyReorder(_ token: String, into destinationID: UUID, before itemID: UUID?) {
+        let parts = token.split(separator: ":").map(String.init)
+        guard let targetIndex = routine.blocks.firstIndex(where: { $0.id == destinationID }) else { return }
+        if parts.count == 2, parts[0] == "block", let id = UUID(uuidString: parts[1]),
+           let sourceIndex = routine.blocks.firstIndex(where: { $0.id == id }),
+           sourceIndex != targetIndex {
+            let moved = routine.blocks.remove(at: sourceIndex)
+            guard let destinationIndex = routine.blocks.firstIndex(where: { $0.id == destinationID }) else { return }
+            routine.blocks.insert(moved, at: destinationIndex)
+            return
+        }
+        guard parts.count == 3,
+              let sourceBlockID = UUID(uuidString: parts[1]),
+              let exerciseID = UUID(uuidString: parts[2]),
+              let sourceIndex = routine.blocks.firstIndex(where: { $0.id == sourceBlockID })
+        else { return }
+        let source = routine.blocks[sourceIndex]
+        let targetKind = routine.blocks[targetIndex].kind
+        if parts[0] == "exercise" {
+            guard let item = source.exercises.first(where: { $0.id == exerciseID }) else { return }
+            let targetMovement: WODMovement?
+            if targetKind == .wod {
+                let name = store.state.exercises.first(where: { $0.id == item.exerciseId })?.name ?? "Ejercicio"
+                targetMovement = WODMovement(
+                    exerciseId: item.exerciseId,
+                    name: name,
+                    reps: item.plannedSets.first?.targetReps ?? 8,
+                    weightMaleKg: item.plannedSets.first?.targetWeightKg,
+                    explicitPlannedSets: item.plannedSets
+                )
+            } else { targetMovement = nil }
+            routine.blocks[sourceIndex].exercises.removeAll { $0.id == exerciseID }
+            if targetKind == .strength {
+                let position = itemID.flatMap { id in
+                    routine.blocks[targetIndex].exercises.firstIndex(where: { $0.id == id })
+                } ?? routine.blocks[targetIndex].exercises.count
+                routine.blocks[targetIndex].exercises.insert(item, at: position)
+            } else if let targetMovement {
+                let position = itemID.flatMap { id in
+                    routine.blocks[targetIndex].movements.firstIndex(where: { $0.id == id })
+                } ?? routine.blocks[targetIndex].movements.count
+                routine.blocks[targetIndex].movements.insert(targetMovement, at: position)
+            }
+        } else if parts[0] == "movement" {
+            guard let move = source.movements.first(where: { $0.id == exerciseID }) else { return }
+            var targetExercise: RoutineExercise?
+            if targetKind == .strength {
+                guard !move.isRest else { return }
+                var catalogID = move.exerciseId.flatMap { id in
+                    store.state.exercises.contains(where: { $0.id == id }) ? id : nil
+                } ?? store.state.exercises.first(where: {
+                    $0.name.localizedCaseInsensitiveCompare(move.name) == .orderedSame
+                })?.id
+                if catalogID == nil {
+                    guard store.addCustomExercise(name: move.name, muscleGroup: "Otros", equipment: nil) else { return }
+                    catalogID = store.state.exercises.last(where: {
+                        $0.name.localizedCaseInsensitiveCompare(move.name) == .orderedSame
+                    })?.id
+                }
+                guard let resolvedID = catalogID else { return }
+                targetExercise = RoutineExercise(
+                    exerciseId: resolvedID,
+                    plannedSets: move.explicitPlannedSets ?? move.plannedSetsFromReps
+                )
+            }
+            routine.blocks[sourceIndex].movements.removeAll { $0.id == exerciseID }
+            if targetKind == .wod {
+                let position = itemID.flatMap { id in
+                    routine.blocks[targetIndex].movements.firstIndex(where: { $0.id == id })
+                } ?? routine.blocks[targetIndex].movements.count
+                routine.blocks[targetIndex].movements.insert(move, at: position)
+            } else if let targetExercise {
+                let position = itemID.flatMap { id in
+                    routine.blocks[targetIndex].exercises.firstIndex(where: { $0.id == id })
+                } ?? routine.blocks[targetIndex].exercises.count
+                routine.blocks[targetIndex].exercises.insert(targetExercise, at: position)
             }
         }
     }
