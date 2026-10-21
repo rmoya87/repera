@@ -9,9 +9,14 @@ struct BodyWeightListView: View {
         List {
             Section {
                 HStack {
-                    TextField("kg", text: $kgText)
-                        .ogKeyboardDone()
-                        .foregroundStyle(OG.label)
+                    OGNumericTextField(
+                        text: $kgText,
+                        allowsDecimal: true,
+                        autoFocus: false,
+                        onCommit: {}
+                    )
+                    .frame(minHeight: 44)
+                    .accessibilityLabel("Peso en kilogramos")
                     Button("Añadir") {
                         if let value = Double(kgText.replacingOccurrences(of: ",", with: ".")), value > 0 {
                             store.addBodyWeight(value)
@@ -29,9 +34,14 @@ struct BodyWeightListView: View {
 
             Section {
                 HStack {
-                    TextField("Objetivo kg", text: $goalText)
-                        .ogKeyboardDone()
-                        .foregroundStyle(OG.label)
+                    OGNumericTextField(
+                        text: $goalText,
+                        allowsDecimal: true,
+                        autoFocus: false,
+                        onCommit: {}
+                    )
+                    .frame(minHeight: 44)
+                    .accessibilityLabel("Objetivo de peso en kilogramos")
                     Button("Guardar") {
                         var s = store.state.settings
                         let trimmed = goalText.trimmingCharacters(in: .whitespacesAndNewlines)
