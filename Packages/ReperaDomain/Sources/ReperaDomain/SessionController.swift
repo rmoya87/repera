@@ -160,7 +160,7 @@ public struct SessionController: Sendable {
                                 supersetGroup: nil,
                                 blockId: block.id,
                                 blockKind: .strength,
-                                wodFormat: block.wodFormat ?? .strength,
+                                wodFormat: block.wodFormat,
                                 blockTimeCapMinutes: block.timeCapMinutes,
                                 blockIntervalSeconds: block.emomIntervalSeconds,
                                 blockRounds: block.rounds,
