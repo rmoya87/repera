@@ -126,6 +126,7 @@ final class AITrainingInboxStore {
         let weightKg: Double?
         let rir: Double?
         let percent1RM: Double?
+        let percent1RMIsMinimum: Bool?
     }
     private struct InputExercise: Decodable {
         let name: String
@@ -286,7 +287,8 @@ final class AITrainingInboxStore {
         return sets.map { PlannedSet(targetReps: $0.reps,
                                       targetWeightKg: $0.weightKg,
                                       targetRir: $0.rir,
-                                      targetPercent1RM: $0.percent1RM) }
+                                      targetPercent1RM: $0.percent1RM,
+                                      targetPercent1RMIsMinimum: $0.percent1RMIsMinimum ?? false) }
     }
 
     private func catalogExercise(name: String, key: String?, store: ReperaStore) -> Exercise {
