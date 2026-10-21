@@ -161,18 +161,18 @@ const pagedInput = z.strictObject({
   cursor: z.string().max(64).optional(),
 });
 function readOffset(cursor?:string):number {
-  if(!cursor) return 0;
+  if (!cursor) return 0;
   try {
-    const value=atob(cursor.replace(/-/g,"+").replace(/_/g,"/"));
-    if(!/^\\d+$/.test(value))throw Error("bad cursor");
-    const offset=Number(value);
-    if(!Number.isSafeInteger(offset)||offset<0||offset>100000)
+    const value = atob(cursor);
+    if (!/^[0-9]+$/.test(value)) throw Error("bad cursor");
+    const offset = Number(value);
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset > 100000)
       throw Error("bad cursor");
     return offset;
   } catch { throw Error("INVALID_CURSOR: cursor no válido"); }
 }
 function nextCursor(offset:number):string {
-  return btoa(String(offset)).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"");
+  return btoa(String(offset)).replace(/=+$/,"");
 }
 
 Deno.serve(async (request) => {
