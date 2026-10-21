@@ -41,7 +41,8 @@ public enum BoardImportParser {
             .filter { !$0.isEmpty && $0.count > 1 }
 
         return lines.compactMap { line -> BoardImportLine? in
-            guard !isNoise(line), !isBlockHeader(line) else { return nil }
+            guard !isNoise(line), !isBlockHeader(line),
+                  !BoardScanLiteParser.isQualityAnnotation(line) else { return nil }
             let parsed = parseLine(line)
             let match = bestMatch(for: parsed.name, in: catalog)
             return BoardImportLine(
@@ -160,7 +161,7 @@ public enum BoardImportParser {
             }
 
             // Ejercicios independientes (sin cabecera) → bloque de fuerza.
-            if !isNoise(line) {
+            if !isNoise(line), !BoardScanLiteParser.isQualityAnnotation(line) {
                 orphanLines.append(line)
             }
             index += 1
@@ -172,7 +173,10 @@ public enum BoardImportParser {
 
     /// Líneas sueltas / sin cabecera WOD → bloque de fuerza (series×reps) o strength tipado.
     private static func strengthBlockFromLines(_ lines: [String], catalog: [Exercise]) -> RoutineBlock? {
-        let body = lines.filter { !isNoise($0) && sectionLabelTitle($0) == nil }
+        let body = lines.filter {
+            !isNoise($0) && sectionLabelTitle($0) == nil
+                && !BoardScanLiteParser.isQualityAnnotation($0)
+        }
         guard !body.isEmpty else { return nil }
 
         var exercises: [RoutineExercise] = []
@@ -220,14 +224,18 @@ public enum BoardImportParser {
         var footnotes: [String] = []
         while index < lines.count {
             let body = lines[index]
+            // Metadatos @FOR QUALITY pueden parecer una cabecera RFQ cuando
+            // Vision los separa del EMOM. Deben pertenecer al bloque actual.
+            if BoardScanLiteParser.isQualityAnnotation(body) {
+                footnotes.append("FOR QUALITY")
+                index += 1
+                continue
+            }
             // Nueva sección o nuevo formato → fin de bloque.
             if sectionLabelTitle(body) != nil || detectFormatHeader(body) != nil {
                 break
             }
-            if BoardScanLiteParser.isQualityAnnotation(body) {
-                // @FOR QUALITY puede caer en otra línea OCR, sin ser una estación.
-                footnotes.append("FOR QUALITY")
-            } else if isFootnote(body) {
+            if isFootnote(body) {
                 footnotes.append(body.trimmingCharacters(in: CharacterSet(charactersIn: "*• ")))
             } else if !isNoise(body) {
                 movementLines.append(body)

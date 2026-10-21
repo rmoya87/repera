@@ -458,4 +458,29 @@ struct BoardImportParserTests {
         #expect(work.contains { ($0.notes ?? "").localizedCaseInsensitiveContains("Ronda 1") })
         #expect(work.contains { ($0.notes ?? "").localizedCaseInsensitiveContains("Ronda 3") })
     }
+    @Test func fullParserKeepsQualityModifierInsideEmom() {
+        let ocr = """
+        EMOM 9' @FOR
+        QUALITY
+        5-10 KIPPING RING DIPS
+        6-10 ALT PISTOL SQUAT
+        1' REST
+
+        AMRAP 8'
+        20 ALT DB HANG C&J 22,5/15
+        10 BBJO
+        """
+        let catalog = Catalog.seed()
+        let blocks = BoardImportParser.parseBlocks(ocrText: ocr, catalog: catalog)
+        #expect(blocks.count == 2)
+        #expect(blocks[0].wodFormat == .emom)
+        #expect(blocks[0].movements.filter { !$0.isRest }.count == 2)
+        #expect(blocks[0].movements[0].name == "Fondos en anillas kipping")
+        #expect(blocks[0].movements[0].exerciseId != nil)
+        #expect(blocks[0].wodNotes?.contains("FOR QUALITY") == true)
+        #expect(blocks[1].movements[0].name == "Cargada y envión con mancuerna")
+        #expect(blocks[1].movements[1].name == "Burpee box jump over")
+        #expect(blocks[1].movements[1].exerciseId != nil)
+    }
+
 }
