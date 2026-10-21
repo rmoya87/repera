@@ -25,7 +25,6 @@ struct SettingsView: View {
     @State private var restoreMessage: String?
     @State private var notificationsStatus: UNAuthorizationStatus = .notDetermined
     @State private var confirmSignOut = false
-    @State private var appleConnectionError: String?
     @State private var isSyncingEverything = false
     @State private var syncIconSpinning = false
     /// Última sync completa (iCloud + perfil + entrenamientos).
@@ -159,8 +158,6 @@ struct SettingsView: View {
                 }
             } header: {
                 Text("Cuenta")
-            } footer: {
-                Text("Sincroniza copia iCloud, perfil y entrenamientos privados. Compartir resultados con un centro se gestiona en su ficha.")
             }
 
             Section {
@@ -180,31 +177,12 @@ struct SettingsView: View {
                         .foregroundStyle(OG.label)
                 }
 
-                if !businessAuth.isConnected {
-                    Button {
-                        Task {
-                            do {
-                                try await appleAuth.signIn()
-                                await businessAuth.syncPublicProfile(
-                                    displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName,
-                                    avatarJPEG: store.state.settings.profileAvatarJPEG
-                                )
-                                await businessData.refresh()
-                            } catch {
-                                appleConnectionError = error.localizedDescription
-                            }
-                        }
-                    } label: {
-                        Label("Conectar con Apple", systemImage: "apple.logo")
-                            .foregroundStyle(OG.label)
-                    }
-                    .disabled(appleAuth.isSigningIn || businessAuth.isConnecting)
-                    if let error = businessAuth.lastErrorMessage {
-                        Text(error).font(.footnote).foregroundStyle(OG.red)
-                    }
-                    if let appleConnectionError {
-                        Text(appleConnectionError).font(.footnote).foregroundStyle(OG.red)
-                    }
+                // La identidad Apple y la sesión Supabase se obtienen en el login.
+                // Ajustes nunca solicita otra autorización Apple para Business.
+                if !businessAuth.isConnected, let error = businessAuth.lastErrorMessage {
+                    Label(error, systemImage: "exclamationmark.triangle")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
                 }
                 if let issue = businessAuth.profileMigrationErrorMessage {
                     Text(issue).font(.footnote).foregroundStyle(OG.red)
@@ -220,8 +198,6 @@ struct SettingsView: View {
                 }
             } header: {
                 Text("Centro y entrenador")
-            } footer: {
-                Text("Al vincularte y elegir bono, la app queda con acceso completo mientras mantengas el vínculo. Bonos y sesiones se ven en la ficha del centro.")
             }
 
             Section {
