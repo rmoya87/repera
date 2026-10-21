@@ -2,7 +2,7 @@ import ReperaDomain
 import SwiftUI
 
 /// Resumen del plan antes de empezar, o gestión de sesión en curso.
-/// Top bar: X · Entreno · día debajo · ⋯ (editar / apuntar) · ▶ comenzar.
+/// Top bar: X · Entreno · día debajo · ⋯ (editar) · ▶ Play.
 struct SessionPreviewView: View {
     @Environment(ReperaStore.self) private var store
 
