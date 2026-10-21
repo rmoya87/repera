@@ -548,30 +548,33 @@ struct DayEditorView: View {
 
             ForEach(Array(routine.blocks.enumerated()), id: \.element.id) { index, block in
                 Section {
-                    HStack(spacing: 10) {
-                        TextField("Nombre", text: $routine.blocks[index].title)
-                            .font(.system(size: 16, weight: .semibold))
-                        Menu {
-                            Button {
-                                showsReorder = true
-                            } label: {
-                                Label("Reordenar", systemImage: "arrow.up.arrow.down")
-                            }
-                            Button(role: .destructive) {
-                                routine.blocks.removeAll { $0.id == block.id }
-                            } label: {
-                                Label("Eliminar bloque", systemImage: "trash")
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis")
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(spacing: 10) {
+                            TextField("Nombre", text: $routine.blocks[index].title)
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(OG.label)
-                                .frame(width: 38, height: 38)
-                                .glassEffect(.regular.interactive(), in: .circle)
+                            Menu {
+                                Button {
+                                    showsReorder = true
+                                } label: {
+                                    Label("Reordenar", systemImage: "arrow.up.arrow.down")
+                                }
+                                Button(role: .destructive) {
+                                    routine.blocks.removeAll { $0.id == block.id }
+                                } label: {
+                                    Label("Eliminar bloque", systemImage: "trash")
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(OG.label)
+                                    .frame(width: 38, height: 38)
+                                    .glassEffect(.regular.interactive(), in: .circle)
+                            }
+                            .accessibilityLabel("Opciones del bloque \(block.title)")
                         }
-                        .accessibilityLabel("Opciones del bloque \(block.title)")
+                        formatSettings(index: index)
                     }
-                    formatSettings(index: index)
+                    .listRowSeparator(.hidden)
                     if block.kind == .strength {
                         strengthBlock(index: index)
                     } else {
@@ -1368,54 +1371,57 @@ struct DayEditorView: View {
     /// Los parámetros de un formato se muestran como campos compactos en una sola fila.
     @ViewBuilder
     private func formatSettings(index: Int) -> some View {
-        Button {
-            selectFormatForBlock = routine.blocks[index].id
-        } label: {
-            HStack(spacing: 10) {
-                Text("Formato")
-                    .foregroundStyle(OG.label)
-                Spacer()
-                Text(routine.blocks[index].wodFormat?.displayName ?? "Sin formato")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(OG.label2)
-                Image(systemName: "chevron.right")
-                    .font(.footnote)
-                    .foregroundStyle(OG.label3)
-            }
-        }
-        .buttonStyle(.plain)
-
-        if let format = routine.blocks[index].wodFormat {
-            let fields = fieldsForFormat(routine.blocks[index])
-            if !fields.isEmpty {
-                HStack(alignment: .bottom, spacing: 6) {
-                    ForEach(Array(fields.enumerated()), id: \.element) { position, field in
-                        OGFormatNumberField(
-                            title: field.title,
-                            unit: field.unit,
-                            value: numberBinding(field, blockIndex: index),
-                            range: field.range,
-                            focus: $focusedFormatField,
-                            fieldID: OGSetFieldID(rowID: routine.blocks[index].id, column: position),
-                            nextID: position + 1 < fields.count
-                                ? OGSetFieldID(rowID: routine.blocks[index].id, column: position + 1)
-                                : nil
-                        )
-                    }
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                selectFormatForBlock = routine.blocks[index].id
+            } label: {
+                HStack(spacing: 10) {
+                    Text("Formato")
+                        .foregroundStyle(OG.label)
+                    Spacer()
+                    Text(routine.blocks[index].wodFormat?.displayName ?? "Sin formato")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(OG.label2)
+                    Image(systemName: "chevron.right")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label3)
                 }
-                .padding(.vertical, 4)
             }
-            if ![WODFormat.amrap, .emom, .tabata, .circuit].contains(format) {
-                Toggle("Límite de tiempo", isOn: Binding(
-                    get: { routine.blocks[index].timeCapMinutes != nil },
-                    set: { enabled in
-                        routine.blocks[index].timeCapMinutes = enabled
-                            ? (routine.blocks[index].timeCapMinutes ?? 12) : nil
+            .buttonStyle(.plain)
+
+            if let format = routine.blocks[index].wodFormat {
+                let fields = fieldsForFormat(routine.blocks[index])
+                if !fields.isEmpty {
+                    HStack(alignment: .bottom, spacing: 6) {
+                        ForEach(Array(fields.enumerated()), id: \.element) { position, field in
+                            OGFormatNumberField(
+                                title: field.title,
+                                unit: field.unit,
+                                value: numberBinding(field, blockIndex: index),
+                                range: field.range,
+                                focus: $focusedFormatField,
+                                fieldID: OGSetFieldID(rowID: routine.blocks[index].id, column: position),
+                                nextID: position + 1 < fields.count
+                                    ? OGSetFieldID(rowID: routine.blocks[index].id, column: position + 1)
+                                    : nil
+                            )
+                        }
                     }
-                ))
-                .tint(OG.accent)
+                    .padding(.vertical, 4)
+                }
+                if ![WODFormat.amrap, .emom, .tabata, .circuit].contains(format) {
+                    Toggle("Límite de tiempo", isOn: Binding(
+                        get: { routine.blocks[index].timeCapMinutes != nil },
+                        set: { enabled in
+                            routine.blocks[index].timeCapMinutes = enabled
+                                ? (routine.blocks[index].timeCapMinutes ?? 12) : nil
+                        }
+                    ))
+                    .tint(OG.accent)
+                }
             }
         }
+
     }
 
     @ViewBuilder
