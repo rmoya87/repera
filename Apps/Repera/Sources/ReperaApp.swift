@@ -170,7 +170,9 @@ struct ReperaApp: App {
                             await businessData.refresh()
                             await workoutSync.sync(store: store)
                             await aiInbox.sync(store: store)
-                            aiInbox.startRealtime(store: store)
+                            if scenePhase == .active {
+                                aiInbox.startRealtime(store: store)
+                            }
                             wireSubscriptionGates()
                         }
                         await warmHealthAfterHydrate()
@@ -201,12 +203,16 @@ struct ReperaApp: App {
                                 await businessData.refresh()
                                 await workoutSync.sync(store: store)
                                 await aiInbox.sync(store: store)
-                            aiInbox.startRealtime(store: store)
+                                if scenePhase == .active {
+                                    aiInbox.startRealtime(store: store)
+                                }
                             }
                             wireSubscriptionGates()
                         }
                     } else if phase == .active, businessAuth.isConnected {
-                        aiInbox.startRealtime(store: store)
+                        if scenePhase == .active {
+                                aiInbox.startRealtime(store: store)
+                            }
                     }
                 }
                 .onChange(of: businessAuth.isConnected) { _, connected in
@@ -214,7 +220,9 @@ struct ReperaApp: App {
                         Task {
                             await workoutSync.sync(store: store)
                             await aiInbox.sync(store: store)
-                            aiInbox.startRealtime(store: store)
+                            if scenePhase == .active {
+                                aiInbox.startRealtime(store: store)
+                            }
                         }
                     } else {
                         workoutSync.clearSession()
@@ -231,7 +239,9 @@ struct ReperaApp: App {
                         Task {
                             await workoutSync.sync(store: store)
                             await aiInbox.sync(store: store)
-                            aiInbox.startRealtime(store: store)
+                            if scenePhase == .active {
+                                aiInbox.startRealtime(store: store)
+                            }
                         }
                     }
                 }
