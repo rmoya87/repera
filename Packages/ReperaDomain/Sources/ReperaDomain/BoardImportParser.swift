@@ -1751,10 +1751,20 @@ public enum CrossFitGlossary {
         return s
     }
 
+    /// Siglas de significado múltiple: PU (pull-up/push-up), SU (single-under/
+    /// sit-up) y MU (ring/bar muscle-up) no tienen resolución segura aisladas.
+    /// Los nombres completos y los compuestos (BMU, RMU, DU / SU) sí la tienen.
+    public static let ambiguousStandaloneAcronyms: Set<String> = ["pu", "su", "mu", "bp"]
+
     /// Nombre canónico para matching de catálogo.
     public static func canonicalName(for raw: String) -> String {
         // Antes de quitar ruido (DB/ALT…): compuestos con equipo (`db hang snatch` → Snatch mancuerna).
         let rawNorm = normalize(raw)
+        // En escaneo aislado se mantiene la sigla para revisión, evitando
+        // atribuir a otro ejercicio una serie, carga o resultado.
+        if ambiguousStandaloneAcronyms.contains(rawNorm) {
+            return raw.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        }
         if let exact = aliases[rawNorm] { return exact }
         // Misma tabla EN↔catálogo que la búsqueda de ejercicios (chin up, walking lunge…).
         if let fromSearch = ExerciseSearch.scannerCatalogName(forNormalizedQuery: rawNorm) {
