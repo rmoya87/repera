@@ -272,10 +272,6 @@ struct WorkoutView: View {
         }
     }
 
-    private var hasSessionNotes: Bool {
-        !(store.state.activeSession?.notes?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
-    }
-
     private var hasMoreExercises: Bool {
         guard let session = store.state.activeSession else { return false }
         return session.currentIndex + 1 < session.exercises.count
@@ -528,7 +524,7 @@ struct WorkoutView: View {
                 .accessibilityLabel("Notas del entreno")
         }
         .padding(.vertical, 6)
-            .task(id: notesDraft) {
+        .task(id: notesDraft) {
                 do {
                     try await Task.sleep(for: .milliseconds(400))
                 } catch {
@@ -540,9 +536,9 @@ struct WorkoutView: View {
                     store.updateActiveSessionNotes(notesDraft)
                 }
             }
-            .onDisappear {
-                store.updateActiveSessionNotes(notesDraft)
-            }
+        .onDisappear {
+            store.updateActiveSessionNotes(notesDraft)
+        }
     }
 
     private func setsBoard(_ current: SessionExercise) -> some View {
