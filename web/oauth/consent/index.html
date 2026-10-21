@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Autorizar acceso · Repera</title>
+  <style>
+    :root { color-scheme: light; font-family: -apple-system,BlinkMacSystemFont,system-ui,sans-serif; color:#17251d; background:#f5f8f6; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; padding:20px; }
+    main { width:min(100%,480px); padding:32px; border-radius:24px; background:white; box-shadow:0 10px 40px rgba(0,0,0,.06); }
+    h1 { font-size:26px; line-height:1.15; margin:0 0 12px; } h2 { font-size:16px; margin:20px 0 8px; }
+    p,li { color:#54685b; font-size:14px; line-height:1.6; }
+    .brand { color:#118b54; font-size:19px; font-weight:800; letter-spacing:-.6px; margin-bottom:20px; }
+    .client { padding:16px; border:1px solid #dfebe2; border-radius:14px; background:#f8fbf9; font-weight:650; }
+    .actions { display:grid; gap:10px; margin-top:24px; }
+    button { padding:13px 16px; font:inherit; border:0; border-radius:12px; cursor:pointer; font-weight:650; }
+    #approve,#signin { background:#157e4e; color:white; } #deny { background:#edf3ef; color:#1f4c34; }
+    button:disabled { opacity:.45; cursor:not-allowed; }
+    .error { color:#af3026; font-weight:500; white-space:pre-wrap; }
+    .hidden { display:none; }
+    #status { margin-top:15px; }
+  </style>
+</head>
+<body>
+<main>
+  <div class="brand">Repera</div>
+  <h1>Autorizar acceso deportivo</h1>
+  <p>Comprueba la aplicación que solicita conectar con tu cuenta. No compartiremos tu contraseña.</p>
+  <div class="client" id="client">Verificando solicitud…</div>
+  <div id="consent" class="hidden">
+    <h2>Datos que podrá consultar</h2>
+    <ul>
+      <li>Entrenamientos finalizados y fechas.</li>
+      <li>Ejercicios, cargas, series, repeticiones, RIR y resultados de WOD.</li>
+      <li>Distribución de entrenamiento por músculos y evolución deportiva.</li>
+    </ul>
+    <p><strong>No se autoriza:</strong> acceder a Apple Salud, peso, sueño, frecuencia cardíaca, rutas GPS ni notas privadas, ni modificar tus entrenamientos.</p>
+    <p>Podrás revocar el permiso. Los permisos OAuth básicos (identidad) son independientes de la autorización para tus entrenamientos.</p>
+    <div class="actions">
+      <button id="approve">Autorizar acceso de lectura</button>
+      <button id="deny">Denegar</button>
+    </div>
+  </div>
+  <div id="login" class="hidden">
+    <p>Para continuar, entra con la misma cuenta Apple que utilizas en Repera.</p>
+    <div class="actions"><button id="signin">Continuar con Apple</button></div>
+  </div>
+  <p id="status" aria-live="polite"></p>
+</main>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
