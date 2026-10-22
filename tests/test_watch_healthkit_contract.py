@@ -177,6 +177,48 @@ class WatchHealthKitContractTests(unittest.TestCase):
             self.assertTrue(watch.is_file(), f"Missing Watch thumbnail: {name}")
             self.assertEqual(ios.read_bytes(), watch.read_bytes(), name)
 
+    def test_watch_recording_field_parity_and_summary_navigation(self):
+        view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        hub = source("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
+        domain = source("Packages/ReperaDomain/Sources/ReperaDomain/SessionController.swift")
+
+        # The finished view hides immediately while HealthKit persists/acknowledges.
+        self.assertIn("hub.presentedSummary", view)
+        self.assertIn("summaryDismissed = true", hub)
+        self.assertIn("var presentedSummary: WorkoutSession?", hub)
+        self.assertIn("lastFinished: WorkoutSession?", hub)
+        self.assertIn("summaryDismissed: Bool?", hub)
+        self.assertIn("summaryDismissed = snapshot.summaryDismissed ?? false", hub)
+        self.assertNotIn("guard !hasWorkoutInProgress, !awaitingHealthSave else { return }", hub)
+
+        # One editor covers the same structured fields as iPhone LoggedSet.
+        for needle in (
+            "private var exerciseFields", "private var setDetailsView",
+            "hub.setRIR(", "hub.adjustDuration(", "hub.adjustDeficit(",
+            "hub.selectUnit(.calories)", "hub.selectUnit(.meters)",
+            "hub.setPhase(", "hub.setKind(", "hub.setToFailure(",
+            "hub.addDrop()", "hub.addCluster()",
+        ):
+            self.assertIn(needle, view)
+        for needle in (
+            "func preparedSet", "func resetSetDraft()", "func restoreSetDraft",
+            "durationSeconds: set.durationSeconds", "deficitCm: set.deficitCm",
+            "quantityUnit: set.quantityUnit", "phase: set.phase",
+            "kind: set.kind", "rir: set.rir", "drops: set.drops",
+            "clusters: set.clusters", "setDraft: setDraft",
+            "setDraft = snapshot.setDraft ?? WatchSetDraft()",
+            "ctrl.replaceLoggedSet(at:",
+        ):
+            self.assertIn(needle, hub)
+        self.assertIn("func replaceLoggedSet(at index: Int, with set: LoggedSet)", domain)
+        self.assertIn("session.exercises[session.currentIndex].loggedSets[index].id == set.id", domain)
+
+        # Intervals require explicit end; no auto-finalize of Tabata/EMOM after a set.
+        self.assertIn('Button("Terminar bloque") { hub.reviewBlock() }', view)
+        self.assertIn("loggingStyle != .machineWork", hub)
+        self.assertIn("loggingStyle != .repsAndTime", hub)
+        self.assertNotIn("if isLastWorkoutExercise { reviewBlock() }", hub)
+
     def test_watch_complication_uses_widget_configuration_inside_widget(self):
         """WidgetBundleBuilder accepts Widget, not StaticConfiguration."""
         widget = source("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
