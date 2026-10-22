@@ -7,6 +7,7 @@ struct WatchSessionView: View {
     @Environment(WatchSessionHub.self) private var hub
     @State private var showNowPlaying = false
     @State private var confirmFinish = false
+    @State private var showOutline = false
 
     private let accent = Color(red: 0.54, green: 0.91, blue: 0.49)
 
@@ -39,6 +40,9 @@ struct WatchSessionView: View {
                     .tint(accent)
                     .accessibilityLabel("Controlar música o podcast")
                 }
+            }
+            .sheet(isPresented: $showOutline) {
+                if let workout = hub.active { outlineView(workout) }
             }
             .sheet(isPresented: $showNowPlaying) {
                 // Apple requires the entire Now Playing view to fill its own scene.
@@ -167,6 +171,9 @@ struct WatchSessionView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(accent)
                 .foregroundStyle(.black)
+                Button("Ver entrenamiento completo") { showOutline = true }
+                    .font(.caption)
+                    .buttonStyle(.bordered)
                 Button("Finalizar entreno") { confirmFinish = true }
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -190,6 +197,9 @@ struct WatchSessionView: View {
                         seriesContent
                     }
                 }
+                Button("Ver plan completo") { showOutline = true }
+                    .font(.caption2)
+                    .buttonStyle(.borderless)
                 HStack(spacing: 8) {
                     Button {
                         if hub.isPaused { hub.play() } else { hub.pause() }
@@ -382,6 +392,47 @@ struct WatchSessionView: View {
                 Button(action: up) { Image(systemName: "plus.circle.fill") }
                     .buttonStyle(.borderless)
             }
+        }
+    }
+
+    private func outlineView(_ session: WorkoutSession) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Plan completo").font(.headline)
+                Text(session.title).font(.caption).foregroundStyle(.secondary)
+                ForEach(session.exercises.indices, id: \.self) { index in
+                    let exercise = session.exercises[index]
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack {
+                            if exercise.isCompleted {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(accent)
+                            } else if session.currentIndex == index {
+                                Image(systemName: "play.circle.fill")
+                                    .foregroundStyle(accent)
+                            } else {
+                                Image(systemName: "circle")
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text(exercise.exercise.name)
+                                .font(.caption.weight(.semibold))
+                        }
+                        Text(exercise.displayBlockHeader)
+                            .font(.caption2)
+                            .foregroundStyle(accent)
+                        Text(exercise.queueTimeLabel)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.white.opacity(0.08),
+                                in: RoundedRectangle(cornerRadius: 9))
+                }
+                Button("Volver al entrenamiento") { showOutline = false }
+                    .buttonStyle(.bordered)
+            }
+            .padding(.horizontal, 6)
         }
     }
 
