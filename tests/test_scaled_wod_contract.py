@@ -40,6 +40,15 @@ class ScaledWODContractTests(unittest.TestCase):
         self.assertIn('Text("Prescripción · " + move.summaryLine)', view)
         self.assertIn("onApplyCompleted(edited, completedDetails)", view)
 
+    def test_mcp_projects_scaled_values_without_fabricating_logged_sets(self):
+        api = read("supabase/functions/repera-mcp/index.ts")
+        self.assertIn("adaptedReps?: number | null", api)
+        self.assertIn("adaptedWeightKg?: number | null", api)
+        self.assertIn("scaled_movement: entry.adaptedReps != null", api)
+        self.assertIn("actual_weight_kg: entry.adaptedWeightKg ?? null", api)
+        self.assertIn("scaled_movement_semantics:", api)
+        self.assertIn("sets: (entry.loggedSets ?? []).map", api)
+
     def test_scaled_rating_does_not_claim_rx_or_pr(self):
         pace = read("Packages/ReperaDomain/Sources/ReperaDomain/MovementPaceStandards.swift")
         review = read("Packages/ReperaDomain/Sources/ReperaDomain/SessionReviewEngine.swift")
