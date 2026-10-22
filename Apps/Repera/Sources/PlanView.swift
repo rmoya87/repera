@@ -1542,7 +1542,7 @@ struct DayEditorView: View {
     /// volver a mostrar sus series de prescripción como resultado realizado.
     @ViewBuilder
     private func completedStrengthPrescription(index: Int) -> some View {
-        ForEach(routine.blocks[index].exercises) { item in
+        ForEach(Array(routine.blocks[index].exercises.enumerated()), id: \.element.id) { itemIndex, item in
             if let exercise = store.state.exercises.first(where: { $0.id == item.exerciseId })
                 ?? completedWorkoutDraft?.exercises.first(where: { $0.exercise.id == item.exerciseId })?.exercise {
                 HStack(spacing: 12) {
@@ -1551,7 +1551,7 @@ struct DayEditorView: View {
                         Text(exercise.name)
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(OG.label)
-                        completedStrengthRxFields(blockIndex: index, exerciseIndex: routine.blocks[index].exercises.firstIndex(where: { $0.id == item.id }) ?? 0, exercise: exercise)
+                        completedStrengthRxFields(blockIndex: index, exerciseIndex: itemIndex, exercise: exercise)
                         completedWODScalingFields(movementID: item.id, exercise: exercise)
                     }
                     Spacer()
@@ -1687,17 +1687,15 @@ struct DayEditorView: View {
                         value = number
                     } else { return }
                     routine.blocks[blockIndex].movements[movementIndex].weightMaleKg = value
-                    if routine.blocks[blockIndex].movements[movementIndex].explicitPlannedSets != nil {
-                        for i in routine.blocks[blockIndex].movements[movementIndex].explicitPlannedSets!.indices {
-                            routine.blocks[blockIndex].movements[movementIndex].explicitPlannedSets![i].targetWeightKg = value
-                        }
+                    if var explicit = routine.blocks[blockIndex].movements[movementIndex].explicitPlannedSets {
+                        for i in explicit.indices { explicit[i].targetWeightKg = value }
+                        routine.blocks[blockIndex].movements[movementIndex].explicitPlannedSets = explicit
                     }
                 } else if let reps = Int(normalized), (1...10000).contains(reps) {
                     routine.blocks[blockIndex].movements[movementIndex].reps = reps
-                    if routine.blocks[blockIndex].movements[movementIndex].explicitPlannedSets != nil {
-                        for i in routine.blocks[blockIndex].movements[movementIndex].explicitPlannedSets!.indices {
-                            routine.blocks[blockIndex].movements[movementIndex].explicitPlannedSets![i].targetReps = reps
-                        }
+                    if var explicit = routine.blocks[blockIndex].movements[movementIndex].explicitPlannedSets {
+                        for i in explicit.indices { explicit[i].targetReps = reps }
+                        routine.blocks[blockIndex].movements[movementIndex].explicitPlannedSets = explicit
                     }
                 }
             }
@@ -1752,7 +1750,7 @@ struct DayEditorView: View {
                     Text(exercise.loggingStyle == .machineWork ? "CANTIDAD REAL" : "REPS REALES")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(OG.label3)
-                    TextField("Igual que prescrito", text: completedWODScaledValue(movementID: movementID, weight: false))
+                    TextField("Sin adaptar", text: completedWODScaledValue(movementID: movementID, weight: false))
                         .keyboardType(.numberPad)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity, minHeight: 44)
@@ -1764,7 +1762,7 @@ struct DayEditorView: View {
                         Text("KG REALES")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(OG.label3)
-                        TextField("Igual que prescrito", text: completedWODScaledValue(movementID: movementID, weight: true))
+                        TextField("Sin adaptar", text: completedWODScaledValue(movementID: movementID, weight: true))
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.center)
                             .frame(maxWidth: .infinity, minHeight: 44)
