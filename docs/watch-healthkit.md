@@ -37,3 +37,23 @@ No se infiere la concesión de permisos de una lista de muestras vacía. Una lec
 - Probar la actualización de la planificación profesional tras descarga de Supabase.
 
 La disponibilidad efectiva de los permisos, sensores, background execution y estados de firma solo puede certificarse en dispositivos y perfiles de Apple válidos.
+
+## Recompilar después de incorporar archivos Swift al Watch
+
+`Repera.xcodeproj` está ignorado en Git y se genera localmente con XcodeGen; descargar el archivo Swift desde GitHub **no actualiza automáticamente** la lista de `Compile Sources` de un proyecto Xcode que ya estaba abierto.
+
+Si Xcode muestra `Cannot find 'WatchHealthKitSession' in scope` en `WatchSessionHub.swift`:
+
+1. Cerrar Xcode. Guardar antes cualquier cambio local que se quiera conservar.
+2. Actualizar `main` sin sobrescribir cambios locales; recomendamos abrir **`Repera-Xcode.command`**, que realiza fast-forward seguro y regenera con XcodeGen. Alternativamente:
+   ```bash
+   cd /Users/ramon/Proyectos/repera
+   git pull --ff-only origin main
+   xcodegen generate --spec project.yml
+   python3 scripts/check_xcode_sources.py
+   open Repera.xcodeproj
+   ```
+3. La comprobación tiene que confirmar que `Apps/ReperaWatch/Sources/WatchHealthKitSession.swift` existe y está dentro de **ReperaWatch → Build Phases → Compile Sources**. No basta con que aparezca en el navegador del proyecto.
+4. Compilar `ReperaWatch`. Si el error persiste, verificar primero la ruta del proyecto que Xcode tenga abierto y luego usar **Product → Clean Build Folder** (sin borrar datos personales ni DerivedData manualmente).
+
+La verificación automatizada vive en `scripts/check_xcode_sources.py` y `tests/test_xcode_sources.py`; se ejecuta tras `xcodegen generate` y en el job XcodeGen de CI. La comprobación de pertenencia a un target no sustituye a una compilación real con el SDK watchOS.
