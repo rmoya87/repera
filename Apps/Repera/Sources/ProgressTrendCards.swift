@@ -382,7 +382,7 @@ struct ProgressWeightChartCard: View {
         )
     }
 
-    private var deltaColor: Color { OG.label }
+    private var deltaColor: Color { OG.label2 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -392,7 +392,7 @@ struct ProgressWeightChartCard: View {
                 if !statusLine.isEmpty {
                     Text(statusLine)
                         .font(.system(size: 12, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(OG.label)
+                        .foregroundStyle(OG.label2)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                 }
