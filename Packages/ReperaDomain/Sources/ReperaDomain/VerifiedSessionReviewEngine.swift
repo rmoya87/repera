@@ -322,6 +322,8 @@ public enum VerifiedSessionReviewEngine {
               let currentDensity = normalizedDensity(result: result, block: currentBlock),
               currentDensity > 0 else { return nil }
         let currentScaled = session.exercises.filter { $0.blockId == result.id }
+        // Different scaled doses cannot be reduced to a common time/work unit.
+        guard !currentScaled.contains(where: { $0.hasWODScaling }) else { return nil }
         var priorDays: [(Date, Double)] = []
         for workout in prior.sorted(by: {
             ($0.finishedAt ?? .distantPast) > ($1.finishedAt ?? .distantPast)
@@ -333,6 +335,7 @@ public enum VerifiedSessionReviewEngine {
                 guard validScore(previous),
                       let block = workout.routineBlocks?.first(where: { $0.id == previous.id }),
                       comparableStimulus(currentBlock, block),
+                      !workout.exercises.contains(where: { $0.blockId == previous.id && $0.hasWODScaling }),
                       sameScaling(currentScaled, workout.exercises.filter { $0.blockId == previous.id }),
                       let rate = normalizedDensity(result: previous, block: block),
                       rate > 0 else { return nil }
