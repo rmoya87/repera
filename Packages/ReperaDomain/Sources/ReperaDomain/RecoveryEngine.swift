@@ -106,10 +106,11 @@ public enum RecoveryEngine {
         // Una noche corta no debe catalogarse «lista» aunque el cálculo
         // muscular sea favorable.
         if hours < 6 { score = min(score, 5.0) }
+        score = (score * 10).rounded() / 10
         let advice: TrainingReadinessAdvice = score >= 7.5
             ? .usual : (score >= 5.5 ? .moderate : .rest)
         return TrainingReadiness(
-            score: (score * 10).rounded() / 10,
+            score: score,
             advice: advice,
             sleepContribution: sleepContribution,
             fatiguePenalty: penalty,
