@@ -3,6 +3,7 @@
 These checks do not substitute compiling/running with the watchOS SDK.
 """
 from pathlib import Path
+import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -128,6 +129,43 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn(".foregroundStyle(.black)", view)
         self.assertIn(".symbolRenderingMode(.monochrome)", view)
         self.assertIn("Sincronizar con iPhone", view)
+
+    def test_watch_workout_native_play_and_one_tap_save(self):
+        view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        hub = source("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
+        domain = source("Packages/ReperaDomain/Sources/ReperaDomain/SessionController.swift")
+
+        self.assertIn("WatchExerciseThumb(exercise: exercise.exercise", view)
+        self.assertIn("WatchExerciseThumb(exercise: exercise, size: 53)", view)
+        self.assertIn('Text("Plan completo")', view)
+        self.assertIn("hub.selectBlock(startingAt: index)", view)
+        self.assertIn("hub.swipeSet(horizontal < 0 ? 1 : -1)", view)
+        self.assertIn("hub.confirmAndAdvance()", view)
+        self.assertIn('Label(hub.isFinalSet ? "Terminar" : "Siguiente"', view)
+        self.assertIn("if !hub.isFinalSet", view)
+        self.assertNotIn("Confirmar serie", view)
+        self.assertNotIn("Saltar al siguiente", view)
+        self.assertNotIn("Volver al entrenamiento", view)
+        self.assertNotIn("Registrado en Apple Salud", view)
+        self.assertNotIn("Guardado en Watch · pendiente de sincronizar", view)
+        self.assertEqual(view.count('.confirmationDialog("¿Finalizar el entrenamiento?"'), 1)
+
+        self.assertIn("func confirmAndAdvance()", hub)
+        self.assertIn("func selectBlock(startingAt index: Int)", hub)
+        self.assertIn("func swipeSet(_ direction: Int)", hub)
+        self.assertIn("reviseLoggedSet(at:", hub)
+        self.assertIn("public mutating func reviseLoggedSet(", domain)
+
+    def test_watch_exercise_thumbnail_assets_are_ios_originals(self):
+        artwork = source("Apps/ReperaWatch/Sources/WatchExerciseThumb.swift")
+        names = set(re.findall(r'"(art_[^"]+)"', artwork))
+        self.assertGreaterEqual(len(names), 180)
+        for name in names:
+            ios = ROOT / "Apps/Repera/Resources/ExerciseArt/thumbs" / f"{name}.jpg"
+            watch = ROOT / "Apps/ReperaWatch/Resources/Assets.xcassets" / f"{name}.imageset" / f"{name}.jpg"
+            self.assertTrue(ios.is_file(), f"Missing iOS thumbnail: {name}")
+            self.assertTrue(watch.is_file(), f"Missing Watch thumbnail: {name}")
+            self.assertEqual(ios.read_bytes(), watch.read_bytes(), name)
 
     def test_watch_complication_uses_widget_configuration_inside_widget(self):
         """WidgetBundleBuilder accepts Widget, not StaticConfiguration."""
