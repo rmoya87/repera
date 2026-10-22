@@ -1376,7 +1376,10 @@ final class ReperaStore: NSObject {
                 await LocalStore.shared.persistAndFlush(snapshot)
                 // The acknowledgment means the phone has persisted it, NOT that
                 // Supabase has completed or that the Health sample is yet visible.
-                guard LocalStore.shared.lastPersistenceError == nil else { return }
+                guard LocalStore.shared.lastPersistenceError == nil,
+                      self.state.workouts.first(where: { $0.id == session.id }) ==
+                      snapshot.workouts.first(where: { $0.id == session.id })
+                else { return }
                 self.lastWatchAcknowledgedSession = session.id
                 self.pushActiveToWatch(immediate: true)
                 if needsSync && BusinessAuthStore.shared.isConnected {
@@ -1603,7 +1606,10 @@ final class ReperaStore: NSObject {
             today: today,
             quickLogHint: quickLogHintPayload(),
             sessionRevision: state.syncRevision,
-            completedAck: lastWatchAcknowledgedSession
+            completedAck: lastWatchAcknowledgedSession,
+            completedAckHealthKitUUID: lastWatchAcknowledgedSession.flatMap { ackID in
+                state.workouts.first(where: { $0.id == ackID })?.healthKitWorkoutUUID
+            }
         )
     }
 
