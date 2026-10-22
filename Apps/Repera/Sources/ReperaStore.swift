@@ -49,6 +49,7 @@ final class ReperaStore: NSObject {
     private let store = LocalStore.shared
     private let connectivity = PhoneConnectivity()
     private var watchPushTask: Task<Void, Never>?
+    @ObservationIgnored private var watchPlanObserver: NSObjectProtocol?
     /// Last durable Watch result acknowledged back to the watch.
     private var lastWatchAcknowledgedSession: UUID?
 
@@ -120,6 +121,14 @@ final class ReperaStore: NSObject {
     }
 
     func bootstrap() {
+        if watchPlanObserver == nil {
+            watchPlanObserver = NotificationCenter.default.addObserver(
+                forName: Notification.Name("repera.professionalPlansChanged"),
+                object: nil, queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in self?.pushActiveToWatch(immediate: true) }
+            }
+        }
         connectivity.delegate = self
         connectivity.activate()
         isWatchReachable = WCSession.default.isReachable
