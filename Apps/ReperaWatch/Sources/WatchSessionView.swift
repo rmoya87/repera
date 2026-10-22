@@ -540,7 +540,7 @@ struct WatchSessionView: View {
         }
         .font(.caption)
         .buttonStyle(.bordered)
-        .disabled(hub.isPaused)
+        .disabled(hub.isPaused && !hub.reviewingBlock)
     }
 
     private var setDetailsView: some View {
