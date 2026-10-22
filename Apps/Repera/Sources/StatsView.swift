@@ -29,80 +29,9 @@ struct StatsView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                // VStack (no Lazy): LazyVStack al final del scroll reciclaba charts/heatmap y
-                // al subir el offset saltaba otra vez hacia abajo.
-                VStack(alignment: .leading, spacing: 12) {
-                    // No dibujar primero métricas vacías ni reorganizar tarjetas a mitad de carga.
-                    if topic != .recovery && (snap.key.syncRevision < 0 || snap.range != model.range) {
-                        OGCard {
-                            ProgressView("Preparando progreso…")
-                                .tint(OG.accent)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 180)
-                        }
-                    } else {
-                    switch topic {
-                    case .training:
-                        if isPro {
-                            tilesGrid
-                            proAdvancedSections
-                        } else {
-                            freeTilesGrid
-                            freeActivityCard
-                            ProTeaserCard(
-                                title: "Descubre todo tu progreso",
-                                bodyText: "Analiza tu evolución, tus marcas personales y el equilibrio muscular.",
-                                cta: "Descubrir Repera Pro"
-                            ) {
-                                subscriptions.presentPaywall(.progress, feature: .advancedProgress)
-                            }
-                        }
-                    case .health:
-                        if isPro {
-                            healthSections
-                        } else {
-                            freeHealthPreview
-                            ProTeaserCard(
-                                title: "Métricas de actividad avanzadas",
-                                bodyText: "Consulta frecuencia cardíaca, calorías y evolución de peso con Repera Pro.",
-                                cta: "Descubrir Repera Pro"
-                            ) {
-                                subscriptions.presentPaywall(.progress, feature: .advancedProgress)
-                            }
-                        }
-                    case .recovery:
-                        HealthRecoveryProgressView(
-                            range: model.range,
-                            weekStartsOnMonday: mondayFirst
-                        )
-                    }
-                    }
-
-                    NavigationLink {
-                        HistoryView()
-                    } label: {
-                        OGCard {
-                            HStack {
-                                Label("Historial", systemImage: "clock")
-                                    .foregroundStyle(OG.label)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .foregroundStyle(OG.label3)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, OG.pad)
-                .padding(.top, 0)
-                .padding(.bottom, 28)
-            }
-            .background(OG.bg)
-            // Una sola cabecera fijada: Progreso → periodo → pestañas.
-            // Evita que los dos safeAreaInset se inviertan al componer modificadores.
-            .ogContentTitleNav()
-            .safeAreaInset(edge: .top, spacing: 0) {
-                VStack(spacing: 0) {
+                // El título y el calendario se desplazan con el contenido; sin franja opaca.
+                // Solo las pestañas quedan ancladas al alcanzar la parte superior.
+                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                     OGFixedTopBar(title: "Progreso", subtitle: model.range.title) {
                         Button {
                             showRangePicker = true
@@ -118,18 +47,89 @@ struct StatsView: View {
                         .accessibilityLabel("Filtrar periodo")
                     }
 
-                    Picker("Categoría", selection: $topic) {
-                        ForEach(ProgressTopic.allCases, id: \.self) { option in
-                            Text(option.rawValue).tag(option)
+                    Section {
+                        // Un único VStack no lazy evita reciclar gráficas y saltos de offset.
+                        VStack(alignment: .leading, spacing: 12) {
+                            // No dibujar primero métricas vacías ni reorganizar tarjetas a mitad de carga.
+                            if topic != .recovery && (snap.key.syncRevision < 0 || snap.range != model.range) {
+                                OGCard {
+                                    ProgressView("Preparando progreso…")
+                                        .tint(OG.accent)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 180)
+                                }
+                            } else {
+                            switch topic {
+                            case .training:
+                                if isPro {
+                                    tilesGrid
+                                    proAdvancedSections
+                                } else {
+                                    freeTilesGrid
+                                    freeActivityCard
+                                    ProTeaserCard(
+                                        title: "Descubre todo tu progreso",
+                                        bodyText: "Analiza tu evolución, tus marcas personales y el equilibrio muscular.",
+                                        cta: "Descubrir Repera Pro"
+                                    ) {
+                                        subscriptions.presentPaywall(.progress, feature: .advancedProgress)
+                                    }
+                                }
+                            case .health:
+                                if isPro {
+                                    healthSections
+                                } else {
+                                    freeHealthPreview
+                                    ProTeaserCard(
+                                        title: "Métricas de actividad avanzadas",
+                                        bodyText: "Consulta frecuencia cardíaca, calorías y evolución de peso con Repera Pro.",
+                                        cta: "Descubrir Repera Pro"
+                                    ) {
+                                        subscriptions.presentPaywall(.progress, feature: .advancedProgress)
+                                    }
+                                }
+                            case .recovery:
+                                HealthRecoveryProgressView(
+                                    range: model.range,
+                                    weekStartsOnMonday: mondayFirst
+                                )
+                            }
+                            }
+
+                            NavigationLink {
+                                HistoryView()
+                            } label: {
+                                OGCard {
+                                    HStack {
+                                        Label("Historial", systemImage: "clock")
+                                            .foregroundStyle(OG.label)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .foregroundStyle(OG.label3)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
                         }
+                        .padding(.horizontal, OG.pad)
+                        .padding(.top, 0)
+                        .padding(.bottom, 28)
+                    } header: {
+                        Picker("Categoría", selection: $topic) {
+                            ForEach(ProgressTopic.allCases, id: \.self) { option in
+                                Text(option.rawValue).tag(option)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .padding(.horizontal, OG.pad)
+                        .padding(.top, 4)
+                        .padding(.bottom, 10)
+                        .background(OG.bg)
                     }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal, OG.pad)
-                    .padding(.top, 4)
-                    .padding(.bottom, 10)
                 }
-                .background(OG.bg)
             }
+            .background(OG.bg)
+            .ogContentTitleNav()
             .sheet(isPresented: $showRangePicker) {
                 progressRangeSheet
                     .ogFittedSheet()
