@@ -45,7 +45,9 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("health.resume()", watch)
         self.assertIn("appleHealthProvenance", watch)
         self.assertIn("reconcileWatchHealthMetrics()", phone)
+        self.assertIn("professionalWorkoutForWatchToday()", phone)
         self.assertIn("persistAndFlush(snapshot)", phone)
+        self.assertIn("completedAckHealthKitUUID:", phone)
         self.assertIn("verifiedWatchWorkout(forReperaSession", health)
         self.assertIn("isWatchRecordedSource", health)
         for scrubbed in (
@@ -60,7 +62,7 @@ class WatchHealthKitContractTests(unittest.TestCase):
     def test_offline_background_transport_and_complication(self):
         watch = source("Apps/ReperaWatch/Sources/WatchConnectivityClient.swift")
         widget = source("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
-        for symbol in ("transferUserInfo", "pendingKey", "acknowledge", "todayDayStart"):
+        for symbol in ("transferUserInfo", "pendingKey", "acknowledge", "todayDayStart", "healthKitUUID"):
             self.assertIn(symbol, watch)
         self.assertIn('Image("ReperaIcon")', widget)
         self.assertIn(".widgetURL(", widget)
