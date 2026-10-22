@@ -676,6 +676,11 @@ struct WorkoutView: View {
     }
 
     private func rebuildLiveSets(from current: SessionExercise) {
+        // Los observers de currentIndex/plannedSets pueden ejecutarse en distinto
+        // orden. Guardar aquí la tabla anterior antes de sustituir su identidad.
+        if let liveExerciseID, liveExerciseID != current.id {
+            cacheLiveSets()
+        }
         syncLiveQuantityUnit(from: current)
         // Reconciliar los registros confirmados con los borradores aún editables.
         // Una reconstrucción (check, cambio de plan, navegación) nunca debe
