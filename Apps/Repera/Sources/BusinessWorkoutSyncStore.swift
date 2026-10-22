@@ -364,13 +364,9 @@ final class BusinessWorkoutSyncStore {
     private static func isSafeBlockSnapshotBackfill(
         local: WorkoutSession, remote: WorkoutSession
     ) -> Bool {
-        guard let originalBlocks = local.routineBlocks, !originalBlocks.isEmpty,
-              remote.routineBlocks?.isEmpty != false
-        else { return false }
-
-        var enrichedRemote = privateMirrorPayload(remote)
-        enrichedRemote.routineBlocks = originalBlocks
-        return enrichedRemote == local
+        SyncConflictResolver.canRestoreMissingBlockSnapshot(
+            local: local, remote: privateMirrorPayload(remote)
+        )
     }
 
     private func digest(_ workout: WorkoutSession) -> String {
