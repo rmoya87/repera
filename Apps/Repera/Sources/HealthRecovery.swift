@@ -435,7 +435,8 @@ struct HealthRecoveryProgressView: View {
     }
 
     /// Cálculo fuera del MainActor para no bloquear el scroll de Progreso.
-    /// Un punto representa la disposición estimada al despertar ese día.
+    /// Un punto representa la disposición estimada a primera hora del día,
+    /// antes de posibles sesiones matinales (referencia 07:00).
     private func prepareTrainingRecovery() async {
         let key = trainingRecoveryRefreshKey
         guard isPro, recovery.sleepEnabled else {
@@ -455,7 +456,7 @@ struct HealthRecoveryProgressView: View {
             let points: [TrainingRecoveryPoint] = nights.compactMap { night in
                 guard range.contains(night.date, now: now, weekStartsOnMonday: monday),
                       let morning = calendar.date(
-                        bySettingHour: 9, minute: 0, second: 0, of: night.date
+                        bySettingHour: 7, minute: 0, second: 0, of: night.date
                       ), morning <= now,
                       let value = RecoveryEngine.trainingReadiness(
                         at: morning,
@@ -473,7 +474,7 @@ struct HealthRecoveryProgressView: View {
             let tomorrowMorning = calendar.date(
                 byAdding: .day, value: 1, to: calendar.startOfDay(for: now)
             ).flatMap {
-                calendar.date(bySettingHour: 9, minute: 0, second: 0, of: $0)
+                calendar.date(bySettingHour: 7, minute: 0, second: 0, of: $0)
             }
             let tomorrow: RecoveryEngine.TrainingReadiness?
             if let tomorrowMorning, let recentSleep {
