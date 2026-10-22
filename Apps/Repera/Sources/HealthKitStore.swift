@@ -231,12 +231,10 @@ final class HealthKitStore {
                 await HealthRecoveryStore.shared.acceptSleepFromHealthAuthorization()
             }
             refreshAuthorizationStatus()
-            if isAuthorized {
-                lastError = nil
-                await refreshToday()
-            } else {
-                lastError = "Revisa permisos de Repera en Ajustes → Salud"
-            }
+            // HealthKit no expone el permiso de lectura: que el usuario deniegue
+            // ESCRITURA no impide consultar datos reales si concedió lectura.
+            lastError = nil
+            await refreshToday()
         } catch {
             lastError = error.localizedDescription
             isAuthorized = false
@@ -872,13 +870,18 @@ final class HealthKitStore {
         }
     }
 
+    /// Filtrar tanto el bundle actual como posibles fuentes Repera antiguas.
+    nonisolated private static func isReperaSource(_ source: HKSource) -> Bool {
+        source.bundleIdentifier == Bundle.main.bundleIdentifier
+            || source.name.localizedCaseInsensitiveContains("repera")
+    }
+
     /// Descartamos kcal de muestras escritas por Repera: antiguas versiones
     /// guardaban estimaciones que no representan una medición de Apple Salud.
     nonisolated private static func measuredEnergyKcal(_ statistics: HKStatistics?) -> Double {
         guard let statistics else { return 0 }
-        let ownBundle = Bundle.main.bundleIdentifier
         let kcal = (statistics.sources ?? []).reduce(0.0) { sum, source in
-            guard source.bundleIdentifier != ownBundle else { return sum }
+            guard !isReperaSource(source) else { return sum }
             return sum + (statistics.sumQuantity(for: source)?.doubleValue(for: .kilocalorie()) ?? 0)
         }
         return max(0, kcal)
@@ -955,7 +958,7 @@ final class HealthKitStore {
     ) -> ExternalActivity? {
         // Un workout propio de Repera no es una actividad externa de Salud.
         // Además, las versiones antiguas podían escribirle kcal calculadas.
-        guard w.sourceRevision.source.bundleIdentifier != Bundle.main.bundleIdentifier else {
+        guard !Self.isReperaSource(w.sourceRevision.source) else {
             return nil
         }
         guard !excludingUUIDs.contains(w.uuid) else { return nil }
@@ -1020,7 +1023,7 @@ final class HealthKitStore {
     func sessionHealthExtras(for session: WorkoutSession) async -> SessionHealthExtras? {
         guard isAvailable else { return nil }
         await ensureWorkoutRouteAccess()
-        guard isAuthorized else { return nil }
+        // No usar isAuthorized (estado de escritura) para bloquear lectura.
         guard let start = session.startedAt else { return nil }
         let end: Date = {
             if let finished = session.finishedAt { return finished }
@@ -1051,7 +1054,7 @@ final class HealthKitStore {
         // Una estimación antigua de Repera nunca prevalece sobre Apple Salud.
         // Incluso si se escribió como muestra en nuestro HKWorkout, se oculta.
         if let workout,
-           workout.sourceRevision.source.bundleIdentifier == Bundle.main.bundleIdentifier {
+           Self.isReperaSource(workout.sourceRevision.source) {
             extras.activeEnergyKcal = nil
         } else if let workoutUUID {
             extras.activeEnergyKcal = await externalWorkoutEnergyKcal(uuid: workoutUUID)
@@ -1270,8 +1273,7 @@ final class HealthKitStore {
     /// Sirve para no tratar como «verdad Apple» las kcal que Repera escribió mal (p. ej. 2 kcal ambiente).
     func externalWorkoutEnergyKcal(uuid: UUID) async -> Double? {
         guard let workout = await fetchWorkout(uuid: uuid) else { return nil }
-        let sourceId = workout.sourceRevision.source.bundleIdentifier
-        if sourceId == Bundle.main.bundleIdentifier { return nil }
+        if Self.isReperaSource(workout.sourceRevision.source) { return nil }
         guard let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
               let burned = workout.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie()),
               burned > 0
@@ -1511,7 +1513,7 @@ final class HealthKitStore {
         var savedUUID: UUID?
 
         if let existing = apple.existingWorkout {
-            if existing.sourceRevision.source.bundleIdentifier == Bundle.main.bundleIdentifier {
+            if Self.isReperaSource(existing.sourceRevision.source) {
                 // Entreno que guardó Repera: sus kcal podrían ser estimaciones.
                 savedUUID = existing.uuid
                 await discardLocalBuilder()
