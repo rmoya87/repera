@@ -256,15 +256,15 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 
 - [ ] Abrir Inicio en modo claro y oscuro: calendario, entrenamiento (incluido día vacío) y «Añadir nuevo entreno» comparten un lienzo OG.surface a ancho total; Progreso semanal, Actividad y Recuperación mantienen sus márgenes.
 - [ ] Deslizar el calendario por días y cruzar un cambio de mes: la cabecera se actualiza, los días siguen siendo cuadrados y el seleccionado tiene color de marca OG.accent (#30D158).
-- [ ] En día vacío, planificado y completado, comprobar que «Añadir nuevo entreno» destaca como botón verde con letras negras. Abrir el flujo y regresar sin perder selección de fecha.
+- [ ] En día vacío, planificado y completado, «Añadir nuevo entreno» sigue siendo verde con letras negras, pero queda a solo 6 pt de la ficha. Día vacío y una ficha con entreno tienen el mismo alto base; si el título necesita más líneas o Dynamic Type aumenta, crecen sin recortarse. Abrir el flujo y regresar sin perder selección de fecha.
 - [ ] Con entrenos completos, planificados y externos, comprobar borde gris, papelera oculta antes del swipe, revelación al deslizar y confirmación obligatoria de eliminación. El día vacío debe llevar el mismo borde.
 - [ ] Ajustes → Salud → Objetivos permite pasos, kcal, FC media de referencia, minutos, entrenos semanales y peso con teclado numérico Repera, guardado automático y sin botón Guardar ni textos explicativos al pie. Vaciar el campo quita solo su objetivo.
 - [ ] Desde versiones anteriores se conserva el peso objetivo y la FC media no tiene objetivo por defecto. Editar, volver atrás sin botón Guardar, reiniciar y comprobar persistencia.
 - [ ] Establecer objetivos de pasos y energía: en Inicio las métricas presentan un progreso solo con datos medidos; si Salud no suministra dato, mostrar raya, no cero.
-- [ ] En Actividad de Inicio no hay evolución de siete días: comprobar meta total y barra verde/naranja/roja, ninguna barra sin objetivo y ninguna medición inventada.
+- [ ] En Actividad de Inicio no hay evolución de siete días ni texto «Meta» en las tarjetas. Con y sin objetivos, comprobar que cada tarjeta usa solo la altura necesaria y que kcal/lpm aparecen junto al valor, en la misma línea. Cuando hay objetivo, solo barra verde/naranja/roja con progreso accesible por VoiceOver; sin objetivo no hay barra ni hueco adicional; sin medición no se inventa relleno.
 - [ ] Entrenar dos veces en un día y comprobar que el progreso semanal muestra dos entrenamientos frente a la meta, aunque haya solo un check para el día.
 - [ ] Al editar un input numérico que presenta 0 por defecto, la primera cifra sustituye al cero; probar series, RIR, formatos, prescripciones y adaptaciones.
-- [ ] Comprobar que topbar de Inicio continúa transparente y el fondo de detrás es blanco incluso con scroll.
+- [ ] Comprobar que el componente topbar de Inicio no tiene fondo pintado (como el de Ejercicios): el blanco real del bloque calendario/entreno se prolonga sin cortes por detrás de la topbar y el área de estado. El fondo gris reaparece solo al empezar Progreso semanal; revisar scroll, modo claro y oscuro.
 - [ ] Verificar Dynamic Type, VoiceOver, pantalla estrecha, pantalla amplia, reducción de movimiento y navegación de gestos dentro de un ScrollView vertical.
 
 ### Incidencias de compilación y herramientas de Xcode
