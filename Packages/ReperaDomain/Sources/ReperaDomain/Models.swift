@@ -885,9 +885,9 @@ public enum WODFormat: String, Codable, Sendable, Hashable, CaseIterable {
         switch self {
         case .amrap, .deathBy, .maxEffort:
             return .totalReps
-        case .forTime, .chipper, .afap, .ladder:
+        case .forTime, .chipper, .afap, .ladder, .buyInCashOut:
             return .elapsedTime
-        case .emom, .tabata, .circuit, .partner, .buyInCashOut, .roundsForQuality, .strength:
+        case .emom, .tabata, .circuit, .partner, .roundsForQuality, .strength:
             return .perMovementSets
         }
     }
@@ -1498,6 +1498,8 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
     public var blockHeader: String?
     public var blockWorkSeconds: Int?
     public var blockRestSeconds: Int?
+    /// Descanso explícito entre rondas de un circuito.
+    public var blockRestBetweenRoundsSeconds: Int?
 
     public init(
         id: UUID = UUID(),
@@ -1516,7 +1518,8 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         blockRounds: Int? = nil,
         blockHeader: String? = nil,
         blockWorkSeconds: Int? = nil,
-        blockRestSeconds: Int? = nil
+        blockRestSeconds: Int? = nil,
+        blockRestBetweenRoundsSeconds: Int? = nil
     ) {
         self.id = id
         self.exercise = exercise
@@ -1535,6 +1538,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         self.blockHeader = blockHeader
         self.blockWorkSeconds = blockWorkSeconds
         self.blockRestSeconds = blockRestSeconds
+        self.blockRestBetweenRoundsSeconds = blockRestBetweenRoundsSeconds
     }
 
     public var lastLoggedWeight: Double? {
@@ -1654,7 +1658,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         case id, exercise, plannedSets, loggedSets, completedReps, isCompleted, supersetGroup
         case blockId, blockKind
         case wodFormat, blockTimeCapMinutes, blockIntervalSeconds, blockRounds, blockHeader
-        case blockWorkSeconds, blockRestSeconds
+        case blockWorkSeconds, blockRestSeconds, blockRestBetweenRoundsSeconds
     }
 
     public init(from decoder: Decoder) throws {
@@ -1675,6 +1679,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         blockHeader = try c.decodeIfPresent(String.self, forKey: .blockHeader)
         blockWorkSeconds = try c.decodeIfPresent(Int.self, forKey: .blockWorkSeconds)
         blockRestSeconds = try c.decodeIfPresent(Int.self, forKey: .blockRestSeconds)
+        blockRestBetweenRoundsSeconds = try c.decodeIfPresent(Int.self, forKey: .blockRestBetweenRoundsSeconds)
     }
 }
 
