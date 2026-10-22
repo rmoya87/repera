@@ -7,6 +7,8 @@ enum ReperaMascotPose: String {
     case permissions = "MascotPermissions"
     /// Mancuernas arriba (paywall / hero).
     case hero = "MascotHero"
+    /// Mascota con Apple Watch para métricas de actividad.
+    case watch = "MascotWatch"
 }
 
 /// Mascota Repera para onboarding y pantallas de producto.
