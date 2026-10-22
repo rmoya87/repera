@@ -146,6 +146,23 @@ struct AIAccessView: View {
                     ForEach(changeRequests.pending) { request in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(request.summary).font(.subheadline.weight(.medium))
+                            if request.operation == "update_workout" {
+                                if let newTitle=request.payload.title {
+                                    Text("Nuevo título: \(newTitle)")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                                ForEach(request.payload.setChanges ?? [],id:\.loggedSetId) { change in
+                                    let parts: [String] = [
+                                        change.reps.map { "\($0) reps" },
+                                        change.weightKg.map { "\(String(format:"%g",$0)) kg" },
+                                        change.rir.map { "RIR \(String(format:"%g",$0))" },
+                                        change.clearWeight == true ? "sin peso" : nil,
+                                        change.clearRir == true ? "sin RIR" : nil,
+                                    ].compactMap { $0 }
+                                    Text("Serie \(change.loggedSetId.uuidString.prefix(8)): " + parts.joined(separator:" · "))
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
                             if request.operation == "delete_workout" {
                                 Text("La eliminación de un entrenamiento también puede borrar su actividad vinculada de Apple Salud.")
                                     .font(.caption).foregroundStyle(.orange)
