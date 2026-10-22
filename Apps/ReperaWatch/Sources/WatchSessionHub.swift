@@ -151,7 +151,13 @@ final class WatchSessionHub: NSObject {
     func startToday() {
         guard let plan = todaysWorkout, !plan.exercises.isEmpty else { return }
         stopMotion()
-        var next = SessionController(session: plan)
+        // The prescription ID is not the execution ID. Repeating a plan
+        // creates a fresh workout, never overwriting a previous result.
+        let execution = WorkoutSession(
+            title: plan.title, routineId: plan.routineId,
+            exercises: plan.exercises, routineBlocks: plan.routineBlocks
+        )
+        var next = SessionController(session: execution)
         next.startOnPhone()
         controller = next
         startedOnThisWatch = true
