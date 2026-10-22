@@ -24,9 +24,17 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         (directory / "AITrainingContextStore.swift").write_text("// AI context", encoding="utf-8")
         (directory / "AITrainingProgramsView.swift").write_text("// AI programs", encoding="utf-8")
         (directory / "AIChangeRequestStore.swift").write_text("// AI change store", encoding="utf-8")
+        watch = self.root / "Apps/ReperaWatch/Sources"
+        watch.mkdir(parents=True)
+        for name in (
+            "ReperaWatchApp.swift", "WatchSessionHub.swift", "WatchSessionView.swift",
+            "WatchConnectivityClient.swift", "WatchHealthKitSession.swift",
+        ):
+            (watch / name).write_text("// Watch target source", encoding="utf-8")
         (self.root / "project.yml").write_text(
             "targets:\n  Repera:\n    sources:\n      - path: Apps/Repera/Sources\n"
-            "    dependencies:\n      - package: Supabase\n        product: Supabase\n",
+            "    dependencies:\n      - package: Supabase\n        product: Supabase\n"
+            "  ReperaWatch:\n    sources:\n      - path: Apps/ReperaWatch/Sources\n",
             encoding="utf-8",
         )
         (self.root / "Repera.xcodeproj").mkdir()
@@ -39,7 +47,25 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "AIAccessView.swift in Sources\n"
             "AITrainingContextStore.swift in Sources\n"
             "AITrainingProgramsView.swift in Sources\n"
-            "AIChangeRequestStore.swift in Sources", encoding="utf-8"
+            "AIChangeRequestStore.swift in Sources\n"
+            # Minimal XcodeGen PBXNativeTarget plus PBXSourcesBuildPhase.
+            "AAAAAAAAAAAAAAAAAAAAAAAA /* ReperaWatch */ = {\n"
+            "  isa = PBXNativeTarget;\n"
+            "  buildPhases = (\n"
+            "    BBBBBBBBBBBBBBBBBBBBBBBB /* Sources */,\n"
+            "  );\n"
+            "  name = ReperaWatch;\n"
+            "};\n"
+            "BBBBBBBBBBBBBBBBBBBBBBBB /* Sources */ = {\n"
+            "  isa = PBXSourcesBuildPhase;\n"
+            "  files = (\n"
+            "    CCCCCCCCCCCCCCCCCCCCCCCC /* ReperaWatchApp.swift in Sources */,\n"
+            "    DDDDDDDDDDDDDDDDDDDDDDDD /* WatchSessionHub.swift in Sources */,\n"
+            "    EEEEEEEEEEEEEEEEEEEEEEEE /* WatchSessionView.swift in Sources */,\n"
+            "    FFFFFFFFFFFFFFFFFFFFFFFF /* WatchConnectivityClient.swift in Sources */,\n"
+            "    111111111111111111111111 /* WatchHealthKitSession.swift in Sources */,\n"
+            "  );\n"
+            "};\n", encoding="utf-8"
         )
 
     def test_current_generated_project(self):
@@ -77,6 +103,41 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         )
         self.assertTrue(path.is_file())
         self.assertIn("final class AIChangeRequestStore", path.read_text(encoding="utf-8"))
+
+
+    def test_watch_healthkit_file_absent_from_checkout_is_rejected(self):
+        (self.root / "Apps/ReperaWatch/Sources/WatchHealthKitSession.swift").unlink()
+        with self.assertRaisesRegex(ValueError, "WatchHealthKitSession.swift"):
+            validate(self.root)
+
+    def test_stale_watch_target_without_healthkit_is_rejected(self):
+        pbx = self.pbx.read_text(encoding="utf-8")
+        self.pbx.write_text(
+            pbx.replace("111111111111111111111111 /* WatchHealthKitSession.swift in Sources */,", ""),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "WatchHealthKitSession.swift"):
+            validate(self.root)
+
+    def test_watch_file_reference_outside_compile_sources_is_rejected(self):
+        pbx = self.pbx.read_text(encoding="utf-8")
+        self.pbx.write_text(
+            pbx.replace(
+                "111111111111111111111111 /* WatchHealthKitSession.swift in Sources */,",
+                "111111111111111111111111 /* WatchHealthKitSession.swift file reference */,",
+            ) + "\n// WatchHealthKitSession.swift in Sources elsewhere",
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "WatchHealthKitSession.swift"):
+            validate(self.root)
+
+    def test_missing_watch_target_is_rejected(self):
+        pbx = self.pbx.read_text(encoding="utf-8")
+        self.pbx.write_text(
+            pbx.replace("/* ReperaWatch */", "/* OtherTarget */"), encoding="utf-8"
+        )
+        with self.assertRaisesRegex(ValueError, "ReperaWatch"):
+            validate(self.root)
 
     def test_stale_generated_project_is_rejected(self):
         self.pbx.write_text("AppleAuthStore.swift in Sources", encoding="utf-8")
