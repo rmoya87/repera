@@ -186,8 +186,14 @@ targets:
       CODE_SIGN_STYLE: Automatic
       DEVELOPMENT_TEAM: 9DTDGQ8UUQ
       SDKROOT: watchos
+      CODE_SIGN_ENTITLEMENTS: Apps/ReperaWatch/Resources/ReperaWatch.entitlements
+    entitlements:
+      path: Apps/ReperaWatch/Resources/ReperaWatch.entitlements
+      properties:
+        com.apple.developer.healthkit: true
     dependencies:
       - package: ReperaDomain
+      - sdk: HealthKit.framework
       - target: ReperaWatchWidget
         embed: true
     info:
@@ -202,6 +208,10 @@ targets:
         WKCompanionAppBundleIdentifier: com.app.repera
         WKRunsIndependentlyOfCompanionApp: true
         NSMotionUsageDescription: Repera usa el movimiento del Watch para contar repeticiones durante el entrenamiento.
+        NSHealthShareUsageDescription: Repera lee durante el entrenamiento tus pulsaciones, las calorías activas y las métricas verificadas por Apple Salud. Estos datos permanecen en tus dispositivos.
+        NSHealthUpdateUsageDescription: Repera guarda en Apple Salud el entrenamiento registrado por el reloj, con las mediciones calculadas por HealthKit.
+        WKBackgroundModes:
+          - workout-processing
 
   ReperaWatchWidget:
     type: app-extension
