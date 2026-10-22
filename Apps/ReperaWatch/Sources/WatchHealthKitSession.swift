@@ -125,13 +125,15 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                     // the Watch's local HealthKit collection or offline results.
                     session.startMirroringToCompanionDevice { _, _ in }
                     builder.beginCollection(withStart: date) { [weak self] ok, err in
-                        if ok {
-                            // Matches HealthKit's independent sample UUID to Repera's
-                            // stable workout ID, even if Health returns no sample while locked.
-                            builder.addMetadata([HKMetadataKeyExternalUUID: id.uuidString]) { _, _ in }
-                        }
                         Task { @MainActor in
                             guard let self, self.workoutID == id else { return }
+                            if ok {
+                                // Associate HealthKit samples with the execution UUID.
+                                // Access the builder on its owner actor (Swift 6).
+                                self.builder?.addMetadata([
+                                    HKMetadataKeyExternalUUID: id.uuidString
+                                ]) { _, _ in }
+                            }
                             self.isRecording = ok
                             if ok, let pending = self.pendingBlock {
                                 self.beginBlock(id: pending.id, isInterval: pending.isInterval)
