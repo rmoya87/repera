@@ -57,6 +57,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
             return
         }
         workoutID = id
+        finishing = false
         permissionIssue = nil
         let heart = HKObjectType.quantityType(forIdentifier: .heartRate)!
         let energy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
@@ -93,6 +94,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                             self.isRecording = ok
                             if !ok {
                                 self.permissionIssue = err?.localizedDescription ?? "No se inició la recogida de Salud."
+                                self.builder?.discardWorkout()
                                 self.workout?.end()
                                 self.workout = nil
                                 self.builder = nil
@@ -201,6 +203,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         builder = nil
         workoutID = nil
         isRecording = false
+        finishing = false
         let callback = finishHandler
         finishHandler = nil
         callback?(result)
