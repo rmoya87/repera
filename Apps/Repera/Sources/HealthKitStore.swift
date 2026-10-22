@@ -1470,6 +1470,37 @@ final class HealthKitStore {
         verifiedWorkoutEnergyKcal = verified
     }
 
+    /// Resuelve el UUID real de Salud a partir del ID estable de ejecución.
+    /// HealthKit puede guardar el workout mientras el reloj está bloqueado,
+    /// devolviendo nil temporalmente; la metainformación permite enlazarlo después.
+    func verifiedWatchWorkout(forReperaSession id: UUID) async -> WorkoutSyncResult? {
+        guard isAvailable else { return nil }
+        let predicate = HKQuery.predicateForObjects(
+            withMetadataKey: HKMetadataKeyExternalUUID,
+            allowedValues: [id.uuidString]
+        )
+        let linked: HKWorkout? = await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: .workoutType(), predicate: predicate, limit: 3,
+                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
+            ) { _, samples, _ in
+                continuation.resume(returning: (samples as? [HKWorkout])?.first {
+                    Self.isWatchRecordedSource($0.sourceRevision.source)
+                })
+            }
+            store.execute(query)
+        }
+        guard let workout = linked else { return nil }
+        let energy = await externalWorkoutEnergyKcal(uuid: workout.uuid) ?? 0
+        return WorkoutSyncResult(
+            startedAt: workout.startDate,
+            finishedAt: workout.endDate,
+            kcal: energy,
+            durationSeconds: workout.duration,
+            workoutUUID: workout.uuid
+        )
+    }
+
     /// kcal de un workout de Salud **ajeno** (Watch / otra app). `nil` si es nuestro o no hay energía.
     /// Sirve para no tratar como «verdad Apple» las kcal que Repera escribió mal (p. ej. 2 kcal ambiente).
     func externalWorkoutEnergyKcal(uuid: UUID) async -> Double? {
