@@ -110,6 +110,70 @@ final class RecoveryEngineTests: XCTestCase {
         }
     }
 
+    func testVitalsNeedSevenIndependentHistoricalDaysPerSignal() {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        func day(_ offset: Int, hrv: Double? = 60, resting: Double? = 55) -> RecoveryEngine.DailyVitals {
+            RecoveryEngine.DailyVitals(
+                date: calendar.date(byAdding: .day, value: offset, to: today)!,
+                hrvMilliseconds: hrv, restingHeartRateBpm: resting
+            )
+        }
+        let todayLow = day(0, hrv: 35, resting: 67)
+        let six = (1...6).map { day(-$0) } + [todayLow]
+        let noBaseline = RecoveryEngine.vitalContext(at: today, history: six)
+        XCTAssertEqual(noBaseline.penalty, 0)
+        XCTAssertEqual(noBaseline.calibratedSignals, 0)
+
+        let seven = (1...7).map { day(-$0) } + [todayLow]
+        let withBaseline = RecoveryEngine.vitalContext(at: today, history: seven)
+        XCTAssertGreaterThan(withBaseline.penalty, 0)
+        XCTAssertEqual(withBaseline.calibratedSignals, 2)
+        XCTAssertLessThanOrEqual(withBaseline.penalty, 1.8)
+
+        // Repeated samples on one day must never count as independent days.
+        let duplicates = Array(repeating: day(-1), count: 12) + [todayLow]
+        XCTAssertEqual(RecoveryEngine.vitalContext(at: today, history: duplicates).penalty, 0)
+    }
+
+    func testMissingVitalsNeverChangeReadinessOrPerformanceHistory() {
+        let calendar = Calendar.current
+        let date = calendar.startOfDay(for: Date())
+        let pastWorkout = WorkoutSession(
+            title: "WOD", exercises: [],
+            startedAt: date.addingTimeInterval(-15 * 3600),
+            finishedAt: date.addingTimeInterval(-14 * 3600)
+        )
+        let original = RecoveryEngine.trainingReadiness(
+            at: date, sleepHours: 8, recentAverageSleepHours: 8,
+            workouts: [pastWorkout]
+        )
+        let partial = RecoveryEngine.trainingReadiness(
+            at: date, sleepHours: 8, recentAverageSleepHours: 8,
+            workouts: [pastWorkout],
+            vitalHistory: [RecoveryEngine.DailyVitals(date: date, hrvMilliseconds: 20)]
+        )
+        XCTAssertEqual(original, partial)
+        XCTAssertEqual(partial?.calibratedVitalSignals, 0)
+
+        let seven = (1...7).map { i in RecoveryEngine.DailyVitals(
+            date: calendar.date(byAdding: .day, value: -i, to: date)!,
+            hrvMilliseconds: 60, restingHeartRateBpm: 55
+        ) }
+        let low = RecoveryEngine.DailyVitals(
+            date: date, hrvMilliseconds: 30, restingHeartRateBpm: 69
+        )
+        let informed = RecoveryEngine.trainingReadiness(
+            at: date, sleepHours: 8, recentAverageSleepHours: 8,
+            workouts: [pastWorkout], vitalHistory: seven + [low]
+        )
+        XCTAssertNotNil(informed)
+        XCTAssertLessThanOrEqual(informed!.score, original!.score)
+        XCTAssertGreaterThan(informed!.physiologicalPenalty, 0)
+        XCTAssertEqual(informed!.calibratedVitalSignals, 2)
+        XCTAssertEqual(informed!.score, informed!.score.rounded())
+    }
+
     func testUnknownWithInsufficientOrIrregularCycles() {
         var c = Calendar(identifier: .gregorian)
         c.timeZone = TimeZone(secondsFromGMT: 0)!
