@@ -225,10 +225,10 @@ public enum VerifiedSessionReviewEngine {
             guard let date = workout.finishedAt else { continue }
             let day = Calendar.current.startOfDay(for: date)
             if refs.contains(where: { $0.0 == day }) { continue }
-            guard let previous = workout.wodResults.first(where: {
-                $0.format == format && validScore($0)
+            guard let previous = workout.wodResults.first(where: { candidate in
+                candidate.format == format && validScore(candidate)
                     && workout.routineBlocks?.contains(where: { block in
-                        block.id == $0.id && samePrescription(currentBlock, block)
+                        block.id == candidate.id && samePrescription(currentBlock, block)
                     }) == true
             }),
             let pastBlock = workout.routineBlocks?.first(where: { $0.id == previous.id }),
