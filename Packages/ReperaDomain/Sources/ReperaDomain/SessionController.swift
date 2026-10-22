@@ -167,7 +167,8 @@ public struct SessionController: Sendable {
                                 blockRounds: block.rounds,
                                 blockHeader: block.title,
                                 blockWorkSeconds: block.workSeconds,
-                                blockRestSeconds: block.restSeconds
+                                blockRestSeconds: block.restSeconds,
+                                blockRestBetweenRoundsSeconds: block.restBetweenRoundsSeconds
                             )
                         )
                     }
@@ -201,7 +202,8 @@ public struct SessionController: Sendable {
                                 blockRounds: resolved.rounds,
                                 blockHeader: resolved.title,
                                 blockWorkSeconds: resolved.workSeconds,
-                                blockRestSeconds: resolved.restSeconds
+                                blockRestSeconds: resolved.restSeconds,
+                                blockRestBetweenRoundsSeconds: resolved.restBetweenRoundsSeconds
                             )
                         )
                     }
