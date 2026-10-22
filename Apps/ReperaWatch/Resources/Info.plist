@@ -31,6 +31,8 @@
 	<key>WKCompanionAppBundleIdentifier</key>
 	<string>com.app.repera</string>
 	<key>WKRunsIndependentlyOfCompanionApp</key>
-	<false/>
+	<true/>
+	<key>CFBundleURLTypes</key>
+	<array><dict><key>CFBundleURLSchemes</key><array><string>repera-watch</string></array></dict></array>
 </dict>
 </plist>
