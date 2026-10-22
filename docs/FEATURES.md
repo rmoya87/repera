@@ -281,3 +281,10 @@ Supabase dispone de 189 fichas enriquecidas desde el catálogo nativo de Repera:
 - **Compras**: StoreKit 2 es el fallback disponible sin clave pública de RevenueCat; no mostrar errores internos «build no configurado» a clientes. Si App Store Connect no devuelve ofertas, sí mostrar un estado de indisponibilidad y reintento. Una compra real requiere IDs vigentes en App Store Connect y pruebas sandbox/TestFlight.
 - **Scan**: mantiene varios tramos de un mismo For Time, cap global, intervalos, descansos entre rondas y A/B con cinco rondas. Series de Squat Snatch al 70/75/>80% quedan como prescripción porcentual y notas; no se derivan kg sin referencia de 1RM. Nuevos movimientos: Carrera, Dominadas lastradas, Remo pliométrico en anillas pies elevados, Step-up al cajón con kettlebell goblet.
 - **MCP**: herramientas de editar, archivar y restaurar propuestas/programas con versión y control de propietario. PAT con permisos de lectura/escritura, paginación y schemas estrictos. No reemplaza un entrenamiento ya importado al dispositivo ni implementa OAuth de terceros.
+
+
+### MCP: corrección de entrenamientos, CRUD personalizado y horarios internacionales
+
+- El asistente puede solicitar corregir un entrenamiento terminado (título y reps/kg/RIR por serie), eliminarlo o crear/editar/eliminar un ejercicio **personalizado**. Estas solicitudes quedan pendientes hasta que el deportista las confirme en **Ajustes → Acceso IA**; la IA no puede borrar a distancia el historial o cambiar la biblioteca global de movimientos.
+- Enviar una fecha con hora exige `scheduledTimeZone` IANA y `scheduledUtcOffsetMinutes`, ambos contrastados con el horario oficial (incluidos cambios de verano/invierno). Los programas tienen zona de inicio y el calendario indica su zona.
+- `update_ai_training_plan` valida los mismos bloques y series que `create_training_plan`. Entradas desconocidas o configuraciones fuerza/WOD incoherentes se rechazan antes de guardar.
