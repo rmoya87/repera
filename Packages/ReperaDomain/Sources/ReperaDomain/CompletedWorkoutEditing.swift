@@ -68,7 +68,8 @@ public enum CompletedWorkoutEditing {
                     emomIntervalSeconds: entry.blockIntervalSeconds,
                     rounds: entry.blockRounds,
                     workSeconds: entry.blockWorkSeconds,
-                    restSeconds: entry.blockRestSeconds
+                    restSeconds: entry.blockRestSeconds,
+                    restBetweenRoundsSeconds: entry.blockRestBetweenRoundsSeconds
                 )
                 if kind == .strength {
                     block.exercises = [RoutineExercise(
@@ -129,6 +130,7 @@ public enum CompletedWorkoutEditing {
                 entry.blockRounds = block.rounds
                 entry.blockWorkSeconds = block.workSeconds
                 entry.blockRestSeconds = block.restSeconds
+                entry.blockRestBetweenRoundsSeconds = block.restBetweenRoundsSeconds
                 entry.supersetGroup = nil
                 if let old, !old.loggedSets.isEmpty {
                     entry.loggedSets = sets.map { set in
