@@ -42,5 +42,45 @@ class UnifiedHealthPermissionsTests(unittest.TestCase):
         self.assertIn("var shouldRequestSleepWithHealth: Bool { sleepEnabled }", source)
 
 
+class HealthCaloriesOriginContractTests(unittest.TestCase):
+    """Contratos de origen: nunca confundir estimaciones Repera con Salud."""
+
+    def read(self, relative_path: str) -> str:
+        return (SOURCES / relative_path).read_text(encoding="utf-8")
+
+    def test_home_daily_energy_has_no_local_fallback(self):
+        home = self.read("HomeView.swift")
+        self.assertIn("let kcal = dayHealth.activeEnergyKcal", home)
+        self.assertNotIn("durationMin * 7.5", home)
+        self.assertNotIn("fromSessions + fromExternal", home)
+
+    def test_workout_chip_needs_verified_healthkit_data(self):
+        chips = self.read("RegisterSessionChrome.swift")
+        repera = chips.split("static func repera(", 1)[1].split("static func health(", 1)[0]
+        self.assertIn("verifiedHealthKcal", repera)
+        self.assertNotIn("if let kcal = session.appleActiveEnergyKcal", repera)
+
+    def test_no_synthetic_calories_written_to_apple_health(self):
+        health = self.read("HealthKitStore.swift")
+        saving = health.split("private func saveStrengthWorkout(", 1)[1].split("private func discardLocalBuilder()", 1)[0]
+        self.assertNotIn("HKCumulativeQuantitySample", saving)
+        self.assertNotIn("builder.addSamples", saving)
+        self.assertNotIn("saveActiveEnergySample(", health)
+
+    def test_active_energy_ignores_repera_sources(self):
+        health = self.read("HealthKitStore.swift")
+        self.assertIn("source.bundleIdentifier != ownBundle", health)
+        self.assertIn(".separateBySource", health)
+        self.assertIn("verifiedWorkoutEnergyKcal", health)
+
+    def test_legacy_estimates_removed_from_workouts_and_progress(self):
+        store = self.read("ReperaStore.swift")
+        chart = self.read("ProgressChartBuilder.swift")
+        self.assertIn("session.appleActiveEnergyKcal = verified", store)
+        self.assertIn("saved.appleActiveEnergyKcal = nil", store)
+        self.assertIn("updated.appleActiveEnergyKcal = apple.kcal > 0 ? apple.kcal : nil", store)
+        self.assertNotIn("workout.appleActiveEnergyKcal", chart)
+
+
 if __name__ == "__main__":
     unittest.main()
