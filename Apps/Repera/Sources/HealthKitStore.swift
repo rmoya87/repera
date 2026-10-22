@@ -974,7 +974,12 @@ final class HealthKitStore {
 
     /// Filtrar tanto el bundle actual como posibles fuentes Repera antiguas.
     nonisolated private static func isReperaSource(_ source: HKSource) -> Bool {
-        source.bundleIdentifier == Bundle.main.bundleIdentifier
+        // Un HKWorkout capturado por una sesión real de Repera Watch tiene
+        // sensores auténticos y debe ser fuente de verdad, no una estimación
+        // escrita por el iPhone. Las kcal antiguas del iPhone siguen excluidas.
+        let bundle = source.bundleIdentifier.lowercased()
+        if bundle == "com.app.repera.watchkitapp" { return false }
+        return source.bundleIdentifier == Bundle.main.bundleIdentifier
             || source.name.localizedCaseInsensitiveContains("repera")
     }
 
@@ -1762,6 +1767,12 @@ final class HealthKitStore {
         let external = overlapping.flatMap {
             Self.isReperaSource($0.sourceRevision.source) ? nil : $0
         }
+        let legacyOwn = overlapping.flatMap { candidate -> HKWorkout? in
+            guard Self.isReperaSource(candidate.sourceRevision.source),
+                  candidate.metadata?[Self.reperaSessionMetadataKey] == nil
+            else { return nil }
+            return candidate
+        }
         var resolvedStart = start
         var resolvedEnd = safeEnd
         var duration = max(60, safeEnd.timeIntervalSince(start))
@@ -1778,11 +1789,13 @@ final class HealthKitStore {
             savedUUID = external.uuid
             await discardLocalBuilder()
             lastError = nil
-        } else if let previous {
-            savedUUID = previous.uuid
-            duration = max(1, previous.duration)
-            resolvedStart = previous.startDate
-            resolvedEnd = previous.endDate
+        } else if let owned = previous ?? legacyOwn {
+            // UUID recuperado por metadatos o un registro anterior a esta
+            // versión, sin crear otro duplicado en Apple Salud.
+            savedUUID = owned.uuid
+            duration = max(1, owned.duration)
+            resolvedStart = owned.startDate
+            resolvedEnd = owned.endDate
             await discardLocalBuilder()
             lastError = nil
         } else if canWriteWorkouts {
@@ -1933,23 +1946,33 @@ final class HealthKitStore {
                         let overlap = max(0, overlapEnd.timeIntervalSince(overlapStart))
                         return (w, overlap)
                     }
-                    .filter { $0.1 >= minOverlap }
-                    .sorted { a, b in
-                        let aStrength = Self.isStrengthLike(a.0.workoutActivityType)
-                        let bStrength = Self.isStrengthLike(b.0.workoutActivityType)
-                        if aStrength != bStrength { return aStrength && !bStrength }
-                        return a.1 > b.1
+                    .filter {
+                        // Un entrenamiento breve coincidiendo con una pequeña
+                        // parte del intervalo Repera no es prueba de identidad.
+                        $0.1 >= max(minOverlap, reperaDuration * 0.70)
+                            && $0.1 >= max(60, $0.0.duration * 0.60)
                     }
-                // Ambiguous: two strong candidates within 15% of each other → nil.
-                if ranked.count >= 2 {
-                    let best = ranked[0].1
-                    let second = ranked[1].1
-                    if second >= best * 0.85 {
+                let external = ranked
+                    .filter { !Self.isReperaSource($0.0.sourceRevision.source) }
+                    .sorted { $0.1 > $1.1 }
+                // Si hay dos fuentes externas igual de plausibles, no escoger
+                // una arbitrariamente ni reescribir los datos de otro deporte.
+                if let best = external.first {
+                    if external.count == 1 || external[1].1 < best.1 * 0.85 {
+                        cont.resume(returning: best.0)
+                    } else {
                         cont.resume(returning: nil)
-                        return
                     }
+                    return
                 }
-                cont.resume(returning: ranked.first?.0)
+                let own = ranked
+                    .filter { Self.isReperaSource($0.0.sourceRevision.source) }
+                    .sorted { $0.1 > $1.1 }
+                if own.count == 1 || (own.count > 1 && own[1].1 < own[0].1 * 0.85) {
+                    cont.resume(returning: own.first?.0)
+                } else {
+                    cont.resume(returning: nil)
+                }
             }
             store.execute(q)
         }
