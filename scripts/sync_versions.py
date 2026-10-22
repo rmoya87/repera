@@ -98,6 +98,7 @@ def check_wiring() -> None:
     for path in (
         "Apps/Repera/Resources/Info.plist",
         "Apps/ReperaWatch/Resources/Info.plist",
+        "Apps/ReperaWatchWidget/Info.plist",
         "Apps/ReperaRestWidget/Info.plist",
     ):
         import plistlib
