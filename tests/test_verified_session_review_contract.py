@@ -5,6 +5,12 @@ ROOT=Path(__file__).resolve().parents[1]
 def read(path): return (ROOT / path).read_text(encoding="utf-8")
 
 class VerifiedSessionScoreContractTests(unittest.TestCase):
+    def test_legacy_block_scoring_unwraps_optional_exercise_uuid(self):
+        source = read("Packages/ReperaDomain/Sources/ReperaDomain/SessionReviewEngine.swift")
+        self.assertIn("guard let exerciseID = movement.exerciseId else { return false }", source)
+        self.assertIn("return scoredIDs.contains(exerciseID)", source)
+        self.assertNotIn("scoredIDs.contains($0.exerciseId)", source)
+
     def test_only_verified_engine_publishes_scores(self):
         engine=read("Packages/ReperaDomain/Sources/ReperaDomain/SessionReviewEngine.swift")
         verified=read("Packages/ReperaDomain/Sources/ReperaDomain/VerifiedSessionReviewEngine.swift")
