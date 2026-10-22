@@ -1,6 +1,6 @@
 # Guía de pruebas — Repera
 
-Última actualización: 2026-10-19 (monetización Freemium / Pro)
+Última actualización: 2026-10-22 (integración de Play, WOD y calorías verificadas de Apple Salud)
 
 Checklist manual por feature. Preferible dispositivo real para Live Activity y Watch.
 
@@ -26,6 +26,19 @@ Checklist manual por feature. Preferible dispositivo real para Live Activity y W
 - [ ] Modo avión, token caducado, Apple ocultar correo, sesión revocada y eliminación/revocación del vínculo.
 - [ ] Ejecutar build/UITests con Xcode e iOS 27 y revisar todo el CI antes de merge.
 
+## Calorías de Apple Salud — Inicio, Historial y Progreso
+
+- [ ] Sin permitir lectura de Salud, registrar un entreno manual, finalizarlo y regresar a Inicio: **sin chip kcal**; el total diario muestra «—», no una estimación por minutos.
+- [ ] Con Salud autorizado pero sin datos reales de energía, finalizar un entreno de fuerza sin Watch: **sin chip kcal**, y el workout guardado en Apple Salud **sin muestra sintética** de energía activa.
+- [ ] Sin entrenos, pero con energía activa realmente registrada por Apple Watch en Salud, Inicio debe mostrar **las kcal reales del día** (aunque no exista registro de Repera).
+- [ ] Vincular un HKWorkout **externo** con energía registrada: aparece su chip kcal en Inicio e Historial con el valor obtenido de Salud; el resumen corresponde al dato verificado.
+- [ ] Vincular un workout sin energía o propio de Repera con un valor histórico estimado: **no** aparece chip de kcal; no se debe tratar como entrenamiento externo de Salud.
+- [ ] Importar sesiones antiguas que llevaban `appleActiveEnergyKcal` estimado: la migración limpia el número no verificado y no modifica las series, el tiempo ni la ruta.
+- [ ] Revisar días pasados: el total solo recoge energía medida por Salud; Progreso usa los mismos datos, sin sumar de nuevo las estimaciones antiguas.
+- [ ] Revocar lectura de Salud o utilizar un dispositivo sin HealthKit: no se pintan calorías ficticias ni se convierte «sin datos» en «0 kcal».
+- [ ] Tras autorizar Salud y sincronizar, los datos aparecen sin reiniciar el entrenamiento; repetir tras reiniciar la aplicación para verificar la caché v2.
+- [ ] Revisar en Apple Salud que una sesión creada por Repera no genera nuevas muestras de kcal calculadas; las muestras de versiones anteriores no se borran automáticamente.
+
 ## Monetización (Gratis / Pro)
 
 Detalle: [MONETIZATION.md](MONETIZATION.md).
@@ -48,6 +61,19 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] Distinto de **Crear mi entreno**: no pide bloques/WOD.
 - [ ] **Ficha ejercicio → +** → mismo modal de series (no abre sesión completa).
 - [ ] En modal: check (guardar) estilo topbar; cancelar = X.
+
+## Play — conservación de entradas numéricas (iOS 27)
+
+- [ ] En una serie con peso y reps, introducir **72,5 kg** sin pulsar ✓; tocar reps, introducir **12** y tocar fuera: ambos valores siguen presentes.
+- [ ] Modificar solo las reps de una serie y pulsar el check directamente, sin confirmar el teclado; el registro conserva exactamente las últimas cifras.
+- [ ] Marcar la última serie, desmarcarla y editarla de nuevo: se muestran los valores **reales registrados**, no ceros ni los objetivos originales de la planificación.
+- [ ] Con varias series pendientes, pulsar la flecha **negra** del teclado: peso → reps → peso de la siguiente serie (o la primera casilla habilitada), sin cerrar el teclado y omitiendo series marcadas.
+- [ ] La última casilla ofrece **✓ verde**. Después de registrar, las series completadas permanecen bloqueadas hasta desmarcar.
+- [ ] Introducir peso con coma o punto decimal, borrar cifras y usar +/−; cambiar de campo o cerrar el teclado sin perder valores válidos.
+- [ ] Repetir con ejercicios de **solo reps**, **tiempo**, **déficit cm** y **Cal/metros**, incluyendo las series añadidas durante el entreno.
+- [ ] Cambiar de ejercicio desde la lista o flechas de la barra superior y volver: permanecen las series editadas aunque aún no se haya marcado el check.
+- [ ] En técnicas avanzadas, editar peso/reps del stepper y dropset; cambiar de campo sin pulsar ✓ y comprobar el valor actualizado.
+- [ ] En la planificación, editar dos valores de un formato WOD con el mismo teclado: el avance y los valores se mantienen al cambiar de campo.
 
 ## % → kg
 
@@ -85,6 +111,23 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] Swipe en Inicio / sesión en curso → eliminar con confirmación.
 - [ ] Borrar entreno guardado → desaparece también de Salud (si estaba enlazado).
 - [ ] Terminar Apuntar series: check verde en círculo (sin doble círculo).
+
+## Formatos WOD y temporizadores en Play (iOS 27)
+
+- [ ] **AMRAP 12'** con 3 movimientos: mostrar un resultado del bloque (rondas completas + reps de la ronda incompleta), no una tabla de series por movimiento; registrar manualmente 5+7 y comprobar el resumen.
+- [ ] Iniciar AMRAP: cuenta previa de 3 s, cuenta atrás de 12', abre captura de rondas/reps al acabar; cancelar la captura no debe inventar registros.
+- [ ] **4 RFT / For Time** con TC de 12': cronómetro ascendente; avisar al minuto 12 sin parar; si termina en 13:17, guardar 13:17 y no 12:00 ni series ficticias.
+- [ ] **Chipper, AFAP, Ladder y Buy-in/Cash-out**: capturar tiempo único del bloque, aun sin haberse arrancado el reloj; respetar cap opcional.
+- [ ] **EMOM 12'** cada 60 s: 12 intervalos; **Every 2' ×4**: cuatro intervalos de 120 s; las repeticiones son series por movimiento y la duración no se cuenta como cuatro series adicionales.
+- [ ] **Tabata 20/10 ×8**: contar 8 ventanas de trabajo, alternar exactamente 20 s y 10 s y mostrar ronda 1/8 hasta 8/8. Con dos movimientos alternos prescribir 4 ventanas de trabajo por movimiento, no ocho a cada uno.
+- [ ] **Circuito 3 rondas ×2 estaciones de 45 s con descanso de 25 s entre rondas**: comprobar secuencia trabajo/trabajo/descanso/trabajo/trabajo/descanso/trabajo/trabajo.
+- [ ] **Death By**: avisos cada intervalo (1 min por defecto), permitir Terminar al fallar, capturar rondas completas + reps adicionales.
+- [ ] **Max Effort** por reps: pedir repetición máxima; **Partner, RFQ, Fuerza**: seguir por series con reloj libre o timebox según configuración.
+- [ ] Con EMOM/Tabata corriendo, minimizar el reloj, cambiar entre movimientos del mismo bloque, registrar peso/reps y reabrirlo: mantiene fase y avisos y no reinicia.
+- [ ] Poner la app en segundo plano cruzando varias fases Tabata; al volver debe estar en la fase correcta, sin acumular restos ni avisar una vez por cada intervalo pasado.
+- [ ] Tras terminar un EMOM/Tabata, revisar/corregir series antes de pulsar «Finalizar bloque»; no se deben crear series ni cerrar el entrenamiento automáticamente.
+- [ ] Guardar el score global de un bloque anterior cuando otro está seleccionado: solo se confirma el bloque correcto, sin finalizar el otro.
+- [ ] Validar test de dominio y `test_wod_play_contract.py` en CI iOS 27 y, manualmente, en dispositivo.
 
 ## Pizarra
 

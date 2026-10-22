@@ -274,6 +274,61 @@ final class SessionControllerTests: XCTestCase {
         XCTAssertEqual(hspu?.plannedSets.map(\.targetReps), [10, 10, 10, 10])
     }
 
+    func testWODResultCaptureFollowsFormatInsteadOfExerciseSets() {
+        XCTAssertEqual(WODFormat.amrap.resultCapture, .totalReps)
+        XCTAssertEqual(WODFormat.deathBy.resultCapture, .totalReps)
+        XCTAssertEqual(WODFormat.maxEffort.resultCapture, .totalReps)
+        for format in [WODFormat.forTime, .chipper, .afap, .ladder, .buyInCashOut] {
+            XCTAssertEqual(format.resultCapture, .elapsedTime)
+        }
+        for format in [WODFormat.emom, .tabata, .circuit, .partner,
+                       .roundsForQuality, .strength] {
+            XCTAssertEqual(format.resultCapture, .perMovementSets)
+        }
+        let amrap = WODBlockResult(format: .amrap, totalReps: 7, roundsCompleted: 5)
+        XCTAssertEqual(amrap.summaryLabel, "5 rondas + 7 reps")
+        let forTime = WODBlockResult(format: .forTime, elapsedSeconds: 731)
+        XCTAssertEqual(forTime.summaryLabel, "12:11")
+    }
+
+    func testTabataWorkIntervalsAreDistributedAcrossMovements() {
+        var tabata = RoutineBlock.wod(format: .tabata)
+        tabata.rounds = 8
+        tabata.workSeconds = 20
+        tabata.restSeconds = 10
+        tabata.movements = [
+            WODMovement(name: "Burpee", reps: 7),
+            WODMovement(name: "Air Squat", reps: 12),
+        ]
+        let session = SessionController.from(
+            routine: Routine(title: "Tabata", blocks: [tabata]), exercises: []
+        )
+        XCTAssertEqual(session.exercises.count, 2)
+        XCTAssertEqual(session.exercises.map { $0.plannedSets.count }, [4, 4])
+        XCTAssertTrue(session.exercises.allSatisfy { $0.blockWorkSeconds == 20 })
+        XCTAssertTrue(session.exercises.allSatisfy { $0.blockRestSeconds == 10 })
+        XCTAssertTrue(session.exercises.allSatisfy { $0.usesBlockScoreResult == false })
+    }
+
+    func testCircuitRestBetweenRoundsPersistsIntoWorkoutAndJSON() throws {
+        var circuit = RoutineBlock.wod(format: .circuit)
+        circuit.timeCapMinutes = nil
+        circuit.rounds = 3
+        circuit.emomIntervalSeconds = 45
+        circuit.restBetweenRoundsSeconds = 25
+        circuit.movements = [
+            WODMovement(name: "Push-up", reps: 10),
+            WODMovement(name: "Air Squat", reps: 12),
+        ]
+        let session = SessionController.from(
+            routine: Routine(title: "Circuito", blocks: [circuit]), exercises: []
+        )
+        XCTAssertEqual(session.exercises.map { $0.plannedSets.count }, [3, 3])
+        XCTAssertTrue(session.exercises.allSatisfy { $0.blockRestBetweenRoundsSeconds == 25 })
+        let decoded = try JSONDecoder().decode(WorkoutSession.self, from: JSONEncoder().encode(session))
+        XCTAssertTrue(decoded.exercises.allSatisfy { $0.blockRestBetweenRoundsSeconds == 25 })
+    }
+
     func testShortWavePadsWithLastRepForEmomRounds() {
         var emom = RoutineBlock.wod(format: .emom, title: "EMOM 12'")
         emom.timeCapMinutes = 12

@@ -60,12 +60,14 @@ struct OGRegisterChipsRow<Content: View>: View {
 enum WorkoutRegisterChips {
     /// Entreno Repera terminado.
     @ViewBuilder
-    static func repera(session: WorkoutSession, prCount: Int) -> some View {
+    static func repera(session: WorkoutSession, prCount: Int, verifiedHealthKcal: Double? = nil) -> some View {
         let minutes = session.displayDurationMinutes
         if minutes > 0 {
             OGRegisterChip(text: "\(Int(minutes.rounded())) min", icon: "timer")
         }
-        if let kcal = session.appleActiveEnergyKcal, kcal > 0 {
+        // Nunca usar session.appleActiveEnergyKcal: en versiones anteriores
+        // podía ser un valor MET estimado, incluso escrito por Repera en Salud.
+        if let kcal = verifiedHealthKcal, kcal > 0 {
             OGRegisterChip(text: "\(Int(kcal.rounded())) kcal", icon: "flame.fill")
         }
         if let review = session.sessionReview {

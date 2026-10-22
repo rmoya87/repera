@@ -5,6 +5,7 @@ import SwiftUI
 struct WODResultConfirmSheet: View {
     var title: String
     var capture: WODResultCapture
+    var format: WODFormat? = nil
     @Binding var totalReps: Int
     @Binding var elapsedSeconds: Int
     @Binding var roundsCompleted: Int
@@ -41,14 +42,18 @@ struct WODResultConfirmSheet: View {
             }
 
             if capture == .totalReps {
-                HStack(spacing: 12) {
-                    numberInput("Rondas", text: $roundsText, column: 0, nextColumn: 1)
-                    numberInput("Repeticiones", text: $repsText, column: 1)
+                if format == .amrap || format == .deathBy {
+                    HStack(spacing: 12) {
+                        numberInput("Rondas completas", text: $roundsText, column: 0, nextColumn: 1)
+                        numberInput("Reps adicionales", text: $repsText, column: 1)
+                    }
+                    Text("Anota las vueltas terminadas y solo las repeticiones de la vuelta incompleta.")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    numberInput("Repeticiones máximas", text: $repsText, column: 0)
                 }
-                Text("Rondas completas y repeticiones de la última ronda.")
-                    .font(.footnote)
-                    .foregroundStyle(OG.label2)
-                    .fixedSize(horizontal: false, vertical: true)
             } else if capture == .elapsedTime {
                 numberInput("Tiempo · m:ss", text: $timeText, column: 0, allowsTime: true)
                 Text("Puedes ajustar el tiempo si paraste el reloj tarde o pronto.")
@@ -143,7 +148,9 @@ struct WODResultConfirmSheet: View {
 
     private var canSave: Bool {
         switch capture {
-        case .totalReps: return totalReps > 0 || roundsCompleted > 0
+        case .totalReps:
+            return totalReps > 0
+                || ((format == .amrap || format == .deathBy) && roundsCompleted > 0)
         case .elapsedTime: return elapsedSeconds > 0
         case .perMovementSets: return true
         }

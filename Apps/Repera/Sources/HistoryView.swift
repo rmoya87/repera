@@ -127,6 +127,7 @@ struct HistoryView: View {
         }
         .task {
             await refreshHealthEntries()
+            await health.refreshVerifiedWorkoutEnergy(for: finishedWorkouts)
         }
     }
 
@@ -138,7 +139,7 @@ struct HistoryView: View {
     }
 
     private func refreshHealthEntries() async {
-        guard health.isAuthorized else { return }
+        guard health.isAvailable else { return }
         let linked = Set(store.state.workouts.compactMap(\.healthKitWorkoutUUID))
         // Mismo horizonte que Progreso/racha (360d) para que Historial cubra las semanas contadas.
         await health.refreshRecentExternalActivities(
@@ -200,7 +201,13 @@ struct HistoryView: View {
 
             // Misma secuencia que Inicio (`WorkoutRegisterChips`).
             OGRegisterChipsRow(leadingInset: Self.chipsTitleLeading) {
-                WorkoutRegisterChips.repera(session: live, prCount: prs)
+                WorkoutRegisterChips.repera(
+                    session: live,
+                    prCount: prs,
+                    verifiedHealthKcal: live.healthKitWorkoutUUID.flatMap {
+                        health.verifiedWorkoutEnergyKcal[$0]
+                    }
+                )
             }
             .padding(.leading, -Self.historyRowPad)
         }

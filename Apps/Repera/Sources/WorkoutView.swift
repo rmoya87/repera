@@ -25,6 +25,10 @@ struct WorkoutView: View {
     @State private var notesDraft = ""
     /// Filas editables del ejercicio actual (objetivo por serie + check para registrar).
     @State private var liveSets: [LiveSetRow] = []
+    /// Los borradores pertenecen al ejercicio, no a la fila que se reutiliza al navegar.
+    @State private var liveExerciseID: UUID?
+    @State private var liveSessionID: UUID?
+    @State private var liveDraftsByExercise: [UUID: [LiveSetRow]] = [:]
     /// Unidad Cal/m para erg/bike del ejercicio actual.
     @State private var liveQuantityUnit: ExerciseQuantityUnit = .reps
     @State private var setCompletionPulse = 0
@@ -32,6 +36,10 @@ struct WorkoutView: View {
     @State private var pendingWODConfirm: PendingWODConfirm?
     @State private var usesAutomaticTimer = false
     @State private var pendingTimerBlockID: UUID?
+    /// EMOM/Tabata: el reloj ha terminado, pero todavía se pueden registrar series.
+    @State private var finishedTimedBlockID: UUID?
+    /// Mantener el temporizador del bloque al cambiar entre sus movimientos.
+    @State private var runningTimerBlockID: UUID?
     @FocusState private var focusedSetField: OGSetFieldID?
     @State private var advancedFieldRowID = UUID()
     @FocusState private var advancedFocusedField: OGSetFieldID?
@@ -67,11 +75,18 @@ struct WorkoutView: View {
                     ContentUnavailableView("Sin sesión", systemImage: "pause.circle", description: Text("Vuelve a Inicio para empezar."))
                 }
             }
-            if store.restCoordinator.isActive, !store.workoutClock.isVisible {
-                restDock
-                    .padding(.horizontal, OG.pad)
-                    .padding(.bottom, 12)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            if !store.workoutClock.isVisible {
+                VStack(spacing: 8) {
+                    if runningTimerBlockID != nil, store.workoutClock.hasStarted {
+                        minimizedTimerDock
+                    }
+                    if store.restCoordinator.isActive {
+                        restDock
+                    }
+                }
+                .padding(.horizontal, OG.pad)
+                .padding(.bottom, 12)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .animation(reduceMotion ? nil : .snappy, value: store.restCoordinator.isActive)
@@ -87,7 +102,7 @@ struct WorkoutView: View {
         .fullScreenCover(isPresented: Binding(
             get: { store.workoutClock.isVisible },
             set: { visible in
-                if !visible { store.workoutClock.stop() }
+                if !visible { store.workoutClock.minimize() }
             }
         )) {
             wodFullscreenClock
@@ -187,6 +202,7 @@ struct WorkoutView: View {
             WODResultConfirmSheet(
                 title: pending.title,
                 capture: pending.capture,
+                format: pending.format,
                 totalReps: Binding(
                     get: { pendingWODConfirm?.totalReps ?? pending.totalReps },
                     set: { pendingWODConfirm?.totalReps = $0 }
@@ -207,7 +223,8 @@ struct WorkoutView: View {
                             format: current.format,
                             totalReps: current.capture == .totalReps ? current.totalReps : nil,
                             elapsedSeconds: current.capture == .elapsedTime ? current.elapsedSeconds : nil,
-                            roundsCompleted: current.roundsCompleted > 0 ? current.roundsCompleted : nil,
+                            roundsCompleted: (current.format == .amrap || current.format == .deathBy)
+                                ? current.roundsCompleted : nil,
                             wodTemplateId: current.wodTemplateId
                         )
                     )
@@ -229,9 +246,17 @@ struct WorkoutView: View {
             }
         }
         .onChange(of: store.state.activeSession?.currentIndex) { _, _ in
+            cacheLiveSets()
             prefill()
-            store.workoutClock.stop()
-            store.workoutClock.clearPendingEnd()
+            let destinationBlock = store.state.activeSession?.currentExercise.flatMap { $0.blockId ?? $0.id }
+            if destinationBlock != runningTimerBlockID {
+                store.workoutClock.stop()
+                store.workoutClock.clearPendingEnd()
+                runningTimerBlockID = nil
+            }
+            if destinationBlock != finishedTimedBlockID {
+                finishedTimedBlockID = nil
+            }
             if store.state.activeSession?.phase == .ready {
                 store.confirmCurrentOnWatchStyle()
             }
@@ -403,6 +428,15 @@ struct WorkoutView: View {
                     }
                     .listRowBackground(OG.surface)
 
+                    // AMRAP/For Time tienen un resultado GLOBAL del bloque.
+                    // Los movimientos son la prescripción, no una tabla de series a registrar.
+                    if let format = block.format, format.resultCapture != .perMovementSets {
+                        blockScorePanel(block, format: format, session: session)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
+                            .listRowBackground(OG.surface)
+                            .listRowSeparator(.hidden)
+                    }
+
                     ForEach(block.indexes, id: \.self) { index in
                         let entry = session.exercises[index]
                         Group {
@@ -428,7 +462,9 @@ struct WorkoutView: View {
                         }
                         .listRowBackground(OG.surface)
 
-                        if session.currentIndex == index {
+                        if session.currentIndex == index,
+                           entry.wodFormat?.resultCapture == nil
+                               || entry.wodFormat?.resultCapture == .perMovementSets {
                             setsBoard(entry)
                                 .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
                                 .listRowBackground(OG.surface)
@@ -437,7 +473,9 @@ struct WorkoutView: View {
                     }
 
                     if block.indexes.contains(session.currentIndex),
-                       let current = session.currentExercise {
+                       let current = session.currentExercise,
+                       current.wodFormat?.resultCapture == nil
+                           || current.wodFormat?.resultCapture == .perMovementSets {
                         DisclosureGroup("Técnicas de serie · dropset / rest-pause") {
                             logForm(current)
                                 .padding(.top, 8)
@@ -445,6 +483,24 @@ struct WorkoutView: View {
                         .font(.system(size: 13, weight: .medium))
                         .tint(OG.label2)
                         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        .listRowBackground(OG.surface)
+                    }
+                    if finishedTimedBlockID == block.id,
+                       block.format?.resultCapture == .perMovementSets {
+                        HStack(spacing: 12) {
+                            Label("Temporizador finalizado. Registra las series realizadas.", systemImage: "timer")
+                                .font(.footnote)
+                                .foregroundStyle(OG.label2)
+                            Spacer(minLength: 0)
+                            Button("Finalizar bloque") {
+                                finishedTimedBlockID = nil
+                                runningTimerBlockID = nil
+                                store.finishCurrentTimedBlock()
+                                if store.state.activeSession == nil { closeFlow() }
+                            }
+                            .font(.footnote.weight(.semibold))
+                            .buttonStyle(.bordered)
+                        }
                         .listRowBackground(OG.surface)
                     }
                 } header: {
@@ -486,7 +542,9 @@ struct WorkoutView: View {
                 Text(entry.exercise.name)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(OG.label)
-                Text(entry.plannedSets.compactSummary)
+                Text(entry.usesBlockScoreResult
+                     ? entry.prescriptionSummaryLine
+                     : entry.plannedSets.compactSummary)
                     .font(.caption)
                     .foregroundStyle(OG.label2)
             }
@@ -504,7 +562,73 @@ struct WorkoutView: View {
         .contentShape(Rectangle())
     }
 
+    /// Captura única por bloque (AMRAP, For Time, Chipper...), distinta
+    /// de las series individuales de EMOM, Tabata o fuerza.
+    private func blockScorePanel(
+        _ block: WorkoutBlockEntry,
+        format: WODFormat,
+        session: WorkoutSession
+    ) -> some View {
+        let existing = session.wodResults.first(where: { $0.id == block.id })
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Resultado · \(format.displayName)")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                Spacer()
+                if let existing {
+                    Text(existing.summaryLabel)
+                        .font(.system(size: 15, weight: .bold).monospacedDigit())
+                        .foregroundStyle(OG.accent)
+                } else {
+                    Text("Pendiente")
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label3)
+                }
+            }
+            Text(format == .amrap
+                 ? "Rondas completas + repeticiones adicionales; no se apunta una serie por ejercicio."
+                 : (format.resultCapture == .elapsedTime
+                    ? "Tiempo real de finalización del bloque."
+                    : "Máximo de rondas y repeticiones obtenidas."))
+                .font(.footnote)
+                .foregroundStyle(OG.label2)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 10) {
+                Button {
+                    openBlockTimer(block, session: session)
+                } label: {
+                    Label("Iniciar temporizador", systemImage: "timer")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.bordered)
+                Button {
+                    guard let first = block.indexes.first,
+                          session.exercises.indices.contains(first) else { return }
+                    // La confirmación debe finalizar ESTE bloque, no otro que
+                    // estuviese seleccionado al abrir su resultado manualmente.
+                    if store.state.activeSession?.currentIndex != first {
+                        store.selectExercise(at: first)
+                    }
+                    presentScoreEditor(for: session.exercises[first])
+                } label: {
+                    Label(existing == nil ? "Registrar resultado" : "Editar resultado",
+                          systemImage: "square.and.pencil")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .font(.system(size: 12, weight: .semibold))
+        }
+        .padding(14)
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
     private func openBlockTimer(_ block: WorkoutBlockEntry, session: WorkoutSession) {
+        if runningTimerBlockID == block.id, store.workoutClock.hasStarted {
+            store.workoutClock.showClock()
+            return
+        }
         guard let firstIndex = block.indexes.first else { return }
         if !block.indexes.contains(session.currentIndex) {
             // El onChange detiene el reloj anterior y después abre el solicitado.
@@ -600,7 +724,7 @@ struct WorkoutView: View {
                 if current.exercise.loadField == .deficitCm {
                     return row.deficitCm.map(String.init) ?? "0"
                 }
-                return row.weightKg.map { String(format: "%g", $0) } ?? "0"
+                return row.weightKg.map { String(format: "%g", $0) } ?? "—"
             case .repsAndTime, .machineWork: return DurationText.format(row.durationSeconds)
             }
         }()
@@ -618,6 +742,7 @@ struct WorkoutView: View {
             OGSetEntryRow(
                 rowID: row.id,
                 index: index + 1,
+                nextEditableRowID: liveSets.dropFirst(index + 1).first(where: { !$0.completed })?.id,
                 previous: OGSetEntryRow.previousText(previousSet),
                 firstValue: firstValue,
                 secondValue: style == .repsOnly ? nil : "\(row.reps)",
@@ -664,12 +789,30 @@ struct WorkoutView: View {
         .padding(.vertical, 3)
     }
 
+    private func cacheLiveSets() {
+        guard let liveExerciseID else { return }
+        liveDraftsByExercise[liveExerciseID] = liveSets
+    }
+
     private func rebuildLiveSets(from current: SessionExercise) {
+        // Los observers de currentIndex/plannedSets pueden ejecutarse en distinto
+        // orden. Guardar aquí la tabla anterior antes de sustituir su identidad.
+        if let liveExerciseID, liveExerciseID != current.id {
+            cacheLiveSets()
+        }
         syncLiveQuantityUnit(from: current)
+        // Reconciliar los registros confirmados con los borradores aún editables.
+        // Una reconstrucción (check, cambio de plan, navegación) nunca debe
+        // volver a copiar el objetivo y borrar lo que el usuario ya escribió.
+        let retained: [LiveSetRow] = liveExerciseID == current.id
+            ? liveSets
+            : (liveDraftsByExercise[current.id] ?? [])
+        liveExerciseID = current.id
+
         var rows: [LiveSetRow] = []
         let planned = current.plannedSets
         let logged = current.loggedSets
-        let total = max(planned.count, logged.count)
+        let total = max(max(planned.count, logged.count), max(retained.count, 1))
         let style = current.exercise.loggingStyle
         let defaultQty: Int = {
             switch style {
@@ -680,50 +823,53 @@ struct WorkoutView: View {
         }()
 
         let loadField = current.exercise.loadField
-        if total == 0 {
-            liveSets = [LiveSetRow(
-                id: UUID(),
-                weightKg: nil,
-                deficitCm: loadField == .deficitCm ? 0 : nil,
-                durationSeconds: style.usesDuration ? 60 : nil,
-                reps: defaultQty,
-                rir: nil,
-                completed: false
-            )]
-            return
-        }
-
         for i in 0..<total {
             if i < logged.count {
-                let s = logged[i]
-                rows.append(
-                    LiveSetRow(
-                        id: s.id,
-                        weightKg: s.weightKg,
-                        deficitCm: s.deficitCm,
-                        durationSeconds: s.durationSeconds,
-                        reps: s.reps,
-                        rir: s.rir,
-                        completed: true
-                    )
-                )
+                let set = logged[i]
+                rows.append(LiveSetRow(
+                    id: set.id,
+                    weightKg: set.weightKg,
+                    deficitCm: set.deficitCm,
+                    durationSeconds: set.durationSeconds,
+                    reps: set.reps,
+                    rir: set.rir,
+                    completed: true
+                ))
+            } else if i < retained.count {
+                // Incluye la serie recién desmarcada: conserva sus valores
+                // registrados, pero pasa a estado editable.
+                let old = retained[i]
+                rows.append(LiveSetRow(
+                    id: i < planned.count ? planned[i].id : old.id,
+                    weightKg: old.weightKg,
+                    deficitCm: old.deficitCm,
+                    durationSeconds: old.durationSeconds,
+                    reps: old.reps,
+                    rir: old.rir,
+                    completed: false
+                ))
+            } else if i < planned.count {
+                let plannedSet = planned[i]
+                rows.append(LiveSetRow(
+                    id: plannedSet.id,
+                    weightKg: loadField == .weightKg ? plannedSet.targetWeightKg : nil,
+                    deficitCm: loadField == .deficitCm
+                        ? plannedSet.targetWeightKg.map { Int($0.rounded()) } ?? 0 : nil,
+                    durationSeconds: style.usesDuration ? 60 : nil,
+                    reps: max(1, plannedSet.targetReps),
+                    rir: plannedSet.targetRir,
+                    completed: false
+                ))
             } else {
-                let p = planned[i]
-                let plannedDeficit: Int? = {
-                    guard loadField == .deficitCm else { return nil }
-                    return p.targetWeightKg.map { Int($0.rounded()) } ?? 0
-                }()
-                rows.append(
-                    LiveSetRow(
-                        id: p.id,
-                        weightKg: loadField == .weightKg ? p.targetWeightKg : nil,
-                        deficitCm: plannedDeficit,
-                        durationSeconds: style.usesDuration ? 60 : nil,
-                        reps: max(1, p.targetReps),
-                        rir: p.targetRir,
-                        completed: false
-                    )
-                )
+                rows.append(LiveSetRow(
+                    id: UUID(),
+                    weightKg: nil,
+                    deficitCm: loadField == .deficitCm ? 0 : nil,
+                    durationSeconds: style.usesDuration ? 60 : nil,
+                    reps: defaultQty,
+                    rir: nil,
+                    completed: false
+                ))
             }
         }
         liveSets = rows
@@ -857,14 +1003,58 @@ struct WorkoutView: View {
             clusters: []
         )
         setCompletionPulse &+= 1
-        beginRest(store.state.settings.defaultRestSeconds)
-        restStartedPulse &+= 1
+        if shouldStartIndependentRest(for: current) {
+            beginRest(store.state.settings.defaultRestSeconds)
+            restStartedPulse &+= 1
+        }
         if let updated = store.state.activeSession?.currentExercise {
             withAnimation(reduceMotion ? nil : .smooth) {
                 rebuildLiveSets(from: updated)
             }
             weightText = updated.loggedSets.last?.weightKg.map { String(format: "%g", $0) } ?? weightText
             repsText = "\(updated.loggedSets.last?.reps ?? row.reps)"
+        }
+    }
+
+    /// Reloj compacto persistente: anotar intervalos sin apagar el EMOM/Tabata.
+    private var minimizedTimerDock: some View {
+        TimelineView(.periodic(from: .now, by: 0.25)) { context in
+            let clock = store.workoutClock
+            HStack(spacing: 12) {
+                Image(systemName: "timer")
+                    .font(.title3.bold())
+                    .foregroundStyle(OG.accent)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(clock.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(OG.label2)
+                        .lineLimit(1)
+                    Text(DurationText.format(clock.displaySeconds(at: context.date)))
+                        .font(.system(size: 23, weight: .bold).monospacedDigit())
+                        .foregroundStyle(OG.label)
+                }
+                Spacer(minLength: 4)
+                Button {
+                    clock.showClock()
+                } label: {
+                    Label("Ver reloj", systemImage: "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .buttonStyle(.bordered)
+                .tint(OG.accent)
+                Button {
+                    clock.stop()
+                    runningTimerBlockID = nil
+                } label: {
+                    Image(systemName: "stop.fill")
+                        .frame(minWidth: 32, minHeight: 32)
+                }
+                .buttonStyle(.bordered)
+                .tint(OG.label2)
+                .accessibilityLabel("Detener temporizador")
+            }
+            .padding(12)
+            .background(OG.surface, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
         }
     }
 
@@ -1049,7 +1239,7 @@ struct WorkoutView: View {
     private var wodFullscreenClock: some View {
         let clock = store.workoutClock
         let roundDisplay: Int? = clock.isIntervalMode
-            ? min(clock.intervalIndex + 1, max(clock.totalIntervals, 1))
+            ? min(clock.displayedRound, clock.displayedRoundsTotal)
             : nil
         return TimelineView(.periodic(from: .now, by: 0.25)) { context in
             BlockTimerScreen(
@@ -1059,13 +1249,13 @@ struct WorkoutView: View {
                     : (clock.isOverTimeCap ? "TC superado · tiempo real" : clock.subtitle),
                 exercise: clock.exercise,
                 roundNumber: roundDisplay,
-                totalRounds: clock.isIntervalMode ? clock.totalIntervals : nil,
+                totalRounds: clock.isIntervalMode ? clock.displayedRoundsTotal : nil,
                 displaySeconds: clock.displaySeconds(at: context.date),
                 isRunning: clock.isRunning,
                 isCountingUp: clock.isCountingUp,
                 primaryTitle: clock.primaryTitle,
                 onPrimary: { clock.handlePrimary() },
-                onClose: { clock.stop() },
+                onClose: { clock.minimize() },
                 onSkip: clock.isIntervalMode ? { clock.skipInterval() } : nil,
                 onFinish: clock.canFinishByUser ? { clock.finishByUser() } : nil,
                 showFinish: clock.canFinishByUser
@@ -1073,53 +1263,39 @@ struct WorkoutView: View {
         }
     }
 
+    /// Al acabar un reloj, abrir el score del bloque si corresponde.
+    /// EMOM/Tabata y fuerza NO cierran ni inventan series: el atleta registra
+    /// sus intervalos y confirma la finalización posteriormente.
     private func presentWODConfirmIfNeeded() {
-        guard let (reason, elapsed) = store.workoutClock.consumePendingEnd() else { return }
+        guard let (_, elapsed) = store.workoutClock.consumePendingEnd() else { return }
         guard let current = store.state.activeSession?.currentExercise else { return }
-        let capture = current.wodFormat?.resultCapture ?? .perMovementSets
-        guard capture == .totalReps || capture == .elapsedTime else {
-            store.finishCurrentTimedBlock()
-            if store.state.activeSession == nil {
-                closeFlow()
-            }
+        runningTimerBlockID = nil
+        if current.wodFormat?.resultCapture == .perMovementSets
+            || current.wodFormat == nil {
+            finishedTimedBlockID = current.blockId ?? current.id
             return
         }
-        guard let format = current.wodFormat else { return }
-        let blockId = current.blockId ?? current.id
-        let templateId = store.state.activeSession.flatMap { session -> String? in
-            guard let rid = session.routineId,
-                  let routine = store.state.routines.first(where: { $0.id == rid }),
-                  let block = routine.blocks.first(where: { $0.id == blockId })
-            else { return nil }
-            return block.wodTemplateId
-        }
-        switch capture {
-        case .totalReps:
-            pendingWODConfirm = PendingWODConfirm(
-                blockId: blockId,
-                format: format,
-                capture: capture,
-                totalReps: 0,
-                elapsedSeconds: elapsed,
-                roundsCompleted: 0,
-                wodTemplateId: templateId,
-                title: current.blockHeader ?? format.displayName
-            )
-        case .elapsedTime:
-            pendingWODConfirm = PendingWODConfirm(
-                blockId: blockId,
-                format: format,
-                capture: capture,
-                totalReps: 0,
-                elapsedSeconds: max(1, elapsed),
-                roundsCompleted: current.blockRounds ?? 0,
-                wodTemplateId: templateId,
-                title: current.blockHeader ?? format.displayName
-            )
-        case .perMovementSets:
-            break
-        }
-        _ = reason
+        presentScoreEditor(for: current, elapsed: elapsed)
+    }
+
+    private func presentScoreEditor(for current: SessionExercise, elapsed: Int? = nil) {
+        guard let format = current.wodFormat,
+              format.resultCapture != .perMovementSets
+        else { return }
+        let blockID = current.blockId ?? current.id
+        let saved = store.state.activeSession?.wodResults.first(where: { $0.id == blockID })
+        let templateID = store.state.activeSession?.routineBlocks?
+            .first(where: { $0.id == blockID })?.wodTemplateId
+        pendingWODConfirm = PendingWODConfirm(
+            blockId: blockID,
+            format: format,
+            capture: format.resultCapture,
+            totalReps: saved?.totalReps ?? 0,
+            elapsedSeconds: elapsed.map { max(1, $0) } ?? saved?.elapsedSeconds ?? 0,
+            roundsCompleted: saved?.roundsCompleted ?? 0,
+            wodTemplateId: templateID,
+            title: current.blockHeader ?? format.displayName
+        )
     }
 
     /// Reloj a pantalla completa para cualquier tipo de bloque (EMOM, AMRAP, fuerza…).
@@ -1128,14 +1304,16 @@ struct WorkoutView: View {
         let haptic = store.state.settings.restHapticEnabled
         let format = current.wodFormat
         let subtitleDefault = wodPlanLabel(for: current)
+        if format == .emom || format == .tabata || format == .circuit {
+            store.restCoordinator.skip()
+        }
+        runningTimerBlockID = current.blockId ?? current.id
+        finishedTimedBlockID = nil
 
         switch format {
-        case .emom, .circuit:
+        case .emom:
             let interval = max(15, current.blockIntervalSeconds ?? 60)
-            let rounds = current.plannedIntervals
-                ?? current.blockRounds
-                ?? current.blockTimeCapMinutes
-                ?? 8
+            let intervals = max(1, current.plannedIntervals ?? current.blockRounds ?? 10)
             store.workoutClock.configure(
                 exercise: current.exercise,
                 title: current.blockHeader ?? current.exercise.name,
@@ -1143,14 +1321,56 @@ struct WorkoutView: View {
                 countingUp: false,
                 intervalMode: true,
                 intervalLength: interval,
-                totalIntervals: max(1, rounds),
+                totalIntervals: intervals,
                 initialCountdown: interval,
+                sound: sound,
+                haptic: haptic
+            )
+        case .circuit:
+            let interval = max(5, current.blockIntervalSeconds ?? 60)
+            let stations = max(1, store.state.activeSession?.exercises.filter {
+                $0.blockId == current.blockId
+            }.count ?? 1)
+            let totalWork = max(1,
+                (current.blockTimeCapMinutes ?? 0) > 0
+                    ? (current.plannedIntervals ?? stations)
+                    : stations * max(1, current.blockRounds ?? 1)
+            )
+            let rest = max(0, current.blockRestBetweenRoundsSeconds ?? 0)
+            var durations: [Int] = []
+            var phases: [String] = []
+            var roundNumbers: [Int] = []
+            for workIndex in 0..<totalWork {
+                let round = workIndex / stations + 1
+                durations.append(interval)
+                phases.append("Circuito · estación \(workIndex % stations + 1)/\(stations)")
+                roundNumbers.append(round)
+                let isRoundEnd = (workIndex + 1).isMultiple(of: stations)
+                if isRoundEnd && workIndex + 1 < totalWork && rest > 0 {
+                    durations.append(rest)
+                    phases.append("Circuito · descanso entre rondas")
+                    roundNumbers.append(round)
+                }
+            }
+            store.workoutClock.configure(
+                exercise: current.exercise,
+                title: current.blockHeader ?? current.exercise.name,
+                subtitle: subtitleDefault ?? "Circuito",
+                countingUp: false,
+                intervalMode: true,
+                intervalLength: interval,
+                totalIntervals: durations.count,
+                initialCountdown: interval,
+                customPhaseDurations: durations,
+                customPhaseSubtitles: phases,
+                customRoundNumbers: roundNumbers,
+                customRoundsTotal: (totalWork + stations - 1) / stations,
                 sound: sound,
                 haptic: haptic
             )
         case .tabata:
             let work = max(5, current.blockWorkSeconds ?? 20)
-            let rest = max(5, current.blockRestSeconds ?? 10)
+            let rest = max(1, current.blockRestSeconds ?? 10)
             let rounds = max(1, current.blockRounds ?? 8)
             store.workoutClock.configure(
                 exercise: current.exercise,
@@ -1166,9 +1386,25 @@ struct WorkoutView: View {
                 sound: sound,
                 haptic: haptic
             )
-        case .amrap, .deathBy, .maxEffort:
-            let mins = current.blockTimeCapMinutes ?? 12
-            let seconds = max(60, mins * 60)
+        case .deathBy:
+            // Un intervalo por minuto; la persona termina cuando falla la ronda.
+            let interval = max(15, current.blockIntervalSeconds ?? 60)
+            let intervals = max(1, current.plannedIntervals ?? current.blockTimeCapMinutes ?? 30)
+            store.workoutClock.configure(
+                exercise: current.exercise,
+                title: current.blockHeader ?? current.exercise.name,
+                subtitle: "Death By · siguiente ronda",
+                countingUp: false,
+                intervalMode: true,
+                intervalLength: interval,
+                totalIntervals: intervals,
+                initialCountdown: interval,
+                allowEarlyIntervalFinish: true,
+                sound: sound,
+                haptic: haptic
+            )
+        case .amrap, .maxEffort:
+            let seconds = max(60, (current.blockTimeCapMinutes ?? 12) * 60)
             store.workoutClock.configure(
                 exercise: current.exercise,
                 title: current.blockHeader ?? current.exercise.name,
@@ -1181,7 +1417,8 @@ struct WorkoutView: View {
                 sound: sound,
                 haptic: haptic
             )
-        case .forTime, .chipper, .afap, .ladder:
+        case .forTime, .chipper, .afap, .ladder, .buyInCashOut:
+            // TC es informativo; el cronómetro sigue hasta pulsar Terminar.
             store.workoutClock.configure(
                 exercise: current.exercise,
                 title: current.blockHeader ?? current.exercise.name,
@@ -1195,13 +1432,13 @@ struct WorkoutView: View {
                 sound: sound,
                 haptic: haptic
             )
-        case .partner, .buyInCashOut, .roundsForQuality:
-            if let mins = current.blockTimeCapMinutes, mins > 0 {
-                let seconds = mins * 60
+        case .partner, .roundsForQuality, .strength, .none:
+            if let minutes = current.blockTimeCapMinutes, minutes > 0 {
+                let seconds = minutes * 60
                 store.workoutClock.configure(
                     exercise: current.exercise,
                     title: current.blockHeader ?? current.exercise.name,
-                    subtitle: subtitleDefault ?? format?.displayName ?? "Bloque",
+                    subtitle: subtitleDefault ?? format?.displayName ?? "Fuerza",
                     countingUp: false,
                     intervalMode: false,
                     intervalLength: seconds,
@@ -1214,49 +1451,7 @@ struct WorkoutView: View {
                 store.workoutClock.configure(
                     exercise: current.exercise,
                     title: current.blockHeader ?? current.exercise.name,
-                    subtitle: subtitleDefault ?? format?.displayName ?? "Bloque",
-                    countingUp: true,
-                    intervalMode: false,
-                    intervalLength: 0,
-                    totalIntervals: 0,
-                    initialCountdown: 0,
-                    sound: sound,
-                    haptic: haptic
-                )
-            }
-        case .none:
-            store.workoutClock.configure(
-                exercise: current.exercise,
-                title: current.blockHeader ?? current.exercise.name,
-                subtitle: "Cronómetro libre",
-                countingUp: true,
-                intervalMode: false,
-                intervalLength: 0,
-                totalIntervals: 0,
-                initialCountdown: 0,
-                sound: sound,
-                haptic: haptic
-            )
-        case .strength:
-            if let mins = current.blockTimeCapMinutes, mins > 0 {
-                let seconds = mins * 60
-                store.workoutClock.configure(
-                    exercise: current.exercise,
-                    title: current.blockHeader ?? current.exercise.name,
-                    subtitle: subtitleDefault ?? "Fuerza",
-                    countingUp: false,
-                    intervalMode: false,
-                    intervalLength: seconds,
-                    totalIntervals: 0,
-                    initialCountdown: seconds,
-                    sound: sound,
-                    haptic: haptic
-                )
-            } else {
-                store.workoutClock.configure(
-                    exercise: current.exercise,
-                    title: current.blockHeader ?? current.exercise.name,
-                    subtitle: subtitleDefault ?? "Fuerza",
+                    subtitle: subtitleDefault ?? format?.displayName ?? "Bloque libre",
                     countingUp: true,
                     intervalMode: false,
                     intervalLength: 0,
@@ -1267,7 +1462,6 @@ struct WorkoutView: View {
                 )
             }
         }
-        // El primer toque en Comenzar inicia también el reloj (cuenta previa nativa).
         store.workoutClock.handlePrimary()
     }
 
@@ -1386,6 +1580,8 @@ struct WorkoutView: View {
                             autoFocus: false,
                             isFocused: advancedFocusedField == OGSetFieldID(rowID: advancedFieldRowID, column: 0),
                             submitTitle: "Siguiente",
+                            focusIdentifier: OGSetFieldID(rowID: advancedFieldRowID, column: 0).accessibilityKey,
+                            nextFocusIdentifier: OGSetFieldID(rowID: advancedFieldRowID, column: 1).accessibilityKey,
                             onFocused: { advancedFocusedField = OGSetFieldID(rowID: advancedFieldRowID, column: 0) },
                             onFocusLost: { if advancedFocusedField?.column == 0 { advancedFocusedField = nil } },
                             onCommit: { advancedFocusedField = OGSetFieldID(rowID: advancedFieldRowID, column: 1) }
@@ -1398,6 +1594,7 @@ struct WorkoutView: View {
                             autoFocus: false,
                             isFocused: advancedFocusedField == OGSetFieldID(rowID: advancedFieldRowID, column: 1),
                             submitTitle: "✓",
+                            focusIdentifier: OGSetFieldID(rowID: advancedFieldRowID, column: 1).accessibilityKey,
                             onFocused: { advancedFocusedField = OGSetFieldID(rowID: advancedFieldRowID, column: 1) },
                             onFocusLost: { if advancedFocusedField?.column == 1 { advancedFocusedField = nil } },
                             onCommit: { advancedFocusedField = nil }
@@ -1568,7 +1765,9 @@ struct WorkoutView: View {
             if setKind == .restpause { return max(45, store.state.settings.defaultRestSeconds / 2) }
             return store.state.settings.defaultRestSeconds
         }()
-        beginRest(rest)
+        if shouldStartIndependentRest(for: current) {
+            beginRest(rest)
+        }
         pendingDrops = []
         pendingClusters = []
         dropWeightText = ""
@@ -1740,10 +1939,19 @@ struct WorkoutView: View {
     }
 
     private func prefill() {
+        if liveSessionID != store.state.activeSession?.id {
+            liveSessionID = store.state.activeSession?.id
+            liveExerciseID = nil
+            liveSets = []
+            liveDraftsByExercise = [:]
+        }
         guard let current = store.state.activeSession?.currentExercise else {
+            liveExerciseID = nil
             liveSets = []
             return
         }
+        let hasUserDraft = liveExerciseID == current.id && !liveSets.isEmpty
+            || liveDraftsByExercise[current.id] != nil
         // Fuerza: registro manual y pesos visibles; WOD cronometrado: reloj por defecto.
         usesAutomaticTimer = (current.wodFormat != nil && current.wodFormat != .strength)
             || (current.blockTimeCapMinutes ?? 0) > 0
@@ -1754,7 +1962,7 @@ struct WorkoutView: View {
         repsText = "\(current.plannedSets.first?.targetReps ?? 8)"
         rebuildLiveSets(from: current)
         // Si hay peso sugerido y la primera serie pendiente no tiene peso, rellenarla.
-        if let suggested,
+        if let suggested, !hasUserDraft,
            let idx = liveSets.firstIndex(where: { !$0.completed }),
            liveSets[idx].weightKg == nil {
             liveSets[idx].weightKg = suggested
@@ -1776,6 +1984,14 @@ struct WorkoutView: View {
     private func bumpReps(_ delta: Int) {
         let current = Int(repsText) ?? 0
         repsText = "\(max(0, current + delta))"
+    }
+
+    /// En EMOM/Tabata/Circuito el descanso ya lo gestiona el reloj del bloque.
+    /// No iniciar el descanso genérico por cada check, que taparía el intervalo real.
+    private func shouldStartIndependentRest(for current: SessionExercise) -> Bool {
+        current.wodFormat == nil
+            || current.wodFormat == .strength
+            || current.wodFormat == .roundsForQuality
     }
 
     private func beginRest(_ seconds: Int) {

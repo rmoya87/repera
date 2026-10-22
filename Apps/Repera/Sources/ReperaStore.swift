@@ -150,11 +150,10 @@ final class ReperaStore: NSObject {
         }
     }
 
-    private static let sessionKcalRecalcDefaultsKey = "repera.recalcSessionKcal.v2026_10_19e"
+    private static let sessionKcalRecalcDefaultsKey = "repera.recalcSessionKcal.v2026_10_22_health_only"
 
-    /// Una vez: recalcula kcal de entrenos ya guardados con la fórmula corregida.
-    /// Watch/Salud externo solo si la energía es creíble; ambiente trivial (p. ej. 2 kcal) → estimado Repera.
-    /// La duración mostrada sigue siendo inicio→fin (p. ej. 1 h); los time caps solo afectan al estimado de kcal.
+    /// Depura las kcal estimadas de versiones anteriores. Solo conserva valores
+    /// corroborados por un HKWorkout externo (Watch / Apple Salud / otra app).
     @MainActor
     private func recalculateStoredSessionKcalIfNeeded() async {
         let defaults = UserDefaults.standard
@@ -168,6 +167,13 @@ final class ReperaStore: NSObject {
         let health = HealthKitStore.shared
         for i in state.workouts.indices {
             var session = state.workouts[i]
+            let verified: Double?
+            if let uuid = session.healthKitWorkoutUUID {
+                verified = await health.externalWorkoutEnergyKcal(uuid: uuid)
+            } else {
+                verified = nil
+            }
+
             let start = session.startedAt
                 ?? session.finishedAt?.addingTimeInterval(-60 * 60)
                 ?? Date().addingTimeInterval(-60 * 60)
@@ -175,29 +181,14 @@ final class ReperaStore: NSObject {
                 session.finishedAt ?? start.addingTimeInterval(60),
                 start.addingTimeInterval(60)
             )
-            let wallSec = max(60, end.timeIntervalSince(start))
-            let estimated = estimateSessionKcal(session, start: start, end: end)
-
-            var resolved = estimated
-            if let uuid = session.healthKitWorkoutUUID,
-               let apple = await health.externalWorkoutEnergyKcal(uuid: uuid),
-               HealthKitStore.shouldTrustAppleWorkoutEnergy(apple, sessionEstimate: estimated) {
-                resolved = apple
+            let wallSeconds = max(60, end.timeIntervalSince(start))
+            if session.appleActiveEnergyKcal != verified
+                || abs((session.appleDurationSeconds ?? 0) - wallSeconds) >= 1 {
+                session.appleActiveEnergyKcal = verified
+                session.appleDurationSeconds = wallSeconds
+                state.workouts[i] = session
+                changed = true
             }
-
-            let previousKcal = session.appleActiveEnergyKcal ?? 0
-            let previousDuration = session.appleDurationSeconds ?? 0
-            let kcalChanged = abs(previousKcal - resolved) >= 0.5 || previousKcal <= 0
-            let durationChanged = abs(previousDuration - wallSec) >= 1
-            guard kcalChanged || durationChanged else { continue }
-
-            if kcalChanged {
-                session.appleActiveEnergyKcal = resolved > 0 ? resolved : nil
-            }
-            // Siempre reloj de pared (inicio/fin que puso el usuario), no time caps.
-            session.appleDurationSeconds = wallSec
-            state.workouts[i] = session
-            changed = true
         }
 
         defaults.set(true, forKey: Self.sessionKcalRecalcDefaultsKey)
@@ -797,9 +788,8 @@ final class ReperaStore: NSObject {
             if !routePoints.isEmpty {
                 session.routePoints = routePoints
             }
-            // Provisional al instante (sin esperar Salud/Watch); HK refina después.
-            let fallbackKcal = estimateSessionKcal(session, start: start, end: end)
-            session.appleActiveEnergyKcal = fallbackKcal
+            // Hasta que Apple Salud confirme una medición, las kcal son desconocidas.
+            session.appleActiveEnergyKcal = nil
             session.appleDurationSeconds = max(60, end.timeIntervalSince(start))
             attachSessionReview(&session, present: true)
             upsertWorkout(session)
@@ -814,13 +804,12 @@ final class ReperaStore: NSObject {
                     sessionId: sessionId,
                     title: title,
                     start: start,
-                    end: end,
-                    fallbackKcal: fallbackKcal
+                    end: end
                 )
                 if var updated = state.workouts.first(where: { $0.id == sessionId }) {
                     updated.startedAt = apple.startedAt
                     updated.finishedAt = apple.finishedAt
-                    updated.appleActiveEnergyKcal = apple.kcal
+                    updated.appleActiveEnergyKcal = apple.kcal > 0 ? apple.kcal : nil
                     updated.appleDurationSeconds = apple.durationSeconds
                     updated.healthKitWorkoutUUID = apple.workoutUUID
                     if updated.sessionReview == nil {
@@ -1192,8 +1181,7 @@ final class ReperaStore: NSObject {
             }()
         )
         var saved = session
-        let fallbackKcal = estimateSessionKcal(saved, start: start, end: now)
-        saved.appleActiveEnergyKcal = fallbackKcal
+        saved.appleActiveEnergyKcal = nil
         saved.appleDurationSeconds = max(60, now.timeIntervalSince(start))
         attachSessionReview(&saved, present: true)
         upsertWorkout(saved)
@@ -1207,13 +1195,12 @@ final class ReperaStore: NSObject {
                 sessionId: sessionId,
                 title: title,
                 start: start,
-                end: now,
-                fallbackKcal: fallbackKcal
+                end: now
             )
             if var updated = state.workouts.first(where: { $0.id == sessionId }) {
                 updated.startedAt = apple.startedAt
                 updated.finishedAt = apple.finishedAt
-                updated.appleActiveEnergyKcal = apple.kcal
+                updated.appleActiveEnergyKcal = apple.kcal > 0 ? apple.kcal : nil
                 updated.appleDurationSeconds = apple.durationSeconds
                 updated.healthKitWorkoutUUID = apple.workoutUUID
                 if updated.sessionReview == nil {
@@ -1265,13 +1252,13 @@ final class ReperaStore: NSObject {
             draft.finishedAt = start.addingTimeInterval(60)
         }
         if draft.phase == .finished {
-            // Sin workout externo enlazado, kcal y duración son estimaciones locales
-            // y deben seguir las series/fechas corregidas. Nunca alterar una
-            // medición auténtica de Salud/Watch.
-            if draft.healthKitWorkoutUUID == nil,
-               let start = draft.startedAt, let end = draft.finishedAt {
+            // La edición nunca fabrica kcal por tiempo, carga o repeticiones.
+            // Un entreno sin vínculo con Salud no tiene calorías verificadas.
+            if draft.healthKitWorkoutUUID == nil {
+                draft.appleActiveEnergyKcal = nil
+            }
+            if let start = draft.startedAt, let end = draft.finishedAt {
                 draft.appleDurationSeconds = max(60, end.timeIntervalSince(start))
-                draft.appleActiveEnergyKcal = estimateSessionKcal(draft, start: start, end: end)
             }
             // La valoración anterior ya no corresponde a series/orden/carga editados.
             attachSessionReview(&draft, present: false)

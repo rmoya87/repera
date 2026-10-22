@@ -220,6 +220,7 @@ struct HomeView: View {
                 await Task.yield()
                 rebuildStreakChrome()
                 prCountBySessionId = store.cachedPersonalRecordCountsBySession()
+                await health.refreshVerifiedWorkoutEnergy(for: store.state.workouts)
             }
             // Salud diferida: no bloquear el primer paint de Inicio.
             .task(id: "\(weekOffset)-\(store.isHydrated)") {
@@ -382,7 +383,7 @@ struct HomeView: View {
             workouts.reduce(0.0) { $0 + $1.displayDurationMinutes },
             dayHealth.workoutMinutes ?? 0
         )
-        let kcal = healthKcal(for: workouts, durationMin: durationMin)
+        let kcal = dayHealth.activeEnergyKcal.flatMap { $0 > 0 ? $0 : nil }
         let dayScore: Int? = {
             let scores = workouts.compactMap(\.sessionReview?.overallScore)
             return scores.max()
@@ -590,7 +591,13 @@ struct HomeView: View {
                 .padding(.horizontal, Self.registerCardPad)
             },
             chips: {
-                WorkoutRegisterChips.repera(session: session, prCount: prs)
+                WorkoutRegisterChips.repera(
+                    session: session,
+                    prCount: prs,
+                    verifiedHealthKcal: session.healthKitWorkoutUUID.flatMap {
+                        health.verifiedWorkoutEnergyKcal[$0]
+                    }
+                )
             }
         )
     }
@@ -655,7 +662,9 @@ struct HomeView: View {
     /// Progressive window for dots / past-day metrics. Not tied to day selection.
     private func refreshProgressiveHealthIfNeeded() async {
         health.refreshAuthorizationStatus()
-        guard health.isAuthorized else { return }
+        // El permiso de LECTURA no puede consultarse mediante sharingAuthorized:
+        // ejecutar la consulta y respetar un resultado vacío / denegado.
+        guard health.isAvailable else { return }
 
         let linked = Set(store.state.workouts.compactMap(\.healthKitWorkoutUUID))
         // Day swipe must not wait on a 2‑minute TTL — coverage + dirty flag is enough.
@@ -673,7 +682,7 @@ struct HomeView: View {
 
     /// Soft refine for today tiles only; never clears displayed cache while waiting.
     private func refineTodayMetricsInBackground() async {
-        guard health.isAuthorized, calendar.isDateInToday(selectedDay) else { return }
+        guard health.isAvailable, calendar.isDateInToday(selectedDay) else { return }
         let key = dayKey(selectedDay)
         let hasBuckets = kcalByDayKey[key] != nil || healthMinutesByDayKey[key] != nil
             || health.activeEnergyTodayKcal != nil
@@ -978,31 +987,6 @@ struct HomeView: View {
         if hasCompletedActivityOnSelectedDay { return "checkmark" }
         if plannedTitleForSelectedDay != nil { return "figure.strengthtraining.traditional" }
         return "moon.fill"
-    }
-
-    /// Tile del día: max(energía activa Salud del día, suma de chips del día).
-    /// Así un estimado Repera (aún no en Salud) no desaparece del total.
-    private func healthKcal(for workouts: [WorkoutSession], durationMin: Double) -> Double? {
-        let fromSessions = workouts.compactMap(\.appleActiveEnergyKcal).reduce(0, +)
-        let fromExternal = healthActivities.compactMap(\.activeEnergyKcal).reduce(0, +)
-        let fromCards = fromSessions + fromExternal
-
-        let fromHealth: Double? = {
-            if let hk = dayHealth.activeEnergyKcal, hk > 0 { return hk }
-            if calendar.isDateInToday(selectedDay), let hk = health.activeEnergyTodayKcal, hk > 0 {
-                return hk
-            }
-            return nil
-        }()
-
-        if let hk = fromHealth, fromCards > 0 {
-            return max(hk, fromCards)
-        }
-        if let hk = fromHealth { return hk }
-        if fromCards > 0 { return fromCards }
-        guard durationMin > 0 else { return nil }
-        let volume = workouts.reduce(0.0) { $0 + $1.totalVolumeKg }
-        return durationMin * 7.5 + volume * 0.02
     }
 
     private var cachedStreakTitle: String {
