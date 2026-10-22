@@ -606,9 +606,13 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
         }
     }
 
-    nonisolated func watchConnectivityDidAcknowledge(sessionId: UUID) {
+    nonisolated func watchConnectivityDidAcknowledge(sessionId: UUID, healthKitUUID: UUID?) {
         Task { @MainActor in
-            if self.lastFinished?.id == sessionId, !self.awaitingHealthSave {
+            // Never acknowledge an older, unverified revision after the Watch
+            // attached a newly saved HKWorkout with the same Repera session ID.
+            if self.lastFinished?.id == sessionId,
+               self.lastFinished?.healthKitWorkoutUUID == healthKitUUID,
+               !self.awaitingHealthSave {
                 self.acknowledgedSessionID = sessionId
                 self.connectivity.acknowledge(sessionId)
                 self.save()
