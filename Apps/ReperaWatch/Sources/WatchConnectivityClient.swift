@@ -6,7 +6,7 @@ import os
 protocol WatchConnectivityClientDelegate: AnyObject {
     func watchConnectivityDidReceive(session: WorkoutSession?)
     func watchConnectivityDidReceiveToday(_ today: WorkoutSession?, scheduledDay: Date?)
-    func watchConnectivityDidAcknowledge(sessionId: UUID)
+    func watchConnectivityDidAcknowledge(sessionId: UUID, healthKitUUID: UUID?)
 }
 
 final class WatchConnectivityClient: NSObject, WCSessionDelegate {
@@ -105,7 +105,9 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     private func applyContext(_ payload: [String: Any]) {
         if let ack = payload["completedAck"] as? String,
            let id = UUID(uuidString: ack) {
-            delegate?.watchConnectivityDidAcknowledge(sessionId: id)
+            let healthID = (payload["completedAckHealthKitUUID"] as? String)
+                .flatMap(UUID.init(uuidString:))
+            delegate?.watchConnectivityDidAcknowledge(sessionId: id, healthKitUUID: healthID)
         }
         if let data = payload["todayWorkout"] as? Data, data != lastInboundToday {
             let day = (payload["todayDayStart"] as? TimeInterval).map(Date.init(timeIntervalSince1970:))
