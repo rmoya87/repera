@@ -37,16 +37,18 @@ struct ProTeaserCard: View {
             switch appearance {
             case .progress:
                 ReperaMascot(pose: appearance.pose, maxHeight: 214)
+                    .frame(width: 198, height: 198)
                     .rotationEffect(.degrees(-7))
-                    .offset(x: 7, y: 17)
+                    .offset(x: 25, y: 17)
             case .activity:
                 Image(systemName: "wind")
                     .font(.system(size: 40, weight: .light))
                     .foregroundStyle(Color.white.opacity(0.55))
                     .offset(x: -51, y: -5)
                 ReperaMascot(pose: appearance.pose, maxHeight: 209)
+                    .frame(width: 197, height: 197)
                     .rotationEffect(.degrees(-17), anchor: .bottom)
-                    .offset(x: 12, y: 24)
+                    .offset(x: -14, y: 24)
                 Image(systemName: "figure.run")
                     .font(.system(size: 25, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.85))
@@ -58,8 +60,9 @@ struct ProTeaserCard: View {
                     .rotationEffect(.degrees(-10))
                     .offset(x: 10, y: 65)
                 ReperaMascot(pose: appearance.pose, maxHeight: 194)
+                    .frame(width: 187, height: 187)
                     .rotationEffect(.degrees(-63))
-                    .offset(x: 5, y: 22)
+                    .offset(x: 26, y: 22)
                 Image(systemName: "moon.zzz.fill")
                     .font(.system(size: 33, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.95))
@@ -70,8 +73,9 @@ struct ProTeaserCard: View {
                     .foregroundStyle(Color.white.opacity(0.37))
                     .offset(x: 22, y: -44)
                 ReperaMascot(pose: appearance.pose, maxHeight: 208)
+                    .frame(width: 197, height: 197)
                     .rotationEffect(.degrees(5))
-                    .offset(x: 8, y: 21)
+                    .offset(x: 24, y: 21)
             }
         }
         .frame(width: 148, height: 210)
