@@ -13,13 +13,18 @@ class UnifiedHealthPermissionsTests(unittest.TestCase):
 
     def test_health_request_includes_sleep_and_other_metrics(self):
         source = self.read("HealthKitStore.swift")
-        request = source.split("func requestAccess(includeSleep: Bool? = nil) async {", 1)[1]
+        request = source.split("func requestAccess(includeSleep: Bool? = nil, includeAllOptional: Bool = false) async {", 1)[1]
         request = request.split("func refreshAuthorizationStatus()", 1)[0]
         self.assertIn("HKObjectType.categoryType(forIdentifier: .sleepAnalysis)", request)
         self.assertIn("HKObjectType.quantityType(forIdentifier: .heartRate)", request)
         self.assertIn("HKObjectType.workoutType()", request)
         self.assertIn("store.requestAuthorization(toShare: share, read: read)", request)
         self.assertIn("acceptSleepFromHealthAuthorization()", request)
+        self.assertIn("if includeAllOptional {", request)
+        self.assertIn("HKObjectType.categoryType(forIdentifier: .menstrualFlow)", request)
+        self.assertIn("HKObjectType.categoryType(forIdentifier: .ovulationTestResult)", request)
+        self.assertIn("statusForAuthorizationRequest(toShare: share, read: read)", request)
+        self.assertIn("includeSleepInRequest && !includeAllOptional", request)
 
     def test_onboarding_uses_same_health_permission_action(self):
         source = self.read("Onboarding/OnboardingFlowView.swift")
