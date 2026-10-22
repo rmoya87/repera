@@ -258,6 +258,24 @@ struct WatchSessionView: View {
             Text("Movimiento estimado: \(hub.workingReps) reps")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+            if hub.wodUsesSeries && !hub.isPaused {
+                HStack(spacing: 5) {
+                    Button { hub.adjustReps(-1) } label: {
+                        Image(systemName: "minus.circle.fill")
+                    }
+                    Button { hub.adjustReps(1) } label: {
+                        Image(systemName: "plus.circle.fill")
+                    }
+                    Button("Confirmar serie") { hub.confirmIntervalSet() }
+                        .buttonStyle(.borderedProminent)
+                }
+                .font(.caption2)
+                if hub.blockExercises.count > 1 {
+                    Button("Siguiente movimiento") { hub.nextWODMovement() }
+                        .font(.caption2)
+                        .buttonStyle(.bordered)
+                }
+            }
             if !hub.isPaused {
                 Button {
                     hub.reviewBlock()
