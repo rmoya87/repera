@@ -248,10 +248,9 @@ final class WatchSessionHub: NSObject {
     /// WODs with a global score can open their result form without reps;
     /// individual strength/interval sets must contain an actual quantity.
     var canConfirmCurrentEntry: Bool {
-        // Zero is valid for navigating to the next exercise, but is NEVER
-        // recorded as a completed set. The green arrow must remain tappable.
+        // Even at zero reps or during a rest, the arrow remains tappable.
+        // A skipped or unrecorded set must NEVER become a completed LoggedSet.
         active?.phase == .counting && !isPaused && !reviewingBlock
-            && restRemaining == 0
     }
     var nextActionIsFinish: Bool {
         (isLastWorkoutExercise && effectiveReps == 0)
@@ -662,6 +661,11 @@ final class WatchSessionHub: NSObject {
     /// all planned sets for this exercise were genuinely recorded.
     func confirmAndAdvance() {
         guard canConfirmCurrentEntry else { return }
+        if restRemaining > 0 {
+            // Never show a disabled gray arrow during an automatic rest.
+            // Skip the rest on demand and continue with the user's action.
+            skipRest()
+        }
         if currentIsWOD {
             if wodUsesSeries {
                 if effectiveReps > 0 {
