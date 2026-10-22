@@ -114,7 +114,10 @@ public enum RecoveryEngine {
         // Una noche corta no debe catalogarse «lista» aunque el cálculo
         // muscular sea favorable.
         if hours < 6 { score = min(score, 5.0) }
-        score = (score * 10).rounded() / 10
+        // Los índices de Repera se publican como enteros de 0 a 10.
+        // Redondear antes de elegir la banda mantiene el consejo coherente
+        // con el número que ve el usuario.
+        score = score.rounded()
         let advice: TrainingReadinessAdvice = score >= 7.5
             ? .usual : (score >= 5.5 ? .moderate : .rest)
         return TrainingReadiness(
