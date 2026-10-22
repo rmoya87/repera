@@ -49,10 +49,6 @@ struct ProTeaserCard: View {
                     .frame(width: 197, height: 197)
                     .rotationEffect(.degrees(-17), anchor: .bottom)
                     .offset(x: -14, y: 24)
-                Image(systemName: "figure.run")
-                    .font(.system(size: 25, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.85))
-                    .offset(x: -48, y: -62)
             case .recovery:
                 RoundedRectangle(cornerRadius: 25, style: .continuous)
                     .fill(Color.white.opacity(0.82))
@@ -128,7 +124,7 @@ struct ProTeaserCard: View {
             }
             // La mascota de los banners con imagen a la derecha llega hasta el borde.
             // El texto conserva su margen y Actividad mantiene el suyo a la derecha.
-            .padding(.leading, 12)
+            .padding(.leading, appearance.imageOnLeft ? 0 : 12)
             .padding(.trailing, appearance.imageOnLeft ? 12 : 0)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, minHeight: 228, alignment: .leading)
