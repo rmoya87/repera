@@ -320,6 +320,7 @@ public enum VerifiedSessionReviewEngine {
     ) -> Evidence? {
         guard let currentBlock = session.routineBlocks?.first(where: { $0.id == result.id }),
               let currentDensity = normalizedDensity(result: result, block: currentBlock),
+              let currentSeconds = stimulusDuration(result: result, block: currentBlock),
               currentDensity > 0 else { return nil }
         let currentScaled = session.exercises.filter { $0.blockId == result.id }
         // Different scaled doses cannot be reduced to a common time/work unit.
@@ -340,8 +341,7 @@ public enum VerifiedSessionReviewEngine {
                       let rate = normalizedDensity(result: previous, block: block),
                       rate > 0 else { return nil }
                 // Exclude grossly different time domains (sprints vs long WODs).
-                guard let currentSeconds = stimulusDuration(result: result, block: currentBlock),
-                      let priorSeconds = stimulusDuration(result: previous, block: block),
+                guard let priorSeconds = stimulusDuration(result: previous, block: block),
                       max(currentSeconds, priorSeconds) / min(currentSeconds, priorSeconds) <= 1.5
                 else { return nil }
                 return rate
@@ -353,7 +353,7 @@ public enum VerifiedSessionReviewEngine {
         let reference = median(priorDays.map(\.1).sorted())
         guard reference > 0 else { return nil }
         let ratio = currentDensity / reference
-        let minutes = stimulusDuration(result: result, block: currentBlock)! / 60
+        let minutes = currentSeconds / 60
         return Evidence(
             score: points(ratio: ratio),
             weight: max(1, min(12, minutes)) * 0.5,
