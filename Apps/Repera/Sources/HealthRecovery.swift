@@ -431,7 +431,7 @@ struct HealthRecoveryProgressView: View {
     }
 
     private var trainingRecoveryRefreshKey: String {
-        "\(range.rawValue)|\(weekStartsOnMonday)|\(store.workoutsEpoch)|\(recovery.lastRefreshed?.timeIntervalSince1970 ?? 0)|\(recovery.sleepEnabled)|\(isPro)"
+        "\(range.rawValue)|\(weekStartsOnMonday)|\(store.workoutsEpoch)|\(recovery.lastRefreshed?.timeIntervalSince1970 ?? 0)|\(recovery.sleepEnabled)"
     }
 
     /// Cálculo fuera del MainActor para no bloquear el scroll de Progreso.
@@ -439,7 +439,7 @@ struct HealthRecoveryProgressView: View {
     /// antes de posibles sesiones matinales (referencia 07:00).
     private func prepareTrainingRecovery() async {
         let key = trainingRecoveryRefreshKey
-        guard isPro, recovery.sleepEnabled else {
+        guard recovery.sleepEnabled else {
             recoveryPoints = []
             tomorrowRecovery = nil
             appliedRecoveryKey = key
@@ -582,7 +582,7 @@ struct HealthRecoveryProgressView: View {
 
             // Sueño y recuperación son indicadores distintos: sin datos,
             // no fabricar una falsa puntuación de disposición.
-            if isPro, appliedRecoveryKey == trainingRecoveryRefreshKey,
+            if appliedRecoveryKey == trainingRecoveryRefreshKey,
                (!recoveryPoints.isEmpty || tomorrowRecovery != nil) {
                 trainingRecoveryCard
             }
