@@ -236,6 +236,8 @@ targets:
       path: Apps/ReperaWatchWidget/Info.plist
       properties:
         CFBundleDisplayName: Repera
+        CFBundleInfoDictionaryVersion: "6.0"
+        CFBundleName: ReperaWatch
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSExtension:
