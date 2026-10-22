@@ -1314,6 +1314,11 @@ final class ReperaStore: NSObject {
                     saved.healthKitWorkoutUUID = uuid
                     changed = true
                 }
+                if session.appleHealthProvenance == "watchHealthKit",
+                   saved.appleHealthProvenance != session.appleHealthProvenance {
+                    saved.appleHealthProvenance = session.appleHealthProvenance
+                    changed = true
+                }
                 if let energy = session.appleActiveEnergyKcal, energy > 0,
                    saved.appleActiveEnergyKcal != energy {
                     saved.appleActiveEnergyKcal = energy
