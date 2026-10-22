@@ -742,10 +742,10 @@ struct WorkoutView: View {
             OGSetEntryRow(
                 rowID: row.id,
                 index: index + 1,
-                nextEditableRowID: liveSets.dropFirst(index + 1).first(where: { !$0.completed })?.id,
                 previous: OGSetEntryRow.previousText(previousSet),
                 firstValue: firstValue,
                 secondValue: style == .repsOnly ? nil : "\(row.reps)",
+                nextEditableRowID: liveSets.dropFirst(index + 1).first(where: { !$0.completed })?.id,
                 firstAllowsDecimal: style != .repsOnly && current.exercise.loadField == .weightKg,
                 showsConfirmation: store.state.activeSession?.phase != .ready,
                 completed: row.completed,
