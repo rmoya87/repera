@@ -356,7 +356,8 @@ struct WatchSessionView: View {
                 Button {
                     hub.confirmAndAdvance()
                 } label: {
-                    Text(hub.wodUsesSeries ? "Siguiente" : "Terminar bloque")
+                    Text(hub.isLastWorkoutExercise ? "Terminar" :
+                            (hub.wodUsesSeries ? "Siguiente" : "Terminar bloque"))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
