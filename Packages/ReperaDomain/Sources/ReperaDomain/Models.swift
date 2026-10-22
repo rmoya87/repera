@@ -1513,6 +1513,8 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
     public var plannedSets: [PlannedSet]
     public var quantityUnit: ExerciseQuantityUnit?
     public var loggedSets: [LoggedSet]
+    /// Descanso entre series prescrito por el plan, incluso en ejercicios sin bloque.
+    public var restSeconds: Int?
     public var completedReps: Int
     /// Cantidad utilizada al adaptar un movimiento de un WOD con score global.
     /// No equivale a series registradas ni sustituye el score de bloque.
@@ -1541,6 +1543,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         plannedSets: [PlannedSet],
         quantityUnit: ExerciseQuantityUnit? = nil,
         loggedSets: [LoggedSet] = [],
+        restSeconds: Int? = nil,
         completedReps: Int = 0,
         adaptedReps: Int? = nil,
         adaptedWeightKg: Double? = nil,
@@ -1562,6 +1565,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         self.plannedSets = plannedSets
         self.quantityUnit = quantityUnit
         self.loggedSets = loggedSets
+        self.restSeconds = restSeconds
         self.completedReps = completedReps
         self.adaptedReps = adaptedReps
         self.adaptedWeightKg = adaptedWeightKg
@@ -1722,7 +1726,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, exercise, plannedSets, loggedSets, completedReps, isCompleted, supersetGroup
+        case id, exercise, plannedSets, quantityUnit, loggedSets, restSeconds, completedReps, isCompleted, supersetGroup
         case adaptedReps, adaptedWeightKg
         case blockId, blockKind
         case wodFormat, blockTimeCapMinutes, blockIntervalSeconds, blockRounds, blockHeader
@@ -1734,6 +1738,8 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         id = try c.decode(UUID.self, forKey: .id)
         exercise = try c.decode(Exercise.self, forKey: .exercise)
         plannedSets = try c.decodeIfPresent([PlannedSet].self, forKey: .plannedSets) ?? []
+        quantityUnit = try c.decodeIfPresent(ExerciseQuantityUnit.self, forKey: .quantityUnit)
+        restSeconds = try c.decodeIfPresent(Int.self, forKey: .restSeconds)
         loggedSets = try c.decodeIfPresent([LoggedSet].self, forKey: .loggedSets) ?? []
         completedReps = try c.decodeIfPresent(Int.self, forKey: .completedReps) ?? 0
         adaptedReps = try c.decodeIfPresent(Int.self, forKey: .adaptedReps)
