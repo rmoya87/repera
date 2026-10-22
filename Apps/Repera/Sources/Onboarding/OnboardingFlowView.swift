@@ -255,7 +255,7 @@ struct OnboardingPermissionsStep: View {
             Text("Permisos")
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(OG.label)
-            Text("Puedes activar notificaciones, entrenamientos de Salud y ubicación si los necesitas. El sueño y el ciclo solo se solicitarán si los activas expresamente en Ajustes.")
+            Text("Puedes activar notificaciones, Apple Salud y ubicación si los necesitas. Al autorizar Apple Salud, eliges qué datos compartir, incluidos sueño y ciclo.")
                 .font(.body)
                 .foregroundStyle(OG.label2)
 
@@ -271,14 +271,14 @@ struct OnboardingPermissionsStep: View {
 
             permissionRow(
                 title: "Salud",
-                subtitle: "Entrenos, calorías y pulso",
+                subtitle: "Entrenos, sueño, ciclo y constantes",
                 symbol: "heart",
                 statusText: healthPermissionsComplete ? "Conectado" : "Pendiente",
                 isDone: healthPermissionsComplete
             ) {
                 healthBusy = true
                 defer { healthBusy = false }
-                await health.requestAccess()
+                await health.requestAccess(includeAllOptional: true)
             }
 
             permissionRow(
