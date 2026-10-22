@@ -419,6 +419,7 @@ final class HealthPhysiologyStore {
 
 /// Detalle unificado: conexión HealthKit + sueño/ciclo (antes «Salud y recuperación»).
 struct ConnectedHealthSettingsView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(HealthKitStore.self) private var health
     @Environment(ReperaStore.self) private var store
     @State private var recovery = HealthRecoveryStore.shared
@@ -480,13 +481,6 @@ struct ConnectedHealthSettingsView: View {
                 if healthBusy { ProgressView("Solicitando permisos…") }
                 if let message = health.lastError { Text(message).foregroundStyle(OG.orange) }
                 if let message = recovery.errorMessage { Text(message).foregroundStyle(OG.orange) }
-                Button("Actualizar desde Apple Salud") {
-                    Task {
-                        await recovery.refresh()
-                        await HealthPhysiologyStore.shared.refresh()
-                        await health.refreshToday()
-                    }
-                }
             }
         }
         .ogListChrome()
@@ -497,8 +491,19 @@ struct ConnectedHealthSettingsView: View {
             Text("Para cambiar permisos que ya has aceptado o rechazado: Ajustes → Salud → Acceso de datos y dispositivos → Repera.")
         }
         .task {
+            // Leer datos auténticos al entrar; no hace falta un botón manual.
+            await health.refreshToday()
             await recovery.refresh()
             await HealthPhysiologyStore.shared.refresh()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            // Actualizar si se vuelve desde Salud/Ajustes tras cambiar permisos.
+            Task {
+                await health.refreshToday()
+                await recovery.refresh()
+                await HealthPhysiologyStore.shared.refresh()
+            }
         }
     }
 }
