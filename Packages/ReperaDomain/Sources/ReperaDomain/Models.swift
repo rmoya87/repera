@@ -885,9 +885,9 @@ public enum WODFormat: String, Codable, Sendable, Hashable, CaseIterable {
         switch self {
         case .amrap, .deathBy, .maxEffort:
             return .totalReps
-        case .forTime, .chipper, .afap, .ladder:
+        case .forTime, .chipper, .afap, .ladder, .buyInCashOut:
             return .elapsedTime
-        case .emom, .tabata, .circuit, .partner, .buyInCashOut, .roundsForQuality, .strength:
+        case .emom, .tabata, .circuit, .partner, .roundsForQuality, .strength:
             return .perMovementSets
         }
     }
@@ -1333,8 +1333,15 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
         case .emom, .circuit:
             return movement.repeatingPlannedSets(count: emomRounds)
         case .tabata:
-            let n = max(1, rounds ?? 8)
-            return movement.repeatingPlannedSets(count: n)
+            // Cada ventana de TRABAJO corresponde a una serie del movimiento
+            // que toca. Con varios movimientos se alternan las estaciones,
+            // no se prescriben 8 series a cada una para un Tabata de 8 rondas.
+            let workIntervals = max(1, rounds ?? 8)
+            let activeStations = movements.filter { !$0.isRest }
+            let stationTotal = max(1, activeStations.count)
+            let station = activeStations.firstIndex(where: { $0.id == movement.id }) ?? 0
+            let count = max(0, (workIntervals + stationTotal - 1 - station) / stationTotal)
+            return count > 0 ? movement.repeatingPlannedSets(count: count) : []
         case .forTime, .roundsForQuality:
             guard let n = rounds, n > 1 else { return base }
             return movement.repeatingPlannedSets(count: n)
@@ -1498,6 +1505,8 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
     public var blockHeader: String?
     public var blockWorkSeconds: Int?
     public var blockRestSeconds: Int?
+    /// Descanso explícito entre rondas de un circuito.
+    public var blockRestBetweenRoundsSeconds: Int?
 
     public init(
         id: UUID = UUID(),
@@ -1516,7 +1525,8 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         blockRounds: Int? = nil,
         blockHeader: String? = nil,
         blockWorkSeconds: Int? = nil,
-        blockRestSeconds: Int? = nil
+        blockRestSeconds: Int? = nil,
+        blockRestBetweenRoundsSeconds: Int? = nil
     ) {
         self.id = id
         self.exercise = exercise
@@ -1535,6 +1545,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         self.blockHeader = blockHeader
         self.blockWorkSeconds = blockWorkSeconds
         self.blockRestSeconds = blockRestSeconds
+        self.blockRestBetweenRoundsSeconds = blockRestBetweenRoundsSeconds
     }
 
     public var lastLoggedWeight: Double? {
@@ -1654,7 +1665,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         case id, exercise, plannedSets, loggedSets, completedReps, isCompleted, supersetGroup
         case blockId, blockKind
         case wodFormat, blockTimeCapMinutes, blockIntervalSeconds, blockRounds, blockHeader
-        case blockWorkSeconds, blockRestSeconds
+        case blockWorkSeconds, blockRestSeconds, blockRestBetweenRoundsSeconds
     }
 
     public init(from decoder: Decoder) throws {
@@ -1675,6 +1686,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         blockHeader = try c.decodeIfPresent(String.self, forKey: .blockHeader)
         blockWorkSeconds = try c.decodeIfPresent(Int.self, forKey: .blockWorkSeconds)
         blockRestSeconds = try c.decodeIfPresent(Int.self, forKey: .blockRestSeconds)
+        blockRestBetweenRoundsSeconds = try c.decodeIfPresent(Int.self, forKey: .blockRestBetweenRoundsSeconds)
     }
 }
 
