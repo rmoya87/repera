@@ -160,7 +160,7 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("func confirmAndAdvance()", hub)
         self.assertIn("func selectBlock(startingAt index: Int)", hub)
         self.assertIn("func swipeSet(_ direction: Int)", hub)
-        self.assertIn("reviseLoggedSet(at:", hub)
+        self.assertIn("replaceLoggedSet(at:", hub)
         self.assertIn("public mutating func reviseLoggedSet(", domain)
 
     def test_watch_compact_titles_cards_and_play_controls(self):
