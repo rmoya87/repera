@@ -2056,14 +2056,13 @@ final class HealthKitStore {
                 lastError = "Apple Salud guardó el entreno pero todavía no confirmó su UUID"
                 return await existingReperaWorkout(sessionId: sessionId, start: start, end: end)?.uuid
             } catch {
-                lastError = error.localizedDescription
+                lastError = "Error al cerrar el entreno en Salud: " + error.localizedDescription
                 liveBuilder = nil
-                if let recovered = await existingReperaWorkout(
+                // El resultado del finish puede ser incierto: no lanzar
+                // otra escritura a ciegas (podría crear un duplicado).
+                return await existingReperaWorkout(
                     sessionId: sessionId, start: start, end: end
-                ) {
-                    return recovered.uuid
-                }
-                // Si no existe el workout, reintentar una sola vez sin builder.
+                )?.uuid
             }
         }
 
