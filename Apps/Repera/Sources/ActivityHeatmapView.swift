@@ -63,25 +63,30 @@ struct ActivityHeatmapView: View {
             }
             .pickerStyle(.segmented)
 
-            GeometryReader { geo in
-                let layout = HeatmapLayout.resolve(
-                    availableWidth: geo.size.width,
-                    columnCount: max(1, grid.columns.count),
-                    rowCount: max(1, grid.rowCount),
-                    preferStrip: isStrip
-                )
-                VStack(alignment: .leading, spacing: 4) {
-                    if !isStrip {
-                        monthLabelsRow(layout: layout)
+            HeatmapResponsiveLayout(
+                columnCount: max(1, grid.columns.count),
+                rowCount: max(1, grid.rowCount),
+                preferStrip: isStrip
+            ) {
+                GeometryReader { geo in
+                    let layout = HeatmapLayout.resolve(
+                        availableWidth: geo.size.width,
+                        columnCount: max(1, grid.columns.count),
+                        rowCount: max(1, grid.rowCount),
+                        preferStrip: isStrip
+                    )
+                    VStack(alignment: .leading, spacing: 4) {
+                        if !isStrip {
+                            monthLabelsRow(layout: layout)
+                        }
+                        heatmapScrollable(layout: layout)
+                        if isStrip {
+                            dayLabelsRow(layout: layout)
+                        }
                     }
-                    heatmapScrollable(layout: layout)
-                    if isStrip {
-                        dayLabelsRow(layout: layout)
-                    }
+                    .frame(width: geo.size.width, alignment: .leading)
                 }
-                .frame(width: geo.size.width, alignment: .leading)
             }
-            .frame(height: estimatedHeight)
 
             HStack(spacing: 6) {
                 Text(metric == .volume ? "Menos volumen" : "Menos tiempo")
@@ -124,16 +129,6 @@ struct ActivityHeatmapView: View {
         if let preparedGrid {
             grid = preparedGrid
         }
-    }
-
-    private var estimatedHeight: CGFloat {
-        let layout = HeatmapLayout.resolve(
-            availableWidth: 340,
-            columnCount: max(1, grid.columns.count),
-            rowCount: max(1, grid.rowCount),
-            preferStrip: isStrip
-        )
-        return layout.canvasHeight + (isStrip ? 18 : 16)
     }
 
     private var rebuildKey: String {
@@ -207,6 +202,46 @@ struct ActivityHeatmapView: View {
 }
 
 // MARK: - Layout
+
+/// Resuelve la altura *antes* de pintar el GeometryReader y usa el ancho
+/// real de la ventana (Duo plegado/abierto, giro y Split View). No mantiene
+/// estados derivados ni provoca un segundo salto de altura al cargar.
+private struct HeatmapResponsiveLayout: Layout {
+    let columnCount: Int
+    let rowCount: Int
+    let preferStrip: Bool
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) -> CGSize {
+        guard !subviews.isEmpty else { return .zero }
+        let width = max(1, proposal.width ?? 340)
+        let metrics = HeatmapLayout.resolve(
+            availableWidth: width,
+            columnCount: columnCount,
+            rowCount: rowCount,
+            preferStrip: preferStrip
+        )
+        return CGSize(width: width, height: metrics.canvasHeight + (preferStrip ? 18 : 16))
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        for subview in subviews {
+            subview.place(
+                at: bounds.origin,
+                anchor: .topLeading,
+                proposal: ProposedViewSize(width: bounds.width, height: bounds.height)
+            )
+        }
+    }
+}
 
 private enum HeatmapLayout {
     struct Metrics {
