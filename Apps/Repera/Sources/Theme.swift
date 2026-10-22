@@ -792,6 +792,9 @@ struct OGNumericTextField: UIViewRepresentable {
     var autoFocus: Bool = true
     var isFocused: Bool? = nil
     var submitTitle: String = "✓"
+    /// Identificadores estables para transferir el foco sin depender solo de SwiftUI.
+    var focusIdentifier: String? = nil
+    var nextFocusIdentifier: String? = nil
     var onFocused: () -> Void = {}
     var onFocusLost: (() -> Void)? = nil
     var onCommit: () -> Void
@@ -812,6 +815,8 @@ struct OGNumericTextField: UIViewRepresentable {
         field.delegate = context.coordinator
         context.coordinator.field = field
         configure(field, coordinator: context.coordinator)
+        field.accessibilityIdentifier = focusIdentifier
+        context.coordinator.nextFocusIdentifier = nextFocusIdentifier
         field.text = text
         // Vista real de teclado 4×4, no el numberPad/decimalPad del sistema.
         let pad = OGReperaNumericKeypad(
@@ -841,6 +846,10 @@ struct OGNumericTextField: UIViewRepresentable {
         c.onFocusLost = onFocusLost
         c.onCommit = onCommit
         c.submitsToNextField = submitTitle != "✓" && submitTitle.lowercased() != "listo"
+        c.nextFocusIdentifier = nextFocusIdentifier
+        if field.accessibilityIdentifier != focusIdentifier {
+            field.accessibilityIdentifier = focusIdentifier
+        }
         c.pad?.update(
             allowsDecimal: allowsDecimal,
             allowsTime: allowsTimeSeparator,
@@ -904,6 +913,7 @@ struct OGNumericTextField: UIViewRepresentable {
         var onCommit: () -> Void
         var desiredFocus: Bool?
         var submitsToNextField = false
+        var nextFocusIdentifier: String?
         weak var field: UITextField?
         fileprivate weak var pad: OGReperaNumericKeypad?
         private var suppressNextEndCommit = false
@@ -956,15 +966,37 @@ struct OGNumericTextField: UIViewRepresentable {
             // Evita registrar dos veces una serie al transferir el foco.
             suppressNextEndCommit = true
             let advances = submitsToNextField
+            let nextFieldID = nextFocusIdentifier
             onCommit()
-            if !advances {
-                // ✓ cierra; Siguiente deja la entrada visible y el foco
-                // pasa directamente al próximo UITextField sin parpadeo.
+            if advances {
+                // Transferencia UIKit explícita; el @FocusState sigue como respaldo
+                // cuando la fila siguiente aún no está montada por SwiftUI.
+                DispatchQueue.main.async { [weak field] in
+                    guard let field, field.isFirstResponder,
+                          let nextFieldID, let window = field.window,
+                          let target = Self.findTextField(in: window, identifier: nextFieldID)
+                    else { return }
+                    target.becomeFirstResponder()
+                    target.selectAll(nil)
+                }
+            } else {
                 field.resignFirstResponder()
                 if field.isFirstResponder {
                     suppressNextEndCommit = false
                 }
             }
+        }
+
+        private static func findTextField(in view: UIView, identifier: String) -> UITextField? {
+            if let field = view as? UITextField, field.accessibilityIdentifier == identifier {
+                return field
+            }
+            for child in view.subviews {
+                if let found = findTextField(in: child, identifier: identifier) {
+                    return found
+                }
+            }
+            return nil
         }
 
         @objc func keypadKey(_ sender: UIButton) {
@@ -1266,6 +1298,8 @@ enum SpanishDate {
 struct OGSetFieldID: Hashable {
     var rowID: UUID
     var column: Int
+
+    var accessibilityKey: String { "og-numeric-\(rowID.uuidString)-\(column)" }
 }
 
 /// Cabecera compacta compartida por planificación, registro final y sesión en curso.
@@ -1443,6 +1477,8 @@ private struct OGSetNumericCell: View {
             autoFocus: false,
             isFocused: focus.wrappedValue == fieldID,
             submitTitle: nextID == nil ? "✓" : "Siguiente",
+            focusIdentifier: fieldID.accessibilityKey,
+            nextFocusIdentifier: nextID?.accessibilityKey,
             onFocused: { focus.wrappedValue = fieldID },
             onFocusLost: {
                 onCommit(draft.trimmingCharacters(in: .whitespacesAndNewlines))
@@ -1521,6 +1557,8 @@ struct OGFormatNumberField: View {
                     autoFocus: false,
                     isFocused: focus.wrappedValue == fieldID,
                     submitTitle: nextID == nil ? "✓" : "Siguiente",
+                    focusIdentifier: fieldID.accessibilityKey,
+                    nextFocusIdentifier: nextID?.accessibilityKey,
                     onFocused: { focus.wrappedValue = fieldID },
                     onFocusLost: {
                         commit()
