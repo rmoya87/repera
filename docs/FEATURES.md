@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-21 (editor completo de entrenos realizados y recálculo de resultados)
+Última actualización: 2026-10-22 (calorías verificadas exclusivamente desde Apple Salud)
 
 ## Tabs
 
@@ -9,7 +9,7 @@
 - Topbar fijo arriba (`ogFixedTopBar`): «repera» + fecha; icono de **mensajes** (liquid glass, solo si hay centro/entrenador vinculado) + avatar → Ajustes. Sin «+» en Inicio (el alta va por **Añadir entreno** / tab Crear).
 - **Carrusel de días**: swipe horizontal (o chevrons) entre semanas; al cambiar de semana se conserva el weekday. Al tocar un día pinta al instante sin esperar HealthKit.
 - Card **Racha de N semanas** (como openGym `streakWeeks`): cuenta Repera **y** Apple Salud; toque → **Historial** unificado.
-- Métricas del día: tiempo; **kcal = max(energía activa del día en Salud, suma de chips Repera+Salud del día)**. Por entreno: kcal de sesión = Watch/Salud **solo si la energía es creíble**; si en la franja solo hay ambiente (p. ej. 2 kcal), manda el **estimado Repera** (MET / time caps). **Tiempo mostrado = inicio→fin**. Detalle alineado con Inicio. Recalc al arrancar (v2026_10_19e).
+- Métricas del día: tiempo y **kcal de Apple Salud exclusivamente** (`activeEnergyBurned` de fuentes externas a Repera). Cuando no existe medición, el tile muestra **«—»**: nunca deriva calorías de minutos, kg, repeticiones ni estimaciones almacenadas. Los **chips kcal de entrenos Repera** solo aparecen tras verificar que el workout enlazado es de una fuente de Salud/Watch ajena a Repera y trae energía real. **Tiempo mostrado = inicio→fin**. La migración (v2026_10_22_health_only) limpia estimaciones locales históricas sin borrar entrenos.
 - Lista de entrenos Repera del día + actividades externas de Salud (etiqueta «DÍA · hora» misma tipografía; chips min/kcal/**nota**/PR como Historial; tile del día «Nota» en lugar de nº de ejercicios, con icono `star.fill` fijo aunque no haya puntuación). Notas recalculadas al arrancar si cambia la fórmula (`sessionReviewFormulaVersion`).
 - Acciones: empezar, **Añadir entreno** (`DayPlusSheet`), escanear pizarra → revisión como **página** (no modal) titulada «Añadir entreno».
 - Swipe en filas de entreno: círculo rojo + papelera; **toda la card (chips incluidos)** se desliza. El gesto solo nace fuera del carrusel (sobre chips solo scroll); confirmación glass. La capa UIKit del swipe remite explícitamente los toques de la zona revelada a `onDelete`, para que la papelera funcione pese a la vista hospedada superpuesta.
@@ -70,7 +70,7 @@
 - **Cardio / calorías / tiles / heatmap / músculo / PRs / peso:** un `ProgressSnapshot` por periodo (`ProgressDataEngine` off-main); `ProgressViewModel` cachea por periodo+revisión y cancela preps obsoletas.
 - Selector de periodo responde al toque; si hay caché, pinta al instante; si no, loader solo en gráficas.
 - Agregación: día (hoy/semana), media semanal (mes/90/180), media mensual (360); Charts ≤48 pts.
-- Calorías: por día **max(energía activa Salud, chips Repera+externos)** — misma regla que Inicio; total de gráfica = `summary.totalKcal`.
+- Calorías: datos diarios de Salud/Watch y entrenos externos verificados únicamente; los valores estimados por Repera no entran en la gráfica ni en `summary.totalKcal`. Los días sin dato no se inventan.
 - Salud: caché diaria ≤360d; match de sesiones indexado; sin sobrescribir ventanas grandes con refrescos cortos.
 - Heatmap (tiempo/volumen precalculados), equilibrio (all/hard precalculados), progreso por ejercicio y PRs; enlace a historial.
 - `VStack` en el scroll de Progreso (evita salto al subir desde el final por reciclado de LazyVStack).
@@ -115,7 +115,7 @@
 
 - Preview (`SessionPreviewView`): **Play** (único botón prominente verde con icono blanco) inicia el registro; **Editar** está exclusivamente dentro de ⋯, sin lápiz duplicado, y abre `DayEditorView`. El subtítulo queda alineado a la izquierda, junto al título y sin margen de lista excesivo. Ya no existe el flujo «Apuntar resultado».
 - Crear entreno desde «Añadir entreno» abre editor de pantalla completa con navegación propia, no dentro del sheet compacto.
-- En el detalle de entreno, el tile de calorías se omite cuando Salud no aporta una medición auténtica.
+- En el detalle de entreno, el tile de calorías muestra «—» cuando Salud no aporta una medición auténtica.
 - **Series de fuerza / WOD** en Crear, Editar y Play: misma retícula **Serie (número circular) | Anterior | KG, tiempo o cantidad | Reps | RIR** (si procede), sin +/−. El número circular no parece editable y RIR se ajusta en la misma fila. Los ejercicios de máquina/cardiovascular usan **Cal o metros**, nunca KG cuando su estilo de registro no utiliza carga; en bloques de fuerza y movimientos WOD se puede elegir Cal/Metros con selector segmentado; la unidad queda guardada y se respeta en Play. El teclado 4×4 utiliza flecha azul / ✓ verde y funciona igual en creación, edición y ejecución. Los registros anteriores se muestran si existen.
 - **En sesión activa** la tabla añade un **check verde a la derecha** para marcar cada serie, por orden, iniciando el descanso correspondiente. Las técnicas de dropset y rest-pause se despliegan **dentro del bloque actual**, no en una sección global más estrecha. Los objetivos sin completar no aparecen como registrados. En edición no se muestra el check de completar.
 - **Teclado de series**: el teclado personalizado permanece abierto mientras se pulsan números, decimal, borrar y ±; los cambios de `Binding` no deben provocar `resignFirstResponder` ni reconstruir el `inputView`. Foco en el valor izquierdo; la flecha negra consolida y pasa directamente al siguiente campo sin cerrar el teclado; el **✓ verde** del último confirma y lo cierra. El punto se transforma en `:` para tiempos.
@@ -145,12 +145,12 @@
 
 - Workouts externos → muestras diarias + estímulo muscular (`HealthMuscleMapper`) que alimenta **equilibrio/fatiga** y el heatmap; también en **Historial** (junto a Repera) y en la racha de Inicio.
 - FC por día (min/avg/max) para gráfica Cardio.
-- Energía activa diaria para gráfica Calorías (fusionada con estimados Repera como en Inicio).
-- **Sin Apple Watch / kcal ambiente trivial:** estimación local MET (≈5.5 fuerza con carga, ≈7 metcon/PC, ≈9 cardio cronometrado) × peso corporal + volumen + reps; calorías de consola (bike/Ski) como **suelo** del estimado. Al terminar, el estimado del entreno gana frente a energía activa suelta de la franja; Watch/otra app solo si la energía es creíble.
+- Energía activa diaria leída de HealthKit para Inicio y Progreso; se excluyen muestras cuyo origen es Repera porque versiones anteriores escribían estimaciones.
+- **Sin kcal de Apple Salud:** no se presenta ningún valor de energía por sesión ni se escriben muestras de kcal calculadas al guardar el entrenamiento. El workout de fuerza sigue guardándose en Salud si la autorización lo permite. Una sesión enlazada con un workout de Apple Watch/otra app muestra sus kcal solo cuando existe una medición explícita en dicho HKWorkout.
 - **Fatiga muscular:** series de máquina/cardio aportan estímulo por duración (no como reps de fuerza); el filtro «Duras» las excluye.
 - Empareja con sesiones Repera por UUID / solape temporal (no se duplican en Historial).
 - Borrar entreno en app → intenta borrar workout en Salud.
-- **Caché en disco** del último snapshot (actividades/FC/kcal): al abrir la app se muestran datos al instante; HealthKit actualiza en segundo plano (anclado + observers).
+- **Caché en disco** de actividades/FC/kcal: se invalida el formato antiguo (v2) para no mostrar cifras estimadas históricas; después se muestran datos verificados y HealthKit los actualiza en segundo plano.
 
 ## Ajustes: centros, entrenadores y contratos
 
