@@ -31,7 +31,7 @@
     <key>NSHealthUpdateUsageDescription</key>
     <string>Repera guarda el entrenamiento y sus mediciones reales del Apple Watch en Apple Salud.</string>
     <key>WKBackgroundModes</key>
-    <array><string>workout-processing</string><string>audio</string></array>
+    <array><string>workout-processing</string></array>
 	<key>WKApplication</key>
 	<true/>
 	<key>WKCompanionAppBundleIdentifier</key>
