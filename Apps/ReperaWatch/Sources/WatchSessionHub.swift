@@ -143,6 +143,24 @@ final class WatchSessionHub: NSObject {
         connectivity.delegate = self
         connectivity.activate()
         if let active, startedOnThisWatch { health.recoverIfNeeded(id: active.id) }
+        if let finished = lastFinished, startedOnThisWatch,
+           finished.appleHealthProvenance == "watchHealthKitPending",
+           finished.healthKitWorkoutUUID == nil {
+            // Recovered workouts must be stopped and saved before the user can
+            // discard the summary. A locked Watch can return no HKWorkout UUID.
+            awaitingHealthSave = true
+            health.recoverIfNeeded(id: finished.id) { [weak self] recovered in
+                guard let self else { return }
+                if recovered {
+                    self.health.finish { [weak self] result in
+                        self?.applySavedHealth(result, to: finished.id)
+                    }
+                } else {
+                    self.awaitingHealthSave = false
+                    self.save()
+                }
+            }
+        }
         if let finished = lastFinished, acknowledgedSessionID != finished.id {
             connectivity.sendFinished(finished)
         }
