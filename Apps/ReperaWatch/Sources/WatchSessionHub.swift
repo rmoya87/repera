@@ -257,8 +257,7 @@ final class WatchSessionHub: NSObject {
         let score = WODBlockResult(id: id, format: format,
                                    totalReps: reps, elapsedSeconds: elapsed,
                                    roundsCompleted: rounds)
-        ctrl.session.wodResults.removeAll { $0.id == id }
-        ctrl.session.wodResults.append(score)
+        ctrl.recordWODResult(score)
         _ = ctrl.finishCurrentBlock()
         controller = ctrl
         reviewingBlock = false
