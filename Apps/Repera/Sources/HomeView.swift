@@ -204,7 +204,12 @@ struct HomeView: View {
                 await health.refreshVerifiedWorkoutEnergy(for: store.state.workouts)
             }
             .task(id: "\(dayKey(selectedDay))-\(health.healthDataRevision)-\(health.isAuthorized)") {
-                selectedDaySteps = await health.steps(for: selectedDay)
+                let requestedDay = selectedDay
+                let requestedKey = dayKey(requestedDay)
+                selectedDaySteps = nil
+                let steps = await health.steps(for: requestedDay)
+                guard !Task.isCancelled, dayKey(selectedDay) == requestedKey else { return }
+                selectedDaySteps = steps
             }
             // Salud diferida: no bloquear el primer paint de Inicio.
             .task(id: "\(weekOffset)-\(store.isHydrated)") {
@@ -444,7 +449,7 @@ struct HomeView: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(OG.label)
                     Spacer()
-                    Text("\(days.filter(\.hasWorkout).count) de 7 días")
+                    Text("\(days.filter(\.hasWorkout).count) días entrenados")
                         .font(.system(size: 12))
                         .foregroundStyle(OG.label2)
                 }
@@ -498,7 +503,7 @@ struct HomeView: View {
                   review.scoreBasis == .personalHistory,
                   (review.evidenceCoverage ?? 0) >= 0.60 else { return nil }
             return review.overallScore
-        }.max()
+        }.first
 
         return OGCard {
             VStack(alignment: .leading, spacing: 14) {
