@@ -157,6 +157,8 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 ## Ajustes / navegación
 
 - [ ] Avatar Inicio → Ajustes con botón volver.
+- [ ] Ajustes → Cuenta → tocar el avatar con distintivo Apple: se abre el selector nativo de Fotos; elegir imagen actualiza el avatar sin fallo Swift 6 ni cambios de diseño, y se sincroniza con el perfil.
+- [ ] Cancelar la selección de foto mantiene el avatar anterior; volver a abrir el selector funciona y el distintivo Apple sigue visible.
 - [ ] Historial / Peso / Rotación: topbar fijo transparente (como Ejercicios) + volver del sistema.
 - [ ] No existe entrada Coach.
 

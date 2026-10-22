@@ -21,6 +21,7 @@ struct SettingsView: View {
     @State private var showingCSVImporter = false
     @State private var confirmReset = false
     @State private var photoItem: PhotosPickerItem?
+    @State private var isPhotoPickerPresented = false
     @State private var restoreMessage: String?
     @State private var notificationsStatus: UNAuthorizationStatus = .notDetermined
     @State private var confirmSignOut = false
@@ -30,15 +31,14 @@ struct SettingsView: View {
  
     var body: some View {
         @Bindable var store = store
-        // FotosPicker construye su label fuera del aislamiento de MainActor.
-        // Capturar la vista ya construida evita acceder a iCloudAvatarBadge desde ese contexto.
-        let avatarBadge = iCloudAvatarBadge
         Form {
             Section {
                 HStack(spacing: 12) {
-                    PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
+                    Button {
+                        isPhotoPickerPresented = true
+                    } label: {
                         ZStack(alignment: .bottomTrailing) {
-                            avatarBadge
+                            iCloudAvatarBadge
                                 .frame(width: 52, height: 52)
                             Image(systemName: "apple.logo")
                                 .font(.system(size: 11, weight: .semibold))
@@ -51,6 +51,12 @@ struct SettingsView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .photosPicker(
+                        isPresented: $isPhotoPickerPresented,
+                        selection: $photoItem,
+                        matching: .images,
+                        photoLibrary: .shared()
+                    )
                     .accessibilityLabel("Cambiar foto de perfil")
                     VStack(alignment: .leading, spacing: 4) {
                         TextField(
