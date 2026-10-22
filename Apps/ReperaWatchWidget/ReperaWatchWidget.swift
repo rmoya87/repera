@@ -55,15 +55,24 @@ private struct ReperaWatchComplication: View {
     }
 }
 
-@main
-struct ReperaWatchWidgetBundle: WidgetBundle {
-    var body: some Widget {
-        StaticConfiguration(kind: "com.app.repera.watch.complication",
-                            provider: ReperaWatchProvider()) { _ in
+/// A WidgetBundle contains Widget values, never a WidgetConfiguration.
+private struct ReperaWatchWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(
+            kind: "com.app.repera.watch.complication",
+            provider: ReperaWatchProvider()
+        ) { _ in
             ReperaWatchComplication()
         }
         .configurationDisplayName("Repera")
         .description("Abre tu entrenamiento desde la esfera del Apple Watch.")
         .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
+    }
+}
+
+@main
+struct ReperaWatchWidgetBundle: WidgetBundle {
+    var body: some Widget {
+        ReperaWatchWidget()
     }
 }
