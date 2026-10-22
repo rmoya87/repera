@@ -411,58 +411,54 @@ struct ConnectedHealthSettingsView: View {
     @Environment(ReperaStore.self) private var store
     @State private var recovery = HealthRecoveryStore.shared
     @State private var healthBusy = false
+    @State private var showHealthPermissionsHelp = false
+
+    /// One entrypoint for Apple's entire permission request. HealthKit can
+    /// only show undecided types; previously chosen access is edited in
+    /// Settings > Salud > Acceso de datos y dispositivos.
+    private func manageHealthPermissions() async {
+        guard !healthBusy else { return }
+        healthBusy = true
+        defer { healthBusy = false }
+
+        await health.requestAccess(includeAllOptional: true)
+        guard health.lastError == nil else { return }
+        if health.isAuthorized {
+            await store.syncBodyWeightWithHealth()
+        }
+        await recovery.refresh()
+        await HealthPhysiologyStore.shared.refresh()
+        if health.permissionManagementRequiresSettings {
+            showHealthPermissionsHelp = true
+        }
+    }
 
     var body: some View {
         Form {
             Section {
-                if health.isAuthorized {
-                    Label("Apple Salud conectada para entrenamientos", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(OG.label)
-                    if let kcal = health.activeEnergyTodayKcal {
-                        LabeledContent("kcal hoy", value: "\(Int(kcal.rounded()))")
+                Button {
+                    Task { await manageHealthPermissions() }
+                } label: {
+                    HStack(spacing: 12) {
+                        Label("Apple Salud", systemImage: "heart.text.square")
                             .foregroundStyle(OG.label)
-                    }
-                } else {
-                    Button {
-                        Task {
-                            healthBusy = true
-                            defer { healthBusy = false }
-                            await health.requestAccess()
-                            if health.isAuthorized {
-                                await store.syncBodyWeightWithHealth()
-                            }
-                        }
-                    } label: {
+                        Spacer(minLength: 8)
                         if healthBusy {
                             ProgressView()
                         } else {
-                            Label("Conectar entrenamientos y energía", systemImage: "heart")
-                                .foregroundStyle(OG.label)
+                            Image(systemName: "chevron.right")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(OG.label3)
                         }
                     }
-                    .disabled(!health.isAvailable || healthBusy)
-                    if let err = health.lastError {
-                        Text(err).font(.footnote).foregroundStyle(.red)
-                    }
-                }
-                Button {
-                    Task {
-                        healthBusy = true
-                        defer { healthBusy = false }
-                        await health.requestAccess(includeSleep: recovery.sleepEnabled)
-                        await HealthPhysiologyStore.shared.refresh()
-                    }
-                } label: {
-                    Label("Ampliar permisos para métricas deportivas", systemImage: "waveform.path.ecg")
                 }
                 .disabled(!health.isAvailable || healthBusy)
-            } header: {
-                Text("Apple Salud")
-            } footer: {
-                Text("Permisos independientes y opcionales: frecuencia cardíaca, VFC, pulso en reposo, recuperación cardíaca, respiración, oxígeno y temperatura nocturna. Si no hay muestras, se muestran como no disponibles.")
-            }
 
-            Section {
+                if let kcal = health.activeEnergyTodayKcal {
+                    LabeledContent("kcal hoy", value: "\(Int(kcal.rounded()))")
+                        .foregroundStyle(OG.label)
+                }
+
                 Toggle("Analizar descanso", isOn: Binding(
                     get: { recovery.sleepEnabled },
                     set: { enabled in
@@ -479,46 +475,35 @@ struct ConnectedHealthSettingsView: View {
                     get: { recovery.cycleEnabled },
                     set: { enabled in Task { await recovery.setCycle(enabled) } }
                 ))
-
-            } header: {
-                Text("Recuperación")
-            } footer: {
-                Text("Sueño, ciclo y constantes fisiológicas se leen localmente desde Apple Salud. No se envían a Supabase ni se comparten con entrenadores.")
+                .disabled(healthBusy)
             }
 
             Section("Privacidad") {
-                Label("Sin sincronización de salud con Supabase", systemImage: "iphone.gen3")
+                Label("Tus datos de salud solo en tu móvil", systemImage: "iphone.gen3")
                 Label("Sin compartir el ciclo ni el sueño", systemImage: "lock.shield")
                 if recovery.loading { ProgressView("Leyendo Apple Salud…") }
                 if healthBusy { ProgressView("Solicitando permisos…") }
                 if let message = health.lastError { Text(message).foregroundStyle(OG.orange) }
                 if let message = recovery.errorMessage { Text(message).foregroundStyle(OG.orange) }
-                Button("Actualizar desde Apple Salud") { Task {
-                    await recovery.refresh()
-                    await HealthPhysiologyStore.shared.refresh()
-                } }
-            }
-            Section {
-                Text("El sueño es orientativo. Las fases menstruales son estimaciones, no confirman la ovulación ni predicen la fertilidad. Las recomendaciones no sustituyen la valoración profesional.")
-                    .font(.footnote).foregroundStyle(OG.label2)
+                Button("Actualizar desde Apple Salud") {
+                    Task {
+                        await recovery.refresh()
+                        await HealthPhysiologyStore.shared.refresh()
+                        await health.refreshToday()
+                    }
+                }
             }
         }
         .ogListChrome()
         .ogPinnedTransparentNav("Salud conectada")
+        .alert("Permisos de Apple Salud", isPresented: $showHealthPermissionsHelp) {
+            Button("Entendido", role: .cancel) {}
+        } message: {
+            Text("Para cambiar permisos que ya has aceptado o rechazado: Ajustes → Salud → Acceso de datos y dispositivos → Repera.")
+        }
         .task {
             await recovery.refresh()
             await HealthPhysiologyStore.shared.refresh()
-        }
-    }
-
-    private func pendingRow(_ title: String) -> some View {
-        HStack(spacing: 10) {
-            Circle()
-                .fill(OG.red)
-                .frame(width: 8, height: 8)
-            Text(title)
-                .foregroundStyle(OG.label)
-            Spacer()
         }
     }
 }
