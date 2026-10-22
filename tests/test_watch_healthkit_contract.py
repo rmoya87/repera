@@ -232,7 +232,10 @@ class WatchHealthKitContractTests(unittest.TestCase):
         eligibility = hub.partition("var canConfirmCurrentEntry: Bool")[2].partition(
             "var nextActionIsFinish: Bool")[0]
         self.assertNotIn("effectiveReps > 0", eligibility)
+        self.assertNotIn("restRemaining == 0", eligibility)
         self.assertIn("guard canConfirmCurrentEntry else { return }", hub)
+        self.assertIn("if restRemaining > 0 {", hub)
+        self.assertIn("skipRest()", hub)
         self.assertIn("if effectiveReps == 0 {", hub)
         self.assertIn("if hasNextExercise { nextExercise() } else { finishWorkout() }", hub)
         self.assertIn("if effectiveReps > 0 {", hub)
