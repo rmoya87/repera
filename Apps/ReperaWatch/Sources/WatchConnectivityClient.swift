@@ -5,7 +5,7 @@ import os
 
 protocol WatchConnectivityClientDelegate: AnyObject {
     func watchConnectivityDidReceive(session: WorkoutSession?)
-    func watchConnectivityDidReceiveToday(_ today: WorkoutSession?)
+    func watchConnectivityDidReceiveToday(_ today: WorkoutSession?, scheduledDay: Date?)
     func watchConnectivityDidAcknowledge(sessionId: UUID)
 }
 
@@ -98,9 +98,10 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
             delegate?.watchConnectivityDidAcknowledge(sessionId: id)
         }
         if let data = payload["todayWorkout"] as? Data, data != lastInboundToday {
+            let day = (payload["todayDayStart"] as? TimeInterval).map(Date.init(timeIntervalSince1970:))
             lastInboundToday = data
             let today = data.isEmpty ? nil : try? JSONDecoder().decode(WorkoutSession.self, from: data)
-            delegate?.watchConnectivityDidReceiveToday(today)
+            delegate?.watchConnectivityDidReceiveToday(today, scheduledDay: day)
         }
         if let data = payload["session"] as? Data, data != lastInboundSession {
             lastInboundSession = data
