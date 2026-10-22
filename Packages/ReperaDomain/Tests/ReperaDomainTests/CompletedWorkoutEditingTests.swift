@@ -134,7 +134,8 @@ final class CompletedWorkoutEditingTests: XCTestCase {
                     WODMovement(exerciseId: press.id, name: press.name, reps: 5),
                     WODMovement(exerciseId: squat.id, name: squat.name, reps: 8)
                 ],
-                wodFormat: format, timeCapMinutes: 8, rounds: 4
+                wodFormat: format, timeCapMinutes: 8, rounds: 4,
+                restBetweenRoundsSeconds: format == .circuit ? 25 : nil
             )
             var session = SessionController.from(
                 routine: Routine(title: "Hecho", blocks: [block]), exercises: [press, squat]
@@ -159,6 +160,10 @@ final class CompletedWorkoutEditingTests: XCTestCase {
             XCTAssertEqual(saved.exercises[0].loggedSets[0].rir, 1)
             XCTAssertTrue(saved.exercises[1].loggedSets.isEmpty)
             XCTAssertTrue(saved.wodResults.isEmpty)
+            if format == .circuit {
+                XCTAssertEqual(saved.exercises[0].blockRestBetweenRoundsSeconds, 25)
+                XCTAssertEqual(saved.routineBlocks?[0].restBetweenRoundsSeconds, 25)
+            }
         }
     }
 
