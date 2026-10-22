@@ -133,6 +133,18 @@ struct SettingsView: View {
                                     .foregroundStyle(syncFeedback == "Sincronización completada." ? OG.accent : OG.red)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
+                            if workoutSync.restoredBlockSnapshots > 0 {
+                                Text("\(workoutSync.restoredBlockSnapshots) entrenamientos antiguos recuperaron sus bloques originales.")
+                                    .font(.caption)
+                                    .foregroundStyle(OG.label2)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            if workoutSync.incompleteHistoricalWODCount > 0 {
+                                Text("\(workoutSync.incompleteHistoricalWODCount) WOD antiguos aún no tienen el detalle original de bloques en Supabase. No se inventarán comparaciones.")
+                                    .font(.caption)
+                                    .foregroundStyle(OG.label2)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                         Spacer(minLength: 0)
                     }
