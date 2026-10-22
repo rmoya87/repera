@@ -152,6 +152,29 @@ struct HomeView: View {
             .background(OG.bg)
             .refreshable { await businessData.refresh() }
             .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay)) {
+                if !businessData.athleteCenterIds.isEmpty {
+                    NavigationLink {
+                        MessagesInboxView()
+                    } label: {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "bubble.left.and.bubble.right")
+                                .font(.system(size: OG.toolbarGlassIcon, weight: .semibold))
+                                .foregroundStyle(OG.label)
+                                .symbolRenderingMode(.monochrome)
+                                .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
+                                .contentShape(Circle())
+                                .glassEffect(.regular.interactive(), in: .circle)
+                            if !businessData.personalNotices.isEmpty {
+                                Circle()
+                                    .fill(OG.label)
+                                    .frame(width: 8, height: 8)
+                                    .offset(x: -10, y: 10)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Mensajes con centro o entrenador")
+                }
                 NavigationLink {
                     SettingsView()
                 } label: {
@@ -453,7 +476,7 @@ struct HomeView: View {
                         .font(.system(size: 12))
                         .foregroundStyle(OG.label2)
                 }
-                HStack(alignment: .center, spacing: 6) {
+                HStack(alignment: .center, spacing: 4) {
                     ForEach(days, id: \.iso) { day in
                         VStack(spacing: 9) {
                             Text(day.lbl)
@@ -476,7 +499,7 @@ struct HomeView: View {
                                         .foregroundStyle(OG.onAccent)
                                 }
                             }
-                            .frame(width: 35, height: 35)
+                            .frame(width: 32, height: 32)
                             .accessibilityLabel(
                                 "\(day.lbl) \(day.num): " +
                                 (day.hasWorkout ? "entrenamiento completado" :
