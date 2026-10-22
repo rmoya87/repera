@@ -1,6 +1,6 @@
 # Guía de pruebas — Repera
 
-Última actualización: 2026-10-19 (monetización Freemium / Pro)
+Última actualización: 2026-10-22 (resultados AMRAP/For Time y relojes EMOM/Tabata)
 
 Checklist manual por feature. Preferible dispositivo real para Live Activity y Watch.
 
@@ -85,6 +85,23 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] Swipe en Inicio / sesión en curso → eliminar con confirmación.
 - [ ] Borrar entreno guardado → desaparece también de Salud (si estaba enlazado).
 - [ ] Terminar Apuntar series: check verde en círculo (sin doble círculo).
+
+## Formatos WOD y temporizadores en Play (iOS 27)
+
+- [ ] **AMRAP 12'** con 3 movimientos: mostrar un resultado del bloque (rondas completas + reps de la ronda incompleta), no una tabla de series por movimiento; registrar manualmente 5+7 y comprobar el resumen.
+- [ ] Iniciar AMRAP: cuenta previa de 3 s, cuenta atrás de 12', abre captura de rondas/reps al acabar; cancelar la captura no debe inventar registros.
+- [ ] **4 RFT / For Time** con TC de 12': cronómetro ascendente; avisar al minuto 12 sin parar; si termina en 13:17, guardar 13:17 y no 12:00 ni series ficticias.
+- [ ] **Chipper, AFAP, Ladder y Buy-in/Cash-out**: capturar tiempo único del bloque, aun sin haberse arrancado el reloj; respetar cap opcional.
+- [ ] **EMOM 12'** cada 60 s: 12 intervalos; **Every 2' ×4**: cuatro intervalos de 120 s; las repeticiones son series por movimiento y la duración no se cuenta como cuatro series adicionales.
+- [ ] **Tabata 20/10 ×8**: contar 8 ventanas de trabajo, alternar exactamente 20 s y 10 s y mostrar ronda 1/8 hasta 8/8. Con dos movimientos alternos prescribir 4 ventanas de trabajo por movimiento, no ocho a cada uno.
+- [ ] **Circuito 3 rondas ×2 estaciones de 45 s con descanso de 25 s entre rondas**: comprobar secuencia trabajo/trabajo/descanso/trabajo/trabajo/descanso/trabajo/trabajo.
+- [ ] **Death By**: avisos cada intervalo (1 min por defecto), permitir Terminar al fallar, capturar rondas completas + reps adicionales.
+- [ ] **Max Effort** por reps: pedir repetición máxima; **Partner, RFQ, Fuerza**: seguir por series con reloj libre o timebox según configuración.
+- [ ] Con EMOM/Tabata corriendo, minimizar el reloj, cambiar entre movimientos del mismo bloque, registrar peso/reps y reabrirlo: mantiene fase y avisos y no reinicia.
+- [ ] Poner la app en segundo plano cruzando varias fases Tabata; al volver debe estar en la fase correcta, sin acumular restos ni avisar una vez por cada intervalo pasado.
+- [ ] Tras terminar un EMOM/Tabata, revisar/corregir series antes de pulsar «Finalizar bloque»; no se deben crear series ni cerrar el entrenamiento automáticamente.
+- [ ] Guardar el score global de un bloque anterior cuando otro está seleccionado: solo se confirma el bloque correcto, sin finalizar el otro.
+- [ ] Validar test de dominio y `test_wod_play_contract.py` en CI iOS 27 y, manualmente, en dispositivo.
 
 ## Pizarra
 
