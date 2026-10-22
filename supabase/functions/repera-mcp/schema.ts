@@ -63,8 +63,16 @@ export const workout = z.strictObject({
   title: z.string().trim().min(2).max(120),
   scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   scheduledTimeMinutes: z.number().int().min(0).max(1439).optional(),
+  scheduledTimeZone: z.string().trim().min(3).max(80).optional(),
+  scheduledUtcOffsetMinutes: z.number().int().min(-840).max(840).optional(),
   blocks: z.array(block).min(1).max(12),
 }).superRefine((w, ctx) => {
+  if (w.scheduledTimeMinutes != null && (!w.scheduledTimeZone || w.scheduledUtcOffsetMinutes == null)) {
+    ctx.addIssue({code:"custom",path:["scheduledTimeZone"],message:"Scheduled time needs IANA time zone and UTC offset for DST"});
+  }
+  if (w.scheduledTimeMinutes == null && w.scheduledUtcOffsetMinutes != null) {
+    ctx.addIssue({code:"custom",path:["scheduledUtcOffsetMinutes"],message:"UTC offset only applies when scheduledTimeMinutes is set"});
+  }
   if (w.scheduledTimeMinutes != null && (w.scheduledTimeMinutes < 0 || w.scheduledTimeMinutes > 1439)) {
     ctx.addIssue({code:"custom",path:["scheduledTimeMinutes"],message:"Time must be minutes since midnight, local to the athlete"});
   }
