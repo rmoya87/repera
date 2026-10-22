@@ -94,62 +94,83 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         let heart = HKObjectType.quantityType(forIdentifier: .heartRate)!
         let energy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
         let read: Set<HKObjectType> = [HKObjectType.workoutType(), heart, energy]
-        store.requestAuthorization(toShare: [HKObjectType.workoutType()], read: read) { [weak self] success, error in
-            Task { @MainActor in
-                guard let self, self.workoutID == id, !self.finishing else { return }
-                guard success, error == nil else {
-                    self.permissionIssue = error?.localizedDescription ?? "No se autorizó HealthKit."
-                    return
+        // HealthKit operations stay on the MainActor. The authorization sheet,
+        // builder collection and metadata use Apple's async APIs on watchOS 27.
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await store.requestAuthorization(
+                    toShare: [HKObjectType.workoutType()], read: read
+                )
+            } catch {
+                if self.workoutID == id { self.permissionIssue = error.localizedDescription }
+                return
+            }
+            guard self.workoutID == id, !self.finishing else { return }
+
+            let config = HKWorkoutConfiguration()
+            if includesWOD && includesStrength {
+                config.activityType = .crossTraining
+            } else if includesWOD {
+                config.activityType = .highIntensityIntervalTraining
+            } else {
+                config.activityType = .functionalStrengthTraining
+            }
+            config.locationType = .indoor
+
+            do {
+                let session = try HKWorkoutSession(healthStore: self.store, configuration: config)
+                let liveBuilder = session.associatedWorkoutBuilder()
+                liveBuilder.dataSource = HKLiveWorkoutDataSource(
+                    healthStore: self.store, workoutConfiguration: config
+                )
+                session.delegate = self
+                liveBuilder.delegate = self
+                self.workout = session
+                self.builder = liveBuilder
+                session.startActivity(with: date)
+
+                // Mirroring is best-effort: a missing or offline iPhone must
+                // never delay the native Watch workout or its HealthKit samples.
+                Task { @MainActor in
+                    do {
+                        try await session.startMirroringToCompanionDevice()
+                    } catch {
+                        // The Watch is the primary recorder. WatchConnectivity
+                        // synchronizes the result independently once available.
+                    }
                 }
-                let config = HKWorkoutConfiguration()
-                if includesWOD && includesStrength {
-                    config.activityType = .crossTraining
-                } else if includesWOD {
-                    config.activityType = .highIntensityIntervalTraining
-                } else {
-                    config.activityType = .functionalStrengthTraining
-                }
-                config.locationType = .indoor
+
                 do {
-                    let session = try HKWorkoutSession(healthStore: self.store, configuration: config)
-                    let builder = session.associatedWorkoutBuilder()
-                    builder.dataSource = HKLiveWorkoutDataSource(
-                        healthStore: self.store, workoutConfiguration: config
-                    )
-                    session.delegate = self
-                    builder.delegate = self
-                    self.workout = session
-                    self.builder = builder
-                    session.startActivity(with: date)
-                    // Mirroring is optional; a disconnected iPhone must never block
-                    // the Watch's local HealthKit collection or offline results.
-                    session.startMirroringToCompanionDevice { _, _ in }
-                    builder.beginCollection(withStart: date) { [weak self] ok, err in
-                        Task { @MainActor in
-                            guard let self, self.workoutID == id else { return }
-                            if ok {
-                                // Associate HealthKit samples with the execution UUID.
-                                // Access the builder on its owner actor (Swift 6).
-                                self.builder?.addMetadata([
-                                    HKMetadataKeyExternalUUID: id.uuidString
-                                ]) { _, _ in }
-                            }
-                            self.isRecording = ok
-                            if ok, let pending = self.pendingBlock {
-                                self.beginBlock(id: pending.id, isInterval: pending.isInterval)
-                            }
-                            if !ok {
-                                self.permissionIssue = err?.localizedDescription ?? "No se inició la recogida de Salud."
-                                self.builder?.discardWorkout()
-                                self.workout?.end()
-                                self.workout = nil
-                                self.builder = nil
-                            }
+                    try await liveBuilder.beginCollection(at: date)
+                    guard self.workoutID == id, self.builder === liveBuilder else { return }
+                    self.isRecording = true
+                    if let pending = self.pendingBlock {
+                        self.beginBlock(id: pending.id, isInterval: pending.isInterval)
+                    }
+
+                    // The execution UUID allows later reconciliation on iPhone.
+                    // A metadata error must not discard a live sensor recording.
+                    do {
+                        try await liveBuilder.addMetadata([
+                            HKMetadataKeyExternalUUID: id.uuidString
+                        ])
+                    } catch {
+                        if self.workoutID == id {
+                            self.permissionIssue = "Salud registra el entreno, pero no pudo enlazarlo: \(error.localizedDescription)"
                         }
                     }
                 } catch {
+                    guard self.workoutID == id, self.builder === liveBuilder else { return }
                     self.permissionIssue = error.localizedDescription
+                    liveBuilder.discardWorkout()
+                    session.end()
+                    self.workout = nil
+                    self.builder = nil
+                    self.isRecording = false
                 }
+            } catch {
+                if self.workoutID == id { self.permissionIssue = error.localizedDescription }
             }
         }
     }
@@ -229,32 +250,36 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
 
     private func endBuilder(at date: Date) {
         guard let builder else { finishWith(Result()); return }
-        builder.endCollection(withEnd: date) { [weak self] success, error in
-            guard success else {
-                Task { @MainActor in
-                    self?.permissionIssue = error?.localizedDescription ?? "No se cerró la recogida de Salud."
-                    self?.finishWith(Result())
-                }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await builder.endCollection(at: date)
+            } catch {
+                self.permissionIssue = error.localizedDescription
+                self.finishWith(Result())
                 return
             }
-            builder.finishWorkout { [weak self] saved, error in
+
+            do {
+                // A nil workout without an error is valid while the Watch is locked.
+                // Repera preserves the pending UUID and reconciles it later.
+                let saved = try await builder.finishWorkout()
                 let energyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
                 let hrType = HKObjectType.quantityType(forIdentifier: .heartRate)!
                 let hrUnit = HKUnit.count().unitDivided(by: .minute())
                 let active = saved?.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie())
                 let average = saved?.statistics(for: hrType)?.averageQuantity()?.doubleValue(for: hrUnit)
-                let result = Result(
+                self.finishWith(Result(
                     uuid: saved?.uuid,
                     activeEnergyKcal: (active ?? 0) > 0 ? active : nil,
                     durationSeconds: saved?.duration,
                     start: saved?.startDate,
                     end: saved?.endDate,
                     averageHeartRateBpm: average
-                )
-                Task { @MainActor in
-                    if let error { self?.permissionIssue = error.localizedDescription }
-                    self?.finishWith(result)
-                }
+                ))
+            } catch {
+                self.permissionIssue = error.localizedDescription
+                self.finishWith(Result())
             }
         }
     }
