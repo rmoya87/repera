@@ -423,7 +423,10 @@ final class WatchSessionHub: NSObject {
             result = ctrl.session
         }
         // Do not label Repera's wall-clock as Apple-measured duration.
-        // The optional HKWorkout measurement will be attached once HealthKit has saved it.
+        // If the Watch is recording, HealthKit may complete while device is locked.
+        if startedOnThisWatch && health.isRecording {
+            result.appleHealthProvenance = "watchHealthKitPending"
+        }
         lastFinished = result
         controller = nil
         isPaused = false
