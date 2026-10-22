@@ -57,6 +57,19 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         self.assertIn(".overlay(alignment: .top)", app)
         self.assertIn(".sheet(isPresented:", app)
 
+    def test_settings_avatar_picker_does_not_capture_a_non_sendable_view(self):
+        """PhotosPicker label builders are @Sendable under Swift 6 strict checking."""
+        settings = (
+            Path(__file__).resolve().parents[1]
+            / "Apps/Repera/Sources/SettingsView.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("isPhotoPickerPresented = true", settings)
+        self.assertIn(".photosPicker(\n                        isPresented: $isPhotoPickerPresented,", settings)
+        self.assertIn("iCloudAvatarBadge\n                                .frame(width: 52, height: 52)", settings)
+        self.assertNotIn("let avatarBadge = iCloudAvatarBadge", settings)
+        self.assertNotIn("PhotosPicker(selection: $photoItem", settings)
+        self.assertIn(".onChange(of: photoItem)", settings)
+
     def test_ai_change_request_store_is_present_in_repository_sources(self):
         path = (
             Path(__file__).resolve().parents[1]
