@@ -24,12 +24,12 @@ class UnifiedHealthPermissionsTests(unittest.TestCase):
         self.assertIn("HKObjectType.categoryType(forIdentifier: .menstrualFlow)", request)
         self.assertIn("HKObjectType.categoryType(forIdentifier: .ovulationTestResult)", request)
         self.assertIn("statusForAuthorizationRequest(toShare: share, read: read)", request)
-        self.assertIn("includeSleepInRequest && !includeAllOptional", request)
+        self.assertIn("enableUnifiedHealthAnalysis()", request)
 
     def test_onboarding_uses_same_health_permission_action(self):
         source = self.read("Onboarding/OnboardingFlowView.swift")
-        self.assertIn('subtitle: "Entrenos, calorías y pulso"', source)
-        self.assertIn("await health.requestAccess()", source)
+        self.assertIn('subtitle: "Entrenos, sueño, ciclo y constantes"', source)
+        self.assertIn("await health.requestAccess(includeAllOptional: true)", source)
         self.assertIn("private var healthPermissionsComplete: Bool", source)
         self.assertNotIn("health.isAuthorized && !recovery.needsSleepDecision", source)
 
