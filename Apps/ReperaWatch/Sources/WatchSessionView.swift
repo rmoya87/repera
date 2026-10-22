@@ -61,10 +61,6 @@ struct WatchSessionView: View {
                 Text("Sin plan descargado")
                     .font(.headline)
                     .multilineTextAlignment(.center)
-                Text("Si ya programaste un entrenamiento, sincronízalo desde tu iPhone.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
                 Button {
                     hub.refreshToday()
                 } label: {
@@ -75,10 +71,6 @@ struct WatchSessionView: View {
                 .tint(accent)
                 .foregroundStyle(.black)
                 .accessibilityHint("Solicita al iPhone el entrenamiento programado para hoy")
-                Text("Abre Repera en el iPhone emparejado si no aparece.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 8)
