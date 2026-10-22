@@ -151,6 +151,17 @@ final class WatchSessionHub: NSObject {
             && completedWorkingSets + 1 >= max(1, plannedSets)
             && selectedSetIndex == nil
     }
+    /// The single green arrow replaces the redundant textual "Siguiente".
+    /// WODs with a global score can open their result form without reps;
+    /// individual strength/interval sets must contain an actual quantity.
+    var canConfirmCurrentEntry: Bool {
+        active?.phase == .counting && !isPaused && !reviewingBlock
+            && restRemaining == 0
+            && (currentIsWOD && !wodUsesSeries || effectiveReps > 0)
+    }
+    var nextActionIsFinish: Bool {
+        isFinalSet || (currentIsWOD && !wodUsesSeries)
+    }
     var blockExercises: [SessionExercise] {
         guard let active, let current else { return [] }
         guard let blockID = current.blockId else { return [current] }
