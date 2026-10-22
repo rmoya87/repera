@@ -1,0 +1,33 @@
+name: Android and Wear OS native
+on:
+  push:
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-native-ci.yml'
+  pull_request:
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-native-ci.yml'
+
+jobs:
+  android-native:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install API 37
+        run: sdkmanager 'platforms;android-37' 'build-tools;36.0.0'
+      - name: Gradle 9.6
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - name: Domain parity tests + native builds
+        run: gradle -p android :domain:testDebugUnitTest :mobile:assembleDebug :wear:assembleDebug --no-daemon --stacktrace
