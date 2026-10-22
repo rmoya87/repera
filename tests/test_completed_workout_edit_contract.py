@@ -43,6 +43,15 @@ class CompletedWorkoutEditContractTests(unittest.TestCase):
         self.assertIn('Text("Prescripción · " + move.summaryLine)', wod)
         self.assertNotIn("} else if completedDetails != nil,", wod)
 
+    def test_scoring_follows_format_not_block_kind(self):
+        editor = source("Apps/Repera/Sources/PlanView.swift")
+        bridge = source("Packages/ReperaDomain/Sources/ReperaDomain/CompletedWorkoutEditing.swift")
+        self.assertIn("completedStrengthPrescription(index: index)", editor)
+        self.assertIn("if isEditingCompletedWorkout,", editor)
+        self.assertIn("format.resultCapture != .perMovementSets", editor)
+        self.assertIn('let block = routine.blocks.first(where: { $0.id == result.id })', bridge)
+        self.assertNotIn('$0.id == result.id && $0.kind == .wod', bridge)
+
     def test_amrap_and_death_by_cannot_be_confused_with_elapsed_time(self):
         editor = source("Apps/Repera/Sources/PlanView.swift")
         self.assertIn("if format == .amrap || format == .deathBy", editor)
