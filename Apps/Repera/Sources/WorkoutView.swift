@@ -71,11 +71,18 @@ struct WorkoutView: View {
                     ContentUnavailableView("Sin sesión", systemImage: "pause.circle", description: Text("Vuelve a Inicio para empezar."))
                 }
             }
-            if store.restCoordinator.isActive, !store.workoutClock.isVisible {
-                restDock
-                    .padding(.horizontal, OG.pad)
-                    .padding(.bottom, 12)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            if !store.workoutClock.isVisible {
+                VStack(spacing: 8) {
+                    if runningTimerBlockID != nil, store.workoutClock.hasStarted {
+                        minimizedTimerDock
+                    }
+                    if store.restCoordinator.isActive {
+                        restDock
+                    }
+                }
+                .padding(.horizontal, OG.pad)
+                .padding(.bottom, 12)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .animation(reduceMotion ? nil : .snappy, value: store.restCoordinator.isActive)
@@ -91,7 +98,7 @@ struct WorkoutView: View {
         .fullScreenCover(isPresented: Binding(
             get: { store.workoutClock.isVisible },
             set: { visible in
-                if !visible { store.workoutClock.stop() }
+                if !visible { store.workoutClock.minimize() }
             }
         )) {
             wodFullscreenClock
@@ -613,6 +620,10 @@ struct WorkoutView: View {
     }
 
     private func openBlockTimer(_ block: WorkoutBlockEntry, session: WorkoutSession) {
+        if runningTimerBlockID == block.id, store.workoutClock.hasStarted {
+            store.workoutClock.showClock()
+            return
+        }
         guard let firstIndex = block.indexes.first else { return }
         if !block.indexes.contains(session.currentIndex) {
             // El onChange detiene el reloj anterior y después abre el solicitado.
@@ -976,6 +987,38 @@ struct WorkoutView: View {
         }
     }
 
+    /// Reloj compacto persistente: anotar intervalos sin apagar el EMOM/Tabata.
+    private var minimizedTimerDock: some View {
+        TimelineView(.periodic(from: .now, by: 0.25)) { context in
+            let clock = store.workoutClock
+            HStack(spacing: 12) {
+                Image(systemName: "timer")
+                    .font(.title3.bold())
+                    .foregroundStyle(OG.accent)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(clock.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(OG.label2)
+                        .lineLimit(1)
+                    Text(DurationText.format(clock.displaySeconds(at: context.date)))
+                        .font(.system(size: 23, weight: .bold).monospacedDigit())
+                        .foregroundStyle(OG.label)
+                }
+                Spacer(minLength: 4)
+                Button {
+                    clock.showClock()
+                } label: {
+                    Label("Ver reloj", systemImage: "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .buttonStyle(.bordered)
+                .tint(OG.accent)
+            }
+            .padding(12)
+            .background(OG.surface, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+        }
+    }
+
     private var restDock: some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             let remaining = store.restCoordinator.remainingSeconds
@@ -1173,10 +1216,7 @@ struct WorkoutView: View {
                 isCountingUp: clock.isCountingUp,
                 primaryTitle: clock.primaryTitle,
                 onPrimary: { clock.handlePrimary() },
-                onClose: {
-                    clock.stop()
-                    runningTimerBlockID = nil
-                },
+                onClose: { clock.minimize() },
                 onSkip: clock.isIntervalMode ? { clock.skipInterval() } : nil,
                 onFinish: clock.canFinishByUser ? { clock.finishByUser() } : nil,
                 showFinish: clock.canFinishByUser
