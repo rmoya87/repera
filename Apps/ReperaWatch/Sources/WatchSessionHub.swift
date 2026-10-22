@@ -583,8 +583,9 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
 
     nonisolated func watchConnectivityDidAcknowledge(sessionId: UUID) {
         Task { @MainActor in
-            if self.lastFinished?.id == sessionId {
+            if self.lastFinished?.id == sessionId, !self.awaitingHealthSave {
                 self.acknowledgedSessionID = sessionId
+                self.connectivity.acknowledge(sessionId)
                 self.save()
             }
         }
