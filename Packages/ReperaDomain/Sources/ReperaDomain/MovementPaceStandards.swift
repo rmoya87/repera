@@ -202,11 +202,15 @@ public struct PacePrescriptionLine: Sendable, Hashable {
     public var name: String
     public var kind: MovementPaceKind
     public var quantity: Double
+    /// Factor de carga aproximado para una adaptación de peso. No equivale
+    /// a un estándar Rx ni se debe publicar como modelo fisiológico validado.
+    public var effortMultiplier: Double
 
-    public init(name: String, kind: MovementPaceKind, quantity: Double) {
+    public init(name: String, kind: MovementPaceKind, quantity: Double, effortMultiplier: Double = 1.0) {
         self.name = name
         self.kind = kind
         self.quantity = quantity
+        self.effortMultiplier = effortMultiplier
     }
 }
 
@@ -246,9 +250,22 @@ public enum WODPaceEstimator {
     ) -> [PacePrescriptionLine] {
         exercises.compactMap { entry -> PacePrescriptionLine? in
             let kind = MovementPaceStandards.paceKind(for: entry.exercise)
-            let qty = prescriptionQuantity(entry: entry, kind: kind)
+            let qty = entry.adaptedReps.map(Double.init)
+                ?? prescriptionQuantity(entry: entry, kind: kind)
             guard qty > 0 else { return nil }
-            return PacePrescriptionLine(name: entry.exercise.name, kind: kind, quantity: qty)
+            // Si el usuario ajustó el peso, aproximamos su impacto en ritmo.
+            // Solo es comparable si había una carga prescrita verificable.
+            let baseKg = entry.plannedSets.first?.targetWeightKg
+            let loadFactor: Double
+            if let actual = entry.adaptedWeightKg, let baseKg, baseKg > 0 {
+                loadFactor = min(1.5, max(0.65, pow(max(0.01, actual / baseKg), 0.4)))
+            } else {
+                loadFactor = 1.0
+            }
+            return PacePrescriptionLine(
+                name: entry.exercise.name, kind: kind, quantity: qty,
+                effortMultiplier: loadFactor
+            )
         }
     }
 
@@ -297,7 +314,7 @@ public enum WODPaceEstimator {
         for level in AthleteLevel.allCases {
             var work = 0.0
             for line in lines {
-                work += line.quantity * MovementPaceStandards.secondsPerUnit(line.kind, level: level)
+                work += line.quantity * line.effortMultiplier * MovementPaceStandards.secondsPerUnit(line.kind, level: level)
             }
             let transitions = Double(max(0, lines.count - 1))
                 * MovementPaceStandards.transitionSeconds(for: level)
@@ -318,7 +335,7 @@ public enum WODPaceEstimator {
         for level in AthleteLevel.allCases {
             var work = 0.0
             for line in roundLines {
-                work += line.quantity * MovementPaceStandards.secondsPerUnit(line.kind, level: level)
+                work += line.quantity * line.effortMultiplier * MovementPaceStandards.secondsPerUnit(line.kind, level: level)
             }
             let transitions = Double(max(0, roundLines.count - 1))
                 * MovementPaceStandards.transitionSeconds(for: level)

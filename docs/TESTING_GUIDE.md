@@ -129,6 +129,16 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] Guardar el score global de un bloque anterior cuando otro está seleccionado: solo se confirma el bloque correcto, sin finalizar el otro.
 - [ ] Validar test de dominio y `test_wod_play_contract.py` en CI iOS 27 y, manualmente, en dispositivo.
 
+## Edición de adaptaciones y nota Scaled (todos los scores globales)
+
+- [ ] AMRAP 8': guardar 5 rondas + 4 reps; en «Cargada y envión» poner 15 reps y 25,5 kg (Rx: 20 reps y 40 kg). Guardar, reabrir y comprobar **resultado global 5+4**, prescripción 20/40 intacta, valores adaptados 15/25,5 y **ninguna serie inventada**.
+- [ ] Editar el peso decimal tecleando «25,5» o «25.5» sin que desaparezcan caracteres intermedios; dejar campo vacío restaura Rx.
+- [ ] Ver la adaptación en Historial debajo de cada movimiento y comprobar que «Nota» se ha recalculado; el informe debe indicar «Adaptado» y base orientativa de ritmo de trabajo real, **sin bandas ni PR Rx**.
+- [ ] For Time/RFT, AFAP, Chipper, Ladder, Death By, Max Effort y Buy-in/Cash-out: las adaptaciones por movimiento no sustituyen el tiempo/rondas/reps del bloque; la nota usa datos de ejecución si se modifican.
+- [ ] WOD con carga ajustada pero sin peso Rx disponible: no inventar una comparación de kg; mantener nota solo si existe evidencia de ritmo/volumen útil.
+- [ ] EMOM/Every X, Tabata, Circuito y Fuerza/Skill: mantener el registro habitual de series, cargas, reps y RIR, sin convertir adaptaciones globales en series.
+- [ ] Tras modificar el entrenamiento terminado, comprobar persistencia del ID, fecha, posición, notas, HealthKit y resultados en el detalle.
+
 ## Editar resultados de entrenos terminados (todos los formatos)
 
 - [ ] Verificar **en una compilación nueva instalada en el iPhone** que Editar desde el detalle de una sesión **terminada** enseña «Resultado del entreno» justo debajo de la configuración del AMRAP; no se ven cuadros de «SERIE ANTERIOR / KG / REPS / RIR» por movimiento. Si aparecen, la versión instalada no está usando el editor terminado actualizado.

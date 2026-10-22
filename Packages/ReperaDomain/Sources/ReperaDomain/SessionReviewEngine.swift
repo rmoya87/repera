@@ -79,13 +79,16 @@ public enum SessionReviewEngine {
         let resolvedId = result.wodTemplateId
         let template = resolvedId.flatMap { id in templates.first { $0.id == id } }
         let format = result.format ?? template?.format
+        let isScaled = session.exercises.contains {
+            $0.blockId == result.id && $0.hasWODScaling
+        }
 
         let level: AthleteLevel?
         let score: Int
         let vsStandard: String?
         let basis: ScoreBasis
 
-        if let bands = template?.scoreBands {
+        if !isScaled, let bands = template?.scoreBands {
             let mapped = mapLevel(result: result, bands: bands, format: format)
             level = mapped.level
             score = mapped.score
@@ -101,13 +104,14 @@ public enum SessionReviewEngine {
             score = paced.score
             vsStandard = paced.summary
             basis = .movementPace
-        } else if let typical = template?.typicalMinutes, let elapsed = result.elapsedSeconds, elapsed > 0 {
+        } else if !isScaled, let typical = template?.typicalMinutes, let elapsed = result.elapsedSeconds, elapsed > 0 {
             let mapped = mapLevelFromTypical(elapsedSeconds: elapsed, typicalMinutes: typical)
             level = mapped.level
             score = mapped.score
             vsStandard = mapped.summary
             basis = .typicalTime
-        } else if let mapped = scoreFromFormat(result: result, format: format, typicalMinutes: template?.typicalMinutes) {
+        } else if !isScaled,
+                  let mapped = scoreFromFormat(result: result, format: format, typicalMinutes: template?.typicalMinutes) {
             level = mapped.level
             score = mapped.score
             vsStandard = mapped.summary
@@ -116,17 +120,22 @@ public enum SessionReviewEngine {
             return nil
         }
 
-        let historyNote = vsHistory(result: result, templateId: resolvedId, prior: prior)
+        // Las marcas adaptadas nunca compiten con bandas Rx ni establecen PR
+        // comparables si la cantidad/carga original fue distinta.
+        let historyNote = isScaled ? nil : vsHistory(result: result, templateId: resolvedId, prior: prior)
         let name = template?.name ?? session.title
         let headline: String = {
             if let level {
-                return "\(name): \(level.label) · \(score)/10"
+                return "\(name)\(isScaled ? " · Adaptado" : ""): \(level.label) · \(score)/10"
             }
-            return "\(name): \(score)/10"
+            return "\(name)\(isScaled ? " · Adaptado" : ""): \(score)/10"
         }()
 
         var keep: [String] = []
         var improve: [String] = []
+        if isScaled {
+            keep.append("Marca adaptada: nota estimada con las cantidades y cargas registradas, sin compararla con el estándar Rx.")
+        }
         if let level {
             switch level {
             case .elite, .advanced:
@@ -150,7 +159,9 @@ public enum SessionReviewEngine {
             level: level,
             headline: headline,
             vsHistorySummary: historyNote,
-            vsStandardSummary: vsStandard,
+            vsStandardSummary: isScaled
+                ? "Versión adaptada · " + (vsStandard ?? "Estimación orientativa según el formato.")
+                : vsStandard,
             keepTips: Array(keep.prefix(2)),
             improveTips: Array(improve.prefix(2)),
             movements: [],
@@ -172,6 +183,11 @@ public enum SessionReviewEngine {
             : byBlock
 
         var lines = WODPaceEstimator.prescription(fromExercises: blockExercises)
+        // No sustituir una adaptación (p. ej. todos los movimientos a 0)
+        // por el volumen Rx de plantilla para fabricar una nota.
+        if blockExercises.contains(where: { $0.hasWODScaling }) && lines.isEmpty {
+            return nil
+        }
         var volumeFromTemplate = false
         if lines.isEmpty, let template {
             lines = WODPaceEstimator.prescription(fromMovements: template.movements)
@@ -191,8 +207,15 @@ public enum SessionReviewEngine {
             let estimate = WODPaceEstimator.estimateForTime(lines: lines, rounds: roundCount)
             return WODPaceEstimator.scoreForTime(elapsedSeconds: elapsed, estimate: estimate)
         case .totalReps:
-            guard let rounds = comparableRounds(result) else { return nil }
-            let windowMin = template?.timeCapMinutes
+            // La fracción de ronda se calcula sobre el trabajo del ciclo que
+            // realmente se hizo (adaptado o Rx), no sobre 100 reps arbitrarias.
+            let workPerRound = lines.reduce(0.0) { $0 + $1.quantity }
+            let completed = Double(result.roundsCompleted ?? 0)
+            let partial = Double(result.totalReps ?? 0)
+            guard completed > 0 || partial > 0 else { return nil }
+            let rounds = completed + min(0.99, partial / max(1, workPerRound))
+            let windowMin = session.exercises.first(where: { $0.blockId == result.id })?.blockTimeCapMinutes
+                ?? template?.timeCapMinutes
                 ?? max(5, Int(session.durationMinutes.rounded()))
             let window = Double(max(5, min(90, windowMin))) * 60
             let estimate = WODPaceEstimator.estimateAMRAP(roundLines: lines, windowSeconds: window)

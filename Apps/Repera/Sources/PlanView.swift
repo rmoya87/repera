@@ -591,6 +591,7 @@ struct DayEditorView: View {
     @FocusState private var focusedFormatField: OGSetFieldID?
     @State private var showsReorder = false
     @State private var completedDetails: WorkoutSession?
+    @State private var scaledInputDrafts: [String: String] = [:]
 
     /// La ruta de Historial abre directamente una sesión finalizada. El diseño
     /// no debe esperar a que onAppear inicialice el estado para saber si muestra
@@ -1553,11 +1554,91 @@ struct DayEditorView: View {
                         Text("Prescripción · " + item.plannedSets.map { "\($0.targetReps)" }.joined(separator: "-") + " reps")
                             .font(.caption)
                             .foregroundStyle(OG.label2)
+                        completedWODScalingFields(movementID: item.id, exercise: exercise)
                     }
                     Spacer()
                 }
             }
         }
+    }
+
+    /// Las adaptaciones NO son series completadas: cada movimiento conserva
+    /// cantidad/carga utilizada de forma independiente al score global de WOD.
+    @ViewBuilder
+    private func completedWODScalingFields(movementID: UUID, exercise: Exercise) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Adaptación realizada (opcional)")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(OG.label2)
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(exercise.loggingStyle == .machineWork ? "CANTIDAD REAL" : "REPS REALES")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(OG.label3)
+                    TextField("Según WOD", text: completedWODScaledValue(movementID: movementID, weight: false))
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
+                        .accessibilityLabel("Repeticiones adaptadas · \(exercise.name)")
+                }
+                if exercise.loggingStyle == .loadAndReps {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("KG REALES")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(OG.label3)
+                        TextField("Según WOD", text: completedWODScaledValue(movementID: movementID, weight: true))
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
+                            .accessibilityLabel("Peso adaptado · \(exercise.name)")
+                    }
+                }
+            }
+            Text("En blanco = prescripción original. No añade series ni cambia las rondas del bloque.")
+                .font(.caption2)
+                .foregroundStyle(OG.label3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func completedWODScaledValue(movementID: UUID, weight: Bool) -> Binding<String> {
+        let key = movementID.uuidString + (weight ? "-kg" : "-reps")
+        return Binding(
+            get: {
+                // Conservar la coma, el punto y los decimales a medio escribir.
+                // No volver a formatear desde el modelo al pulsar cada tecla.
+                if let draft = scaledInputDrafts[key] { return draft }
+                guard let entry = completedWorkoutDraft?.exercises.first(where: { $0.id == movementID }) else {
+                    return ""
+                }
+                if weight {
+                    return entry.adaptedWeightKg.map { String(format: "%g", $0) } ?? ""
+                }
+                return entry.adaptedReps.map(String.init) ?? ""
+            },
+            set: { input in
+                scaledInputDrafts[key] = input
+                ensureCompletedWorkoutDraft()
+                guard let index = completedDetails?.exercises.firstIndex(where: { $0.id == movementID })
+                else { return }
+                let cleaned = input.trimmingCharacters(in: .whitespacesAndNewlines)
+                if weight {
+                    if cleaned.isEmpty {
+                        completedDetails?.exercises[index].adaptedWeightKg = nil
+                    } else if let kg = Double(cleaned.replacingOccurrences(of: ",", with: ".")),
+                              kg.isFinite, (0...1000).contains(kg) {
+                        completedDetails?.exercises[index].adaptedWeightKg = kg
+                    }
+                } else if cleaned.isEmpty {
+                    completedDetails?.exercises[index].adaptedReps = nil
+                } else if let reps = Int(cleaned), (0...10000).contains(reps) {
+                    completedDetails?.exercises[index].adaptedReps = reps
+                }
+            }
+        )
     }
 
     @ViewBuilder
@@ -1921,9 +2002,12 @@ struct DayEditorView: View {
                       format.resultCapture != .perMovementSets {
                 // En WOD cronometrados estas cifras son la PRESCRIPCIÓN; el resultado
                 // global se edita arriba, nunca se convierte en sets completados.
-                Text("Prescripción · " + move.summaryLine)
-                    .font(.caption)
-                    .foregroundStyle(OG.label2)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Prescripción · " + move.summaryLine)
+                        .font(.caption)
+                        .foregroundStyle(OG.label2)
+                    completedWODScalingFields(movementID: move.id, exercise: resolved)
+                }
             } else {
                 if isEditingCompletedWorkout {
                     let logged = completedWorkoutDraft?.exercises.first(where: { $0.id == move.id

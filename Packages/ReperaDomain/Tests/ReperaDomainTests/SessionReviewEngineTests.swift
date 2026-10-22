@@ -33,6 +33,33 @@ struct SessionReviewEngineTests {
         #expect(review?.scoreBasis == .catalogBands)
     }
 
+    @Test func scaledFranUsesAdaptedWorkloadNotRxBandsOrRxRecords() {
+        let original = makeForTimeSession(templateId: "fran", title: "Fran", elapsedSeconds: 270)
+        let rx = SessionReviewEngine.review(session: original, history: [])
+        #expect(rx?.scoreBasis == .catalogBands)
+
+        var scaled = original
+        scaled.exercises[0].adaptedReps = 15
+        scaled.exercises[0].adaptedWeightKg = 25
+        let result = SessionReviewEngine.review(session: scaled, history: [original])
+        #expect(result != nil)
+        #expect(result?.scoreBasis == .movementPace)
+        #expect(result?.headline.contains("Adaptado") == true)
+        #expect(result?.vsStandardSummary?.contains("Versión adaptada") == true)
+        #expect(result?.vsHistorySummary == nil)
+        #expect(result?.keepTips.contains(where: { $0.contains("Rx") }) == true)
+        #expect(scaled.exercises[0].loggedSets.isEmpty)
+    }
+
+    @Test func scaledAMRAPUsesActualRoundRepsAndOriginalClock() {
+        var session = makeAMRAPSession(templateId: "cindy", title: "Cindy", rounds: 4, leftoverReps: 7)
+        session.exercises[0].adaptedReps = 3
+        session.exercises[0].blockTimeCapMinutes = 20
+        let result = SessionReviewEngine.review(session: session, history: [])
+        #expect(result?.scoreBasis == .movementPace)
+        #expect(result?.headline.contains("Adaptado") == true)
+    }
+
     @Test func historyPRFasterTime() {
         let prior = makeForTimeSession(
             templateId: "fran",

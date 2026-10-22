@@ -16,6 +16,8 @@ El MCP publica `get_wod_format_contract` como herramienta de **solo lectura**, c
 | Max Effort | Actualmente **solo reps máximas** | Cuenta atrás específica |
 | Circuito / Partner / RFQ | Series por estación, movimiento o bloque | Intervalos con descansos de circuito o cronómetro opcional |
 
+**Adaptaciones registradas al terminar (Scaled):** la app conserva `SessionExercise.adaptedReps` y `adaptedWeightKg` como datos opcionales y separados de `loggedSets`; `get_workout_history` publica `exercises[].scaled_movement.actual_reps` y `actual_weight_kg` solo cuando hay adaptación. Una marca global AMRAP o For Time sigue en `wod_results`, y un movimiento adaptado no constituye una serie ni un récord Rx. La nota de Repera se recalcula en iOS con la dosis adaptada y una estimación heurística del efecto de la carga; **no** es un equivalente Rx ni una medida fisiológica objetiva. El MCP expone esos datos para explicar la valoración, no para reescribirla.
+
 **Compatibilidad y límites conocidos:** `get_workout_history` mantiene `wod_results` sin cambiar su estructura; acompaña la respuesta de la semántica y referencia a la nueva herramienta. Las series de Tabata todavía **no** incluyen un `intervalId` nativo persistido, así que el MCP no atribuye el número exacto de intervalo sin evidencia. Para marcas de Max Effort en kg, calorías o metros falta ampliar el score global de iOS; el MCP no lo anuncia como soportado ni lo transforma artificialmente a repeticiones. La herramienta no concede permiso de escritura ni modifica entrenos guardados.
 
 
