@@ -32,6 +32,10 @@ struct WorkoutView: View {
     @State private var pendingWODConfirm: PendingWODConfirm?
     @State private var usesAutomaticTimer = false
     @State private var pendingTimerBlockID: UUID?
+    /// EMOM/Tabata: el reloj ha terminado, pero todavía se pueden registrar series.
+    @State private var finishedTimedBlockID: UUID?
+    /// Mantener el temporizador del bloque al cambiar entre sus movimientos.
+    @State private var runningTimerBlockID: UUID?
     @FocusState private var focusedSetField: OGSetFieldID?
     @State private var advancedFieldRowID = UUID()
     @FocusState private var advancedFocusedField: OGSetFieldID?
@@ -187,6 +191,7 @@ struct WorkoutView: View {
             WODResultConfirmSheet(
                 title: pending.title,
                 capture: pending.capture,
+                format: pending.format,
                 totalReps: Binding(
                     get: { pendingWODConfirm?.totalReps ?? pending.totalReps },
                     set: { pendingWODConfirm?.totalReps = $0 }
@@ -207,7 +212,8 @@ struct WorkoutView: View {
                             format: current.format,
                             totalReps: current.capture == .totalReps ? current.totalReps : nil,
                             elapsedSeconds: current.capture == .elapsedTime ? current.elapsedSeconds : nil,
-                            roundsCompleted: current.roundsCompleted > 0 ? current.roundsCompleted : nil,
+                            roundsCompleted: (current.format == .amrap || current.format == .deathBy)
+                                ? current.roundsCompleted : nil,
                             wodTemplateId: current.wodTemplateId
                         )
                     )
@@ -230,8 +236,15 @@ struct WorkoutView: View {
         }
         .onChange(of: store.state.activeSession?.currentIndex) { _, _ in
             prefill()
-            store.workoutClock.stop()
-            store.workoutClock.clearPendingEnd()
+            let destinationBlock = store.state.activeSession?.currentExercise.flatMap { $0.blockId ?? $0.id }
+            if destinationBlock != runningTimerBlockID {
+                store.workoutClock.stop()
+                store.workoutClock.clearPendingEnd()
+                runningTimerBlockID = nil
+            }
+            if destinationBlock != finishedTimedBlockID {
+                finishedTimedBlockID = nil
+            }
             if store.state.activeSession?.phase == .ready {
                 store.confirmCurrentOnWatchStyle()
             }
@@ -403,6 +416,15 @@ struct WorkoutView: View {
                     }
                     .listRowBackground(OG.surface)
 
+                    // AMRAP/For Time tienen un resultado GLOBAL del bloque.
+                    // Los movimientos son la prescripción, no una tabla de series a registrar.
+                    if let format = block.format, format.resultCapture != .perMovementSets {
+                        blockScorePanel(block, format: format, session: session)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
+                            .listRowBackground(OG.surface)
+                            .listRowSeparator(.hidden)
+                    }
+
                     ForEach(block.indexes, id: \.self) { index in
                         let entry = session.exercises[index]
                         Group {
@@ -428,7 +450,9 @@ struct WorkoutView: View {
                         }
                         .listRowBackground(OG.surface)
 
-                        if session.currentIndex == index {
+                        if session.currentIndex == index,
+                           entry.wodFormat?.resultCapture == nil
+                               || entry.wodFormat?.resultCapture == .perMovementSets {
                             setsBoard(entry)
                                 .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
                                 .listRowBackground(OG.surface)
@@ -437,7 +461,9 @@ struct WorkoutView: View {
                     }
 
                     if block.indexes.contains(session.currentIndex),
-                       let current = session.currentExercise {
+                       let current = session.currentExercise,
+                       current.wodFormat?.resultCapture == nil
+                           || current.wodFormat?.resultCapture == .perMovementSets {
                         DisclosureGroup("Técnicas de serie · dropset / rest-pause") {
                             logForm(current)
                                 .padding(.top, 8)
@@ -445,6 +471,24 @@ struct WorkoutView: View {
                         .font(.system(size: 13, weight: .medium))
                         .tint(OG.label2)
                         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        .listRowBackground(OG.surface)
+                    }
+                    if finishedTimedBlockID == block.id,
+                       block.format?.resultCapture == .perMovementSets {
+                        HStack(spacing: 12) {
+                            Label("Temporizador finalizado. Registra las series realizadas.", systemImage: "timer")
+                                .font(.footnote)
+                                .foregroundStyle(OG.label2)
+                            Spacer(minLength: 0)
+                            Button("Finalizar bloque") {
+                                finishedTimedBlockID = nil
+                                runningTimerBlockID = nil
+                                store.finishCurrentTimedBlock()
+                                if store.state.activeSession == nil { closeFlow() }
+                            }
+                            .font(.footnote.weight(.semibold))
+                            .buttonStyle(.bordered)
+                        }
                         .listRowBackground(OG.surface)
                     }
                 } header: {
@@ -502,6 +546,63 @@ struct WorkoutView: View {
             // Sin chevron hacia abajo: la fila abierta lleva a la ficha.
         }
         .contentShape(Rectangle())
+    }
+
+    /// Captura única por bloque (AMRAP, For Time, Chipper...), distinta
+    /// de las series individuales de EMOM, Tabata o fuerza.
+    private func blockScorePanel(
+        _ block: WorkoutBlockEntry,
+        format: WODFormat,
+        session: WorkoutSession
+    ) -> some View {
+        let existing = session.wodResults.first(where: { $0.id == block.id })
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Resultado · \(format.displayName)")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                Spacer()
+                if let existing {
+                    Text(existing.summaryLabel)
+                        .font(.system(size: 15, weight: .bold).monospacedDigit())
+                        .foregroundStyle(OG.accent)
+                } else {
+                    Text("Pendiente")
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label3)
+                }
+            }
+            Text(format == .amrap
+                 ? "Rondas completas + repeticiones adicionales; no se apunta una serie por ejercicio."
+                 : (format.resultCapture == .elapsedTime
+                    ? "Tiempo real de finalización del bloque."
+                    : "Máximo de rondas y repeticiones obtenidas."))
+                .font(.footnote)
+                .foregroundStyle(OG.label2)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 10) {
+                Button {
+                    openBlockTimer(block, session: session)
+                } label: {
+                    Label("Iniciar temporizador", systemImage: "timer")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.bordered)
+                Button {
+                    guard let first = block.indexes.first,
+                          session.exercises.indices.contains(first) else { return }
+                    presentScoreEditor(for: session.exercises[first])
+                } label: {
+                    Label(existing == nil ? "Registrar resultado" : "Editar resultado",
+                          systemImage: "square.and.pencil")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .font(.system(size: 12, weight: .semibold))
+        }
+        .padding(14)
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func openBlockTimer(_ block: WorkoutBlockEntry, session: WorkoutSession) {
