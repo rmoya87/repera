@@ -69,7 +69,8 @@ class HealthCaloriesOriginContractTests(unittest.TestCase):
 
     def test_active_energy_ignores_repera_sources(self):
         health = self.read("HealthKitStore.swift")
-        self.assertIn("source.bundleIdentifier != ownBundle", health)
+        self.assertIn("!isReperaSource(source)", health)
+        self.assertIn('source.name.localizedCaseInsensitiveContains("repera")', health)
         self.assertIn(".separateBySource", health)
         self.assertIn("verifiedWorkoutEnergyKcal", health)
 
