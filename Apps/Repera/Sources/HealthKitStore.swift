@@ -1671,13 +1671,12 @@ final class HealthKitStore {
 
     /// Identidad estable, necesaria para no crear dos HKWorkouts de una
     /// misma sesión cuando se reintenta una escritura (o se reinicia la app).
-    private static let reperaSessionMetadataKey = "ReperaSessionID"
 
     private func sessionMetadata(id: UUID, title: String) -> [String: Any] {
         [
             HKMetadataKeyWorkoutBrandName: "Repera",
             "ReperaTitle": title,
-            Self.reperaSessionMetadataKey: id.uuidString,
+            "ReperaSessionID": id.uuidString,
         ]
     }
 
@@ -1697,7 +1696,7 @@ final class HealthKitStore {
             ) { _, samples, _ in
                 let match = (samples as? [HKWorkout] ?? []).first {
                     Self.isReperaSource($0.sourceRevision.source)
-                        && ($0.metadata?[Self.reperaSessionMetadataKey] as? String) == sessionId.uuidString
+                        && ($0.metadata?["ReperaSessionID"] as? String) == sessionId.uuidString
                 }
                 cont.resume(returning: match)
             }
@@ -1795,7 +1794,7 @@ final class HealthKitStore {
         }
         let legacyOwn = overlapping.flatMap { candidate -> HKWorkout? in
             guard Self.isReperaSource(candidate.sourceRevision.source),
-                  candidate.metadata?[Self.reperaSessionMetadataKey] == nil
+                  candidate.metadata?["ReperaSessionID"] == nil
             else { return nil }
             return candidate
         }
