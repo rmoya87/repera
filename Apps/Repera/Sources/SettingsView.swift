@@ -136,7 +136,10 @@ struct SettingsView: View {
                                     .multilineTextAlignment(.leading)
                                     .fixedSize(horizontal: false, vertical: true)
                             } else if lastFullSyncAt > 0 {
-                                Text("Última actualización: \(Date(timeIntervalSince1970: lastFullSyncAt).formatted(date: .abbreviated, time: .shortened))")
+                                Text("Última actualización: \(Date(timeIntervalSince1970: lastFullSyncAt).formatted(
+                                    .dateTime.day().month(.abbreviated).year().hour().minute()
+                                        .locale(Locale(identifier: "es_ES"))
+                                ))")
                                     .font(.caption)
                                     .foregroundStyle(OG.label2)
                                     .multilineTextAlignment(.leading)
