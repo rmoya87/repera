@@ -166,6 +166,23 @@ final class HealthKitStore {
         }
     }
 
+    /// Workout zones come from the actual saved HKWorkout, not estimated from
+    /// age or a generic heart-rate maximum. Only durations observed by Health.
+    struct WorkoutHeartZones: Sendable, Equatable {
+        struct Zone: Identifiable, Sendable, Equatable {
+            let index: Int
+            let seconds: TimeInterval
+            let minimumBpm: Double?
+            let maximumBpm: Double?
+            var id: Int { index }
+        }
+        let title: String
+        let zones: [Zone]
+        let source: String
+        let coveredFraction: Double
+        let intensityLoad: Int?
+    }
+
     /// Muestra de peso corporal leída de Salud.
     struct BodyMassSample: Identifiable, Sendable, Equatable {
         var id: UUID
@@ -1078,6 +1095,54 @@ final class HealthKitStore {
         extras.resolvedWorkoutUUID = workoutUUID
 
         return extras.hasVisualContent || extras.activeEnergyKcal != nil ? extras : nil
+    }
+
+    /// Use workout-specific Apple zone boundaries and durations, including
+    /// user-defined zones. Nil when there is no actual linked Apple workout.
+    func heartZones(for session: WorkoutSession) async -> WorkoutHeartZones? {
+        guard isAvailable,
+              let heartType = HKObjectType.quantityType(forIdentifier: .heartRate),
+              let start = session.startedAt, let finished = session.finishedAt,
+              finished > start
+        else { return nil }
+        let workout: HKWorkout?
+        if let id = session.healthKitWorkoutUUID {
+            workout = await fetchWorkout(uuid: id)
+        } else {
+            workout = await overlappingWorkout(from: start, to: finished)
+        }
+        guard let workout, let group = workout.zoneGroup(for: heartType) else { return nil }
+        let bpmUnit = HKUnit.count().unitDivided(by: .minute())
+        let zones = group.zoneDurations.map { item in
+            WorkoutHeartZones.Zone(
+                index: item.zone.index + 1,
+                seconds: max(0, item.duration),
+                minimumBpm: item.zone.minimum?.doubleValue(for: bpmUnit),
+                maximumBpm: item.zone.maximum?.doubleValue(for: bpmUnit)
+            )
+        }
+        let total = zones.reduce(0.0) { $0 + $1.seconds }
+        guard total >= 60 else { return nil }
+        let full = max(60, workout.endDate.timeIntervalSince(workout.startDate))
+        let coveredFraction = min(1, total / full)
+        let source: String
+        switch group.configuration.source {
+        case .system: source = "Zonas personales de Apple"
+        case .user: source = "Zonas configuradas en Apple Salud"
+        case .app: source = "Zonas definidas para este entreno"
+        @unknown default: source = "Zonas registradas en Apple Salud"
+        }
+        // 0...10 indicates cardiac intensity/load, NEVER performance quality.
+        // Suppress it when HealthKit tracked less than 60% of the workout.
+        let intensity: Int? = coveredFraction >= 0.60 && zones.count >= 3
+            ? min(10, max(0, Int((zones.reduce(0) { sum, zone in
+                sum + zone.seconds * Double(zone.index) / Double(max(1, zones.count))
+            } / total * 10).rounded())))
+            : nil
+        return WorkoutHeartZones(
+            title: session.title, zones: zones, source: source,
+            coveredFraction: coveredFraction, intensityLoad: intensity
+        )
     }
 
     private func loadHealthExtras(
