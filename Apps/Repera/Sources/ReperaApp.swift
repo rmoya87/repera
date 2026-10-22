@@ -37,19 +37,7 @@ struct ReperaApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                if !authReady {
-                    // Use exactly the UIKit scaling/layout of LaunchScreen.storyboard.
-                    LaunchSplashView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .ignoresSafeArea()
-                } else if uiTestTabShell || canEnterMainApp {
-                    RootTabView()
-                } else {
-                    // Login normal (Bienvenido + SIWA). Sin pantalla intermedia de «Confirma tu cuenta».
-                    OnboardingFlowView()
-                }
-            }
+            launchRootView
                 .environment(store)
                 .environment(subscriptions)
                 .environment(HealthKitStore.shared)
@@ -206,9 +194,9 @@ struct ReperaApp: App {
                                 await businessData.refresh()
                                 await workoutSync.sync(store: store)
                                 _ = await aiInbox.sync(store: store)
-                            _ = await AITrainingContextStore.shared.syncCalendar(store: store)
-                            _ = await AIChangeRequestStore.shared.syncCustomExercises(store: store)
-                            await AIChangeRequestStore.shared.refresh(store: store)
+                                _ = await AITrainingContextStore.shared.syncCalendar(store: store)
+                                _ = await AIChangeRequestStore.shared.syncCustomExercises(store: store)
+                                await AIChangeRequestStore.shared.refresh(store: store)
                                 if scenePhase == .active {
                                     aiInbox.startRealtime(store: store)
                                 }
@@ -279,6 +267,24 @@ struct ReperaApp: App {
                         customExercises: store.customExerciseCount
                     )
                 }
+        }
+    }
+
+    /// `WindowGroup` accepts Views. Keep the auth state switch in an explicit
+    /// ViewBuilder so SwiftUI cannot select the SceneBuilder overload of Group.
+    /// All environment, overlay and lifecycle modifiers stay inside the window.
+    @ViewBuilder
+    private var launchRootView: some View {
+        if !authReady {
+            // Match the UIKit sizing/layout of LaunchScreen.storyboard.
+            LaunchSplashView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea()
+        } else if uiTestTabShell || canEnterMainApp {
+            RootTabView()
+        } else {
+            // Login normal (Bienvenido + SIWA).
+            OnboardingFlowView()
         }
     }
 
