@@ -123,11 +123,12 @@ public enum ExerciseEquivalence {
             return 0.95
         }
         if cf == .press {
-            if (cn.contains("hspu") || cn.contains("handstand")) != (pn.contains("hspu") || pn.contains("handstand")) {
-                return 0 // déficit vs press de barra no comparable
-            }
-            if cn.contains("push press") != pn.contains("push press") { return 0.92 }
-            return 0.95
+            // Un press horizontal (banca) NO es una referencia válida de e1RM
+            // para push press/press militar/jerk; incluso entre variantes de
+            // hombro cambia la técnica y la transferencia de potencia.
+            // Las identidades exactas se devuelven al comienzo del método.
+            // Hasta contar con evidencia específica no extrapolamos cargas.
+            return 0
         }
         if cf == .pull {
             if (cn.contains("muscle") || pn.contains("muscle")) && !(cn.contains("muscle") && pn.contains("muscle")) {
