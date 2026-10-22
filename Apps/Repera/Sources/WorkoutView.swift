@@ -25,6 +25,10 @@ struct WorkoutView: View {
     @State private var notesDraft = ""
     /// Filas editables del ejercicio actual (objetivo por serie + check para registrar).
     @State private var liveSets: [LiveSetRow] = []
+    /// Los borradores pertenecen al ejercicio, no a la fila que se reutiliza al navegar.
+    @State private var liveExerciseID: UUID?
+    @State private var liveSessionID: UUID?
+    @State private var liveDraftsByExercise: [UUID: [LiveSetRow]] = [:]
     /// Unidad Cal/m para erg/bike del ejercicio actual.
     @State private var liveQuantityUnit: ExerciseQuantityUnit = .reps
     @State private var setCompletionPulse = 0
@@ -229,6 +233,7 @@ struct WorkoutView: View {
             }
         }
         .onChange(of: store.state.activeSession?.currentIndex) { _, _ in
+            cacheLiveSets()
             prefill()
             store.workoutClock.stop()
             store.workoutClock.clearPendingEnd()
@@ -600,7 +605,7 @@ struct WorkoutView: View {
                 if current.exercise.loadField == .deficitCm {
                     return row.deficitCm.map(String.init) ?? "0"
                 }
-                return row.weightKg.map { String(format: "%g", $0) } ?? "0"
+                return row.weightKg.map { String(format: "%g", $0) } ?? "—"
             case .repsAndTime, .machineWork: return DurationText.format(row.durationSeconds)
             }
         }()
@@ -618,6 +623,7 @@ struct WorkoutView: View {
             OGSetEntryRow(
                 rowID: row.id,
                 index: index + 1,
+                nextEditableRowID: liveSets.dropFirst(index + 1).first(where: { !$0.completed })?.id,
                 previous: OGSetEntryRow.previousText(previousSet),
                 firstValue: firstValue,
                 secondValue: style == .repsOnly ? nil : "\(row.reps)",
@@ -664,12 +670,25 @@ struct WorkoutView: View {
         .padding(.vertical, 3)
     }
 
+    private func cacheLiveSets() {
+        guard let liveExerciseID else { return }
+        liveDraftsByExercise[liveExerciseID] = liveSets
+    }
+
     private func rebuildLiveSets(from current: SessionExercise) {
         syncLiveQuantityUnit(from: current)
+        // Reconciliar los registros confirmados con los borradores aún editables.
+        // Una reconstrucción (check, cambio de plan, navegación) nunca debe
+        // volver a copiar el objetivo y borrar lo que el usuario ya escribió.
+        let retained: [LiveSetRow] = liveExerciseID == current.id
+            ? liveSets
+            : (liveDraftsByExercise[current.id] ?? [])
+        liveExerciseID = current.id
+
         var rows: [LiveSetRow] = []
         let planned = current.plannedSets
         let logged = current.loggedSets
-        let total = max(planned.count, logged.count)
+        let total = max(max(planned.count, logged.count), max(retained.count, 1))
         let style = current.exercise.loggingStyle
         let defaultQty: Int = {
             switch style {
@@ -680,50 +699,53 @@ struct WorkoutView: View {
         }()
 
         let loadField = current.exercise.loadField
-        if total == 0 {
-            liveSets = [LiveSetRow(
-                id: UUID(),
-                weightKg: nil,
-                deficitCm: loadField == .deficitCm ? 0 : nil,
-                durationSeconds: style.usesDuration ? 60 : nil,
-                reps: defaultQty,
-                rir: nil,
-                completed: false
-            )]
-            return
-        }
-
         for i in 0..<total {
             if i < logged.count {
-                let s = logged[i]
-                rows.append(
-                    LiveSetRow(
-                        id: s.id,
-                        weightKg: s.weightKg,
-                        deficitCm: s.deficitCm,
-                        durationSeconds: s.durationSeconds,
-                        reps: s.reps,
-                        rir: s.rir,
-                        completed: true
-                    )
-                )
+                let set = logged[i]
+                rows.append(LiveSetRow(
+                    id: set.id,
+                    weightKg: set.weightKg,
+                    deficitCm: set.deficitCm,
+                    durationSeconds: set.durationSeconds,
+                    reps: set.reps,
+                    rir: set.rir,
+                    completed: true
+                ))
+            } else if i < retained.count {
+                // Incluye la serie recién desmarcada: conserva sus valores
+                // registrados, pero pasa a estado editable.
+                let old = retained[i]
+                rows.append(LiveSetRow(
+                    id: i < planned.count ? planned[i].id : old.id,
+                    weightKg: old.weightKg,
+                    deficitCm: old.deficitCm,
+                    durationSeconds: old.durationSeconds,
+                    reps: old.reps,
+                    rir: old.rir,
+                    completed: false
+                ))
+            } else if i < planned.count {
+                let plannedSet = planned[i]
+                rows.append(LiveSetRow(
+                    id: plannedSet.id,
+                    weightKg: loadField == .weightKg ? plannedSet.targetWeightKg : nil,
+                    deficitCm: loadField == .deficitCm
+                        ? plannedSet.targetWeightKg.map { Int($0.rounded()) } ?? 0 : nil,
+                    durationSeconds: style.usesDuration ? 60 : nil,
+                    reps: max(1, plannedSet.targetReps),
+                    rir: plannedSet.targetRir,
+                    completed: false
+                ))
             } else {
-                let p = planned[i]
-                let plannedDeficit: Int? = {
-                    guard loadField == .deficitCm else { return nil }
-                    return p.targetWeightKg.map { Int($0.rounded()) } ?? 0
-                }()
-                rows.append(
-                    LiveSetRow(
-                        id: p.id,
-                        weightKg: loadField == .weightKg ? p.targetWeightKg : nil,
-                        deficitCm: plannedDeficit,
-                        durationSeconds: style.usesDuration ? 60 : nil,
-                        reps: max(1, p.targetReps),
-                        rir: p.targetRir,
-                        completed: false
-                    )
-                )
+                rows.append(LiveSetRow(
+                    id: UUID(),
+                    weightKg: nil,
+                    deficitCm: loadField == .deficitCm ? 0 : nil,
+                    durationSeconds: style.usesDuration ? 60 : nil,
+                    reps: defaultQty,
+                    rir: nil,
+                    completed: false
+                ))
             }
         }
         liveSets = rows
@@ -1740,10 +1762,19 @@ struct WorkoutView: View {
     }
 
     private func prefill() {
+        if liveSessionID != store.state.activeSession?.id {
+            liveSessionID = store.state.activeSession?.id
+            liveExerciseID = nil
+            liveSets = []
+            liveDraftsByExercise = [:]
+        }
         guard let current = store.state.activeSession?.currentExercise else {
+            liveExerciseID = nil
             liveSets = []
             return
         }
+        let hasUserDraft = liveExerciseID == current.id && !liveSets.isEmpty
+            || liveDraftsByExercise[current.id] != nil
         // Fuerza: registro manual y pesos visibles; WOD cronometrado: reloj por defecto.
         usesAutomaticTimer = (current.wodFormat != nil && current.wodFormat != .strength)
             || (current.blockTimeCapMinutes ?? 0) > 0
@@ -1754,7 +1785,7 @@ struct WorkoutView: View {
         repsText = "\(current.plannedSets.first?.targetReps ?? 8)"
         rebuildLiveSets(from: current)
         // Si hay peso sugerido y la primera serie pendiente no tiene peso, rellenarla.
-        if let suggested,
+        if let suggested, !hasUserDraft,
            let idx = liveSets.firstIndex(where: { !$0.completed }),
            liveSets[idx].weightKg == nil {
             liveSets[idx].weightKg = suggested
