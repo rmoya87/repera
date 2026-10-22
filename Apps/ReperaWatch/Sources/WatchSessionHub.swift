@@ -19,6 +19,8 @@ final class WatchSessionHub: NSObject {
     private(set) var workingReps = 0
     private(set) var selectedSetIndex: Int?
     private(set) var workingWeightKg: Double?
+    private(set) var setDraft = WatchSetDraft()
+    private(set) var summaryDismissed = false
     private(set) var completedRounds = 0
     private(set) var remainingRoundReps = 0
     private(set) var reviewingBlock = false
@@ -48,6 +50,9 @@ final class WatchSessionHub: NSObject {
         var sessionElapsed: Int
         var workingReps: Int
         var workingWeightKg: Double?
+        var setDraft: WatchSetDraft?
+        var selectedSetIndex: Int?
+        var summaryDismissed: Bool?
         var completedRounds: Int
         var remainingRoundReps: Int
         var reviewingBlock: Bool
@@ -67,6 +72,8 @@ final class WatchSessionHub: NSObject {
     }
 
     var active: WorkoutSession? { controller?.session }
+    var presentedSummary: WorkoutSession? { summaryDismissed ? nil : lastFinished }
+    var loggingStyle: ExerciseLoggingStyle { current?.exercise.loggingStyle ?? .loadAndReps }
     var heartRateBpm: Int? { health.pulseBpm }
     var measuredEnergyKcal: Double? { health.kcal }
     var healthWarning: String? { health.permissionIssue }
@@ -229,6 +236,7 @@ final class WatchSessionHub: NSObject {
             includesStrength: plan.exercises.contains { $0.blockKind == .strength }
         )
         lastFinished = nil
+        summaryDismissed = false
         acknowledgedSessionID = nil
         isPaused = false
         reviewingBlock = false
@@ -311,6 +319,101 @@ final class WatchSessionHub: NSObject {
         guard active?.phase == .counting, !isPaused, !reviewingBlock else { return }
         workingWeightKg = max(0, ((workingWeightKg ?? 0) + delta) * 2).rounded() / 2
         save()
+    }
+
+    private func resetSetDraft() {
+        let ex = current
+        let planned = ex?.plannedSets.dropFirst(ex?.loggedSets.count ?? 0).first
+            ?? ex?.plannedSets.last
+        setDraft = WatchSetDraft(
+            rir: ex?.exercise.loggingStyle.usesRIR == true ? planned?.targetRir : nil,
+            deficitCm: ex?.exercise.loadField == .deficitCm
+                ? planned?.targetWeightKg.map { Int($0.rounded()) } : nil,
+            durationSeconds: ex?.exercise.loggingStyle.usesDuration == true ? 60 : nil,
+            unit: ex?.quantityUnit ?? ex?.exercise.defaultQuantityUnit ?? .reps
+        )
+    }
+
+    private func restoreSetDraft(from saved: LoggedSet) {
+        setDraft = WatchSetDraft(rir: saved.rir, deficitCm: saved.deficitCm,
+            durationSeconds: saved.durationSeconds,
+            unit: saved.quantityUnit ?? current?.exercise.defaultQuantityUnit ?? .reps,
+            phase: saved.phase, kind: saved.kind,
+            toFailure: saved.toFailure, drops: saved.drops, clusters: saved.clusters)
+    }
+
+    func setRIR(_ value: Double?) {
+        setDraft.rir = value.map { min(5, max(0, $0)) }
+        setDraft.toFailure = setDraft.rir == 0
+        save()
+    }
+    func adjustDuration(_ delta: Int) {
+        setDraft.durationSeconds = max(0, (setDraft.durationSeconds ?? 0) + delta)
+        save()
+    }
+    func adjustDeficit(_ delta: Int) {
+        setDraft.deficitCm = min(60, max(0, (setDraft.deficitCm ?? 0) + delta))
+        save()
+    }
+    func selectUnit(_ unit: ExerciseQuantityUnit) {
+        guard current?.exercise.loggingStyle == .machineWork else { return }
+        setDraft.unit = unit
+        save()
+    }
+    func setPhase(_ phase: SetPhase) { setDraft.phase = phase; save() }
+    func setKind(_ kind: SetKind) {
+        setDraft.kind = kind
+        if kind != .dropset { setDraft.drops = [] }
+        if kind != .restpause { setDraft.clusters = [] }
+        save()
+    }
+    func setToFailure(_ value: Bool) {
+        setDraft.toFailure = value
+        if value { setDraft.rir = 0 }
+        save()
+    }
+    func addDrop() {
+        setDraft.drops.append(DropSegment(reps: max(1, workingReps), weightKg: workingWeightKg))
+        setDraft.kind = .dropset
+        save()
+    }
+    func adjustDrop(id: UUID, reps: Int = 0, weightKg: Double = 0) {
+        guard let i = setDraft.drops.firstIndex(where: { $0.id == id }) else { return }
+        setDraft.drops[i].reps = max(1, setDraft.drops[i].reps + reps)
+        if weightKg != 0 {
+            setDraft.drops[i].weightKg = max(0, (setDraft.drops[i].weightKg ?? 0) + weightKg)
+        }
+        save()
+    }
+    func removeDrop(id: UUID) { setDraft.drops.removeAll { $0.id == id }; save() }
+    func addCluster() {
+        setDraft.clusters.append(RestPauseCluster(reps: max(1, workingReps)))
+        setDraft.kind = .restpause
+        save()
+    }
+    func adjustCluster(id: UUID, reps: Int = 0, restSeconds: Int = 0) {
+        guard let i = setDraft.clusters.firstIndex(where: { $0.id == id }) else { return }
+        setDraft.clusters[i].reps = max(1, setDraft.clusters[i].reps + reps)
+        setDraft.clusters[i].restSeconds = max(0, setDraft.clusters[i].restSeconds + restSeconds)
+        save()
+    }
+    func removeCluster(id: UUID) { setDraft.clusters.removeAll { $0.id == id }; save() }
+
+    private func preparedSet(reps: Int, previous: LoggedSet? = nil) -> LoggedSet {
+        let style = loggingStyle
+        return LoggedSet(
+            id: previous?.id ?? UUID(), reps: reps,
+            weightKg: current?.exercise.loadField == .weightKg ? workingWeightKg : nil,
+            deficitCm: current?.exercise.loadField == .deficitCm ? setDraft.deficitCm : nil,
+            durationSeconds: style.usesDuration ? setDraft.durationSeconds : nil,
+            quantityUnit: style == .machineWork ? setDraft.unit : nil,
+            completedAt: previous?.completedAt ?? Date(),
+            phase: setDraft.phase, kind: setDraft.kind,
+            rir: style.usesRIR ? setDraft.rir : nil,
+            toFailure: style.usesRIR && setDraft.toFailure,
+            drops: setDraft.kind == .dropset ? setDraft.drops : [],
+            clusters: setDraft.kind == .restpause ? setDraft.clusters : []
+        )
     }
 
     /// Motion detection is just a suggestion; the athlete confirms the actual set.
@@ -586,10 +689,11 @@ final class WatchSessionHub: NSObject {
     }
 
     func clearSummary() {
-        guard !hasWorkoutInProgress, !awaitingHealthSave else { return }
-        lastFinished = nil
+        // Do not block navigation until HealthKit finishes. Retain the finished
+        // result for offline transport, late HealthKit metrics and the phone ACK.
+        guard lastFinished != nil else { return }
+        summaryDismissed = true
         controller = nil
-        acknowledgedSessionID = nil
         checkpoint()
     }
 
@@ -609,6 +713,7 @@ final class WatchSessionHub: NSObject {
             result.appleHealthProvenance = "watchHealthKitPending"
         }
         lastFinished = result
+        summaryDismissed = false
         controller = nil
         isPaused = false
         reviewingBlock = false
@@ -739,6 +844,8 @@ final class WatchSessionHub: NSObject {
             finished: lastFinished, paused: isPaused, restRemaining: restRemaining,
             blockElapsed: blockElapsed, sessionElapsed: sessionElapsed,
             workingReps: workingReps, workingWeightKg: workingWeightKg,
+            setDraft: setDraft, selectedSetIndex: selectedSetIndex,
+            summaryDismissed: summaryDismissed,
             completedRounds: completedRounds,
             remainingRoundReps: remainingRoundReps, reviewingBlock: reviewingBlock,
             clockTick: lastClockTick, acknowledgedSessionID: acknowledgedSessionID,
@@ -762,6 +869,9 @@ final class WatchSessionHub: NSObject {
         sessionElapsed = snapshot.sessionElapsed
         workingReps = snapshot.workingReps
         workingWeightKg = snapshot.workingWeightKg
+        setDraft = snapshot.setDraft ?? WatchSetDraft()
+        selectedSetIndex = snapshot.selectedSetIndex
+        summaryDismissed = snapshot.summaryDismissed ?? false
         completedRounds = snapshot.completedRounds
         remainingRoundReps = snapshot.remainingRoundReps
         reviewingBlock = snapshot.reviewingBlock
@@ -805,4 +915,16 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
             }
         }
     }
+}
+
+struct WatchSetDraft: Codable, Sendable {
+    var rir: Double?
+    var deficitCm: Int?
+    var durationSeconds: Int?
+    var unit: ExerciseQuantityUnit = .reps
+    var phase: SetPhase = .work
+    var kind: SetKind = .straight
+    var toFailure = false
+    var drops: [DropSegment] = []
+    var clusters: [RestPauseCluster] = []
 }
