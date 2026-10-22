@@ -17,7 +17,7 @@ class MixedSessionReviewContractTests(unittest.TestCase):
         self.assertIn("VerifiedSessionReviewEngine.review(session: session, history: history", engine)
         self.assertIn("minimumPriorSessions = 2", trusted)
         self.assertIn("minimumEvidenceCoverage = 0.60", trusted)
-        self.assertIn("perDay.count >= minimumPriorSessions", trusted)
+        self.assertIn("days.count >= minimumPriorSessions", trusted)
         self.assertIn("refs.count >= minimumPriorSessions", trusted)
         self.assertIn("guard coverage >= minimumEvidenceCoverage else { return nil }", trusted)
         self.assertNotIn("registrationScore", trusted)
