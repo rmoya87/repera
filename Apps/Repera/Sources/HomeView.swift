@@ -527,7 +527,7 @@ struct HomeView: View {
                 }
                 if let target = store.state.settings.weeklyWorkoutGoal, target > 0 {
                     ProgressView(
-                        value: min(Double(days.filter(\.hasWorkout).count), Double(target)),
+                        value: min(Double(weeklyWorkoutCount(for: days)), Double(target)),
                         total: Double(target)
                     )
                     .tint(OG.accent)
@@ -538,11 +538,18 @@ struct HomeView: View {
     }
 
     private func weeklyProgressSummary(for days: [DayCell]) -> String {
-        let completed = days.filter(\.hasWorkout).count
+        let daysWithWorkout = days.filter(\.hasWorkout).count
         if let goal = store.state.settings.weeklyWorkoutGoal, goal > 0 {
-            return "\(completed) de \(goal) entrenos"
+            return "\(weeklyWorkoutCount(for: days)) de \(goal) entrenos"
         }
-        return "\(completed) días entrenados"
+        return "\(daysWithWorkout) días entrenados"
+    }
+
+    private func weeklyWorkoutCount(for days: [DayCell]) -> Int {
+        days.reduce(0) { total, day in
+            total + (workoutsByDayKey[day.iso]?.count ?? 0)
+                + (healthByDayKey[day.iso]?.count ?? 0)
+        }
     }
 
     private enum ActivityChartMetric: String, CaseIterable, Identifiable {
@@ -561,14 +568,18 @@ struct HomeView: View {
     private var activityChartPoints: [ActivityChartPoint] {
         let end = calendar.startOfDay(for: selectedDay)
         let start = calendar.date(byAdding: .day, value: -6, to: end) ?? end
+        func withinWindow(_ date: Date) -> Bool {
+            let day = calendar.startOfDay(for: date)
+            return day >= start && day <= end
+        }
         switch activityChartMetric {
         case .steps:
-            return recentSteps.filter { $0.date >= start && $0.date <= end }
+            return recentSteps.filter { withinWindow($0.date) }
                 .map { ActivityChartPoint(date: $0.date, value: Double($0.steps)) }
         case .calories:
             var points = health.recentDailyActiveEnergy
-                .filter { $0.date >= start && $0.date <= end && $0.kcal >= 0 }
-                .map { ActivityChartPoint(date: $0.date, value: $0.kcal) }
+                .filter { withinWindow($0.date) && $0.kcal >= 0 }
+                .map { ActivityChartPoint(date: calendar.startOfDay(for: $0.date), value: $0.kcal) }
             if !points.contains(where: { calendar.isDate($0.date, inSameDayAs: end) }),
                let selectedKcal = dayHealth.activeEnergyKcal, selectedKcal > 0 {
                 points.append(ActivityChartPoint(date: end, value: selectedKcal))
@@ -576,8 +587,8 @@ struct HomeView: View {
             return points.sorted { $0.date < $1.date }
         case .heartRate:
             return health.recentDailyHeartRate
-                .filter { $0.date >= start && $0.date <= end && $0.avgBpm > 0 }
-                .map { ActivityChartPoint(date: $0.date, value: $0.avgBpm) }
+                .filter { withinWindow($0.date) && $0.avgBpm > 0 }
+                .map { ActivityChartPoint(date: calendar.startOfDay(for: $0.date), value: $0.avgBpm) }
         }
     }
 
