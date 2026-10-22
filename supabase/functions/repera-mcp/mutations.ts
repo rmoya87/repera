@@ -1,6 +1,8 @@
 import { z } from "npm:zod@4.3.6";
 import type { McpServer } from "npm:@modelcontextprotocol/server@2.0.0";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.58.0";
+import { workout } from "./schema.ts";
+import { scheduledInstant } from "./time.ts";
 
 // All writes are reversible when possible and guard the AI-authored rows only.
 // The iPhone remains authoritative for already applied workouts.
@@ -23,26 +25,32 @@ const phase=z.strictObject({
 });
 export function registerMutationTools(
   server:McpServer, db:SupabaseClient, ownerId:string,
-  workoutSchema:z.ZodType,
 ) {
   server.registerTool("update_ai_training_plan", {
     description:"Edit a PENDING AI proposal before the iPhone imports it. Optimistic revision; never changes an applied workout, its history or the athlete's personal plan.",
     inputSchema:z.strictObject({
       planId:id,expectedRevision:rev,
-      title:z.string().trim().min(2).max(120),
-      scheduledDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-      scheduledTimeMinutes:z.number().int().min(0).max(1439).optional(),
-      blocks:z.array(z.unknown()).min(1).max(12),
+      ...workout.shape,
     }),
     annotations:{readOnlyHint:false,destructiveHint:true},
-  },async({planId,expectedRevision,title,scheduledDate,scheduledTimeMinutes,blocks})=>{
-    const valid=workoutSchema.safeParse({title,scheduledDate,scheduledTimeMinutes,blocks});
+  },async({planId,expectedRevision,...candidate})=>{
+    const {title,scheduledDate,scheduledTimeMinutes,scheduledTimeZone,scheduledUtcOffsetMinutes,blocks}=candidate;
+    const valid=workout.safeParse(candidate);
     if(!valid.success) return failure("VALIDATION_ERROR","blocks",valid.error.issues.map(i=>i.path.join(".")+": "+i.message).join("; "));
     const day=new Date(scheduledDate+"T12:00:00Z");
     if(!Number.isFinite(day.valueOf())||day.toISOString().slice(0,10)!==scheduledDate)
       return failure("INVALID_DATE","scheduledDate","Fecha inválida");
+    let instant:string|null;
+    try {
+      instant=scheduledInstant(scheduledDate,scheduledTimeMinutes,scheduledTimeZone,scheduledUtcOffsetMinutes);
+    }catch(e){
+      return failure("INVALID_LOCAL_TIME","scheduledTimeZone",String(e));
+    }
     const {data,error}=await db.from("ai_training_plans").update({
       title,scheduled_date:scheduledDate,scheduled_time_minutes:scheduledTimeMinutes??null,
+      scheduled_time_zone:scheduledTimeZone??null,
+      scheduled_utc_offset_minutes:scheduledUtcOffsetMinutes??null,
+      scheduled_at:instant,
       payload:{schemaVersion:1,blocks},revision:expectedRevision+1,
     }).eq("id",planId).eq("owner_id",ownerId).eq("status","pending")
       .eq("revision",expectedRevision)
