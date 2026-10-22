@@ -324,7 +324,6 @@ struct WatchSessionView: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
-                        .accessibilityAddTraits(.updatesFrequently)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
