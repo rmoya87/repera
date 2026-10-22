@@ -21,6 +21,7 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("com.apple.developer.healthkit: true", project)
         self.assertIn("com.apple.developer.healthkit", entitlements)
         self.assertIn("workout-processing", plist)
+        self.assertNotIn("<string>audio</string>", plist)
         self.assertIn("NSHealthShareUsageDescription", plist)
         self.assertIn("NSHealthUpdateUsageDescription", plist)
 
@@ -31,7 +32,8 @@ class WatchHealthKitContractTests(unittest.TestCase):
             "HKLiveWorkoutDataSource(", "startActivity(with:", "beginCollection(withStart:",
             "stopActivity(with:", "endCollection(withEnd:",
             "finishWorkout", "recoverActiveWorkoutSession",
-            "HKMetadataKeyExternalUUID"
+            "HKMetadataKeyExternalUUID", "startMirroringToCompanionDevice",
+            "beginNewActivity(", "onPauseResumeRequest", "pauseOrResumeRequest"
         ):
             self.assertIn(symbol, watch)
 
@@ -45,6 +47,8 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("health.resume()", watch)
         self.assertIn("appleHealthProvenance", watch)
         self.assertIn("reconcileWatchHealthMetrics()", phone)
+        self.assertIn("workoutSessionMirroringStartHandler", health)
+        self.assertIn("isWatchWorkoutMirrored", health)
         self.assertIn("professionalWorkoutForWatchToday()", phone)
         self.assertIn("persistAndFlush(snapshot)", phone)
         self.assertIn("completedAckHealthKitUUID:", phone)
