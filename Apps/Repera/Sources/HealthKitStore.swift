@@ -11,6 +11,38 @@ final class HealthKitStore {
     static let shared = HealthKitStore()
 
     private let store = HKHealthStore()
+    private var mirroredWatchSession: HKWorkoutSession?
+    private var mirroredWatchDelegate: CompanionWorkoutMirrorDelegate?
+    private(set) var mirroredWatchState: HKWorkoutSessionState?
+    private(set) var mirroredWatchError: String?
+
+    /// watchOS is always the primary workout owner; iPhone only mirrors status.
+    /// Never create or finish another builder for the same mirrored session.
+    var isWatchWorkoutMirrored: Bool {
+        mirroredWatchState == .running || mirroredWatchState == .paused
+    }
+
+    private func acceptMirroredWatchSession(_ session: HKWorkoutSession) {
+        mirroredWatchSession?.delegate = nil
+        let delegate = CompanionWorkoutMirrorDelegate(
+            onState: { [weak self] state in
+                Task { @MainActor in
+                    self?.mirroredWatchState = state
+                    if state == .ended || state == .stopped {
+                        self?.mirroredWatchSession = nil
+                        self?.mirroredWatchDelegate = nil
+                    }
+                }
+            },
+            onError: { [weak self] message in
+                Task { @MainActor in self?.mirroredWatchError = message }
+            }
+        )
+        mirroredWatchSession = session
+        mirroredWatchDelegate = delegate
+        mirroredWatchState = session.state
+        session.delegate = delegate
+    }
 
     var isAvailable: Bool { HKHealthStore.isHealthDataAvailable() }
     /// Write access for workouts / active energy (sharingAuthorized).
@@ -210,6 +242,14 @@ final class HealthKitStore {
     private var trackedStart: Date?
 
     private init() {
+        // Install at first HealthKitStore creation, before background mirrored
+        // workout delivery. Apple may create a NEW mirrored instance on reconnect.
+        store.workoutSessionMirroringStartHandler = { [weak self] remoteSession in
+            let transfer = MirroredWorkoutSessionTransfer(session: remoteSession)
+            Task { @MainActor [weak self] in
+                self?.acceptMirroredWatchSession(transfer.session)
+            }
+        }
         // Auth antes que Home: si no, el primer `.task` ve isAuthorized=false y limpia la UI.
         refreshAuthorizationStatus()
         // Cold start: paint Home/Progreso from last snapshot before HealthKit answers.
@@ -1682,6 +1722,10 @@ final class HealthKitStore {
     /// Arranca un `HKWorkoutBuilder` de fuerza tradicional alineado con el reloj/Salud.
     func beginWorkout(sessionId: UUID, title: String, start: Date = Date()) async {
         guard isAvailable else { return }
+        guard !isWatchWorkoutMirrored else {
+            lastError = "Este entrenamiento se está registrando en Apple Watch. Termínalo allí para evitar duplicados en Salud."
+            return
+        }
         refreshAuthorizationStatus()
         guard canWriteWorkouts || isAuthorized else {
             lastError = "Sin permiso de escritura en Salud"
@@ -2138,5 +2182,40 @@ enum HealthActivityIcons {
         default:
             return "figure.mixed.cardio"
         }
+    }
+}
+
+
+/// HealthKit invokes the mirroring callback on a non-main queue. The session is
+/// transferred once to the MainActor; no methods are used concurrently on it.
+private final class MirroredWorkoutSessionTransfer: @unchecked Sendable {
+    let session: HKWorkoutSession
+    init(session: HKWorkoutSession) { self.session = session }
+}
+
+/// The mirrored session has no separate builder on iPhone, by design.
+private final class CompanionWorkoutMirrorDelegate: NSObject, HKWorkoutSessionDelegate {
+    private let onState: @Sendable (HKWorkoutSessionState) -> Void
+    private let onError: @Sendable (String) -> Void
+
+    init(
+        onState: @escaping @Sendable (HKWorkoutSessionState) -> Void,
+        onError: @escaping @Sendable (String) -> Void
+    ) {
+        self.onState = onState
+        self.onError = onError
+    }
+
+    func workoutSession(
+        _ workoutSession: HKWorkoutSession, didChangeTo toState: HKWorkoutSessionState,
+        from fromState: HKWorkoutSessionState, date: Date
+    ) {
+        onState(toState)
+    }
+
+    func workoutSession(
+        _ workoutSession: HKWorkoutSession, didFailWithError error: any Error
+    ) {
+        onError(error.localizedDescription)
     }
 }
