@@ -21,6 +21,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     private var builder: HKLiveWorkoutBuilder?
     private var workoutID: UUID?
     private var lastRecordedBlockID: UUID?
+    private var pendingBlock: (id: UUID, isInterval: Bool)?
     private var finishHandler: ((Result) -> Void)?
     var onPauseResumeRequest: (() -> Void)?
     var onPauseStateChanged: ((Bool) -> Void)?
@@ -31,12 +32,16 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     private(set) var permissionIssue: String?
     private(set) var isRecording = false
 
-    func recoverIfNeeded(id: UUID) {
-        guard workout == nil, HKHealthStore.isHealthDataAvailable() else { return }
+    func recoverIfNeeded(id: UUID, completion: ((Bool) -> Void)? = nil) {
+        guard workout == nil, HKHealthStore.isHealthDataAvailable() else {
+            completion?(workout != nil)
+            return
+        }
         store.recoverActiveWorkoutSession { [weak self] recovered, error in
             Task { @MainActor in
                 guard let self, let recovered else {
                     if let error { self?.permissionIssue = error.localizedDescription }
+                    completion?(false)
                     return
                 }
                 self.workoutID = id
@@ -50,6 +55,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                 live.delegate = self
                 self.builder = live
                 self.isRecording = true
+                completion?(true)
             }
         }
     }
@@ -57,8 +63,12 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     /// Segment boundaries belong to HealthKit, not to guessed heart-rate samples.
     /// Keep the same configuration for intervals as Apple requires.
     func beginBlock(id: UUID, isInterval: Bool) {
-        guard workout != nil, !finishing, id != lastRecordedBlockID,
-              let session = workout else { return }
+        guard !finishing, id != lastRecordedBlockID else { return }
+        guard isRecording, let session = workout else {
+            pendingBlock = (id, isInterval)
+            return
+        }
+        pendingBlock = nil
         lastRecordedBlockID = id
         let metadata: [String: Any] = [
             "com.app.repera.blockID": id.uuidString,
@@ -78,6 +88,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         }
         workoutID = id
         lastRecordedBlockID = nil
+        pendingBlock = nil
         finishing = false
         permissionIssue = nil
         let heart = HKObjectType.quantityType(forIdentifier: .heartRate)!
@@ -122,6 +133,9 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                         Task { @MainActor in
                             guard let self, self.workoutID == id else { return }
                             self.isRecording = ok
+                            if ok, let pending = self.pendingBlock {
+                                self.beginBlock(id: pending.id, isInterval: pending.isInterval)
+                            }
                             if !ok {
                                 self.permissionIssue = err?.localizedDescription ?? "No se inició la recogida de Salud."
                                 self.builder?.discardWorkout()
@@ -249,6 +263,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         builder = nil
         workoutID = nil
         lastRecordedBlockID = nil
+        pendingBlock = nil
         isRecording = false
         finishing = false
         let callback = finishHandler
