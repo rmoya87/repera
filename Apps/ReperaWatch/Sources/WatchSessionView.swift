@@ -6,7 +6,6 @@ import WatchKit
 struct WatchSessionView: View {
     @Environment(WatchSessionHub.self) private var hub
     @State private var showNowPlaying = false
-    @State private var confirmFinish = false
     @State private var showOutline = false
     @State private var showSetDetails = false
 
@@ -31,7 +30,8 @@ struct WatchSessionView: View {
                     emptyView
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(pageTitle)
+            .navigationBarTitleDisplayMode(.automatic)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showNowPlaying = true } label: {
@@ -52,15 +52,19 @@ struct WatchSessionView: View {
                 // Apple requires the entire Now Playing view to fill its own scene.
                 NowPlayingView()
             }
-            .confirmationDialog("¿Finalizar el entrenamiento?",
-                                isPresented: $confirmFinish) {
-                Button("Guardar entrenamiento") { hub.finishWorkout() }
-                Button("Continuar", role: .cancel) {}
-            } message: {
-                Text("Se guardarán las series y los bloques que hayas confirmado.")
-            }
         }
         .tint(accent)
+    }
+
+    /// Native watchOS navigation title sits under the system clock.
+    /// Do not repeat it as a heading inside scrolling workout content.
+    private var pageTitle: String {
+        if hub.presentedSummary != nil { return "¡Bien hecho!" }
+        if hub.reviewingBlock { return hub.current?.displayBlockHeader ?? "Resultado" }
+        if let active = hub.active {
+            return hub.current?.displayBlockHeader ?? active.title
+        }
+        return hub.todaysWorkout?.title ?? "Repera"
     }
 
     private var emptyView: some View {
@@ -98,12 +102,6 @@ struct WatchSessionView: View {
     private func todayView(_ session: WorkoutSession) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                Text("HOY")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(accent)
-                Text(session.title)
-                    .font(.headline)
-                    .fixedSize(horizontal: false, vertical: true)
                 // The format and time are useful; movement/block counts are not.
                 HStack(spacing: 5) {
                     Text(planFormat(session))
@@ -129,9 +127,7 @@ struct WatchSessionView: View {
                                     .font(.caption2.bold())
                                     .foregroundStyle(.secondary)
                             }
-                            ForEach(blockMembers(in: session, startingAt: index), id: \.self) { position in
-                                exerciseCard(session.exercises[position])
-                            }
+                            blockExerciseRows(session, startingAt: index)
                         }
                         .padding(9)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -188,9 +184,9 @@ struct WatchSessionView: View {
         }
     }
 
-    private func exerciseCard(_ exercise: SessionExercise) -> some View {
+    private func exerciseRow(_ exercise: SessionExercise) -> some View {
         HStack(alignment: .center, spacing: 8) {
-            WatchExerciseThumb(exercise: exercise.exercise, size: 44)
+            WatchExerciseThumb(exercise: exercise.exercise, size: 42)
             VStack(alignment: .leading, spacing: 2) {
                 Text(exercise.exercise.name)
                     .font(.caption.weight(.semibold))
@@ -202,24 +198,34 @@ struct WatchSessionView: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(7)
-        .background(.white.opacity(0.06),
-                    in: RoundedRectangle(cornerRadius: 10))
+        .padding(.vertical, 7)
+    }
+
+    private func blockExerciseRows(_ session: WorkoutSession, startingAt start: Int) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(blockMembers(in: session, startingAt: start), id: \.self) { index in
+                if index != start {
+                    Divider().overlay(.gray.opacity(0.3))
+                }
+                exerciseRow(session.exercises[index])
+            }
+        }
     }
 
     private func readyView(_ session: WorkoutSession) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 9) {
-                Text(hub.current?.displayBlockHeader ?? session.title)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(session.progressLabel)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                ForEach(hub.blockExercises) { exercise in
-                    exerciseCard(exercise)
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(hub.blockExercises) { exercise in
+                        if exercise.id != hub.blockExercises.first?.id {
+                            Divider().overlay(.gray.opacity(0.3))
+                        }
+                        exerciseRow(exercise)
+                    }
                 }
+                .padding(.horizontal, 10)
+                .background(.white.opacity(0.07),
+                            in: RoundedRectangle(cornerRadius: 13))
                 if let minutes = hub.current?.blockTimeCapMinutes {
                     Label("\(minutes) min", systemImage: "timer")
                         .font(.caption2)
@@ -233,12 +239,9 @@ struct WatchSessionView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(accent)
                 .foregroundStyle(.black)
-                Button("Ver entrenamiento completo") { showOutline = true }
+                Button("Resumen") { showOutline = true }
                     .font(.caption)
                     .buttonStyle(.bordered)
-                Button("Finalizar entreno") { confirmFinish = true }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 5)
         }
@@ -247,37 +250,32 @@ struct WatchSessionView: View {
     private func runningView(_ session: WorkoutSession) -> some View {
         ScrollView {
             VStack(spacing: 8) {
-                Text(hub.current?.displayBlockHeader ?? session.title)
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .fixedSize(horizontal: false, vertical: true)
+                clockControls
                 if hub.restRemaining > 0 {
                     restView(hub.restRemaining)
+                } else if hub.currentIsWOD && !hub.wodUsesSeries {
+                    wodContent
                 } else {
-                    clockAndProgress
-                    if hub.currentIsWOD && !hub.wodUsesSeries {
-                        wodContent
-                    } else {
-                        seriesContent
-                    }
+                    seriesContent
                 }
-                Button("Ver plan completo") { showOutline = true }
-                    .font(.caption2)
-                    .buttonStyle(.borderless)
-                if !hub.isFinalSet {
-                    HStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    Button("Resumen") { showOutline = true }
+                        .font(.caption.weight(.medium))
+                        .buttonStyle(.bordered)
+                    Spacer(minLength: 0)
+                    if hub.hasNextExercise {
                         Button {
-                            if hub.isPaused { hub.play() } else { hub.pause() }
+                            hub.nextExercise()
                         } label: {
-                            Label(hub.isPaused ? "Seguir" : "Pausa",
-                                  systemImage: hub.isPaused ? "play.fill" : "pause.fill")
+                            Image(systemName: "arrow.right")
+                                .font(.title3.weight(.bold))
+                                .frame(minWidth: 44, minHeight: 38)
                         }
                         .buttonStyle(.bordered)
-                        Button("Finalizar antes") { confirmFinish = true }
-                            .buttonStyle(.bordered)
-                            .tint(.red)
+                        .accessibilityLabel("Siguiente ejercicio")
+                        .accessibilityHint("Ir al siguiente ejercicio sin confirmar la serie pendiente")
+                        .disabled(hub.isPaused || hub.reviewingBlock)
                     }
-                    .font(.caption2)
                 }
             }
             .padding(.horizontal, 5)
@@ -292,14 +290,28 @@ struct WatchSessionView: View {
     }
 
     @ViewBuilder
-    private var clockAndProgress: some View {
-        let currentTime = hub.timeRemaining ?? hub.blockElapsed
-        Text(timeLabel(currentTime))
-            .font(.system(size: 35, weight: .bold, design: .rounded))
-            .monospacedDigit()
-            .minimumScaleFactor(0.7)
-            .contentTransition(.numericText())
-            .accessibilityLabel(hub.timeRemaining == nil ? "Tiempo transcurrido" : "Tiempo restante")
+    private var clockControls: some View {
+        HStack(spacing: 8) {
+            let currentTime = hub.timeRemaining ?? hub.blockElapsed
+            Text(timeLabel(currentTime))
+                .font(.system(size: 31, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .minimumScaleFactor(0.7)
+                .contentTransition(.numericText())
+                .accessibilityLabel(
+                    hub.timeRemaining == nil ? "Tiempo transcurrido" : "Tiempo restante"
+                )
+            Spacer(minLength: 0)
+            Button {
+                if hub.isPaused { hub.play() } else { hub.pause() }
+            } label: {
+                Image(systemName: hub.isPaused ? "play.fill" : "pause.fill")
+                    .font(.headline)
+                    .frame(minWidth: 42, minHeight: 40)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityLabel(hub.isPaused ? "Reanudar entrenamiento" : "Pausar entrenamiento")
+        }
         if let label = hub.intervalLabel {
             HStack(spacing: 6) {
                 Text(label).font(.caption2).foregroundStyle(.secondary)
@@ -310,11 +322,6 @@ struct WatchSessionView: View {
                         .monospacedDigit()
                 }
             }
-        }
-        if hub.timeCapSeconds > 0 {
-            ProgressView(value: Double(min(hub.blockElapsed, hub.timeCapSeconds)),
-                         total: Double(hub.timeCapSeconds))
-                .tint(accent)
         }
         HStack(spacing: 12) {
             if let pulse = hub.heartRateBpm {
@@ -332,18 +339,21 @@ struct WatchSessionView: View {
                 .font(.caption2)
                 .foregroundStyle(.orange)
         }
-        if hub.isPaused {
-            Label("En pausa", systemImage: "pause.circle.fill")
-                .font(.caption)
-                .foregroundStyle(.yellow)
-        }
     }
 
     private var wodContent: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ForEach(hub.blockExercises) { exercise in
-                exerciseCard(exercise)
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(hub.blockExercises) { exercise in
+                    if exercise.id != hub.blockExercises.first?.id {
+                        Divider().overlay(.gray.opacity(0.3))
+                    }
+                    exerciseRow(exercise)
+                }
             }
+            .padding(.horizontal, 9)
+            .background(.white.opacity(0.07),
+                        in: RoundedRectangle(cornerRadius: 13))
             if hub.wodUsesSeries {
                 HStack(spacing: 8) {
                     Button { hub.adjustReps(-1) } label: {
@@ -712,7 +722,7 @@ struct WatchSessionView: View {
             VStack(alignment: .leading, spacing: 9) {
                 HStack {
                     Spacer(minLength: 0)
-                    Text("Plan completo")
+                    Text("Resumen")
                         .font(.headline)
                 }
                 Text(session.title)
@@ -738,9 +748,7 @@ struct WatchSessionView: View {
                                     .font(.caption2.weight(.bold))
                                     .foregroundStyle(.secondary)
                             }
-                            ForEach(blockMembers(in: session, startingAt: index), id: \.self) { position in
-                                exerciseCard(session.exercises[position])
-                            }
+                            blockExerciseRows(session, startingAt: index)
                         }
                         .padding(7)
                         .background(.white.opacity(0.07),
