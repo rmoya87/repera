@@ -211,6 +211,14 @@ final class HealthKitStore {
             HKObjectType.quantityType(forIdentifier: .bodyMass)!,
             HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
             HKObjectType.quantityType(forIdentifier: .heartRate)!,
+            // Opt-in read scopes; HealthKit may return no samples when declined.
+            // Do not use authorizationStatus to infer READ grants.
+            HKObjectType.quantityType(forIdentifier: .restingHeartRate)!,
+            HKObjectType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
+            HKObjectType.quantityType(forIdentifier: .respiratoryRate)!,
+            HKObjectType.quantityType(forIdentifier: .heartRateRecoveryOneMinute)!,
+            HKObjectType.quantityType(forIdentifier: .oxygenSaturation)!,
+            HKObjectType.quantityType(forIdentifier: .appleSleepingWristTemperature)!,
             HKObjectType.workoutType(),
         ]
         read.insert(HKSeriesType.workoutRoute())
