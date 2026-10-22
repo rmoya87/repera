@@ -211,6 +211,9 @@ final class HealthKitStore {
     private var liveBuilder: HKWorkoutBuilder?
     private var trackedSessionId: UUID?
     private var trackedStart: Date?
+    /// Evita dobles escrituras cuando «Terminar» y «Sincronizar ahora»
+    /// intentan guardar la misma sesión al mismo tiempo.
+    @ObservationIgnored private var syncingSessionIds: Set<UUID> = []
 
     private init() {
         // Auth antes que Home: si no, el primer `.task` ve isAuthorized=false y limpia la UI.
@@ -1758,6 +1761,14 @@ final class HealthKitStore {
         fallbackKcal: Double? = nil
     ) async -> WorkoutSyncResult {
         let safeEnd = max(end, start.addingTimeInterval(60))
+        guard syncingSessionIds.insert(sessionId).inserted else {
+            return WorkoutSyncResult(
+                startedAt: start, finishedAt: safeEnd,
+                kcal: 0, durationSeconds: safeEnd.timeIntervalSince(start),
+                workoutUUID: nil
+            )
+        }
+        defer { syncingSessionIds.remove(sessionId) }
         refreshAuthorizationStatus()
         // Primero un registro ajeno real (Apple Watch/Entreno) o el HKWorkout
         // propio con este ID. No se permite que tener kcal sea requisito
