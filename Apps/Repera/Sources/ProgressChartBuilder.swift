@@ -160,7 +160,8 @@ enum ProgressChartBuilder {
         )
     }
 
-    /// Misma regla que Inicio: por día `max(energía activa Salud, suma chips Repera + externos)`.
+    /// Calorías por día exclusivamente desde Salud, sin estimaciones de Repera.
+    /// Las kcal de workouts externos son datos de HKWorkout, no MET calculados.
     static func mergedDailyCalories(
         energyDays: [HealthKitStore.DailyActiveEnergyPoint],
         workouts: [WorkoutSession],
@@ -180,17 +181,10 @@ enum ProgressChartBuilder {
             healthByDay[key] = (dayStart, prev + max(0, day.kcal))
         }
 
+        // Los entrenos Repera podrían conservar kcal estimadas en copias
+        // históricas: no deben alimentar las gráficas ni el total.
+        _ = workouts
         var cardsByDay: [String: (date: Date, kcal: Double)] = [:]
-        for workout in workouts {
-            guard let raw = workout.finishedAt ?? workout.startedAt else { continue }
-            let dayStart = cal.startOfDay(for: raw)
-            guard dayStart >= start, dayStart < endExclusive else { continue }
-            let key = df.string(from: dayStart)
-            let add = max(0, workout.appleActiveEnergyKcal ?? 0)
-            guard add > 0 else { continue }
-            let prev = cardsByDay[key]?.kcal ?? 0
-            cardsByDay[key] = (dayStart, prev + add)
-        }
         for sample in external {
             let dayStart = cal.startOfDay(for: sample.date)
             guard dayStart >= start, dayStart < endExclusive else { continue }
