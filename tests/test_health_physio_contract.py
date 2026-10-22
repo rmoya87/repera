@@ -48,6 +48,11 @@ class LocalHealthPhysiologyContract(unittest.TestCase):
         self.assertIn('Label("Tus datos de salud solo en tu móvil"', view)
         self.assertIn("permissionManagementRequiresSettings", view)
         self.assertIn("Acceso de datos y dispositivos", view)
+        self.assertNotIn('Button("Actualizar desde Apple Salud")', view)
+        self.assertIn("await health.refreshToday()", view)
+        self.assertIn("await recovery.refresh()", view)
+        self.assertIn("await HealthPhysiologyStore.shared.refresh()", view)
+        self.assertIn(".onChange(of: scenePhase)", view)
 
     def test_missing_values_are_not_scores(self):
         recovery = source("Packages/ReperaDomain/Sources/ReperaDomain/RecoveryEngine.swift")
