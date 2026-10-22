@@ -157,6 +157,89 @@ struct SessionReviewEngineTests {
         #expect(SessionReviewEngine.review(session: current, history: [a, b]) == nil)
     }
 
+    @Test func samePushPressAcrossEMOMAndStrengthUsesTierTwoWithRIR() throws {
+        var a = strength(push, kg: 60, daysAgo: 7)
+        var b = strength(push, kg: 65, daysAgo: 3)
+        a.exercises[0].wodFormat = .emom
+        b.exercises[0].wodFormat = .emom
+        a.exercises[0].blockIntervalSeconds = 60
+        b.exercises[0].blockIntervalSeconds = 60
+        a.exercises[0].loggedSets[0].rir = 2
+        b.exercises[0].loggedSets[0].rir = 2
+        var current = strength(push, kg: 70, daysAgo: 0)
+        current.exercises[0].loggedSets[0].rir = 2
+        let score = try #require(SessionReviewEngine.review(
+            session: current, history: [a, b]
+        ))
+        #expect(score.indicators[0].comparisonLevel == 2)
+        #expect(score.indicators[0].referenceSessions == 2)
+        #expect(score.confidenceLabel?.contains("Media") == true)
+    }
+
+    @Test func differentFormatWithoutRIRStillDoesNotFabricateComparison() {
+        var a = strength(push, kg: 60, daysAgo: 7)
+        var b = strength(push, kg: 65, daysAgo: 3)
+        a.exercises[0].wodFormat = .emom
+        b.exercises[0].wodFormat = .emom
+        let current = strength(push, kg: 70, daysAgo: 0)
+        #expect(SessionReviewEngine.review(session: current, history: [a, b]) == nil)
+    }
+
+    private func differentFormatForTime(
+        exerciseName: String = "Burpee box jump over",
+        reps: Int = 12, minutes: Int = 8, daysAgo: Double
+    ) -> WorkoutSession {
+        let ex = Exercise(name: exerciseName, muscleGroup: "Cardio")
+        let block = RoutineBlock(
+            title: "3 RFT", kind: .wod,
+            movements: [WODMovement(name: ex.name, reps: reps)],
+            wodFormat: .forTime, timeCapMinutes: 12, rounds: 3
+        )
+        var workout = SessionController.from(
+            routine: Routine(title: "For Time", blocks: [block]), exercises: [ex]
+        )
+        let finish = today.addingTimeInterval(-daysAgo * 86_400)
+        workout.phase = .finished
+        workout.finishedAt = finish
+        workout.startedAt = finish.addingTimeInterval(-Double(minutes * 60))
+        workout.wodResults = [
+            WODBlockResult(id: block.id, format: .forTime, elapsedSeconds: minutes * 60)
+        ]
+        return workout
+    }
+
+    @Test func threePersonalWODDaysPermitCalibratedCrossFormatStimulus() throws {
+        let earlier = [
+            differentFormatForTime(minutes: 8, daysAgo: 9),
+            differentFormatForTime(minutes: 9, daysAgo: 6),
+            differentFormatForTime(minutes: 7, daysAgo: 3)
+        ]
+        let current = amrap(rounds: 4, partial: 0, reps: 10, daysAgo: 0)
+        let result = try #require(SessionReviewEngine.review(
+            session: current, history: earlier
+        ))
+        #expect(result.indicators[2].comparisonLevel == 3)
+        #expect(result.indicators[2].referenceSessions == 3)
+        #expect(result.confidenceLabel?.contains("Baja") == true)
+        #expect(result.indicators[2].detail.contains("densidad de reps"))
+    }
+
+    @Test func stimulusRequiresThreeDaysAndSameMovementIdentity() {
+        let a = differentFormatForTime(minutes: 8, daysAgo: 9)
+        let b = differentFormatForTime(minutes: 9, daysAgo: 6)
+        let current = amrap(rounds: 4, reps: 10, daysAgo: 0)
+        #expect(SessionReviewEngine.review(session: current, history: [a, b]) == nil)
+        let c = differentFormatForTime(exerciseName: "Press banca", daysAgo: 3)
+        #expect(SessionReviewEngine.review(session: current, history: [a, b, c]) == nil)
+    }
+
+    @Test func legacyReviewIndicatorDecodesWithoutComparisonLevel() throws {
+        let old = ReviewIndicator(dimension: .personalProgress, score: 7, detail: "Anterior")
+        let serialized = try JSONEncoder().encode(old)
+        let result = try JSONDecoder().decode(ReviewIndicator.self, from: serialized)
+        #expect(result.comparisonLevel == nil)
+    }
+
     @Test func plannedButUnloggedMovementsNeverCreateScores() {
         let current = WorkoutSession(
             title: "Plan", exercises: [
