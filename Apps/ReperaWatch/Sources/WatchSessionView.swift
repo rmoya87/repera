@@ -8,13 +8,14 @@ struct WatchSessionView: View {
     @State private var showNowPlaying = false
     @State private var confirmFinish = false
     @State private var showOutline = false
+    @State private var showSetDetails = false
 
     private let accent = Color(red: 0.54, green: 0.91, blue: 0.49)
 
     var body: some View {
         NavigationStack {
             Group {
-                if let finished = hub.lastFinished {
+                if let finished = hub.presentedSummary {
                     finishedView(finished)
                 } else if let active = hub.active {
                     if hub.reviewingBlock {
@@ -46,6 +47,7 @@ struct WatchSessionView: View {
             .sheet(isPresented: $showOutline) {
                 if let workout = hub.active { outlineView(workout) }
             }
+            .sheet(isPresented: $showSetDetails) { setDetailsView }
             .sheet(isPresented: $showNowPlaying) {
                 // Apple requires the entire Now Playing view to fill its own scene.
                 NowPlayingView()
@@ -253,7 +255,7 @@ struct WatchSessionView: View {
                     restView(hub.restRemaining)
                 } else {
                     clockAndProgress
-                    if hub.currentIsWOD {
+                    if hub.currentIsWOD && !hub.wodUsesSeries {
                         wodContent
                     } else {
                         seriesContent
@@ -434,16 +436,7 @@ struct WatchSessionView: View {
             }
             .buttonStyle(.bordered)
             .tint(accent)
-            if let weight = hub.workingWeightKg {
-                HStack(spacing: 8) {
-                    Button("-2,5") { hub.adjustWeight(-2.5) }
-                    Text("\(weight.formatted()) kg")
-                        .font(.caption.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                    Button("+2,5") { hub.adjustWeight(2.5) }
-                }
-                .font(.caption2)
-            }
+            exerciseFields
             Text("Desliza ← → para revisar otras series")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
