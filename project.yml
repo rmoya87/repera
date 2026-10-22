@@ -220,6 +220,8 @@ targets:
     platform: watchOS
     sources:
       - path: Apps/ReperaWatchWidget/ReperaWatchWidget.swift
+      - path: Apps/ReperaWatchWidget/Assets.xcassets
+        buildPhase: resources
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.app.repera.watchkitapp.widget
       MARKETING_VERSION: "$(inherited)"
