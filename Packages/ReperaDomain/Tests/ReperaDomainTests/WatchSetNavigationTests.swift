@@ -23,6 +23,41 @@ final class WatchSetNavigationTests: XCTestCase {
         return ctrl
     }
 
+    func testPrescribedValuesAdvanceByWorkingSetAndIgnoreWarmups() {
+        let exercise = Exercise(name: "Press de banca", muscleGroup: "Pecho")
+        var entry = SessionExercise(
+            exercise: exercise,
+            plannedSets: [
+                PlannedSet(targetReps: 10, targetWeightKg: 40, targetRir: 3),
+                PlannedSet(targetReps: 8, targetWeightKg: 45, targetRir: 2),
+                PlannedSet(targetReps: 6, targetWeightKg: 50, targetRir: 1)
+            ]
+        )
+        XCTAssertEqual(entry.nextWorkSetPrescription?.targetReps, 10)
+        XCTAssertEqual(entry.nextWorkSetPrescription?.targetWeightKg, 40)
+        XCTAssertEqual(entry.nextWorkSetPrescription?.targetRir, 3)
+
+        // Warmup does not consume the first working-set prescription.
+        entry.loggedSets.append(LoggedSet(reps: 5, weightKg: 20, phase: .warmup))
+        XCTAssertEqual(entry.nextWorkSetPrescription?.targetReps, 10)
+        entry.loggedSets.append(LoggedSet(reps: 10, weightKg: 40))
+        XCTAssertEqual(entry.nextWorkSetPrescription?.targetReps, 8)
+        XCTAssertEqual(entry.nextWorkSetPrescription?.targetWeightKg, 45)
+        XCTAssertEqual(entry.nextWorkSetPrescription?.targetRir, 2)
+        entry.loggedSets.append(LoggedSet(reps: 8, weightKg: 45))
+        XCTAssertEqual(entry.nextWorkSetPrescription?.targetReps, 6)
+        XCTAssertEqual(entry.nextWorkSetPrescription?.targetWeightKg, 50)
+        entry.loggedSets.append(LoggedSet(reps: 6, weightKg: 50))
+        // A user may do an extra working set. Preserve last guidance.
+        XCTAssertEqual(entry.nextWorkSetPrescription?.targetReps, 6)
+    }
+
+    func testUnprescribedMovementHasNoInventedTarget() {
+        let movement = Exercise(name: "Burpees", muscleGroup: "Cardio")
+        let entry = SessionExercise(exercise: movement, plannedSets: [])
+        XCTAssertNil(entry.nextWorkSetPrescription)
+    }
+
     func testRevisingEarlierWatchSetPreservesIDAndDoesNotAppend() {
         var ctrl = controller()
         ctrl.logSet(reps: 8, weightKg: 40)
