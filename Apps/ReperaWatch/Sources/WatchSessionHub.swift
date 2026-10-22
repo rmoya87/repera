@@ -26,6 +26,7 @@ final class WatchSessionHub: NSObject {
     private let connectivity = WatchConnectivityClient()
     private let health = WatchHealthKitSession()
     private var startedOnThisWatch = false
+    private var awaitingHealthSave = false
     private let motion = CMMotionManager()
     private var repCounter = MotionRepCounter()
     private var motionTimer: Timer?
@@ -51,7 +52,7 @@ final class WatchSessionHub: NSObject {
         var reviewingBlock: Bool
         var clockTick: Date?
         var acknowledgedSessionID: UUID?
-        var startedOnThisWatch: Bool
+        var startedOnThisWatch: Bool?
     }
 
     override init() {
@@ -384,7 +385,7 @@ final class WatchSessionHub: NSObject {
     }
 
     func clearSummary() {
-        guard !hasWorkoutInProgress else { return }
+        guard !hasWorkoutInProgress, !awaitingHealthSave else { return }
         lastFinished = nil
         controller = nil
         acknowledgedSessionID = nil
@@ -411,6 +412,7 @@ final class WatchSessionHub: NSObject {
         save() // Crash-safe before queuing the transport.
         connectivity.sendFinished(result)
         if startedOnThisWatch {
+            awaitingHealthSave = true
             let id = result.id
             health.finish { [weak self] metrics in
                 self?.applySavedHealth(metrics, to: id)
@@ -428,6 +430,7 @@ final class WatchSessionHub: NSObject {
         if let start = metrics.start { saved.startedAt = start }
         if let end = metrics.end { saved.finishedAt = end }
         lastFinished = saved
+        awaitingHealthSave = false
         acknowledgedSessionID = nil
         save()
         connectivity.sendFinished(saved)
@@ -452,7 +455,11 @@ final class WatchSessionHub: NSObject {
         guard delta > 0 else { return }
         self.lastClockTick = lastClockTick.addingTimeInterval(Double(delta))
         sessionElapsed += delta
+        let isCounting = active?.phase == .counting
+        let previous = blockElapsed
+        if isCounting { blockElapsed += delta }
         if restRemaining > 0 {
+            if currentIsWOD, timeRemaining == 0 { reviewBlock(); return }
             restRemaining = max(0, restRemaining - delta)
             if restRemaining == 0 {
                 WKInterfaceDevice.current().play(.notification)
@@ -461,9 +468,7 @@ final class WatchSessionHub: NSObject {
             }
             return
         }
-        guard active?.phase == .counting else { return }
-        let previous = blockElapsed
-        blockElapsed += delta
+        guard isCounting else { return }
         if let current, let interval = current.blockIntervalSeconds, interval > 0,
            blockElapsed / interval > previous / interval {
             WKInterfaceDevice.current().play(.click)
@@ -550,7 +555,7 @@ final class WatchSessionHub: NSObject {
         reviewingBlock = snapshot.reviewingBlock
         lastClockTick = snapshot.clockTick
         acknowledgedSessionID = snapshot.acknowledgedSessionID
-        startedOnThisWatch = snapshot.startedOnThisWatch
+        startedOnThisWatch = snapshot.startedOnThisWatch ?? false
     }
 }
 
