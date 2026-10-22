@@ -65,6 +65,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_ai_apple_permissions_sync_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_health_physio_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_health_permissions.py' -v
+          python3 -m unittest discover -s tests -p 'test_watch_healthkit_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_wod_play_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_completed_workout_edit_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_scaled_wod_contract.py' -v
