@@ -175,6 +175,7 @@ targets:
         excludes:
           - Info.plist
           - Assets.xcassets
+          - ReperaWatch.entitlements
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.app.repera.watchkitapp
       # Las configuraciones del target heredan la versión compartida del proyecto.
