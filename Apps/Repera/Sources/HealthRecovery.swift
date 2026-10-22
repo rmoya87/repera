@@ -664,8 +664,6 @@ struct HealthRecoveryProgressView: View {
 
             if hasSleepData {
                 sleepContent
-            } else if !isPro {
-                freeRecoveryPreview
             } else {
                 softSleepEmpty
             }
@@ -698,28 +696,6 @@ struct HealthRecoveryProgressView: View {
         }
     }
 
-    @ViewBuilder
-    private var freeRecoveryPreview: some View {
-        let sample = Self.teaserNights(for: range, weekStartsOnMonday: weekStartsOnMonday)
-        let deep = sample.map(\.deepHours).reduce(0, +) / Double(max(1, sample.count))
-        let rem = sample.map(\.remHours).reduce(0, +) / Double(max(1, sample.count))
-        let light = sample.map { max(0, $0.hours - $0.deepHours - $0.remHours) }.reduce(0, +) / Double(max(1, sample.count))
-        let hours = sample.map(\.hours).reduce(0, +) / Double(max(1, sample.count))
-        VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Sueño · ejemplo")
-            sleepNightCard(
-                hours: hours,
-                hoursCaption: sample.count <= 1 ? "Última noche" : "Media · \(range.subtitleLabel)",
-                deep: deep,
-                rem: rem,
-                light: light,
-                nights: sample
-            )
-            .opacity(0.9)
-            .allowsHitTesting(false)
-        }
-    }
-
     private var softSleepEmpty: some View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Sueño")
@@ -731,21 +707,6 @@ struct HealthRecoveryProgressView: View {
                     .foregroundStyle(OG.label2)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-        }
-    }
-
-    private static func teaserNights(for range: ProgressTimeRange, weekStartsOnMonday: Bool) -> [RecoverySleepNight] {
-        let cal = Calendar.current
-        let today = cal.startOfDay(for: Date())
-        let count = min(14, max(1, range.chartDayCount))
-        let start = range.startDate(now: Date(), weekStartsOnMonday: weekStartsOnMonday) ?? today
-        return (0..<count).compactMap { offset -> RecoverySleepNight? in
-            guard let day = cal.date(byAdding: .day, value: offset, to: start), day <= today else { return nil }
-            let t = Double(offset)
-            let deep = max(0.6, 1.2 + 0.4 * sin(t * 0.8))
-            let rem = max(0.7, 1.4 + 0.35 * cos(t * 1.1))
-            let light = max(2.0, 3.2 + 0.5 * cos(t * 0.9))
-            return RecoverySleepNight(date: day, hours: deep + rem + light, deepHours: deep, remHours: rem)
         }
     }
 
@@ -825,16 +786,6 @@ struct HealthRecoveryProgressView: View {
             OGCardSectionTitle(title: "Constantes fisiológicas")
             OGCard {
                 VStack(alignment: .leading, spacing: 14) {
-                    if let latest = physiology.days.last {
-                        let context = RecoveryEngine.vitalContext(
-                            at: latest.date, history: physiology.days
-                        )
-                        Text(context.calibratedSignals > 0
-                             ? "Comparación personal disponible para \(context.calibratedSignals) indicadores."
-                             : "Construyendo tu referencia personal. Cada indicador necesita 7 días anteriores con lecturas.")
-                            .font(.caption)
-                            .foregroundStyle(OG.label2)
-                    }
                     vitalChart("Variabilidad cardíaca (VFC)", unit: "ms", keyPath: \.hrvMilliseconds)
                     Divider().opacity(0.25)
                     vitalChart("Frecuencia en reposo", unit: "lpm", keyPath: \.restingHeartRateBpm)
@@ -854,8 +805,6 @@ struct HealthRecoveryProgressView: View {
                                 .font(.caption).foregroundStyle(OG.label2)
                         }
                     }
-                    Text("Solo se emplean los indicadores autorizados y registrados. Oxígeno, temperatura y recuperación cardíaca son contexto, no una nota clínica. Los datos no salen del dispositivo.")
-                        .font(.caption).foregroundStyle(OG.label3)
                 }
             }
         }
@@ -871,9 +820,9 @@ struct HealthRecoveryProgressView: View {
         _ advice: RecoveryEngine.TrainingReadinessAdvice
     ) -> String {
         switch advice {
-        case .usual: "Entrena con normalidad"
-        case .moderate: "Reduce la intensidad"
-        case .rest: "Prioriza el descanso"
+        case .usual: return "Entrena con normalidad"
+        case .moderate: return "Reduce la intensidad"
+        case .rest: return "Prioriza el descanso"
         }
     }
 
@@ -940,7 +889,7 @@ struct HealthRecoveryProgressView: View {
                                 Circle()
                                     .stroke(OG.surface3, lineWidth: 9)
                                 Circle()
-                                    .trim(from: 0, to: readiness.score / 10)
+                                    .trim(from: 0, to: CGFloat(readiness.score / 10))
                                     .stroke(tint, style: StrokeStyle(lineWidth: 9, lineCap: .round))
                                     .rotationEffect(.degrees(-90))
                                 VStack(spacing: 1) {
@@ -1259,7 +1208,7 @@ struct HealthRecoveryProgressView: View {
                             + (period ? ", menstruación registrada" : ""))
                 }
             }
-            Label("Días registrados de menstruación", systemImage: "circle.fill")
+            Label("Días registrados de menstruación", systemImage: "circle")
                 .font(.caption).foregroundStyle(OG.orange)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
