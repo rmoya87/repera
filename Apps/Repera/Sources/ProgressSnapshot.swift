@@ -289,8 +289,24 @@ enum ProgressDataEngine {
             now: now
         )
 
-        let ids = Set(filteredWorkouts.flatMap { $0.exercises.map(\.exercise.id) })
-        let chartExercises = input.exercises.filter { ids.contains($0.id) }.sorted { $0.name < $1.name }
+        // Últimos ejercicios realmente entrenados, no los primeros alfabéticos.
+        // Prepararlo aquí evita ordenar un historial completo durante el scroll.
+        var lastExerciseDate: [UUID: Date] = [:]
+        for workout in filteredWorkouts {
+            let date = workout.finishedAt ?? workout.startedAt ?? .distantPast
+            for entry in workout.exercises {
+                lastExerciseDate[entry.exercise.id] = max(
+                    lastExerciseDate[entry.exercise.id] ?? .distantPast, date
+                )
+            }
+        }
+        let chartExercises = input.exercises
+            .filter { lastExerciseDate[$0.id] != nil }
+            .sorted {
+                let left = lastExerciseDate[$0.id] ?? .distantPast
+                let right = lastExerciseDate[$1.id] ?? .distantPast
+                return left == right ? $0.name < $1.name : left > right
+            }
         var tops: [UUID: Double] = [:]
         for workout in filteredWorkouts {
             for entry in workout.exercises {
