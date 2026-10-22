@@ -123,11 +123,12 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("hub.refreshToday()", app)
         self.assertIn("hub.refreshToday()", view)
 
-    def test_watch_music_icon_contrasts_with_accent_button(self):
+    def test_watch_does_not_show_music_controls(self):
         view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
-        self.assertIn('Image(systemName: "playpause.fill")', view)
-        self.assertIn(".foregroundStyle(.black)", view)
-        self.assertIn(".symbolRenderingMode(.monochrome)", view)
+        self.assertNotIn("showNowPlaying", view)
+        self.assertNotIn("NowPlayingView()", view)
+        self.assertNotIn('Image(systemName: "playpause.fill")', view)
+        self.assertNotIn("Controlar música o podcast", view)
         self.assertIn("Sincronizar con iPhone", view)
 
     def test_healthkit_state_transitions_never_repeat_running_resume(self):
@@ -224,6 +225,48 @@ class WatchHealthKitContractTests(unittest.TestCase):
         details = view.partition("private var setDetailsView: some View")[2]
         self.assertIn("rirControls", details)
 
+    def test_watch_next_arrow_accepts_zero_without_fake_logged_set(self):
+        hub = source("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
+        view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        self.assertIn("var canConfirmCurrentEntry: Bool", hub)
+        eligibility = hub.partition("var canConfirmCurrentEntry: Bool")[2].partition(
+            "var nextActionIsFinish: Bool")[0]
+        self.assertNotIn("effectiveReps > 0", eligibility)
+        self.assertIn("guard canConfirmCurrentEntry else { return }", hub)
+        self.assertIn("if effectiveReps == 0 {", hub)
+        self.assertIn("if hasNextExercise { nextExercise() } else { finishWorkout() }", hub)
+        self.assertIn("if effectiveReps > 0 {", hub)
+        self.assertIn("confirmIntervalSet()", hub)
+        self.assertIn("if hasNextExercise { nextExercise() } else { reviewBlock() }", hub)
+        self.assertIn(".disabled(!hub.canConfirmCurrentEntry)", view)
+        self.assertIn("hub.confirmAndAdvance()", view)
+        self.assertIn('return "Finalizado"', hub)
+        self.assertNotIn("Intervalos finalizados", hub)
+
+    def test_watch_large_controls_share_green_black_design(self):
+        view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        accent = "Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)"
+        self.assertIn(accent, view)
+        self.assertIn("private func valueStepButton(", view)
+        self.assertIn('valueStepButton(symbol: "minus", label: "Restar repetición")', view)
+        self.assertIn('valueStepButton(symbol: "plus", label: "Sumar repetición")', view)
+        self.assertIn("private func metricStepper(", view)
+        self.assertIn('metricStepper(label: "Peso kg"', view)
+        self.assertIn('metricStepper(label: "Déficit (cm)"', view)
+        self.assertIn('metricStepper(label: "Tiempo serie"', view)
+        self.assertIn("valueStepButton(symbol: \"minus\", label: \"Reducir", view)
+        self.assertIn("valueStepButton(symbol: \"plus\", label: \"Aumentar", view)
+        self.assertIn(".background(accent, in: RoundedRectangle(cornerRadius: 18", view)
+        self.assertIn(".frame(width: 70, height: 70)", view)
+        self.assertIn(".background(accent, in: Circle())", view)
+        self.assertNotIn(".tint(.red)", view)
+        self.assertNotIn("role: .destructive", view)
+        self.assertNotIn(".buttonStyle(.bordered)", view)
+        self.assertNotIn(".buttonStyle(.borderless)", view)
+        for section in view.split(".buttonStyle(.borderedProminent)")[1:]:
+            self.assertIn(".tint(accent)", section[:180])
+            self.assertIn(".foregroundStyle(.black)", section[:180])
+
     def test_watch_timers_and_primary_buttons_match_ios(self):
         view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
         hub = source("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
@@ -234,7 +277,7 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("static let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)", theme)
         self.assertIn("private let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)", view)
         self.assertIn(".background(accent, in: Circle())", view)
-        self.assertIn(".frame(width: 42, height: 42)", view)
+        self.assertIn(".frame(width: 70, height: 70)", view)
         self.assertIn('Image(systemName: hub.isPaused ? "play.fill" : "pause.fill")', view)
         self.assertIn(".foregroundStyle(.black)", view)
 
