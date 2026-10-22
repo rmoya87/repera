@@ -16,10 +16,12 @@ struct HomeView: View {
     @State private var weekOffset = 0
     /// Rango de páginas del carrusel (±1 año).
     private static let weekCarouselRadius = 52
-    @ScaledMetric(relativeTo: .body) private var weekCarouselHeight: CGFloat = 72
+    @ScaledMetric(relativeTo: .body) private var weekCarouselHeight: CGFloat = 82
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: Date())
     /// Live refine for **today** only (HK query). Past days use bucket metrics — never wait on HealthKit to paint.
     @State private var todayHealthLive = HealthKitStore.DayMetrics()
+    /// Pasos reales de Salud del día seleccionado; nil si no hay lecturas disponibles.
+    @State private var selectedDaySteps: Int?
     @State private var showCreatePlanForDay = false
     /// Revisión de pizarra como página (fuera del sheet «Añadir entreno»).
     @State private var boardReviewPayload: BoardScanReviewPayload?
@@ -133,13 +135,15 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    weekAndDayCard
+                    weekSelectorCard
+                    dayWorkoutSection
+                    weeklyProgressCard
+                    activityTodayCard
                     if calendar.isDateInToday(selectedDay) {
                         RecoveryHomeCard()
                     }
                     professionalSessionsForSelectedDay
                     confirmedBusinessBookingsCard
-                    streakCard
                 }
                 .padding(.horizontal, OG.pad)
                 .padding(.top, 0)
@@ -148,30 +152,6 @@ struct HomeView: View {
             .background(OG.bg)
             .refreshable { await businessData.refresh() }
             .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay)) {
-                if !businessData.athleteCenterIds.isEmpty {
-                    NavigationLink {
-                        MessagesInboxView()
-                    } label: {
-                        ZStack(alignment: .topTrailing) {
-                            Image(systemName: "bubble.left.and.bubble.right")
-                                .font(.system(size: OG.toolbarGlassIcon, weight: .semibold))
-                                .foregroundStyle(OG.label)
-                                .symbolRenderingMode(.monochrome)
-                                .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
-                                .contentShape(Circle())
-                                .glassEffect(.regular.interactive(), in: .circle)
-                            if !businessData.personalNotices.isEmpty {
-                                Circle()
-                                    .fill(OG.label)
-                                    .frame(width: 8, height: 8)
-                                    .offset(x: -10, y: 10)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Mensajes con centro o entrenador")
-                }
-
                 NavigationLink {
                     SettingsView()
                 } label: {
@@ -222,6 +202,9 @@ struct HomeView: View {
                 rebuildStreakChrome()
                 prCountBySessionId = store.cachedPersonalRecordCountsBySession()
                 await health.refreshVerifiedWorkoutEnergy(for: store.state.workouts)
+            }
+            .task(id: "\(dayKey(selectedDay))-\(health.healthDataRevision)-\(health.isAuthorized)") {
+                selectedDaySteps = await health.steps(for: selectedDay)
             }
             // Salud diferida: no bloquear el primer paint de Inicio.
             .task(id: "\(weekOffset)-\(store.isHydrated)") {
@@ -377,26 +360,10 @@ struct HomeView: View {
             }
     }
 
-    /// Semana + detalle del día en un solo bloque.
-    private var weekAndDayCard: some View {
-        let workouts = workoutsOnSelectedDay
-        let durationMin = max(
-            workouts.reduce(0.0) { $0 + $1.displayDurationMinutes },
-            dayHealth.workoutMinutes ?? 0
-        )
-        let kcal = dayHealth.activeEnergyKcal.flatMap { $0 > 0 ? $0 : nil }
-        let dayScore: Int? = {
-            let scores = workouts.compactMap { workout -> Int? in
-                guard let review = workout.sessionReview,
-                      review.scoreBasis == .personalHistory,
-                      (review.evidenceCoverage ?? 0) >= 0.60 else { return nil }
-                return review.overallScore
-            }
-            return scores.max()
-        }()
-
-        return OGCard {
-            VStack(alignment: .leading, spacing: 14) {
+    /// El calendario se mantiene navegable por días y semanas, con la selección en verde Repera.
+    private var weekSelectorCard: some View {
+        OGCard {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Button {
                         withAnimation(.snappy(duration: 0.25)) {
@@ -409,6 +376,7 @@ struct HomeView: View {
                             .frame(width: 30, height: 30)
                     }
                     .disabled(weekOffset <= -Self.weekCarouselRadius)
+                    .accessibilityLabel("Semana anterior")
                     Spacer()
                     Text(visibleWeekMonthTitle)
                         .font(.system(size: 13, weight: .medium))
@@ -425,10 +393,9 @@ struct HomeView: View {
                             .frame(width: 30, height: 30)
                     }
                     .disabled(weekOffset >= Self.weekCarouselRadius)
+                    .accessibilityLabel("Semana siguiente")
                 }
 
-                // Carrusel: swipe horizontal entre semanas (misma fila de 7 días).
-                // `buildDays` se evalúa en el body de la página (TabView solo pide las visibles).
                 TabView(selection: $weekOffset) {
                     ForEach(-Self.weekCarouselRadius...Self.weekCarouselRadius, id: \.self) { offset in
                         WeekCarouselPage(
@@ -442,23 +409,186 @@ struct HomeView: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .frame(height: weekCarouselHeight)
+            }
+        }
+    }
 
-                dayEntrenoStack(workouts: workouts)
+    /// Mantiene las fichas reales y todas las acciones que ya tenía Repera:
+    /// continuar, iniciar, ver detalle, eliminar y sumar otro entrenamiento.
+    private var dayWorkoutSection: some View {
+        OGCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text(calendar.isDateInToday(selectedDay) ? "Entrenamiento de hoy" : "Entrenamiento del día")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(OG.label)
+                    Spacer()
+                    if calendar.isDateInToday(selectedDay), store.hasActiveSession {
+                        Text("EN CURSO")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(OG.orange)
+                    }
+                }
+                dayEntrenoStack(workouts: workoutsOnSelectedDay)
+            }
+        }
+    }
 
-                OGAdaptiveMetricLayout(minimumItemWidth: 96, spacing: 10) {
-                    metricTile(title: "Kcal", value: kcal.map { "\(Int($0.rounded()))" } ?? "—", icon: "flame.fill", tint: OG.orange)
-                    metricTile(title: "Tiempo", value: durationMin > 0 ? "\(Int(durationMin.rounded()))′" : "—", icon: "clock.fill", tint: OG.blue)
-                    if let dayScore {
-                        metricTile(
-                            title: "Nota",
-                            value: "\(dayScore)/10",
-                            icon: "star.fill",
-                            tint: OG.accent
-                        )
+    /// Resumen 100 % local: los checks no navegan fuera de Inicio.
+    private var weeklyProgressCard: some View {
+        let days = cachedWeekDays.isEmpty ? makeWeekDays(offset: weekOffset) : cachedWeekDays
+        return OGCard {
+            VStack(alignment: .leading, spacing: 17) {
+                HStack {
+                    Text("Progreso semanal")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(OG.label)
+                    Spacer()
+                    Text("\(days.filter(\.hasWorkout).count) de 7 días")
+                        .font(.system(size: 12))
+                        .foregroundStyle(OG.label2)
+                }
+                HStack(alignment: .center, spacing: 6) {
+                    ForEach(days, id: \.iso) { day in
+                        VStack(spacing: 9) {
+                            Text(day.lbl)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(OG.label2)
+                            ZStack {
+                                Circle()
+                                    .fill(day.hasWorkout ? OG.accent : Color.clear)
+                                    .overlay {
+                                        Circle()
+                                            .strokeBorder(
+                                                day.hasPlan && !day.hasWorkout
+                                                    ? OG.accent.opacity(0.55) : OG.surface3,
+                                                lineWidth: day.hasWorkout ? 0 : 1.5
+                                            )
+                                    }
+                                if day.hasWorkout {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundStyle(OG.onAccent)
+                                }
+                            }
+                            .frame(width: 35, height: 35)
+                            .accessibilityLabel(
+                                "\(day.lbl) \(day.num): " +
+                                (day.hasWorkout ? "entrenamiento completado" :
+                                    day.hasPlan ? "entrenamiento planificado" : "sin entrenamiento")
+                            )
+                        }
+                        .frame(maxWidth: .infinity)
                     }
                 }
             }
         }
+    }
+
+    /// Salud es la fuente de kcal/pasos/FC. Si no hay permiso o muestras, no se inventa un número.
+    /// La puntuación SOLO aparece para sesiones finalizadas con evidencia histórica válida.
+    private var activityTodayCard: some View {
+        let workouts = workoutsOnSelectedDay
+        let kcal = dayHealth.activeEnergyKcal.flatMap { $0 >= 0 ? $0 : nil }
+        let heartRate = health.recentDailyHeartRate.first {
+            calendar.isDate($0.date, inSameDayAs: selectedDay)
+        }?.avgBpm
+        let score = workouts.compactMap { session -> Int? in
+            guard let review = session.sessionReview,
+                  review.scoreBasis == .personalHistory,
+                  (review.evidenceCoverage ?? 0) >= 0.60 else { return nil }
+            return review.overallScore
+        }.max()
+
+        return OGCard {
+            VStack(alignment: .leading, spacing: 14) {
+                Text(calendar.isDateInToday(selectedDay) ? "Actividad de hoy" : "Actividad del día")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(OG.label)
+
+                HStack(alignment: .top, spacing: 8) {
+                    homeActivityMetric(
+                        title: "Pasos",
+                        value: selectedDaySteps.map { $0.formatted() } ?? "—",
+                        unit: "",
+                        symbol: "figure.walk",
+                        tint: OG.accent
+                    )
+                    homeActivityMetric(
+                        title: "Calorías",
+                        value: kcal.map { Int($0.rounded()).formatted() } ?? "—",
+                        unit: "kcal",
+                        symbol: "flame.fill",
+                        tint: OG.orange
+                    )
+                    homeActivityMetric(
+                        title: "FC media",
+                        value: heartRate.map { Int($0.rounded()).formatted() } ?? "—",
+                        unit: "lpm",
+                        symbol: "heart.fill",
+                        tint: OG.red
+                    )
+                }
+
+                if let score {
+                    HStack(spacing: 12) {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(OG.accent)
+                            .frame(width: 40, height: 40)
+                            .background(OG.accent.opacity(0.12), in: Circle())
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Puntuación del entrenamiento")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(OG.label2)
+                            Text("\(score)/10")
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundStyle(OG.label)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(12)
+                    .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+            }
+        }
+    }
+
+    private func homeActivityMetric(
+        title: String,
+        value: String,
+        unit: String,
+        symbol: String,
+        tint: Color
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            ZStack {
+                Circle().strokeBorder(OG.surface3, lineWidth: 4)
+                Image(systemName: symbol)
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundStyle(tint)
+            }
+            .frame(width: 39, height: 39)
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(OG.label2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Text(value)
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(OG.label)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+            if !unit.isEmpty {
+                Text(unit)
+                    .font(.system(size: 11))
+                    .foregroundStyle(OG.label2)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 114, alignment: .topLeading)
+        .padding(10)
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 
     /// Entreno del día: sesión hecha (swipe eliminar), Salud (swipe eliminar), o descanso / plan.
@@ -1087,21 +1217,27 @@ struct HomeView: View {
             return VStack(spacing: 0) {
                 Text(day.lbl)
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(OG.label3)
+                    .foregroundStyle(selected ? OG.onAccent : OG.label3)
                     .tracking(0.3)
                 Text("\(day.num)")
                     .font(.system(size: 17, weight: selected ? .semibold : .regular))
                     .foregroundStyle(selected ? OG.onAccent : OG.label)
-                    .frame(width: 31, height: 31)
-                    .background {
-                        if selected { Circle().fill(OG.accent) }
-                    }
-                    .padding(.vertical, 4)
+                    .padding(.top, 5)
                 Circle()
-                    .fill(dayDot(day))
+                    .fill(selected ? OG.onAccent : dayDot(day))
                     .frame(width: 5, height: 5)
+                    .padding(.top, 5)
             }
-            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity)
+            .frame(height: 64)
+            .background {
+                if selected {
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .fill(OG.accent)
+                }
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .accessibilityAddTraits(selected ? [.isSelected] : [])
         }
     }
 
