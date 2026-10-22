@@ -23,6 +23,7 @@ final class WatchSessionHub: NSObject {
     private(set) var summaryDismissed = false
     private(set) var completedRounds = 0
     private(set) var remainingRoundReps = 0
+    private(set) var reviewElapsedSeconds: Int?
     private(set) var reviewingBlock = false
     private(set) var acknowledgedSessionID: UUID?
 
@@ -55,6 +56,7 @@ final class WatchSessionHub: NSObject {
         var summaryDismissed: Bool?
         var completedRounds: Int
         var remainingRoundReps: Int
+        var reviewElapsedSeconds: Int?
         var reviewingBlock: Bool
         var clockTick: Date?
         var acknowledgedSessionID: UUID?
@@ -679,10 +681,18 @@ final class WatchSessionHub: NSObject {
         tickClock()
         isPaused = true
         reviewingBlock = true
+        reviewElapsedSeconds = blockElapsed
         lastClockTick = nil
         stopMotion()
         if startedOnThisWatch { health.pause() }
         checkpoint()
+    }
+
+    /// Users can correct their actual finishing time before saving For Time.
+    func adjustScoreSeconds(_ delta: Int) {
+        guard reviewingBlock, current?.wodFormat?.resultCapture == .elapsedTime else { return }
+        reviewElapsedSeconds = max(0, (reviewElapsedSeconds ?? blockElapsed) + delta)
+        save()
     }
 
     /// WOD score is global (AMRAP rounds/reps, For Time seconds), not fake sets.
@@ -691,17 +701,21 @@ final class WatchSessionHub: NSObject {
               let current = ctrl.session.currentExercise,
               let id = current.blockId else { return }
         let format = current.wodFormat
-        let elapsed: Int? = format?.resultCapture == .elapsedTime ? blockElapsed : nil
+        let elapsed: Int? = format?.resultCapture == .elapsedTime
+            ? (reviewElapsedSeconds ?? blockElapsed) : nil
         let rounds: Int? = (format == .amrap || format == .deathBy)
             ? completedRounds : nil
         let reps: Int? = format?.resultCapture == .totalReps ? remainingRoundReps : nil
+        let templateID = ctrl.session.routineBlocks?
+            .first(where: { $0.id == id })?.wodTemplateId
         let score = WODBlockResult(id: id, format: format,
                                    totalReps: reps, elapsedSeconds: elapsed,
-                                   roundsCompleted: rounds)
+                                   roundsCompleted: rounds, wodTemplateId: templateID)
         if !wodUsesSeries { ctrl.recordWODResult(score) }
         _ = ctrl.finishCurrentBlock()
         controller = ctrl
         reviewingBlock = false
+        reviewElapsedSeconds = nil
         isPaused = false
         if ctrl.session.phase != .finished, startedOnThisWatch { health.resume() }
         blockElapsed = 0
@@ -885,7 +899,9 @@ final class WatchSessionHub: NSObject {
             setDraft: setDraft, selectedSetIndex: selectedSetIndex,
             summaryDismissed: summaryDismissed,
             completedRounds: completedRounds,
-            remainingRoundReps: remainingRoundReps, reviewingBlock: reviewingBlock,
+            remainingRoundReps: remainingRoundReps,
+            reviewElapsedSeconds: reviewElapsedSeconds,
+            reviewingBlock: reviewingBlock,
             clockTick: lastClockTick, acknowledgedSessionID: acknowledgedSessionID,
             startedOnThisWatch: startedOnThisWatch
         )
@@ -916,6 +932,7 @@ final class WatchSessionHub: NSObject {
         summaryDismissed = snapshot.summaryDismissed ?? false
         completedRounds = snapshot.completedRounds
         remainingRoundReps = snapshot.remainingRoundReps
+        reviewElapsedSeconds = snapshot.reviewElapsedSeconds
         reviewingBlock = snapshot.reviewingBlock
         lastClockTick = snapshot.clockTick
         acknowledgedSessionID = snapshot.acknowledgedSessionID
