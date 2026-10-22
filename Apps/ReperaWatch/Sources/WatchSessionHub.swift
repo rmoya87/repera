@@ -24,6 +24,8 @@ final class WatchSessionHub: NSObject {
     private(set) var acknowledgedSessionID: UUID?
 
     private let connectivity = WatchConnectivityClient()
+    private let health = WatchHealthKitSession()
+    private var startedOnThisWatch = false
     private let motion = CMMotionManager()
     private var repCounter = MotionRepCounter()
     private var motionTimer: Timer?
@@ -49,6 +51,7 @@ final class WatchSessionHub: NSObject {
         var reviewingBlock: Bool
         var clockTick: Date?
         var acknowledgedSessionID: UUID?
+        var startedOnThisWatch: Bool
     }
 
     override init() {
@@ -62,6 +65,10 @@ final class WatchSessionHub: NSObject {
     }
 
     var active: WorkoutSession? { controller?.session }
+    var heartRateBpm: Int? { health.pulseBpm }
+    var measuredEnergyKcal: Double? { health.kcal }
+    var healthWarning: String? { health.permissionIssue }
+    var healthRecording: Bool { health.isRecording }
     var hasWorkoutInProgress: Bool {
         guard let session = active else { return false }
         return session.phase != .finished
@@ -121,6 +128,10 @@ final class WatchSessionHub: NSObject {
     func activate() {
         connectivity.delegate = self
         connectivity.activate()
+        if let active, startedOnThisWatch { health.recoverIfNeeded(id: active.id) }
+        if let finished = lastFinished, acknowledgedSessionID != finished.id {
+            connectivity.sendFinished(finished)
+        }
         startClock()
         if active?.phase == .counting && !isPaused { startMotion() }
     }
@@ -136,6 +147,8 @@ final class WatchSessionHub: NSObject {
         var next = SessionController(session: plan)
         next.startOnPhone()
         controller = next
+        startedOnThisWatch = true
+        health.start(id: next.session.id, at: next.session.startedAt ?? Date())
         lastFinished = nil
         acknowledgedSessionID = nil
         isPaused = false
@@ -160,6 +173,7 @@ final class WatchSessionHub: NSObject {
             isPaused = false
             lastClockTick = Date()
             if ctrl.session.phase == .counting && restRemaining == 0 { startMotion() }
+            if startedOnThisWatch { health.resume() }
             checkpoint()
             return
         }
@@ -187,6 +201,7 @@ final class WatchSessionHub: NSObject {
         isPaused = true
         lastClockTick = nil
         stopMotion()
+        if startedOnThisWatch { health.pause() }
         checkpoint()
     }
 
@@ -325,6 +340,7 @@ final class WatchSessionHub: NSObject {
         reviewingBlock = true
         lastClockTick = nil
         stopMotion()
+        if startedOnThisWatch { health.pause() }
         checkpoint()
     }
 
@@ -347,6 +363,7 @@ final class WatchSessionHub: NSObject {
         controller = ctrl
         reviewingBlock = false
         isPaused = false
+        if startedOnThisWatch { health.resume() }
         blockElapsed = 0
         restRemaining = 0
         workingReps = 0
@@ -384,7 +401,8 @@ final class WatchSessionHub: NSObject {
             ctrl.finishWorkout()
             result = ctrl.session
         }
-        result.appleDurationSeconds = TimeInterval(max(0, sessionElapsed))
+        // Do not label Repera's wall-clock as Apple-measured duration.
+        // The optional HKWorkout measurement will be attached once HealthKit has saved it.
         lastFinished = result
         controller = nil
         isPaused = false
@@ -392,7 +410,27 @@ final class WatchSessionHub: NSObject {
         lastClockTick = nil
         save() // Crash-safe before queuing the transport.
         connectivity.sendFinished(result)
+        if startedOnThisWatch {
+            let id = result.id
+            health.finish { [weak self] metrics in
+                self?.applySavedHealth(metrics, to: id)
+            }
+        }
         WKInterfaceDevice.current().play(.success)
+    }
+
+    private func applySavedHealth(_ metrics: WatchHealthKitSession.Result, to id: UUID) {
+        guard var saved = lastFinished, saved.id == id else { return }
+        if let uuid = metrics.uuid { saved.healthKitWorkoutUUID = uuid }
+        if let seconds = metrics.durationSeconds { saved.appleDurationSeconds = seconds }
+        if let kcal = metrics.activeEnergyKcal { saved.appleActiveEnergyKcal = kcal }
+        if let bpm = metrics.averageHeartRateBpm { saved.appleAverageHeartRateBpm = bpm }
+        if let start = metrics.start { saved.startedAt = start }
+        if let end = metrics.end { saved.finishedAt = end }
+        lastFinished = saved
+        acknowledgedSessionID = nil
+        save()
+        connectivity.sendFinished(saved)
     }
 
     private func startClock() {
@@ -486,7 +524,8 @@ final class WatchSessionHub: NSObject {
             workingReps: workingReps, workingWeightKg: workingWeightKg,
             completedRounds: completedRounds,
             remainingRoundReps: remainingRoundReps, reviewingBlock: reviewingBlock,
-            clockTick: lastClockTick, acknowledgedSessionID: acknowledgedSessionID
+            clockTick: lastClockTick, acknowledgedSessionID: acknowledgedSessionID,
+            startedOnThisWatch: startedOnThisWatch
         )
         if let data = try? JSONEncoder().encode(snapshot) {
             UserDefaults.standard.set(data, forKey: persistenceKey)
@@ -511,6 +550,7 @@ final class WatchSessionHub: NSObject {
         reviewingBlock = snapshot.reviewingBlock
         lastClockTick = snapshot.clockTick
         acknowledgedSessionID = snapshot.acknowledgedSessionID
+        startedOnThisWatch = snapshot.startedOnThisWatch
     }
 }
 
