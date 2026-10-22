@@ -121,13 +121,21 @@ public struct SessionController: Sendable {
 
         let start = session.currentIndex
         let blockID = session.exercises[start].blockId
-        var end = start
-        repeat {
-            session.exercises[end].isCompleted = true
+        // The athlete can switch between movements during an interval block.
+        // Finish the entire block, including movements before currentIndex.
+        if let blockID {
+            for i in session.exercises.indices where session.exercises[i].blockId == blockID {
+                session.exercises[i].isCompleted = true
+            }
+        } else {
+            session.exercises[start].isCompleted = true
+        }
+        var end = start + 1
+        while end < session.exercises.count &&
+              blockID != nil &&
+              session.exercises[end].blockId == blockID {
             end += 1
-        } while end < session.exercises.count &&
-            blockID != nil &&
-            session.exercises[end].blockId == blockID
+        }
 
         if end < session.exercises.count {
             session.currentIndex = end
