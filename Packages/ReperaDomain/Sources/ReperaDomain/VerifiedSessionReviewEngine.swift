@@ -28,13 +28,22 @@ public enum VerifiedSessionReviewEngine {
                 && ($0.finishedAt ?? .distantPast) >= cutoff
         }
 
-        let movementEntries = session.exercises.filter {
+        let movementCandidates = session.exercises.filter {
+            $0.wodFormat == nil || $0.wodFormat?.resultCapture == .perMovementSets
+        }
+        let movementEntries = movementCandidates.filter {
             $0.loggedSets.contains(where: { !$0.isWarmup && $0.reps > 0 })
         }
         let wodResults = session.wodResults.filter { validScore($0) }
-        // Only count actual performance evidence; missing unlogged sets do not
-        // become zeros, and the score doesn't increase from tapping checkboxes.
-        let possible = movementEntries.count + wodResults.count
+        let plannedGlobalBlocks = session.routineBlocks?.filter {
+            guard let format = $0.wodFormat else { return false }
+            return format.resultCapture != .perMovementSets
+        }.count ?? 0
+        // Coverage counts ALL prescribed performance units, including blocks
+        // with no record: a single comparable movement in a long mixed session
+        // must not masquerade as a reliable global workout grade.
+        // Unlogged prescriptions have no score and are never penalized.
+        let possible = movementCandidates.count + max(plannedGlobalBlocks, wodResults.count)
         guard possible > 0 else { return nil }
 
         let movementEvidence = movementEntries.compactMap {
@@ -181,6 +190,8 @@ public enum VerifiedSessionReviewEngine {
             if perDay.contains(where: { $0.0 == day }) { continue }
             let comparable = workout.exercises.filter {
                 sameExercise($0.exercise, entry.exercise)
+                    && $0.wodFormat == entry.wodFormat
+                    && $0.blockIntervalSeconds == entry.blockIntervalSeconds
             }.compactMap { candidate -> Double? in
                 guard let otherSet = bestComparableSet(entry: candidate, reference: currentSet),
                       let value = loadMetric(otherSet, style: entry.exercise.loggingStyle),
