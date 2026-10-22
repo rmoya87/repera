@@ -79,6 +79,7 @@ struct ProTeaserCard: View {
             }
         }
         .frame(width: 148, height: 210)
+        .clipped() // La mascota puede ser grande, sin tapar textos ni CTA.
         .accessibilityHidden(true)
     }
 
