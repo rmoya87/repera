@@ -49,6 +49,15 @@ La disponibilidad efectiva de los permisos, sensores, background execution y est
 El Watch utiliza las variantes `async throws` de `requestAuthorization(toShare:read:)`, `beginCollection(at:)`, `addMetadata(_:)`, `endCollection(at:)` y `finishWorkout()`. El inicio opcional del mirroring usa `startMirroringToCompanionDevice()` de manera independiente, para que el entrenamiento siga funcionando sin iPhone. No volver a introducir las sobrecargas con `completion` que Xcode 27 señala con **Consider using asynchronous alternative function**. Los errores se tratan sin atribuir mediciones inventadas a Salud. El contrato de código que comprueba estas APIs está en `tests/test_watch_healthkit_contract.py`.
 
 
+
+## Instalación de la complicación watchOS
+
+El `ReperaWatchWidget.appex` requiere un `CFBundleName` no vacío para que CoreSimulator/installd pueda instalarlo dentro de `ReperaWatch.app`. El nombre establecido es `ReperaWatch`, declarado **tanto** en `Apps/ReperaWatchWidget/Info.plist` como en `project.yml` (target `ReperaWatchWidget`, `info.properties`). También se mantiene `CFBundleInfoDictionaryVersion: 6.0`, el tipo `XPC!`, el identificador `com.app.repera.watchkitapp.widget` y el punto de extensión `com.apple.widgetkit-extension`.
+
+La verificación de los plists fuente está en `python3 scripts/check_watch_widget_plist.py`. Para validar el resultado real de una compilación, indicar su ruta: `python3 scripts/check_watch_widget_plist.py --built /ruta/a/ReperaWatchWidget.appex/Info.plist`. El job de Xcode CI comprueba el `.appex` compilado después del build Watch. Los tests de regresión están en `tests/test_watch_widget_plist.py`.
+
+Si el simulador muestra `does not have a CFBundleName key with a non-zero length string value`, actualizar `origin/main`, regenerar con `xcodegen generate --spec project.yml`, compilar e instalar nuevamente. Si persiste, verificar la copia efectiva de `Info.plist` dentro de `ReperaWatchWidget.appex`, no únicamente el fichero del repositorio. Un plist correcto en origen no garantiza que el paquete generado lo conserve.
+
 ## Recompilar después de incorporar archivos Swift al Watch
 
 `Repera.xcodeproj` está ignorado en Git y se genera localmente con XcodeGen; descargar el archivo Swift desde GitHub **no actualiza automáticamente** la lista de `Compile Sources` de un proyecto Xcode que ya estaba abierto.
