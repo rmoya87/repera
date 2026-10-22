@@ -41,6 +41,25 @@ final class WorkoutClockCoordinator {
     private var tabataWork = 20
     private var tabataRest = 10
     private var isTabata = false
+    /// Número mostrado al atleta: una ronda Tabata incluye trabajo y descanso.
+    var displayedRound: Int {
+        guard isIntervalMode else { return 0 }
+        if phaseRoundNumbers.indices.contains(intervalIndex) {
+            return phaseRoundNumbers[intervalIndex]
+        }
+        return isTabata ? intervalIndex / 2 + 1 : intervalIndex + 1
+    }
+    var displayedRoundsTotal: Int {
+        guard isIntervalMode else { return 0 }
+        if let explicitRoundsTotal { return explicitRoundsTotal }
+        return isTabata ? max(1, totalIntervals / 2) : totalIntervals
+    }
+    /// Duración real de cada fase (trabajo/descanso), no una longitud constante.
+    private var phaseDurations: [Int] = []
+    private var phaseSubtitles: [String] = []
+    private var phaseRoundNumbers: [Int] = []
+    private var explicitRoundsTotal: Int?
+    private var allowsEarlyIntervalFinish = false
 
     /// Absolute end of pre-countdown (nil when not in pre).
     private var preCountdownEnd: Date?
@@ -92,7 +111,8 @@ final class WorkoutClockCoordinator {
 
     /// True cuando el usuario puede marcar fin en count-up (For Time).
     var canFinishByUser: Bool {
-        isCountingUp && hasStarted && !isPreCountdown && !isIntervalMode
+        (isCountingUp || (isIntervalMode && allowsEarlyIntervalFinish))
+            && hasStarted && !isPreCountdown
     }
 
     func configure(
@@ -107,6 +127,11 @@ final class WorkoutClockCoordinator {
         tabataWork: Int? = nil,
         tabataRest: Int? = nil,
         timeCapSeconds: Int? = nil,
+        customPhaseDurations: [Int]? = nil,
+        customPhaseSubtitles: [String]? = nil,
+        customRoundNumbers: [Int]? = nil,
+        customRoundsTotal: Int? = nil,
+        allowEarlyIntervalFinish: Bool = false,
         sound: Bool,
         haptic: Bool
     ) {
@@ -123,6 +148,31 @@ final class WorkoutClockCoordinator {
         self.isTabata = tabataWork != nil
         self.tabataWork = tabataWork ?? 20
         self.tabataRest = tabataRest ?? 10
+        self.allowsEarlyIntervalFinish = allowEarlyIntervalFinish
+        phaseRoundNumbers = customRoundNumbers ?? []
+        explicitRoundsTotal = customRoundsTotal
+        if intervalMode {
+            if let custom = customPhaseDurations, !custom.isEmpty {
+                phaseDurations = custom.map { max(1, $0) }
+                phaseSubtitles = customPhaseSubtitles ?? []
+            } else if let work = tabataWork, let rest = tabataRest {
+                phaseDurations = (0..<max(1, totalIntervals)).map {
+                    $0.isMultiple(of: 2) ? max(1, work) : max(1, rest)
+                }
+                phaseSubtitles = (0..<phaseDurations.count).map {
+                    $0.isMultiple(of: 2) ? "Tabata · trabajo" : "Tabata · descanso"
+                }
+            } else {
+                phaseDurations = Array(repeating: max(1, intervalLength), count: max(1, totalIntervals))
+                phaseSubtitles = []
+            }
+            self.totalIntervals = phaseDurations.count
+            self.intervalLength = phaseDurations[0]
+            if let first = phaseSubtitles.first { self.subtitle = first }
+        } else {
+            phaseDurations = []
+            phaseSubtitles = []
+        }
         self.soundEnabled = sound
         self.hapticEnabled = haptic
         self.hasStarted = false
@@ -132,11 +182,7 @@ final class WorkoutClockCoordinator {
         if countingUp {
             configuredCapSeconds = countUpCapSeconds ?? 0
         } else if intervalMode {
-            if let work = tabataWork, let rest = tabataRest {
-                configuredCapSeconds = (work + rest) * max(1, totalIntervals / 2)
-            } else {
-                configuredCapSeconds = max(1, intervalLength) * max(1, totalIntervals)
-            }
+            configuredCapSeconds = phaseDurations.reduce(0, +)
         } else {
             configuredCapSeconds = max(0, initialCountdown)
         }
@@ -153,7 +199,13 @@ final class WorkoutClockCoordinator {
     /// Termina un cronómetro count-up (For Time) y publica el elapsed.
     func finishByUser() {
         guard canFinishByUser else { return }
-        let elapsed = max(0, displaySeconds)
+        let elapsed: Int
+        if isIntervalMode {
+            let finishedPhases = phaseDurations.prefix(intervalIndex).reduce(0, +)
+            elapsed = finishedPhases + max(0, intervalLength - displaySeconds)
+        } else {
+            elapsed = max(0, displaySeconds)
+        }
         pendingElapsedSeconds = elapsed
         pendingEndReason = .userFinished
         RestFeedback.restComplete(sound: soundEnabled, haptic: hapticEnabled)
@@ -188,20 +240,28 @@ final class WorkoutClockCoordinator {
 
     func skipInterval() {
         guard isIntervalMode, isRunning, !isPreCountdown else { return }
+        if intervalIndex + 1 >= totalIntervals {
+            finishComplete()
+            return
+        }
         advanceInterval(announce: true)
+        phaseEndDate = nil
         armCurrentInterval(from: Date())
         scheduleFeedback()
     }
 
     /// Call when returning from background — catch up multiple skipped intervals at once.
     func syncFromWallClock(now: Date = Date()) {
-        guard isVisible, isRunning else { return }
+        guard isRunning else { return }
         if let pre = preCountdownEnd {
             if now >= pre {
                 preCountdownEnd = nil
                 lastTickAnnounced = -1
                 RestFeedback.intervalBeep(sound: soundEnabled, haptic: hapticEnabled)
-                beginWorkPhase(from: now)
+                // El inicio real fue el final de la cuenta previa, no la
+                // hora de regreso a la app (que podría ser minutos después).
+                beginWorkPhase(from: pre)
+                syncFromWallClock(now: now)
             }
             return
         }
@@ -219,26 +279,39 @@ final class WorkoutClockCoordinator {
         if now < end { return }
 
         if isIntervalMode {
-            let overtime = now.timeIntervalSince(end)
-            let length = TimeInterval(max(1, intervalLength))
-            // Current interval finished + how many full intervals after that.
-            var advance = 1 + Int(floor(overtime / length))
-            let maxAdvance = max(0, totalIntervals - intervalIndex)
-            advance = min(advance, maxAdvance)
-            for i in 0..<advance {
+            // Las fases de Tabata/circuito tienen duraciones distintas.
+            // Saltar cada frontera de tiempo real, también tras ir a background,
+            // sin repetir la longitud del primer intervalo.
+            var boundary = end
+            var advanced = false
+            while now >= boundary {
                 if intervalIndex + 1 >= totalIntervals {
                     finishComplete()
                     return
                 }
-                advanceInterval(announce: i == advance - 1)
+                advanceInterval(announce: false)
+                advanced = true
+                boundary = boundary.addingTimeInterval(TimeInterval(intervalLength))
             }
-            let remainder = overtime.truncatingRemainder(dividingBy: length)
-            let remaining = length - remainder
-            phaseEndDate = now.addingTimeInterval(remaining)
+            phaseEndDate = boundary
+            if advanced {
+                // Un solo aviso al volver de background, no uno por cada fase perdida.
+                RestFeedback.intervalBeep(sound: soundEnabled, haptic: hapticEnabled)
+            }
             scheduleFeedback()
         } else {
             finishComplete()
         }
+    }
+
+    /// Regresar a Play y apuntar series sin detener el reloj ni sus avisos.
+    func minimize() {
+        isVisible = false
+    }
+
+    func showClock() {
+        guard hasStarted else { return }
+        isVisible = true
     }
 
     /// Stop without dismissing UI (pause dock).
@@ -296,6 +369,11 @@ final class WorkoutClockCoordinator {
             isCountingUp = false
             isIntervalMode = false
             isTabata = false
+            phaseDurations = []
+            phaseSubtitles = []
+            phaseRoundNumbers = []
+            explicitRoundsTotal = nil
+            allowsEarlyIntervalFinish = false
             configuredCapSeconds = 0
             countUpCapSeconds = nil
             exercise = nil
@@ -340,10 +418,13 @@ final class WorkoutClockCoordinator {
 
     private func advanceInterval(announce: Bool) {
         intervalIndex += 1
-        if isTabata {
-            let isWork = intervalIndex % 2 == 0
-            intervalLength = isWork ? tabataWork : tabataRest
-            subtitle = isWork ? "Tabata · trabajo" : "Tabata · descanso"
+        if phaseDurations.indices.contains(intervalIndex) {
+            intervalLength = phaseDurations[intervalIndex]
+        }
+        if phaseSubtitles.indices.contains(intervalIndex) {
+            subtitle = phaseSubtitles[intervalIndex]
+        } else if isTabata {
+            subtitle = intervalIndex.isMultiple(of: 2) ? "Tabata · trabajo" : "Tabata · descanso"
         }
         if announce {
             RestFeedback.intervalBeep(sound: soundEnabled, haptic: hapticEnabled)
@@ -367,7 +448,7 @@ final class WorkoutClockCoordinator {
         cancelFeedback()
         lastTickAnnounced = -1
         feedbackTask = Task { @MainActor in
-            while !Task.isCancelled, isVisible, isRunning {
+            while !Task.isCancelled, isRunning {
                 syncFromWallClock()
                 let remaining = displaySeconds
                 if isPreCountdown || (!isCountingUp && remaining <= 3 && remaining > 0) {
