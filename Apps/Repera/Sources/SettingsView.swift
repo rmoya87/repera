@@ -28,6 +28,7 @@ struct SettingsView: View {
     @State private var isSyncingEverything = false
     @State private var syncIconSpinning = false
     @State private var syncFeedback: String?
+    @AppStorage("repera.settings.lastFullSyncAt") private var lastFullSyncAt: Double = 0
  
     var body: some View {
         @Bindable var store = store
@@ -114,9 +115,10 @@ struct SettingsView: View {
                 Button {
                     Task { await syncEverything() }
                 } label: {
-                    HStack(spacing: 12) {
+                    HStack(alignment: .top, spacing: 12) {
                         Image(systemName: "arrow.triangle.2.circlepath")
                             .font(.body.weight(.semibold))
+                            .frame(width: 24, height: 25)
                             .rotationEffect(.degrees(syncIconSpinning ? 360 : 0))
                             .animation(
                                 syncIconSpinning
@@ -130,7 +132,14 @@ struct SettingsView: View {
                             if let syncFeedback {
                                 Text(syncFeedback)
                                     .font(.caption)
-                                    .foregroundStyle(syncFeedback == "Sincronización completada." ? OG.accent : OG.red)
+                                    .foregroundStyle(OG.red)
+                                    .multilineTextAlignment(.leading)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            } else if lastFullSyncAt > 0 {
+                                Text("Última actualización: \(Date(timeIntervalSince1970: lastFullSyncAt).formatted(date: .abbreviated, time: .shortened))")
+                                    .font(.caption)
+                                    .foregroundStyle(OG.label2)
+                                    .multilineTextAlignment(.leading)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                             if workoutSync.restoredBlockSnapshots > 0 {
@@ -146,8 +155,10 @@ struct SettingsView: View {
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
-                        Spacer(minLength: 0)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .layoutPriority(1)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .foregroundStyle(OG.label)
                 }
                 .disabled(isSyncingEverything)
@@ -639,7 +650,7 @@ struct SettingsView: View {
         syncFeedback = nil
         await store.refreshFromiCloud()
         guard store.syncPhase == .ready else {
-            syncFeedback = "Error de sincronización: no se ha confirmado iCloud."
+            syncFeedback = "No se ha confirmado iCloud."
             return
         }
         if !businessAuth.isConnected {
@@ -692,8 +703,8 @@ struct SettingsView: View {
             incomplete.append(profileError)
         }
         if incomplete.isEmpty {
-            syncFeedback = "Sincronización completada."
-            UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "repera.settings.lastFullSyncAt")
+            lastFullSyncAt = Date().timeIntervalSince1970
+            syncFeedback = nil
         } else {
             syncFeedback = "iCloud actualizado. Pendiente: " + incomplete.joined(separator: " · ")
         }
