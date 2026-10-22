@@ -1660,12 +1660,18 @@ final class ReperaStore: NSObject {
         return preview.exercises.isEmpty ? nil : preview
     }
 
-    private func sendWatchContextNow() {
+    /// Rebuild from the current store on each explicit Watch request.
+    /// Never reply to "Sincronizar" using an old WCSession cached snapshot.
+    private func currentWatchWorkoutForToday() -> WorkoutSession? {
         let personal = routineForToday().map {
             SessionController.from(routine: $0, exercises: state.exercises)
         }
-        let today = (personal?.exercises.isEmpty == false ? personal : nil)
+        return (personal?.exercises.isEmpty == false ? personal : nil)
             ?? professionalWorkoutForWatchToday()
+    }
+
+    private func sendWatchContextNow() {
+        let today = currentWatchWorkoutForToday()
         connectivity.send(
             session: state.activeSession,
             today: today,
@@ -2353,6 +2359,10 @@ extension ReperaStore: PhoneConnectivityDelegate {
 
     nonisolated func phoneConnectivityDidRequestToday() {
         Task { @MainActor in self.sendWatchContextNow() }
+    }
+
+    nonisolated func phoneConnectivityLatestWorkoutForToday() async -> WorkoutSession? {
+        await MainActor.run { self.currentWatchWorkoutForToday() }
     }
 
     nonisolated func phoneConnectivityDidReceive(session: WorkoutSession) {
