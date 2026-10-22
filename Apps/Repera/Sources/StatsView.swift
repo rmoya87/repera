@@ -146,8 +146,8 @@ struct StatsView: View {
                 enforceFreeRangeIfNeeded()
                 // Preparar datos locales inmediatamente; Salud puede tardar en refrescar.
                 schedulePrepare(reason: "initial")
-                guard health.isAuthorized else {
-                    ProgressLog.info("Progreso: Salud no autorizada, skip HK")
+                guard health.isAvailable else {
+                    ProgressLog.info("Progreso: HealthKit no disponible")
                     schedulePrepare(reason: "no-health")
                     return
                 }
