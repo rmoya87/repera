@@ -11,6 +11,7 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
     var deleteAccessibilityLabel: String
     /// Color de tarjeta configurable sin alterar el estilo usado en otras pantallas.
     private let cardBackground: Color
+    private let minimumCardHeight: CGFloat
     @State private var isDeleteRevealed = false
     private let title: () -> Title
     private let chips: () -> Chips
@@ -23,6 +24,7 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
         onDelete: @escaping () -> Void,
         deleteAccessibilityLabel: String = "Eliminar",
         cardBackground: Color = OG.surface2,
+        minimumCardHeight: CGFloat = 0,
         @ViewBuilder title: @escaping () -> Title,
         @ViewBuilder chips: @escaping () -> Chips
     ) {
@@ -30,6 +32,7 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
         self.onDelete = onDelete
         self.deleteAccessibilityLabel = deleteAccessibilityLabel
         self.cardBackground = cardBackground
+        self.minimumCardHeight = minimumCardHeight
         self.title = title
         self.chips = chips
     }
@@ -48,13 +51,15 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
                 onDelete: onDelete,
                 onRevealChange: { isDeleteRevealed = $0 }
             ) {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 6) {
                     title()
                         .frame(maxWidth: .infinity, alignment: .leading)
                     chips()
                 }
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 10)
+                // Altura real de la ficha, no un frame vacío exterior que
+                // deje el contenido pegado arriba y un hueco mayor debajo.
+                .frame(maxWidth: .infinity, minHeight: minimumCardHeight, alignment: .center)
                 .background(cardBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay {

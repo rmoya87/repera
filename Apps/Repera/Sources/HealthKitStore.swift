@@ -234,12 +234,21 @@ final class HealthKitStore {
     var recentDailyHeartRate: [DailyHeartRatePoint] = []
     /// kcal activas diarias cacheadas para Progreso.
     var recentDailyActiveEnergy: [DailyActiveEnergyPoint] = []
+    /// Minutos de HKWorkout comprobados por UUID, incluidos entrenos escritos por Repera.
+    /// Una muestra ausente no equivale a una sesión de cero minutos.
+    private(set) var verifiedWorkoutDurationMinutes: [UUID: Double] = [:]
+    /// UUID de un workout medido por Watch / Entreno de Apple, con prioridad
+    /// sobre cualquier duración inferida por el cronómetro del iPhone.
+    private(set) var verifiedExternalWorkoutUUIDs: Set<UUID> = []
     /// Monotonic bump whenever progressive Health arrays are committed or invalidated.
     private(set) var healthDataRevision: Int = 0
 
     private var liveBuilder: HKWorkoutBuilder?
     private var trackedSessionId: UUID?
     private var trackedStart: Date?
+    /// Evita dobles escrituras cuando «Terminar» y «Sincronizar ahora»
+    /// intentan guardar la misma sesión al mismo tiempo.
+    @ObservationIgnored private var syncingSessionIds: Set<UUID> = []
 
     private init() {
         // Install at first HealthKitStore creation, before background mirrored
@@ -348,9 +357,10 @@ final class HealthKitStore {
         let energyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
         let energyStatus = store.authorizationStatus(for: energyType)
         canWriteWorkouts = workoutStatus == .sharingAuthorized
-        // HealthKit does not expose a dedicated "read authorized" flag for workouts;
-        // treat sharingDenied as no write, and allow read attempts unless unavailable.
-        canReadWorkouts = workoutStatus != .sharingDenied
+        // HealthKit no revela el permiso de LECTURA: sharingDenied se
+        // refiere a escritura. Consultar HealthKit sigue siendo válido y
+        // devolverá cero muestras si la lectura no está permitida.
+        canReadWorkouts = isAvailable
         // Conectado = podemos escribir entrenos o al menos energía activa.
         isAuthorized = canWriteWorkouts || energyStatus == .sharingAuthorized
     }
@@ -1018,7 +1028,12 @@ final class HealthKitStore {
     }
 
     nonisolated private static func isReperaSource(_ source: HKSource) -> Bool {
-        source.bundleIdentifier == Bundle.main.bundleIdentifier
+        // Un HKWorkout capturado por una sesión real de Repera Watch tiene
+        // sensores auténticos y debe ser fuente de verdad, no una estimación
+        // escrita por el iPhone. Las kcal antiguas del iPhone siguen excluidas.
+        let bundle = source.bundleIdentifier.lowercased()
+        if bundle == "com.app.repera.watchkitapp" { return false }
+        return source.bundleIdentifier == Bundle.main.bundleIdentifier
             || source.name.localizedCaseInsensitiveContains("repera")
     }
 
@@ -1492,22 +1507,38 @@ final class HealthKitStore {
         }
     }
 
-    /// Consulta los UUID enlazados y solo publica las kcal que Salud ha registrado
-    /// en un workout externo. Los UUID propios nunca producen chips de calorías.
+    /// Consulta una vez los UUID enlazados: duración auténtica para Inicio y
+    /// energía verificada solo cuando la fuente es Watch/Salud ajena a Repera.
     func refreshVerifiedWorkoutEnergy(for sessions: [WorkoutSession]) async {
         guard isAvailable else {
             verifiedWorkoutEnergyKcal = [:]
+            verifiedWorkoutDurationMinutes = [:]
+            verifiedExternalWorkoutUUIDs = []
             return
         }
         let uuids = Set(sessions.compactMap(\.healthKitWorkoutUUID))
         var verified: [UUID: Double] = [:]
+        var durations: [UUID: Double] = [:]
+        var externalUUIDs: Set<UUID> = []
+        let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)
         for uuid in uuids {
             if Task.isCancelled { return }
-            if let kcal = await externalWorkoutEnergyKcal(uuid: uuid) {
-                verified[uuid] = kcal
+            guard let workout = await fetchWorkout(uuid: uuid) else { continue }
+            if workout.duration > 0 {
+                durations[uuid] = workout.duration / 60
             }
+            guard !Self.isReperaSource(workout.sourceRevision.source) else { continue }
+            externalUUIDs.insert(uuid)
+            guard let energyType,
+                  let kcal = workout.statistics(for: energyType)?
+                    .sumQuantity()?.doubleValue(for: .kilocalorie()),
+                  kcal > 0 else { continue }
+            verified[uuid] = kcal
         }
+        guard !Task.isCancelled else { return }
         verifiedWorkoutEnergyKcal = verified
+        verifiedWorkoutDurationMinutes = durations
+        verifiedExternalWorkoutUUIDs = externalUUIDs
     }
 
     /// Resuelve el UUID real de Salud a partir del ID estable de ejecución.
@@ -1719,6 +1750,41 @@ final class HealthKitStore {
 
     // MARK: - Sesión en vivo (Apple manda)
 
+    /// Identidad estable, necesaria para no crear dos HKWorkouts de una
+    /// misma sesión cuando se reintenta una escritura (o se reinicia la app).
+
+    private func sessionMetadata(id: UUID, title: String) -> [String: Any] {
+        [
+            HKMetadataKeyWorkoutBrandName: "Repera",
+            "ReperaTitle": title,
+            "ReperaSessionID": id.uuidString,
+        ]
+    }
+
+    /// Busca registros ya guardados por Repera, sin depender de que iCloud
+    /// haya podido conservar todavía el UUID de HealthKit.
+    private func existingReperaWorkout(sessionId: UUID, start: Date, end: Date) async -> HKWorkout? {
+        let predicate = HKQuery.predicateForSamples(
+            withStart: start.addingTimeInterval(-3600),
+            end: end.addingTimeInterval(3600)
+        )
+        return await withCheckedContinuation { cont in
+            let query = HKSampleQuery(
+                sampleType: .workoutType(),
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: nil
+            ) { _, samples, _ in
+                let match = (samples as? [HKWorkout] ?? []).first {
+                    Self.isReperaSource($0.sourceRevision.source)
+                        && ($0.metadata?["ReperaSessionID"] as? String) == sessionId.uuidString
+                }
+                cont.resume(returning: match)
+            }
+            store.execute(query)
+        }
+    }
+
     /// Arranca un `HKWorkoutBuilder` de fuerza tradicional alineado con el reloj/Salud.
     func beginWorkout(sessionId: UUID, title: String, start: Date = Date()) async {
         guard isAvailable else { return }
@@ -1727,10 +1793,13 @@ final class HealthKitStore {
             return
         }
         refreshAuthorizationStatus()
-        guard canWriteWorkouts || isAuthorized else {
-            lastError = "Sin permiso de escritura en Salud"
+        guard canWriteWorkouts else {
+            lastError = "Autoriza a Repera a escribir entrenamientos en Apple Salud"
             return
         }
+        // No reiniciar el builder de una sesión que ya se está grabando.
+        if trackedSessionId == sessionId, liveBuilder != nil { return }
+        if trackedSessionId != nil { await discardLocalBuilder() }
         trackedSessionId = sessionId
         trackedStart = start
         liveActiveEnergyKcal = 0
@@ -1743,10 +1812,12 @@ final class HealthKitStore {
         let builder = HKWorkoutBuilder(healthStore: store, configuration: config, device: .local())
         do {
             try await builder.beginCollection(at: start)
+            try await builder.addMetadata(sessionMetadata(id: sessionId, title: title))
             liveBuilder = builder
             await refreshLiveMetrics()
         } catch {
             lastError = error.localizedDescription
+            builder.discardWorkout()
             liveBuilder = nil
         }
     }
@@ -1757,7 +1828,14 @@ final class HealthKitStore {
         let end = Date()
         liveDurationSeconds = max(0, end.timeIntervalSince(start))
         let apple = await resolveAppleMetrics(from: start, to: end)
-        liveActiveEnergyKcal = apple.kcal
+        // La energía ambiental durante el intervalo no demuestra consumo
+        // del entrenamiento. Solo aceptar kcal medidas en un HKWorkout
+        // ajeno confirmado por HealthKit/Apple Watch.
+        if let uuid = apple.existingWorkoutUUID {
+            liveActiveEnergyKcal = await externalWorkoutEnergyKcal(uuid: uuid)
+        } else {
+            liveActiveEnergyKcal = nil
+        }
         if let secs = apple.durationSeconds, secs > 0 {
             liveDurationSeconds = secs
         }
@@ -1782,51 +1860,70 @@ final class HealthKitStore {
         fallbackKcal: Double? = nil
     ) async -> WorkoutSyncResult {
         let safeEnd = max(end, start.addingTimeInterval(60))
-        let apple = await resolveAppleMetrics(from: start, to: safeEnd)
+        guard syncingSessionIds.insert(sessionId).inserted else {
+            return WorkoutSyncResult(
+                startedAt: start, finishedAt: safeEnd,
+                kcal: 0, durationSeconds: safeEnd.timeIntervalSince(start),
+                workoutUUID: nil
+            )
+        }
+        defer { syncingSessionIds.remove(sessionId) }
+        refreshAuthorizationStatus()
+        // Primero un registro ajeno real (Apple Watch/Entreno) o el HKWorkout
+        // propio con este ID. No se permite que tener kcal sea requisito
+        // para respetar los tiempos/FC guardados por Apple Watch.
+        let previous = await existingReperaWorkout(sessionId: sessionId, start: start, end: safeEnd)
+        let overlapping = await overlappingWorkout(from: start, to: safeEnd)
+        let external = overlapping.flatMap {
+            (Self.isReperaSource($0.sourceRevision.source) &&
+             !Self.isWatchRecordedSource($0.sourceRevision.source)) ? nil : $0
+        }
+        let legacyOwn = overlapping.flatMap { candidate -> HKWorkout? in
+            guard Self.isReperaSource(candidate.sourceRevision.source),
+                  !Self.isWatchRecordedSource(candidate.sourceRevision.source),
+                  candidate.metadata?["ReperaSessionID"] == nil
+            else { return nil }
+            return candidate
+        }
         var resolvedStart = start
         var resolvedEnd = safeEnd
         var duration = max(60, safeEnd.timeIntervalSince(start))
         var verifiedKcal: Double = 0
         var savedUUID: UUID?
 
-        if let existing = apple.existingWorkout {
-            if Self.isWatchRecordedSource(existing.sourceRevision.source) {
-                // El Watch ya guardó sensores auténticos: no crear un duplicado en iPhone.
-                verifiedKcal = await externalWorkoutEnergyKcal(uuid: existing.uuid) ?? 0
-                savedUUID = existing.uuid
-                resolvedStart = existing.startDate
-                resolvedEnd = existing.endDate
-                duration = existing.duration
-                await discardLocalBuilder()
-            } else if Self.isReperaSource(existing.sourceRevision.source) {
-                // Entreno que guardó Repera: sus kcal podrían ser estimaciones.
-                savedUUID = existing.uuid
-                await discardLocalBuilder()
-            } else if let energy = await externalWorkoutEnergyKcal(uuid: existing.uuid) {
-                // Medición del propio entrenamiento en Apple Salud / Watch.
-                verifiedKcal = energy
-                resolvedStart = existing.startDate
-                resolvedEnd = existing.endDate
-                duration = max(60, existing.duration)
-                savedUUID = existing.uuid
-                await discardLocalBuilder()
-            } else {
-                // El workout ajeno no trae kcal: no asumir que la actividad
-                // ambiental de ese intervalo pertenece al entreno.
-                savedUUID = await saveStrengthWorkout(
-                    title: title,
-                    start: resolvedStart,
-                    end: resolvedEnd,
-                    preferBuilder: liveBuilder
-                )
-            }
-        } else {
+        if let external {
+            // Fuente de la verdad: duración y fechas del HKWorkout real de
+            // Watch / Apple Entreno, incluso si no ofrece energía medida.
+            resolvedStart = external.startDate
+            resolvedEnd = external.endDate
+            duration = max(1, external.duration)
+            verifiedKcal = await externalWorkoutEnergyKcal(uuid: external.uuid) ?? 0
+            savedUUID = external.uuid
+            await discardLocalBuilder()
+            lastError = nil
+        } else if let owned = previous ?? legacyOwn {
+            // UUID recuperado por metadatos o un registro anterior a esta
+            // versión, sin crear otro duplicado en Apple Salud.
+            savedUUID = owned.uuid
+            duration = max(1, owned.duration)
+            resolvedStart = owned.startDate
+            resolvedEnd = owned.endDate
+            await discardLocalBuilder()
+            lastError = nil
+        } else if canWriteWorkouts {
             savedUUID = await saveStrengthWorkout(
+                sessionId: sessionId,
                 title: title,
                 start: resolvedStart,
                 end: resolvedEnd,
-                preferBuilder: liveBuilder
+                preferBuilder: trackedSessionId == sessionId ? liveBuilder : nil
             )
+            if savedUUID != nil { lastError = nil }
+        } else {
+            // Sin autorización: guardar únicamente en Repera, sin afirmar que
+            // Salud ya contenga un workout ni fabricar muestras de sensores.
+            lastError = "No se ha guardado en Apple Salud: falta permiso de escritura de entrenamientos"
+            await discardLocalBuilder()
         }
 
         trackedSessionId = nil
@@ -1961,23 +2058,33 @@ final class HealthKitStore {
                         let overlap = max(0, overlapEnd.timeIntervalSince(overlapStart))
                         return (w, overlap)
                     }
-                    .filter { $0.1 >= minOverlap }
-                    .sorted { a, b in
-                        let aStrength = Self.isStrengthLike(a.0.workoutActivityType)
-                        let bStrength = Self.isStrengthLike(b.0.workoutActivityType)
-                        if aStrength != bStrength { return aStrength && !bStrength }
-                        return a.1 > b.1
+                    .filter {
+                        // Un entrenamiento breve coincidiendo con una pequeña
+                        // parte del intervalo Repera no es prueba de identidad.
+                        $0.1 >= max(minOverlap, reperaDuration * 0.70)
+                            && $0.1 >= max(60, $0.0.duration * 0.60)
                     }
-                // Ambiguous: two strong candidates within 15% of each other → nil.
-                if ranked.count >= 2 {
-                    let best = ranked[0].1
-                    let second = ranked[1].1
-                    if second >= best * 0.85 {
+                let external = ranked
+                    .filter { !Self.isReperaSource($0.0.sourceRevision.source) }
+                    .sorted { $0.1 > $1.1 }
+                // Si hay dos fuentes externas igual de plausibles, no escoger
+                // una arbitrariamente ni reescribir los datos de otro deporte.
+                if let best = external.first {
+                    if external.count == 1 || external[1].1 < best.1 * 0.85 {
+                        cont.resume(returning: best.0)
+                    } else {
                         cont.resume(returning: nil)
-                        return
                     }
+                    return
                 }
-                cont.resume(returning: ranked.first?.0)
+                let own = ranked
+                    .filter { Self.isReperaSource($0.0.sourceRevision.source) }
+                    .sorted { $0.1 > $1.1 }
+                if own.count == 1 || (own.count > 1 && own[1].1 < own[0].1 * 0.85) {
+                    cont.resume(returning: own.first?.0)
+                } else {
+                    cont.resume(returning: nil)
+                }
             }
             store.execute(q)
         }
@@ -2009,22 +2116,40 @@ final class HealthKitStore {
     }
 
     private func saveStrengthWorkout(
+        sessionId: UUID,
         title: String,
         start: Date,
         end: Date,
         preferBuilder: HKWorkoutBuilder?
     ) async -> UUID? {
+        guard canWriteWorkouts else {
+            lastError = "Falta permiso para guardar entrenamientos en Apple Salud"
+            return nil
+        }
+        // Otro intento puede haber finalizado correctamente aunque no llegase
+        // a guardarse el UUID en Repera. No volver a crear ese HKWorkout.
+        if let existing = await existingReperaWorkout(sessionId: sessionId, start: start, end: end) {
+            if preferBuilder != nil { await discardLocalBuilder() }
+            return existing.uuid
+        }
         if let builder = preferBuilder {
             do {
-                // El workout queda en Salud, pero no añade kcal estimadas.
                 try await builder.endCollection(at: end)
-                if let workout = try await builder.finishWorkout() {
-                    liveBuilder = nil
-                    return workout.uuid
-                }
-            } catch {
-                lastError = error.localizedDescription
+                let saved = try await builder.finishWorkout()
                 liveBuilder = nil
+                if let saved { return saved.uuid }
+                // Apple puede devolver nil sin error cuando el dispositivo está
+                // bloqueado; NO generar otra sesión en ese caso.
+                lastError = "Apple Salud guardó el entreno pero todavía no confirmó su UUID"
+                return await existingReperaWorkout(sessionId: sessionId, start: start, end: end)?.uuid
+            } catch {
+                lastError = "Error al cerrar el entreno en Salud: " + error.localizedDescription
+                liveBuilder = nil
+                // El resultado del finish puede ser incierto: no lanzar
+                // otra escritura a ciegas (podría crear un duplicado).
+                return await existingReperaWorkout(
+                    sessionId: sessionId, start: start, end: end
+                )?.uuid
             }
         }
 
@@ -2034,12 +2159,12 @@ final class HealthKitStore {
         let builder = HKWorkoutBuilder(healthStore: store, configuration: config, device: .local())
         do {
             try await builder.beginCollection(at: start)
-            try await builder.addMetadata([
-                HKMetadataKeyWorkoutBrandName: "Repera",
-                "ReperaTitle": title,
-            ])
+            try await builder.addMetadata(sessionMetadata(id: sessionId, title: title))
             try await builder.endCollection(at: end)
-            return try await builder.finishWorkout()?.uuid
+            let saved = try await builder.finishWorkout()
+            if let saved { return saved.uuid }
+            lastError = "Apple Salud guardó el entreno pero todavía no confirmó su UUID"
+            return await existingReperaWorkout(sessionId: sessionId, start: start, end: end)?.uuid
         } catch {
             lastError = error.localizedDescription
             return nil

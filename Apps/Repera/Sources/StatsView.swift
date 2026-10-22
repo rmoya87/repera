@@ -133,6 +133,9 @@ struct StatsView: View {
                     }
                 }
             }
+            // Una categoría puede tener mucha más altura que otra. Recrear
+            // su ScrollView evita mantener el offset anterior (pantalla negra).
+            .id(topic)
             .background(OG.bg)
             .ogContentTitleNav()
             .sheet(isPresented: $showRangePicker) {
@@ -143,8 +146,8 @@ struct StatsView: View {
                 enforceFreeRangeIfNeeded()
                 // Preparar datos locales inmediatamente; Salud puede tardar en refrescar.
                 schedulePrepare(reason: "initial")
-                guard health.isAuthorized else {
-                    ProgressLog.info("Progreso: Salud no autorizada, skip HK")
+                guard health.isAvailable else {
+                    ProgressLog.info("Progreso: HealthKit no disponible")
                     schedulePrepare(reason: "no-health")
                     return
                 }
@@ -574,7 +577,7 @@ struct StatsView: View {
 
     private var exerciseProgressCard: some View {
         let tops = snap.topExerciseMaxWeights
-        let listed = Array(snap.chartExercises.prefix(8))
+        let listed = Array(snap.chartExercises.prefix(5))
         return VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Progreso por ejercicio")
             OGCard {
@@ -601,9 +604,23 @@ struct StatsView: View {
                                         .foregroundStyle(OG.label3)
                                 }
                             }
-                            if ex.id != listed.last?.id {
+                            if ex.id != listed.last?.id || snap.chartExercises.count > 5 {
                                 Divider().overlay(Color.white.opacity(0.08))
                             }
+                        }
+                        if snap.chartExercises.count > 5 {
+                            NavigationLink {
+                                ProgressAllExercisesView(exercises: snap.chartExercises, tops: tops)
+                            } label: {
+                                HStack {
+                                    Text("Ver más")
+                                        .foregroundStyle(OG.accent)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .foregroundStyle(OG.accent)
+                                }
+                            }
+                            .accessibilityLabel("Ver todos los ejercicios")
                         }
                     }
                 }
@@ -612,7 +629,14 @@ struct StatsView: View {
     }
 
     private var prSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        // Récords únicos del periodo, pero primero los logrados más recientemente.
+        let recentRecords = snap.records.sorted {
+            $0.date == $1.date
+                ? $0.estimatedOneRM > $1.estimatedOneRM
+                : $0.date > $1.date
+        }
+        let listed = Array(recentRecords.prefix(5))
+        return VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Récords (e1RM)")
             OGCard {
                 VStack(alignment: .leading, spacing: 12) {
@@ -620,7 +644,7 @@ struct StatsView: View {
                         Text("Sin PRs en este periodo.")
                             .foregroundStyle(OG.label2)
                     } else {
-                        ForEach(snap.records.prefix(12)) { pr in
+                        ForEach(listed) { pr in
                             HStack {
                                 VStack(alignment: .leading) {
                                     Text(pr.exerciseName)
@@ -639,14 +663,91 @@ struct StatsView: View {
                                         .foregroundStyle(OG.label2)
                                 }
                             }
-                            if pr.id != snap.records.prefix(12).last?.id {
+                            if pr.id != listed.last?.id || snap.records.count > 5 {
                                 Divider().overlay(Color.white.opacity(0.08))
                             }
+                        }
+                        if snap.records.count > 5 {
+                            NavigationLink {
+                                ProgressAllRecordsView(records: recentRecords)
+                            } label: {
+                                HStack {
+                                    Text("Ver más")
+                                        .foregroundStyle(OG.accent)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .foregroundStyle(OG.accent)
+                                }
+                            }
+                            .accessibilityLabel("Ver todos los récords")
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/// Listados completos de la selección actual del periodo. Se abren como
+/// páginas push nativas y no recrean / limitan los datos al navegar.
+private struct ProgressAllExercisesView: View {
+    let exercises: [Exercise]
+    let tops: [UUID: Double]
+
+    var body: some View {
+        List {
+            ForEach(exercises) { ex in
+                NavigationLink {
+                    ExerciseProgressView(exerciseId: ex.id)
+                } label: {
+                    HStack(spacing: 10) {
+                        Text(ex.name)
+                            .foregroundStyle(OG.label)
+                        Spacer(minLength: 6)
+                        if let maxW = tops[ex.id] {
+                            Text("\(maxW.formatted(.number.precision(.fractionLength(0...1)))) kg")
+                                .font(.system(size: 13).monospacedDigit())
+                                .foregroundStyle(OG.label2)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .ogListChrome()
+        .ogPinnedTransparentNav("Progreso por ejercicio")
+    }
+}
+
+private struct ProgressAllRecordsView: View {
+    let records: [PersonalRecord]
+
+    var body: some View {
+        List {
+            ForEach(records) { pr in
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(pr.exerciseName)
+                            .foregroundStyle(OG.label)
+                        Text(pr.date.formatted(date: .abbreviated, time: .omitted))
+                            .font(.system(size: 12))
+                            .foregroundStyle(OG.label2)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text("\(pr.weightKg.formatted(.number.precision(.fractionLength(1))))×\(pr.reps)")
+                            .monospacedDigit()
+                            .foregroundStyle(OG.label)
+                        Text("~\(pr.estimatedOneRM.formatted(.number.precision(.fractionLength(0)))) kg")
+                            .font(.system(size: 12))
+                            .foregroundStyle(OG.label2)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .ogListChrome()
+        .ogPinnedTransparentNav("Récords (e1RM)")
     }
 }
 

@@ -1,6 +1,48 @@
 import ReperaDomain
 import SwiftUI
 
+/// Barra de progreso adaptable: el objetivo ocupa su fracción real del
+/// total si se supera y el excedente aparece al final en un tono más oscuro.
+/// Por debajo de la meta, el resto del recorrido permanece gris.
+private struct HomeGoalProgressBar: View {
+    var measurement: Double?
+    var goal: Double
+    var tint: Color
+    var label: String
+    var unit: String = ""
+
+    var body: some View {
+        let value = measurement.flatMap { $0.isFinite ? max(0, $0) : nil } ?? 0
+        let safeGoal = goal.isFinite && goal > 0 ? goal : 1
+        let scale = max(value, safeGoal)
+        let covered = min(value, safeGoal) / scale
+        let overflow = max(0, value - safeGoal) / scale
+
+        GeometryReader { geometry in
+            HStack(spacing: 0) {
+                Rectangle()
+                    .fill(tint)
+                    .frame(width: geometry.size.width * CGFloat(covered))
+                Rectangle()
+                    .fill(tint)
+                    .overlay(Color.black.opacity(0.32))
+                    .frame(width: geometry.size.width * CGFloat(overflow))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(OG.surface3)
+            .clipShape(Capsule())
+        }
+        .frame(height: 6)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Progreso de \(label)")
+        .accessibilityValue(
+            measurement == nil
+                ? "Sin medición"
+                : "\(Int(value.rounded()).formatted())\(unit.isEmpty ? "" : " \(unit)") de \(Int(safeGoal.rounded()).formatted())\(unit.isEmpty ? "" : " \(unit)")\(value > safeGoal ? ", \(Int((value - safeGoal).rounded()).formatted()) adicionales" : "")"
+        )
+    }
+}
+
 /// Inicio: semana seleccionable + métricas del día + registros.
 struct HomeView: View {
     @Environment(ReperaStore.self) private var store
@@ -20,7 +62,7 @@ struct HomeView: View {
     @ScaledMetric(relativeTo: .body) private var weekCarouselHeight: CGFloat = 72
     /// Shared baseline for a single exercise card and the no-workout state.
     /// Keeps the activity/progress cards below steady while changing days.
-    @ScaledMetric(relativeTo: .body) private var singleWorkoutMinHeight: CGFloat = 128
+    @ScaledMetric(relativeTo: .body) private var singleWorkoutMinHeight: CGFloat = 100
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: Date())
     /// Live refine for **today** only (HK query). Past days use bucket metrics — never wait on HealthKit to paint.
     @State private var todayHealthLive = HealthKitStore.DayMetrics()
@@ -59,21 +101,53 @@ struct HomeView: View {
         healthByDayKey[dayKey(selectedDay)] ?? []
     }
 
+    /// Reconciliación diaria sin duplicados: los entrenos de Repera aportan
+    /// duración registrada, los externos no solapados aportan su duración de Salud.
+    /// Cuando existe HKWorkout enlazado se usa su duración si coincide
+    /// razonablemente con el intervalo registrado; si está truncado no
+    /// sustituye una sesión completa por unos pocos minutos.
+    private var recordedDayWorkoutMinutes: Double {
+        let local = workoutsOnSelectedDay.reduce(0.0) { total, session in
+            let logged = max(0, session.displayDurationMinutes)
+            let measured = session.healthKitWorkoutUUID.flatMap {
+                health.verifiedWorkoutDurationMinutes[$0]
+            }
+            let resolved: Double
+            if let measured, measured > 0,
+               (session.healthKitWorkoutUUID.map {
+                   health.verifiedExternalWorkoutUUIDs.contains($0)
+               } == true || abs(measured - logged) <= max(5, logged * 0.25)) {
+                // HealthKit Watch tiene prioridad incluso cuando sus pausas
+                // producen una duración distinta al tiempo de pared.
+                resolved = measured
+            } else {
+                resolved = logged
+            }
+            return total + resolved
+        }
+        let external = healthMinutesByDayKey[dayKey(selectedDay)] ?? 0
+        return local + external
+    }
+
     private var dayHealth: HealthKitStore.DayMetrics {
         let key = dayKey(selectedDay)
+        let recordedMinutes = recordedDayWorkoutMinutes
         if calendar.isDateInToday(selectedDay) {
+            // Priorizar los HKWorkouts conciliados individualmente; una
+            // suma cruda de Salud podría contener duplicados anteriores.
+            // Si aún no existen entradas conciliadas, usar la lectura de hoy.
+            let healthToday = todayHealthLive.workoutMinutes ?? health.workoutMinutesToday
+            let minutes = recordedMinutes > 0 ? recordedMinutes : (healthToday ?? 0)
             return HealthKitStore.DayMetrics(
                 activeEnergyKcal: todayHealthLive.activeEnergyKcal
                     ?? health.activeEnergyTodayKcal
                     ?? kcalByDayKey[key],
-                workoutMinutes: todayHealthLive.workoutMinutes
-                    ?? health.workoutMinutesToday
-                    ?? healthMinutesByDayKey[key]
+                workoutMinutes: minutes > 0 ? minutes : nil
             )
         }
         return HealthKitStore.DayMetrics(
             activeEnergyKcal: kcalByDayKey[key],
-            workoutMinutes: healthMinutesByDayKey[key]
+            workoutMinutes: recordedMinutes > 0 ? recordedMinutes : nil
         )
     }
 
@@ -138,9 +212,9 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    // Un único lienzo de borde a borde, independiente de las tarjetas
-                    // de Progreso, Actividad y Recuperación (que mantienen su margen).
+                VStack(alignment: .leading, spacing: 0) {
+                    // El blanco del calendario y Entreno continúa por detrás del
+                    // topbar transparente, sin crear un fondo propio para la barra.
                     VStack(alignment: .leading, spacing: 12) {
                         weekSelectorCard
                         dayWorkoutSection
@@ -149,29 +223,33 @@ struct HomeView: View {
                     .padding(.top, 12)
                     .padding(.bottom, 16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background {
-                        OG.surface.ignoresSafeArea(edges: .horizontal)
-                    }
+                    .background(OG.surface)
 
-                    weeklyProgressCard
-                        .padding(.horizontal, OG.pad)
-                    activityTodayCard
-                        .padding(.horizontal, OG.pad)
-                    if calendar.isDateInToday(selectedDay) {
-                        RecoveryHomeCard()
+                    // Progreso/Actividad conservan el lienzo agrupado gris,
+                    // que empieza justo donde termina la sección blanca.
+                    VStack(alignment: .leading, spacing: 12) {
+                        weeklyProgressCard
+                            .padding(.horizontal, OG.pad)
+                        activityTodayCard
+                            .padding(.horizontal, OG.pad)
+                        if calendar.isDateInToday(selectedDay) {
+                            RecoveryHomeCard()
+                                .padding(.horizontal, OG.pad)
+                        }
+                        professionalSessionsForSelectedDay
+                            .padding(.horizontal, OG.pad)
+                        confirmedBusinessBookingsCard
                             .padding(.horizontal, OG.pad)
                     }
-                    professionalSessionsForSelectedDay
-                        .padding(.horizontal, OG.pad)
-                    confirmedBusinessBookingsCard
-                        .padding(.horizontal, OG.pad)
+                    .padding(.top, 12)
+                    .padding(.bottom, 28)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(OG.bg)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 28)
             }
-            .background(OG.bg)
             .refreshable { await businessData.refresh() }
-            .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay), underlayColor: OG.surface) {
+            .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay)) {
                 if !businessData.athleteCenterIds.isEmpty {
                     NavigationLink {
                         MessagesInboxView()
@@ -205,6 +283,9 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Ajustes y cuenta iCloud")
+            }
+            .background {
+                OG.surface.ignoresSafeArea()
             }
             .onAppear {
                 LaunchTiming.mark("HomeView.onAppear")
@@ -535,12 +616,13 @@ struct HomeView: View {
                     }
                 }
                 if let target = store.state.settings.weeklyWorkoutGoal, target > 0 {
-                    ProgressView(
-                        value: min(Double(weeklyWorkoutCount(for: days)), Double(target)),
-                        total: Double(target)
+                    HomeGoalProgressBar(
+                        measurement: Double(weeklyWorkoutCount(for: days)),
+                        goal: Double(target),
+                        tint: OG.accent,
+                        label: "entrenamientos semanales",
+                        unit: "entrenos"
                     )
-                    .tint(OG.accent)
-                    .accessibilityLabel("Progreso del objetivo semanal")
                 }
             }
         }
@@ -595,7 +677,7 @@ struct HomeView: View {
                         title: "Calorías",
                         value: kcal.map { Int($0.rounded()).formatted() } ?? "—",
                         unit: "kcal",
-                        symbol: "flame.fill",
+                        symbol: "flame",
                         tint: OG.orange,
                         measurement: kcal,
                         goal: store.state.settings.dailyActiveEnergyGoalKcal.map { Double($0) }
@@ -604,7 +686,7 @@ struct HomeView: View {
                         title: "FC media",
                         value: heartRate.map { Int($0.rounded()).formatted() } ?? "—",
                         unit: "lpm",
-                        symbol: "heart.fill",
+                        symbol: "heart",
                         tint: OG.red,
                         measurement: heartRate,
                         goal: store.state.settings.dailyAverageHeartRateGoalBpm.map { Double($0) }
@@ -628,16 +710,13 @@ struct HomeView: View {
                                 .foregroundStyle(OG.label)
                         }
                         if let target, target > 0 {
-                            if let minutes {
-                                ProgressView(
-                                    value: min(max(0, minutes), Double(target)),
-                                    total: Double(target)
-                                )
-                                .tint(OG.blue)
-                            }
-                            Text("Objetivo: \(target) min")
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
+                            HomeGoalProgressBar(
+                                measurement: minutes,
+                                goal: Double(target),
+                                tint: OG.blue,
+                                label: "tiempo de entrenamiento",
+                                unit: "min"
+                            )
                         }
                     }
                     .padding(12)
@@ -690,42 +769,33 @@ struct HomeView: View {
             }
             .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
 
-            Text(value)
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(OG.label)
-                .lineLimit(1)
-                .minimumScaleFactor(0.65)
-            if !unit.isEmpty {
-                Text(unit)
-                    .font(.system(size: 11))
-                    .foregroundStyle(OG.label2)
-            }
-            if let goal, goal > 0 {
-                Text("Meta \(Int(goal).formatted())\(unit.isEmpty ? "" : " \(unit)")")
-                    .font(.system(size: 10))
-                    .foregroundStyle(OG.label2)
+            // Número y unidad comparten línea, sin incrementar la altura.
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(value)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(OG.label)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                GeometryReader { geometry in
-                    Capsule()
-                        .fill(OG.surface3)
-                        .overlay(alignment: .leading) {
-                            Capsule()
-                                .fill(tint)
-                                .frame(width: geometry.size.width * CGFloat(
-                                    min(max((measurement ?? 0) / goal, 0), 1)
-                                ))
-                        }
+                    .minimumScaleFactor(0.65)
+                    .layoutPriority(1)
+                if !unit.isEmpty {
+                    Text(unit)
+                        .font(.system(size: 11))
+                        .foregroundStyle(OG.label2)
+                        .lineLimit(1)
                 }
-                .frame(height: 6)
-                .accessibilityLabel("Progreso de \(title)")
-                .accessibilityValue(
-                    measurement.map { "\(Int($0.rounded()).formatted()) de \(Int(goal).formatted())" }
-                        ?? "Sin medición"
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if let goal, goal > 0 {
+                HomeGoalProgressBar(
+                    measurement: measurement,
+                    goal: goal,
+                    tint: tint,
+                    label: title,
+                    unit: unit
                 )
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 95, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .padding(10)
         .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .accessibilityElement(children: .combine)
@@ -739,13 +809,13 @@ struct HomeView: View {
         let hasActive = isToday && store.hasActiveSession
         let hasCompletedActivity = !workouts.isEmpty || !healthActivities.isEmpty
 
-        VStack(spacing: 10) {
+        VStack(spacing: 6) {
             if hasActive {
                 Button(action: onStart) {
                     dayActionRowContent
                 }
                 .buttonStyle(.plain)
-                .frame(minHeight: singleWorkoutMinHeight, alignment: .top)
+                .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
                 .background(OG.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -759,19 +829,19 @@ struct HomeView: View {
             } else if !workouts.isEmpty {
                 ForEach(workouts) { session in
                     dayWorkoutCard(session)
-                        .frame(minHeight: singleWorkoutMinHeight, alignment: .top)
+                        .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
                 }
             } else if let planned = plannedRoutineForSelectedDay {
                 // El plan mantiene todos los gestos existentes.
                 plannedDayCard(planned)
-                    .frame(minHeight: singleWorkoutMinHeight, alignment: .top)
+                    .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
             } else if !hasCompletedActivity {
                 emptyWorkoutCard
             }
 
             ForEach(healthActivities) { activity in
                 healthActivityCard(activity)
-                    .frame(minHeight: singleWorkoutMinHeight, alignment: .top)
+                    .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
             }
 
             // El CTA ocupa siempre la misma posición si solo hay una ficha.
@@ -786,7 +856,7 @@ struct HomeView: View {
     /// Usa la misma retícula del registro real (44 pt de icono, título y banda
     /// inferior) en lugar de una sola línea que hacía saltar la Home.
     private var emptyWorkoutCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .top, spacing: 12) {
                 OGRegisterLeadingIcon(systemName: "calendar.badge.minus", tint: OG.label3)
                 VStack(alignment: .leading, spacing: 3) {
@@ -811,11 +881,11 @@ struct HomeView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .foregroundStyle(OG.label2)
-            .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
             .padding(.leading, Self.chipsTitleLeading)
         }
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, minHeight: singleWorkoutMinHeight, alignment: .topLeading)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: singleWorkoutMinHeight, alignment: .center)
         .background(OG.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -988,11 +1058,15 @@ struct HomeView: View {
             onDelete: onDelete,
             deleteAccessibilityLabel: deleteLabel,
             cardBackground: OG.surface,
+            minimumCardHeight: singleWorkoutMinHeight,
             title: title,
             chips: {
                 OGRegisterChipsRow(leadingInset: Self.chipsTitleLeading) {
                     chips()
                 }
+                // La banda inferior ocupa lo mismo con o sin chips:
+                // un registro y la tarjeta de día vacío miden igual.
+                .frame(minHeight: 30, alignment: .center)
             }
         )
         .accessibilityHint(accessibilityHint)

@@ -316,7 +316,7 @@ struct ReperaApp: App {
     private func warmHealthAfterHydrate() async {
         let health = HealthKitStore.shared
         health.refreshAuthorizationStatus()
-        guard health.isAuthorized else {
+        guard health.isAvailable else {
             LaunchWarmup.markLaunchHealthWarmFinished()
             return
         }
@@ -346,7 +346,7 @@ struct ReperaApp: App {
     private func refreshHealthOnForeground(forceProgressiveIfNeeded: Bool) async {
         let health = HealthKitStore.shared
         health.refreshAuthorizationStatus()
-        guard health.isAuthorized else { return }
+        guard health.isAvailable else { return }
         health.startObservingHealthChanges()
         await health.refreshToday()
         await store.syncBodyWeightWithHealth()

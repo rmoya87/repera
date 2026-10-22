@@ -655,9 +655,16 @@ struct SettingsView: View {
         }
 
         syncFeedback = nil
+        // Reconciliar iCloud primero para no reintroducir una copia anterior
+        // justo después de enlazar en Salud el UUID del entrenamiento.
         await store.refreshFromiCloud()
+        // Salud no depende de que haya funcionado iCloud ni Supabase.
+        let pendingHealthWorkouts = await store.syncMissingWorkoutsToHealth()
+        let healthPendingDescription = pendingHealthWorkouts > 0
+            ? " · \(pendingHealthWorkouts) entrenamientos pendientes en Apple Salud"
+            : ""
         guard store.syncPhase == .ready else {
-            syncFeedback = "No se ha confirmado iCloud."
+            syncFeedback = "No se ha confirmado iCloud." + healthPendingDescription
             return
         }
         if !businessAuth.isConnected {
@@ -667,7 +674,7 @@ struct SettingsView: View {
             }
         }
         guard businessAuth.isConnected else {
-            syncFeedback = "iCloud sincronizado. La sesión de Supabase no está disponible con esta cuenta Apple; vuelve a iniciar sesión para recuperar la conexión."
+            syncFeedback = "iCloud sincronizado. La sesión de Supabase no está disponible con esta cuenta Apple; vuelve a iniciar sesión para recuperar la conexión." + healthPendingDescription
             return
         }
         await businessAuth.syncPublicProfile(
@@ -694,6 +701,13 @@ struct SettingsView: View {
         // Perfil público es opcional: un error al subir una foto jamás bloquea
         // el historial deportivo. El diagnóstico se comunica en Cuenta.
         var incomplete: [String] = []
+        if pendingHealthWorkouts > 0 {
+            incomplete.append(
+                health.canWriteWorkouts
+                    ? "\(pendingHealthWorkouts) entrenamientos pendientes en Salud"
+                    : "Autoriza la escritura de entrenamientos en Apple Salud (\(pendingHealthWorkouts) pendientes)"
+            )
+        }
         if !workoutsUploaded {
             incomplete.append(workoutSync.lastError ?? "entrenamientos pendientes (iCloud o Supabase no están listos)")
         }
@@ -898,15 +912,15 @@ struct HealthGoalsView: View {
         Form {
             Section {
                 goalRow("Pasos", icon: "figure.walk", field: .steps, next: .energy, text: $steps, unit: "pasos")
-                goalRow("Calorías activas", icon: "flame.fill", field: .energy, next: .heartRate, text: $energy, unit: "kcal")
-                goalRow("FC media (referencia)", icon: "heart.fill", field: .heartRate, next: .minutes, text: $heartRate, unit: "lpm")
-                goalRow("Tiempo de entreno", icon: "clock.fill", field: .minutes, next: .weekly, text: $minutes, unit: "min")
+                goalRow("Calorías activas", icon: "flame", field: .energy, next: .heartRate, text: $energy, unit: "kcal")
+                goalRow("FC media (referencia)", icon: "heart", field: .heartRate, next: .minutes, text: $heartRate, unit: "lpm")
+                goalRow("Tiempo de entreno", icon: "clock", field: .minutes, next: .weekly, text: $minutes, unit: "min")
             } header: {
                 Text("Objetivos diarios")
             }
 
             Section {
-                goalRow("Entrenamientos", icon: "checkmark.circle.fill", field: .weekly, next: .weight, text: $weekly, unit: "semana")
+                goalRow("Entrenamientos", icon: "checkmark.circle", field: .weekly, next: .weight, text: $weekly, unit: "semana")
             } header: {
                 Text("Objetivo semanal")
             }

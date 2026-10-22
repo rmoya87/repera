@@ -252,19 +252,44 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 
 `ReperaSmokeUITests` arranca la app Debug con `--repera-ui-test-tabs` y `REPERA_UI_TEST_MODE=1` para acceder únicamente al contenedor de pestañas sin cuenta Apple del runner. La compilación Release **no** reconoce este modo. Los tests comprueban `Inicio · Diario · Crear|Center · Progreso · Ejercicios` y navegación a Ejercicios. El login real con Apple debe probarse en otro escenario E2E con cuenta y TestFlight, nunca se simula como superado.
 
+## Escritura en Apple Salud y fuente de verdad (2026-10-22)
+
+- [ ] Autorizar lectura y escritura de **Entrenamientos** en Ajustes → Apple Salud. Terminar una sesión Repera desde iPhone: en la app Salud debe aparecer un HKWorkout de fuerza con inicio, fin, nombre Repera e identidad estable; el registro Repera almacena el mismo UUID.
+- [ ] Finalizar una sesión con un entrenamiento real de Entreno de Apple Watch solapado al menos 70 % y no ambiguo: enlazar el UUID externo, sus fechas y duración **aunque no tenga calorías**; no escribir otro HKWorkout de Repera. Si la sesión del reloj estuvo pausada, el indicador de tiempo de Inicio debe usar la duración real del HKWorkout, no el tiempo de pared.
+- [ ] Con energía medida por el propio HKWorkout de Apple Watch, mostrarla; sin muestra de energía, mostrar — en kcal por sesión, no energía activa ambiente del mismo periodo.
+- [ ] Denegar escritura pero permitir lectura: vincular un HKWorkout de Apple Watch coincidente. Si no existe, conservar el entrenamiento local sin marcarlo como guardado en Salud y comunicar permisos pendientes en Sincronizar ahora.
+- [ ] Sin permisos para escribir ni workout externo, guardar Repera únicamente en local. Dar el permiso posteriormente y pulsar Sincronizar ahora: se crea **una** muestra HealthKit con UUID y la app deja de informar de ella como pendiente.
+- [ ] Terminar entreno, cerrar/reabrir la app y repetir Sincronizar ahora: debe encontrar el HKWorkout propio por metadatos ReperaSessionID, sin generar duplicados.
+- [ ] Simular doble sincronización concurrente: «Terminar» y «Sincronizar ahora» no crean dos HKWorkout de la misma sesión. Mantener los datos originales si HealthKit devuelve error o no confirma UUID (p. ej. dispositivo bloqueado).
+- [ ] Con varios HKWorkout en un día, comprobar que un registro de Watch enlazado no se suma de nuevo como actividad externa ni duplica minutos. Una actividad externa distinta y no solapada sí se suma.
+- [ ] No dar por cubierta captura de FC y kcal propias de la app watchOS Repera: actualmente no ejecuta HKWorkoutSession; probar solo con entrenamientos de HealthKit reales (p. ej. Entreno de Apple).
+- [ ] Revisar permisos, modo avión, bloqueo/desbloqueo de pantalla, reintentos, cambios de día y sincronización iCloud con el iPhone real. Validar que se omiten kcal estimadas históricas.
+
+## Conciliación de minutos y navegación de Progreso (2026-10-22)
+
+- [ ] En Inicio, elegir un día pasado con un entrenamiento Repera de 60 minutos sin actividad externa: Tiempo de entrenamiento muestra 60 min aunque la caché histórica de Salud no tenga una sesión propia.
+- [ ] Hoy, un entrenamiento Repera de 57 min y una lectura parcial HealthKit de 4 min deben mostrar 57 min, nunca 4 ni 61. Tras finalizar/guardar en Salud, refrescar y comprobar que no cambia a un total duplicado.
+- [ ] Si Salud tiene un HKWorkout vinculado por UUID con duración consistente, prevalece su medición. Si devuelve una duración incoherentemente corta, se utiliza como respaldo el intervalo del registro Repera (sin convertirlo en una medición de energía).
+- [ ] Dos entrenos distintos de 40 y 20 min contabilizan 60 min; un workout importado externo no solapado de 30 min eleva el total a 90. El mismo HKWorkout enlazado a un entreno Repera se cuenta **una sola vez**.
+- [ ] Si falta permiso para escribir entrenos en Salud, la sesión no desaparece de Inicio ni muestra calorías estimadas. Verificar en Salud que el HKWorkout existe tras finalizar con permiso de escritura; la lectura local no es prueba de que se haya guardado en HealthKit.
+- [ ] En Progreso → Entreno, bajar al final y cambiar a Actividad y Recuperación: aparece el **inicio** de la nueva categoría (título/selector y primera tarjeta), sin zona negra vacía. Probar también el regreso a Entreno.
+- [ ] Con seis o más ejercicios y récords en el periodo, mostrar solo los cinco más recientes, seguidos de «Ver más» con flecha. Al tocar abre página con **todos** los elementos y permite regresar sin alterar periodo; desde la página de ejercicios se navega al detalle. Con 0–5 elementos no aparece «Ver más».
+- [ ] Verificar Dynamic Type, modo oscuro, VoiceOver, scroll de los listados largos y orden por fechas con empates.
+
 ## Inicio y objetivos de Salud — revisión iOS 27 (2026-10-22)
 
 - [ ] Abrir Inicio en modo claro y oscuro: calendario, entrenamiento (incluido día vacío) y «Añadir nuevo entreno» comparten un lienzo OG.surface a ancho total; Progreso semanal, Actividad y Recuperación mantienen sus márgenes.
 - [ ] Deslizar el calendario por días y cruzar un cambio de mes: la cabecera se actualiza, los días siguen siendo cuadrados y el seleccionado tiene color de marca OG.accent (#30D158).
-- [ ] En día vacío, planificado y completado, comprobar que «Añadir nuevo entreno» destaca como botón verde con letras negras. Abrir el flujo y regresar sin perder selección de fecha.
+- [ ] En día vacío, planificado y completado, «Añadir nuevo entreno» sigue siendo verde con letras negras, pero queda a solo 6 pt de la ficha. Día vacío y una ficha con entreno tienen el mismo alto base compacto de 100 pt (Dynamic Type puede ampliarlo), con 10 pt de padding vertical y título/chips centrados entre el borde superior e inferior, sin margen inferior mayor que el superior. Si el título necesita más líneas, la caja crece sin recortarse. Abrir el flujo y regresar sin perder selección de fecha.
 - [ ] Con entrenos completos, planificados y externos, comprobar borde gris, papelera oculta antes del swipe, revelación al deslizar y confirmación obligatoria de eliminación. El día vacío debe llevar el mismo borde.
 - [ ] Ajustes → Salud → Objetivos permite pasos, kcal, FC media de referencia, minutos, entrenos semanales y peso con teclado numérico Repera, guardado automático y sin botón Guardar ni textos explicativos al pie. Vaciar el campo quita solo su objetivo.
 - [ ] Desde versiones anteriores se conserva el peso objetivo y la FC media no tiene objetivo por defecto. Editar, volver atrás sin botón Guardar, reiniciar y comprobar persistencia.
 - [ ] Establecer objetivos de pasos y energía: en Inicio las métricas presentan un progreso solo con datos medidos; si Salud no suministra dato, mostrar raya, no cero.
-- [ ] En Actividad de Inicio no hay evolución de siete días: comprobar meta total y barra verde/naranja/roja, ninguna barra sin objetivo y ninguna medición inventada.
+- [ ] En Actividad de Inicio no hay evolución de siete días ni texto «Meta» en las tarjetas. Con y sin objetivos, comprobar que cada tarjeta usa solo la altura necesaria y que kcal/lpm aparecen junto al valor, en la misma línea. Cuando hay objetivo, solo barra verde/naranja/roja con progreso accesible por VoiceOver; sin objetivo no hay barra ni hueco adicional; sin medición no se inventa relleno.
+- [ ] Tiempo de entrenamiento ya no tiene el texto «Objetivo: … min» bajo la barra: sin meta, cero barra; con 45/60 min, 75 % de la barra azul y 25 % gris; con 75/60 min, barra llena con 60/75 azul y 15/75 azul oscuro. Comprobar también pasos 12 000/10 000, calorías 650/500, FC 130/120 y entrenos semanales 6/5, cada excedente proporcional y más oscuro. La cifra visible siempre refleja el total real; sin datos de Salud no inventar minutos ni pulsaciones.
 - [ ] Entrenar dos veces en un día y comprobar que el progreso semanal muestra dos entrenamientos frente a la meta, aunque haya solo un check para el día.
 - [ ] Al editar un input numérico que presenta 0 por defecto, la primera cifra sustituye al cero; probar series, RIR, formatos, prescripciones y adaptaciones.
-- [ ] Comprobar que topbar de Inicio continúa transparente y el fondo de detrás es blanco incluso con scroll.
+- [ ] Comprobar que el componente topbar de Inicio no tiene fondo pintado (como el de Ejercicios): el blanco real del bloque calendario/entreno se prolonga sin cortes por detrás de la topbar y el área de estado. El fondo gris reaparece solo al empezar Progreso semanal; revisar scroll, modo claro y oscuro.
 - [ ] Verificar Dynamic Type, VoiceOver, pantalla estrecha, pantalla amplia, reducción de movimiento y navegación de gestos dentro de un ScrollView vertical.
 
 ### Incidencias de compilación y herramientas de Xcode
