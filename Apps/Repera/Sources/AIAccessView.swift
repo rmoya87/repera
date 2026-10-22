@@ -146,7 +146,7 @@ struct AIAccessView: View {
                     ForEach(changeRequests.pending) { request in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(request.summary).font(.subheadline.weight(.medium))
-                            if request.isDestructive {
+                            if request.operation == "delete_workout" {
                                 Text("La eliminación de un entrenamiento también puede borrar su actividad vinculada de Apple Salud.")
                                     .font(.caption).foregroundStyle(.orange)
                             }
