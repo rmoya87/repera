@@ -205,6 +205,9 @@ final class HealthKitStore {
     /// Minutos de HKWorkout comprobados por UUID, incluidos entrenos escritos por Repera.
     /// Una muestra ausente no equivale a una sesión de cero minutos.
     private(set) var verifiedWorkoutDurationMinutes: [UUID: Double] = [:]
+    /// UUID de un workout medido por Watch / Entreno de Apple, con prioridad
+    /// sobre cualquier duración inferida por el cronómetro del iPhone.
+    private(set) var verifiedExternalWorkoutUUIDs: Set<UUID> = []
     /// Monotonic bump whenever progressive Health arrays are committed or invalidated.
     private(set) var healthDataRevision: Int = 0
 
@@ -1461,11 +1464,13 @@ final class HealthKitStore {
         guard isAvailable else {
             verifiedWorkoutEnergyKcal = [:]
             verifiedWorkoutDurationMinutes = [:]
+            verifiedExternalWorkoutUUIDs = []
             return
         }
         let uuids = Set(sessions.compactMap(\.healthKitWorkoutUUID))
         var verified: [UUID: Double] = [:]
         var durations: [UUID: Double] = [:]
+        var externalUUIDs: Set<UUID> = []
         let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)
         for uuid in uuids {
             if Task.isCancelled { return }
@@ -1473,8 +1478,9 @@ final class HealthKitStore {
             if workout.duration > 0 {
                 durations[uuid] = workout.duration / 60
             }
-            guard !Self.isReperaSource(workout.sourceRevision.source),
-                  let energyType,
+            guard !Self.isReperaSource(workout.sourceRevision.source) else { continue }
+            externalUUIDs.insert(uuid)
+            guard let energyType,
                   let kcal = workout.statistics(for: energyType)?
                     .sumQuantity()?.doubleValue(for: .kilocalorie()),
                   kcal > 0 else { continue }
@@ -1483,6 +1489,7 @@ final class HealthKitStore {
         guard !Task.isCancelled else { return }
         verifiedWorkoutEnergyKcal = verified
         verifiedWorkoutDurationMinutes = durations
+        verifiedExternalWorkoutUUIDs = externalUUIDs
     }
 
     /// kcal de un workout de Salud **ajeno** (Watch / otra app). `nil` si es nuestro o no hay energía.
