@@ -629,7 +629,13 @@ struct StatsView: View {
     }
 
     private var prSection: some View {
-        let listed = Array(snap.records.prefix(5))
+        // Récords únicos del periodo, pero primero los logrados más recientemente.
+        let recentRecords = snap.records.sorted {
+            $0.date == $1.date
+                ? $0.estimatedOneRM > $1.estimatedOneRM
+                : $0.date > $1.date
+        }
+        let listed = Array(recentRecords.prefix(5))
         return VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Récords (e1RM)")
             OGCard {
@@ -663,7 +669,7 @@ struct StatsView: View {
                         }
                         if snap.records.count > 5 {
                             NavigationLink {
-                                ProgressAllRecordsView(records: snap.records)
+                                ProgressAllRecordsView(records: recentRecords)
                             } label: {
                                 HStack {
                                     Text("Ver más")
