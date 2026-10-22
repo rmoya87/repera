@@ -281,10 +281,7 @@ struct StatsView: View {
             return "—"
         }()
         // Sin FC: 3 tiles en una sola fila.
-        return LazyVGrid(
-            columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3),
-            spacing: 8
-        ) {
+        return OGAdaptiveMetricLayout(minimumItemWidth: 96, spacing: 8) {
             tile(
                 icon: "dumbbell.fill",
                 label: "Entrenos",
@@ -471,10 +468,7 @@ struct StatsView: View {
         let previous = snap.previousSummary
         let streak = snap.streak
         // FC media ya está en Actividad: tres indicadores estables en una fila.
-        return LazyVGrid(
-            columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3),
-            spacing: 8
-        ) {
+        return OGAdaptiveMetricLayout(minimumItemWidth: 96, spacing: 8) {
             tile(
                 icon: "dumbbell.fill",
                 label: "Entrenos",
