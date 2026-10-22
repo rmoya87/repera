@@ -39,6 +39,7 @@ public enum ScoreBasis: String, Codable, Sendable, Hashable {
     case formatHeuristic
     case equivalentHistory
     case sessionEstimate
+    case personalHistory
 
     public var blurbLabel: String {
         switch self {
@@ -48,6 +49,7 @@ public enum ScoreBasis: String, Codable, Sendable, Hashable {
         case .formatHeuristic: return "estimación por formato"
         case .equivalentHistory: return "vs historial en movimientos similares"
         case .sessionEstimate: return "estimación de la sesión"
+        case .personalHistory: return "historial personal comparable"
         }
     }
 }
