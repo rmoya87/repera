@@ -898,15 +898,15 @@ struct HealthGoalsView: View {
         Form {
             Section {
                 goalRow("Pasos", icon: "figure.walk", field: .steps, next: .energy, text: $steps, unit: "pasos")
-                goalRow("Calorías activas", icon: "flame.fill", field: .energy, next: .heartRate, text: $energy, unit: "kcal")
-                goalRow("FC media (referencia)", icon: "heart.fill", field: .heartRate, next: .minutes, text: $heartRate, unit: "lpm")
-                goalRow("Tiempo de entreno", icon: "clock.fill", field: .minutes, next: .weekly, text: $minutes, unit: "min")
+                goalRow("Calorías activas", icon: "flame", field: .energy, next: .heartRate, text: $energy, unit: "kcal")
+                goalRow("FC media (referencia)", icon: "heart", field: .heartRate, next: .minutes, text: $heartRate, unit: "lpm")
+                goalRow("Tiempo de entreno", icon: "clock", field: .minutes, next: .weekly, text: $minutes, unit: "min")
             } header: {
                 Text("Objetivos diarios")
             }
 
             Section {
-                goalRow("Entrenamientos", icon: "checkmark.circle.fill", field: .weekly, next: .weight, text: $weekly, unit: "semana")
+                goalRow("Entrenamientos", icon: "checkmark.circle", field: .weekly, next: .weight, text: $weekly, unit: "semana")
             } header: {
                 Text("Objetivo semanal")
             }
