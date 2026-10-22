@@ -123,6 +123,7 @@ struct StatsView: View {
                             }
                         }
                         .pickerStyle(.segmented)
+                        .controlSize(.large)
                         .glassEffect(.regular, in: .rect(cornerRadius: 18))
                         .padding(.horizontal, OG.pad)
                         .padding(.top, 4)
