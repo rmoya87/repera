@@ -29,13 +29,18 @@ class WatchHealthKitContractTests(unittest.TestCase):
         watch = source("Apps/ReperaWatch/Sources/WatchHealthKitSession.swift")
         for symbol in (
             "HKWorkoutSession(", "associatedWorkoutBuilder()",
-            "HKLiveWorkoutDataSource(", "startActivity(with:", "beginCollection(withStart:",
-            "stopActivity(with:", "endCollection(withEnd:",
-            "finishWorkout", "recoverActiveWorkoutSession",
-            "HKMetadataKeyExternalUUID", "startMirroringToCompanionDevice",
+            "HKLiveWorkoutDataSource(", "startActivity(with:", "beginCollection(at:",
+            "stopActivity(with:", "endCollection(at:",
+            "finishWorkout()", "recoverActiveWorkoutSession",
+            "HKMetadataKeyExternalUUID", "startMirroringToCompanionDevice()",
             "beginNewActivity(", "onPauseResumeRequest", "pauseOrResumeRequest"
         ):
             self.assertIn(symbol, watch)
+        self.assertNotIn("beginCollection(withStart:", watch)
+        self.assertNotIn("endCollection(withEnd:", watch)
+        self.assertNotIn("startMirroringToCompanionDevice {", watch)
+        self.assertIn("try await liveBuilder.addMetadata(", watch)
+        self.assertIn("try await builder.finishWorkout()", watch)
 
     def test_health_truth_sync_and_redaction(self):
         watch = source("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
