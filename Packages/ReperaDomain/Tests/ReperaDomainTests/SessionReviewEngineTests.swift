@@ -142,6 +142,21 @@ struct SessionReviewEngineTests {
         #expect(SessionReviewEngine.review(session: current, history: [a, b]) == nil)
     }
 
+    @Test func oneHistoricallyComparableMovementCannotGradeLargeUnloggedWorkout() {
+        let a = strength(push, kg: 60, daysAgo: 8)
+        let b = strength(push, kg: 65, daysAgo: 4)
+        var current = strength(push, kg: 70, daysAgo: 0)
+        let deadlift = Exercise(name: "Peso muerto", muscleGroup: "Piernas")
+        let squat = Exercise(name: "Sentadilla", muscleGroup: "Piernas")
+        current.exercises += [
+            SessionExercise(exercise: deadlift, plannedSets: [PlannedSet(targetReps: 5)]),
+            SessionExercise(exercise: squat, plannedSets: [PlannedSet(targetReps: 5)])
+        ]
+        // These planned movements have no logged sets; they must still count
+        // against the coverage gate rather than artificially unlocking 7/10.
+        #expect(SessionReviewEngine.review(session: current, history: [a, b]) == nil)
+    }
+
     @Test func plannedButUnloggedMovementsNeverCreateScores() {
         let current = WorkoutSession(
             title: "Plan", exercises: [
