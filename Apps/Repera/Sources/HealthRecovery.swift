@@ -316,6 +316,10 @@ final class HealthPhysiologyStore {
         let value: Double
     }
 
+    private enum VitalUnit: Sendable {
+        case milliseconds, bpm, percent, celsius
+    }
+
     private(set) var days: [RecoveryEngine.DailyVitals] = []
     private(set) var isLoading = false
     private(set) var lastRefreshed: Date?
@@ -329,13 +333,12 @@ final class HealthPhysiologyStore {
         isLoading = true
         defer { isLoading = false }
         let since = Date().addingTimeInterval(-45 * 86_400)
-        let bpm = HKUnit.count().unitDivided(by: .minute())
-        let hrv = await read(.heartRateVariabilitySDNN, unit: .secondUnit(with: .milli), since: since)
-        let rest = await read(.restingHeartRate, unit: bpm, since: since)
-        let breathing = await read(.respiratoryRate, unit: bpm, since: since)
-        let oxygen = await read(.oxygenSaturation, unit: .percent(), since: since)
-        let wrist = await read(.appleSleepingWristTemperature, unit: .degreeCelsius(), since: since)
-        let hrRecovery = await read(.heartRateRecoveryOneMinute, unit: bpm, since: since)
+        let hrv = await read(.heartRateVariabilitySDNN, unit: .milliseconds, since: since)
+        let rest = await read(.restingHeartRate, unit: .bpm, since: since)
+        let breathing = await read(.respiratoryRate, unit: .bpm, since: since)
+        let oxygen = await read(.oxygenSaturation, unit: .percent, since: since)
+        let wrist = await read(.appleSleepingWristTemperature, unit: .celsius, since: since)
+        let hrRecovery = await read(.heartRateRecoveryOneMinute, unit: .bpm, since: since)
 
         let cal = Calendar.current
         let dates = Set((hrv + rest + breathing + oxygen + wrist + hrRecovery)
@@ -369,7 +372,7 @@ final class HealthPhysiologyStore {
     }
 
     private func read(
-        _ id: HKQuantityTypeIdentifier, unit: HKUnit, since: Date
+        _ id: HKQuantityTypeIdentifier, unit: VitalUnit, since: Date
     ) async -> [Reading] {
         guard let type = HKObjectType.quantityType(forIdentifier: id) else { return [] }
         let predicate = HKQuery.predicateForSamples(withStart: since, end: Date())
@@ -378,8 +381,15 @@ final class HealthPhysiologyStore {
                 sampleType: type, predicate: predicate,
                 limit: HKObjectQueryNoLimit, sortDescriptors: nil
             ) { _, samples, _ in
+                let hkUnit: HKUnit
+                switch unit {
+                case .milliseconds: hkUnit = .secondUnit(with: .milli)
+                case .bpm: hkUnit = .count().unitDivided(by: .minute())
+                case .percent: hkUnit = .percent()
+                case .celsius: hkUnit = .degreeCelsius()
+                }
                 let observed = (samples as? [HKQuantitySample] ?? []).map {
-                    Reading(date: $0.endDate, value: $0.quantity.doubleValue(for: unit))
+                    Reading(date: $0.endDate, value: $0.quantity.doubleValue(for: hkUnit))
                 }
                 cont.resume(returning: observed)
             }
