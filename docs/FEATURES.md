@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-22 (WOD por formato, conservación de datos Play y kcal reales de Apple Salud)
+Última actualización: 2026-10-22 (banners Pro y muestras de Progreso)
 
 ## Tabs
 
@@ -57,10 +57,11 @@
 ### Progreso (`StatsView`)
 
 - Título «Progreso» y periodo como subtítulo, con calendario a la derecha (`OGFixedTopBar`) integrado en el scroll y sin fondo de topbar opaco.
-- **Gratis · Entreno:** periodo **Esta semana** (tiles entrenos/tiempo/racha + heatmap + teaser Pro). Los tiles **no** se repiten en Actividad.
-- **Gratis · Actividad:** preview ondulada (no rectas) de cardio/kcal/peso dentro del plot + teaser; sin tiles duplicados.
+- **Gratis · Entreno:** periodo **Esta semana** (tiles entrenos/tiempo/racha + heatmap + banner Pro verde con mascota). Los tiles **no** se repiten en Actividad.
+- **Gratis · Actividad:** preview ondulada de cardio/kcal/peso con etiqueta **«Ejemplo» en cada gráfica**, sin medias, totales ni resúmenes numéricos de ficción; no se usa la meta de peso real como objetivo de la muestra. Sin texto global «Así se vería con Pro», con banner Pro verde y mascota, sin tiles duplicados.
 - **Gratis · Recuperación:** sueño acotado al **periodo** de Progreso (media si hay >1 noche); gráfica nocturna a borde; fases en la barra (sin tiles); Inicio solo con datos y mismo icono luna.
 - **Pro:** todos los periodos y métricas avanzadas.
+- Los banners **Pro** de Progreso y evolución por ejercicio comparten `ProTeaserCard`: fondo verde Repera, mascota `ReperaMascot(.hero)` y acceso al paywall contextual.
 - Selector visible: periodos largos marcados Pro → paywall.
 - Títulos de sección grises encima de cada card (actividad, cardio, peso, equilibrio…).
 - Filtro: **Hoy / Esta semana / Este mes / 90 / 180 / 360 días** (sin «Todo»). Modal fitted + glass.
@@ -73,7 +74,7 @@
 - Calorías: datos diarios de Salud/Watch y entrenos externos verificados únicamente; los valores estimados por Repera no entran en la gráfica ni en `summary.totalKcal`. Los días sin dato no se inventan.
 - Salud: caché diaria ≤360d; match de sesiones indexado; sin sobrescribir ventanas grandes con refrescos cortos.
 - Heatmap (tiempo/volumen precalculados), equilibrio (all/hard precalculados), progreso por ejercicio y PRs; enlace a historial.
-- Scroll de Progreso: `LazyVStack(pinnedViews: [.sectionHeaders])` solo para anclar el selector Entreno/Actividad/Recuperación; el bloque completo de métricas sigue en un `VStack` no lazy para evitar reciclado de Charts/heatmap y saltos de offset.
+- Scroll de Progreso: `LazyVStack(pinnedViews: [.sectionHeaders])` solo para anclar el selector Entreno/Actividad/Recuperación, con control segmentado nativo de tamaño grande y cristal **en cápsula 100 % redondeada**; el bloque completo de métricas sigue en un `VStack` no lazy para evitar reciclado de Charts/heatmap y saltos de offset.
 - Equilibrio: mapa coloreado por **fatiga retenida** (`MuscleMapEngine`, vida media por músculo) — gris → verde → amarillo → naranja → rojo (Recuperado→Fatigado). Incluye entrenos Repera **y** Apple Salud (`HealthMuscleMapper`: correr, tenis/raqueta, bici, natación, HIIT, deportes de equipo, etc.). Barras = series del periodo; color de barra = fatiga. Toggle Todas/Duras.
 
 ### Ejercicios (`LibraryView`)
