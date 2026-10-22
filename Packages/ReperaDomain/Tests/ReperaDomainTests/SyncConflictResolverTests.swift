@@ -55,6 +55,45 @@ final class SyncConflictResolverTests: XCTestCase {
         XCTAssertEqual(SyncConflictResolver.pickNewest(local: nil, remote: only)?.lastWriterDeviceId, "A")
     }
 
+    func testHistoricalBlockBackfillRequiresExactOriginalWorkout() {
+        let started = Date(timeIntervalSince1970: 1_729_000_000)
+        let finished = started.addingTimeInterval(1_800)
+        let remote = WorkoutSession(
+            title: "AMRAP histórico",
+            exercises: [],
+            phase: .finished,
+            startedAt: started,
+            finishedAt: finished
+        )
+        var local = remote
+        local.routineBlocks = [.wod(format: .amrap)]
+        XCTAssertTrue(SyncConflictResolver.canRestoreMissingBlockSnapshot(
+            local: local, remote: remote
+        ))
+
+        var changedRemote = remote
+        changedRemote.title = "Editado en otro dispositivo"
+        XCTAssertFalse(SyncConflictResolver.canRestoreMissingBlockSnapshot(
+            local: local, remote: changedRemote
+        ))
+
+        changedRemote = remote
+        changedRemote.finishedAt = finished.addingTimeInterval(10)
+        XCTAssertFalse(SyncConflictResolver.canRestoreMissingBlockSnapshot(
+            local: local, remote: changedRemote
+        ))
+
+        var alreadyStructured = remote
+        alreadyStructured.routineBlocks = [.wod(format: .forTime)]
+        XCTAssertFalse(SyncConflictResolver.canRestoreMissingBlockSnapshot(
+            local: local, remote: alreadyStructured
+        ))
+
+        XCTAssertFalse(SyncConflictResolver.canRestoreMissingBlockSnapshot(
+            local: remote, remote: remote
+        ))
+    }
+
     func testLegacyZeroRevisionFallsBackToUpdatedAt() {
         let local = state(revision: 0, updatedAt: Date(timeIntervalSince1970: 1), writer: "")
         let remote = state(revision: 0, updatedAt: Date(timeIntervalSince1970: 99), writer: "")
