@@ -68,7 +68,7 @@ struct BodyWeightListView: View {
                     }
                 }
             } header: {
-                Text("Objetivo")
+                Text("Objetivo de peso")
             }
 
             Section {

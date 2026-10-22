@@ -16,7 +16,6 @@ struct SettingsView: View {
     @Environment(OnboardingStore.self) private var onboarding
     @Environment(WorkoutLocationTracker.self) private var location
     @Environment(\.openURL) private var openURL
-    @State private var goalText = ""
     @State private var exportURL: URL?
     @State private var showingImporter = false
     @State private var showingCSVImporter = false
@@ -31,12 +30,15 @@ struct SettingsView: View {
  
     var body: some View {
         @Bindable var store = store
+        // FotosPicker construye su label fuera del aislamiento de MainActor.
+        // Capturar la vista ya construida evita acceder a iCloudAvatarBadge desde ese contexto.
+        let avatarBadge = iCloudAvatarBadge
         Form {
             Section {
                 HStack(spacing: 12) {
                     PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
                         ZStack(alignment: .bottomTrailing) {
-                            iCloudAvatarBadge
+                            avatarBadge
                                 .frame(width: 52, height: 52)
                             Image(systemName: "apple.logo")
                                 .font(.system(size: 11, weight: .semibold))
@@ -350,68 +352,12 @@ struct SettingsView: View {
                         }
                     }
                 }
-                HStack {
-                    Text("Objetivo")
-                        .foregroundStyle(OG.label)
-                    Spacer()
-                    OGNumericTextField(
-                        text: $goalText,
-                        allowsDecimal: true,
-                        textAlignment: .right,
-                        autoFocus: false,
-                        onCommit: {}
-                    )
-                    .frame(width: 92, height: 44)
-                    .accessibilityLabel("Objetivo de peso en kilogramos")
-                    Button("Guardar") {
-                        var s = store.state.settings
-                        let trimmed = goalText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        s.bodyWeightGoalKg = trimmed.isEmpty
-                            ? nil
-                            : Double(trimmed.replacingOccurrences(of: ",", with: "."))
-                        store.updateSettings(s)
-                    }
-                    .fontWeight(.semibold)
-                    .foregroundStyle(OG.label)
-                }
-                if let latest = store.state.bodyWeights.first {
-                    LabeledContent(
-                        "Último",
-                        value: "\(latest.weightKg.formatted(.number.precision(.fractionLength(1)))) kg · \(latest.source.displayName)"
-                    )
-                    .foregroundStyle(OG.label)
-                } else if let kg = health.latestWeightKg {
-                    LabeledContent(
-                        "Último",
-                        value: "\(kg.formatted(.number.precision(.fractionLength(1)))) kg · Salud"
-                    )
-                    .foregroundStyle(OG.label)
-                }
-                if let goal = store.state.settings.bodyWeightGoalKg,
-                   let latest = store.state.bodyWeights.first {
-                    let delta = latest.weightKg - goal
-                    if abs(delta) < 0.3 {
-                        Text("Estás en el objetivo.")
-                            .font(.footnote)
-                            .foregroundStyle(OG.label)
-                    } else {
-                        let sign = delta > 0 ? "+" : ""
-                        Text("\(sign)\(delta.formatted(.number.precision(.fractionLength(1)))) kg respecto al objetivo")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
             } header: {
                 Text("Salud")
             }
             .task {
                 await refreshNotificationsStatus()
                 location.refreshStatus()
-            }
-            .onAppear {
-                if let g = store.state.settings.bodyWeightGoalKg {
-                    goalText = String(format: "%g", g)
-                }
             }
 
             Section("Entrenamiento") {

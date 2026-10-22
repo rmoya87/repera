@@ -90,6 +90,17 @@ struct BoardScanLiteParserTests {
             .allSatisfy { $0.plannedSets.count == 1 })
     }
 
+    @Test func uniqueGlossaryMappingsPreferSpecificExercises() {
+        // Las variantes de OCR tienen un único destino. No colapsar RUN en cinta de correr.
+        #expect(CrossFitGlossary.canonicalName(for: "RUN") == "Carrera")
+        #expect(CrossFitGlossary.canonicalName(for: "RUNNING") == "Carrera")
+        #expect(CrossFitGlossary.canonicalName(for: "RUNS") == "Carrera")
+        #expect(CrossFitGlossary.canonicalName(for: "CINTA") == "Cinta / carrera")
+        #expect(CrossFitGlossary.canonicalName(for: "AMERICAN SWING") == "Swing americano")
+        #expect(CrossFitGlossary.canonicalName(for: "DEADLIFT") == "Peso muerto")
+        #expect(CrossFitGlossary.canonicalName(for: "BURPEES OVER THE BAR") == "Bar facing burpee")
+    }
+
     @Test func fullNamesAndAcronymsShareCanonicalExercises() {
         #expect(CrossFitGlossary.canonicalName(for: "GTOH") == "Ground to overhead")
         #expect(CrossFitGlossary.canonicalName(for: "ground-to-overhead") == "Ground to overhead")
