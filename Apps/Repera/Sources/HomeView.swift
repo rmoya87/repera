@@ -16,6 +16,7 @@ struct HomeView: View {
     @State private var weekOffset = 0
     /// Rango de páginas del carrusel (±1 año).
     private static let weekCarouselRadius = 52
+    @ScaledMetric(relativeTo: .body) private var weekCarouselHeight: CGFloat = 72
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: Date())
     /// Live refine for **today** only (HK query). Past days use bucket metrics — never wait on HealthKit to paint.
     @State private var todayHealthLive = HealthKitStore.DayMetrics()
@@ -440,11 +441,11 @@ struct HomeView: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: 72)
+                .frame(height: weekCarouselHeight)
 
                 dayEntrenoStack(workouts: workouts)
 
-                HStack(spacing: 10) {
+                OGAdaptiveMetricLayout(minimumItemWidth: 96, spacing: 10) {
                     metricTile(title: "Kcal", value: kcal.map { "\(Int($0.rounded()))" } ?? "—", icon: "flame.fill", tint: OG.orange)
                     metricTile(title: "Tiempo", value: durationMin > 0 ? "\(Int(durationMin.rounded()))′" : "—", icon: "clock.fill", tint: OG.blue)
                     if let dayScore {
