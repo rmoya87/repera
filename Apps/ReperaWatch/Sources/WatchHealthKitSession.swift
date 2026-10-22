@@ -215,16 +215,20 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         _ workoutSession: HKWorkoutSession, didChangeTo toState: HKWorkoutSessionState,
         from fromState: HKWorkoutSessionState, date: Date
     ) {
+        // HealthKit delegates run off the MainActor. Send only value-type
+        // snapshots across the boundary (not the non-Sendable session object).
+        let identity = ObjectIdentifier(workoutSession)
+        let stateStillMatches = workoutSession.state == toState
         Task { @MainActor in
-            // Ignore callbacks from an older workout that has already ended.
-            guard self.workout === workoutSession else { return }
+            guard self.workout.map({ ObjectIdentifier($0) }) == identity else { return }
+            if toState == .running || toState == .paused {
+                guard stateStillMatches else { return }
+            }
             self.pendingStateTransition = nil
             switch toState {
             case .paused:
-                guard workoutSession.state == .paused else { return }
                 self.onPauseStateChanged?(true)
             case .running:
-                guard workoutSession.state == .running else { return }
                 if let pending = self.pendingBlock {
                     self.beginBlock(id: pending.id, isInterval: pending.isInterval)
                 }
