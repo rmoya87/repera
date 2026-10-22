@@ -105,7 +105,6 @@ struct SettingsView: View {
                     }
                 }
 
-                Divider()
                 Button {
                     Task { await syncEverything() }
                 } label: {
