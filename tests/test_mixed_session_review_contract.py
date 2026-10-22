@@ -1,57 +1,38 @@
-"""Regression guards for mixed WOD/EMOM review and strict exercise comparability.
-
-Source contracts supplement the Swift test that reproduces the last Supabase
-workout's structure with push press, deadlift, ring dips and AMRAP.
-"""
+"""Mixed EMOM + AMRAP must not receive points from logging or weak history."""
 from pathlib import Path
 import unittest
-
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def read(path):
-    return (ROOT / path).read_text(encoding="utf-8")
-
+def read(p): return (ROOT / p).read_text(encoding="utf-8")
 
 class MixedSessionReviewContractTests(unittest.TestCase):
-    def test_push_press_must_never_be_scored_against_bench_press(self):
+    def test_no_bench_press_equivalence(self):
         eq = read("Packages/ReperaDomain/Sources/ReperaDomain/ExerciseEquivalence.swift")
         pressing = eq.split("if cf == .press {", 1)[1].split("if cf == .pull", 1)[0]
         self.assertIn("return 0", pressing)
         self.assertNotIn("return 0.92", pressing)
-        self.assertIn("if sameName(current.name, prior.name) { return 1.0 }", eq)
 
-    def test_mixed_session_review_uses_records_from_each_block(self):
+    def test_only_verified_personal_history_is_used(self):
         engine = read("Packages/ReperaDomain/Sources/ReperaDomain/SessionReviewEngine.swift")
-        self.assertIn("mixedSessionReview(", engine)
-        self.assertIn("scoredBlockID: primary.id", engine)
-        self.assertIn("session.exercises.filter { $0.blockId == block.id }", engine)
-        self.assertIn("entry.loggedSets.filter { !$0.isWarmup }.count", engine)
-        self.assertIn("let coverage = min(1.0, Double(observed) / Double(prescribed))", engine)
-        self.assertIn("Double(wodReview.overallScore) * primaryMinutes", engine)
-        self.assertIn("scoreBasis: .sessionEstimate", engine)
-        self.assertIn("level: nil", engine)
-        self.assertIn("session.displayDurationMinutes", engine)
-        self.assertIn("no se utiliza para calcular esta nota", engine)
+        trusted = read("Packages/ReperaDomain/Sources/ReperaDomain/VerifiedSessionReviewEngine.swift")
+        self.assertIn("VerifiedSessionReviewEngine.review(session: session, history: history", engine)
+        self.assertIn("minimumPriorSessions = 2", trusted)
+        self.assertIn("minimumEvidenceCoverage = 0.60", trusted)
+        self.assertIn("perDay.count >= minimumPriorSessions", trusted)
+        self.assertIn("refs.count >= minimumPriorSessions", trusted)
+        self.assertIn("guard coverage >= minimumEvidenceCoverage else { return nil }", trusted)
+        self.assertNotIn("registrationScore", trusted)
+        self.assertNotIn("SessionCardioEffort.apply", engine.split("public static func review(", 1)[1].split("// MARK: - WOD score", 1)[0])
 
-    def test_only_scored_block_may_adjust_its_wod_score(self):
-        engine = read("Packages/ReperaDomain/Sources/ReperaDomain/SessionReviewEngine.swift")
-        self.assertIn("session.exercises.filter { $0.blockId == scoredBlockID }", engine)
-        self.assertIn("equivalenceAdjustment(from: scoredMovements)", engine)
-        self.assertIn("nonEmptySimilarRefs(scoredMovements)", engine)
-        self.assertIn("let historyNote = isScaled ? nil", engine)
-
-    def test_recalculation_and_honest_ui_copy(self):
+    def test_old_scores_are_recalculated_and_ui_is_honest(self):
         ui = read("Apps/Repera/Sources/SessionReviewViews.swift")
-        self.assertIn("review.scoreBasis == .catalogBands", ui)
-        self.assertIn("Valoración orientativa según datos registrados", ui)
+        home = read("Apps/Repera/Sources/HomeView.swift")
         store = read("Apps/Repera/Sources/ReperaStore.swift")
-        self.assertIn("sessionReviewFormulaVersion = 9", store)
+        self.assertIn("review.scoreBasis == .personalHistory", ui)
+        self.assertIn("review.indicators.count == ReviewDimension.allCases.count", ui)
+        self.assertIn("if let dayScore {", home)
+        self.assertIn("review.scoreBasis == .personalHistory", home)
+        self.assertIn("sessionReviewFormulaVersion = 10", store)
         self.assertIn("refreshSessionReviewsIfNeeded()", store)
-        swift = read("Packages/ReperaDomain/Tests/ReperaDomainTests/SessionReviewEngineTests.swift")
-        self.assertIn("mixedEMOMsAndAMRAPAreNotGradedFromOnlyTheAMRAP", swift)
-        self.assertIn("pushPressCannotBeComparedWithBenchPress", swift)
-
 
 if __name__ == "__main__":
     unittest.main()
