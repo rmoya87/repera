@@ -1155,7 +1155,7 @@ struct WorkoutView: View {
     private var wodFullscreenClock: some View {
         let clock = store.workoutClock
         let roundDisplay: Int? = clock.isIntervalMode
-            ? min(clock.intervalIndex + 1, max(clock.totalIntervals, 1))
+            ? min(clock.displayedRound, clock.displayedRoundsTotal)
             : nil
         return TimelineView(.periodic(from: .now, by: 0.25)) { context in
             BlockTimerScreen(
@@ -1165,7 +1165,7 @@ struct WorkoutView: View {
                     : (clock.isOverTimeCap ? "TC superado · tiempo real" : clock.subtitle),
                 exercise: clock.exercise,
                 roundNumber: roundDisplay,
-                totalRounds: clock.isIntervalMode ? clock.totalIntervals : nil,
+                totalRounds: clock.isIntervalMode ? clock.displayedRoundsTotal : nil,
                 displaySeconds: clock.displaySeconds(at: context.date),
                 isRunning: clock.isRunning,
                 isCountingUp: clock.isCountingUp,
