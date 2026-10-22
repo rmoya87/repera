@@ -2,6 +2,77 @@ import Charts
 import ReperaDomain
 import SwiftUI
 
+/// Real Apple Health heart-rate zones for the most recent finished workout.
+/// The optional 0...10 number describes *intensity*, never quality/performance.
+struct ProgressHeartZonesCard: View {
+    let workouts: [WorkoutSession]
+    @State private var zones: HealthKitStore.WorkoutHeartZones?
+
+    private var latest: WorkoutSession? {
+        workouts.filter { $0.finishedAt != nil }.max {
+            ($0.finishedAt ?? .distantPast) < ($1.finishedAt ?? .distantPast)
+        }
+    }
+    private let colors: [Color] = [OG.blue, OG.accent, OG.orange, OG.red, OG.red]
+
+    var body: some View {
+        Group {
+            if let zones {
+                let total = max(1.0, zones.zones.reduce(0) { $0 + $1.seconds })
+                VStack(alignment: .leading, spacing: 8) {
+                    OGCardSectionTitle(title: "Zonas cardíacas · último entreno")
+                    OGCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(zones.title)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(OG.label)
+                            GeometryReader { geometry in
+                                let usableWidth = max(1.0, geometry.size.width - CGFloat(max(0, zones.zones.count - 1) * 2))
+                                HStack(spacing: 2) {
+                                    ForEach(zones.zones) { zone in
+                                        RoundedRectangle(cornerRadius: 3)
+                                            .fill(colors[(zone.index - 1) % colors.count])
+                                            .frame(width: usableWidth * CGFloat(zone.seconds / total))
+                                    }
+                                }
+                            }
+                            .frame(height: 16)
+                            HStack(spacing: 6) {
+                                ForEach(zones.zones) { zone in
+                                    VStack(spacing: 4) {
+                                        Text("Z\(zone.index)")
+                                            .font(.caption2.weight(.semibold))
+                                            .foregroundStyle(colors[(zone.index - 1) % colors.count])
+                                        Text("\(Int((100 * zone.seconds / total).rounded()))%")
+                                            .font(.caption2.monospacedDigit())
+                                            .foregroundStyle(OG.label2)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                }
+                            }
+                            if let intensity = zones.intensityLoad {
+                                Text("Carga cardiovascular: \(intensity)/10 · intensidad, no rendimiento")
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(OG.label)
+                            } else {
+                                Text("Cobertura cardíaca insuficiente para estimar la intensidad.")
+                                    .font(.caption).foregroundStyle(OG.label3)
+                            }
+                            Text("\(zones.source) · \(Int((zones.coveredFraction * 100).rounded()))% del tiempo cubierto. La nota v11 no cambia por el pulso.")
+                                .font(.caption).foregroundStyle(OG.label3)
+                        }
+                    }
+                }
+            }
+        }
+        .task(id: latest?.id) {
+            zones = nil
+            guard let latest else { return }
+            zones = await HealthKitStore.shared.heartZones(for: latest)
+        }
+    }
+}
+
 /// Cardio: FC mín / media / máx (series ya preparadas).
 struct ProgressCardioChartCard: View {
     var prepared: ProgressPreparedCharts
