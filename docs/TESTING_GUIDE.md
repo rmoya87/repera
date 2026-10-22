@@ -257,12 +257,14 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] Abrir Inicio en modo claro y oscuro: calendario, entrenamiento (incluido día vacío) y «Añadir nuevo entreno» comparten un lienzo OG.surface a ancho total; Progreso semanal, Actividad y Recuperación mantienen sus márgenes.
 - [ ] Deslizar el calendario por días y cruzar un cambio de mes: la cabecera se actualiza, los días siguen siendo cuadrados y el seleccionado tiene color de marca OG.accent (#30D158).
 - [ ] En día vacío, planificado y completado, comprobar que «Añadir nuevo entreno» destaca como botón verde con letras negras. Abrir el flujo y regresar sin perder selección de fecha.
-- [ ] Con entrenamientos completados, probar swipe para revelar eliminar, detalle de sesión, y chips horizontales; nunca borrar sin confirmación.
-- [ ] Ajustes → Salud → Objetivos abre una pantalla real, con pasos, kcal activas, minutos diarios, entrenamientos semanales y objetivo de peso. El objetivo de peso se edita solo aquí; en Peso corporal queda registro e historial.
-- [ ] Tras actualizar desde versiones antiguas, el objetivo de peso configurado se conserva. Los nuevos objetivos son opcionales, vacíos por defecto; guardar, reiniciar y comprobar persistencia.
+- [ ] Con entrenos completos, planificados y externos, comprobar borde gris, papelera oculta antes del swipe, revelación al deslizar y confirmación obligatoria de eliminación. El día vacío debe llevar el mismo borde.
+- [ ] Ajustes → Salud → Objetivos permite pasos, kcal, FC media de referencia, minutos, entrenos semanales y peso con teclado numérico Repera, guardado automático y sin botón Guardar ni textos explicativos al pie. Vaciar el campo quita solo su objetivo.
+- [ ] Desde versiones anteriores se conserva el peso objetivo y la FC media no tiene objetivo por defecto. Editar, volver atrás sin botón Guardar, reiniciar y comprobar persistencia.
 - [ ] Establecer objetivos de pasos y energía: en Inicio las métricas presentan un progreso solo con datos medidos; si Salud no suministra dato, mostrar raya, no cero.
-- [ ] Bajo Actividad aparece la evolución de siete días con selector Pasos / Calorías / FC media. Mostrar barras/línea solo de datos medidos, incluyendo fechas con muestras a horas distintas; en ausencia de datos presentar explicación, no barras simuladas.
+- [ ] En Actividad de Inicio no hay evolución de siete días: comprobar meta total y barra verde/naranja/roja, ninguna barra sin objetivo y ninguna medición inventada.
 - [ ] Entrenar dos veces en un día y comprobar que el progreso semanal muestra dos entrenamientos frente a la meta, aunque haya solo un check para el día.
+- [ ] Al editar un input numérico que presenta 0 por defecto, la primera cifra sustituye al cero; probar series, RIR, formatos, prescripciones y adaptaciones.
+- [ ] Comprobar que topbar de Inicio continúa transparente y el fondo de detrás es blanco incluso con scroll.
 - [ ] Verificar Dynamic Type, VoiceOver, pantalla estrecha, pantalla amplia, reducción de movimiento y navegación de gestos dentro de un ScrollView vertical.
 
 ### Incidencias de compilación y herramientas de Xcode
