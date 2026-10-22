@@ -17,10 +17,10 @@ class MCPV2Contracts(unittest.TestCase):
             source=read(file)
             self.assertNotIn("z.object(",source)
             self.assertIn("z.strictObject(",source)
-        index=read("supabase/functions/repera-mcp/index.ts")
-        self.assertIn("block = z.strictObject",index)
-        self.assertIn("movement = z.strictObject",index)
-        self.assertIn("plannedSet = z.strictObject",index)
+        schema=read("supabase/functions/repera-mcp/schema.ts")
+        self.assertIn("block = z.strictObject",schema)
+        self.assertIn("movement = z.strictObject",schema)
+        self.assertIn("plannedSet = z.strictObject",schema)
 
     def test_optimistic_reversible_changes_are_owner_scoped(self):
         code=read("supabase/functions/repera-mcp/mutations.ts")
@@ -34,7 +34,9 @@ class MCPV2Contracts(unittest.TestCase):
         self.assertIn('destructiveHint:true',code)
         self.assertIn("structuredContent:{error}",code)
         self.assertNotIn('.delete()',code)
-        self.assertIn("workoutSchema.safeParse(",code)
+        self.assertIn("workout.safeParse(candidate)",code)
+        self.assertIn("...workout.shape",code)
+        self.assertNotIn("z.array(z.unknown())",code)
 
     def test_token_scopes_and_full_lifecycle(self):
         token=read("supabase/functions/repera-ai-tokens/index.ts")
