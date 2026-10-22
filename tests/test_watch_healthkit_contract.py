@@ -105,13 +105,13 @@ class WatchHealthKitContractTests(unittest.TestCase):
 
         # Changes before WCSession activates must be retained, not dropped.
         self.assertIn("private var latestPayload: [String: Any]?", phone)
-        self.assertIn("latestPayload = payload", phone)
+        self.assertIn("latestPayloadLock.withLock { latestPayload = payload }", phone)
         self.assertIn("publishLatestContext()", phone)
         self.assertIn("try wc.updateApplicationContext(payload)", phone)
         self.assertIn("wc.sendMessage(payload, replyHandler: nil)", phone)
         self.assertNotIn('wc.sendMessage(["ping": true]', phone)
         self.assertIn('case "requestToday":', phone)
-        self.assertIn('return latestPayload ?? ["ok": true]', phone)
+        self.assertIn('return latestPayloadLock.withLock { latestPayload } ?? ["ok": true]', phone)
 
         # A reachable Watch gets a direct reply; unavailable devices keep context.
         self.assertIn("replyHandler: { [weak self] payload in", client)
