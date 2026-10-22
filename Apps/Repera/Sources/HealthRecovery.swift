@@ -558,7 +558,9 @@ struct HealthRecoveryProgressView: View {
         // HealthKit ya excluye UUID y solapes con entrenamientos Repera.
         let external = health.recentExternalActivities.map { activity in
             RecoveryEngine.ObservedActivity(
-                date: activity.start, durationMinutes: activity.durationMinutes,
+                // Contar la carga cuando el HKWorkout terminó, no al
+                // empezar: un entreno 06:00–08:00 no puede influir a las 07:00.
+                date: activity.end, durationMinutes: activity.durationMinutes,
                 isCardio: HealthMuscleMapper.isCardio(activity.activityType)
             )
         }
