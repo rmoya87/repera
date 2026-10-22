@@ -15,6 +15,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     private let pendingKey = "repera.watch.completedOutbox.v1"
     private var lastInboundSession: Data?
     private var lastInboundToday: Data?
+    private var lastInboundTodayDay: TimeInterval?
 
     func activate() {
         guard WCSession.isSupported() else { return }
@@ -76,14 +77,29 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         UserDefaults.standard.set(queued, forKey: pendingKey)
     }
 
+    /// Explicit retry for newly scheduled workouts and reopening the Watch.
+    func refreshToday() {
+        guard WCSession.isSupported() else { return }
+        let wc = WCSession.default
+        guard wc.activationState == .activated else { return }
+        applyContext(wc.receivedApplicationContext)
+        requestToday()
+    }
+
     private func requestToday() {
         guard WCSession.isSupported() else { return }
         let wc = WCSession.default
         guard wc.activationState == .activated, wc.isReachable else { return }
-        wc.sendMessage(["action": "requestToday", "actionId": UUID().uuidString],
-                       replyHandler: nil) { [weak self] error in
-            self?.logger.debug("Day refresh deferred: \(error.localizedDescription, privacy: .public)")
-        }
+        wc.sendMessage(
+            ["action": "requestToday", "actionId": UUID().uuidString],
+            replyHandler: { [weak self] payload in
+                // The iPhone replies with its last complete snapshot immediately.
+                self?.applyContext(payload)
+            },
+            errorHandler: { [weak self] error in
+                self?.logger.debug("Day refresh deferred: \(error.localizedDescription, privacy: .public)")
+            }
+        )
     }
 
     func session(_ session: WCSession,
@@ -114,11 +130,17 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                 .flatMap(UUID.init(uuidString:))
             delegate?.watchConnectivityDidAcknowledge(sessionId: id, healthKitUUID: healthID)
         }
-        if let data = payload["todayWorkout"] as? Data, data != lastInboundToday {
-            let day = (payload["todayDayStart"] as? TimeInterval).map(Date.init(timeIntervalSince1970:))
-            lastInboundToday = data
-            let today = data.isEmpty ? nil : try? JSONDecoder().decode(WorkoutSession.self, from: data)
-            delegate?.watchConnectivityDidReceiveToday(today, scheduledDay: day)
+        if let data = payload["todayWorkout"] as? Data {
+            let dayStamp = payload["todayDayStart"] as? TimeInterval
+            if data != lastInboundToday || dayStamp != lastInboundTodayDay {
+                // Same workout bytes may refer to a new calendar day after midnight.
+                lastInboundToday = data
+                lastInboundTodayDay = dayStamp
+                let today = data.isEmpty ? nil : try? JSONDecoder().decode(WorkoutSession.self, from: data)
+                delegate?.watchConnectivityDidReceiveToday(
+                    today, scheduledDay: dayStamp.map(Date.init(timeIntervalSince1970:))
+                )
+            }
         }
         if let data = payload["session"] as? Data, data != lastInboundSession {
             lastInboundSession = data
