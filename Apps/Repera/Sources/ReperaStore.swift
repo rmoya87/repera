@@ -1318,7 +1318,10 @@ final class ReperaStore: NSObject {
         let pending = state.workouts.filter {
             $0.finishedAt != nil && $0.startedAt != nil && $0.healthKitWorkoutUUID == nil
         }.map(\.id)
-        guard health.canWriteWorkouts else { return pending.count }
+        // La lectura de Apple Watch puede estar permitida aunque se haya
+        // denegado escribir. Primero se intenta vincular Salud y solo si no
+        // existe una muestra coincidente se requiere permiso de escritura.
+        guard health.isAvailable else { return pending.count }
         for id in pending {
             if Task.isCancelled { break }
             _ = await syncWorkoutToHealth(sessionId: id)
