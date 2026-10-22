@@ -17,6 +17,7 @@ final class WatchSessionHub: NSObject {
     private(set) var blockElapsed = 0
     private(set) var sessionElapsed = 0
     private(set) var workingReps = 0
+    private(set) var workingWeightKg: Double?
     private(set) var completedRounds = 0
     private(set) var remainingRoundReps = 0
     private(set) var reviewingBlock = false
@@ -42,6 +43,7 @@ final class WatchSessionHub: NSObject {
         var blockElapsed: Int
         var sessionElapsed: Int
         var workingReps: Int
+        var workingWeightKg: Double?
         var completedRounds: Int
         var remainingRoundReps: Int
         var reviewingBlock: Bool
@@ -121,6 +123,7 @@ final class WatchSessionHub: NSObject {
         blockElapsed = 0
         sessionElapsed = 0
         workingReps = 0
+        workingWeightKg = next.session.currentExercise?.plannedSets.first?.targetWeightKg
         completedRounds = 0
         remainingRoundReps = 0
         lastIntervalIndex = 0
@@ -147,6 +150,7 @@ final class WatchSessionHub: NSObject {
             remainingRoundReps = 0
             restRemaining = 0
             workingReps = 0
+            workingWeightKg = ctrl.session.currentExercise?.plannedSets.first?.targetWeightKg
             repCounter.reset()
             lastIntervalIndex = 0
             reviewingBlock = false
@@ -179,6 +183,12 @@ final class WatchSessionHub: NSObject {
         save()
     }
 
+    func adjustWeight(_ delta: Double) {
+        guard active?.phase == .counting, !isPaused, !reviewingBlock else { return }
+        workingWeightKg = max(0, ((workingWeightKg ?? 0) + delta) * 2).rounded() / 2
+        save()
+    }
+
     /// Motion detection is just a suggestion; the athlete confirms the actual set.
     func confirmSet() {
         guard !isPaused, !reviewingBlock, !currentIsWOD,
@@ -188,11 +198,13 @@ final class WatchSessionHub: NSObject {
         let index = exercise.loggedSets.count
         let prescribed = exercise.plannedSets.indices.contains(index)
             ? exercise.plannedSets[index] : exercise.plannedSets.last
-        ctrl.logSet(reps: reps, weightKg: prescribed?.targetWeightKg,
-                    rir: prescribed?.targetRir)
+        ctrl.logSet(reps: reps, weightKg: workingWeightKg,
+                    rir: nil)
         controller = ctrl
         workingReps = 0
         repCounter.reset()
+        workingWeightKg = ctrl.session.currentExercise?.plannedSets.dropFirst(index + 1).first?.targetWeightKg
+            ?? prescribed?.targetWeightKg
         stopMotion()
         if ctrl.session.currentExercise?.loggedSets.count ?? 0 < plannedSets {
             restRemaining = max(0, exercise.restSeconds ?? exercise.blockRestSeconds ?? 0)
@@ -218,6 +230,7 @@ final class WatchSessionHub: NSObject {
         blockElapsed = 0
         restRemaining = 0
         workingReps = 0
+        workingWeightKg = ctrl.session.currentExercise?.plannedSets.first?.targetWeightKg
         repCounter.reset()
         if ctrl.session.phase == .finished { completeSession() }
         else { checkpoint() }
@@ -398,7 +411,8 @@ final class WatchSessionHub: NSObject {
             current: active, today: todayPlan, todayUpdatedAt: todayUpdatedAt,
             finished: lastFinished, paused: isPaused, restRemaining: restRemaining,
             blockElapsed: blockElapsed, sessionElapsed: sessionElapsed,
-            workingReps: workingReps, completedRounds: completedRounds,
+            workingReps: workingReps, workingWeightKg: workingWeightKg,
+            completedRounds: completedRounds,
             remainingRoundReps: remainingRoundReps, reviewingBlock: reviewingBlock,
             clockTick: lastClockTick, acknowledgedSessionID: acknowledgedSessionID
         )
@@ -419,6 +433,7 @@ final class WatchSessionHub: NSObject {
         blockElapsed = snapshot.blockElapsed
         sessionElapsed = snapshot.sessionElapsed
         workingReps = snapshot.workingReps
+        workingWeightKg = snapshot.workingWeightKg
         completedRounds = snapshot.completedRounds
         remainingRoundReps = snapshot.remainingRoundReps
         reviewingBlock = snapshot.reviewingBlock
