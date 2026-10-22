@@ -976,8 +976,10 @@ struct WorkoutView: View {
             clusters: []
         )
         setCompletionPulse &+= 1
-        beginRest(store.state.settings.defaultRestSeconds)
-        restStartedPulse &+= 1
+        if shouldStartIndependentRest(for: current) {
+            beginRest(store.state.settings.defaultRestSeconds)
+            restStartedPulse &+= 1
+        }
         if let updated = store.state.activeSession?.currentExercise {
             withAnimation(reduceMotion ? nil : .smooth) {
                 rebuildLiveSets(from: updated)
@@ -1265,6 +1267,9 @@ struct WorkoutView: View {
         let haptic = store.state.settings.restHapticEnabled
         let format = current.wodFormat
         let subtitleDefault = wodPlanLabel(for: current)
+        if format == .emom || format == .tabata || format == .circuit {
+            store.restCoordinator.skip()
+        }
         runningTimerBlockID = current.blockId ?? current.id
         finishedTimedBlockID = nil
 
@@ -1714,7 +1719,9 @@ struct WorkoutView: View {
             if setKind == .restpause { return max(45, store.state.settings.defaultRestSeconds / 2) }
             return store.state.settings.defaultRestSeconds
         }()
-        beginRest(rest)
+        if shouldStartIndependentRest(for: current) {
+            beginRest(rest)
+        }
         pendingDrops = []
         pendingClusters = []
         dropWeightText = ""
@@ -1922,6 +1929,14 @@ struct WorkoutView: View {
     private func bumpReps(_ delta: Int) {
         let current = Int(repsText) ?? 0
         repsText = "\(max(0, current + delta))"
+    }
+
+    /// En EMOM/Tabata/Circuito el descanso ya lo gestiona el reloj del bloque.
+    /// No iniciar el descanso genérico por cada check, que taparía el intervalo real.
+    private func shouldStartIndependentRest(for current: SessionExercise) -> Bool {
+        current.wodFormat == nil
+            || current.wodFormat == .strength
+            || current.wodFormat == .roundsForQuality
     }
 
     private func beginRest(_ seconds: Int) {
