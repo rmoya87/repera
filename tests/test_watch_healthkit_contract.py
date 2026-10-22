@@ -78,7 +78,7 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("var body: some WidgetConfiguration {", widget)
         self.assertIn("StaticConfiguration(", widget)
         self.assertIn("struct ReperaWatchWidgetBundle: WidgetBundle {", widget)
-        self.assertIn("var body: some Widget {\\n        ReperaWatchWidget()\\n    }", widget)
+        self.assertIn("var body: some Widget {\n        ReperaWatchWidget()\n    }", widget)
         self.assertEqual(widget.count("@main"), 1)
         for family in (".accessoryCircular", ".accessoryRectangular", ".accessoryInline"):
             self.assertIn(family, widget)
