@@ -496,9 +496,21 @@ struct WatchSessionView: View {
                 Text(session.title)
                     .font(.caption)
                     .multilineTextAlignment(.center)
-                statsLine(icon: "clock", label: "Duración",
-                          value: timeLabel(Int(session.appleDurationSeconds ??
-                              session.finishedAt?.timeIntervalSince(session.startedAt ?? Date()) ?? 0)))
+                statsLine(
+                    icon: "clock",
+                    label: session.appleDurationSeconds == nil ? "Tiempo registrado" : "Tiempo Salud",
+                    value: timeLabel(Int(session.appleDurationSeconds ??
+                        session.finishedAt?.timeIntervalSince(session.startedAt ?? Date()) ?? 0))
+                )
+                if session.healthKitWorkoutUUID != nil {
+                    Label("Registrado en Apple Salud", systemImage: "heart.text.square")
+                        .font(.caption2)
+                        .foregroundStyle(accent)
+                } else if session.appleHealthProvenance == "watchHealthKitPending" {
+                    Label("Salud pendiente de confirmar", systemImage: "heart.circle")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
                 if let energy = session.appleActiveEnergyKcal {
                     statsLine(icon: "flame.fill", label: "Salud",
                               value: "\(Int(energy.rounded())) kcal")
