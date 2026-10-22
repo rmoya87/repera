@@ -45,6 +45,8 @@ fi
 if command -v python3 >/dev/null 2>&1; then
   run_check "Modernizacion iOS canvas" python3 docs/ios27-modernization/generate_canvas.py --check
   run_check "Validar herramienta Xcode Auth" python3 -m unittest discover -s tests -p test_xcode_sources.py -v
+  run_check "Plist fuente complicacion Watch" python3 scripts/check_watch_widget_plist.py
+  run_check "Tests metadatos complicacion Watch" python3 -m unittest discover -s tests -p test_watch_widget_plist.py -v
 else
   skip_check "Python 3 no instalado. No se puede validar canvas."
 fi
