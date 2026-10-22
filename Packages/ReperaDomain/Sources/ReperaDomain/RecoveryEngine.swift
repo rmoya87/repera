@@ -69,8 +69,8 @@ public enum RecoveryEngine {
                 return (calendar.startOfDay(for: row.date), v)
             }
             // Seven different calendar days, not seven watch measurements.
-            guard Set(values.map(\.0)).count >= 7 else { return nil }
-            let sorted = values.map(\.1).sorted()
+            guard Set(values.map { $0.0 }).count >= 7 else { return nil }
+            let sorted = values.map { $0.1 }.sorted()
             let n = sorted.count
             return n.isMultiple(of: 2) ? (sorted[n/2 - 1] + sorted[n/2]) / 2 : sorted[n/2]
         }
