@@ -263,19 +263,23 @@ struct WatchSessionView: View {
                         .font(.caption.weight(.medium))
                         .buttonStyle(.bordered)
                     Spacer(minLength: 0)
-                    if hub.hasNextExercise {
-                        Button {
-                            hub.nextExercise()
-                        } label: {
-                            Image(systemName: "arrow.right")
-                                .font(.title3.weight(.bold))
-                                .frame(minWidth: 44, minHeight: 38)
-                        }
-                        .buttonStyle(.bordered)
-                        .accessibilityLabel("Siguiente ejercicio")
-                        .accessibilityHint("Ir al siguiente ejercicio sin confirmar la serie pendiente")
-                        .disabled(hub.isPaused || hub.reviewingBlock)
+                    Button {
+                        hub.confirmAndAdvance()
+                    } label: {
+                        Image(systemName: hub.nextActionIsFinish ? "checkmark" : "arrow.right")
+                            .font(.title3.weight(.bold))
+                            .frame(minWidth: 48, minHeight: 42)
                     }
+                    .buttonStyle(.borderedProminent)
+                    .tint(accent)
+                    .foregroundStyle(.black)
+                    .accessibilityLabel(hub.nextActionIsFinish ? "Terminar" : "Siguiente")
+                    .accessibilityHint(
+                        hub.currentIsWOD && !hub.wodUsesSeries
+                            ? "Abrir el resultado del WOD"
+                            : "Guardar la serie confirmada y avanzar cuando corresponda"
+                    )
+                    .disabled(!hub.canConfirmCurrentEntry)
                 }
             }
             .padding(.horizontal, 5)
@@ -378,23 +382,7 @@ struct WatchSessionView: View {
                 .buttonStyle(.bordered)
                 .tint(accent)
             }
-            if !hub.isPaused {
-                Button {
-                    hub.confirmAndAdvance()
-                } label: {
-                    Text(hub.isLastWorkoutExercise ? "Terminar" :
-                            (hub.wodUsesSeries ? "Siguiente" : "Terminar bloque"))
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(accent)
-                .foregroundStyle(.black)
-                if hub.wodUsesSeries {
-                    Button("Confirmar resultado del bloque") { hub.reviewBlock() }
-                        .font(.caption2)
-                        .buttonStyle(.borderless)
-                }
-            }
+
         }
     }
 
@@ -464,27 +452,12 @@ struct WatchSessionView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             exerciseFields
-            Text("Desliza ← → para revisar otras series")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            if !hub.isPaused {
-                Button {
-                    hub.confirmAndAdvance()
-                } label: {
-                    Label(hub.isFinalSet ? "Terminar" : "Siguiente",
-                          systemImage: hub.isFinalSet ? "checkmark" : "arrow.right")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(accent)
-                .foregroundStyle(.black)
-                .disabled(hub.effectiveReps <= 0)
-                if hub.currentIsWOD && hub.wodUsesSeries {
-                    Button("Terminar bloque") { hub.reviewBlock() }
-                        .buttonStyle(.bordered)
-                        .font(.caption2)
-                }
+            if hub.currentIsWOD && hub.wodUsesSeries && !hub.isPaused {
+                // EMOM and Tabata may have more intervals than exercises.
+                // A separate explicit action closes their block score.
+                Button("Terminar bloque") { hub.reviewBlock() }
+                    .buttonStyle(.bordered)
+                    .font(.caption2)
             }
         }
     }
