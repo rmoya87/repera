@@ -157,6 +157,7 @@ final class ReperaStore: NSObject {
             }
             LaunchTiming.span("bootstrap.catalogMerge", from: t0)
             await completeInitialRemoteSync()
+            await reconcileWatchHealthMetrics()
             await recalculateStoredSessionKcalIfNeeded()
             refreshSessionReviewsIfNeeded()
         }
@@ -1395,6 +1396,39 @@ final class ReperaStore: NSObject {
         state.activeSession = session
         persist()
         pushActiveToWatch(immediate: true)
+    }
+
+    /// Reconciles delayed watchOS HealthKit samples without creating duplicate
+    /// workouts or accepting energy estimates from Repera's legacy iPhone writer.
+    /// Called on foreground and after the initial local/cloud recovery.
+    func reconcileWatchHealthMetrics() async {
+        guard isHydrated, HealthKitStore.shared.isAvailable else { return }
+        let candidates = state.workouts.filter {
+            $0.appleHealthProvenance == "watchHealthKitPending"
+                || ($0.appleHealthProvenance == "watchHealthKit" &&
+                    $0.healthKitWorkoutUUID == nil)
+        }
+        var changed = false
+        for original in candidates.prefix(50) {
+            if Task.isCancelled { break }
+            guard let actual = await HealthKitStore.shared.verifiedWatchWorkout(
+                forReperaSession: original.id
+            ), let index = state.workouts.firstIndex(where: { $0.id == original.id })
+            else { continue }
+            var current = state.workouts[index]
+            current.healthKitWorkoutUUID = actual.workoutUUID
+            current.appleDurationSeconds = actual.durationSeconds
+            current.appleHealthProvenance = "watchHealthKit"
+            if actual.kcal > 0 { current.appleActiveEnergyKcal = actual.kcal }
+            if current != state.workouts[index] {
+                state.workouts[index] = current
+                changed = true
+            }
+        }
+        if changed {
+            persistWorkouts()
+            await LocalStore.shared.persistAndFlush(state)
+        }
     }
 
     /// Merge-only recovery from authenticated Supabase, after iCloud recovery.
