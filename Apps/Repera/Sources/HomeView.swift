@@ -795,20 +795,25 @@ struct HomeView: View {
     }
 
     private func metricTile(title: String, value: String, icon: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(tint)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 7) {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(tint)
+                Text(title)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(OG.label3)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
             Text(value)
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(OG.label)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-            Text(title)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(OG.label3)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // Conserva el alto visual de las tres tarjetas del día.
+        .frame(maxWidth: .infinity, minHeight: 62, alignment: .topLeading)
         .padding(12)
         .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }

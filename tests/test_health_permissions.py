@@ -48,6 +48,16 @@ class HealthCaloriesOriginContractTests(unittest.TestCase):
     def read(self, relative_path: str) -> str:
         return (SOURCES / relative_path).read_text(encoding="utf-8")
 
+    def test_home_metric_titles_are_inline_with_icons_above_values(self):
+        home = self.read("HomeView.swift")
+        tile = home.split("private func metricTile(", 1)[1].split("private func setLine(", 1)[0]
+        self.assertIn("HStack(spacing: 7)", tile)
+        self.assertLess(tile.index("Image(systemName: icon)"), tile.index("Text(title)"))
+        self.assertLess(tile.index("Text(title)"), tile.index("Text(value)"))
+        self.assertIn("minHeight: 62", tile)
+        for label in ("Kcal", "Tiempo", "Nota"):
+            self.assertIn(f'title: "{label}"', home)
+
     def test_home_daily_energy_has_no_local_fallback(self):
         home = self.read("HomeView.swift")
         self.assertIn("let kcal = dayHealth.activeEnergyKcal", home)
