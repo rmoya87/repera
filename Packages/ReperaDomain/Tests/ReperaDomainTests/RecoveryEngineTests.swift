@@ -11,6 +11,80 @@ final class RecoveryEngineTests: XCTestCase {
         XCTAssertEqual(RecoveryEngine.sleepIndex(hours: 10, recentAverage: 8), 100)
     }
 
+    func testTrainingReadinessNeedsObservedSleepAndCompletedWorkouts() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let session = WorkoutSession(
+            title: "Sesión",
+            exercises: [],
+            startedAt: now.addingTimeInterval(-3600 * 14),
+            finishedAt: now.addingTimeInterval(-3600 * 13)
+        )
+        XCTAssertNil(RecoveryEngine.trainingReadiness(
+            at: now, sleepHours: nil, recentAverageSleepHours: 8,
+            workouts: [session]
+        ))
+        XCTAssertNil(RecoveryEngine.trainingReadiness(
+            at: now, sleepHours: 8, recentAverageSleepHours: 8,
+            workouts: []
+        ))
+        XCTAssertNil(RecoveryEngine.trainingReadiness(
+            at: now, sleepHours: 8, recentAverageSleepHours: 8,
+            workouts: [WorkoutSession(title: "Sin finalizar", exercises: [], startedAt: now)]
+        ))
+    }
+
+    func testTrainingReadinessShortSleepDoesNotRecommendNormalSession() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let finished = now.addingTimeInterval(-3600 * 12)
+        let session = WorkoutSession(
+            title: "WOD", exercises: [],
+            startedAt: finished.addingTimeInterval(-3600),
+            finishedAt: finished
+        )
+        let score = RecoveryEngine.trainingReadiness(
+            at: now, sleepHours: 4.5, recentAverageSleepHours: 8,
+            workouts: [session]
+        )
+        XCTAssertNotNil(score)
+        XCTAssertLessThanOrEqual(score!.score, 5)
+        XCTAssertEqual(score?.advice, .rest)
+    }
+
+    func testTrainingReadinessPenalizesGreaterRecentLoadAndIgnoresFutureSessions() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let one = WorkoutSession(
+            title: "Una sesión", exercises: [],
+            startedAt: now.addingTimeInterval(-3600 * 14),
+            finishedAt: now.addingTimeInterval(-3600 * 13)
+        )
+        let two = WorkoutSession(
+            title: "Otra sesión", exercises: [],
+            startedAt: now.addingTimeInterval(-3600 * 18),
+            finishedAt: now.addingTimeInterval(-3600 * 17)
+        )
+        let future = WorkoutSession(
+            title: "Mañana", exercises: [],
+            startedAt: now.addingTimeInterval(3600),
+            finishedAt: now.addingTimeInterval(7200)
+        )
+        let base = RecoveryEngine.trainingReadiness(
+            at: now, sleepHours: 8, recentAverageSleepHours: 8,
+            workouts: [one]
+        )
+        let heavier = RecoveryEngine.trainingReadiness(
+            at: now, sleepHours: 8, recentAverageSleepHours: 8,
+            workouts: [one, two]
+        )
+        let ignoringFuture = RecoveryEngine.trainingReadiness(
+            at: now, sleepHours: 8, recentAverageSleepHours: 8,
+            workouts: [one, future]
+        )
+        XCTAssertNotNil(base)
+        XCTAssertNotNil(heavier)
+        XCTAssertLessThan(heavier!.score, base!.score)
+        XCTAssertEqual(base, ignoringFuture)
+    }
+
     func testUnknownWithInsufficientOrIrregularCycles() {
         var c = Calendar(identifier: .gregorian)
         c.timeZone = TimeZone(secondsFromGMT: 0)!
