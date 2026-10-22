@@ -218,6 +218,13 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("loggingStyle != .machineWork", hub)
         self.assertIn("loggingStyle != .repsAndTime", hub)
         self.assertNotIn("if isLastWorkoutExercise { reviewBlock() }", hub)
+        self.assertIn("completedWorkingSets", hub)
+        self.assertIn("let wasWorkingSet = setDraft.phase == .work", hub)
+        self.assertIn("func adjustScoreSeconds(_ delta: Int)", hub)
+        self.assertIn("reviewElapsedSeconds: reviewElapsedSeconds", hub)
+        self.assertIn("wodTemplateId: templateID", hub)
+        self.assertIn("hub.adjustScoreSeconds(-1)", view)
+        self.assertIn("hub.adjustScoreSeconds(1)", view)
 
     def test_watch_complication_uses_widget_configuration_inside_widget(self):
         """WidgetBundleBuilder accepts Widget, not StaticConfiguration."""
