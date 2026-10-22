@@ -452,6 +452,12 @@ struct WatchSessionView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(accent)
                 .foregroundStyle(.black)
+                .disabled(hub.workingReps <= 0)
+                if hub.currentIsWOD && hub.wodUsesSeries {
+                    Button("Terminar bloque") { hub.reviewBlock() }
+                        .buttonStyle(.bordered)
+                        .font(.caption2)
+                }
             }
         }
     }
@@ -630,6 +636,7 @@ struct WatchSessionView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if hub.current?.wodFormat == .amrap ||
+                    hub.current?.wodFormat == .deathBy ||
                     hub.current?.wodFormat == .roundsForQuality {
                     scoreStepper(label: "Rondas", value: hub.completedRounds,
                                  down: { hub.adjustRounds(-1) }, up: { hub.adjustRounds(1) })
