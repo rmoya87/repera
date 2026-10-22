@@ -3,7 +3,6 @@ import SwiftUI
 struct BodyWeightListView: View {
     @Environment(ReperaStore.self) private var store
     @State private var kgText = ""
-    @State private var goalText = ""
 
     var body: some View {
         List {
@@ -30,45 +29,6 @@ struct BodyWeightListView: View {
                 Text("Registrar")
             } footer: {
                 Text("Un peso por día. Si ya hay uno hoy, se actualiza.")
-            }
-
-            Section {
-                HStack {
-                    OGNumericTextField(
-                        text: $goalText,
-                        allowsDecimal: true,
-                        autoFocus: false,
-                        onCommit: {}
-                    )
-                    .frame(minHeight: 44)
-                    .accessibilityLabel("Objetivo de peso en kilogramos")
-                    Button("Guardar") {
-                        var s = store.state.settings
-                        let trimmed = goalText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        s.bodyWeightGoalKg = trimmed.isEmpty
-                            ? nil
-                            : Double(trimmed.replacingOccurrences(of: ",", with: "."))
-                        store.updateSettings(s)
-                    }
-                    .fontWeight(.semibold)
-                    .foregroundStyle(OG.accent)
-                }
-                if let goal = store.state.settings.bodyWeightGoalKg,
-                   let latest = store.state.bodyWeights.first {
-                    let delta = latest.weightKg - goal
-                    if abs(delta) < 0.3 {
-                        Text("En objetivo (\(goal.formatted(.number.precision(.fractionLength(1)))) kg)")
-                            .font(.footnote)
-                            .foregroundStyle(OG.accent)
-                    } else {
-                        let sign = delta > 0 ? "+" : ""
-                        Text("\(sign)\(delta.formatted(.number.precision(.fractionLength(1)))) kg vs objetivo")
-                            .font(.footnote)
-                            .foregroundStyle(OG.label2)
-                    }
-                }
-            } header: {
-                Text("Objetivo de peso")
             }
 
             Section {
@@ -100,10 +60,6 @@ struct BodyWeightListView: View {
         }
         .ogListChrome()
         .ogPinnedTransparentNav("Peso corporal")
-        .onAppear {
-            if let g = store.state.settings.bodyWeightGoalKg {
-                goalText = String(format: "%g", g)
-            }
-        }
+
     }
 }
