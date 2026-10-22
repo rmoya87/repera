@@ -436,6 +436,10 @@ struct WatchSessionView: View {
             }
             .buttonStyle(.bordered)
             .tint(accent)
+            Text(hub.loggingStyle == .machineWork ? hub.setDraft.unit.shortLabel
+                 : (hub.loggingStyle == .repsAndTime ? "Veces" : "Reps"))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
             exerciseFields
             Text("Desliza ← → para revisar otras series")
                 .font(.caption2)
