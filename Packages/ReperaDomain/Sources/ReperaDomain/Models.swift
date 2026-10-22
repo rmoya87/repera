@@ -1838,6 +1838,9 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     public var appleActiveEnergyKcal: Double?
     /// FC media únicamente desde los sensores de HealthKit (no estimada por Repera).
     public var appleAverageHeartRateBpm: Double?
+    /// Procedencia verificable de métricas obtenidas al guardar un HKWorkout.
+    /// nil en sesiones históricas sin prueba de origen.
+    public var appleHealthProvenance: String?
     /// Duración según Apple Salud / Watch (segundos).
     public var appleDurationSeconds: TimeInterval?
     /// UUID del `HKWorkout` guardado en Salud (si aplica).
@@ -1866,6 +1869,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         notes: String? = nil,
         appleActiveEnergyKcal: Double? = nil,
         appleAverageHeartRateBpm: Double? = nil,
+        appleHealthProvenance: String? = nil,
         appleDurationSeconds: TimeInterval? = nil,
         healthKitWorkoutUUID: UUID? = nil,
         wodResults: [WODBlockResult] = [],
@@ -1885,6 +1889,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         self.notes = notes
         self.appleActiveEnergyKcal = appleActiveEnergyKcal
         self.appleAverageHeartRateBpm = appleAverageHeartRateBpm
+        self.appleHealthProvenance = appleHealthProvenance
         self.appleDurationSeconds = appleDurationSeconds
         self.healthKitWorkoutUUID = healthKitWorkoutUUID
         self.wodResults = wodResults
@@ -1897,7 +1902,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     enum CodingKeys: String, CodingKey {
         case id, title, routineId, exercises, currentIndex, phase
         case startedAt, finishedAt, notes
-        case appleActiveEnergyKcal, appleAverageHeartRateBpm, appleDurationSeconds, healthKitWorkoutUUID
+        case appleActiveEnergyKcal, appleAverageHeartRateBpm, appleHealthProvenance, appleDurationSeconds, healthKitWorkoutUUID
         case wodResults, routineBlocks, sessionReview
         case locationPin, routePoints
     }
@@ -1915,6 +1920,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         notes = try c.decodeIfPresent(String.self, forKey: .notes)
         appleActiveEnergyKcal = try c.decodeIfPresent(Double.self, forKey: .appleActiveEnergyKcal)
         appleAverageHeartRateBpm = try c.decodeIfPresent(Double.self, forKey: .appleAverageHeartRateBpm)
+        appleHealthProvenance = try c.decodeIfPresent(String.self, forKey: .appleHealthProvenance)
         appleDurationSeconds = try c.decodeIfPresent(TimeInterval.self, forKey: .appleDurationSeconds)
         healthKitWorkoutUUID = try c.decodeIfPresent(UUID.self, forKey: .healthKitWorkoutUUID)
         wodResults = try c.decodeIfPresent([WODBlockResult].self, forKey: .wodResults) ?? []
@@ -1937,6 +1943,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         try c.encodeIfPresent(notes, forKey: .notes)
         try c.encodeIfPresent(appleActiveEnergyKcal, forKey: .appleActiveEnergyKcal)
         try c.encodeIfPresent(appleAverageHeartRateBpm, forKey: .appleAverageHeartRateBpm)
+        try c.encodeIfPresent(appleHealthProvenance, forKey: .appleHealthProvenance)
         try c.encodeIfPresent(appleDurationSeconds, forKey: .appleDurationSeconds)
         try c.encodeIfPresent(healthKitWorkoutUUID, forKey: .healthKitWorkoutUUID)
         try c.encode(wodResults, forKey: .wodResults)
