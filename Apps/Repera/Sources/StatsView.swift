@@ -235,7 +235,9 @@ struct StatsView: View {
             weekStartsOnMonday: mondayFirst
         )
 
-        if health.isAuthorized {
+        // HealthKit keeps READ permission private. Real observed series are
+        // valid even when the user denied optional workout WRITE permission.
+        if health.isAuthorized || !health.recentDailyHeartRate.isEmpty || !health.recentDailyActiveEnergy.isEmpty {
             if model.isPreparing && snap.range != model.range {
                 ProgressView("Actualizando gráficas…")
                     .tint(OG.accent)
