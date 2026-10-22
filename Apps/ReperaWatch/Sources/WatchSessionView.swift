@@ -5,7 +5,6 @@ import WatchKit
 /// The first screen is always the day's workout, or the currently running session.
 struct WatchSessionView: View {
     @Environment(WatchSessionHub.self) private var hub
-    @State private var showNowPlaying = false
     @State private var showOutline = false
     @State private var showSetDetails = false
 
@@ -34,26 +33,10 @@ struct WatchSessionView: View {
             }
             .navigationTitle(pageTitle)
             .navigationBarTitleDisplayMode(.automatic)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showNowPlaying = true } label: {
-                        Image(systemName: "playpause.fill")
-                            .font(.caption.weight(.bold))
-                            .symbolRenderingMode(.monochrome)
-                            .foregroundStyle(.black)
-                    }
-                    .tint(accent)
-                    .accessibilityLabel("Controlar música o podcast")
-                }
-            }
             .sheet(isPresented: $showOutline) {
                 if let workout = hub.active { outlineView(workout) }
             }
             .sheet(isPresented: $showSetDetails) { setDetailsView }
-            .sheet(isPresented: $showNowPlaying) {
-                // Apple requires the entire Now Playing view to fill its own scene.
-                NowPlayingView()
-            }
         }
         .tint(accent)
     }
@@ -88,7 +71,9 @@ struct WatchSessionView: View {
                     Label("Sincronizar con iPhone", systemImage: "arrow.triangle.2.circlepath")
                         .font(.caption2.weight(.semibold))
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderedProminent)
+                    .tint(accent)
+                    .foregroundStyle(.black)
                 .accessibilityHint("Solicita al iPhone el entrenamiento programado para hoy")
                 Text("Abre Repera en el iPhone emparejado si no aparece.")
                     .font(.caption2)
@@ -243,7 +228,9 @@ struct WatchSessionView: View {
                 .foregroundStyle(.black)
                 Button("Resumen") { showOutline = true }
                     .font(.caption)
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.borderedProminent)
+                    .tint(accent)
+                    .foregroundStyle(.black)
             }
             .padding(.horizontal, 5)
         }
@@ -257,7 +244,9 @@ struct WatchSessionView: View {
                     if hub.isIntervalClock {
                         // The interval countdown is already the large clock.
                         Button("Saltar descanso") { hub.skipRest() }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(.borderedProminent)
+                    .tint(accent)
+                    .foregroundStyle(.black)
                             .disabled(hub.isPaused)
                     } else {
                         restView(hub.restRemaining)
@@ -270,7 +259,9 @@ struct WatchSessionView: View {
                 HStack(spacing: 8) {
                     Button("Resumen") { showOutline = true }
                         .font(.caption.weight(.medium))
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.borderedProminent)
+                    .tint(accent)
+                    .foregroundStyle(.black)
                     Spacer(minLength: 0)
                     Button {
                         hub.confirmAndAdvance()
@@ -332,9 +323,9 @@ struct WatchSessionView: View {
                 if hub.isPaused { hub.play() } else { hub.pause() }
             } label: {
                 Image(systemName: hub.isPaused ? "play.fill" : "pause.fill")
-                    .font(.headline.weight(.bold))
+                    .font(.title2.weight(.bold))
                     .foregroundStyle(.black)
-                    .frame(width: 42, height: 42)
+                    .frame(width: 70, height: 70)
                     .background(accent, in: Circle())
                     .contentShape(Circle())
             }
@@ -373,28 +364,20 @@ struct WatchSessionView: View {
             .background(.white.opacity(0.07),
                         in: RoundedRectangle(cornerRadius: 13))
             if hub.wodUsesSeries {
-                HStack(spacing: 8) {
-                    Button { hub.adjustReps(-1) } label: {
-                        Image(systemName: "minus")
-                            .font(.title3.bold())
-                            .frame(minWidth: 44, minHeight: 50)
+                HStack(spacing: 6) {
+                    valueStepButton(symbol: "minus", label: "Restar repetición") {
+                        hub.adjustReps(-1)
                     }
-                    .accessibilityLabel("Restar repetición")
                     .disabled(hub.isPaused)
                     Text("\(hub.workingReps)")
                         .font(.system(size: 39, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .frame(maxWidth: .infinity)
-                    Button { hub.adjustReps(1) } label: {
-                        Image(systemName: "plus")
-                            .font(.title3.bold())
-                            .frame(minWidth: 44, minHeight: 50)
+                    valueStepButton(symbol: "plus", label: "Sumar repetición") {
+                        hub.adjustReps(1)
                     }
-                    .accessibilityLabel("Sumar repetición")
                     .disabled(hub.isPaused)
                 }
-                .buttonStyle(.bordered)
-                .tint(accent)
             }
 
         }
@@ -430,16 +413,15 @@ struct WatchSessionView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Editar detalles del ejercicio y serie")
             .frame(maxWidth: .infinity, alignment: .leading)
-            HStack(spacing: 8) {
-                Button { hub.adjustReps(-1) } label: {
-                    Image(systemName: "minus")
-                        .font(.title2.bold())
-                        .frame(minWidth: 44, minHeight: 56)
+            HStack(spacing: 6) {
+                valueStepButton(symbol: "minus", label: "Restar repetición") {
+                    hub.adjustReps(-1)
                 }
-                .accessibilityLabel("Restar repetición")
                 .disabled(hub.isPaused)
                 Text("\(hub.effectiveReps)")
                     .font(.system(size: 38, weight: .bold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                     .monospacedDigit()
                     .frame(maxWidth: .infinity)
                     .focusable(true)
@@ -451,16 +433,12 @@ struct WatchSessionView: View {
                         isHapticFeedbackEnabled: true
                     )
                     .accessibilityLabel("Repeticiones, ajustables con la corona")
-                Button { hub.adjustReps(1) } label: {
-                    Image(systemName: "plus")
-                        .font(.title2.bold())
-                        .frame(minWidth: 44, minHeight: 56)
+                valueStepButton(symbol: "plus", label: "Sumar repetición") {
+                    hub.adjustReps(1)
                 }
-                .accessibilityLabel("Sumar repetición")
                 .disabled(hub.isPaused)
             }
-            .buttonStyle(.bordered)
-            .tint(accent)
+
             Text(hub.loggingStyle == .machineWork ? hub.setDraft.unit.shortLabel
                  : (hub.loggingStyle == .repsAndTime ? "Veces" : "Reps"))
                 .font(.caption2)
@@ -470,7 +448,9 @@ struct WatchSessionView: View {
                 // EMOM and Tabata may have more intervals than exercises.
                 // A separate explicit action closes their block score.
                 Button("Terminar bloque") { hub.reviewBlock() }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.borderedProminent)
+                    .tint(accent)
+                    .foregroundStyle(.black)
                     .font(.caption2)
             }
         }
@@ -498,15 +478,23 @@ struct WatchSessionView: View {
             durationControls
         case .machineWork:
             HStack(spacing: 5) {
-                Button("Cal") { hub.selectUnit(.calories) }
-                    .tint(hub.setDraft.unit == .calories ? accent : .gray)
-                    .foregroundStyle(hub.setDraft.unit == .calories ? Color.black : Color.primary)
-                Button("Metros") { hub.selectUnit(.meters) }
-                    .tint(hub.setDraft.unit == .meters ? accent : .gray)
-                    .foregroundStyle(hub.setDraft.unit == .meters ? Color.black : Color.primary)
+                Button {
+                    hub.selectUnit(.calories)
+                } label: {
+                    Label("Cal", systemImage: hub.setDraft.unit == .calories
+                          ? "checkmark.circle.fill" : "circle")
+                }
+                Button {
+                    hub.selectUnit(.meters)
+                } label: {
+                    Label("Metros", systemImage: hub.setDraft.unit == .meters
+                          ? "checkmark.circle.fill" : "circle")
+                }
             }
             .font(.caption2)
-            .buttonStyle(.bordered)
+            .buttonStyle(.borderedProminent)
+                    .tint(accent)
+                    .foregroundStyle(.black)
             durationControls
         }
     }
@@ -527,21 +515,39 @@ struct WatchSessionView: View {
             up: { hub.adjustDuration(5) })
     }
 
+    /// One identical, glanceable interaction for reps, weight, deficit,
+    /// duration, RIR and machine scores. Never rely on gray system buttons.
+    private func valueStepButton(symbol: String, label: String,
+                                 action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.title2.weight(.bold))
+                .foregroundStyle(.black)
+                .frame(width: 58, height: 62)
+                .background(accent, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+
     private func metricStepper(label: String, value: String,
         down: @escaping () -> Void, up: @escaping () -> Void) -> some View {
-        HStack(spacing: 5) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(label).font(.caption2).foregroundStyle(.secondary)
-                Text(value).font(.caption.weight(.semibold)).monospacedDigit()
+        VStack(spacing: 4) {
+            HStack(spacing: 6) {
+                valueStepButton(symbol: "minus", label: "Reducir \(label)", action: down)
+                Text(value)
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.55)
+                    .frame(maxWidth: .infinity)
+                valueStepButton(symbol: "plus", label: "Aumentar \(label)", action: up)
             }
-            Spacer(minLength: 2)
-            Button(action: down) { Image(systemName: "minus") }
-                .accessibilityLabel("Reducir \(label)")
-            Button(action: up) { Image(systemName: "plus") }
-                .accessibilityLabel("Aumentar \(label)")
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
-        .font(.caption)
-        .buttonStyle(.bordered)
         .disabled(hub.isPaused && !hub.reviewingBlock)
     }
 
@@ -557,6 +563,9 @@ struct WatchSessionView: View {
                     ))
                     Button("Sin RIR") { hub.setRIR(nil) }
                         .font(.caption2)
+                        .buttonStyle(.borderedProminent)
+                        .tint(accent)
+                        .foregroundStyle(.black)
                 }
                 if hub.current?.exercise.loadField == .weightKg {
                     metricStepper(
@@ -596,7 +605,9 @@ struct WatchSessionView: View {
                             }.font(.caption2)
                         }
                     }
-                    Button("Añadir drop") { hub.addDrop() }.buttonStyle(.bordered)
+                    Button("Añadir drop") { hub.addDrop() }.buttonStyle(.borderedProminent)
+                    .tint(accent)
+                    .foregroundStyle(.black)
                 }
                 if hub.setDraft.kind == .restpause {
                     ForEach(hub.setDraft.clusters) { cluster in
@@ -612,7 +623,9 @@ struct WatchSessionView: View {
                             }.font(.caption2)
                         }
                     }
-                    Button("Añadir bloque") { hub.addCluster() }.buttonStyle(.bordered)
+                    Button("Añadir bloque") { hub.addCluster() }.buttonStyle(.borderedProminent)
+                    .tint(accent)
+                    .foregroundStyle(.black)
                 }
                 Button("Listo") { showSetDetails = false }
                     .frame(maxWidth: .infinity)
@@ -635,7 +648,9 @@ struct WatchSessionView: View {
                 .font(.system(size: 37, weight: .bold, design: .rounded))
                 .monospacedDigit()
             Button("Saltar descanso") { hub.skipRest() }
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderedProminent)
+                    .tint(accent)
+                    .foregroundStyle(.black)
                 .disabled(hub.isPaused)
         }
     }
@@ -690,19 +705,7 @@ struct WatchSessionView: View {
 
     private func scoreStepper(label: String, value: Int,
                               down: @escaping () -> Void, up: @escaping () -> Void) -> some View {
-        VStack(spacing: 3) {
-            Text(label).font(.caption2).foregroundStyle(.secondary)
-            HStack {
-                Button(action: down) { Image(systemName: "minus.circle.fill") }
-                    .buttonStyle(.borderless)
-                Text("\(value)")
-                    .font(.title2.bold())
-                    .monospacedDigit()
-                    .frame(maxWidth: .infinity)
-                Button(action: up) { Image(systemName: "plus.circle.fill") }
-                    .buttonStyle(.borderless)
-            }
-        }
+        metricStepper(label: label, value: "\(value)", down: down, up: up)
     }
 
     private func outlineView(_ session: WorkoutSession) -> some View {
@@ -752,8 +755,10 @@ struct WatchSessionView: View {
                     Label("Finalizar entrenamiento", systemImage: "checkmark")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-                .tint(.red)
+                .buttonStyle(.borderedProminent)
+                    .tint(accent)
+                    .foregroundStyle(.black)
+                .tint(accent)
                 .accessibilityHint("Finaliza el entrenamiento guardando lo registrado")
             }
             .padding(.horizontal, 5)
