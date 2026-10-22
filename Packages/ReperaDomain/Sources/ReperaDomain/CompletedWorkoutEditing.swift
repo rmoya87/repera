@@ -166,11 +166,28 @@ public enum CompletedWorkoutEditing {
         }
         updated.exercises = output
         updated.currentIndex = output.isEmpty ? 0 : min(original.currentIndex, output.count - 1)
-        let wodIDs = Set(routine.blocks.filter { $0.kind == .wod }.map(\.id))
         updated.wodResults = updated.wodResults.compactMap { result in
-            guard wodIDs.contains(result.id) else { return nil }
+            guard let block = routine.blocks.first(where: { $0.id == result.id && $0.kind == .wod }),
+                  let format = block.wodFormat,
+                  format.resultCapture != .perMovementSets,
+                  result.format == nil || result.format == format
+            else { return nil }
+            // Un cambio de formato invalida el score anterior. Los campos de
+            // tiempo y de rondas nunca se transforman unos en otros.
             var result = result
-            result.format = routine.blocks.first(where: { $0.id == result.id })?.wodFormat
+            result.format = format
+            switch format.resultCapture {
+            case .totalReps:
+                guard result.totalReps != nil || result.roundsCompleted != nil else { return nil }
+                result.elapsedSeconds = nil
+                if format != .amrap && format != .deathBy { result.roundsCompleted = nil }
+            case .elapsedTime:
+                guard result.elapsedSeconds != nil else { return nil }
+                result.roundsCompleted = nil
+                result.totalReps = nil
+            case .perMovementSets:
+                return nil
+            }
             return result
         }
         // La sesión sigue finalizada; no modifica la plantilla de programación.
