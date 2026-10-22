@@ -398,7 +398,8 @@ struct WatchSessionView: View {
                     Text(hub.current?.exercise.name ?? "Ejercicio")
                         .font(.caption.weight(.semibold))
                         .fixedSize(horizontal: false, vertical: true)
-                    Text("Serie \(hub.displayedSetNumber) de \(max(1, hub.plannedSets))")
+                    Text(hub.setDraft.phase == .warmup ? "Calentamiento"
+                         : "Serie \(hub.displayedSetNumber) de \(max(1, hub.plannedSets))")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -553,6 +554,14 @@ struct WatchSessionView: View {
                     ))
                     Button("Sin RIR") { hub.setRIR(nil) }
                         .font(.caption2)
+                }
+                if hub.current?.exercise.loadField == .weightKg {
+                    metricStepper(
+                        label: "Ajuste fino kg",
+                        value: hub.workingWeightKg.map { $0.formatted() } ?? "—",
+                        down: { hub.adjustWeight(-0.1) },
+                        up: { hub.adjustWeight(0.1) }
+                    )
                 }
                 Picker("Fase", selection: Binding(
                     get: { hub.setDraft.phase },
