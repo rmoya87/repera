@@ -248,7 +248,10 @@ final class WorkoutClockCoordinator {
                 preCountdownEnd = nil
                 lastTickAnnounced = -1
                 RestFeedback.intervalBeep(sound: soundEnabled, haptic: hapticEnabled)
-                beginWorkPhase(from: now)
+                // El inicio real fue el final de la cuenta previa, no la
+                // hora de regreso a la app (que podría ser minutos después).
+                beginWorkPhase(from: pre)
+                syncFromWallClock(now: now)
             }
             return
         }
