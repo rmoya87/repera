@@ -1,3 +1,4 @@
+import Charts
 import ReperaDomain
 import SwiftUI
 
@@ -23,6 +24,8 @@ struct HomeView: View {
     @State private var todayHealthLive = HealthKitStore.DayMetrics()
     /// Pasos reales de Salud del día seleccionado; nil si no hay lecturas disponibles.
     @State private var selectedDaySteps: Int?
+    @State private var recentSteps: [HealthKitStore.DailyStepsPoint] = []
+    @State private var activityChartMetric: ActivityChartMetric = .steps
     @State private var showCreatePlanForDay = false
     /// Revisión de pizarra como página (fuera del sheet «Añadir entreno»).
     @State private var boardReviewPayload: BoardScanReviewPayload?
@@ -240,9 +243,13 @@ struct HomeView: View {
                 let requestedDay = selectedDay
                 let requestedKey = dayKey(requestedDay)
                 selectedDaySteps = nil
-                let steps = await health.steps(for: requestedDay)
+                recentSteps = []
+                let series = await health.dailySteps(endingAt: requestedDay)
                 guard !Task.isCancelled, dayKey(selectedDay) == requestedKey else { return }
-                selectedDaySteps = steps
+                recentSteps = series
+                selectedDaySteps = series.first(where: {
+                    calendar.isDate($0.date, inSameDayAs: requestedDay)
+                })?.steps
             }
             // Salud diferida: no bloquear el primer paint de Inicio.
             .task(id: "\(weekOffset)-\(store.isHydrated)") {
@@ -481,7 +488,7 @@ struct HomeView: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(OG.label)
                     Spacer()
-                    Text("\(days.filter(\.hasWorkout).count) días entrenados")
+                    Text(weeklyProgressSummary(for: days))
                         .font(.system(size: 12))
                         .foregroundStyle(OG.label2)
                 }
@@ -518,12 +525,159 @@ struct HomeView: View {
                         .frame(maxWidth: .infinity)
                     }
                 }
+                if let target = store.state.settings.weeklyWorkoutGoal, target > 0 {
+                    ProgressView(
+                        value: min(Double(days.filter(\.hasWorkout).count), Double(target)),
+                        total: Double(target)
+                    )
+                    .tint(OG.accent)
+                    .accessibilityLabel("Progreso del objetivo semanal")
+                }
             }
         }
     }
 
-    /// Salud es la fuente de kcal/pasos/FC. Si no hay permiso o muestras, no se inventa un número.
-    /// La puntuación SOLO aparece para sesiones finalizadas con evidencia histórica válida.
+    private func weeklyProgressSummary(for days: [DayCell]) -> String {
+        let completed = days.filter(\.hasWorkout).count
+        if let goal = store.state.settings.weeklyWorkoutGoal, goal > 0 {
+            return "\(completed) de \(goal) entrenos"
+        }
+        return "\(completed) días entrenados"
+    }
+
+    private enum ActivityChartMetric: String, CaseIterable, Identifiable {
+        case steps = "Pasos"
+        case calories = "Calorías"
+        case heartRate = "FC media"
+        var id: Self { self }
+    }
+
+    private struct ActivityChartPoint: Identifiable {
+        var date: Date
+        var value: Double
+        var id: Date { date }
+    }
+
+    private var activityChartPoints: [ActivityChartPoint] {
+        let end = calendar.startOfDay(for: selectedDay)
+        let start = calendar.date(byAdding: .day, value: -6, to: end) ?? end
+        switch activityChartMetric {
+        case .steps:
+            return recentSteps.filter { $0.date >= start && $0.date <= end }
+                .map { ActivityChartPoint(date: $0.date, value: Double($0.steps)) }
+        case .calories:
+            var points = health.recentDailyActiveEnergy
+                .filter { $0.date >= start && $0.date <= end && $0.kcal >= 0 }
+                .map { ActivityChartPoint(date: $0.date, value: $0.kcal) }
+            if !points.contains(where: { calendar.isDate($0.date, inSameDayAs: end) }),
+               let selectedKcal = dayHealth.activeEnergyKcal, selectedKcal > 0 {
+                points.append(ActivityChartPoint(date: end, value: selectedKcal))
+            }
+            return points.sorted { $0.date < $1.date }
+        case .heartRate:
+            return health.recentDailyHeartRate
+                .filter { $0.date >= start && $0.date <= end && $0.avgBpm > 0 }
+                .map { ActivityChartPoint(date: $0.date, value: $0.avgBpm) }
+        }
+    }
+
+    private var activityChartGoal: Double? {
+        switch activityChartMetric {
+        case .steps:
+            return store.state.settings.dailyStepsGoal.map { Double($0) }
+        case .calories:
+            return store.state.settings.dailyActiveEnergyGoalKcal.map { Double($0) }
+        case .heartRate:
+            return nil
+        }
+    }
+
+    private var activityChartTint: Color {
+        switch activityChartMetric {
+        case .steps: OG.accent
+        case .calories: OG.orange
+        case .heartRate: OG.red
+        }
+    }
+
+    private var activityTrend: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Evolución · 7 días")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(OG.label)
+                Spacer()
+                if let goal = activityChartGoal, goal > 0 {
+                    Text("Meta \(Int(goal).formatted())")
+                        .font(.caption)
+                        .foregroundStyle(OG.label2)
+                }
+            }
+            Picker("Métrica de actividad", selection: $activityChartMetric) {
+                ForEach(ActivityChartMetric.allCases) { metric in
+                    Text(metric.rawValue).tag(metric)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            let points = activityChartPoints
+            if points.isEmpty {
+                HStack(spacing: 10) {
+                    Image(systemName: "chart.bar.xaxis")
+                        .foregroundStyle(OG.label2)
+                    Text("Sin mediciones de Apple Salud para este periodo.")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                }
+                .frame(maxWidth: .infinity, minHeight: 100, alignment: .center)
+                .accessibilityLabel("No hay datos para mostrar la gráfica")
+            } else {
+                Chart {
+                    ForEach(points) { point in
+                        if activityChartMetric == .heartRate {
+                            LineMark(
+                                x: .value("Día", point.date, unit: .day),
+                                y: .value("Pulso", point.value)
+                            )
+                            .interpolationMethod(.catmullRom)
+                            .foregroundStyle(activityChartTint)
+                            PointMark(
+                                x: .value("Día", point.date, unit: .day),
+                                y: .value("Pulso", point.value)
+                            )
+                            .foregroundStyle(activityChartTint)
+                        } else {
+                            BarMark(
+                                x: .value("Día", point.date, unit: .day),
+                                y: .value("Valor", point.value)
+                            )
+                            .foregroundStyle(activityChartTint)
+                            .cornerRadius(3)
+                        }
+                    }
+                    if let goal = activityChartGoal, goal > 0 {
+                        RuleMark(y: .value("Objetivo", goal))
+                            .foregroundStyle(OG.label2.opacity(0.8))
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    }
+                }
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: .day)) {
+                        AxisValueLabel(format: .dateTime.weekday(.narrow))
+                    }
+                }
+                .chartYAxis {
+                    AxisMarks(position: .leading)
+                }
+                .frame(height: 142)
+                .accessibilityLabel("Evolución real de \(activityChartMetric.rawValue) durante siete días")
+            }
+        }
+        .padding(.top, 3)
+    }
+
+    /// Las tres métricas usan exclusivamente datos reales de Apple Salud.
+    /// Debajo se muestra la evolución de 7 días, sin puntos simulados.
     private var activityTodayCard: some View {
         let workouts = workoutsOnSelectedDay
         let kcal = dayHealth.activeEnergyKcal.flatMap { $0 >= 0 ? $0 : nil }
@@ -549,14 +703,18 @@ struct HomeView: View {
                         value: selectedDaySteps.map { $0.formatted() } ?? "—",
                         unit: "",
                         symbol: "figure.walk",
-                        tint: OG.accent
+                        tint: OG.accent,
+                        measurement: selectedDaySteps.map { Double($0) },
+                        goal: store.state.settings.dailyStepsGoal.map { Double($0) }
                     )
                     homeActivityMetric(
                         title: "Calorías",
                         value: kcal.map { Int($0.rounded()).formatted() } ?? "—",
                         unit: "kcal",
                         symbol: "flame.fill",
-                        tint: OG.orange
+                        tint: OG.orange,
+                        measurement: kcal,
+                        goal: store.state.settings.dailyActiveEnergyGoalKcal.map { Double($0) }
                     )
                     homeActivityMetric(
                         title: "FC media",
@@ -566,6 +724,39 @@ struct HomeView: View {
                         tint: OG.red
                     )
                 }
+
+                if dayHealth.workoutMinutes != nil
+                    || store.state.settings.dailyWorkoutMinutesGoal != nil {
+                    let minutes = dayHealth.workoutMinutes
+                    let target = store.state.settings.dailyWorkoutMinutesGoal
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "clock")
+                                .foregroundStyle(OG.blue)
+                            Text("Tiempo de entrenamiento")
+                                .font(.subheadline)
+                                .foregroundStyle(OG.label2)
+                            Spacer()
+                            Text(minutes.map { "\(Int($0.rounded())) min" } ?? "—")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(OG.label)
+                        }
+                        if let target, target > 0 {
+                            ProgressView(
+                                value: min(minutes ?? 0, Double(target)),
+                                total: Double(target)
+                            )
+                            .tint(OG.blue)
+                            Text("Objetivo: \(target) min")
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                        }
+                    }
+                    .padding(12)
+                    .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+
+                activityTrend
 
                 if let score {
                     HStack(spacing: 12) {
@@ -595,10 +786,11 @@ struct HomeView: View {
         value: String,
         unit: String,
         symbol: String,
-        tint: Color
+        tint: Color,
+        measurement: Double? = nil,
+        goal: Double? = nil
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Símbolo y título alineados en una fila; sin anillo decorativo.
             HStack(spacing: 5) {
                 Image(systemName: symbol)
                     .font(.system(size: 17, weight: .semibold))
@@ -621,6 +813,17 @@ struct HomeView: View {
                 Text(unit)
                     .font(.system(size: 11))
                     .foregroundStyle(OG.label2)
+            }
+            if let goal, goal > 0 {
+                Text("de \(Int(goal).formatted())")
+                    .font(.system(size: 10))
+                    .foregroundStyle(OG.label2)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                if let measurement {
+                    ProgressView(value: min(max(0, measurement), goal), total: goal)
+                        .tint(tint)
+                }
             }
         }
         .frame(maxWidth: .infinity, minHeight: 95, alignment: .topLeading)
