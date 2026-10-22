@@ -72,8 +72,8 @@ struct WatchSessionView: View {
                         .font(.caption2.weight(.semibold))
                 }
                 .buttonStyle(.borderedProminent)
-                    .tint(accent)
-                    .foregroundStyle(.black)
+                .tint(accent)
+                .foregroundStyle(.black)
                 .accessibilityHint("Solicita al iPhone el entrenamiento programado para hoy")
                 Text("Abre Repera en el iPhone emparejado si no aparece.")
                     .font(.caption2)
@@ -245,8 +245,8 @@ struct WatchSessionView: View {
                         // The interval countdown is already the large clock.
                         Button("Saltar descanso") { hub.skipRest() }
                             .buttonStyle(.borderedProminent)
-                    .tint(accent)
-                    .foregroundStyle(.black)
+                            .tint(accent)
+                            .foregroundStyle(.black)
                             .disabled(hub.isPaused)
                     } else {
                         restView(hub.restRemaining)
@@ -260,8 +260,8 @@ struct WatchSessionView: View {
                     Button("Resumen") { showOutline = true }
                         .font(.caption.weight(.medium))
                         .buttonStyle(.borderedProminent)
-                    .tint(accent)
-                    .foregroundStyle(.black)
+                        .tint(accent)
+                        .foregroundStyle(.black)
                     Spacer(minLength: 0)
                     Button {
                         hub.confirmAndAdvance()
@@ -493,8 +493,8 @@ struct WatchSessionView: View {
             }
             .font(.caption2)
             .buttonStyle(.borderedProminent)
-                    .tint(accent)
-                    .foregroundStyle(.black)
+            .tint(accent)
+            .foregroundStyle(.black)
             durationControls
         }
     }
@@ -600,9 +600,13 @@ struct WatchSessionView: View {
                                 value: drop.weightKg.map { $0.formatted() } ?? "0",
                                 down: { hub.adjustDrop(id: drop.id, weightKg: -0.5) },
                                 up: { hub.adjustDrop(id: drop.id, weightKg: 0.5) })
-                            Button("Eliminar drop", role: .destructive) {
+                            Button("Eliminar drop") {
                                 hub.removeDrop(id: drop.id)
-                            }.font(.caption2)
+                            }
+                            .font(.caption2)
+                            .buttonStyle(.borderedProminent)
+                            .tint(accent)
+                            .foregroundStyle(.black)
                         }
                     }
                     Button("Añadir drop") { hub.addDrop() }.buttonStyle(.borderedProminent)
@@ -618,9 +622,13 @@ struct WatchSessionView: View {
                             metricStepper(label: "Pausa (s)", value: "\(cluster.restSeconds)",
                                 down: { hub.adjustCluster(id: cluster.id, restSeconds: -5) },
                                 up: { hub.adjustCluster(id: cluster.id, restSeconds: 5) })
-                            Button("Eliminar bloque", role: .destructive) {
+                            Button("Eliminar bloque") {
                                 hub.removeCluster(id: cluster.id)
-                            }.font(.caption2)
+                            }
+                            .font(.caption2)
+                            .buttonStyle(.borderedProminent)
+                            .tint(accent)
+                            .foregroundStyle(.black)
                         }
                     }
                     Button("Añadir bloque") { hub.addCluster() }.buttonStyle(.borderedProminent)
@@ -649,8 +657,8 @@ struct WatchSessionView: View {
                 .monospacedDigit()
             Button("Saltar descanso") { hub.skipRest() }
                 .buttonStyle(.borderedProminent)
-                    .tint(accent)
-                    .foregroundStyle(.black)
+                .tint(accent)
+                .foregroundStyle(.black)
                 .disabled(hub.isPaused)
         }
     }
@@ -756,8 +764,8 @@ struct WatchSessionView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                    .tint(accent)
-                    .foregroundStyle(.black)
+                .tint(accent)
+                .foregroundStyle(.black)
                 .tint(accent)
                 .accessibilityHint("Finaliza el entrenamiento guardando lo registrado")
             }
