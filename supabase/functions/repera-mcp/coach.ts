@@ -200,7 +200,7 @@ export function registerCoachTools(
     annotations:{readOnlyHint:true},
   }, async ({days})=>{
     const [snapshot, ai]=await Promise.all([
-      db.from("athlete_training_calendar_snapshots").select("items,horizon_start,horizon_end,updated_at")
+      db.from("athlete_training_calendar_snapshots").select("items,horizon_start,horizon_end,time_zone,updated_at")
         .eq("owner_id",ownerId).maybeSingle(),
       db.from("ai_training_plans").select("id,title,scheduled_date,scheduled_time_minutes,status,program_id")
         .eq("owner_id",ownerId).gte("scheduled_date",new Date().toISOString().slice(0,10))
@@ -345,7 +345,7 @@ export function registerCoachTools(
       }catch{throw Error("INVALID_CURSOR: paginación no válida");}
     }
     const {data,error}=await db.from("athlete_training_programs")
-      .select("id,title,primary_goal,start_date,duration_weeks,phases,status,revision,updated_at")
+      .select("id,title,primary_goal,start_date,start_time_zone,duration_weeks,phases,status,revision,updated_at")
       .eq("owner_id",ownerId).order("created_at",{ascending:false}).order("id",{ascending:true})
       .range(offset,offset+limit);
     if(error) throw new Error("No se pudieron leer los programas");
@@ -357,10 +357,13 @@ export function registerCoachTools(
   server.registerTool("create_training_program",{
     description:"Persist a 1–52 week program with validated phases. Does not overwrite calendar or schedule sessions; use create_training_plan to queue next 14 workouts explicitly.",
     inputSchema:z.strictObject({title:z.string().trim().min(2).max(120),
-      primaryGoal:z.string().trim().min(2).max(500),startDate:day,durationWeeks:weeks,
+      primaryGoal:z.string().trim().min(2).max(500),startDate:day,
+      startTimeZone:z.string().trim().min(3).max(80),durationWeeks:weeks,
       phases:z.array(phase).min(1).max(12)}),
     annotations:{readOnlyHint:false,destructiveHint:false},
-  },async({title,primaryGoal,startDate,durationWeeks,phases})=>{
+  },async({title,primaryGoal,startDate,startTimeZone,durationWeeks,phases})=>{
+    try { new Intl.DateTimeFormat("en-US",{timeZone:startTimeZone}); }
+    catch { throw Error("INVALID_TIME_ZONE: startTimeZone debe ser una zona IANA válida"); }
     const date=new Date(startDate+"T12:00:00Z");
     if(!Number.isFinite(+date)||date.toISOString().slice(0,10)!==startDate) throw Error("Fecha inválida");
     if(date.getTime()<Date.now()-2*86400000||date.getTime()>Date.now()+365*86400000)
@@ -369,7 +372,8 @@ export function registerCoachTools(
       throw Error("La suma de semanas de fases debe coincidir con la duración del programa");
     const {data,error}=await db.from("athlete_training_programs").insert({
       owner_id:ownerId,created_by_token_id:tokenId,title,primary_goal:primaryGoal,
-      start_date:startDate,duration_weeks:durationWeeks,phases,status:"proposed",
+      start_date:startDate,start_time_zone:startTimeZone,
+      duration_weeks:durationWeeks,phases,status:"proposed",
     }).select("id,title,status,revision,phases").single();
     if(error) throw new Error("No se pudo guardar el programa");
     return result({program:data,delivery:"Macroprograma guardado. Para recibir sesiones concretas en Repera, envía un máximo de 14 cada vez con create_training_plan y programId."});
@@ -380,7 +384,7 @@ export function registerCoachTools(
     inputSchema:z.strictObject({programId:z.string().uuid()}),annotations:{readOnlyHint:true},
   },async({programId})=>{
     const {data:program,error}=await db.from("athlete_training_programs").select(
-      "id,title,start_date,duration_weeks,phases,primary_goal,status,revision"
+      "id,title,start_date,start_time_zone,duration_weeks,phases,primary_goal,status,revision"
     ).eq("owner_id",ownerId).eq("id",programId).maybeSingle();
     if(error||!program) throw new Error("Programa no encontrado");
     const start=program.start_date;const end=new Date(Date.parse(start+"T12:00:00Z")+program.duration_weeks*7*86400000).toISOString().slice(0,10);

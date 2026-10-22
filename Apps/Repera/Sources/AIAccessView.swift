@@ -60,6 +60,8 @@ private struct AIFunctionError: Decodable {
 /// the one-time sheet is dismissed.
 struct AIAccessView: View {
     @Environment(BusinessAuthStore.self) private var auth
+    @Environment(ReperaStore.self) private var store
+    @State private var changeRequests = AIChangeRequestStore.shared
     @State private var inbox = AITrainingInboxStore.shared
     @State private var tokens: [AIAccessTokenInfo] = []
     @State private var tokenName = ""
@@ -139,6 +141,56 @@ struct AIAccessView: View {
                 Text("Mis tokens")
             }
 
+            if !changeRequests.pending.isEmpty {
+                Section {
+                    ForEach(changeRequests.pending) { request in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(request.summary).font(.subheadline.weight(.medium))
+                            if request.operation == "update_workout" {
+                                if let newTitle=request.payload.title {
+                                    Text("Nuevo título: \(newTitle)")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                                ForEach(request.payload.setChanges ?? [],id:\.loggedSetId) { change in
+                                    let parts = [
+                                        change.reps.map { "\($0) reps" },
+                                        change.weightKg.map { "\(String(format:"%g",$0)) kg" },
+                                        change.rir.map { "RIR \(String(format:"%g",$0))" },
+                                        change.clearWeight == true ? "sin peso" : nil,
+                                        change.clearRir == true ? "sin RIR" : nil,
+                                    ].compactMap { $0 }
+                                    Text("Serie \(change.loggedSetId.uuidString.prefix(8)): " + parts.joined(separator:" · "))
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                            if request.operation == "delete_workout" {
+                                Text("La eliminación de un entrenamiento también puede borrar su actividad vinculada de Apple Salud.")
+                                    .font(.caption).foregroundStyle(.orange)
+                            }
+                            HStack {
+                                Button("Rechazar") {
+                                    Task { _ = await changeRequests.decide(request, approve:false, store:store) }
+                                }.disabled(changeRequests.isBusy)
+                                Spacer()
+                                Button(request.isDestructive ? "Confirmar eliminación" : "Aplicar") {
+                                    Task { _ = await changeRequests.decide(request, approve:true, store:store) }
+                                }.disabled(changeRequests.isBusy)
+                                    .foregroundStyle(request.isDestructive ? .red : .green)
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                } header: {
+                    Text("Cambios solicitados por la IA")
+                }
+            }
+            if let changeError=changeRequests.lastError {
+                Section {
+                    Label(changeError,systemImage:"exclamationmark.triangle")
+                        .font(.footnote).foregroundStyle(.orange)
+                }
+            }
             if inbox.pendingCount > 0 || !inbox.conflicts.isEmpty {
                 Section {
                     if inbox.pendingCount > 0 {
@@ -168,7 +220,10 @@ struct AIAccessView: View {
                 }
             }
         }
-        .refreshable { await refreshTokens() }
+        .refreshable {
+            await refreshTokens()
+            await changeRequests.refresh(store:store)
+        }
         .navigationTitle("Acceso IA")
         .navigationBarTitleDisplayMode(.large)
         .sheet(isPresented: Binding(
@@ -221,10 +276,19 @@ struct AIAccessView: View {
                 await auth.restoreSession()
             }
             await refreshTokens()
+            await changeRequests.syncCustomExercises(store:store)
+            await changeRequests.refresh(store:store)
         }
         .onChange(of: auth.isConnected) { _, connected in
-            if connected { Task { await refreshTokens() } }
-            else { tokens = [] }
+            if connected {
+                Task {
+                    await refreshTokens()
+                    await changeRequests.refresh(store:store)
+                }
+            } else {
+                tokens=[]
+                changeRequests.clearSession()
+            }
         }
     }
 

@@ -171,6 +171,8 @@ struct ReperaApp: App {
                             await workoutSync.sync(store: store)
                             _ = await aiInbox.sync(store: store)
                             _ = await AITrainingContextStore.shared.syncCalendar(store: store)
+                            _ = await AIChangeRequestStore.shared.syncCustomExercises(store: store)
+                            await AIChangeRequestStore.shared.refresh(store: store)
                             if scenePhase == .active {
                                 aiInbox.startRealtime(store: store)
                             }
@@ -205,6 +207,8 @@ struct ReperaApp: App {
                                 await workoutSync.sync(store: store)
                                 _ = await aiInbox.sync(store: store)
                             _ = await AITrainingContextStore.shared.syncCalendar(store: store)
+                            _ = await AIChangeRequestStore.shared.syncCustomExercises(store: store)
+                            await AIChangeRequestStore.shared.refresh(store: store)
                                 if scenePhase == .active {
                                     aiInbox.startRealtime(store: store)
                                 }
@@ -221,6 +225,8 @@ struct ReperaApp: App {
                             await workoutSync.sync(store: store)
                             _ = await aiInbox.sync(store: store)
                             _ = await AITrainingContextStore.shared.syncCalendar(store: store)
+                            _ = await AIChangeRequestStore.shared.syncCustomExercises(store: store)
+                            await AIChangeRequestStore.shared.refresh(store: store)
                             if scenePhase == .active {
                                 aiInbox.startRealtime(store: store)
                             }
@@ -229,6 +235,7 @@ struct ReperaApp: App {
                         workoutSync.clearSession()
                         aiInbox.clearSession()
                         AITrainingContextStore.shared.clearSession()
+                        AIChangeRequestStore.shared.clearSession()
                         subscriptions.setBusinessSponsoredAccess(false)
                     }
                     wireSubscriptionGates()
@@ -242,10 +249,17 @@ struct ReperaApp: App {
                             await workoutSync.sync(store: store)
                             _ = await aiInbox.sync(store: store)
                             _ = await AITrainingContextStore.shared.syncCalendar(store: store)
+                            _ = await AIChangeRequestStore.shared.syncCustomExercises(store: store)
+                            await AIChangeRequestStore.shared.refresh(store: store)
                             if scenePhase == .active {
                                 aiInbox.startRealtime(store: store)
                             }
                         }
+                    }
+                }
+                .onChange(of: store.catalogEpoch) { _, _ in
+                    if businessAuth.isConnected {
+                        Task { _ = await AIChangeRequestStore.shared.syncCustomExercises(store:store) }
                     }
                 }
                 .onChange(of: store.workoutsEpoch) { _, _ in
@@ -255,7 +269,9 @@ struct ReperaApp: App {
                 }
                 .onChange(of: store.state.syncRevision) { _, _ in
                     if businessAuth.isConnected, scenePhase == .active {
-                        Task { _ = await AITrainingContextStore.shared.syncCalendar(store: store) }
+                        Task { _ = await AITrainingContextStore.shared.syncCalendar(store: store)
+                            _ = await AIChangeRequestStore.shared.syncCustomExercises(store: store)
+                            await AIChangeRequestStore.shared.refresh(store: store) }
                     }
                     // Solo refresca conteos de cuota; no rehace sort de rutinas.
                     subscriptions.syncCounts(

@@ -63,6 +63,7 @@ final class AITrainingContextStore {
         let items: [DayItem]
         let horizonStart: String
         let horizonEnd: String
+        let timeZone: String
         let updatedAt: Date
 
         enum CodingKeys: String, CodingKey {
@@ -70,6 +71,7 @@ final class AITrainingContextStore {
             case ownerId = "owner_id"
             case horizonStart = "horizon_start"
             case horizonEnd = "horizon_end"
+            case timeZone = "time_zone"
             case updatedAt = "updated_at"
         }
     }
@@ -135,10 +137,11 @@ final class AITrainingContextStore {
             encoder.outputFormatting = [.sortedKeys]
             encoder.dateEncodingStrategy = .iso8601
             // Compare contents without updatedAt: subsequent manual syncs do not rewrite identical snapshots.
-            let comparable = try encoder.encode(items)
+            let comparable = try encoder.encode(items) + Data(TimeZone.current.identifier.utf8)
             if lastOwner == session.user.id && lastSnapshot == comparable { return true }
             let snapshot = Snapshot(ownerId: session.user.id, items: items,
-                                    horizonStart: day(today), horizonEnd: day(end), updatedAt: Date())
+                                    horizonStart: day(today), horizonEnd: day(end),
+                                    timeZone: TimeZone.current.identifier, updatedAt: Date())
             guard client.auth.currentSession?.user.id == session.user.id else { return false }
             try await client.from("athlete_training_calendar_snapshots")
                 .upsert(snapshot, onConflict: "owner_id").execute()

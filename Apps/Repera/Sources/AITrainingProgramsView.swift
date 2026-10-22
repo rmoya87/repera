@@ -16,6 +16,7 @@ struct AITrainingProgramsView: View {
         let title: String
         let primaryGoal: String
         let startDate: String
+        let startTimeZone: String?
         let durationWeeks: Int
         let phases: [Phase]
         let status: String
@@ -24,6 +25,7 @@ struct AITrainingProgramsView: View {
             case id,title,phases,status,revision
             case primaryGoal = "primary_goal"
             case startDate = "start_date"
+            case startTimeZone = "start_time_zone"
             case durationWeeks = "duration_weeks"
         }
     }
@@ -47,7 +49,8 @@ struct AITrainingProgramsView: View {
                 Section {
                     VStack(alignment: .leading, spacing: 7) {
                         Text(program.title).font(.headline)
-                        Text("\(program.durationWeeks) semanas · desde \(program.startDate)")
+                        Text("\(program.durationWeeks) semanas · desde \(program.startDate)" +
+                             (program.startTimeZone.map { " · \($0)" } ?? ""))
                             .foregroundStyle(.secondary).font(.subheadline)
                         Text(program.primaryGoal).font(.subheadline)
                         Label(statusLabel(program.status), systemImage: "flag")
@@ -106,7 +109,7 @@ struct AITrainingProgramsView: View {
             let session=try await client.auth.session
             guard !session.isExpired else { return }
             let rows: [TrainingProgram] = try await client.from("athlete_training_programs")
-                .select("id,title,primary_goal,start_date,duration_weeks,phases,status,revision")
+                .select("id,title,primary_goal,start_date,start_time_zone,duration_weeks,phases,status,revision")
                 .eq("owner_id",value:session.user.id.uuidString)
                 .order("start_date",ascending:false).limit(100).execute().value
             guard auth.apiClient?.auth.currentSession?.user.id == session.user.id else { return }

@@ -4,6 +4,9 @@ import { createClient } from "npm:@supabase/supabase-js@2.58.0";
 import { z } from "npm:zod@4.3.6";
 import { registerCoachTools } from "./coach.ts";
 import { registerMutationTools } from "./mutations.ts";
+import { workout } from "./schema.ts";
+import { scheduledInstant } from "./time.ts";
+import { registerAthleteChangeTools } from "./athlete-changes.ts";
 
 // Personal access token (PAT) MCP. PAT is an opaque bearer credential,
 // not an OAuth authorization code or a JWT. Always use TLS.
@@ -16,18 +19,20 @@ const db = createClient(
 );
 
 type ExerciseEntry = {
+  id?: string;
   exercise?: {
     name?: string; catalogId?: string; muscleGroup?: string; targetMuscle?: string;
     primaryRegions?: string[]; secondaryRegions?: string[]; secondaryMuscles?: string[];
   };
   loggedSets?: Array<{
+    id?: string;
     reps?: number; weightKg?: number; rir?: number; phase?: string; kind?: string;
     durationSeconds?: number;
   }>;
 };
 type WorkoutRow = {
   id: string; title: string; started_at: string | null; finished_at: string | null;
-  exercises: ExerciseEntry[]; wod_results: unknown[];
+  updated_at:string; exercises: ExerciseEntry[]; wod_results: unknown[];
 };
 function reply(data: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(data) }] };
@@ -44,12 +49,14 @@ async function sha256(value: string): Promise<string> {
 function projectExercise(entry: ExerciseEntry) {
   const ex = entry.exercise ?? {};
   return {
+    exercise_entry_id:entry.id ?? null,
     name: ex.name ?? "", catalog_key: ex.catalogId ?? null,
     muscle_group: ex.muscleGroup ?? null,
     target_muscle: ex.targetMuscle ?? null,
     primary_regions: ex.primaryRegions ?? [],
     secondary_regions: ex.secondaryRegions ?? [],
     sets: (entry.loggedSets ?? []).map(s => ({
+      logged_set_id:s.id ?? null,
       reps: s.reps ?? null, weight_kg: s.weightKg ?? null,
       rir: s.rir ?? null, duration_seconds: s.durationSeconds ?? null,
       phase: s.phase ?? null, kind: s.kind ?? null,
@@ -87,74 +94,6 @@ function muscleBalance(rows: WorkoutRow[]) {
 
 // API contract intentionally mirrors ReperaDomain's RoutineBlock and WODMovement,
 // without ever requiring the AI to mint internal UUIDs.
-const plannedSet = z.strictObject({
-  reps: z.number().int().min(1).max(5000),
-  weightKg: z.number().finite().min(0).max(1200).optional(),
-  rir: z.number().finite().min(0).max(10).optional(),
-  percent1RM: z.number().finite().min(1).max(150).optional(),
-  percent1RMIsMinimum: z.boolean().optional(),
-});
-const strengthEntry = z.strictObject({
-  name: z.string().trim().min(2).max(120),
-  catalogKey: z.string().trim().max(160).optional(),
-  plannedSets: z.array(plannedSet).min(1).max(20),
-  restSeconds: z.number().int().min(0).max(1800).optional(),
-});
-const movement = z.strictObject({
-  name: z.string().trim().min(2).max(120),
-  catalogKey: z.string().trim().max(160).optional(),
-  reps: z.number().int().min(1).max(5000).optional(),
-  repScheme: z.array(z.number().int().min(1).max(5000)).min(2).max(30).optional(),
-  distanceMeters: z.number().int().min(1).max(50000).optional(),
-  calories: z.number().int().min(1).max(1000).optional(),
-  weightMaleKg: z.number().finite().min(0).max(1200).optional(),
-  weightFemaleKg: z.number().finite().min(0).max(1200).optional(),
-  isRest: z.boolean().optional(),
-  restSeconds: z.number().int().min(1).max(1800).optional(),
-  scaleAlternative: z.string().max(180).optional(),
-  explicitPlannedSets: z.array(plannedSet).max(30).optional(),
-});
-const wodFormat = z.enum([
-  "amrap", "emom", "forTime", "tabata", "chipper", "deathBy", "strength", "afap",
-  "ladder", "partner", "buyInCashOut", "roundsForQuality", "circuit", "maxEffort",
-]);
-const block = z.strictObject({
-  title: z.string().trim().min(1).max(100),
-  kind: z.enum(["strength", "wod"]),
-  exercises: z.array(strengthEntry).max(25).default([]),
-  movements: z.array(movement).max(40).default([]),
-  wodFormat: wodFormat.optional(),
-  timeCapMinutes: z.number().int().min(1).max(240).optional(),
-  emomIntervalSeconds: z.number().int().min(10).max(3600).optional(),
-  rounds: z.number().int().min(1).max(200).optional(),
-  workSeconds: z.number().int().min(5).max(3600).optional(),
-  restSeconds: z.number().int().min(0).max(3600).optional(),
-  restBetweenRoundsSeconds: z.number().int().min(0).max(3600).optional(),
-  wodNotes: z.string().max(1000).optional(),
-}).superRefine((b, ctx) => {
-  if (b.kind === "strength" && (b.exercises.length === 0 || b.movements.length > 0 || b.wodFormat)) {
-    ctx.addIssue({ code: "custom", message: "Strength blocks need exercises, not WOD movements" });
-  }
-  if (b.kind === "wod" && (!b.wodFormat || b.movements.length === 0 || b.exercises.length > 0)) {
-    ctx.addIssue({ code: "custom", message: "WOD blocks need format and movements" });
-  }
-  if (b.kind === "wod" && b.wodFormat === "emom" && b.emomIntervalSeconds == null) {
-    ctx.addIssue({ code: "custom", path: ["emomIntervalSeconds"], message: "EMOM requires its interval in seconds" });
-  }
-  if (b.kind === "wod" && b.wodFormat === "forTime" && (b.rounds ?? 1) < 1) {
-    ctx.addIssue({ code: "custom", path: ["rounds"], message: "For Time must have positive rounds" });
-  }
-});
-const workout = z.strictObject({
-  title: z.string().trim().min(2).max(120),
-  scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  scheduledTimeMinutes: z.number().int().min(0).max(1439).optional(),
-  blocks: z.array(block).min(1).max(12),
-}).superRefine((w, ctx) => {
-  if (w.scheduledTimeMinutes != null && (w.scheduledTimeMinutes < 0 || w.scheduledTimeMinutes > 1439)) {
-    ctx.addIssue({code:"custom",path:["scheduledTimeMinutes"],message:"Time must be minutes since midnight, local to the athlete"});
-  }
-});
 const inputDays = z.number().int().min(1).max(365).default(90);
 const inputLimit = z.number().int().min(1).max(100).default(30);
 const pagedInput = z.strictObject({
@@ -197,7 +136,7 @@ Deno.serve(async (request) => {
   async function workouts(days: number, limit: number): Promise<WorkoutRow[]> {
     const after = new Date(Date.now() - days * 86_400_000).toISOString();
     const { data, error } = await db.from("athlete_workouts")
-      .select("id,title,started_at,finished_at,exercises,wod_results")
+      .select("id,title,started_at,finished_at,updated_at,exercises,wod_results")
       .eq("owner_id", ownerId).gte("finished_at", after)
       .order("finished_at", { ascending: false }).limit(limit);
     if (error) throw new Error("No se pudo consultar el historial de este usuario");
@@ -217,6 +156,8 @@ Deno.serve(async (request) => {
     const unique = new Set<string>();
     for (const item of items) {
       const d = new Date(item.scheduledDate + "T12:00:00Z");
+      scheduledInstant(item.scheduledDate,item.scheduledTimeMinutes,
+        item.scheduledTimeZone,item.scheduledUtcOffsetMinutes);
       if (Number.isNaN(d.valueOf()) || d.toISOString().slice(0, 10) !== item.scheduledDate)
         throw new Error("Fecha de planificación no válida");
       if (d.valueOf() < now - 2 * 86_400_000 || d.valueOf() > now + 365 * 86_400_000)
@@ -255,6 +196,10 @@ Deno.serve(async (request) => {
       title: item.title,
       scheduled_date: item.scheduledDate,
       scheduled_time_minutes: item.scheduledTimeMinutes ?? null,
+      scheduled_time_zone:item.scheduledTimeZone ?? null,
+      scheduled_utc_offset_minutes:item.scheduledUtcOffsetMinutes ?? null,
+      scheduled_at:scheduledInstant(item.scheduledDate,item.scheduledTimeMinutes,
+        item.scheduledTimeZone,item.scheduledUtcOffsetMinutes),
       payload: { schemaVersion: 1, blocks: item.blocks },
       status: "pending",
     }))).select("id,title,scheduled_date,status");
@@ -274,7 +219,8 @@ Deno.serve(async (request) => {
   const handler = createMcpHandler(() => {
     const server = new McpServer({ name: "repera-training", version: "0.4.0" });
     registerCoachTools(server, db, ownerId, token.id, canWrite);
-    if (canWrite) registerMutationTools(server, db, ownerId, workout);
+    registerAthleteChangeTools(server,db,ownerId,token.id,canWrite);
+    if (canWrite) registerMutationTools(server, db, ownerId);
     server.registerTool("get_mcp_access_info", {
       description:"Display the current personal token's permission scopes, expiry and revocation instructions. No credential contents are exposed.",
       inputSchema:z.strictObject({}),annotations:{readOnlyHint:true},
@@ -285,7 +231,7 @@ Deno.serve(async (request) => {
       expires:token.expires_at!=null,
       revoke_in:"Repera iOS → Ajustes → Acceso IA → Revocar token",
       protocol:"Personal HTTPS Bearer token (PAT), not OAuth. Do not forward to third parties.",
-      date_semantics:"scheduledDate YYYY-MM-DD is the athlete's local calendar day; scheduledTimeMinutes is wall-clock minutes after local midnight. No universal UTC timestamp is implied.",
+      date_semantics:"scheduledDate is athlete-local date. If scheduledTimeMinutes is given, scheduledTimeZone (IANA) and scheduledUtcOffsetMinutes (UTC east-positive) are required; scheduled_at resolves an exact instant including DST.",
     }));
     server.registerTool("get_workout_history", {
       description: "History of completed Repera exercises, logged sets and WOD results; no HealthKit, routes, GPS, energy, body weight or notes.",
@@ -295,7 +241,7 @@ Deno.serve(async (request) => {
       const offset=readOffset(cursor);
       const after=new Date(Date.now()-days*86400000).toISOString();
       const {data,error}=await db.from("athlete_workouts")
-        .select("id,title,started_at,finished_at,exercises,wod_results")
+        .select("id,title,started_at,finished_at,updated_at,exercises,wod_results")
         .eq("owner_id",ownerId).gte("finished_at",after)
         .order("finished_at",{ascending:false}).order("id",{ascending:true})
         .range(offset,offset+limit);
@@ -304,6 +250,7 @@ Deno.serve(async (request) => {
       const hasMore=page.length>limit;
       return reply({items:page.slice(0,limit).map(row=>({
         id:row.id,title:row.title,started_at:row.started_at,finished_at:row.finished_at,
+        updated_at:row.updated_at,
         exercises:(row.exercises??[]).map(projectExercise),wod_results:row.wod_results??[],
       })),hasMore,nextCursor:hasMore?nextCursor(offset+limit):null,
       order:"finished_at DESC,id ASC",days});
@@ -346,7 +293,7 @@ Deno.serve(async (request) => {
     }, async ({ limit, cursor }) => {
       const offset=readOffset(cursor);
       const { data, error } = await db.from("ai_training_plans")
-        .select("id,batch_id,title,scheduled_date,scheduled_time_minutes,payload,status,revision,created_at")
+        .select("id,batch_id,title,scheduled_date,scheduled_time_minutes,scheduled_time_zone,scheduled_utc_offset_minutes,scheduled_at,payload,status,revision,created_at")
         .eq("owner_id", ownerId).order("scheduled_date", { ascending: true }).order("id",{ascending:true})
         .range(offset,offset+limit);
       if (error) throw new Error("Error al obtener planificaciones");
@@ -356,7 +303,7 @@ Deno.serve(async (request) => {
     if (canWrite) {
     server.registerTool("create_workout", {
       description: "Create one fully structured workout with typed strength/WOD blocks, sets, RIR, weights and schedule date. Repera imports it to Diario/Inicio, without overwriting existing day plans. Explicit user-requested write.",
-      inputSchema: workout.extend({ idempotencyKey: z.string().uuid().optional() }),
+      inputSchema: workout.safeExtend({ idempotencyKey: z.string().uuid().optional() }),
       annotations: { readOnlyHint: false, destructiveHint: false },
     }, async ({idempotencyKey,...args}) => reply(await saveWorkouts([args],undefined,idempotencyKey)));
     server.registerTool("create_training_plan", {
