@@ -62,30 +62,35 @@ struct WatchSessionView: View {
     }
 
     private var emptyView: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "figure.strengthtraining.traditional")
-                .font(.title2)
-                .foregroundStyle(accent)
-            Text("Sin entreno hoy")
-                .font(.headline)
-            Text("Programa el entrenamiento en Repera para tenerlo aquí sin usar el iPhone.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            Button {
-                hub.refreshToday()
-            } label: {
-                Label("Sincronizar con iPhone", systemImage: "arrow.triangle.2.circlepath")
-                    .font(.caption2.weight(.semibold))
+        ScrollView {
+            VStack(spacing: 10) {
+                Image(systemName: "figure.strengthtraining.traditional")
+                    .font(.title2)
+                    .foregroundStyle(accent)
+                Text("Sin plan descargado")
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                Text("Si ya programaste un entrenamiento, sincronízalo desde tu iPhone.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                Button {
+                    hub.refreshToday()
+                } label: {
+                    Label("Sincronizar con iPhone", systemImage: "arrow.triangle.2.circlepath")
+                        .font(.caption2.weight(.semibold))
+                }
+                .buttonStyle(.bordered)
+                .accessibilityHint("Solicita al iPhone el entrenamiento programado para hoy")
+                Text("Abre Repera en el iPhone emparejado si no aparece.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
-            .buttonStyle(.bordered)
-            .accessibilityHint("Solicita al iPhone el entrenamiento programado para hoy")
-            Text("Comprueba que el iPhone y el Watch estén emparejados.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 8)
         }
-        .padding(.horizontal, 8)
     }
 
     private func todayView(_ session: WorkoutSession) -> some View {
