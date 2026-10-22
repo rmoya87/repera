@@ -172,7 +172,13 @@ final class ReperaStore: NSObject {
             var session = state.workouts[i]
             let verified: Double?
             if let uuid = session.healthKitWorkoutUUID {
-                verified = await health.externalWorkoutEnergyKcal(uuid: uuid)
+                let fromHealth = await health.externalWorkoutEnergyKcal(uuid: uuid)
+                // Apple Health sync from Watch to iPhone can lag behind WatchConnectivity.
+                // Keep real Watch HK measurements while the iPhone awaits its HK sample.
+                verified = fromHealth ?? (
+                    session.appleHealthProvenance == "watchHealthKit"
+                        ? session.appleActiveEnergyKcal : nil
+                )
             } else {
                 verified = nil
             }
@@ -185,10 +191,12 @@ final class ReperaStore: NSObject {
                 start.addingTimeInterval(60)
             )
             let wallSeconds = max(60, end.timeIntervalSince(start))
+            let duration = session.appleHealthProvenance == "watchHealthKit"
+                ? (session.appleDurationSeconds ?? wallSeconds) : wallSeconds
             if session.appleActiveEnergyKcal != verified
-                || abs((session.appleDurationSeconds ?? 0) - wallSeconds) >= 1 {
+                || abs((session.appleDurationSeconds ?? 0) - duration) >= 1 {
                 session.appleActiveEnergyKcal = verified
-                session.appleDurationSeconds = wallSeconds
+                session.appleDurationSeconds = duration
                 state.workouts[i] = session
                 changed = true
             }
