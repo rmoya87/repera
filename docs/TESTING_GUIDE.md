@@ -252,6 +252,17 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 
 `ReperaSmokeUITests` arranca la app Debug con `--repera-ui-test-tabs` y `REPERA_UI_TEST_MODE=1` para acceder únicamente al contenedor de pestañas sin cuenta Apple del runner. La compilación Release **no** reconoce este modo. Los tests comprueban `Inicio · Diario · Crear|Center · Progreso · Ejercicios` y navegación a Ejercicios. El login real con Apple debe probarse en otro escenario E2E con cuenta y TestFlight, nunca se simula como superado.
 
+## Conciliación de minutos y navegación de Progreso (2026-10-22)
+
+- [ ] En Inicio, elegir un día pasado con un entrenamiento Repera de 60 minutos sin actividad externa: Tiempo de entrenamiento muestra 60 min aunque la caché histórica de Salud no tenga una sesión propia.
+- [ ] Hoy, un entrenamiento Repera de 57 min y una lectura parcial HealthKit de 4 min deben mostrar 57 min, nunca 4 ni 61. Tras finalizar/guardar en Salud, refrescar y comprobar que no cambia a un total duplicado.
+- [ ] Si Salud tiene un HKWorkout vinculado por UUID con duración consistente, prevalece su medición. Si devuelve una duración incoherentemente corta, se utiliza como respaldo el intervalo del registro Repera (sin convertirlo en una medición de energía).
+- [ ] Dos entrenos distintos de 40 y 20 min contabilizan 60 min; un workout importado externo no solapado de 30 min eleva el total a 90. El mismo HKWorkout enlazado a un entreno Repera se cuenta **una sola vez**.
+- [ ] Si falta permiso para escribir entrenos en Salud, la sesión no desaparece de Inicio ni muestra calorías estimadas. Verificar en Salud que el HKWorkout existe tras finalizar con permiso de escritura; la lectura local no es prueba de que se haya guardado en HealthKit.
+- [ ] En Progreso → Entreno, bajar al final y cambiar a Actividad y Recuperación: aparece el **inicio** de la nueva categoría (título/selector y primera tarjeta), sin zona negra vacía. Probar también el regreso a Entreno.
+- [ ] Con seis o más ejercicios y récords en el periodo, mostrar solo los cinco más recientes, seguidos de «Ver más» con flecha. Al tocar abre página con **todos** los elementos y permite regresar sin alterar periodo; desde la página de ejercicios se navega al detalle. Con 0–5 elementos no aparece «Ver más».
+- [ ] Verificar Dynamic Type, modo oscuro, VoiceOver, scroll de los listados largos y orden por fechas con empates.
+
 ## Inicio y objetivos de Salud — revisión iOS 27 (2026-10-22)
 
 - [ ] Abrir Inicio en modo claro y oscuro: calendario, entrenamiento (incluido día vacío) y «Añadir nuevo entreno» comparten un lienzo OG.surface a ancho total; Progreso semanal, Actividad y Recuperación mantienen sus márgenes.
