@@ -113,6 +113,7 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertNotIn('wc.sendMessage(["ping": true]', phone)
         self.assertIn('case "requestToday":', phone)
         self.assertIn("await delegate.phoneConnectivityLatestWorkoutForToday()", phone)
+        self.assertIn('if let action = userInfo["action"] as? String', phone)
         self.assertIn('"todayWorkout": data', phone)
         self.assertIn('"todayDayStart": Calendar.current.startOfDay(for: Date()).timeIntervalSince1970', phone)
         self.assertNotIn('return latestPayloadLock.withLock { latestPayload } ?? ["ok": true]', phone)
@@ -152,11 +153,20 @@ class WatchHealthKitContractTests(unittest.TestCase):
 
         # Empty page keeps only title and a functional sync button.
         self.assertIn("Sin plan descargado", view)
-        self.assertIn("Sincronizar con iPhone", view)
+        self.assertIn('Label("Sincronizar", systemImage:', view)
         self.assertNotIn("Si ya programaste un entrenamiento", view)
         self.assertNotIn("Abre Repera en el iPhone emparejado", view)
         self.assertIn("hub.refreshToday()", view)
-        self.assertIn('["action": "requestToday"', client)
+        self.assertIn('"action": "requestToday"', client)
+        self.assertIn("requestToday(deferIfOffline: true)", client)
+        self.assertIn("wc.transferUserInfo(request)", client)
+        self.assertIn("pendingManualRefresh = true", client)
+        self.assertNotIn("applyContext(wc.receivedApplicationContext)\n        requestToday()", client)
+        self.assertIn('Label("Sincronizar", systemImage:', view)
+        self.assertIn('Image("MascotWatch")', view)
+        self.assertIn("GeometryReader { available in", view)
+        self.assertNotIn("figure.strengthtraining.traditional", view)
+        self.assertNotIn("Sincronizar con iPhone", view)
 
         # iPhone fetches the current scheduled routine before replying.
         self.assertIn("private func currentWatchWorkoutForToday()", store)
@@ -172,7 +182,7 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertNotIn("NowPlayingView()", view)
         self.assertNotIn('Image(systemName: "playpause.fill")', view)
         self.assertNotIn("Controlar música o podcast", view)
-        self.assertIn("Sincronizar con iPhone", view)
+        self.assertIn('Label("Sincronizar", systemImage:', view)
 
     def test_healthkit_state_transitions_never_repeat_running_resume(self):
         """A startActivity session is already running; resume only from paused."""

@@ -104,6 +104,12 @@ Al agotarse los intervalos el texto se simplifica a **«Finalizado»**; los ejer
 
 Las comprobaciones estáticas están en `test_watch_timers_and_primary_buttons_match_ios` del contrato Watch. La validación completa de intervalos, estados HealthKit, haptics y tamaño del reloj sigue requiriendo compilar y probar en Xcode con watchOS 27.
 
+## Pantalla sin planificación y sincronización solicitada
+
+La pantalla vacía utiliza la mascota original `MascotWatch` de iOS en tamaño grande, centrada, con «Sin plan descargado» y sin textos de ayuda. El botón verde «Sincronizar», con icono negro, queda fijado al pie y ocupa el ancho disponible. Se mantiene espacio flexible para tamaños distintos de Apple Watch.
+
+Al pulsar «Sincronizar» se solicita al iPhone el entrenamiento actual del día mediante `WCSession.sendMessage`, sin mostrar primero una caché antigua como respuesta. El iPhone consulta `phoneConnectivityLatestWorkoutForToday` y devuelve `todayWorkout` y `todayDayStart`. Si no está alcanzable, la petición se encola con `transferUserInfo`; el iPhone la recibe cuando pueda procesarla y publica la planificación por `updateApplicationContext`. La activación de WCSession conserva la petición manual pendiente; la entrega de mensajes en segundo plano es eventual.
+
 ## Inicio del reloj: control multimedia y sincronización
 
 El botón de música/podcast en el extremo superior derecho utiliza un círculo verde de acento con el símbolo `playpause.fill` **negro** y monocromo para mantener el contraste en la interfaz oscura watchOS. Abre `NowPlayingView` nativo.

@@ -53,28 +53,37 @@ struct WatchSessionView: View {
     }
 
     private var emptyView: some View {
-        ScrollView {
-            VStack(spacing: 10) {
-                Image(systemName: "figure.strengthtraining.traditional")
-                    .font(.title2)
-                    .foregroundStyle(accent)
+        GeometryReader { available in
+            VStack(spacing: 8) {
+                Spacer(minLength: 2)
+                Image("MascotWatch")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(
+                        maxWidth: min(available.size.width * 0.84, 170),
+                        maxHeight: min(available.size.height * 0.62, 170)
+                    )
+                    .accessibilityHidden(true)
                 Text("Sin plan descargado")
                     .font(.headline)
                     .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.75)
+                Spacer(minLength: 2)
                 Button {
                     hub.refreshToday()
                 } label: {
-                    Label("Sincronizar con iPhone", systemImage: "arrow.triangle.2.circlepath")
-                        .font(.caption2.weight(.semibold))
+                    Label("Sincronizar", systemImage: "arrow.triangle.2.circlepath")
+                        .font(.callout.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 36)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(accent)
                 .foregroundStyle(.black)
-                .accessibilityHint("Solicita al iPhone el entrenamiento programado para hoy")
+                .accessibilityHint("Solicita la planificación actual del día al iPhone")
             }
             .frame(maxWidth: .infinity)
+            .frame(height: available.size.height)
             .padding(.horizontal, 8)
-            .padding(.vertical, 8)
         }
     }
 

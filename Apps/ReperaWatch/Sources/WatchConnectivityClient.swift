@@ -77,27 +77,42 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         UserDefaults.standard.set(queued, forKey: pendingKey)
     }
 
-    /// Explicit retry for newly scheduled workouts and reopening the Watch.
+    /// Manual sync fetches today's CURRENT plan; never claim an old cached
+    /// applicationContext snapshot is the result of a fresh request.
+    private var pendingManualRefresh = false
+
     func refreshToday() {
         guard WCSession.isSupported() else { return }
         let wc = WCSession.default
-        guard wc.activationState == .activated else { return }
-        applyContext(wc.receivedApplicationContext)
-        requestToday()
+        guard wc.activationState == .activated else {
+            pendingManualRefresh = true
+            wc.activate()
+            return
+        }
+        requestToday(deferIfOffline: true)
     }
 
-    private func requestToday() {
+    private func requestToday(deferIfOffline: Bool = false) {
         guard WCSession.isSupported() else { return }
         let wc = WCSession.default
-        guard wc.activationState == .activated, wc.isReachable else { return }
+        guard wc.activationState == .activated else { return }
+        let request: [String: Any] = [
+            "action": "requestToday", "actionId": UUID().uuidString
+        ]
+        guard wc.isReachable else {
+            if deferIfOffline { wc.transferUserInfo(request) }
+            return
+        }
         wc.sendMessage(
-            ["action": "requestToday", "actionId": UUID().uuidString],
+            request,
             replyHandler: { [weak self] payload in
-                // The iPhone replies with its last complete snapshot immediately.
                 self?.applyContext(payload)
             },
             errorHandler: { [weak self] error in
                 self?.logger.debug("Day refresh deferred: \(error.localizedDescription, privacy: .public)")
+                if WCSession.default.activationState == .activated {
+                    WCSession.default.transferUserInfo(request)
+                }
             }
         )
     }
@@ -108,7 +123,9 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         if let error { logger.error("Activation failed: \(error.localizedDescription, privacy: .public)") }
         applyContext(session.receivedApplicationContext)
         flushPending()
-        requestToday()
+        let manual = pendingManualRefresh
+        pendingManualRefresh = false
+        requestToday(deferIfOffline: manual)
     }
 
     func sessionReachabilityDidChange(_ session: WCSession) {

@@ -124,8 +124,15 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         decode(applicationContext)
     }
 
-    /// Completed sessions are delivered in the background, even if the phone app is not active.
+    /// Completed workouts and queued manual sync requests use background delivery.
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
+        if let action = userInfo["action"] as? String {
+            nonisolated(unsafe) let snapshot = userInfo
+            Task { [self] in
+                _ = await self.handleAction(action, message: snapshot)
+            }
+            return
+        }
         decode(userInfo)
     }
 
