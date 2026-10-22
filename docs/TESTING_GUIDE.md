@@ -129,6 +129,17 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] Guardar el score global de un bloque anterior cuando otro está seleccionado: solo se confirma el bloque correcto, sin finalizar el otro.
 - [ ] Validar test de dominio y `test_wod_play_contract.py` en CI iOS 27 y, manualmente, en dispositivo.
 
+## Corregir el peso o reps originales de un WOD terminado
+
+- [ ] Historial → Entreno terminado → Editar: en un AMRAP de 8' comprobar que aparecen «Resultado del entreno», **Prescrito (editable)** y **Realizado (opcional)** para cada movimiento; ninguna sección de series ficticias por ejercicio.
+- [ ] Prescrito: cambiar cargada y envión de 20 reps/40 kg a 18 reps/35 kg y Realizado: mantener 15 reps/25 kg. Guardar y reabrir: ambos conjuntos de datos se conservan, y sigue intacta la marca global de 5 rondas + 4 reps.
+- [ ] Si existen sets realmente registrados (p. ej. 16 reps/27 kg), editar solo el peso Rx de 40 a 35: las series registradas siguen siendo 16/27 y la rutina reutilizable original sigue marcando 40.
+- [ ] Editar un número decimal usando coma o punto en el peso prescrito sin perder caracteres mientras se teclea.
+- [ ] Cuando Realizado coincide exactamente con Prescrito (p. ej. 15 reps, 25 kg en ambos), sigue mostrando «Realizado» en Historial, pero la nota no se identifica como «Adaptado» por esa coincidencia.
+- [ ] En un esquema 21-15-9 se presenta el esquema sin aplanarlo automáticamente; sigue siendo posible corregir el peso prescrito del movimiento.
+- [ ] También verificar bloques originalmente de Fuerza con formato de puntuación global: editar Rx no sustituye sus series registradas; la nota se recalcula.
+- [ ] En edición de rutinas y entrenos por series (EMOM, Tabata, Circuito) mantener el comportamiento habitual de las series sin convertir Rx en resultados.
+
 ## Edición de adaptaciones y nota Scaled (todos los scores globales)
 
 - [ ] AMRAP 8': guardar 5 rondas + 4 reps; en «Cargada y envión» poner 15 reps y 25,5 kg (Rx: 20 reps y 40 kg). Guardar, reabrir y comprobar **resultado global 5+4**, prescripción 20/40 intacta, valores adaptados 15/25,5 y **ninguna serie inventada**.
