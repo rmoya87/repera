@@ -83,6 +83,11 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                     self.builder = builder
                     session.startActivity(with: date)
                     builder.beginCollection(withStart: date) { [weak self] ok, err in
+                        if ok {
+                            // Matches HealthKit's independent sample UUID to Repera's
+                            // stable workout ID, even if Health returns no sample while locked.
+                            builder.addMetadata([HKMetadataKeyExternalUUID: id.uuidString]) { _, _ in }
+                        }
                         Task { @MainActor in
                             guard let self, self.workoutID == id else { return }
                             self.isRecording = ok
