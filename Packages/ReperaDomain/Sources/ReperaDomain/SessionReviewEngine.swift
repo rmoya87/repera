@@ -2,6 +2,9 @@ import Foundation
 
 /// Valoración post-WOD: rendimiento (bandas / formato) + historial de ejercicios equivalentes.
 public enum SessionReviewEngine {
+    /// Sólo crea una valoración si hay historial personal suficiente.
+    /// FC, kcal y número de sets registrados no se convierten en puntos:
+    /// pueden contextualizar el entreno, no demostrar el rendimiento.
     public static func review(
         session: WorkoutSession,
         history: [WorkoutSession],
@@ -9,64 +12,7 @@ public enum SessionReviewEngine {
         now: Date = Date(),
         cardio: SessionCardioSample? = nil
     ) -> SessionReview? {
-        let prior = history.filter { $0.id != session.id }
-        let scored = session.wodResults.filter {
-            ($0.elapsedSeconds ?? 0) > 0
-                || ($0.roundsCompleted ?? 0) > 0
-                || ($0.totalReps ?? 0) > 0
-        }
-
-        let base: SessionReview?
-        if let primary = pickPrimaryResult(scored),
-           let built = reviewWOD(
-               result: primary,
-               session: session,
-               prior: prior,
-               templates: templates
-           ) {
-            let movements = reviewMovements(session: session, prior: prior)
-            let individualWOD = merge(
-                built, movements: movements, scoredBlockID: primary.id, session: session
-            )
-            // Una marca AMRAP no equivale a la calificación de todos los
-            // EMOM/Fuerza de una sesión mixta. Valorar también los registros
-            // por bloque, señalando qué puede y qué no puede inferirse.
-            base = mixedSessionReview(
-                scoredBlockID: primary.id, session: session, wodReview: individualWOD
-            ) ?? individualWOD
-        } else {
-            let movements = reviewMovements(session: session, prior: prior)
-            guard !movements.isEmpty || !session.exercises.filter({ !$0.loggedSets.isEmpty }).isEmpty else {
-                return nil
-            }
-            base = strengthFallback(session: session, movements: movements)
-        }
-
-        guard let base else { return nil }
-        // Si hay FC/kcal de Salud, afina la nota según el esfuerzo real.
-        return SessionCardioEffort.apply(to: base, sample: enrichedCardio(cardio, session: session))
-    }
-
-    /// Completa duración/kcal de sesión si el sample no las trae.
-    private static func enrichedCardio(
-        _ cardio: SessionCardioSample?,
-        session: WorkoutSession
-    ) -> SessionCardioSample? {
-        guard var sample = cardio else {
-            // Solo kcal de sesión (sin FC): aún puede aportar señal de densidad.
-            guard let kcal = session.appleActiveEnergyKcal, kcal > 40 else { return nil }
-            return SessionCardioSample(
-                activeEnergyKcal: kcal,
-                durationMinutes: max(1, session.displayDurationMinutes)
-            )
-        }
-        if sample.activeEnergyKcal == nil {
-            sample.activeEnergyKcal = session.appleActiveEnergyKcal
-        }
-        if sample.durationMinutes == nil || (sample.durationMinutes ?? 0) <= 0 {
-            sample.durationMinutes = max(1, session.displayDurationMinutes)
-        }
-        return sample
+        VerifiedSessionReviewEngine.review(session: session, history: history, now: now)
     }
 
     // MARK: - WOD score

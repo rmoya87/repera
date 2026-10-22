@@ -39,6 +39,7 @@ public enum ScoreBasis: String, Codable, Sendable, Hashable {
     case formatHeuristic
     case equivalentHistory
     case sessionEstimate
+    case personalHistory
 
     public var blurbLabel: String {
         switch self {
@@ -48,6 +49,7 @@ public enum ScoreBasis: String, Codable, Sendable, Hashable {
         case .formatHeuristic: return "estimación por formato"
         case .equivalentHistory: return "vs historial en movimientos similares"
         case .sessionEstimate: return "estimación de la sesión"
+        case .personalHistory: return "historial personal comparable"
         }
     }
 }
@@ -125,6 +127,45 @@ public struct MovementReview: Identifiable, Codable, Sendable, Hashable {
     }
 }
 
+/// Cada indicador explicita su fuente; «Cumplimiento» mide cobertura del
+/// registro, nunca calidad de ejecución, y no aporta puntos a la nota global.
+public enum ReviewDimension: String, Codable, Sendable, Hashable, CaseIterable {
+    case personalProgress
+    case adherence
+    case wodPerformance
+
+    public var title: String {
+        switch self {
+        case .personalProgress: return "Evolución personal"
+        case .adherence: return "Cumplimiento"
+        case .wodPerformance: return "Rendimiento WOD"
+        }
+    }
+
+    public var symbol: String {
+        switch self {
+        case .personalProgress: return "chart.line.uptrend.xyaxis"
+        case .adherence: return "checkmark.circle"
+        case .wodPerformance: return "timer"
+        }
+    }
+}
+
+public struct ReviewIndicator: Codable, Sendable, Hashable {
+    public var dimension: ReviewDimension
+    /// nil = todavía sin mínimo de histórico. Nunca mostrar una nota inventada.
+    public var score: Int?
+    public var detail: String
+    public var referenceSessions: Int
+
+    public init(dimension: ReviewDimension, score: Int?, detail: String, referenceSessions: Int = 0) {
+        self.dimension = dimension
+        self.score = score
+        self.detail = detail
+        self.referenceSessions = referenceSessions
+    }
+}
+
 /// Informe post-entreno (WOD + movimientos).
 public struct SessionReview: Codable, Sendable, Hashable {
     public var overallScore: Int
@@ -137,6 +178,11 @@ public struct SessionReview: Codable, Sendable, Hashable {
     public var movements: [MovementReview]
     public var wodTemplateId: String?
     public var scoreBasis: ScoreBasis?
+    /// Desglose persistido solo para la fórmula personal verificable.
+    public var indicators: [ReviewIndicator]
+    /// Peso de bloques con historial comparable sobre todos los bloques evaluables.
+    public var evidenceCoverage: Double?
+    public var confidenceLabel: String?
 
     public init(
         overallScore: Int,
@@ -148,7 +194,10 @@ public struct SessionReview: Codable, Sendable, Hashable {
         improveTips: [String] = [],
         movements: [MovementReview] = [],
         wodTemplateId: String? = nil,
-        scoreBasis: ScoreBasis? = nil
+        scoreBasis: ScoreBasis? = nil,
+        indicators: [ReviewIndicator] = [],
+        evidenceCoverage: Double? = nil,
+        confidenceLabel: String? = nil
     ) {
         self.overallScore = min(10, max(1, overallScore))
         self.level = level
@@ -160,6 +209,9 @@ public struct SessionReview: Codable, Sendable, Hashable {
         self.movements = movements
         self.wodTemplateId = wodTemplateId
         self.scoreBasis = scoreBasis
+        self.indicators = indicators
+        self.evidenceCoverage = evidenceCoverage
+        self.confidenceLabel = confidenceLabel
     }
 
     public var levelLabel: String? { level?.label }
@@ -181,6 +233,7 @@ public struct SessionReview: Codable, Sendable, Hashable {
     enum CodingKeys: String, CodingKey {
         case overallScore, level, headline, vsHistorySummary, vsStandardSummary
         case keepTips, improveTips, movements, wodTemplateId, scoreBasis
+        case indicators, evidenceCoverage, confidenceLabel
     }
 
     public init(from decoder: Decoder) throws {
@@ -195,5 +248,8 @@ public struct SessionReview: Codable, Sendable, Hashable {
         movements = try c.decodeIfPresent([MovementReview].self, forKey: .movements) ?? []
         wodTemplateId = try c.decodeIfPresent(String.self, forKey: .wodTemplateId)
         scoreBasis = try c.decodeIfPresent(ScoreBasis.self, forKey: .scoreBasis)
+        indicators = try c.decodeIfPresent([ReviewIndicator].self, forKey: .indicators) ?? []
+        evidenceCoverage = try c.decodeIfPresent(Double.self, forKey: .evidenceCoverage)
+        confidenceLabel = try c.decodeIfPresent(String.self, forKey: .confidenceLabel)
     }
 }

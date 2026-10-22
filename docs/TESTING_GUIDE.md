@@ -140,13 +140,26 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] También verificar bloques originalmente de Fuerza con formato de puntuación global: editar Rx no sustituye sus series registradas; la nota se recalcula.
 - [ ] En edición de rutinas y entrenos por series (EMOM, Tabata, Circuito) mantener el comportamiento habitual de las series sin convertir Rx en resultados.
 
+## Valoración verificable v10 (sin nota antes del histórico mínimo)
+
+- [ ] Primera sesión terminada de un ejercicio: Inicio **solo Kcal y Tiempo** (sin tarjeta Nota), Historial mantiene kg/reps/RIR pero **no presenta card de valoración ni nivel**; tampoco se muestra hoja de puntuación al acabar.
+- [ ] Segunda sesión del mismo ejercicio en otro día: sigue sin nota. Cinco series en un único entreno o dos entrenamientos el mismo día NO desbloquean ninguna puntuación.
+- [ ] Tercera sesión del mismo ejercicio, con al menos **dos sesiones anteriores en días distintos** y rango de reps ±2, material y RIR compatibles: aparece la tarjeta de **Nota global, Evolución personal, Cumplimiento, Rendimiento WOD**; indicador no disponible = «Sin referencia» sin valor numérico.
+- [ ] Cumplimiento muestra series realmente registradas/planificadas, no 9/10 por cubrir los campos. Modificar el número de sets no mejora directamente la valoración.
+- [ ] WOD AMRAP 8' con 2 marcas anteriores del mismo formato, duración, ejercicios, reps, peso y adaptación: tercera marca desbloquea Rendimiento WOD. Cambiar Rx o Scaled, duración o prescripción invalida esa comparación.
+- [ ] Una sesión mixta con 1 bloque comparable y otros dos sin referencias: si la cobertura de rendimiento es menor del 60%, **no mostrar ninguna nota**. Con dos de tres unidades comparables y dos días previos, aparece nota personal con nivel de confianza «En construcción».
+- [ ] Un máximo 1RM aislado no habilita puntuación de evolución; un día de descarga intencionada tampoco debe bajar la nota por comparación injusta. Nunca comparar push press con press banca, ni barras y mancuernas como si fueran iguales.
+- [ ] Corregir un entrenamiento histórico (prescripción, reps, resultado, adaptación) y guardar: se conserva el registro original y se recalcúla con referencias cronológicamente anteriores, sin crear nuevas series ni degradar histórico.
+- [ ] Versionar valoración a 10 y abrir un histórico con nota vieja: debe desaparecer antes de existir referencias verificables. En Inicio la nota no aparece como «—/10» cuando no existe histórico.
+- [ ] La confianza solo puede ser «Alta» cuando todas las unidades puntuadas tienen ≥5 días de referencia y cobertura ≥80%; el score no cambia por datos HealthKit aislados.
+
 ## Nota de sesión mixta: EMOM + AMRAP
 
 - [ ] Reproducir el entrenamiento del 22/10/2026: EMOM 12' con 4 sets de push press y 4 de peso muerto; EMOM 9' con 2 sets de fondos y pistol squat sin series; AMRAP 8' con 2 rondas + 20 reps. La nota global NO debe ser la del AMRAP aislado ni mostrarse como «Principiante».
 - [ ] Registrar un entrenamiento anterior de **press banca 90 kg × 7**: push press 70 kg × 2 no debe compararse con bench ni perder puntos por esa referencia. El detalle debe limitarse a ejercicios realmente comparables.
 - [ ] Mostrar el desglose de la nota orientativa: ritmo del AMRAP, EMOM 12' (8/8 series registradas) y EMOM 9' (2/4). No inferir que la ausencia de pistol squat significa que no se hizo.
 - [ ] El inicio y fin almacenados muestran 3 min 38 s para la sesión de 29 min planificados: advertir de la discrepancia y NO usar esa duración total para penalizar.
-- [ ] Comprobar que la sesión de prueba no cambia de fecha, duración registrada, rondas ni series, y que su valoración se recalcula al instalar versión de fórmula 9.
+- [ ] Comprobar que la sesión de prueba no cambia de fecha, duración registrada, rondas ni series, y que se elimina la nota antigua hasta acumular historial suficiente con la fórmula 10.
 - [ ] El pie del resultado no debe decir «nivel de catálogo» cuando el score es una estimación de sesión mixta; una única sesión no determina el nivel atlético.
 
 ## Edición de adaptaciones y nota Scaled (todos los scores globales)

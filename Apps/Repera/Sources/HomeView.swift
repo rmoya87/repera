@@ -385,7 +385,12 @@ struct HomeView: View {
         )
         let kcal = dayHealth.activeEnergyKcal.flatMap { $0 > 0 ? $0 : nil }
         let dayScore: Int? = {
-            let scores = workouts.compactMap(\.sessionReview?.overallScore)
+            let scores = workouts.compactMap { workout -> Int? in
+                guard let review = workout.sessionReview,
+                      review.scoreBasis == .personalHistory,
+                      (review.evidenceCoverage ?? 0) >= 0.60 else { return nil }
+                return review.overallScore
+            }
             return scores.max()
         }()
 
@@ -442,12 +447,14 @@ struct HomeView: View {
                 HStack(spacing: 10) {
                     metricTile(title: "Kcal", value: kcal.map { "\(Int($0.rounded()))" } ?? "—", icon: "flame.fill", tint: OG.orange)
                     metricTile(title: "Tiempo", value: durationMin > 0 ? "\(Int(durationMin.rounded()))′" : "—", icon: "clock.fill", tint: OG.blue)
-                    metricTile(
-                        title: "Nota",
-                        value: dayScore.map { "\($0)/10" } ?? "—",
-                        icon: "star.fill",
-                        tint: OG.accent
-                    )
+                    if let dayScore {
+                        metricTile(
+                            title: "Nota",
+                            value: "\(dayScore)/10",
+                            icon: "star.fill",
+                            tint: OG.accent
+                        )
+                    }
                 }
             }
         }

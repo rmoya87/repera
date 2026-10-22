@@ -69,6 +69,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_scaled_wod_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_wod_prescription_edit_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_mixed_session_review_contract.py' -v
+          python3 -m unittest discover -s tests -p 'test_verified_session_review_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_ai_catalog_metadata.py' -v
           python3 -m unittest discover -s tests -p 'test_mcp_v2_and_scan_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_mcp_wod_format_contract.py' -v
