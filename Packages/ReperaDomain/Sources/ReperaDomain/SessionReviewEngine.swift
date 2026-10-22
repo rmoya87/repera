@@ -25,7 +25,15 @@ public enum SessionReviewEngine {
                templates: templates
            ) {
             let movements = reviewMovements(session: session, prior: prior)
-            base = merge(built, movements: movements)
+            let individualWOD = merge(
+                built, movements: movements, scoredBlockID: primary.id, session: session
+            )
+            // Una marca AMRAP no equivale a la calificación de todos los
+            // EMOM/Fuerza de una sesión mixta. Valorar también los registros
+            // por bloque, señalando qué puede y qué no puede inferirse.
+            base = mixedSessionReview(
+                scoredBlockID: primary.id, session: session, wodReview: individualWOD
+            ) ?? individualWOD
         } else {
             let movements = reviewMovements(session: session, prior: prior)
             guard !movements.isEmpty || !session.exercises.filter({ !$0.loggedSets.isEmpty }).isEmpty else {
@@ -792,7 +800,12 @@ public enum SessionReviewEngine {
         )
     }
 
-    private static func merge(_ base: SessionReview, movements: [MovementReview]) -> SessionReview {
+    private static func merge(
+        _ base: SessionReview,
+        movements: [MovementReview],
+        scoredBlockID: UUID,
+        session: WorkoutSession
+    ) -> SessionReview {
         var keep = base.keepTips
         var improve = base.improveTips
         if movements.contains(where: { $0.verdict == .good }) {
@@ -804,11 +817,15 @@ public enum SessionReviewEngine {
             improve.append("Revisa los movimientos marcados como mejorables.")
         }
 
-        let adj = equivalenceAdjustment(from: movements)
+        // Solo pueden ajustar la nota WOD las series del MISMO bloque.
+        // Push press y peso muerto de otro EMOM no pueden restar puntos al AMRAP.
+        let scoredIDs = Set(session.exercises.filter { $0.blockId == scoredBlockID }.map { $0.exercise.id })
+        let scoredMovements = movements.filter { scoredIDs.contains($0.exerciseId) }
+        let adj = equivalenceAdjustment(from: scoredMovements)
         let score = clampScore(base.overallScore + adj)
         var history = base.vsHistorySummary
         if adj != 0 {
-            let refs = nonEmptySimilarRefs(movements)
+            let refs = nonEmptySimilarRefs(scoredMovements)
             let tip: String = {
                 if adj >= 2 {
                     return refs.map { "En \($0) vas claramente mejor que en tus sesiones parecidas." }
@@ -832,7 +849,7 @@ public enum SessionReviewEngine {
             } else {
                 history = tip
             }
-        } else if movements.contains(where: { $0.performanceRatio != nil }) {
+        } else if scoredMovements.contains(where: { $0.performanceRatio != nil }) {
             let tip = "En línea con lo que sueles hacer en movimientos parecidos."
             if history == nil || history?.contains("Primer intento") == true {
                 history = tip
@@ -861,6 +878,98 @@ public enum SessionReviewEngine {
             movements: movements,
             wodTemplateId: base.wodTemplateId,
             scoreBasis: base.scoreBasis
+        )
+    }
+
+    /// No extrapolar el score de un único AMRAP a un entrenamiento con varios
+    /// bloques. Esta NOTA ORIENTATIVA combina la marca del bloque cronometrado
+    /// con la *cobertura de registros* del resto; no finge medir técnica, RPE
+    /// ni rendimiento muscular. Se usan las duraciones planificadas POR BLOQUE,
+    /// nunca la duración general (que puede ser un cronómetro de app incompleto).
+    private static func mixedSessionReview(
+        scoredBlockID: UUID,
+        session: WorkoutSession,
+        wodReview: SessionReview
+    ) -> SessionReview? {
+        guard let blocks = session.routineBlocks,
+              let scoredBlock = blocks.first(where: { $0.id == scoredBlockID }) else {
+            return nil
+        }
+
+        struct RegisteredBlock {
+            let title: String
+            let observed: Int
+            let prescribed: Int
+            let estimatedScore: Int
+            let minutes: Double
+        }
+        var others: [RegisteredBlock] = []
+
+        for block in blocks where block.id != scoredBlockID {
+            let perSeries = block.wodFormat?.resultCapture == .perMovementSets
+                || (block.wodFormat == nil && block.kind == .strength)
+            guard perSeries else { continue }
+            let entries = session.exercises.filter { $0.blockId == block.id }
+            let prescribed = entries.reduce(0) { sum, entry in
+                sum + entry.plannedSets.count
+            }
+            let observed = entries.reduce(0) { sum, entry in
+                sum + entry.loggedSets.filter { !$0.isWarmup }.count
+            }
+            // No valorar un bloque si no tenemos ni prescripción ni registros.
+            guard prescribed > 0, observed > 0 else { continue }
+            let coverage = min(1.0, Double(observed) / Double(prescribed))
+            // 5…9/10 indica exclusivamente cobertura del registro, NO que la
+            // carga elegida o la técnica merezca una nota determinada.
+            let registrationScore = Int((5.0 + 4.0 * coverage).rounded())
+            let minutes = Double(max(1, min(90, block.timeCapMinutes ?? 1)))
+            others.append(RegisteredBlock(
+                title: block.title,
+                observed: observed,
+                prescribed: prescribed,
+                estimatedScore: registrationScore,
+                minutes: minutes
+            ))
+        }
+        guard !others.isEmpty else { return nil }
+        let primaryMinutes = Double(max(1, min(90,
+            scoredBlock.timeCapMinutes
+                ?? session.exercises.first(where: { $0.blockId == scoredBlockID })?.blockTimeCapMinutes
+                ?? 8
+        )))
+        let totalMinutes = primaryMinutes + others.reduce(0.0) { $0 + $1.minutes }
+        let points = Double(wodReview.overallScore) * primaryMinutes
+            + others.reduce(0.0) { $0 + Double($1.estimatedScore) * $1.minutes }
+        let score = clampScore(Int((points / totalMinutes).rounded()))
+        let components = others.map {
+            "\($0.title): \($0.observed)/\($0.prescribed) series registradas"
+        }.joined(separator: " · ")
+        var info = "\(scoredBlock.title): \(wodReview.overallScore)/10 de ritmo estimado"
+            + " · " + components
+            + ". Nota orientativa: combina ritmo y cobertura de registros; no mide la calidad ni la intensidad."
+        let measuredMinutes = session.displayDurationMinutes
+        if measuredMinutes > 0, measuredMinutes < totalMinutes * 0.5 {
+            info += " El tiempo total guardado (\(Int(measuredMinutes.rounded())) min) "
+                + "no concuerda con los \(Int(totalMinutes.rounded())) min de bloques planificados; "
+                + "no se utiliza para calcular esta nota."
+        }
+
+        return SessionReview(
+            overallScore: score,
+            level: nil, // «Principiante» del AMRAP no define el nivel del deportista
+            headline: "Sesión mixta · valoración orientativa: \(score)/10",
+            vsHistorySummary: wodReview.vsHistorySummary,
+            vsStandardSummary: info,
+            keepTips: [
+                "Se conservan las marcas por bloque: la puntuación de un AMRAP no representa los demás EMOM.",
+                "Las series anotadas aportan evidencia de trabajo, no una medición de su intensidad."
+            ],
+            improveTips: [
+                "Para mejorar la valoración, registra las series pendientes y la intensidad real cuando la conozcas."
+            ],
+            movements: wodReview.movements,
+            wodTemplateId: wodReview.wodTemplateId,
+            scoreBasis: .sessionEstimate
         )
     }
 

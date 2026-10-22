@@ -140,6 +140,15 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] También verificar bloques originalmente de Fuerza con formato de puntuación global: editar Rx no sustituye sus series registradas; la nota se recalcula.
 - [ ] En edición de rutinas y entrenos por series (EMOM, Tabata, Circuito) mantener el comportamiento habitual de las series sin convertir Rx en resultados.
 
+## Nota de sesión mixta: EMOM + AMRAP
+
+- [ ] Reproducir el entrenamiento del 22/10/2026: EMOM 12' con 4 sets de push press y 4 de peso muerto; EMOM 9' con 2 sets de fondos y pistol squat sin series; AMRAP 8' con 2 rondas + 20 reps. La nota global NO debe ser la del AMRAP aislado ni mostrarse como «Principiante».
+- [ ] Registrar un entrenamiento anterior de **press banca 90 kg × 7**: push press 70 kg × 2 no debe compararse con bench ni perder puntos por esa referencia. El detalle debe limitarse a ejercicios realmente comparables.
+- [ ] Mostrar el desglose de la nota orientativa: ritmo del AMRAP, EMOM 12' (8/8 series registradas) y EMOM 9' (2/4). No inferir que la ausencia de pistol squat significa que no se hizo.
+- [ ] El inicio y fin almacenados muestran 3 min 38 s para la sesión de 29 min planificados: advertir de la discrepancia y NO usar esa duración total para penalizar.
+- [ ] Comprobar que la sesión de prueba no cambia de fecha, duración registrada, rondas ni series, y que su valoración se recalcula al instalar versión de fórmula 9.
+- [ ] El pie del resultado no debe decir «nivel de catálogo» cuando el score es una estimación de sesión mixta; una única sesión no determina el nivel atlético.
+
 ## Edición de adaptaciones y nota Scaled (todos los scores globales)
 
 - [ ] AMRAP 8': guardar 5 rondas + 4 reps; en «Cargada y envión» poner 15 reps y 25,5 kg (Rx: 20 reps y 40 kg). Guardar, reabrir y comprobar **resultado global 5+4**, prescripción 20/40 intacta, valores adaptados 15/25,5 y **ninguna serie inventada**.
