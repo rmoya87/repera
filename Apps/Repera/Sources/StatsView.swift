@@ -242,6 +242,7 @@ struct StatsView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
             }
+            ProgressHeartZonesCard(workouts: snap.filteredWorkouts)
             ProgressCardioChartCard(prepared: snap.charts)
             ProgressCaloriesChartCard(prepared: snap.charts)
         } else {
