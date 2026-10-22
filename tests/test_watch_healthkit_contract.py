@@ -146,7 +146,7 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertEqual(view.count("hub.confirmAndAdvance()"), 1)
         self.assertNotIn('Text("Desliza ← → para revisar otras series")', view)
         self.assertNotIn('Label(hub.isFinalSet ? "Terminar" : "Siguiente"', view)
-        self.assertIn("func canConfirmCurrentEntry", hub.replace("var canConfirmCurrentEntry", "func canConfirmCurrentEntry"))
+        self.assertIn("var canConfirmCurrentEntry: Bool", hub)
 
     def test_watch_workout_native_play_and_one_tap_save(self):
         view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
