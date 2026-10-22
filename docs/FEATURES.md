@@ -222,7 +222,7 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 
 ## Sueño y ciclo (iOS 27)
 
-- Progreso agrupa **Entreno**, **Actividad** y **Recuperación** con el segmented que sube junto al encabezado y queda **fijo en la parte superior** al alcanzarla; título, periodo y calendario desaparecen al seguir desplazándose.
+- Progreso agrupa **Entreno**, **Actividad** y **Recuperación** con un selector de tres botones SwiftUI sobre **Liquid Glass** nativo (cristal translúcido en opciones inactivas y cápsula clara para la opción activa), que sube junto al encabezado y queda **fijo en la parte superior** al alcanzarla; título, periodo y calendario desaparecen al seguir desplazándose, sin franja gris opaca detrás del selector.
 - En Recuperación, **Sueño** es título de sección; **Ciclo** solo aparece si hay registros reales de menstruación. Si el periodo filtrado no tiene noches pero sí hay historial, se muestran las noches anteriores con una nota.
 - **Sueño** no se solicita automáticamente en el onboarding ni aparece como pendiente sin respuesta. Solo se solicita desde la activación expresa «Analizar descanso» en Apple Salud; **no hay alerta independiente en Progreso → Recuperación**. La selección se guarda solo en el dispositivo y HealthKit no permite comprobar si el permiso de lectura fue concedido.
 - Ajustes → **Salud conectada**: activación/desactivación del sueño, ciclo y métricas generales. Al activar sueño más tarde se usa la misma solicitud unificada de HealthKit; una negativa explícita se respeta. Punto rojo para decisiones pendientes, sin interrumpir Progreso.
