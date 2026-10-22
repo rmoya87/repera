@@ -110,7 +110,8 @@ public enum SessionReviewEngine {
             score = mapped.score
             vsStandard = mapped.summary
             basis = .typicalTime
-        } else if let mapped = scoreFromFormat(result: result, format: format, typicalMinutes: template?.typicalMinutes) {
+        } else if !isScaled,
+                  let mapped = scoreFromFormat(result: result, format: format, typicalMinutes: template?.typicalMinutes) {
             level = mapped.level
             score = mapped.score
             vsStandard = mapped.summary
@@ -182,6 +183,11 @@ public enum SessionReviewEngine {
             : byBlock
 
         var lines = WODPaceEstimator.prescription(fromExercises: blockExercises)
+        // No sustituir una adaptación (p. ej. todos los movimientos a 0)
+        // por el volumen Rx de plantilla para fabricar una nota.
+        if blockExercises.contains(where: { $0.hasWODScaling }) && lines.isEmpty {
+            return nil
+        }
         var volumeFromTemplate = false
         if lines.isEmpty, let template {
             lines = WODPaceEstimator.prescription(fromMovements: template.movements)
