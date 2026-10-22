@@ -76,10 +76,19 @@ final class WatchSessionHub: NSObject {
     }
     var current: SessionExercise? { active?.currentExercise }
     var currentIsWOD: Bool { current?.blockKind == .wod && current?.wodFormat != .strength }
-    var wodUsesSeries: Bool {
-        switch current?.wodFormat {
-        case .emom, .tabata, .circuit: return true
-        default: return false
+    var wodUsesSeries: Bool { current?.wodFormat?.resultCapture == .perMovementSets }
+    var intervalRemaining: Int? {
+        guard let current, let format = current.wodFormat else { return nil }
+        switch format {
+        case .emom, .circuit:
+            let interval = max(1, current.blockIntervalSeconds ?? 60)
+            return interval - blockElapsed % interval
+        case .tabata:
+            let work = max(1, current.blockWorkSeconds ?? 20)
+            let rest = max(0, current.blockRestSeconds ?? 10)
+            let position = blockElapsed % max(1, work + rest)
+            return position < work ? work - position : work + rest - position
+        default: return nil
         }
     }
     var timeCapSeconds: Int {
@@ -364,11 +373,9 @@ final class WatchSessionHub: NSObject {
               let current = ctrl.session.currentExercise,
               let id = current.blockId else { return }
         let format = current.wodFormat
-        let elapsed: Int? = (format == .forTime || format == .afap || format == .chipper)
-            ? blockElapsed : nil
-        let rounds: Int? = (format == .amrap || format == .roundsForQuality)
-            ? completedRounds : nil
-        let reps: Int? = format == .amrap ? remainingRoundReps : nil
+        let elapsed: Int? = format?.resultCapture == .elapsedTime ? blockElapsed : nil
+        let rounds: Int? = format == .amrap ? completedRounds : nil
+        let reps: Int? = format?.resultCapture == .totalReps ? remainingRoundReps : nil
         let score = WODBlockResult(id: id, format: format,
                                    totalReps: reps, elapsedSeconds: elapsed,
                                    roundsCompleted: rounds)
