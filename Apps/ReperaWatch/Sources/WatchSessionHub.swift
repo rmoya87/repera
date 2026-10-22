@@ -546,11 +546,13 @@ final class WatchSessionHub: NSObject {
             return
         }
         let wasReviewingRecordedSet = selectedSetIndex != nil
+        let wasWorkingSet = setDraft.phase == .work
         confirmSet()
-        // Editing a historical set must never advance or finish the exercise.
-        guard !wasReviewingRecordedSet else { return }
+        // Neither editing a historical set nor adding a warmup may finish
+        // the prescribed work sets (resetSetDraft changes the selected phase).
+        guard !wasReviewingRecordedSet, wasWorkingSet else { return }
         if completedWorkingSets >= max(1, plannedSets),
-           restRemaining == 0, setDraft.phase == .work {
+           restRemaining == 0 {
             advance()
         }
     }
