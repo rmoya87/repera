@@ -112,7 +112,10 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("wc.sendMessage(payload, replyHandler: nil)", phone)
         self.assertNotIn('wc.sendMessage(["ping": true]', phone)
         self.assertIn('case "requestToday":', phone)
-        self.assertIn('return latestPayloadLock.withLock { latestPayload } ?? ["ok": true]', phone)
+        self.assertIn("await delegate.phoneConnectivityLatestWorkoutForToday()", phone)
+        self.assertIn('"todayWorkout": data', phone)
+        self.assertIn('"todayDayStart": Calendar.current.startOfDay(for: Date()).timeIntervalSince1970', phone)
+        self.assertNotIn('return latestPayloadLock.withLock { latestPayload } ?? ["ok": true]', phone)
 
         # A reachable Watch gets a direct reply; unavailable devices keep context.
         self.assertIn("replyHandler: { [weak self] payload in", client)
@@ -122,6 +125,46 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("func refreshToday()", hub)
         self.assertIn("hub.refreshToday()", app)
         self.assertIn("hub.refreshToday()", view)
+
+    def test_watch_prefills_exact_prescribed_series_and_requests_fresh_today(self):
+        hub = source("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
+        domain = source("Packages/ReperaDomain/Sources/ReperaDomain/Models.swift")
+        view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        phone = source("Apps/Repera/Sources/PhoneConnectivity.swift")
+        store = source("Apps/Repera/Sources/ReperaStore.swift")
+        client = source("Apps/ReperaWatch/Sources/WatchConnectivityClient.swift")
+
+        # Preset is a draft, not a completed set; actual LoggedSet is only
+        # written by the explicit confirm action.
+        self.assertIn("public var nextWorkSetPrescription: PlannedSet?", domain)
+        self.assertIn("loggedSets.filter { $0.phase == .work }.count", domain)
+        self.assertIn("let planned = ex?.nextWorkSetPrescription", hub)
+        self.assertIn("workingReps = max(0, planned?.targetReps ?? 0)", hub)
+        self.assertIn("planned?.targetWeightKg : nil", hub)
+        self.assertIn("rir: ex?.exercise.loggingStyle.usesRIR == true ? planned?.targetRir : nil", hub)
+        self.assertIn("durationSeconds: plannedDuration", hub)
+        self.assertIn("ex?.blockWorkSeconds ?? ex?.blockIntervalSeconds", hub)
+        self.assertIn("setDraft.unit", hub)
+        self.assertIn("repCounter.ingest(magnitude: magnitude)", hub)
+        self.assertIn("if current?.plannedSets.isEmpty != false", hub)
+        self.assertIn("ctrl.logSet(", hub)
+        self.assertIn("resetSetDraft()", hub)
+
+        # Empty page keeps only title and a functional sync button.
+        self.assertIn("Sin plan descargado", view)
+        self.assertIn("Sincronizar con iPhone", view)
+        self.assertNotIn("Si ya programaste un entrenamiento", view)
+        self.assertNotIn("Abre Repera en el iPhone emparejado", view)
+        self.assertIn("hub.refreshToday()", view)
+        self.assertIn('["action": "requestToday"', client)
+
+        # iPhone fetches the current scheduled routine before replying.
+        self.assertIn("private func currentWatchWorkoutForToday()", store)
+        self.assertIn("phoneConnectivityLatestWorkoutForToday() async -> WorkoutSession?", store)
+        self.assertIn("self.currentWatchWorkoutForToday()", store)
+        self.assertIn("await delegate.phoneConnectivityLatestWorkoutForToday()", phone)
+        self.assertIn('"todayWorkout": data', phone)
+        self.assertIn("delegate.phoneConnectivityDidRequestToday()", phone)
 
     def test_watch_does_not_show_music_controls(self):
         view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
