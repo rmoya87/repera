@@ -5,135 +5,98 @@ import os
 
 protocol WatchConnectivityClientDelegate: AnyObject {
     func watchConnectivityDidReceive(session: WorkoutSession?)
-    func watchConnectivityDidReceiveQuickLogHint(id: UUID?, name: String?)
-}
-
-extension WatchConnectivityClientDelegate {
-    func watchConnectivityDidReceiveQuickLogHint(id: UUID?, name: String?) {}
+    func watchConnectivityDidReceiveToday(_ today: WorkoutSession?, scheduledDay: Date?)
+    func watchConnectivityDidAcknowledge(sessionId: UUID, healthKitUUID: UUID?)
 }
 
 final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     weak var delegate: WatchConnectivityClientDelegate?
     private let logger = Logger(subsystem: "com.app.repera.watch", category: "WatchConnectivity")
-    private var lastAppliedSessionData: Data?
-    private var pendingLogSets: [[String: Any]] = []
+    private let pendingKey = "repera.watch.completedOutbox.v1"
+    private var lastInboundSession: Data?
+    private var lastInboundToday: Data?
 
     func activate() {
         guard WCSession.isSupported() else { return }
-        let session = WCSession.default
-        session.delegate = self
-        session.activate()
+        let wc = WCSession.default
+        wc.delegate = self
+        wc.activate()
     }
 
-    /// State sync only — application context. Avoids double-apply with sendMessage.
-    func send(session: WorkoutSession) {
-        guard WCSession.isSupported() else { return }
-        let wc = WCSession.default
-        guard wc.activationState == .activated,
-              let data = try? JSONEncoder().encode(session)
-        else { return }
-
-        let payload: [String: Any] = ["session": data]
+    /// State snapshots may be coalesced; the Watch itself persists every edit locally.
+    func sendCurrent(_ session: WorkoutSession) {
+        guard WCSession.isSupported(),
+              WCSession.default.activationState == .activated,
+              let data = try? JSONEncoder().encode(session) else { return }
         do {
-            try wc.updateApplicationContext(payload)
+            try WCSession.default.updateApplicationContext(["session": data])
         } catch {
-            logger.error("updateApplicationContext failed: \(error.localizedDescription, privacy: .public)")
+            logger.error("Watch state context failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 
-    func requestQuickLog(exerciseId: UUID?) {
-        var payload: [String: Any] = ["action": "quickLog", "actionId": UUID().uuidString]
-        if let exerciseId {
-            payload["exerciseId"] = exerciseId.uuidString
+    /// Completion must not be lost when the iPhone is unavailable.
+    /// Data is kept on disk until watchOS accepts the background transfer.
+    func sendFinished(_ session: WorkoutSession) {
+        guard let data = try? JSONEncoder().encode(session) else { return }
+        var queued = UserDefaults.standard.array(forKey: pendingKey) as? [Data] ?? []
+        // HealthKit can finish AFTER the workout snapshot was first queued.
+        // Replace unsent content and enqueue the richer revision with the same ID.
+        queued.removeAll {
+            (try? JSONDecoder().decode(WorkoutSession.self, from: $0))?.id == session.id
         }
-        sendAction(payload)
+        queued.append(data)
+        UserDefaults.standard.set(queued, forKey: pendingKey)
+        flushPending()
     }
 
-    func requestLogSet(reps: Int, weightKg: Double?) {
-        var payload: [String: Any] = [
-            "action": "logSet",
-            "actionId": UUID().uuidString,
-            "reps": reps,
-        ]
-        if let weightKg {
-            payload["weightKg"] = weightKg
-        }
-        sendAction(payload)
-    }
-
-    private func sendAction(_ payload: [String: Any]) {
-        guard WCSession.isSupported() else {
-            queuePending(payload)
-            return
-        }
-        let wc = WCSession.default
-        guard wc.activationState == .activated else {
-            queuePending(payload)
-            return
-        }
-        guard wc.isReachable else {
-            queuePending(payload)
-            logger.info("Phone unreachable — queued local action")
-            return
-        }
-        let expectedActionId = payload["actionId"] as? String
-        wc.sendMessage(payload, replyHandler: { reply in
-            guard (reply["ok"] as? Bool) == true else {
-                self.logger.error("Action rejected by phone")
-                self.queuePending(payload)
-                return
-            }
-            if let expectedActionId,
-               let acked = reply["actionId"] as? String,
-               acked != expectedActionId {
-                self.logger.error("ACK actionId mismatch")
-                self.queuePending(payload)
-                return
-            }
-            // sessionRevision > 0 confirms durable persist; 0 on duplicate ACK is OK.
-            if let rev = reply["sessionRevision"] as? Int {
-                self.logger.info("Phone ACK sessionRevision=\(rev, privacy: .public)")
-            }
-        }, errorHandler: { error in
-            self.logger.error("sendMessage failed: \(error.localizedDescription, privacy: .public)")
-            self.queuePending(payload)
+    private func flushPending() {
+        guard WCSession.isSupported(),
+              WCSession.default.activationState == .activated else { return }
+        let queued = UserDefaults.standard.array(forKey: pendingKey) as? [Data] ?? []
+        guard !queued.isEmpty else { return }
+        // watchOS has a durable transfer queue. Do not enqueue identical
+        // payloads on every activation, especially after a long offline period.
+        // A richer HealthKit revision (different encoded Data) is still sent.
+        let inFlight = Set(WCSession.default.outstandingUserInfoTransfers.compactMap {
+            $0.userInfo["session"] as? Data
         })
-    }
-
-    private func queuePending(_ payload: [String: Any]) {
-        pendingLogSets.append(payload)
-        if pendingLogSets.count > 20 {
-            pendingLogSets.removeFirst(pendingLogSets.count - 20)
+        for data in queued where !inFlight.contains(data) {
+            WCSession.default.transferUserInfo(["session": data])
         }
+        // Keep a durable outbox until the iPhone acknowledges persistence.
+        // watchOS may deliver twice; the iPhone reconciles using workout.id.
     }
 
-    private func flushPendingIfPossible() {
+    func acknowledge(_ id: UUID) {
+        var queued = UserDefaults.standard.array(forKey: pendingKey) as? [Data] ?? []
+        queued.removeAll {
+            (try? JSONDecoder().decode(WorkoutSession.self, from: $0))?.id == id
+        }
+        UserDefaults.standard.set(queued, forKey: pendingKey)
+    }
+
+    private func requestToday() {
         guard WCSession.isSupported() else { return }
         let wc = WCSession.default
-        guard wc.activationState == .activated, wc.isReachable, !pendingLogSets.isEmpty else { return }
-        let queued = pendingLogSets
-        pendingLogSets = []
-        for payload in queued {
-            sendAction(payload)
+        guard wc.activationState == .activated, wc.isReachable else { return }
+        wc.sendMessage(["action": "requestToday", "actionId": UUID().uuidString],
+                       replyHandler: nil) { [weak self] error in
+            self?.logger.debug("Day refresh deferred: \(error.localizedDescription, privacy: .public)")
         }
     }
 
-    func session(
-        _ session: WCSession,
-        activationDidCompleteWith activationState: WCSessionActivationState,
-        error: (any Error)?
-    ) {
-        if let error {
-            logger.error("activation error: \(error.localizedDescription, privacy: .public)")
-        }
+    func session(_ session: WCSession,
+                 activationDidCompleteWith activationState: WCSessionActivationState,
+                 error: (any Error)?) {
+        if let error { logger.error("Activation failed: \(error.localizedDescription, privacy: .public)") }
         applyContext(session.receivedApplicationContext)
-        flushPendingIfPossible()
+        flushPending()
+        requestToday()
     }
 
     func sessionReachabilityDidChange(_ session: WCSession) {
-        if session.isReachable {
-            flushPendingIfPossible()
-        }
+        if session.isReachable { requestToday() }
     }
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
@@ -141,25 +104,26 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-        if message["ping"] as? Bool == true { return }
-        // Ignore full session over message — state arrives via application context.
-        if message["session"] != nil { return }
         applyContext(message)
     }
 
     private func applyContext(_ payload: [String: Any]) {
-        let hintId = (payload["quickLogExerciseId"] as? String).flatMap(UUID.init(uuidString:))
-        let hintName = payload["quickLogExerciseName"] as? String
-        delegate?.watchConnectivityDidReceiveQuickLogHint(id: hintId, name: hintName)
-
-        guard let data = payload["session"] as? Data else { return }
-        if data == lastAppliedSessionData { return }
-        lastAppliedSessionData = data
-        if data.isEmpty {
-            delegate?.watchConnectivityDidReceive(session: nil)
-            return
+        if let ack = payload["completedAck"] as? String,
+           let id = UUID(uuidString: ack) {
+            let healthID = (payload["completedAckHealthKitUUID"] as? String)
+                .flatMap(UUID.init(uuidString:))
+            delegate?.watchConnectivityDidAcknowledge(sessionId: id, healthKitUUID: healthID)
         }
-        let session = try? JSONDecoder().decode(WorkoutSession.self, from: data)
-        delegate?.watchConnectivityDidReceive(session: session)
+        if let data = payload["todayWorkout"] as? Data, data != lastInboundToday {
+            let day = (payload["todayDayStart"] as? TimeInterval).map(Date.init(timeIntervalSince1970:))
+            lastInboundToday = data
+            let today = data.isEmpty ? nil : try? JSONDecoder().decode(WorkoutSession.self, from: data)
+            delegate?.watchConnectivityDidReceiveToday(today, scheduledDay: day)
+        }
+        if let data = payload["session"] as? Data, data != lastInboundSession {
+            lastInboundSession = data
+            let active = data.isEmpty ? nil : try? JSONDecoder().decode(WorkoutSession.self, from: data)
+            delegate?.watchConnectivityDidReceive(session: active)
+        }
     }
 }

@@ -376,6 +376,8 @@ final class BusinessWorkoutSyncStore {
         value.routePoints = []
         value.healthKitWorkoutUUID = nil
         value.appleActiveEnergyKcal = nil
+        value.appleAverageHeartRateBpm = nil
+        value.appleHealthProvenance = nil
         value.appleDurationSeconds = nil
         return value
     }

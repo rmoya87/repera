@@ -1513,6 +1513,8 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
     public var plannedSets: [PlannedSet]
     public var quantityUnit: ExerciseQuantityUnit?
     public var loggedSets: [LoggedSet]
+    /// Descanso entre series prescrito por el plan, incluso en ejercicios sin bloque.
+    public var restSeconds: Int?
     public var completedReps: Int
     /// Cantidad utilizada al adaptar un movimiento de un WOD con score global.
     /// No equivale a series registradas ni sustituye el score de bloque.
@@ -1541,6 +1543,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         plannedSets: [PlannedSet],
         quantityUnit: ExerciseQuantityUnit? = nil,
         loggedSets: [LoggedSet] = [],
+        restSeconds: Int? = nil,
         completedReps: Int = 0,
         adaptedReps: Int? = nil,
         adaptedWeightKg: Double? = nil,
@@ -1562,6 +1565,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         self.plannedSets = plannedSets
         self.quantityUnit = quantityUnit
         self.loggedSets = loggedSets
+        self.restSeconds = restSeconds
         self.completedReps = completedReps
         self.adaptedReps = adaptedReps
         self.adaptedWeightKg = adaptedWeightKg
@@ -1722,7 +1726,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, exercise, plannedSets, loggedSets, completedReps, isCompleted, supersetGroup
+        case id, exercise, plannedSets, quantityUnit, loggedSets, restSeconds, completedReps, isCompleted, supersetGroup
         case adaptedReps, adaptedWeightKg
         case blockId, blockKind
         case wodFormat, blockTimeCapMinutes, blockIntervalSeconds, blockRounds, blockHeader
@@ -1734,6 +1738,8 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         id = try c.decode(UUID.self, forKey: .id)
         exercise = try c.decode(Exercise.self, forKey: .exercise)
         plannedSets = try c.decodeIfPresent([PlannedSet].self, forKey: .plannedSets) ?? []
+        quantityUnit = try c.decodeIfPresent(ExerciseQuantityUnit.self, forKey: .quantityUnit)
+        restSeconds = try c.decodeIfPresent(Int.self, forKey: .restSeconds)
         loggedSets = try c.decodeIfPresent([LoggedSet].self, forKey: .loggedSets) ?? []
         completedReps = try c.decodeIfPresent(Int.self, forKey: .completedReps) ?? 0
         adaptedReps = try c.decodeIfPresent(Int.self, forKey: .adaptedReps)
@@ -1830,6 +1836,11 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     public var notes: String?
     /// Calorías según Apple Salud / Watch (fuente de verdad).
     public var appleActiveEnergyKcal: Double?
+    /// FC media únicamente desde los sensores de HealthKit (no estimada por Repera).
+    public var appleAverageHeartRateBpm: Double?
+    /// Procedencia verificable de métricas obtenidas al guardar un HKWorkout.
+    /// nil en sesiones históricas sin prueba de origen.
+    public var appleHealthProvenance: String?
     /// Duración según Apple Salud / Watch (segundos).
     public var appleDurationSeconds: TimeInterval?
     /// UUID del `HKWorkout` guardado en Salud (si aplica).
@@ -1857,6 +1868,8 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         finishedAt: Date? = nil,
         notes: String? = nil,
         appleActiveEnergyKcal: Double? = nil,
+        appleAverageHeartRateBpm: Double? = nil,
+        appleHealthProvenance: String? = nil,
         appleDurationSeconds: TimeInterval? = nil,
         healthKitWorkoutUUID: UUID? = nil,
         wodResults: [WODBlockResult] = [],
@@ -1875,6 +1888,8 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         self.finishedAt = finishedAt
         self.notes = notes
         self.appleActiveEnergyKcal = appleActiveEnergyKcal
+        self.appleAverageHeartRateBpm = appleAverageHeartRateBpm
+        self.appleHealthProvenance = appleHealthProvenance
         self.appleDurationSeconds = appleDurationSeconds
         self.healthKitWorkoutUUID = healthKitWorkoutUUID
         self.wodResults = wodResults
@@ -1887,7 +1902,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     enum CodingKeys: String, CodingKey {
         case id, title, routineId, exercises, currentIndex, phase
         case startedAt, finishedAt, notes
-        case appleActiveEnergyKcal, appleDurationSeconds, healthKitWorkoutUUID
+        case appleActiveEnergyKcal, appleAverageHeartRateBpm, appleHealthProvenance, appleDurationSeconds, healthKitWorkoutUUID
         case wodResults, routineBlocks, sessionReview
         case locationPin, routePoints
     }
@@ -1904,6 +1919,8 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         finishedAt = try c.decodeIfPresent(Date.self, forKey: .finishedAt)
         notes = try c.decodeIfPresent(String.self, forKey: .notes)
         appleActiveEnergyKcal = try c.decodeIfPresent(Double.self, forKey: .appleActiveEnergyKcal)
+        appleAverageHeartRateBpm = try c.decodeIfPresent(Double.self, forKey: .appleAverageHeartRateBpm)
+        appleHealthProvenance = try c.decodeIfPresent(String.self, forKey: .appleHealthProvenance)
         appleDurationSeconds = try c.decodeIfPresent(TimeInterval.self, forKey: .appleDurationSeconds)
         healthKitWorkoutUUID = try c.decodeIfPresent(UUID.self, forKey: .healthKitWorkoutUUID)
         wodResults = try c.decodeIfPresent([WODBlockResult].self, forKey: .wodResults) ?? []
@@ -1925,6 +1942,8 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         try c.encodeIfPresent(finishedAt, forKey: .finishedAt)
         try c.encodeIfPresent(notes, forKey: .notes)
         try c.encodeIfPresent(appleActiveEnergyKcal, forKey: .appleActiveEnergyKcal)
+        try c.encodeIfPresent(appleAverageHeartRateBpm, forKey: .appleAverageHeartRateBpm)
+        try c.encodeIfPresent(appleHealthProvenance, forKey: .appleHealthProvenance)
         try c.encodeIfPresent(appleDurationSeconds, forKey: .appleDurationSeconds)
         try c.encodeIfPresent(healthKitWorkoutUUID, forKey: .healthKitWorkoutUUID)
         try c.encode(wodResults, forKey: .wodResults)

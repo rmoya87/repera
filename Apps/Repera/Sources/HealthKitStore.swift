@@ -11,6 +11,38 @@ final class HealthKitStore {
     static let shared = HealthKitStore()
 
     private let store = HKHealthStore()
+    private var mirroredWatchSession: HKWorkoutSession?
+    private var mirroredWatchDelegate: CompanionWorkoutMirrorDelegate?
+    private(set) var mirroredWatchState: HKWorkoutSessionState?
+    private(set) var mirroredWatchError: String?
+
+    /// watchOS is always the primary workout owner; iPhone only mirrors status.
+    /// Never create or finish another builder for the same mirrored session.
+    var isWatchWorkoutMirrored: Bool {
+        mirroredWatchState == .running || mirroredWatchState == .paused
+    }
+
+    private func acceptMirroredWatchSession(_ session: HKWorkoutSession) {
+        mirroredWatchSession?.delegate = nil
+        let delegate = CompanionWorkoutMirrorDelegate(
+            onState: { [weak self] state in
+                Task { @MainActor in
+                    self?.mirroredWatchState = state
+                    if state == .ended || state == .stopped {
+                        self?.mirroredWatchSession = nil
+                        self?.mirroredWatchDelegate = nil
+                    }
+                }
+            },
+            onError: { [weak self] message in
+                Task { @MainActor in self?.mirroredWatchError = message }
+            }
+        )
+        mirroredWatchSession = session
+        mirroredWatchDelegate = delegate
+        mirroredWatchState = session.state
+        session.delegate = delegate
+    }
 
     var isAvailable: Bool { HKHealthStore.isHealthDataAvailable() }
     /// Write access for workouts / active energy (sharingAuthorized).
@@ -219,6 +251,14 @@ final class HealthKitStore {
     @ObservationIgnored private var syncingSessionIds: Set<UUID> = []
 
     private init() {
+        // Install at first HealthKitStore creation, before background mirrored
+        // workout delivery. Apple may create a NEW mirrored instance on reconnect.
+        store.workoutSessionMirroringStartHandler = { [weak self] remoteSession in
+            let transfer = MirroredWorkoutSessionTransfer(session: remoteSession)
+            Task { @MainActor [weak self] in
+                self?.acceptMirroredWatchSession(transfer.session)
+            }
+        }
         // Auth antes que Home: si no, el primer `.task` ve isAuthorized=false y limpia la UI.
         refreshAuthorizationStatus()
         // Cold start: paint Home/Progreso from last snapshot before HealthKit answers.
@@ -980,6 +1020,13 @@ final class HealthKitStore {
     }
 
     /// Filtrar tanto el bundle actual como posibles fuentes Repera antiguas.
+    /// El Watch guarda muestras reales de sensores. La versión iOS antigua
+    /// podía crear sesiones con kcal calculadas: no equiparar ambos orígenes.
+    nonisolated private static func isWatchRecordedSource(_ source: HKSource) -> Bool {
+        source.bundleIdentifier == "com.app.repera.watchkitapp"
+            || source.bundleIdentifier.hasPrefix("com.app.repera.watchkitapp.")
+    }
+
     nonisolated private static func isReperaSource(_ source: HKSource) -> Bool {
         // Un HKWorkout capturado por una sesión real de Repera Watch tiene
         // sensores auténticos y debe ser fuente de verdad, no una estimación
@@ -995,7 +1042,7 @@ final class HealthKitStore {
     nonisolated private static func measuredEnergyKcal(_ statistics: HKStatistics?) -> Double {
         guard let statistics else { return 0 }
         let kcal = (statistics.sources ?? []).reduce(0.0) { sum, source in
-            guard !isReperaSource(source) else { return sum }
+            guard !isReperaSource(source) || isWatchRecordedSource(source) else { return sum }
             return sum + (statistics.sumQuantity(for: source)?.doubleValue(for: .kilocalorie()) ?? 0)
         }
         return max(0, kcal)
@@ -1168,7 +1215,8 @@ final class HealthKitStore {
         // Una estimación antigua de Repera nunca prevalece sobre Apple Salud.
         // Incluso si se escribió como muestra en nuestro HKWorkout, se oculta.
         if let workout,
-           Self.isReperaSource(workout.sourceRevision.source) {
+           Self.isReperaSource(workout.sourceRevision.source),
+           !Self.isWatchRecordedSource(workout.sourceRevision.source) {
             extras.activeEnergyKcal = nil
         } else if let workoutUUID {
             extras.activeEnergyKcal = await externalWorkoutEnergyKcal(uuid: workoutUUID)
@@ -1493,11 +1541,43 @@ final class HealthKitStore {
         verifiedExternalWorkoutUUIDs = externalUUIDs
     }
 
+    /// Resuelve el UUID real de Salud a partir del ID estable de ejecución.
+    /// HealthKit puede guardar el workout mientras el reloj está bloqueado,
+    /// devolviendo nil temporalmente; la metainformación permite enlazarlo después.
+    func verifiedWatchWorkout(forReperaSession id: UUID) async -> WorkoutSyncResult? {
+        guard isAvailable else { return nil }
+        let predicate = HKQuery.predicateForObjects(
+            withMetadataKey: HKMetadataKeyExternalUUID,
+            allowedValues: [id.uuidString]
+        )
+        let linked: HKWorkout? = await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: .workoutType(), predicate: predicate, limit: 3,
+                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
+            ) { _, samples, _ in
+                continuation.resume(returning: (samples as? [HKWorkout])?.first {
+                    Self.isWatchRecordedSource($0.sourceRevision.source)
+                })
+            }
+            store.execute(query)
+        }
+        guard let workout = linked else { return nil }
+        let energy = await externalWorkoutEnergyKcal(uuid: workout.uuid) ?? 0
+        return WorkoutSyncResult(
+            startedAt: workout.startDate,
+            finishedAt: workout.endDate,
+            kcal: energy,
+            durationSeconds: workout.duration,
+            workoutUUID: workout.uuid
+        )
+    }
+
     /// kcal de un workout de Salud **ajeno** (Watch / otra app). `nil` si es nuestro o no hay energía.
     /// Sirve para no tratar como «verdad Apple» las kcal que Repera escribió mal (p. ej. 2 kcal ambiente).
     func externalWorkoutEnergyKcal(uuid: UUID) async -> Double? {
         guard let workout = await fetchWorkout(uuid: uuid) else { return nil }
-        if Self.isReperaSource(workout.sourceRevision.source) { return nil }
+        if Self.isReperaSource(workout.sourceRevision.source),
+           !Self.isWatchRecordedSource(workout.sourceRevision.source) { return nil }
         guard let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
               let burned = workout.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie()),
               burned > 0
@@ -1708,6 +1788,10 @@ final class HealthKitStore {
     /// Arranca un `HKWorkoutBuilder` de fuerza tradicional alineado con el reloj/Salud.
     func beginWorkout(sessionId: UUID, title: String, start: Date = Date()) async {
         guard isAvailable else { return }
+        guard !isWatchWorkoutMirrored else {
+            lastError = "Este entrenamiento se está registrando en Apple Watch. Termínalo allí para evitar duplicados en Salud."
+            return
+        }
         refreshAuthorizationStatus()
         guard canWriteWorkouts else {
             lastError = "Autoriza a Repera a escribir entrenamientos en Apple Salud"
@@ -1791,10 +1875,12 @@ final class HealthKitStore {
         let previous = await existingReperaWorkout(sessionId: sessionId, start: start, end: safeEnd)
         let overlapping = await overlappingWorkout(from: start, to: safeEnd)
         let external = overlapping.flatMap {
-            Self.isReperaSource($0.sourceRevision.source) ? nil : $0
+            (Self.isReperaSource($0.sourceRevision.source) &&
+             !Self.isWatchRecordedSource($0.sourceRevision.source)) ? nil : $0
         }
         let legacyOwn = overlapping.flatMap { candidate -> HKWorkout? in
             guard Self.isReperaSource(candidate.sourceRevision.source),
+                  !Self.isWatchRecordedSource(candidate.sourceRevision.source),
                   candidate.metadata?["ReperaSessionID"] == nil
             else { return nil }
             return candidate
@@ -2221,5 +2307,40 @@ enum HealthActivityIcons {
         default:
             return "figure.mixed.cardio"
         }
+    }
+}
+
+
+/// HealthKit invokes the mirroring callback on a non-main queue. The session is
+/// transferred once to the MainActor; no methods are used concurrently on it.
+private final class MirroredWorkoutSessionTransfer: @unchecked Sendable {
+    let session: HKWorkoutSession
+    init(session: HKWorkoutSession) { self.session = session }
+}
+
+/// The mirrored session has no separate builder on iPhone, by design.
+private final class CompanionWorkoutMirrorDelegate: NSObject, HKWorkoutSessionDelegate {
+    private let onState: @Sendable (HKWorkoutSessionState) -> Void
+    private let onError: @Sendable (String) -> Void
+
+    init(
+        onState: @escaping @Sendable (HKWorkoutSessionState) -> Void,
+        onError: @escaping @Sendable (String) -> Void
+    ) {
+        self.onState = onState
+        self.onError = onError
+    }
+
+    func workoutSession(
+        _ workoutSession: HKWorkoutSession, didChangeTo toState: HKWorkoutSessionState,
+        from fromState: HKWorkoutSessionState, date: Date
+    ) {
+        onState(toState)
+    }
+
+    func workoutSession(
+        _ workoutSession: HKWorkoutSession, didFailWithError error: any Error
+    ) {
+        onError(error.localizedDescription)
     }
 }

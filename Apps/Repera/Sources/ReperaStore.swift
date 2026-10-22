@@ -49,6 +49,9 @@ final class ReperaStore: NSObject {
     private let store = LocalStore.shared
     private let connectivity = PhoneConnectivity()
     private var watchPushTask: Task<Void, Never>?
+    @ObservationIgnored private var watchPlanObserver: NSObjectProtocol?
+    /// Last durable Watch result acknowledged back to the watch.
+    private var lastWatchAcknowledgedSession: UUID?
 
     func bumpCatalogEpoch() { catalogEpoch &+= 1 }
     func bumpWorkoutsEpoch() { workoutsEpoch &+= 1; statsCache.invalidate() }
@@ -98,6 +101,7 @@ final class ReperaStore: NSObject {
             sessionEpoch &+= 1
         }
         publishSessionChrome()
+        sendWatchContextNow()
         LaunchTiming.span(hadPaint ? "hydrate.disk(confirm)" : "hydrate.disk", from: t0)
 
         // First install: fill seed in background after Home is already visible.
@@ -117,6 +121,14 @@ final class ReperaStore: NSObject {
     }
 
     func bootstrap() {
+        if watchPlanObserver == nil {
+            watchPlanObserver = NotificationCenter.default.addObserver(
+                forName: Notification.Name("repera.professionalPlansChanged"),
+                object: nil, queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in self?.pushActiveToWatch(immediate: true) }
+            }
+        }
         connectivity.delegate = self
         connectivity.activate()
         isWatchReachable = WCSession.default.isReachable
@@ -145,6 +157,7 @@ final class ReperaStore: NSObject {
             }
             LaunchTiming.span("bootstrap.catalogMerge", from: t0)
             await completeInitialRemoteSync()
+            await reconcileWatchHealthMetrics()
             await recalculateStoredSessionKcalIfNeeded()
             refreshSessionReviewsIfNeeded()
         }
@@ -169,7 +182,13 @@ final class ReperaStore: NSObject {
             var session = state.workouts[i]
             let verified: Double?
             if let uuid = session.healthKitWorkoutUUID {
-                verified = await health.externalWorkoutEnergyKcal(uuid: uuid)
+                let fromHealth = await health.externalWorkoutEnergyKcal(uuid: uuid)
+                // Apple Health sync from Watch to iPhone can lag behind WatchConnectivity.
+                // Keep real Watch HK measurements while the iPhone awaits its HK sample.
+                verified = fromHealth ?? (
+                    session.appleHealthProvenance == "watchHealthKit"
+                        ? session.appleActiveEnergyKcal : nil
+                )
             } else {
                 verified = nil
             }
@@ -182,10 +201,12 @@ final class ReperaStore: NSObject {
                 start.addingTimeInterval(60)
             )
             let wallSeconds = max(60, end.timeIntervalSince(start))
+            let duration = session.appleHealthProvenance == "watchHealthKit"
+                ? (session.appleDurationSeconds ?? wallSeconds) : wallSeconds
             if session.appleActiveEnergyKcal != verified
-                || abs((session.appleDurationSeconds ?? 0) - wallSeconds) >= 1 {
+                || abs((session.appleDurationSeconds ?? 0) - duration) >= 1 {
                 session.appleActiveEnergyKcal = verified
-                session.appleDurationSeconds = wallSeconds
+                session.appleDurationSeconds = duration
                 state.workouts[i] = session
                 changed = true
             }
@@ -574,6 +595,10 @@ final class ReperaStore: NSObject {
     }
 
     func startSession(from routine: Routine) {
+        guard !HealthKitStore.shared.isWatchWorkoutMirrored else {
+            HealthKitStore.shared.lastError = "El Apple Watch ya está registrando un entrenamiento. Termínalo desde el reloj antes de iniciar otro."
+            return
+        }
         let base = SessionController.from(routine: routine, exercises: state.exercises)
         let allowAdvanced = featureAccess?().canAccess(.advancedStrengthProgression) ?? false
         let session: WorkoutSession
@@ -607,6 +632,10 @@ final class ReperaStore: NSObject {
         ocrText: String? = nil,
         blocks: [RoutineBlock]? = nil
     ) -> Bool {
+        guard !HealthKitStore.shared.isWatchWorkoutMirrored else {
+            HealthKitStore.shared.lastError = "El Apple Watch ya está registrando un entrenamiento. Finalízalo primero desde el reloj."
+            return false
+        }
         // Si la revisión ya trae bloques (LiteParser), no re-parsear con BoardImportParser (cuelga la UI).
         var routine: Routine
         if let blocks, !blocks.isEmpty {
@@ -1356,18 +1385,120 @@ final class ReperaStore: NSObject {
     }
 
     func applyWatchSession(_ session: WorkoutSession) {
-        state.activeSession = session
         if session.phase == .finished {
-            upsertWorkout(session)
-            state.activeSession = nil
-            persistWorkouts()
-            pushActiveToWatch(immediate: true)
-        } else {
-            persist()
-            pushActiveToWatch(immediate: true)
+            var changed = false
+            if let index = state.workouts.firstIndex(where: { $0.id == session.id }) {
+                // An earlier offline transfer may arrive before HealthKit finishes saving.
+                // Merge genuine Apple measurements into the SAME workout; never replace
+                // confirmed sets or user edits with a stale Watch snapshot.
+                var saved = state.workouts[index]
+                if let uuid = session.healthKitWorkoutUUID,
+                   saved.healthKitWorkoutUUID != uuid {
+                    saved.healthKitWorkoutUUID = uuid
+                    changed = true
+                }
+                if let source = session.appleHealthProvenance,
+                   (source == "watchHealthKit" || source == "watchHealthKitPending"),
+                   saved.appleHealthProvenance != "watchHealthKit",
+                   saved.appleHealthProvenance != source {
+                    saved.appleHealthProvenance = source
+                    changed = true
+                } else if session.appleHealthProvenance == "watchHealthKit",
+                          saved.appleHealthProvenance != "watchHealthKit" {
+                    saved.appleHealthProvenance = "watchHealthKit"
+                    changed = true
+                }
+                if let energy = session.appleActiveEnergyKcal, energy > 0,
+                   saved.appleActiveEnergyKcal != energy {
+                    saved.appleActiveEnergyKcal = energy
+                    changed = true
+                }
+                if let duration = session.appleDurationSeconds, duration > 0,
+                   saved.appleDurationSeconds != duration {
+                    saved.appleDurationSeconds = duration
+                    changed = true
+                }
+                if let heartRate = session.appleAverageHeartRateBpm, heartRate > 0,
+                   saved.appleAverageHeartRateBpm != heartRate {
+                    saved.appleAverageHeartRateBpm = heartRate
+                    changed = true
+                }
+                if changed { upsertWorkout(saved) }
+            } else {
+                var completed = session
+                // No fabricated Health duration: displayDurationMinutes already
+                // provides the wall-clock fallback in the UI when HK is unavailable.
+                attachSessionReview(&completed, present: false)
+                upsertWorkout(completed)
+                if state.activeSession?.id == completed.id { state.activeSession = nil }
+                changed = true
+            }
+
+            if changed { persistWorkouts() }
+            let snapshot = state
+            let needsSync = changed
+            Task { @MainActor in
+                await LocalStore.shared.persistAndFlush(snapshot)
+                // The acknowledgment means the phone has persisted it, NOT that
+                // Supabase has completed or that the Health sample is yet visible.
+                guard LocalStore.shared.lastPersistenceError == nil,
+                      self.state.workouts.first(where: { $0.id == session.id }) ==
+                      snapshot.workouts.first(where: { $0.id == session.id })
+                else { return }
+                self.lastWatchAcknowledgedSession = session.id
+                self.pushActiveToWatch(immediate: true)
+                if needsSync && BusinessAuthStore.shared.isConnected {
+                    _ = await BusinessWorkoutSyncStore.shared.sync(store: self)
+                }
+                if needsSync, session.healthKitWorkoutUUID != nil {
+                    await HealthKitStore.shared.refreshVerifiedWorkoutEnergy(
+                        for: self.state.workouts
+                    )
+                }
+            }
+            return
         }
+        // Never overwrite another active iPhone workout or resurrect a completed one.
+        guard !state.workouts.contains(where: { $0.id == session.id }),
+              state.activeSession == nil || state.activeSession?.id == session.id
+        else { return }
+        state.activeSession = session
+        persist()
+        pushActiveToWatch(immediate: true)
     }
 
+    /// Reconciles delayed watchOS HealthKit samples without creating duplicate
+    /// workouts or accepting energy estimates from Repera's legacy iPhone writer.
+    /// Called on foreground and after the initial local/cloud recovery.
+    func reconcileWatchHealthMetrics() async {
+        guard isHydrated, HealthKitStore.shared.isAvailable else { return }
+        let candidates = state.workouts.filter {
+            $0.appleHealthProvenance == "watchHealthKitPending"
+                || ($0.appleHealthProvenance == "watchHealthKit" &&
+                    $0.healthKitWorkoutUUID == nil)
+        }
+        var changed = false
+        for original in candidates.prefix(50) {
+            if Task.isCancelled { break }
+            guard let actual = await HealthKitStore.shared.verifiedWatchWorkout(
+                forReperaSession: original.id
+            ), let index = state.workouts.firstIndex(where: { $0.id == original.id })
+            else { continue }
+            var current = state.workouts[index]
+            current.healthKitWorkoutUUID = actual.workoutUUID
+            current.appleDurationSeconds = actual.durationSeconds
+            current.appleHealthProvenance = "watchHealthKit"
+            if actual.kcal > 0 { current.appleActiveEnergyKcal = actual.kcal }
+            if current != state.workouts[index] {
+                state.workouts[index] = current
+                changed = true
+            }
+        }
+        if changed {
+            persistWorkouts()
+            await LocalStore.shared.persistAndFlush(state)
+        }
+    }
 
     /// Merge-only recovery from authenticated Supabase, after iCloud recovery.
     /// Never replaces an existing local workout, active session or local settings.
@@ -1449,11 +1580,101 @@ final class ReperaStore: NSObject {
         if changed { sessionEpoch &+= 1 }
     }
 
+    private func professionalWorkoutForWatchToday() -> WorkoutSession? {
+        let key = BusinessDataStore.localDayKey(Date())
+        guard let assigned = BusinessDataStore.shared.trainingSessions.first(where: {
+            $0.scheduledDate == key && $0.status == "scheduled" &&
+            $0.prescription?.schemaVersion == 1 && $0.prescription?.blocks.isEmpty == false
+        }), let prescription = assigned.prescription else { return nil }
+
+        // The coach's immutable prescription can be read offline on Watch,
+        // without introducing coach exercises into the athlete's personal catalog.
+        var catalog = state.exercises
+        var blocks: [RoutineBlock] = []
+        func resolvedExercise(_ entry: BusinessPrescriptionEntry) -> Exercise {
+            if let key = entry.catalogKey,
+               let uuid = UUID(uuidString: key),
+               let found = catalog.first(where: { $0.id == uuid }) { return found }
+            if let found = catalog.first(where: {
+                ExerciseEquivalence.sameName($0.name, entry.name)
+            }) { return found }
+            let custom = Exercise(name: entry.name, muscleGroup: "Entrenador", isCustom: true)
+            catalog.append(custom)
+            return custom
+        }
+
+        for prescribed in prescription.blocks {
+            let isWOD = prescribed.kind == "wod"
+            let format: WODFormat? = {
+                guard let raw = prescribed.wodFormat else { return nil }
+                switch raw.lowercased().replacingOccurrences(of: "_", with: "") {
+                case "rft", "fortime": return .forTime
+                case "emom", "every": return .emom
+                case "amrap": return .amrap
+                case "tabata": return .tabata
+                case "chipper": return .chipper
+                case "circuit": return .circuit
+                case "ladder": return .ladder
+                case "strength": return .strength
+                default: return WODFormat(rawValue: raw)
+                }
+            }()
+            var strength: [RoutineExercise] = []
+            var movements: [WODMovement] = []
+            for entry in prescribed.entries {
+                let exercise = resolvedExercise(entry)
+                let sets = entry.plannedSets?.map {
+                    PlannedSet(id: $0.id, targetReps: max(0, $0.targetReps),
+                               targetWeightKg: $0.targetWeightKg,
+                               targetRir: $0.targetRir)
+                } ?? []
+                if isWOD {
+                    movements.append(WODMovement(
+                        id: entry.id, exerciseId: exercise.id,
+                        name: exercise.name, reps: entry.reps,
+                        notes: entry.notes,
+                        explicitPlannedSets: sets.isEmpty ? nil : sets
+                    ))
+                } else {
+                    strength.append(RoutineExercise(
+                        id: entry.id, exerciseId: exercise.id,
+                        plannedSets: sets.isEmpty
+                            ? [PlannedSet(targetReps: max(0, entry.reps ?? 0))] : sets
+                    ))
+                }
+            }
+            blocks.append(RoutineBlock(
+                id: prescribed.id, title: prescribed.title,
+                kind: isWOD ? .wod : .strength, exercises: strength,
+                movements: movements, wodFormat: format,
+                timeCapMinutes: prescribed.timeCapMinutes,
+                rounds: prescribed.rounds
+            ))
+        }
+        guard !blocks.isEmpty else { return nil }
+        let routine = Routine(
+            id: assigned.id, title: assigned.title,
+            scheduledDate: Date(), blocks: blocks, progression: .off
+        )
+        let preview = SessionController.from(routine: routine, exercises: catalog)
+        return preview.exercises.isEmpty ? nil : preview
+    }
+
     private func sendWatchContextNow() {
+        let personal = routineForToday().map {
+            SessionController.from(routine: $0, exercises: state.exercises)
+        }
+        let today = (personal?.exercises.isEmpty == false ? personal : nil)
+            ?? professionalWorkoutForWatchToday()
         connectivity.send(
             session: state.activeSession,
+            today: today,
             quickLogHint: quickLogHintPayload(),
-            sessionRevision: state.syncRevision
+            sessionRevision: state.syncRevision,
+            completedAck: lastWatchAcknowledgedSession,
+            completedAckHealthKitUUID: lastWatchAcknowledgedSession.flatMap { ackID in
+                state.workouts.first(where: { $0.id == ackID })?.healthKitWorkoutUUID
+            }
         )
     }
 
@@ -1555,6 +1776,7 @@ final class ReperaStore: NSObject {
                 < ($1.weekday ?? 99, $1.scheduledDate ?? .distantFuture, $1.title)
         }
         persist()
+        pushActiveToWatch()
         return true
     }
 
@@ -1565,6 +1787,7 @@ final class ReperaStore: NSObject {
             state.rotation = rotation.routineIds.isEmpty ? nil : rotation
         }
         persist()
+        pushActiveToWatch()
     }
 
     /// Quita todas las asignaciones de días; conserva plantillas de Rutinas y entrenos sueltos.
@@ -1574,6 +1797,7 @@ final class ReperaStore: NSObject {
         }
         state.rotation = nil
         persist()
+        pushActiveToWatch()
     }
 
     func deleteAllRoutines() {
@@ -1590,6 +1814,7 @@ final class ReperaStore: NSObject {
         }
         state.rotation = nil
         persist()
+        pushActiveToWatch()
     }
 
     /// Días del plan semanal (Diario). Excluye entrenos sueltos.
@@ -1996,6 +2221,7 @@ final class ReperaStore: NSObject {
                 < ($1.weekday ?? 99, $1.scheduledDate ?? .distantFuture, $1.title)
         }
         persist()
+        pushActiveToWatch()
     }
 
     // MARK: - Body weight
@@ -2121,7 +2347,12 @@ extension ReperaStore: PhoneConnectivityDelegate {
     nonisolated func phoneConnectivityDidUpdateReachability(_ reachable: Bool) {
         Task { @MainActor in
             self.isWatchReachable = reachable
+            self.sendWatchContextNow()
         }
+    }
+
+    nonisolated func phoneConnectivityDidRequestToday() {
+        Task { @MainActor in self.sendWatchContextNow() }
     }
 
     nonisolated func phoneConnectivityDidReceive(session: WorkoutSession) {

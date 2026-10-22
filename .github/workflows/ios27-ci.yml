@@ -65,6 +65,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_ai_apple_permissions_sync_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_health_physio_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_health_permissions.py' -v
+          python3 -m unittest discover -s tests -p 'test_watch_healthkit_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_wod_play_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_completed_workout_edit_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_scaled_wod_contract.py' -v
@@ -118,7 +119,7 @@ jobs:
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/ReperaDerivedData" \
-            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee "$RUNNER_TEMP/repera-ios-build.log"
+            CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$RUNNER_TEMP/repera-ios-build.log"
       - name: Build ReperaWatch (watchOS 27 Simulator)
         shell: bash
         run: |
@@ -127,6 +128,7 @@ jobs:
           # suficiente para compilar watchOS y evita depender de un simulador.
           xcodebuild -scheme ReperaWatch \
             -destination "generic/platform=watchOS Simulator" \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
             -quiet build
       - name: UI tests (scheme Repera — fail hard)
         run: |

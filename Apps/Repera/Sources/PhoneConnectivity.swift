@@ -6,6 +6,7 @@ import os
 protocol PhoneConnectivityDelegate: AnyObject {
     func phoneConnectivityDidUpdateReachability(_ reachable: Bool)
     func phoneConnectivityDidReceive(session: WorkoutSession)
+    func phoneConnectivityDidRequestToday()
     func phoneConnectivityDidReceiveQuickLogRequest(exerciseId: UUID?)
     /// Persist then ACK. Returns sessionRevision after durable write (0 on failure).
     func phoneConnectivityDidReceiveLogSet(
@@ -16,6 +17,7 @@ protocol PhoneConnectivityDelegate: AnyObject {
 }
 
 extension PhoneConnectivityDelegate {
+    func phoneConnectivityDidRequestToday() {}
     func phoneConnectivityDidReceiveQuickLogRequest(exerciseId: UUID?) {}
     func phoneConnectivityDidReceiveLogSet(
         reps: Int,
@@ -38,7 +40,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     }
 
     /// Latest-state sync via application context. Reachable message is optional hint only.
-    func send(session: WorkoutSession?, quickLogHint: (id: UUID, name: String)? = nil, sessionRevision: Int = 0) {
+    func send(session: WorkoutSession?, today: WorkoutSession? = nil, quickLogHint: (id: UUID, name: String)? = nil, sessionRevision: Int = 0, completedAck: UUID? = nil, completedAckHealthKitUUID: UUID? = nil) {
         guard WCSession.isSupported() else { return }
         let wc = WCSession.default
         guard wc.activationState == .activated else { return }
@@ -54,6 +56,17 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         } else {
             payload = ["session": Data(), "sessionRevision": sessionRevision]
         }
+        if let today, let dayData = try? JSONEncoder().encode(today) {
+            payload["todayWorkout"] = dayData
+        } else {
+            payload["todayWorkout"] = Data()
+        }
+        if let completedAck { payload["completedAck"] = completedAck.uuidString }
+        if let completedAckHealthKitUUID {
+            payload["completedAckHealthKitUUID"] = completedAckHealthKitUUID.uuidString
+        }
+        // Absolute source day, not the day when a stale context is received.
+        payload["todayDayStart"] = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
         if let hint = quickLogHint {
             payload["quickLogExerciseId"] = hint.id.uuidString
             payload["quickLogExerciseName"] = hint.name
@@ -98,6 +111,11 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         decode(applicationContext)
     }
 
+    /// Completed sessions are delivered in the background, even if the phone app is not active.
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
+        decode(userInfo)
+    }
+
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         if message["ping"] as? Bool == true { return }
         if let action = message["action"] as? String {
@@ -135,6 +153,9 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     @discardableResult
     private func handleAction(_ action: String, message: [String: Any]) async -> [String: Any] {
         switch action {
+        case "requestToday":
+            delegate?.phoneConnectivityDidRequestToday()
+            return ["ok": true]
         case "quickLog":
             let id = (message["exerciseId"] as? String).flatMap(UUID.init(uuidString:))
             delegate?.phoneConnectivityDidReceiveQuickLogRequest(exerciseId: id)

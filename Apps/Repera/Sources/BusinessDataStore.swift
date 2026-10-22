@@ -229,6 +229,7 @@ final class BusinessDataStore {
         bookings = []
         availability = [:]
         trainingSessions = []
+        NotificationCenter.default.post(name: Notification.Name("repera.professionalPlansChanged"), object: nil)
         personalNotices = []
         directory = []
         errorMessage = nil
@@ -310,6 +311,7 @@ final class BusinessDataStore {
             bookings = fetchedBookings.filter { ownedClientIds.contains($0.clientId) }
             personalNotices = fetchedNotices.filter { ownedClientIds.contains($0.clientId) }
             trainingSessions = fetchedTrainingSessions.filter { ownedClientIds.contains($0.clientId) && $0.status == "scheduled" }.sorted { $0.scheduledDate < $1.scheduledDate }
+            NotificationCenter.default.post(name: Notification.Name("repera.professionalPlansChanged"), object: nil)
             errorMessage = nil
         } catch {
             // A failed request belonging to a prior session cannot reset the new session.

@@ -106,6 +106,12 @@ public struct SessionController: Sendable {
         }
     }
 
+    /// Store a confirmed WOD score without manufacturing movement sets.
+    public mutating func recordWODResult(_ result: WODBlockResult) {
+        session.wodResults.removeAll { $0.id == result.id }
+        session.wodResults.append(result)
+    }
+
     /// Al agotar un EMOM/Tabata/cap se termina el bloque de movimientos,
     /// pero no se registran series ficticias ni pesos que el atleta no confirmó.
     @discardableResult
@@ -115,13 +121,21 @@ public struct SessionController: Sendable {
 
         let start = session.currentIndex
         let blockID = session.exercises[start].blockId
-        var end = start
-        repeat {
-            session.exercises[end].isCompleted = true
+        // The athlete can switch between movements during an interval block.
+        // Finish the entire block, including movements before currentIndex.
+        if let blockID {
+            for i in session.exercises.indices where session.exercises[i].blockId == blockID {
+                session.exercises[i].isCompleted = true
+            }
+        } else {
+            session.exercises[start].isCompleted = true
+        }
+        var end = start + 1
+        while end < session.exercises.count &&
+              blockID != nil &&
+              session.exercises[end].blockId == blockID {
             end += 1
-        } while end < session.exercises.count &&
-            blockID != nil &&
-            session.exercises[end].blockId == blockID
+        }
 
         if end < session.exercises.count {
             session.currentIndex = end
@@ -158,6 +172,7 @@ public struct SessionController: Sendable {
                                 exercise: exercise,
                                 plannedSets: item.plannedSets,
                                 quantityUnit: item.quantityUnit,
+                                restSeconds: item.restSeconds,
                                 supersetGroup: nil,
                                 blockId: block.id,
                                 blockKind: .strength,
@@ -215,6 +230,7 @@ public struct SessionController: Sendable {
                 return SessionExercise(
                     exercise: exercise,
                     plannedSets: item.plannedSets,
+                    restSeconds: item.restSeconds,
                     supersetGroup: nil
                 )
             }
