@@ -15,6 +15,27 @@ class PlayWODContractTests(unittest.TestCase):
     def read(self, name: str) -> str:
         return (SOURCES / name).read_text(encoding="utf-8")
 
+    def test_set_row_argument_order_matches_the_swift_memberwise_initializer(self):
+        """A stored-property memberwise initializer requires argument labels in order."""
+        play = self.read("WorkoutView.swift")
+        component = self.read("Theme.swift")
+        call = play.split("OGSetEntryRow(", 1)[1].split("onFirstCommit:", 1)[0]
+        declaration = component.split("struct OGSetEntryRow: View {", 1)[1].split(
+            "    var body: some View {", 1
+        )[0]
+        labels = (
+            "rowID", "index", "previous", "firstValue", "secondValue",
+            "nextEditableRowID", "firstAllowsDecimal", "showsConfirmation",
+            "completed", "rir", "showsRIR", "onRIRChange", "focus",
+        )
+        positions = [call.index(label + ":") for label in labels]
+        self.assertEqual(positions, sorted(positions))
+        component_positions = [declaration.index("var " + label + ":") if
+                               "var " + label + ":" in declaration else
+                               declaration.index("var " + label + " ")
+                               for label in labels]
+        self.assertEqual(component_positions, sorted(component_positions))
+
     def test_block_score_is_separate_from_set_board(self):
         source = self.read("WorkoutView.swift")
         self.assertIn("blockScorePanel(block, format: format, session: session)", source)
