@@ -2,7 +2,7 @@ import Foundation
 
 /// Snapshot on-disk of progressive HealthKit arrays so Home/Progreso paint instantly on cold start.
 enum HealthDiskCache {
-    static let schemaVersion = 1
+    static let schemaVersion = 2
     private static let fileName = "health-progressive-cache.json"
 
     struct Snapshot: Codable, Sendable {
