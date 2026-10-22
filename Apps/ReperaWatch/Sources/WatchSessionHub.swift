@@ -246,6 +246,7 @@ final class WatchSessionHub: NSObject {
         workingReps = 0
         selectedSetIndex = nil
         workingWeightKg = next.session.currentExercise?.plannedSets.first?.targetWeightKg
+        resetSetDraft()
         completedRounds = 0
         remainingRoundReps = 0
         lastIntervalIndex = 0
@@ -282,6 +283,7 @@ final class WatchSessionHub: NSObject {
             workingReps = 0
             selectedSetIndex = nil
             workingWeightKg = ctrl.session.currentExercise?.plannedSets.first?.targetWeightKg
+            resetSetDraft()
             repCounter.reset()
             lastIntervalIndex = 0
             reviewingBlock = false
@@ -423,11 +425,14 @@ final class WatchSessionHub: NSObject {
               let exercise = ctrl.session.currentExercise else { return }
         let reps = max(0, workingReps)
         if let selectedSetIndex {
-            guard ctrl.reviseLoggedSet(at: selectedSetIndex, reps: reps,
-                                      weightKg: workingWeightKg) else { return }
+            guard exercise.loggedSets.indices.contains(selectedSetIndex),
+                  ctrl.replaceLoggedSet(at: selectedSetIndex,
+                    with: preparedSet(reps: reps, previous: exercise.loggedSets[selectedSetIndex]))
+            else { return }
             controller = ctrl
             self.selectedSetIndex = nil
             workingReps = 0
+            resetSetDraft()
             repCounter.reset()
             if restRemaining == 0 { startMotion() }
             workingWeightKg = ctrl.session.currentExercise?.plannedSets
@@ -440,11 +445,17 @@ final class WatchSessionHub: NSObject {
         let index = exercise.loggedSets.count
         let prescribed = exercise.plannedSets.indices.contains(index)
             ? exercise.plannedSets[index] : exercise.plannedSets.last
-        ctrl.logSet(reps: reps, weightKg: workingWeightKg,
-                    quantityUnit: exercise.quantityUnit, rir: nil)
+        let set = preparedSet(reps: reps)
+        ctrl.logSet(
+            reps: set.reps, weightKg: set.weightKg, deficitCm: set.deficitCm,
+            durationSeconds: set.durationSeconds, quantityUnit: set.quantityUnit,
+            phase: set.phase, kind: set.kind, rir: set.rir,
+            toFailure: set.toFailure, drops: set.drops, clusters: set.clusters
+        )
         controller = ctrl
         workingReps = 0
         selectedSetIndex = nil
+        resetSetDraft()
         repCounter.reset()
         workingWeightKg = ctrl.session.currentExercise?.plannedSets.dropFirst(index + 1).first?.targetWeightKg
             ?? prescribed?.targetWeightKg
@@ -464,11 +475,16 @@ final class WatchSessionHub: NSObject {
     func confirmIntervalSet() {
         guard wodUsesSeries, currentIsWOD, !isPaused, !reviewingBlock,
               var ctrl = controller, ctrl.session.phase == .counting else { return }
-        ctrl.logSet(reps: max(0, workingReps), weightKg: workingWeightKg,
-                    quantityUnit: ctrl.session.currentExercise?.quantityUnit)
+        let set = preparedSet(reps: max(0, workingReps))
+        ctrl.logSet(reps: set.reps, weightKg: set.weightKg,
+            deficitCm: set.deficitCm, durationSeconds: set.durationSeconds,
+            quantityUnit: set.quantityUnit, phase: set.phase, kind: set.kind,
+            rir: set.rir, toFailure: set.toFailure,
+            drops: set.drops, clusters: set.clusters)
         controller = ctrl
         workingReps = 0
         selectedSetIndex = nil
+        resetSetDraft()
         repCounter.reset()
         stopMotion()
         if let exercise = current {
@@ -500,6 +516,7 @@ final class WatchSessionHub: NSObject {
         workingReps = 0
         selectedSetIndex = nil
         workingWeightKg = ctrl.session.currentExercise?.plannedSets.first?.targetWeightKg
+        resetSetDraft()
         repCounter.reset()
         if restRemaining == 0 && !isPaused { startMotion() }
         checkpoint()
@@ -547,6 +564,7 @@ final class WatchSessionHub: NSObject {
             selectedSetIndex = next
             workingReps = saved.reps
             workingWeightKg = saved.weightKg
+            restoreSetDraft(from: saved)
             restRemaining = 0
             checkpoint()
         } else if next == count {
@@ -555,6 +573,7 @@ final class WatchSessionHub: NSObject {
             repCounter.reset()
             if restRemaining == 0 { startMotion() }
             workingWeightKg = current?.plannedSets.dropFirst(count).first?.targetWeightKg
+            resetSetDraft()
             checkpoint()
         } else if (next < 0 || next > count) {
             moveWithinBlock(direction)
