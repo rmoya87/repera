@@ -213,7 +213,6 @@ targets:
         NSHealthUpdateUsageDescription: Repera guarda en Apple Salud el entrenamiento registrado por el reloj, con las mediciones calculadas por HealthKit.
         WKBackgroundModes:
           - workout-processing
-          - audio
 
   ReperaWatchWidget:
     type: app-extension
