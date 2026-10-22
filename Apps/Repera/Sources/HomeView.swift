@@ -645,7 +645,7 @@ struct HomeView: View {
                         title: "Calorías",
                         value: kcal.map { Int($0.rounded()).formatted() } ?? "—",
                         unit: "kcal",
-                        symbol: "flame.fill",
+                        symbol: "flame",
                         tint: OG.orange,
                         measurement: kcal,
                         goal: store.state.settings.dailyActiveEnergyGoalKcal.map { Double($0) }
@@ -654,7 +654,7 @@ struct HomeView: View {
                         title: "FC media",
                         value: heartRate.map { Int($0.rounded()).formatted() } ?? "—",
                         unit: "lpm",
-                        symbol: "heart.fill",
+                        symbol: "heart",
                         tint: OG.red,
                         measurement: heartRate,
                         goal: store.state.settings.dailyAverageHeartRateGoalBpm.map { Double($0) }
