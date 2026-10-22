@@ -316,7 +316,7 @@ final class ReperaStore: NSObject {
         let sessions = state.workouts
         Task(priority: .utility) { @MainActor in
             let health = HealthKitStore.shared
-            guard health.isAuthorized else { return }
+            guard health.isAvailable else { return }
             await health.refreshRecentExternalActivities(
                 excludingUUIDs: linked,
                 overlappingSessions: sessions,
