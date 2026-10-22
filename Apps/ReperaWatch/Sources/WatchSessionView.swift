@@ -289,6 +289,16 @@ struct WatchSessionView: View {
             Text("Estimación · confirma lo realizado")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+            if let weight = hub.workingWeightKg {
+                HStack {
+                    Button("-2,5") { hub.adjustWeight(-2.5) }
+                    Text("\(weight.formatted()) kg")
+                        .font(.caption)
+                        .frame(maxWidth: .infinity)
+                    Button("+2,5") { hub.adjustWeight(2.5) }
+                }
+                .font(.caption2)
+            }
             if !hub.isPaused {
                 Button("Confirmar serie") { hub.confirmSet() }
                     .buttonStyle(.borderedProminent)
