@@ -326,99 +326,124 @@ struct WatchSessionView: View {
     private var wodContent: some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(hub.blockExercises) { exercise in
-                HStack {
-                    Text(exercise.exercise.name)
-                        .font(.caption2)
-                        .lineLimit(2)
-                    Spacer(minLength: 4)
-                    Text(exercise.prescriptionSummaryLine)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                exerciseCard(exercise)
             }
-            Text("Movimiento estimado: \(hub.workingReps) reps")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            if hub.wodUsesSeries && !hub.isPaused {
-                HStack(spacing: 5) {
+            if hub.wodUsesSeries {
+                HStack(spacing: 8) {
                     Button { hub.adjustReps(-1) } label: {
-                        Image(systemName: "minus.circle.fill")
+                        Image(systemName: "minus")
+                            .font(.title3.bold())
+                            .frame(minWidth: 44, minHeight: 50)
                     }
+                    .accessibilityLabel("Restar repetición")
+                    .disabled(hub.isPaused)
+                    Text("\(hub.workingReps)")
+                        .font(.system(size: 39, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .frame(maxWidth: .infinity)
                     Button { hub.adjustReps(1) } label: {
-                        Image(systemName: "plus.circle.fill")
+                        Image(systemName: "plus")
+                            .font(.title3.bold())
+                            .frame(minWidth: 44, minHeight: 50)
                     }
-                    Button("Confirmar serie") { hub.confirmIntervalSet() }
-                        .buttonStyle(.borderedProminent)
+                    .accessibilityLabel("Sumar repetición")
+                    .disabled(hub.isPaused)
                 }
-                .font(.caption2)
-                if hub.blockExercises.count > 1 {
-                    Button("Siguiente movimiento") { hub.nextWODMovement() }
-                        .font(.caption2)
-                        .buttonStyle(.bordered)
-                }
+                .buttonStyle(.bordered)
+                .tint(accent)
             }
             if !hub.isPaused {
                 Button {
-                    hub.reviewBlock()
+                    hub.confirmAndAdvance()
                 } label: {
-                    Text("Terminar bloque")
+                    Text(hub.wodUsesSeries ? "Siguiente" : "Terminar bloque")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(accent)
+                .foregroundStyle(.black)
+                if hub.wodUsesSeries {
+                    Button("Confirmar resultado del bloque") { hub.reviewBlock() }
+                        .font(.caption2)
+                        .buttonStyle(.borderless)
+                }
             }
         }
     }
 
     private var seriesContent: some View {
-        VStack(spacing: 7) {
-            Text(hub.current?.exercise.name ?? "Ejercicio")
-                .font(.caption.weight(.semibold))
-                .multilineTextAlignment(.center)
-            Text("Serie \(min(hub.completedSets + 1, max(1, hub.plannedSets))) / \(max(1, hub.plannedSets))")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            Text("\(hub.workingReps)")
-                .font(.system(size: 44, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .focusable(true)
-                .digitalCrownRotation(
-                    Binding(get: { Double(hub.workingReps) },
-                            set: { hub.adjustReps(Int($0.rounded()) - hub.workingReps) }),
-                    from: 0, through: 500, by: 1,
-                    sensitivity: .medium, isContinuous: false,
-                    isHapticFeedbackEnabled: true
-                )
-                .accessibilityLabel("Repeticiones estimadas, ajustables con la corona")
-            HStack {
-                Button { hub.adjustReps(-1) } label: { Image(systemName: "minus.circle.fill") }
-                    .accessibilityLabel("Restar repetición")
-                Button { hub.adjustReps(1) } label: { Image(systemName: "plus.circle.fill") }
-                    .accessibilityLabel("Sumar repetición")
+        VStack(spacing: 8) {
+            HStack(alignment: .center, spacing: 9) {
+                if let exercise = hub.current?.exercise {
+                    WatchExerciseThumb(exercise: exercise, size: 53)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(hub.current?.exercise.name ?? "Ejercicio")
+                        .font(.caption.weight(.semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("Serie \(hub.displayedSetNumber) de \(max(1, hub.plannedSets))")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
             }
-            .buttonStyle(.borderless)
-            Text("Estimación · confirma lo realizado")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 8) {
+                Button { hub.adjustReps(-1) } label: {
+                    Image(systemName: "minus")
+                        .font(.title2.bold())
+                        .frame(minWidth: 44, minHeight: 56)
+                }
+                .accessibilityLabel("Restar repetición")
+                .disabled(hub.isPaused)
+                Text("\(hub.workingReps)")
+                    .font(.system(size: 38, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .frame(maxWidth: .infinity)
+                    .focusable(true)
+                    .digitalCrownRotation(
+                        Binding(get: { Double(hub.workingReps) },
+                                set: { hub.adjustReps(Int($0.rounded()) - hub.workingReps) }),
+                        from: 0, through: 500, by: 1,
+                        sensitivity: .medium, isContinuous: false,
+                        isHapticFeedbackEnabled: true
+                    )
+                    .accessibilityLabel("Repeticiones, ajustables con la corona")
+                Button { hub.adjustReps(1) } label: {
+                    Image(systemName: "plus")
+                        .font(.title2.bold())
+                        .frame(minWidth: 44, minHeight: 56)
+                }
+                .accessibilityLabel("Sumar repetición")
+                .disabled(hub.isPaused)
+            }
+            .buttonStyle(.bordered)
+            .tint(accent)
             if let weight = hub.workingWeightKg {
-                HStack {
+                HStack(spacing: 8) {
                     Button("-2,5") { hub.adjustWeight(-2.5) }
                     Text("\(weight.formatted()) kg")
-                        .font(.caption)
+                        .font(.caption.weight(.semibold))
                         .frame(maxWidth: .infinity)
                     Button("+2,5") { hub.adjustWeight(2.5) }
                 }
                 .font(.caption2)
             }
+            Text("Desliza ← → para revisar otras series")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
             if !hub.isPaused {
-                Button("Confirmar serie") { hub.confirmSet() }
-                    .buttonStyle(.borderedProminent)
-                    .tint(accent)
-                    .foregroundStyle(.black)
-                Button(hub.completedSets >= hub.plannedSets ? "Siguiente" : "Saltar al siguiente") {
-                    hub.advance()
+                Button {
+                    hub.confirmAndAdvance()
+                } label: {
+                    Label(hub.isFinalSet ? "Terminar" : "Siguiente",
+                          systemImage: hub.isFinalSet ? "checkmark" : "arrow.right")
+                        .frame(maxWidth: .infinity)
                 }
-                .font(.caption)
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderedProminent)
+                .tint(accent)
+                .foregroundStyle(.black)
             }
         }
     }
@@ -501,42 +526,48 @@ struct WatchSessionView: View {
 
     private func outlineView(_ session: WorkoutSession) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Plan completo").font(.headline)
-                Text(session.title).font(.caption).foregroundStyle(.secondary)
-                ForEach(session.exercises.indices, id: \.self) { index in
+            VStack(alignment: .leading, spacing: 9) {
+                HStack {
+                    Spacer(minLength: 0)
+                    Text("Plan completo")
+                        .font(.headline)
+                }
+                Text(session.title)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+
+                ForEach(blockStarts(in: session), id: \.self) { index in
                     let exercise = session.exercises[index]
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack {
-                            if exercise.isCompleted {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(accent)
-                            } else if session.currentIndex == index {
-                                Image(systemName: "play.circle.fill")
-                                    .foregroundStyle(accent)
-                            } else {
-                                Image(systemName: "circle")
+                    Button {
+                        hub.selectBlock(startingAt: index)
+                        showOutline = false
+                    } label: {
+                        VStack(alignment: .leading, spacing: 7) {
+                            HStack(spacing: 6) {
+                                Text(exercise.displayBlockHeader)
+                                    .font(.caption.weight(.semibold))
+                                Spacer(minLength: 3)
+                                if session.currentIndex == index {
+                                    Image(systemName: "play.circle.fill")
+                                        .foregroundStyle(accent)
+                                }
+                                Image(systemName: "chevron.right")
+                                    .font(.caption2.weight(.bold))
                                     .foregroundStyle(.secondary)
                             }
-                            Text(exercise.exercise.name)
-                                .font(.caption.weight(.semibold))
+                            ForEach(blockMembers(in: session, startingAt: index), id: \.self) { position in
+                                exerciseCard(session.exercises[position])
+                            }
                         }
-                        Text(exercise.displayBlockHeader)
-                            .font(.caption2)
-                            .foregroundStyle(accent)
-                        Text(exercise.queueTimeLabel)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                        .padding(7)
+                        .background(.white.opacity(0.07),
+                                    in: RoundedRectangle(cornerRadius: 12))
                     }
-                    .padding(8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.white.opacity(0.08),
-                                in: RoundedRectangle(cornerRadius: 9))
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Ir al bloque sin confirmar los ejercicios omitidos")
                 }
-                Button("Volver al entrenamiento") { showOutline = false }
-                    .buttonStyle(.bordered)
             }
-            .padding(.horizontal, 6)
+            .padding(.horizontal, 5)
         }
     }
 
@@ -544,32 +575,25 @@ struct WatchSessionView: View {
         let sets = session.exercises.flatMap(\.loggedSets)
         let reps = sets.reduce(0) { $0 + $1.reps }
         return ScrollView {
-            VStack(spacing: 8) {
-                Image(systemName: "checkmark.seal.fill")
-                    .font(.largeTitle)
-                    .foregroundStyle(accent)
-                Text("¡Bien hecho!")
-                    .font(.headline)
+            VStack(spacing: 9) {
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.title2)
+                        .foregroundStyle(accent)
+                    Text("¡Bien hecho!")
+                        .font(.headline)
+                    Spacer(minLength: 0)
+                }
                 Text(session.title)
                     .font(.caption)
-                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 statsLine(
-                    icon: "clock",
-                    label: session.appleDurationSeconds == nil ? "Tiempo registrado" : "Tiempo Salud",
+                    icon: "clock", label: "Tiempo",
                     value: timeLabel(Int(session.appleDurationSeconds ??
                         session.finishedAt?.timeIntervalSince(session.startedAt ?? Date()) ?? 0))
                 )
-                if session.healthKitWorkoutUUID != nil {
-                    Label("Registrado en Apple Salud", systemImage: "heart.text.square")
-                        .font(.caption2)
-                        .foregroundStyle(accent)
-                } else if session.appleHealthProvenance == "watchHealthKitPending" {
-                    Label("Salud pendiente de confirmar", systemImage: "heart.circle")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
                 if let energy = session.appleActiveEnergyKcal {
-                    statsLine(icon: "flame.fill", label: "Salud",
+                    statsLine(icon: "flame.fill", label: "Calorías",
                               value: "\(Int(energy.rounded())) kcal")
                 }
                 if let bpm = session.appleAverageHeartRateBpm {
@@ -584,15 +608,10 @@ struct WatchSessionView: View {
                     statsLine(icon: "timer", label: result.format?.displayName ?? "WOD",
                               value: result.summaryLabel)
                 }
-                Label(hub.acknowledgedSessionID == session.id ? "Sincronizado con iPhone" :
-                        "Guardado en Watch · pendiente de sincronizar",
-                      systemImage: hub.acknowledgedSessionID == session.id ?
-                        "checkmark.icloud" : "arrow.triangle.2.circlepath")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
                 Button("Volver al inicio") { hub.clearSummary() }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.borderedProminent)
+                    .tint(accent)
+                    .foregroundStyle(.black)
             }
             .padding(.horizontal, 6)
         }
