@@ -308,6 +308,145 @@ public enum VerifiedSessionReviewEngine {
         )
     }
 
+    /// Nivel 3: trabajo por minuto con las MISMAS tareas motoras.
+    /// Permite variar AMRAP/For Time/RFT, tiempo y repeticiones programadas
+    /// sin equiparar burpees con push-ups ni kg de un movimiento con otro.
+    /// Es un indicador orientativo de densidad, nunca un benchmark Rx.
+    /// Solo se habilita con tres días históricos independientes.
+    private static func calibratedStimulusEvidence(
+        result: WODBlockResult,
+        session: WorkoutSession,
+        prior: [WorkoutSession]
+    ) -> Evidence? {
+        guard let currentBlock = session.routineBlocks?.first(where: { $0.id == result.id }),
+              let currentDensity = normalizedDensity(result: result, block: currentBlock),
+              currentDensity > 0 else { return nil }
+        let currentScaled = session.exercises.filter { $0.blockId == result.id }
+        var priorDays: [(Date, Double)] = []
+        for workout in prior.sorted(by: {
+            ($0.finishedAt ?? .distantPast) > ($1.finishedAt ?? .distantPast)
+        }) {
+            guard let completedAt = workout.finishedAt else { continue }
+            let day = Calendar.current.startOfDay(for: completedAt)
+            if priorDays.contains(where: { $0.0 == day }) { continue }
+            guard let best = workout.wodResults.compactMap({ previous -> Double? in
+                guard validScore(previous),
+                      let block = workout.routineBlocks?.first(where: { $0.id == previous.id }),
+                      comparableStimulus(currentBlock, block),
+                      sameScaling(currentScaled, workout.exercises.filter { $0.blockId == previous.id }),
+                      let rate = normalizedDensity(result: previous, block: block),
+                      rate > 0 else { return nil }
+                // Exclude grossly different time domains (sprints vs long WODs).
+                guard let currentSeconds = stimulusDuration(result: result, block: currentBlock),
+                      let priorSeconds = stimulusDuration(result: previous, block: block),
+                      max(currentSeconds, priorSeconds) / min(currentSeconds, priorSeconds) <= 1.5
+                else { return nil }
+                return rate
+            }).max() else { continue }
+            priorDays.append((day, best))
+            if priorDays.count == 5 { break }
+        }
+        guard priorDays.count >= minimumStimulusReferenceDays else { return nil }
+        let reference = median(priorDays.map(\.1).sorted())
+        guard reference > 0 else { return nil }
+        let ratio = currentDensity / reference
+        let minutes = stimulusDuration(result: result, block: currentBlock)! / 60
+        return Evidence(
+            score: points(ratio: ratio),
+            weight: max(1, min(12, minutes)) * 0.5,
+            referenceCount: priorDays.count,
+            explanation: "Nivel 3 · estímulo comparable · \(signedChange(ratio)) de densidad de reps, \(priorDays.count) días calibrados (mismos movimientos y cargas)",
+            tier: 3
+        )
+    }
+
+    private static func stimulusDuration(
+        result: WODBlockResult, block: RoutineBlock
+    ) -> Double? {
+        switch result.format {
+        case .amrap:
+            guard let minutes = block.timeCapMinutes, minutes > 0 else { return nil }
+            return Double(minutes * 60)
+        case .forTime, .afap, .chipper:
+            guard let seconds = result.elapsedSeconds, seconds > 0 else { return nil }
+            return Double(seconds)
+        default: return nil
+        }
+    }
+
+    private static func normalizedDensity(
+        result: WODBlockResult, block: RoutineBlock
+    ) -> Double? {
+        guard let seconds = stimulusDuration(result: result, block: block),
+              !block.movements.isEmpty else { return nil }
+        let movements = block.movements
+        guard movements.allSatisfy({
+            !$0.isRest && ($0.reps ?? 0) > 0
+                && $0.repScheme == nil && $0.distanceMeters == nil
+                && $0.calories == nil
+                && ($0.scaleAlternative?.isEmpty ?? true)
+        }) else { return nil }
+        let perCycle = movements.reduce(0) { $0 + ($1.reps ?? 0) }
+        guard perCycle > 0 else { return nil }
+        let performed: Int
+        switch result.format {
+        case .amrap:
+            let rounds = result.roundsCompleted ?? 0
+            let partial = result.totalReps ?? 0
+            guard rounds >= 0, partial >= 0, partial < perCycle,
+                  rounds > 0 || partial > 0 else { return nil }
+            performed = rounds * perCycle + partial
+        case .forTime:
+            guard let rounds = block.rounds, rounds > 0 else { return nil }
+            performed = rounds * perCycle
+        case .afap, .chipper:
+            // Only simple one-pass prescriptions are comparable.
+            guard block.rounds == nil || block.rounds == 1 else { return nil }
+            performed = perCycle
+        default: return nil
+        }
+        return Double(performed) * 60.0 / seconds
+    }
+
+    private static func comparableStimulus(
+        _ current: RoutineBlock, _ previous: RoutineBlock
+    ) -> Bool {
+        let left = current.movements
+        let right = previous.movements
+        guard !left.isEmpty, left.count == right.count, left.count <= 5,
+              left.allSatisfy({ !$0.isRest }),
+              right.allSatisfy({ !$0.isRest }) else { return false }
+        // Allow a different order or modestly different reps, but keep each
+        // movement's identity, dose unit, weight and equipment prescription.
+        var used = Set<Int>()
+        for move in left {
+            guard let index = right.indices.first(where: { index in
+                guard !used.contains(index) else { return false }
+                let old = right[index]
+                guard ExerciseEquivalence.sameName(move.name, old.name),
+                      let a = move.reps, let b = old.reps, a > 0, b > 0,
+                      Double(max(a, b)) / Double(min(a, b)) <= 1.25,
+                      move.repScheme == nil && old.repScheme == nil,
+                      move.distanceMeters == nil && old.distanceMeters == nil,
+                      move.calories == nil && old.calories == nil,
+                      (move.scaleAlternative?.isEmpty ?? true),
+                      (old.scaleAlternative?.isEmpty ?? true)
+                else { return false }
+                let weights = [
+                    (move.weightMaleKg, old.weightMaleKg),
+                    (move.weightFemaleKg, old.weightFemaleKg)
+                ]
+                return weights.allSatisfy { a, b in
+                    if a == nil && b == nil { return true }
+                    guard let a, let b, a > 0, b > 0 else { return false }
+                    return abs(a - b) / max(a, b) <= 0.05
+                }
+            }) else { return false }
+            used.insert(index)
+        }
+        return true
+    }
+
     private static func sameScaling(_ current: [SessionExercise], _ previous: [SessionExercise]) -> Bool {
         let a = current.filter(\.hasWODScaling)
         let b = previous.filter(\.hasWODScaling)
