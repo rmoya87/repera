@@ -862,6 +862,7 @@ struct HealthGoalsView: View {
 
     @State private var steps = ""
     @State private var energy = ""
+    @State private var heartRate = ""
     @State private var minutes = ""
     @State private var weekly = ""
     @State private var weight = ""
@@ -885,6 +886,7 @@ struct HealthGoalsView: View {
     private var valid: Bool {
         parseInt(steps, range: 100...100_000)
             && parseInt(energy, range: 10...10_000)
+            && parseInt(heartRate, range: 30...220)
             && parseInt(minutes, range: 1...1_440)
             && parseInt(weekly, range: 1...21)
             && parseWeight(weight)
@@ -895,11 +897,12 @@ struct HealthGoalsView: View {
             Section {
                 goalRow("Pasos", icon: "figure.walk", text: $steps, unit: "pasos")
                 goalRow("Calorías activas", icon: "flame.fill", text: $energy, unit: "kcal")
+                goalRow("FC media (referencia)", icon: "heart.fill", text: $heartRate, unit: "lpm")
                 goalRow("Tiempo de entreno", icon: "clock.fill", text: $minutes, unit: "min")
             } header: {
                 Text("Objetivos diarios")
             } footer: {
-                Text("Se comparan con las mediciones reales de Apple Salud. No se incluyen calorías estimadas.")
+                Text("Se comparan con Apple Salud. La referencia de FC media no implica que debas aumentar tus pulsaciones. No se incluyen calorías estimadas.")
             }
 
             Section {
@@ -975,6 +978,7 @@ struct HealthGoalsView: View {
         let s = store.state.settings
         steps = s.dailyStepsGoal.map { String($0) } ?? ""
         energy = s.dailyActiveEnergyGoalKcal.map { String($0) } ?? ""
+        heartRate = s.dailyAverageHeartRateGoalBpm.map { String($0) } ?? ""
         minutes = s.dailyWorkoutMinutesGoal.map { String($0) } ?? ""
         weekly = s.weeklyWorkoutGoal.map { String($0) } ?? ""
         weight = s.bodyWeightGoalKg.map { String(format: "%g", $0) } ?? ""
@@ -985,6 +989,7 @@ struct HealthGoalsView: View {
         var s = store.state.settings
         s.dailyStepsGoal = Int(steps.trimmingCharacters(in: .whitespacesAndNewlines))
         s.dailyActiveEnergyGoalKcal = Int(energy.trimmingCharacters(in: .whitespacesAndNewlines))
+        s.dailyAverageHeartRateGoalBpm = Int(heartRate.trimmingCharacters(in: .whitespacesAndNewlines))
         s.dailyWorkoutMinutesGoal = Int(minutes.trimmingCharacters(in: .whitespacesAndNewlines))
         s.weeklyWorkoutGoal = Int(weekly.trimmingCharacters(in: .whitespacesAndNewlines))
         let weightText = weight.trimmingCharacters(in: .whitespacesAndNewlines)

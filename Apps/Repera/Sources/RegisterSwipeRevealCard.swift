@@ -11,6 +11,7 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
     var deleteAccessibilityLabel: String
     /// Color de tarjeta configurable sin alterar el estilo usado en otras pantallas.
     private let cardBackground: Color
+    @State private var isDeleteRevealed = false
     private let title: () -> Title
     private let chips: () -> Chips
 
@@ -36,12 +37,16 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
     var body: some View {
         ZStack(alignment: .trailing) {
             deleteControl
+                .opacity(isDeleteRevealed ? 1 : 0)
+                .allowsHitTesting(isDeleteRevealed)
+                .accessibilityHidden(!isDeleteRevealed)
 
             SmoothSwipeCardHost(
                 revealWidth: revealWidth,
                 chipsBandHeight: chipsBandHeight,
                 onOpen: onOpen,
-                onDelete: onDelete
+                onDelete: onDelete,
+                onRevealChange: { isDeleteRevealed = $0 }
             ) {
                 VStack(alignment: .leading, spacing: 8) {
                     title()
@@ -52,6 +57,10 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(cardBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(OG.surface3.opacity(0.75), lineWidth: 0.7)
+                }
             }
         }
     }
@@ -98,10 +107,11 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
     var chipsBandHeight: CGFloat
     var onOpen: () -> Void
     var onDelete: () -> Void
+    var onRevealChange: (Bool) -> Void
     @ViewBuilder var content: () -> Content
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(revealWidth: revealWidth, chipsBandHeight: chipsBandHeight, onOpen: onOpen, onDelete: onDelete)
+        Coordinator(revealWidth: revealWidth, chipsBandHeight: chipsBandHeight, onOpen: onOpen, onDelete: onDelete, onRevealChange: onRevealChange)
     }
 
     func makeUIView(context: Context) -> SwipeCardContainerView {
@@ -140,6 +150,7 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
         context.coordinator.chipsBandHeight = chipsBandHeight
         context.coordinator.onOpen = onOpen
         context.coordinator.onDelete = onDelete
+        context.coordinator.onRevealChange = onRevealChange
         // Crítico: no recrear el árbol SwiftUI a mitad del swipe (causa temblor).
         guard !context.coordinator.isDragging else { return }
         context.coordinator.updateContent(content())
@@ -164,6 +175,8 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
         var chipsBandHeight: CGFloat
         var onOpen: () -> Void
         var onDelete: () -> Void
+        var onRevealChange: (Bool) -> Void
+        private var deleteRevealed = false
 
         var host: UIHostingController<Content>?
         weak var cardView: UIView?
@@ -174,11 +187,12 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
         private var currentX: CGFloat = 0
         private var lockedHorizontal: Bool?
 
-        init(revealWidth: CGFloat, chipsBandHeight: CGFloat, onOpen: @escaping () -> Void, onDelete: @escaping () -> Void) {
+        init(revealWidth: CGFloat, chipsBandHeight: CGFloat, onOpen: @escaping () -> Void, onDelete: @escaping () -> Void, onRevealChange: @escaping (Bool) -> Void) {
             self.revealWidth = revealWidth
             self.chipsBandHeight = chipsBandHeight
             self.onOpen = onOpen
             self.onDelete = onDelete
+            self.onRevealChange = onRevealChange
         }
 
         func ensureHost(content: Content) -> UIHostingController<Content> {
@@ -308,6 +322,11 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
 
         private func applyX(_ x: CGFloat, animated: Bool) {
             currentX = x
+            let shouldReveal = x < -1
+            if shouldReveal != deleteRevealed {
+                deleteRevealed = shouldReveal
+                onRevealChange(shouldReveal)
+            }
             let transform = CGAffineTransform(translationX: x, y: 0)
             guard let cardView else { return }
             if animated {

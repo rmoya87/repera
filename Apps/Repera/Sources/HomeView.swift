@@ -1,4 +1,3 @@
-import Charts
 import ReperaDomain
 import SwiftUI
 
@@ -24,8 +23,6 @@ struct HomeView: View {
     @State private var todayHealthLive = HealthKitStore.DayMetrics()
     /// Pasos reales de Salud del día seleccionado; nil si no hay lecturas disponibles.
     @State private var selectedDaySteps: Int?
-    @State private var recentSteps: [HealthKitStore.DailyStepsPoint] = []
-    @State private var activityChartMetric: ActivityChartMetric = .steps
     @State private var showCreatePlanForDay = false
     /// Revisión de pizarra como página (fuera del sheet «Añadir entreno»).
     @State private var boardReviewPayload: BoardScanReviewPayload?
@@ -254,11 +251,9 @@ struct HomeView: View {
                 let requestedDay = selectedDay
                 let requestedKey = dayKey(requestedDay)
                 selectedDaySteps = nil
-                recentSteps = []
-                let series = await health.dailySteps(endingAt: requestedDay)
+                    let series = await health.dailySteps(endingAt: requestedDay)
                 guard !Task.isCancelled, dayKey(selectedDay) == requestedKey else { return }
-                recentSteps = series
-                selectedDaySteps = series.first(where: {
+                    selectedDaySteps = series.first(where: {
                     calendar.isDate($0.date, inSameDayAs: requestedDay)
                 })?.steps
             }
@@ -563,143 +558,8 @@ struct HomeView: View {
         }
     }
 
-    private enum ActivityChartMetric: String, CaseIterable, Identifiable {
-        case steps = "Pasos"
-        case calories = "Calorías"
-        case heartRate = "FC media"
-        var id: Self { self }
-    }
-
-    private struct ActivityChartPoint: Identifiable {
-        var date: Date
-        var value: Double
-        var id: Date { date }
-    }
-
-    private var activityChartPoints: [ActivityChartPoint] {
-        let end = calendar.startOfDay(for: selectedDay)
-        let start = calendar.date(byAdding: .day, value: -6, to: end) ?? end
-        func withinWindow(_ date: Date) -> Bool {
-            let day = calendar.startOfDay(for: date)
-            return day >= start && day <= end
-        }
-        switch activityChartMetric {
-        case .steps:
-            return recentSteps.filter { withinWindow($0.date) }
-                .map { ActivityChartPoint(date: $0.date, value: Double($0.steps)) }
-        case .calories:
-            var points = health.recentDailyActiveEnergy
-                .filter { withinWindow($0.date) && $0.kcal >= 0 }
-                .map { ActivityChartPoint(date: calendar.startOfDay(for: $0.date), value: $0.kcal) }
-            if !points.contains(where: { calendar.isDate($0.date, inSameDayAs: end) }),
-               let selectedKcal = dayHealth.activeEnergyKcal, selectedKcal > 0 {
-                points.append(ActivityChartPoint(date: end, value: selectedKcal))
-            }
-            return points.sorted { $0.date < $1.date }
-        case .heartRate:
-            return health.recentDailyHeartRate
-                .filter { withinWindow($0.date) && $0.avgBpm > 0 }
-                .map { ActivityChartPoint(date: calendar.startOfDay(for: $0.date), value: $0.avgBpm) }
-        }
-    }
-
-    private var activityChartGoal: Double? {
-        switch activityChartMetric {
-        case .steps:
-            return store.state.settings.dailyStepsGoal.map { Double($0) }
-        case .calories:
-            return store.state.settings.dailyActiveEnergyGoalKcal.map { Double($0) }
-        case .heartRate:
-            return nil
-        }
-    }
-
-    private var activityChartTint: Color {
-        switch activityChartMetric {
-        case .steps: OG.accent
-        case .calories: OG.orange
-        case .heartRate: OG.red
-        }
-    }
-
-    private var activityTrend: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Evolución · 7 días")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(OG.label)
-                Spacer()
-                if let goal = activityChartGoal, goal > 0 {
-                    Text("Meta \(Int(goal).formatted())")
-                        .font(.caption)
-                        .foregroundStyle(OG.label2)
-                }
-            }
-            Picker("Métrica de actividad", selection: $activityChartMetric) {
-                ForEach(ActivityChartMetric.allCases) { metric in
-                    Text(metric.rawValue).tag(metric)
-                }
-            }
-            .pickerStyle(.segmented)
-
-            let points = activityChartPoints
-            if points.isEmpty {
-                HStack(spacing: 10) {
-                    Image(systemName: "chart.bar.xaxis")
-                        .foregroundStyle(OG.label2)
-                    Text("Sin mediciones de Apple Salud para este periodo.")
-                        .font(.footnote)
-                        .foregroundStyle(OG.label2)
-                }
-                .frame(maxWidth: .infinity, minHeight: 100, alignment: .center)
-                .accessibilityLabel("No hay datos para mostrar la gráfica")
-            } else {
-                Chart {
-                    ForEach(points) { point in
-                        if activityChartMetric == .heartRate {
-                            LineMark(
-                                x: .value("Día", point.date, unit: .day),
-                                y: .value("Pulso", point.value)
-                            )
-                            .interpolationMethod(.catmullRom)
-                            .foregroundStyle(activityChartTint)
-                            PointMark(
-                                x: .value("Día", point.date, unit: .day),
-                                y: .value("Pulso", point.value)
-                            )
-                            .foregroundStyle(activityChartTint)
-                        } else {
-                            BarMark(
-                                x: .value("Día", point.date, unit: .day),
-                                y: .value("Valor", point.value)
-                            )
-                            .foregroundStyle(activityChartTint)
-                            .cornerRadius(3)
-                        }
-                    }
-                    if let goal = activityChartGoal, goal > 0 {
-                        RuleMark(y: .value("Objetivo", goal))
-                            .foregroundStyle(OG.label2.opacity(0.8))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                    }
-                }
-                .chartXAxis {
-                    AxisMarks(values: .stride(by: .day)) {
-                        AxisValueLabel(format: .dateTime.weekday(.narrow))
-                    }
-                }
-                .chartYAxis {
-                    AxisMarks(position: .leading)
-                }
-                .frame(height: 142)
-                .accessibilityLabel("Evolución real de \(activityChartMetric.rawValue) durante siete días")
-            }
-        }
-        .padding(.top, 3)
-    }
-
-    /// Las tres métricas usan exclusivamente datos reales de Apple Salud.
-    /// Debajo se muestra la evolución de 7 días, sin puntos simulados.
+    /// Las tres métricas utilizan únicamente mediciones reales de Apple Salud.
+    /// Sin meta configurada no se dibuja una barra ni se simula un porcentaje.
     private var activityTodayCard: some View {
         let workouts = workoutsOnSelectedDay
         let kcal = dayHealth.activeEnergyKcal.flatMap { $0 >= 0 ? $0 : nil }
@@ -710,7 +570,7 @@ struct HomeView: View {
             guard let review = session.sessionReview,
                   review.scoreBasis == .personalHistory,
                   (review.evidenceCoverage ?? 0) >= 0.60 else { return nil }
-            return review.overallScore
+            return min(max(review.overallScore, 0), 10)
         }.first
 
         return OGCard {
@@ -743,7 +603,9 @@ struct HomeView: View {
                         value: heartRate.map { Int($0.rounded()).formatted() } ?? "—",
                         unit: "lpm",
                         symbol: "heart.fill",
-                        tint: OG.red
+                        tint: OG.red,
+                        measurement: heartRate,
+                        goal: store.state.settings.dailyAverageHeartRateGoalBpm.map { Double($0) }
                     )
                 }
 
@@ -779,8 +641,6 @@ struct HomeView: View {
                     .padding(12)
                     .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-
-                activityTrend
 
                 if let score {
                     HStack(spacing: 12) {
@@ -839,15 +699,30 @@ struct HomeView: View {
                     .foregroundStyle(OG.label2)
             }
             if let goal, goal > 0 {
-                Text("de \(Int(goal).formatted())")
+                Text("Meta \(Int(goal).formatted())\(unit.isEmpty ? "" : " \(unit)")")
                     .font(.system(size: 10))
                     .foregroundStyle(OG.label2)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                if let measurement {
-                    ProgressView(value: min(max(0, measurement), goal), total: goal)
-                        .tint(tint)
+                    .minimumScaleFactor(0.75)
+
+                GeometryReader { geometry in
+                    Capsule()
+                        .fill(OG.surface3)
+                        .overlay(alignment: .leading) {
+                            Capsule()
+                                .fill(tint)
+                                .frame(width: geometry.size.width * CGFloat(
+                                    min(max((measurement ?? 0) / goal, 0), 1)
+                                ))
+                        }
                 }
+                .frame(height: 6)
+                .accessibilityLabel("Progreso de \(title)")
+                .accessibilityValue(
+                    measurement.map {
+                        "\(Int($0.rounded()).formatted()) de \(Int(goal).formatted())"
+                    } ?? "Sin medición"
+                )
             }
         }
         .frame(maxWidth: .infinity, minHeight: 95, alignment: .topLeading)
@@ -1065,7 +940,7 @@ struct HomeView: View {
             onOpen: open,
             onDelete: onDelete,
             deleteAccessibilityLabel: deleteLabel,
-            cardBackground: .clear,
+            cardBackground: OG.surface,
             title: title,
             chips: {
                 OGRegisterChipsRow(leadingInset: Self.chipsTitleLeading) {
