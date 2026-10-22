@@ -131,6 +131,13 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "WatchHealthKitSession.swift"):
             validate(self.root)
 
+    def test_new_watch_source_missing_from_compile_phase_is_rejected(self):
+        """Catch new Watch Swift helpers omitted by a stale generated .xcodeproj."""
+        extra = self.root / "Apps/ReperaWatch/Sources/AnotherWatchView.swift"
+        extra.write_text("// New watch component", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "AnotherWatchView.swift"):
+            validate(self.root)
+
     def test_missing_watch_target_is_rejected(self):
         pbx = self.pbx.read_text(encoding="utf-8")
         self.pbx.write_text(
