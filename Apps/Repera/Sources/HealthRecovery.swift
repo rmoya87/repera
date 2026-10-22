@@ -826,11 +826,14 @@ struct HealthRecoveryProgressView: View {
         }
     }
 
-    private var currentHRVLabel: String {
-        guard let reading = physiology.days.last(where: {
+    private var currentCardiacReadings: String {
+        guard let day = physiology.days.last(where: {
             Calendar.current.isDate($0.date, inSameDayAs: Date())
-        })?.hrvMilliseconds else { return "Sin datos" }
-        return "\(Int(reading.rounded())) ms"
+        }) else { return "Sin datos" }
+        let hrv = day.hrvMilliseconds.map { "\(Int($0.rounded())) ms" }
+        let resting = day.restingHeartRateBpm.map { "\(Int($0.rounded())) lpm" }
+        let summary = [hrv, resting].compactMap { $0 }.joined(separator: " · ")
+        return summary.isEmpty ? "Sin datos" : summary
     }
 
     private func readinessFactor(
@@ -928,13 +931,13 @@ struct HealthRecoveryProgressView: View {
                                     : (readiness.fatiguePenalty >= 1.1 ? "Moderada" : "Baja")
                             )
                             readinessFactor(
-                                "VFC", icon: "heart", value: currentHRVLabel
+                                "VFC · pulso", icon: "heart", value: currentCardiacReadings
                             )
                             readinessFactor(
-                                "Cardio · 48 h", icon: "waveform.path.ecg",
+                                "Cardio en Salud", icon: "waveform.path.ecg",
                                 value: readiness.cardioMinutes48h.map {
                                     "\(Int($0.rounded())) min"
-                                } ?? "Sin registros"
+                                } ?? "Sin datos"
                             )
                         }
                     }
