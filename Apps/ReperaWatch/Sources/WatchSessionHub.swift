@@ -76,6 +76,12 @@ final class WatchSessionHub: NSObject {
     var active: WorkoutSession? { controller?.session }
     var presentedSummary: WorkoutSession? { summaryDismissed ? nil : lastFinished }
     var loggingStyle: ExerciseLoggingStyle { current?.exercise.loggingStyle ?? .loadAndReps }
+    var effectiveReps: Int {
+        if setDraft.kind == .restpause && !setDraft.clusters.isEmpty {
+            return setDraft.clusters.reduce(0) { $0 + $1.reps }
+        }
+        return workingReps
+    }
     var heartRateBpm: Int? { health.pulseBpm }
     var measuredEnergyKcal: Double? { health.kcal }
     var healthWarning: String? { health.permissionIssue }
@@ -437,7 +443,7 @@ final class WatchSessionHub: NSObject {
         guard !isPaused, !reviewingBlock, !currentIsWOD,
               var ctrl = controller, ctrl.session.phase == .counting,
               let exercise = ctrl.session.currentExercise else { return }
-        let reps = max(0, workingReps)
+        let reps = max(0, effectiveReps)
         guard reps > 0 else { return }
         if let selectedSetIndex {
             guard exercise.loggedSets.indices.contains(selectedSetIndex),
@@ -490,7 +496,7 @@ final class WatchSessionHub: NSObject {
     func confirmIntervalSet() {
         guard wodUsesSeries, currentIsWOD, !isPaused, !reviewingBlock,
               var ctrl = controller, ctrl.session.phase == .counting else { return }
-        let set = preparedSet(reps: max(0, workingReps))
+        let set = preparedSet(reps: max(0, effectiveReps))
         guard set.reps > 0 else { return }
         ctrl.logSet(reps: set.reps, weightKg: set.weightKg,
             deficitCm: set.deficitCm, durationSeconds: set.durationSeconds,
