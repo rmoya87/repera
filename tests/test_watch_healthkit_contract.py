@@ -137,24 +137,72 @@ class WatchHealthKitContractTests(unittest.TestCase):
 
         self.assertIn("WatchExerciseThumb(exercise: exercise.exercise", view)
         self.assertIn("WatchExerciseThumb(exercise: exercise, size: 53)", view)
-        self.assertIn('Text("Plan completo")', view)
+        self.assertIn('Text("Resumen")', view)
         self.assertIn("hub.selectBlock(startingAt: index)", view)
         self.assertIn("hub.swipeSet(horizontal < 0 ? 1 : -1)", view)
         self.assertIn("hub.confirmAndAdvance()", view)
         self.assertIn('Label(hub.isFinalSet ? "Terminar" : "Siguiente"', view)
-        self.assertIn("if !hub.isFinalSet", view)
+        self.assertIn("hub.hasNextExercise", view)
+        self.assertIn("hub.nextExercise()", view)
+        self.assertIn('Button("Resumen") { showOutline = true }', view)
         self.assertNotIn("Confirmar serie", view)
         self.assertNotIn("Saltar al siguiente", view)
         self.assertNotIn("Volver al entrenamiento", view)
         self.assertNotIn("Registrado en Apple Salud", view)
         self.assertNotIn("Guardado en Watch · pendiente de sincronizar", view)
-        self.assertEqual(view.count('.confirmationDialog("¿Finalizar el entrenamiento?"'), 1)
+        self.assertNotIn('¿Finalizar el entrenamiento?', view)
+        self.assertNotIn('Guardar entrenamiento', view)
+        self.assertNotIn('Finalizar antes', view)
+        self.assertIn('hub.finishFromSummary()', view)
+        self.assertIn('func finishFromSummary()', hub)
+        self.assertIn('lastFinished?.id != finished.id', hub)
 
         self.assertIn("func confirmAndAdvance()", hub)
         self.assertIn("func selectBlock(startingAt index: Int)", hub)
         self.assertIn("func swipeSet(_ direction: Int)", hub)
         self.assertIn("reviseLoggedSet(at:", hub)
         self.assertIn("public mutating func reviseLoggedSet(", domain)
+
+    def test_watch_compact_titles_cards_and_play_controls(self):
+        view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        hub = source("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
+
+        self.assertIn(".navigationTitle(pageTitle)", view)
+        self.assertIn('return hub.todaysWorkout?.title ?? "Repera"', view)
+        self.assertIn("return hub.current?.displayBlockHeader ?? active.title", view)
+        self.assertNotIn('Text("HOY")', view)
+        self.assertNotIn('Text(session.progressLabel)', view)
+        self.assertIn("private func exerciseRow(", view)
+        self.assertIn("private func blockExerciseRows(", view)
+        self.assertIn("Divider().overlay(.gray.opacity(0.3))", view)
+        self.assertNotIn("exerciseCard(", view)
+
+        # No duplicate scroll heading, progress bar or permanent paused banner.
+        self.assertIn("private var clockControls", view)
+        self.assertIn('hub.isPaused ? "play.fill" : "pause.fill"', view)
+        self.assertNotIn("ProgressView(value: Double(min(hub.blockElapsed", view)
+        self.assertNotIn('Label("En pausa"', view)
+        self.assertNotIn('Button("Finalizar antes")', view)
+
+        # Shortcuts are exposed on Play without saving skipped/unconfirmed sets.
+        self.assertIn('Button("Resumen")', view)
+        self.assertIn('Image(systemName: "arrow.right")', view)
+        self.assertIn('hub.nextExercise()', view)
+        self.assertIn('func nextExercise()', hub)
+        self.assertIn('ctrl.selectExercise(at: nextIndex)', hub)
+        self.assertIn('func finishFromSummary()', hub)
+        self.assertNotIn("confirmationDialog(", view)
+        self.assertNotIn('Button("Guardar entrenamiento")', view)
+
+        # Keep RIR and advanced fields editable without showing them on Play.
+        play = view.partition("private var exerciseFields: some View")[2].partition(
+            "private var rirControls: some View"
+        )[0]
+        self.assertNotIn("rirControls", play)
+        self.assertNotIn("Más datos", play)
+        self.assertIn("showSetDetails = true", view)
+        details = view.partition("private var setDetailsView: some View")[2]
+        self.assertIn("rirControls", details)
 
     def test_watch_thumbnail_view_is_in_an_existing_compiled_source(self):
         """A stale Xcode project still compiles the miniature component."""
@@ -206,7 +254,7 @@ class WatchHealthKitContractTests(unittest.TestCase):
             "quantityUnit: set.quantityUnit", "phase: set.phase",
             "kind: set.kind", "rir: set.rir", "drops: set.drops",
             "clusters: set.clusters", "setDraft: setDraft",
-            "setDraft = snapshot.setDraft ?? WatchSetDraft()",
+            "if let draft = snapshot.setDraft",
             "ctrl.replaceLoggedSet(at:",
         ):
             self.assertIn(needle, hub)
