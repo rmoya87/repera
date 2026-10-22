@@ -8,12 +8,12 @@ import Observation
 @MainActor
 final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWorkoutBuilderDelegate {
     struct Result: Sendable {
-        var uuid: UUID?
-        var activeEnergyKcal: Double?
-        var durationSeconds: TimeInterval?
-        var start: Date?
-        var end: Date?
-        var averageHeartRateBpm: Double?
+        var uuid: UUID? = nil
+        var activeEnergyKcal: Double? = nil
+        var durationSeconds: TimeInterval? = nil
+        var start: Date? = nil
+        var end: Date? = nil
+        var averageHeartRateBpm: Double? = nil
     }
 
     private let store = HKHealthStore()
@@ -27,6 +27,29 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     private(set) var averageBpm: Double?
     private(set) var permissionIssue: String?
     private(set) var isRecording = false
+
+    func recoverIfNeeded(id: UUID) {
+        guard workout == nil, HKHealthStore.isHealthDataAvailable() else { return }
+        store.recoverActiveWorkoutSession { [weak self] recovered, error in
+            Task { @MainActor in
+                guard let self, let recovered else {
+                    if let error { self?.permissionIssue = error.localizedDescription }
+                    return
+                }
+                self.workoutID = id
+                self.workout = recovered
+                let live = recovered.associatedWorkoutBuilder()
+                live.dataSource = HKLiveWorkoutDataSource(
+                    healthStore: self.store,
+                    workoutConfiguration: recovered.workoutConfiguration
+                )
+                recovered.delegate = self
+                live.delegate = self
+                self.builder = live
+                self.isRecording = true
+            }
+        }
+    }
 
     func start(id: UUID, at date: Date) {
         guard workout == nil, HKHealthStore.isHealthDataAvailable() else {
