@@ -454,16 +454,29 @@ final class WatchSessionHub: NSObject {
         save()
     }
 
+    /// Prescribed values are editable drafts, not proof that work was completed.
+    /// Warmup sets do not consume the next prescribed working-set target.
     private func resetSetDraft() {
         let ex = current
         let workIndex = ex?.loggedSets.filter { $0.phase == .work }.count ?? 0
         let planned = ex?.plannedSets.dropFirst(workIndex).first
             ?? ex?.plannedSets.last
+        workingReps = max(0, planned?.targetReps ?? 0)
+        workingWeightKg = ex?.exercise.loadField == .weightKg
+            ? planned?.targetWeightKg : nil
+        // PlannedSet does not prescribe duration. Only WOD interval metadata
+        // may provide an explicit starting duration.
+        let plannedDuration: Int?
+        if ex?.exercise.loggingStyle.usesDuration == true, ex?.blockKind == .wod {
+            plannedDuration = ex?.blockWorkSeconds ?? ex?.blockIntervalSeconds
+        } else {
+            plannedDuration = nil
+        }
         setDraft = WatchSetDraft(
             rir: ex?.exercise.loggingStyle.usesRIR == true ? planned?.targetRir : nil,
             deficitCm: ex?.exercise.loadField == .deficitCm
                 ? planned?.targetWeightKg.map { Int($0.rounded()) } : nil,
-            durationSeconds: ex?.exercise.loggingStyle.usesDuration == true ? 60 : nil,
+            durationSeconds: plannedDuration,
             unit: ex?.quantityUnit ?? ex?.exercise.defaultQuantityUnit ?? .reps,
             toFailure: planned?.targetRir == 0
         )
@@ -565,20 +578,13 @@ final class WatchSessionHub: NSObject {
             else { return }
             controller = ctrl
             self.selectedSetIndex = nil
-            workingReps = 0
             resetSetDraft()
             repCounter.reset()
             if restRemaining == 0 { startMotion() }
-            workingWeightKg = ctrl.session.currentExercise?.plannedSets
-                .dropFirst(ctrl.session.currentExercise?.loggedSets.count ?? 0)
-                .first?.targetWeightKg
             WKInterfaceDevice.current().play(.success)
             checkpoint()
             return
         }
-        let index = exercise.loggedSets.filter { $0.phase == .work }.count
-        let prescribed = exercise.plannedSets.indices.contains(index)
-            ? exercise.plannedSets[index] : exercise.plannedSets.last
         let set = preparedSet(reps: reps)
         ctrl.logSet(
             reps: set.reps, weightKg: set.weightKg, deficitCm: set.deficitCm,
@@ -587,12 +593,9 @@ final class WatchSessionHub: NSObject {
             toFailure: set.toFailure, drops: set.drops, clusters: set.clusters
         )
         controller = ctrl
-        workingReps = 0
         selectedSetIndex = nil
         resetSetDraft()
         repCounter.reset()
-        workingWeightKg = ctrl.session.currentExercise?.plannedSets.dropFirst(index + 1).first?.targetWeightKg
-            ?? prescribed?.targetWeightKg
         stopMotion()
         if set.phase == .work && completedWorkingSets < plannedSets {
             restRemaining = max(0, exercise.restSeconds ?? exercise.blockRestSeconds ?? 0)
@@ -1079,7 +1082,11 @@ final class WatchSessionHub: NSObject {
         let u = data.userAcceleration
         let magnitude = sqrt(u.x * u.x + u.y * u.y + u.z * u.z) + 1.0
         repCounter.ingest(magnitude: magnitude)
-        workingReps = repCounter.count
+        // Never overwrite a prefilled prescription or a manual +/- correction
+        // with the zero-based motion estimate.
+        if current?.plannedSets.isEmpty != false {
+            workingReps = repCounter.count
+        }
     }
 
     private func checkpoint() {
