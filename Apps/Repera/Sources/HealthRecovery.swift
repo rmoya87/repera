@@ -861,104 +861,196 @@ struct HealthRecoveryProgressView: View {
         }
     }
 
-    // MARK: - Recuperación para entrenar, independiente del sueño
+    // MARK: - Preparación para entrenar (sin duplicar sueño)
+
+    private func readinessColor(_ score: Double) -> Color {
+        score >= 8 ? OG.accent : (score >= 6 ? OG.orange : OG.red)
+    }
+
+    private func readinessRecommendation(
+        _ advice: RecoveryEngine.TrainingReadinessAdvice
+    ) -> String {
+        switch advice {
+        case .usual: "Entrena con normalidad"
+        case .moderate: "Reduce la intensidad"
+        case .rest: "Prioriza el descanso"
+        }
+    }
+
+    private var currentHRVLabel: String {
+        guard let reading = physiology.days.last(where: {
+            Calendar.current.isDate($0.date, inSameDayAs: Date())
+        })?.hrvMilliseconds else { return "Sin datos" }
+        return "\(Int(reading.rounded())) ms"
+    }
+
+    private func readinessFactor(
+        _ title: String, icon: String, value: String
+    ) -> some View {
+        HStack(alignment: .top, spacing: 9) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .regular))
+                .foregroundStyle(OG.label2)
+                .frame(width: 22, alignment: .center)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(OG.label2)
+                Text(value)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .accessibilityElement(children: .combine)
+    }
 
     private var trainingRecoveryCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Recuperación para entrenar")
+            OGCardSectionTitle(title: "Preparación para entrenar")
             OGCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    if let outlook = tomorrowRecovery {
-                        HStack(alignment: .top, spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Orientación para mañana")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(OG.label2)
-                                Text(outlook.advice.rawValue)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(OG.label)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            Spacer(minLength: 4)
-                            Text("\(Int(outlook.score.rounded()))/10")
-                                .font(.system(size: 23, weight: .bold, design: .rounded).monospacedDigit())
-                                .foregroundStyle(
-                                    outlook.score >= 7.5 ? OG.accent :
-                                    (outlook.score >= 5.5 ? OG.orange : OG.red)
+                if appliedRecoveryKey != trainingRecoveryRefreshKey {
+                    HStack(spacing: 10) {
+                        ProgressView().tint(OG.accent)
+                        Text("Calculando recuperación…")
+                            .foregroundStyle(OG.label2)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                } else if let readiness = currentReadiness {
+                    let tint = readinessColor(readiness.score)
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Label(
+                                    readinessRecommendation(readiness.advice),
+                                    systemImage: readiness.score >= 8
+                                        ? "figure.run"
+                                        : (readiness.score >= 6 ? "figure.walk" : "bed.double")
                                 )
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
+                                .labelStyle(.titleAndIcon)
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(tint)
+                                .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Spacer(minLength: 8)
+                            ZStack {
+                                Circle()
+                                    .stroke(OG.surface3, lineWidth: 9)
+                                Circle()
+                                    .trim(from: 0, to: readiness.score / 10)
+                                    .stroke(tint, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                                    .rotationEffect(.degrees(-90))
+                                VStack(spacing: 1) {
+                                    Text("\(Int(readiness.score.rounded()))")
+                                        .font(.system(size: 29, weight: .bold, design: .rounded))
+                                        .foregroundStyle(OG.label)
+                                    Text("de 10")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(OG.label2)
+                                }
+                            }
+                            .frame(width: 95, height: 95)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel("Preparación \(Int(readiness.score.rounded())) de 10")
                         }
-                        Text("Proyección si esta noche duermes como la última noche registrada y no realizas otra sesión antes de mañana. No presupone constantes futuras.")
-                            .font(.caption)
-                            .foregroundStyle(OG.label2)
+
+                        Divider().opacity(0.25)
+
+                        LazyVGrid(
+                            columns: [
+                                GridItem(.flexible(), alignment: .leading),
+                                GridItem(.flexible(), alignment: .leading)
+                            ],
+                            alignment: .leading,
+                            spacing: 16
+                        ) {
+                            readinessFactor(
+                                "Sueño", icon: "moon",
+                                value: currentSleepHours.map {
+                                    String(format: "%.1f h", $0)
+                                } ?? "Sin datos"
+                            )
+                            readinessFactor(
+                                "Carga reciente", icon: "dumbbell",
+                                value: readiness.fatiguePenalty >= 2.3 ? "Alta"
+                                    : (readiness.fatiguePenalty >= 1.1 ? "Moderada" : "Baja")
+                            )
+                            readinessFactor(
+                                "VFC", icon: "heart", value: currentHRVLabel
+                            )
+                            readinessFactor(
+                                "Cardio · 48 h", icon: "waveform.path.ecg",
+                                value: readiness.cardioMinutes48h.map {
+                                    "\(Int($0.rounded())) min"
+                                } ?? "Sin registros"
+                            )
+                        }
                     }
-
-                    if recoveryPoints.count >= 2 {
-                        Chart(recoveryPoints) { point in
-                            LineMark(
-                                x: .value("Día", point.date),
-                                y: .value("Recuperación", point.score)
-                            )
-                            .interpolationMethod(.linear)
-                            .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                            .foregroundStyle(OG.accent)
-
-                            PointMark(
-                                x: .value("Día", point.date),
-                                y: .value("Recuperación", point.score)
-                            )
-                            .foregroundStyle(
-                                point.score >= 7.5 ? OG.accent :
-                                (point.score >= 5.5 ? OG.orange : OG.red)
-                            )
-                            .symbolSize(42)
-                        }
-                        .chartYScale(domain: 0.0...10.0)
-                        .chartYAxis {
-                            AxisMarks(position: .leading, values: [0.0, 5.0, 10.0])
-                        }
-                        .chartXAxis {
-                            AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                                AxisGridLine()
-                                AxisValueLabel(format: .dateTime.day().month(.abbreviated))
-                            }
-                        }
-                        .frame(height: 162)
-
-                        HStack {
-                            Text("Evolución al despertar")
-                            Spacer()
-                            if let last = recoveryPoints.last {
-                                Text("\(Int(last.score.rounded()))/10")
-                                    .monospacedDigit()
-                            }
-                        }
-                        .font(.caption.weight(.medium))
+                } else {
+                    Label("Datos insuficientes", systemImage: "heart")
+                        .font(.headline)
+                        .foregroundStyle(OG.label)
+                    Text("Necesitamos sueño y entrenamientos recientes para calcular tu preparación.")
+                        .font(.subheadline)
                         .foregroundStyle(OG.label2)
-                    } else if let latest = recoveryPoints.last {
-                        Text("Última recuperación estimada: \(Int(latest.score.rounded()))/10")
-                            .font(.footnote)
-                            .foregroundStyle(OG.label2)
-                    }
-                    if let last = recoveryPoints.last,
-                       let snapshot = physiology.days.last(where: {
-                           Calendar.current.isDate($0.date, inSameDayAs: last.date)
-                       }) {
-                        let context = RecoveryEngine.vitalContext(at: snapshot.date, history: physiology.days)
-                        if context.calibratedSignals > 0 {
-                            Text("Referencia individual: \(context.calibratedSignals) señales fisiológicas calibradas.")
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
-                            ForEach(context.notes, id: \.self) { note in
-                                Text(note).font(.caption).foregroundStyle(OG.orange)
-                            }
-                        }
-                    }
-                    Text("Estimación de descanso, carga muscular y señales fisiológicas solo cuando existen referencias suficientes. No es un diagnóstico ni sustituye cómo te encuentras.")
-                        .font(.caption)
-                        .foregroundStyle(OG.label3)
                 }
+            }
+        }
+    }
+
+    /// Una sola tendencia de disposición, no otra gráfica de sueño.
+    /// El degradado sigue el eje 0–10: rojo al faltar recuperación,
+    /// amarillo en la zona intermedia y verde en recuperación alta.
+    private var trainingRecoveryTrendCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            OGCardSectionTitle(title: "Evolución de recuperación")
+            OGCard {
+                Chart(recoveryPoints) { point in
+                    LineMark(
+                        x: .value("Día", point.date),
+                        y: .value("Recuperación", point.score)
+                    )
+                    .interpolationMethod(.catmullRom)
+                    .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                    .foregroundStyle(
+                        LinearGradient(
+                            stops: [
+                                .init(color: OG.red, location: 0),
+                                .init(color: OG.red, location: 0.40),
+                                .init(color: OG.orange, location: 0.60),
+                                .init(color: OG.orange, location: 0.72),
+                                .init(color: OG.accent, location: 0.84),
+                                .init(color: OG.accent, location: 1)
+                            ],
+                            startPoint: .bottom,
+                            endPoint: .top
+                        )
+                    )
+                    .alignsMarkStylesWithPlotArea()
+
+                    PointMark(
+                        x: .value("Día", point.date),
+                        y: .value("Recuperación", point.score)
+                    )
+                    .foregroundStyle(readinessColor(point.score))
+                    .symbolSize(36)
+                }
+                .chartYScale(domain: 0.0...10.0)
+                .chartYAxis {
+                    AxisMarks(position: .leading, values: [0.0, 5.0, 10.0])
+                }
+                .chartXAxis {
+                    AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                        AxisGridLine()
+                        AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+                    }
+                }
+                .chartPlotStyle { $0.clipped() }
+                .frame(height: 185)
+                .accessibilityLabel("Evolución de preparación para entrenar")
             }
         }
     }
