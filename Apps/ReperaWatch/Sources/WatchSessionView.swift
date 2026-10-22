@@ -141,8 +141,9 @@ struct WatchSessionView: View {
     }
 
     private func planFormat(_ session: WorkoutSession) -> String {
-        let kinds = Set(session.exercises.map { $0.blockKind })
-        if kinds.contains(.strength) && kinds.contains(.wod) { return "Mixto" }
+        let hasStrength = session.exercises.contains { $0.blockKind == .strength }
+        let hasWOD = session.exercises.contains { $0.blockKind == .wod }
+        if hasStrength && hasWOD { return "Mixto" }
         return session.exercises.first?.wodFormat?.displayName ?? "Fuerza"
     }
 
