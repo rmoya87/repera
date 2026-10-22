@@ -31,7 +31,11 @@ struct ReperaWatchApp: App {
                     if wantsRecovery { hub.recoverHealthSession() }
                 }
                 .onChange(of: scenePhase) { _, next in
-                    if next != .active { hub.applicationWillResignActive() }
+                    if next == .active {
+                        hub.refreshToday()
+                    } else {
+                        hub.applicationWillResignActive()
+                    }
                 }
         }
     }
