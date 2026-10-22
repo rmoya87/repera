@@ -238,9 +238,17 @@ final class BusinessWorkoutSyncStore {
                 let clean = Self.privateMirrorPayload(original)
                 let checksum = digest(clean)
                 let id = original.id.uuidString
-                if existing[original.id] != nil && seen[id] == nil {
-                    seen[id] = checksum
-                    return nil
+                if let remoteRow = existing[original.id], seen[id] == nil {
+                    // First sync on another device must not overwrite an edited
+                    // remote workout. The sole safe exception is restoring a
+                    // missing original block snapshot when EVERY other mirrored
+                    // field agrees with the remote version.
+                    guard let remoteWorkout = remoteRow.payload,
+                          Self.isSafeBlockSnapshotBackfill(local: clean, remote: remoteWorkout)
+                    else {
+                        seen[id] = checksum
+                        return nil
+                    }
                 }
                 guard existing[original.id] == nil || seen[id] != checksum else { return nil }
                 return MirrorUpload(
@@ -347,6 +355,22 @@ final class BusinessWorkoutSyncStore {
         value.appleActiveEnergyKcal = nil
         value.appleDurationSeconds = nil
         return value
+    }
+
+    /// Repairs legacy mirrors without changing a single performed set, WOD
+    /// result, date or other field. A current routine is NOT a trustworthy
+    /// historical snapshot: only blocks already saved in the local workout
+    /// itself may be sent back to Supabase.
+    private static func isSafeBlockSnapshotBackfill(
+        local: WorkoutSession, remote: WorkoutSession
+    ) -> Bool {
+        guard let originalBlocks = local.routineBlocks, !originalBlocks.isEmpty,
+              remote.routineBlocks?.isEmpty != false
+        else { return false }
+
+        var enrichedRemote = privateMirrorPayload(remote)
+        enrichedRemote.routineBlocks = originalBlocks
+        return enrichedRemote == local
     }
 
     private func digest(_ workout: WorkoutSession) -> String {
