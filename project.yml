@@ -120,7 +120,7 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: Repera usa la cámara para leer ejercicios de una pizarra o TV y montar la sesión.
         NSPhotoLibraryUsageDescription: Repera lee fotos de pizarras o pantallas para importar el entrenamiento.
-        NSHealthShareUsageDescription: Repera lee con tu permiso entrenamientos, pulsaciones, zonas cardíacas y, si los autorizas, sueño, variabilidad cardíaca, pulso en reposo, respiración, oxígeno y temperatura nocturna para gráficos y orientación de recuperación. Estas constantes se analizan en tu iPhone y no se envían a Supabase.
+        NSHealthShareUsageDescription: Repera lee con tu permiso pasos, calorías activas, entrenamientos, pulsaciones, zonas cardíacas y, si los autorizas, sueño, variabilidad cardíaca, pulso en reposo, respiración, oxígeno y temperatura nocturna para mostrar actividad, objetivos y recuperación. Estos datos de Salud se analizan en tu iPhone y no se envían a Supabase.
         NSHealthUpdateUsageDescription: Repera guarda el entreno en Apple Salud usando las calorías y el tiempo que reporta Salud / Apple Watch.
         NSLocationWhenInUseUsageDescription: Repera usa tu ubicación para mostrar en el mapa dónde entrenaste y, en entrenos outdoor, el recorrido.
         NSLocationTemporaryUsageDescriptionDictionary:
