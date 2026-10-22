@@ -32,7 +32,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     private(set) var permissionIssue: String?
     private(set) var isRecording = false
 
-    func recoverIfNeeded(id: UUID, completion: ((Bool) -> Void)? = nil) {
+    func recoverIfNeeded(id: UUID, completion: (@MainActor @Sendable (Bool) -> Void)? = nil) {
         guard workout == nil, HKHealthStore.isHealthDataAvailable() else {
             completion?(workout != nil)
             return
