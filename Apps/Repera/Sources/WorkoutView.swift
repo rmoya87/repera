@@ -1312,13 +1312,17 @@ struct WorkoutView: View {
             let rest = max(0, current.blockRestBetweenRoundsSeconds ?? 0)
             var durations: [Int] = []
             var phases: [String] = []
+            var roundNumbers: [Int] = []
             for workIndex in 0..<totalWork {
+                let round = workIndex / stations + 1
                 durations.append(interval)
                 phases.append("Circuito · estación \(workIndex % stations + 1)/\(stations)")
+                roundNumbers.append(round)
                 let isRoundEnd = (workIndex + 1).isMultiple(of: stations)
                 if isRoundEnd && workIndex + 1 < totalWork && rest > 0 {
                     durations.append(rest)
                     phases.append("Circuito · descanso entre rondas")
+                    roundNumbers.append(round)
                 }
             }
             store.workoutClock.configure(
@@ -1332,6 +1336,8 @@ struct WorkoutView: View {
                 initialCountdown: interval,
                 customPhaseDurations: durations,
                 customPhaseSubtitles: phases,
+                customRoundNumbers: roundNumbers,
+                customRoundsTotal: (totalWork + stations - 1) / stations,
                 sound: sound,
                 haptic: haptic
             )
