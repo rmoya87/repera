@@ -24,6 +24,21 @@ public enum SyncConflictResolver: Sendable {
         return .equal
     }
 
+    /// Only the original blocks persisted in the completed local session may
+    /// enrich a legacy cloud mirror. Every other field must match exactly, so
+    /// neither stale devices nor edited routines can replace workout results.
+    public static func canRestoreMissingBlockSnapshot(
+        local: WorkoutSession, remote: WorkoutSession
+    ) -> Bool {
+        guard let blocks = local.routineBlocks, !blocks.isEmpty,
+              remote.routineBlocks?.isEmpty != false
+        else { return false }
+
+        var candidate = remote
+        candidate.routineBlocks = blocks
+        return candidate == local
+    }
+
     public static func pickNewest(local: AppState?, remote: AppState?) -> AppState? {
         switch (local, remote) {
         case let (l?, r?):
