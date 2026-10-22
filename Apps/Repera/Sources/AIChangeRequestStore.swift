@@ -100,6 +100,22 @@ final class AIChangeRequestStore {
         }
     }
 
+    private func ackKey(_ owner:UUID) -> String {
+        "repera.ai.change.acks.\(owner.uuidString.lowercased())"
+    }
+    private func awaitingAck(_ owner:UUID) -> Set<String> {
+        Set(UserDefaults.standard.stringArray(forKey:ackKey(owner)) ?? [])
+    }
+    private func queueAck(_ owner:UUID,_ id:UUID) {
+        var outstanding=awaitingAck(owner)
+        outstanding.insert(id.uuidString)
+        UserDefaults.standard.set(Array(outstanding),forKey:ackKey(owner))
+    }
+    private func removeAck(_ owner:UUID,_ id:UUID) {
+        var outstanding=awaitingAck(owner)
+        outstanding.remove(id.uuidString)
+        UserDefaults.standard.set(Array(outstanding),forKey:ackKey(owner))
+    }
     func clearSession() { pending=[];lastError=nil }
 
     func refresh(store: ReperaStore) async {
@@ -115,7 +131,22 @@ final class AIChangeRequestStore {
                 .eq("status",value:"pending")
                 .order("created_at").limit(100).execute().value
             guard client.auth.currentSession?.user.id==session.user.id else {return}
-            pending=rows;lastError=nil
+            // Replay persisted ACKs when local change succeeded but network
+            // failed: never re-delete HealthKit workouts on retry.
+            let awaiting=awaitingAck(session.user.id)
+            for row in rows where awaiting.contains(row.id.uuidString) {
+                let update=Decision(status:"applied",decidedAt:Date(),
+                                    decisionMessage:"Aplicado localmente tras consentimiento")
+                do {
+                    try await client.from("ai_athlete_change_requests").update(update)
+                        .eq("id",value:row.id.uuidString)
+                        .eq("owner_id",value:session.user.id.uuidString)
+                        .eq("status",value:"pending").execute()
+                    removeAck(session.user.id,row.id)
+                } catch { /* Preserved until the next account sync */ }
+            }
+            pending=rows.filter{ !awaiting.contains($0.id.uuidString) }
+            lastError=nil
         } catch {lastError="No se pudieron recuperar los cambios propuestos: \(error.localizedDescription)"}
     }
 
@@ -236,18 +267,20 @@ final class AIChangeRequestStore {
                         else {lastError="El ejercicio personalizado ya no existe.";return false}
                         store.deleteExercise(id)
                     } else {return false}
-                    guard await syncCustomExercises(store:store) else {
-                        lastError="Ejercicio local guardado; falta sincronizar su copia privada. Reintenta."
-                        return false
-                    }
+                    // The native operation has succeeded. A mirror upload
+                    // failure cannot cause an already performed deletion to
+                    // be re-executed on the next approval attempt.
+                    _ = await syncCustomExercises(store:store)
                 }
                 status="applied";message="Aplicado localmente tras consentimiento"
+                queueAck(owner,request.id)
             }
             let update=Decision(status:status,decidedAt:Date(),decisionMessage:message)
             try await client.from("ai_athlete_change_requests").update(update)
                 .eq("id",value:request.id.uuidString)
                 .eq("owner_id",value:owner.uuidString)
                 .eq("status",value:"pending").execute()
+            if approve {removeAck(owner,request.id)}
             pending.removeAll{$0.id==request.id}
             lastError=nil
             return true
