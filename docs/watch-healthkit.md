@@ -25,6 +25,12 @@ Entitlement HealthKit y cadenas `NSHealthShareUsageDescription` / `NSHealthUpdat
 
 No se infiere la concesión de permisos de una lista de muestras vacía. Una lectura que aún no se ha transferido entre dispositivos se mantiene **pendiente**, no como cero.
 
+## Complicación WidgetKit y WidgetBundle
+
+La extensión `ReperaWatchWidget` utiliza la estructura nativa de WidgetKit: `ReperaWatchWidget: Widget` devuelve `StaticConfiguration` desde `body: some WidgetConfiguration`, mientras que `ReperaWatchWidgetBundle: WidgetBundle` devuelve `ReperaWatchWidget()` desde `body: some Widget`. Nunca colocar `StaticConfiguration` directamente en el cuerpo de un `WidgetBundle`, porque `WidgetBundleBuilder.buildExpression` solo acepta tipos `Widget` y Swift devuelve `No exact matches in call to static method 'buildExpression'`.
+
+El test `test_watch_complication_uses_widget_configuration_inside_widget` en `tests/test_watch_healthkit_contract.py` protege esta composición. Se mantienen las familias circular, rectangular e inline, el icono `ReperaIcon` y el enlace `repera-watch://today`.
+
 ## Pruebas antes de publicar
 
 - XcodeGen + build iOS/watchOS 27 con firma y entitlements efectivos; ejecutar en Apple Watch físico (los sensores no son equivalentes en simulador).
