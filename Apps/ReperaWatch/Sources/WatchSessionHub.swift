@@ -405,7 +405,14 @@ final class WatchSessionHub: NSObject {
     func confirmAndAdvance() {
         guard active?.phase == .counting, !isPaused, !reviewingBlock else { return }
         if currentIsWOD {
-            if wodUsesSeries { confirmIntervalSet() } else { reviewBlock() }
+            if wodUsesSeries {
+                confirmIntervalSet()
+                // The final movement can finish directly from one primary action.
+                // Its score is still reviewed; no duplicate confirmation dialog.
+                if isLastWorkoutExercise { reviewBlock() }
+            } else {
+                reviewBlock()
+            }
             return
         }
         if selectedSetIndex != nil {
