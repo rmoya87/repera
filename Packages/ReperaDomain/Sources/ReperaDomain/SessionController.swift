@@ -103,11 +103,15 @@ public struct SessionController: Sendable {
               session.exercises[session.currentIndex].loggedSets[index].id == set.id
         else { return false }
         session.exercises[session.currentIndex].loggedSets[index] = set
+        let savedSets = session.exercises[session.currentIndex].loggedSets
         session.exercises[session.currentIndex].completedReps =
-            session.exercises[session.currentIndex].loggedSets
-                .filter { $0.phase == .work }
-                .reduce(0) { $0 + $1.reps + ($1.kind == .dropset
-                    ? $1.drops.reduce(0) { $0 + $1.reps } : 0) }
+            savedSets.reduce(into: 0) { count, saved in
+                guard saved.phase == .work else { return }
+                count += saved.reps
+                if saved.kind == .dropset {
+                    count += saved.drops.reduce(0) { $0 + $1.reps }
+                }
+            }
         return true
     }
 
