@@ -17,6 +17,8 @@ final class BusinessWorkoutSyncStore {
     private(set) var lastError: String?
     private(set) var mirroredCount = 0
     private(set) var recoveredCount = 0
+    private(set) var restoredBlockSnapshots = 0
+    private(set) var incompleteHistoricalWODCount = 0
     private(set) var sharingByCenter: [UUID: Bool] = [:]
     private(set) var updatingSharingCenter: UUID?
     @ObservationIgnored private var generation = 0
@@ -129,6 +131,8 @@ final class BusinessWorkoutSyncStore {
         lastError = nil
         mirroredCount = 0
         recoveredCount = 0
+        restoredBlockSnapshots = 0
+        incompleteHistoricalWODCount = 0
         sharingByCenter = [:]
         updatingSharingCenter = nil
         // Per-user fingerprints/deletion outbox are intentionally retained.
@@ -155,6 +159,7 @@ final class BusinessWorkoutSyncStore {
             return false
         }
         isSyncing = true
+        restoredBlockSnapshots = 0
         let run = generation
         defer {
             isSyncing = false
@@ -195,6 +200,16 @@ final class BusinessWorkoutSyncStore {
 
             var seen = fingerprints(user)
             let existing = Dictionary(uniqueKeysWithValues: remote.map { ($0.id, $0) })
+            // Legacy WODs without an original block snapshot cannot support
+            // fully calibrated stimulus comparisons. Never invent missing Rx.
+            let unstructuredRemoteWODs = Set(remote.compactMap { row -> UUID? in
+                guard row.deletedAt == nil, let workout = row.payload,
+                      !workout.wodResults.isEmpty,
+                      workout.routineBlocks?.isEmpty != false
+                else { return nil }
+                return row.id
+            })
+            var restoredBlockIDs = Set<UUID>()
             let deletionIDs = Set(pendingDeletes(user))
             var recovered: [WorkoutSession] = []
             let localIds = Set(store.state.workouts.map(\.id))
@@ -264,7 +279,13 @@ final class BusinessWorkoutSyncStore {
                 else { return false }
                 try await client.from("athlete_workout_mirror")
                     .upsert(batch, onConflict: "id").execute()
-                for entry in batch { seen[entry.id.uuidString] = digest(entry.payload) }
+                for entry in batch {
+                    seen[entry.id.uuidString] = digest(entry.payload)
+                    if unstructuredRemoteWODs.contains(entry.id),
+                       entry.payload.routineBlocks?.isEmpty == false {
+                        restoredBlockIDs.insert(entry.id)
+                    }
+                }
                 UserDefaults.standard.set(seen, forKey: key(user, suffix: "fingerprints"))
             }
             guard run == generation, BusinessAuthStore.shared.isConnected,
@@ -272,6 +293,8 @@ final class BusinessWorkoutSyncStore {
             else { return false }
             UserDefaults.standard.set(seen, forKey: key(user, suffix: "fingerprints"))
             mirroredCount = Set(existing.values.filter { $0.deletedAt == nil }.map(\.id)).union(pending.map(\.id)).count
+            restoredBlockSnapshots = restoredBlockIDs.count
+            incompleteHistoricalWODCount = unstructuredRemoteWODs.subtracting(restoredBlockIDs).count
             lastSyncAt = Date()
             lastError = nil
             await refreshSharing()
