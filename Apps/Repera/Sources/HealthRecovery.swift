@@ -344,9 +344,15 @@ final class HealthPhysiologyStore {
         let dates = Set((hrv + rest + breathing + oxygen + wrist + hrRecovery)
             .map { cal.startOfDay(for: $0.date) })
 
-        func median(_ samples: [Reading], for day: Date, valid: ClosedRange<Double>) -> Double? {
+        func median(
+            _ samples: [Reading], for day: Date,
+            valid: ClosedRange<Double>, beforeTrainingMorning: Bool = false
+        ) -> Double? {
+            let cutoff = cal.date(bySettingHour: 7, minute: 0, second: 0, of: day)
+                ?? day.addingTimeInterval(7 * 3600)
             let sorted = samples.compactMap { record -> Double? in
                 guard cal.isDate(record.date, inSameDayAs: day),
+                      !beforeTrainingMorning || record.date <= cutoff,
                       record.value.isFinite, valid.contains(record.value) else { return nil }
                 return record.value
             }.sorted()
@@ -360,9 +366,9 @@ final class HealthPhysiologyStore {
             let oxygenValue = median(oxygen, for: day, valid: 0...100)
             return RecoveryEngine.DailyVitals(
                 date: day,
-                hrvMilliseconds: median(hrv, for: day, valid: 5...300),
-                restingHeartRateBpm: median(rest, for: day, valid: 30...130),
-                respiratoryRateBpm: median(breathing, for: day, valid: 6...40),
+                hrvMilliseconds: median(hrv, for: day, valid: 5...300, beforeTrainingMorning: true),
+                restingHeartRateBpm: median(rest, for: day, valid: 30...130, beforeTrainingMorning: true),
+                respiratoryRateBpm: median(breathing, for: day, valid: 6...40, beforeTrainingMorning: true),
                 oxygenSaturationPercent: oxygenValue.map { $0 <= 1 ? $0 * 100 : $0 },
                 wristTemperatureCelsius: median(wrist, for: day, valid: 25...42),
                 heartRateRecoveryBpm: median(hrRecovery, for: day, valid: 0...100)
