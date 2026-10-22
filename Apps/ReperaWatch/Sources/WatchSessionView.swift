@@ -235,6 +235,22 @@ struct WatchSessionView: View {
                          total: Double(hub.timeCapSeconds))
                 .tint(accent)
         }
+        HStack(spacing: 12) {
+            if let pulse = hub.heartRateBpm {
+                Label("\(pulse) lpm", systemImage: "heart.fill")
+                    .foregroundStyle(.red)
+            }
+            if let kcal = hub.measuredEnergyKcal {
+                Label("\(Int(kcal.rounded())) kcal", systemImage: "flame.fill")
+                    .foregroundStyle(.orange)
+            }
+        }
+        .font(.caption2)
+        if let warning = hub.healthWarning {
+            Label(warning, systemImage: "heart.slash")
+                .font(.caption2)
+                .foregroundStyle(.orange)
+        }
         if hub.isPaused {
             Label("En pausa", systemImage: "pause.circle.fill")
                 .font(.caption)
@@ -468,7 +484,16 @@ struct WatchSessionView: View {
                     .font(.caption)
                     .multilineTextAlignment(.center)
                 statsLine(icon: "clock", label: "Duración",
-                          value: timeLabel(Int(session.appleDurationSeconds ?? 0)))
+                          value: timeLabel(Int(session.appleDurationSeconds ??
+                              session.finishedAt?.timeIntervalSince(session.startedAt ?? Date()) ?? 0)))
+                if let energy = session.appleActiveEnergyKcal {
+                    statsLine(icon: "flame.fill", label: "Salud",
+                              value: "\(Int(energy.rounded())) kcal")
+                }
+                if let bpm = session.appleAverageHeartRateBpm {
+                    statsLine(icon: "heart.fill", label: "FC media",
+                              value: "\(Int(bpm.rounded())) lpm")
+                }
                 statsLine(icon: "list.number", label: "Series", value: "\(sets.count)")
                 statsLine(icon: "number", label: "Repeticiones", value: "\(reps)")
                 statsLine(icon: "scalemass", label: "Volumen",
