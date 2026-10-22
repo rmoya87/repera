@@ -382,6 +382,7 @@ struct SettingsView: View {
                     HistoryView()
                 } label: {
                     Label("Historial", systemImage: "clock")
+                        .foregroundStyle(OG.label)
                 }
                 Picker("Unidad", selection: Binding(
                     get: { store.state.settings.weightUnit },
