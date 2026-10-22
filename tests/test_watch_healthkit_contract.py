@@ -165,7 +165,14 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn('Label("Sincronizar", systemImage:', view)
         self.assertIn('Image("MascotWatch")', view)
         self.assertIn("GeometryReader { available in", view)
-        self.assertNotIn("figure.strengthtraining.traditional", view)
+        empty_screen = view.partition("private var emptyView: some View")[2].partition(
+            "private func todayView("
+        )[0]
+        self.assertNotIn("figure.strengthtraining.traditional", empty_screen)
+        ios_mascot = ROOT / "Apps/Repera/Resources/Assets.xcassets/MascotWatch.imageset/mascot-watch.png"
+        watch_mascot = ROOT / "Apps/ReperaWatch/Resources/Assets.xcassets/MascotWatch.imageset/mascot-watch.png"
+        self.assertTrue(watch_mascot.is_file())
+        self.assertEqual(ios_mascot.read_bytes(), watch_mascot.read_bytes())
         self.assertNotIn("Sincronizar con iPhone", view)
 
         # iPhone fetches the current scheduled routine before replying.
