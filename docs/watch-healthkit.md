@@ -51,6 +51,10 @@ El Watch utiliza las variantes `async throws` de `requestAuthorization(toShare:r
 
 
 
+## Identidad visual: icono único en iOS, watchOS y complicación
+
+El recurso canónico es `Apps/Repera/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png`. La app Apple Watch (`Apps/ReperaWatch/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png`) y el recurso `ReperaIcon` de la complicación (`Apps/ReperaWatchWidget/Assets.xcassets/ReperaIcon.imageset/repera.png`) reutilizan **exactamente el mismo archivo PNG**, sin recrearlo ni cambiar colores o dibujo. Los `Contents.json` mantienen el identificador y la plataforma específicos de cada destino. Si se actualiza el icono de iPhone, copiar también los bytes de ese PNG a los dos recursos del reloj. El test `test_watch_app_and_complication_icons_match_ios` verifica esa igualdad.
+
 ## Ejecutar la app Watch en el simulador
 
 La app del reloj es el target `ReperaWatch` y necesita su **scheme ejecutable** homónimo. El target `ReperaWatchWidget` es únicamente una extensión de WidgetKit para la complicación de la esfera; seleccionarlo en Xcode no ejecuta la app de entrenamientos. `project.yml` declara ahora explícitamente el scheme `ReperaWatch` con `build.targets.ReperaWatch: all` y `run.executable: ReperaWatch`.

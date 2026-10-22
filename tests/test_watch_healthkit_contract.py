@@ -88,6 +88,14 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn('Image("ReperaIcon")', widget)
         self.assertIn(".widgetURL(", widget)
 
+    def test_watch_app_and_complication_icons_match_ios(self):
+        """Reuse iOS AppIcon bytes so all three icons stay visually identical."""
+        ios = ROOT / "Apps/Repera/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
+        watch = ROOT / "Apps/ReperaWatch/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
+        complication = ROOT / "Apps/ReperaWatchWidget/Assets.xcassets/ReperaIcon.imageset/repera.png"
+        self.assertEqual(watch.read_bytes(), ios.read_bytes())
+        self.assertEqual(complication.read_bytes(), ios.read_bytes())
+
     def test_watch_complication_uses_widget_configuration_inside_widget(self):
         """WidgetBundleBuilder accepts Widget, not StaticConfiguration."""
         widget = source("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
