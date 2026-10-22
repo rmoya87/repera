@@ -1462,10 +1462,92 @@ final class ReperaStore: NSObject {
         if changed { sessionEpoch &+= 1 }
     }
 
+    private func professionalWorkoutForWatchToday() -> WorkoutSession? {
+        let key = BusinessDataStore.localDayKey(Date())
+        guard let assigned = BusinessDataStore.shared.trainingSessions.first(where: {
+            $0.scheduledDate == key && $0.status == "scheduled" &&
+            $0.prescription?.schemaVersion == 1 && $0.prescription?.blocks.isEmpty == false
+        }), let prescription = assigned.prescription else { return nil }
+
+        // The coach's immutable prescription can be read offline on Watch,
+        // without introducing coach exercises into the athlete's personal catalog.
+        var catalog = state.exercises
+        var blocks: [RoutineBlock] = []
+        func resolvedExercise(_ entry: BusinessPrescriptionEntry) -> Exercise {
+            if let key = entry.catalogKey,
+               let uuid = UUID(uuidString: key),
+               let found = catalog.first(where: { $0.id == uuid }) { return found }
+            if let found = catalog.first(where: {
+                ExerciseEquivalence.sameName($0.name, entry.name)
+            }) { return found }
+            let custom = Exercise(name: entry.name, muscleGroup: "Entrenador", isCustom: true)
+            catalog.append(custom)
+            return custom
+        }
+
+        for prescribed in prescription.blocks {
+            let isWOD = prescribed.kind == "wod"
+            let format: WODFormat? = {
+                guard let raw = prescribed.wodFormat else { return nil }
+                switch raw.lowercased().replacingOccurrences(of: "_", with: "") {
+                case "rft", "fortime": return .forTime
+                case "emom", "every": return .emom
+                case "amrap": return .amrap
+                case "tabata": return .tabata
+                case "chipper": return .chipper
+                case "circuit": return .circuit
+                case "ladder": return .ladder
+                case "strength": return .strength
+                default: return WODFormat(rawValue: raw)
+                }
+            }()
+            var strength: [RoutineExercise] = []
+            var movements: [WODMovement] = []
+            for entry in prescribed.entries {
+                let exercise = resolvedExercise(entry)
+                let sets = entry.plannedSets?.map {
+                    PlannedSet(id: $0.id, targetReps: max(0, $0.targetReps),
+                               targetWeightKg: $0.targetWeightKg,
+                               targetRir: $0.targetRir)
+                } ?? []
+                if isWOD {
+                    movements.append(WODMovement(
+                        id: entry.id, exerciseId: exercise.id,
+                        name: exercise.name, reps: entry.reps,
+                        notes: entry.notes,
+                        explicitPlannedSets: sets.isEmpty ? nil : sets
+                    ))
+                } else {
+                    strength.append(RoutineExercise(
+                        id: entry.id, exerciseId: exercise.id,
+                        plannedSets: sets.isEmpty
+                            ? [PlannedSet(targetReps: max(0, entry.reps ?? 0))] : sets
+                    ))
+                }
+            }
+            blocks.append(RoutineBlock(
+                id: prescribed.id, title: prescribed.title,
+                kind: isWOD ? .wod : .strength, exercises: strength,
+                movements: movements, wodFormat: format,
+                timeCapMinutes: prescribed.timeCapMinutes,
+                rounds: prescribed.rounds
+            ))
+        }
+        guard !blocks.isEmpty else { return nil }
+        let routine = Routine(
+            id: assigned.id, title: assigned.title,
+            scheduledDate: Date(), blocks: blocks, progression: .off
+        )
+        let preview = SessionController.from(routine: routine, exercises: catalog)
+        return preview.exercises.isEmpty ? nil : preview
+    }
+
     private func sendWatchContextNow() {
-        let today = routineForToday().map {
+        let personal = routineForToday().map {
             SessionController.from(routine: $0, exercises: state.exercises)
         }
+        let today = (personal?.exercises.isEmpty == false ? personal : nil)
+            ?? professionalWorkoutForWatchToday()
         connectivity.send(
             session: state.activeSession,
             today: today,
