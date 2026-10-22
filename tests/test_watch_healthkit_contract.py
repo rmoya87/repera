@@ -71,6 +71,18 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn('Image("ReperaIcon")', widget)
         self.assertIn(".widgetURL(", widget)
 
+    def test_watch_complication_uses_widget_configuration_inside_widget(self):
+        """WidgetBundleBuilder accepts Widget, not StaticConfiguration."""
+        widget = source("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
+        self.assertIn("struct ReperaWatchWidget: Widget {", widget)
+        self.assertIn("var body: some WidgetConfiguration {", widget)
+        self.assertIn("StaticConfiguration(", widget)
+        self.assertIn("struct ReperaWatchWidgetBundle: WidgetBundle {", widget)
+        self.assertIn("var body: some Widget {\\n        ReperaWatchWidget()\\n    }", widget)
+        self.assertEqual(widget.count("@main"), 1)
+        for family in (".accessoryCircular", ".accessoryRectangular", ".accessoryInline"):
+            self.assertIn(family, widget)
+
 
 if __name__ == "__main__":
     unittest.main()
