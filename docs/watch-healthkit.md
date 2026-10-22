@@ -52,6 +52,14 @@ El Watch utiliza las variantes `async throws` de `requestAuthorization(toShare:r
 
 
 
+## Paridad del registro de entrenamiento iPhone ↔ Apple Watch
+
+El Apple Watch utiliza los tipos de dominio compartidos `SessionExercise`, `LoggedSet` y `WODBlockResult`. El formulario depende de `exercise.loggingStyle`: fuerza usa kg/reps/RIR, peso corporal reps/RIR, HSPU puede usar déficit en cm, comba registra veces/segundos y ergómetros o carrera duración más **Cal o metros**; no convertir esas unidades a repeticiones genéricas.
+
+La opción **Más datos** permite elegir trabajo o calentamiento, serie normal, al fallo, dropset (cada drop con carga/reps) y rest-pause (reps/descanso de cada cluster). La versión offline de las entradas pendientes se guarda en `WatchSetDraft` dentro del snapshot Codable del reloj; una serie confirmada se convierte en `LoggedSet` sin eliminar campos opcionales. Volver por gestos a una serie anterior conserva ID, fecha y metadatos usando `SessionController.replaceLoggedSet`, sin registrar una serie adicional. EMOM/Tabata conserva intervalos/series reales y requiere **Terminar bloque** explícito: registrar una serie del último movimiento no debe cerrar el WOD.
+
+Desde **¡Bien hecho!** el botón **Volver al inicio** oculta el resumen en el acto, incluso mientras HealthKit está guardando. Se conserva internamente `lastFinished` para incorporar pulsaciones/calorías/UUID de Salud y esperar el ACK del iPhone; `summaryDismissed` se persiste para no reabrir el resumen tras reiniciar el reloj. Ni el retorno a Inicio ni el cierre de la vista deben cancelar el registro o fabricar datos. Los contratos automatizados están en `tests/test_watch_healthkit_contract.py` y los datos/ediciones se comprueban con `WatchSetNavigationTests.swift`.
+
 ## Interfaz nativa de entrenamiento en Apple Watch
 
 El flujo se organiza por **Hoy → bloque preparado → Play → Bien hecho**:
