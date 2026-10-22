@@ -68,7 +68,22 @@ final class WatchSessionHub: NSObject {
     }
     var current: SessionExercise? { active?.currentExercise }
     var currentIsWOD: Bool { current?.blockKind == .wod && current?.wodFormat != .strength }
-    var timeCapSeconds: Int { max(0, (current?.blockTimeCapMinutes ?? 0) * 60) }
+    var timeCapSeconds: Int {
+        guard let exercise = current else { return 0 }
+        if let minutes = exercise.blockTimeCapMinutes, minutes > 0 { return minutes * 60 }
+        switch exercise.wodFormat {
+        case .emom, .circuit:
+            let count = exercise.plannedIntervals ?? 0
+            return count > 0 ? count * max(1, exercise.blockIntervalSeconds ?? 60) : 0
+        case .tabata:
+            let rounds = exercise.blockRounds ?? 0
+            guard rounds > 0 else { return 0 }
+            let work = max(1, exercise.blockWorkSeconds ?? 20)
+            let rest = max(0, exercise.blockRestSeconds ?? 10)
+            return rounds * work + max(0, rounds - 1) * rest
+        default: return 0
+        }
+    }
     var timeRemaining: Int? { timeCapSeconds > 0 ? max(0, timeCapSeconds - blockElapsed) : nil }
     var plannedSets: Int { current?.plannedSets.count ?? 0 }
     var completedSets: Int { current?.loggedSets.count ?? 0 }
