@@ -228,7 +228,15 @@ struct WatchSessionView: View {
             .contentTransition(.numericText())
             .accessibilityLabel(hub.timeRemaining == nil ? "Tiempo transcurrido" : "Tiempo restante")
         if let label = hub.intervalLabel {
-            Text(label).font(.caption2).foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Text(label).font(.caption2).foregroundStyle(.secondary)
+                Spacer(minLength: 4)
+                if let remaining = hub.intervalRemaining {
+                    Text(timeLabel(remaining))
+                        .font(.caption.weight(.bold))
+                        .monospacedDigit()
+                }
+            }
         }
         if hub.timeCapSeconds > 0 {
             ProgressView(value: Double(min(hub.blockElapsed, hub.timeCapSeconds)),
@@ -390,9 +398,14 @@ struct WatchSessionView: View {
                     scoreStepper(label: "Rondas", value: hub.completedRounds,
                                  down: { hub.adjustRounds(-1) }, up: { hub.adjustRounds(1) })
                 }
-                if hub.current?.wodFormat == .amrap {
-                    scoreStepper(label: "Reps adicionales", value: hub.remainingRoundReps,
-                                 down: { hub.adjustExtraReps(-1) }, up: { hub.adjustExtraReps(1) })
+                if hub.current?.wodFormat?.resultCapture == .totalReps {
+                    scoreStepper(
+                        label: hub.current?.wodFormat == .amrap
+                            ? "Reps adicionales" : "Repeticiones totales",
+                        value: hub.remainingRoundReps,
+                        down: { hub.adjustExtraReps(-1) },
+                        up: { hub.adjustExtraReps(1) }
+                    )
                 }
                 Text("Tiempo: \(timeLabel(hub.blockElapsed))")
                     .font(.caption)
