@@ -1,17 +1,19 @@
 import Foundation
 
-/// Formula v10: no numeric score without independent personal history.
+/// Formula v11: evidence tiers with no synthetic rating without personal history.
 /// Three separate indicators; the registration coverage is NEVER fitness points.
 public enum VerifiedSessionReviewEngine {
     public static let minimumPriorSessions = 2
     public static let minimumEvidenceCoverage = 0.60
     public static let historyHorizonDays = 180
+    public static let minimumStimulusReferenceDays = 3
 
     private struct Evidence {
         let score: Int
         let weight: Double
         let referenceCount: Int
         let explanation: String
+        let tier: Int
     }
 
     public static func review(
@@ -49,8 +51,9 @@ public enum VerifiedSessionReviewEngine {
         let movementEvidence = movementEntries.compactMap {
             personalEvidence(entry: $0, prior: prior)
         }
-        let wodEvidence = wodResults.compactMap {
-            wodEvidence(result: $0, session: session, prior: prior)
+        let wodEvidence = wodResults.compactMap { result in
+            wodEvidence(result: result, session: session, prior: prior)
+                ?? calibratedStimulusEvidence(result: result, session: session, prior: prior)
         }
         let eligible = movementEvidence + wodEvidence
         guard !eligible.isEmpty else { return nil }
@@ -76,8 +79,17 @@ public enum VerifiedSessionReviewEngine {
             $0 + $1.loggedSets.filter { !$0.isWarmup }.count
         }
         let minReferences = eligible.map(\.referenceCount).min() ?? minimumPriorSessions
-        let confidence = minReferences >= 5 && coverage >= 0.80
-            ? "Alta" : "En construcción"
+        let weakestTier = eligible.map(\.tier).max() ?? 1
+        let confidence: String
+        if weakestTier == 1 && minReferences >= 5 && coverage >= 0.80 {
+            confidence = "Alta"
+        } else if weakestTier == 3 {
+            confidence = "Baja · estímulo estimado"
+        } else if weakestTier == 2 {
+            confidence = "Media · distinto contexto"
+        } else {
+            confidence = "En construcción"
+        }
         let coveragePercent = Int((coverage * 100).rounded())
 
         let indicators: [ReviewIndicator] = [
@@ -87,7 +99,8 @@ public enum VerifiedSessionReviewEngine {
                 detail: personal == nil
                     ? "Faltan dos sesiones previas comparables de cada ejercicio."
                     : movementEvidence.map(\.explanation).joined(separator: " · "),
-                referenceSessions: movementEvidence.map(\.referenceCount).min() ?? 0
+                referenceSessions: movementEvidence.map(\.referenceCount).min() ?? 0,
+                comparisonLevel: movementEvidence.map(\.tier).max()
             ),
             ReviewIndicator(
                 dimension: .adherence,
@@ -103,7 +116,8 @@ public enum VerifiedSessionReviewEngine {
                 detail: wod == nil
                     ? "Faltan dos marcas anteriores del mismo WOD, formato y prescripción."
                     : wodEvidence.map(\.explanation).joined(separator: " · "),
-                referenceSessions: wodEvidence.map(\.referenceCount).min() ?? 0
+                referenceSessions: wodEvidence.map(\.referenceCount).min() ?? 0,
+                comparisonLevel: wodEvidence.map(\.tier).max()
             )
         ]
         return SessionReview(
@@ -111,8 +125,8 @@ public enum VerifiedSessionReviewEngine {
             level: nil,
             headline: "Rendimiento personal · \(score)/10",
             vsHistorySummary: "\(coveragePercent)% del rendimiento registrado tiene referencias personales comparables.",
-            vsStandardSummary: "Nota basada en historial propio; no se comparan ejercicios distintos ni se puntúa el número de series anotadas.",
-            keepTips: ["Los valores se comparan solo con sesiones del mismo ejercicio o WOD y esfuerzo comparable."],
+            vsStandardSummary: "Historial personal: se prioriza la coincidencia exacta, después el mismo ejercicio en distinta sesión y por último el estímulo calibrado. No se convierten series registradas en puntos.",
+            keepTips: ["Cada referencia muestra su nivel de comparabilidad. No se equiparan ejercicios diferentes sin calibración de resultados."],
             improveTips: ["Con más sesiones independientes aumentará la confianza de esta valoración."],
             movements: [],
             wodTemplateId: nil,
@@ -259,7 +273,8 @@ public enum VerifiedSessionReviewEngine {
         return Evidence(
             score: points(ratio: ratio), weight: minutes,
             referenceCount: refs.count,
-            explanation: "\(currentBlock.title): \(signedChange(ratio)) frente a \(refs.count) marcas comparables"
+            explanation: "Nivel 1 · \(currentBlock.title): \(signedChange(ratio)) frente a \(refs.count) marcas idénticas",
+            tier: 1
         )
     }
 
