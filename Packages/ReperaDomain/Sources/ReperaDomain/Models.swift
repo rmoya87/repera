@@ -1492,6 +1492,11 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
     public var quantityUnit: ExerciseQuantityUnit?
     public var loggedSets: [LoggedSet]
     public var completedReps: Int
+    /// Modificación voluntaria del volumen por ronda de un WOD con score global.
+    /// No equivale a series registradas ni sustituye el score de bloque.
+    public var adjustedRepsPerRound: Int?
+    /// Carga realmente utilizada al escalar el movimiento (kg).
+    public var adjustedWeightKg: Double?
     public var isCompleted: Bool
     public var supersetGroup: Int?
     /// Bloque de origen en el plan (para agrupar la cola).
@@ -1515,6 +1520,8 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         quantityUnit: ExerciseQuantityUnit? = nil,
         loggedSets: [LoggedSet] = [],
         completedReps: Int = 0,
+        adjustedRepsPerRound: Int? = nil,
+        adjustedWeightKg: Double? = nil,
         isCompleted: Bool = false,
         supersetGroup: Int? = nil,
         blockId: UUID? = nil,
@@ -1534,6 +1541,8 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         self.quantityUnit = quantityUnit
         self.loggedSets = loggedSets
         self.completedReps = completedReps
+        self.adjustedRepsPerRound = adjustedRepsPerRound
+        self.adjustedWeightKg = adjustedWeightKg
         self.isCompleted = isCompleted
         self.supersetGroup = supersetGroup
         self.blockId = blockId
@@ -1546,6 +1555,22 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         self.blockWorkSeconds = blockWorkSeconds
         self.blockRestSeconds = blockRestSeconds
         self.blockRestBetweenRoundsSeconds = blockRestBetweenRoundsSeconds
+    }
+
+    /// Se marca como adaptado solo si existe una indicación de ejecución real.
+    /// Las cantidades prescritas permanecen intactas para comparación y auditoría.
+    public var hasWODScaling: Bool {
+        adjustedRepsPerRound != nil || adjustedWeightKg != nil
+    }
+
+    public var adjustedSummaryLine: String? {
+        guard hasWODScaling else { return nil }
+        var values: [String] = []
+        if let adjustedRepsPerRound { values.append("\(adjustedRepsPerRound) reps/ronda") }
+        if let adjustedWeightKg {
+            values.append("\(adjustedWeightKg.formatted(.number.precision(.fractionLength(0...1)))) kg")
+        }
+        return "Adaptado · " + values.joined(separator: " · ")
     }
 
     public var lastLoggedWeight: Double? {
@@ -1663,6 +1688,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case id, exercise, plannedSets, loggedSets, completedReps, isCompleted, supersetGroup
+        case adjustedRepsPerRound, adjustedWeightKg
         case blockId, blockKind
         case wodFormat, blockTimeCapMinutes, blockIntervalSeconds, blockRounds, blockHeader
         case blockWorkSeconds, blockRestSeconds, blockRestBetweenRoundsSeconds
@@ -1675,6 +1701,8 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         plannedSets = try c.decodeIfPresent([PlannedSet].self, forKey: .plannedSets) ?? []
         loggedSets = try c.decodeIfPresent([LoggedSet].self, forKey: .loggedSets) ?? []
         completedReps = try c.decodeIfPresent(Int.self, forKey: .completedReps) ?? 0
+        adjustedRepsPerRound = try c.decodeIfPresent(Int.self, forKey: .adjustedRepsPerRound)
+        adjustedWeightKg = try c.decodeIfPresent(Double.self, forKey: .adjustedWeightKg)
         isCompleted = try c.decodeIfPresent(Bool.self, forKey: .isCompleted) ?? false
         supersetGroup = nil // Compatibilidad de lectura, sin restaurar agrupaciones.
         blockId = try c.decodeIfPresent(UUID.self, forKey: .blockId)
