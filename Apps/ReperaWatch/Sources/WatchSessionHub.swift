@@ -535,7 +535,13 @@ final class WatchSessionHub: NSObject {
         let consumedRest = min(max(0, restRemaining), delta)
         if isCounting {
             // Timed WOD intervals include rest; a strength set's active clock does not.
-            blockElapsed += currentIsWOD ? delta : delta - consumedRest
+            let increment = currentIsWOD ? delta : delta - consumedRest
+            if currentIsWOD, timeCapSeconds > 0 {
+                // A suspended app must never score more than the prescribed time cap.
+                blockElapsed = min(timeCapSeconds, blockElapsed + increment)
+            } else {
+                blockElapsed += increment
+            }
         }
         if wasResting {
             restRemaining = max(0, restRemaining - delta)
