@@ -1733,6 +1733,7 @@ final class HealthKitStore {
             await refreshLiveMetrics()
         } catch {
             lastError = error.localizedDescription
+            builder.discardWorkout()
             liveBuilder = nil
         }
     }
@@ -1743,7 +1744,14 @@ final class HealthKitStore {
         let end = Date()
         liveDurationSeconds = max(0, end.timeIntervalSince(start))
         let apple = await resolveAppleMetrics(from: start, to: end)
-        liveActiveEnergyKcal = apple.kcal
+        // La energía ambiental durante el intervalo no demuestra consumo
+        // del entrenamiento. Solo aceptar kcal medidas en un HKWorkout
+        // ajeno confirmado por HealthKit/Apple Watch.
+        if let uuid = apple.existingWorkoutUUID {
+            liveActiveEnergyKcal = await externalWorkoutEnergyKcal(uuid: uuid)
+        } else {
+            liveActiveEnergyKcal = nil
+        }
         if let secs = apple.durationSeconds, secs > 0 {
             liveDurationSeconds = secs
         }
@@ -2050,7 +2058,12 @@ final class HealthKitStore {
             } catch {
                 lastError = error.localizedDescription
                 liveBuilder = nil
-                // Si falla el builder previo, reintentar una sola vez sin él.
+                if let recovered = await existingReperaWorkout(
+                    sessionId: sessionId, start: start, end: end
+                ) {
+                    return recovered.uuid
+                }
+                // Si no existe el workout, reintentar una sola vez sin builder.
             }
         }
 
