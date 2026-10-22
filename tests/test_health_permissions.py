@@ -55,6 +55,10 @@ class HealthCaloriesOriginContractTests(unittest.TestCase):
         self.assertLess(tile.index("Image(systemName: icon)"), tile.index("Text(title)"))
         self.assertLess(tile.index("Text(title)"), tile.index("Text(value)"))
         self.assertIn("minHeight: 62", tile)
+        self.assertIn("VStack(alignment: .leading, spacing: 12)", tile)
+        value = tile.split("Text(value)", 1)[1].split(".foregroundStyle(OG.label)", 1)[0]
+        self.assertIn(".font(.system(size: 28, weight: .semibold))", value)
+        self.assertIn(".minimumScaleFactor(0.7)", tile)
         for label in ("Kcal", "Tiempo", "Nota"):
             self.assertIn(f'title: "{label}"', home)
 
