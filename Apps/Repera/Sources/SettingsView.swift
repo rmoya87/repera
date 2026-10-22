@@ -881,45 +881,19 @@ struct HealthGoalsView: View {
 
     @State private var steps = ""
     @State private var energy = ""
-    @State private var heartRate = ""
     @State private var minutes = ""
     @State private var weekly = ""
     @State private var weight = ""
     @State private var hasLoaded = false
     @State private var focusedGoal: GoalField?
 
-    private enum GoalField: String { case steps, energy, heartRate, minutes, weekly, weight }
-
-    private func parseInt(_ text: String, range: ClosedRange<Int>) -> Bool {
-        let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if value.isEmpty { return true }
-        guard let parsed = Int(value) else { return false }
-        return range.contains(parsed)
-    }
-
-    private func parseWeight(_ text: String) -> Bool {
-        let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if value.isEmpty { return true }
-        guard let parsed = Double(value.replacingOccurrences(of: ",", with: ".")),
-              parsed.isFinite else { return false }
-        return (20...350).contains(parsed)
-    }
-
-    private var valid: Bool {
-        parseInt(steps, range: 100...100_000)
-            && parseInt(energy, range: 10...10_000)
-            && parseInt(heartRate, range: 30...220)
-            && parseInt(minutes, range: 1...1_440)
-            && parseInt(weekly, range: 1...21)
-            && parseWeight(weight)
-    }
+    private enum GoalField: String { case steps, energy, minutes, weekly, weight }
 
     var body: some View {
         Form {
             Section {
                 goalRow("Pasos", icon: "figure.walk", field: .steps, next: .energy, text: $steps, unit: "pasos")
-                goalRow("Calorías activas", icon: "flame", field: .energy, next: .heartRate, text: $energy, unit: "kcal")
-                goalRow("FC media (referencia)", icon: "heart", field: .heartRate, next: .minutes, text: $heartRate, unit: "lpm")
+                goalRow("Calorías activas", icon: "flame", field: .energy, next: .minutes, text: $energy, unit: "kcal")
                 goalRow("Tiempo de entreno", icon: "clock", field: .minutes, next: .weekly, text: $minutes, unit: "min")
             } header: {
                 Text("Objetivos diarios")
@@ -948,7 +922,6 @@ struct HealthGoalsView: View {
         .onAppear(perform: loadOnce)
         .onChange(of: steps) { _, text in persistInt(text, range: 100...100_000, keyPath: \.dailyStepsGoal) }
         .onChange(of: energy) { _, text in persistInt(text, range: 10...10_000, keyPath: \.dailyActiveEnergyGoalKcal) }
-        .onChange(of: heartRate) { _, text in persistInt(text, range: 30...220, keyPath: \.dailyAverageHeartRateGoalBpm) }
         .onChange(of: minutes) { _, text in persistInt(text, range: 1...1_440, keyPath: \.dailyWorkoutMinutesGoal) }
         .onChange(of: weekly) { _, text in persistInt(text, range: 1...21, keyPath: \.weeklyWorkoutGoal) }
         .onChange(of: weight) { _, text in persistWeight(text) }
@@ -995,7 +968,6 @@ struct HealthGoalsView: View {
         let s = store.state.settings
         steps = s.dailyStepsGoal.map { String($0) } ?? ""
         energy = s.dailyActiveEnergyGoalKcal.map { String($0) } ?? ""
-        heartRate = s.dailyAverageHeartRateGoalBpm.map { String($0) } ?? ""
         minutes = s.dailyWorkoutMinutesGoal.map { String($0) } ?? ""
         weekly = s.weeklyWorkoutGoal.map { String($0) } ?? ""
         weight = s.bodyWeightGoalKg.map { String(format: "%g", $0) } ?? ""
