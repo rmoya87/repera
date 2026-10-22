@@ -647,9 +647,6 @@ struct HomeView: View {
     private var activityTodayCard: some View {
         let workouts = workoutsOnSelectedDay
         let kcal = dayHealth.activeEnergyKcal.flatMap { $0 >= 0 ? $0 : nil }
-        let heartRate = health.recentDailyHeartRate.first {
-            calendar.isDate($0.date, inSameDayAs: selectedDay)
-        }?.avgBpm
         let score = workouts.compactMap { session -> Int? in
             guard let review = session.sessionReview,
                   review.scoreBasis == .personalHistory,
@@ -683,44 +680,16 @@ struct HomeView: View {
                         goal: store.state.settings.dailyActiveEnergyGoalKcal.map { Double($0) }
                     )
                     homeActivityMetric(
-                        title: "FC media",
-                        value: heartRate.map { Int($0.rounded()).formatted() } ?? "—",
-                        unit: "lpm",
-                        symbol: "heart",
-                        tint: OG.red,
-                        measurement: heartRate,
-                        goal: store.state.settings.dailyAverageHeartRateGoalBpm.map { Double($0) }
+                        title: "Tiempo",
+                        value: dayHealth.workoutMinutes.map {
+                            Int($0.rounded()).formatted()
+                        } ?? "—",
+                        unit: "min",
+                        symbol: "clock",
+                        tint: OG.blue,
+                        measurement: dayHealth.workoutMinutes,
+                        goal: store.state.settings.dailyWorkoutMinutesGoal.map { Double($0) }
                     )
-                }
-
-                if dayHealth.workoutMinutes != nil
-                    || store.state.settings.dailyWorkoutMinutesGoal != nil {
-                    let minutes = dayHealth.workoutMinutes
-                    let target = store.state.settings.dailyWorkoutMinutesGoal
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "clock")
-                                .foregroundStyle(OG.blue)
-                            Text("Tiempo de entrenamiento")
-                                .font(.subheadline)
-                                .foregroundStyle(OG.label2)
-                            Spacer()
-                            Text(minutes.map { "\(Int($0.rounded())) min" } ?? "—")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(OG.label)
-                        }
-                        if let target, target > 0 {
-                            HomeGoalProgressBar(
-                                measurement: minutes,
-                                goal: Double(target),
-                                tint: OG.blue,
-                                label: "tiempo de entrenamiento",
-                                unit: "min"
-                            )
-                        }
-                    }
-                    .padding(12)
-                    .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
 
                 if let score {

@@ -110,6 +110,63 @@ final class RecoveryEngineTests: XCTestCase {
         }
     }
 
+    func testObservedHealthCardioAddsLoadWithoutDoubleCountingLocalWorkouts() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let session = WorkoutSession(
+            title: "Fuerza", exercises: [],
+            startedAt: now.addingTimeInterval(-14 * 3600),
+            finishedAt: now.addingTimeInterval(-13 * 3600)
+        )
+        let cardio = RecoveryEngine.ObservedActivity(
+            date: now.addingTimeInterval(-8 * 3600),
+            durationMinutes: 120,
+            isCardio: true
+        )
+        let baseline = RecoveryEngine.trainingReadiness(
+            at: now, sleepHours: 8, recentAverageSleepHours: 8,
+            workouts: [session]
+        )
+        let measured = RecoveryEngine.trainingReadiness(
+            at: now, sleepHours: 8, recentAverageSleepHours: 8,
+            workouts: [session], observedActivities: [cardio]
+        )
+        XCTAssertNotNil(baseline)
+        XCTAssertNotNil(measured)
+        XCTAssertLessThan(measured!.score, baseline!.score)
+        XCTAssertEqual(measured?.cardioMinutes48h, 120)
+        XCTAssertNil(baseline?.cardioMinutes48h)
+    }
+
+    func testReadinessCanUseHealthOnlyActivityAndDoesNotInventMissingData() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let observed = RecoveryEngine.ObservedActivity(
+            date: now.addingTimeInterval(-8 * 3600),
+            durationMinutes: 45, isCardio: true
+        )
+        let score = RecoveryEngine.trainingReadiness(
+            at: now, sleepHours: 7.5, recentAverageSleepHours: 8,
+            workouts: [], observedActivities: [observed]
+        )
+        XCTAssertNotNil(score)
+        XCTAssertEqual(score?.cardioMinutes48h, 45)
+        XCTAssertNil(RecoveryEngine.trainingReadiness(
+            at: now, sleepHours: nil, recentAverageSleepHours: 8,
+            workouts: [], observedActivities: [observed]
+        ))
+        XCTAssertNil(RecoveryEngine.trainingReadiness(
+            at: now, sleepHours: 7.5, recentAverageSleepHours: 8,
+            workouts: [], observedActivities: [
+                .init(date: now.addingTimeInterval(3600), durationMinutes: 80, isCardio: true)
+            ]
+        ))
+        XCTAssertNil(RecoveryEngine.trainingReadiness(
+            at: now, sleepHours: 7.5, recentAverageSleepHours: 8,
+            workouts: [], observedActivities: [
+                .init(date: now.addingTimeInterval(-3600), durationMinutes: .nan, isCardio: true)
+            ]
+        ))
+    }
+
     func testVitalsNeedSevenIndependentHistoricalDaysPerSignal() {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
