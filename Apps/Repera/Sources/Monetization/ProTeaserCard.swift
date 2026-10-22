@@ -1,7 +1,8 @@
 import ReperaDomain
 import SwiftUI
 
-/// Tarjeta discreta Pro (candado + CTA). No simula datos premium.
+/// Banner Pro reutilizable: verde Repera, mascota y CTA, sin datos simulados.
+/// Lo comparten Progreso, evolución de ejercicios y otros puntos de conversión.
 struct ProTeaserCard: View {
     var title: String
     var bodyText: String
@@ -10,28 +11,55 @@ struct ProTeaserCard: View {
 
     var body: some View {
         Button(action: action) {
-            OGCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "lock.fill")
-                            .foregroundStyle(OG.accent)
-                            .accessibilityHidden(true)
-                        Text(title)
-                            .font(.headline)
-                            .foregroundStyle(OG.label)
-                    }
-                    Text(bodyText)
-                        .font(.subheadline)
-                        .foregroundStyle(OG.label2)
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 9) {
+                    Text("REPERA PRO")
+                        .font(.system(size: 11, weight: .heavy, design: .rounded))
+                        .tracking(1)
+                        .foregroundStyle(Color.black.opacity(0.7))
+
+                    Text(title)
+                        .font(.system(size: 19, weight: .bold, design: .rounded))
+                        .foregroundStyle(.black)
+                        .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
-                    Text(cta)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(OG.accent)
+
+                    Text(bodyText)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.black.opacity(0.8))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.leading)
+
+                    HStack(spacing: 5) {
+                        Text(cta)
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 9)
+                    .background(Color.black.opacity(0.1), in: Capsule())
+                    .padding(.top, 2)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                ReperaMascot(pose: .hero, maxHeight: 140)
+                    .frame(width: 104)
             }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                LinearGradient(
+                    colors: [OG.accent, Color(red: 0.41, green: 0.91, blue: 0.53)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+            )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(title). \(cta)")
+        .accessibilityLabel("\(title). \(bodyText). \(cta)")
     }
 }
 
