@@ -126,7 +126,8 @@ final class WatchSessionHub: NSObject {
         return active.currentIndex == active.exercises.count - 1
     }
     var isFinalSet: Bool {
-        isLastWorkoutExercise && completedSets + 1 >= max(1, plannedSets)
+        !currentIsWOD && isLastWorkoutExercise
+            && completedSets + 1 >= max(1, plannedSets)
             && selectedSetIndex == nil
     }
     var blockExercises: [SessionExercise] {
@@ -424,6 +425,7 @@ final class WatchSessionHub: NSObject {
               var ctrl = controller, ctrl.session.phase == .counting,
               let exercise = ctrl.session.currentExercise else { return }
         let reps = max(0, workingReps)
+        guard reps > 0 else { return }
         if let selectedSetIndex {
             guard exercise.loggedSets.indices.contains(selectedSetIndex),
                   ctrl.replaceLoggedSet(at: selectedSetIndex,
@@ -476,6 +478,7 @@ final class WatchSessionHub: NSObject {
         guard wodUsesSeries, currentIsWOD, !isPaused, !reviewingBlock,
               var ctrl = controller, ctrl.session.phase == .counting else { return }
         let set = preparedSet(reps: max(0, workingReps))
+        guard set.reps > 0 else { return }
         ctrl.logSet(reps: set.reps, weightKg: set.weightKg,
             deficitCm: set.deficitCm, durationSeconds: set.durationSeconds,
             quantityUnit: set.quantityUnit, phase: set.phase, kind: set.kind,
@@ -528,10 +531,9 @@ final class WatchSessionHub: NSObject {
         guard active?.phase == .counting, !isPaused, !reviewingBlock else { return }
         if currentIsWOD {
             if wodUsesSeries {
+                // EMOM / Tabata may contain many intervals of the last movement.
+                // One recorded set must never silently complete its whole WOD.
                 confirmIntervalSet()
-                // The final movement can finish directly from one primary action.
-                // Its score is still reviewed; no duplicate confirmation dialog.
-                if isLastWorkoutExercise { reviewBlock() }
             } else {
                 reviewBlock()
             }
@@ -677,7 +679,8 @@ final class WatchSessionHub: NSObject {
               let id = current.blockId else { return }
         let format = current.wodFormat
         let elapsed: Int? = format?.resultCapture == .elapsedTime ? blockElapsed : nil
-        let rounds: Int? = format == .amrap ? completedRounds : nil
+        let rounds: Int? = (format == .amrap || format == .deathBy)
+            ? completedRounds : nil
         let reps: Int? = format?.resultCapture == .totalReps ? remainingRoundReps : nil
         let score = WODBlockResult(id: id, format: format,
                                    totalReps: reps, elapsedSeconds: elapsed,
@@ -829,7 +832,8 @@ final class WatchSessionHub: NSObject {
     private func startMotion() {
         stopMotion()
         guard !isPaused, restRemaining == 0, motion.isDeviceMotionAvailable,
-              active?.phase == .counting else { return }
+              active?.phase == .counting,
+              loggingStyle != .machineWork, loggingStyle != .repsAndTime else { return }
         motion.deviceMotionUpdateInterval = 1.0 / 25.0
         motion.startDeviceMotionUpdates(using: .xArbitraryZVertical)
         motionTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
@@ -845,7 +849,9 @@ final class WatchSessionHub: NSObject {
 
     private func tickMotion() {
         guard !isPaused, !reviewingBlock, restRemaining == 0,
-              active?.phase == .counting, let data = motion.deviceMotion else { return }
+              active?.phase == .counting,
+              loggingStyle != .machineWork, loggingStyle != .repsAndTime,
+              selectedSetIndex == nil, let data = motion.deviceMotion else { return }
         let u = data.userAcceleration
         let magnitude = sqrt(u.x * u.x + u.y * u.y + u.z * u.z) + 1.0
         repCounter.ingest(magnitude: magnitude)
