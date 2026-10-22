@@ -29,7 +29,15 @@ struct SettingsView: View {
     @State private var syncIconSpinning = false
     @State private var syncFeedback: String?
     @AppStorage("repera.settings.lastFullSyncAt") private var lastFullSyncAt: Double = 0
- 
+
+    private var lastSyncDateDescription: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "es_ES")
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: Date(timeIntervalSince1970: lastFullSyncAt))
+    }
+
     var body: some View {
         @Bindable var store = store
         Form {
@@ -136,10 +144,7 @@ struct SettingsView: View {
                                     .multilineTextAlignment(.leading)
                                     .fixedSize(horizontal: false, vertical: true)
                             } else if lastFullSyncAt > 0 {
-                                Text("Última actualización: \(Date(timeIntervalSince1970: lastFullSyncAt).formatted(
-                                    .dateTime.day().month(.abbreviated).year().hour().minute()
-                                        .locale(Locale(identifier: "es_ES"))
-                                ))")
+                                Text("Última actualización: \(lastSyncDateDescription)")
                                     .font(.caption)
                                     .foregroundStyle(OG.label2)
                                     .multilineTextAlignment(.leading)
