@@ -120,10 +120,10 @@ struct HealthGoalsView: View {
         guard !hasLoaded else { return }
         hasLoaded = true
         let s = store.state.settings
-        steps = s.dailyStepsGoal.map(String.init) ?? ""
-        energy = s.dailyActiveEnergyGoalKcal.map(String.init) ?? ""
-        minutes = s.dailyWorkoutMinutesGoal.map(String.init) ?? ""
-        weekly = s.weeklyWorkoutGoal.map(String.init) ?? ""
+        steps = s.dailyStepsGoal.map { String($0) } ?? ""
+        energy = s.dailyActiveEnergyGoalKcal.map { String($0) } ?? ""
+        minutes = s.dailyWorkoutMinutesGoal.map { String($0) } ?? ""
+        weekly = s.weeklyWorkoutGoal.map { String($0) } ?? ""
         weight = s.bodyWeightGoalKg.map { String(format: "%g", $0) } ?? ""
     }
 
