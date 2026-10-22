@@ -93,12 +93,68 @@ final class WatchSessionHub: NSObject {
     var current: SessionExercise? { active?.currentExercise }
     var currentIsWOD: Bool { current?.blockKind == .wod && current?.wodFormat != .strength }
     var wodUsesSeries: Bool { current?.wodFormat?.resultCapture == .perMovementSets }
+    /// Align the Watch's main timer with the equivalent iPhone WOD format.
+    var isIntervalClock: Bool {
+        switch current?.wodFormat {
+        case .emom, .tabata, .circuit, .deathBy: return true
+        default: return false
+        }
+    }
+
+    var clockCountsUp: Bool {
+        guard let current else { return true }
+        switch current.wodFormat {
+        case .forTime, .chipper, .afap, .ladder, .buyInCashOut:
+            return true
+        case .amrap, .emom, .tabata, .deathBy, .circuit, .maxEffort:
+            return false
+        case .strength, .partner, .roundsForQuality, .none:
+            return (current.blockTimeCapMinutes ?? 0) <= 0
+        }
+    }
+
+    /// Mirror iPhone circuit phases, including rest between (not after) rounds.
+    private var circuitPhases: [(duration: Int, title: String)] {
+        guard let current, current.wodFormat == .circuit else { return [] }
+        let stations = max(1, blockExercises.count)
+        let interval = max(5, current.blockIntervalSeconds ?? 60)
+        let workCount = max(1, (current.blockTimeCapMinutes ?? 0) > 0
+            ? (current.plannedIntervals ?? stations)
+            : stations * max(1, current.blockRounds ?? 1))
+        let roundRest = max(0, current.blockRestBetweenRoundsSeconds ?? 0)
+        var phases: [(duration: Int, title: String)] = []
+        for index in 0..<workCount {
+            let round = index / stations + 1
+            phases.append((interval, "Estación \(index % stations + 1)/\(stations) · R\(round)"))
+            if (index + 1).isMultiple(of: stations), index + 1 < workCount, roundRest > 0 {
+                phases.append((roundRest, "Descanso · ronda \(round)"))
+            }
+        }
+        return phases
+    }
+
+    private var circuitPhase: (remaining: Int, label: String)? {
+        guard current?.wodFormat == .circuit else { return nil }
+        var elapsed = blockElapsed
+        let phases = circuitPhases
+        for phase in phases {
+            if elapsed < phase.duration {
+                return (remaining: phase.duration - elapsed, label: phase.title)
+            }
+            elapsed -= phase.duration
+        }
+        return phases.last.map { (remaining: 0, label: $0.title) }
+    }
+
     var intervalRemaining: Int? {
-        guard let current, let format = current.wodFormat else { return nil }
+        guard let current, let format = current.wodFormat, isIntervalClock else { return nil }
+        if timeCapSeconds > 0 && blockElapsed >= timeCapSeconds { return 0 }
         switch format {
-        case .emom, .circuit:
+        case .emom, .deathBy:
             let interval = max(1, current.blockIntervalSeconds ?? 60)
             return interval - blockElapsed % interval
+        case .circuit:
+            return circuitPhase?.remaining
         case .tabata:
             let work = max(1, current.blockWorkSeconds ?? 20)
             let rest = max(0, current.blockRestSeconds ?? 10)
@@ -107,23 +163,54 @@ final class WatchSessionHub: NSObject {
         default: return nil
         }
     }
+
     var timeCapSeconds: Int {
         guard let exercise = current else { return 0 }
-        if let minutes = exercise.blockTimeCapMinutes, minutes > 0 { return minutes * 60 }
         switch exercise.wodFormat {
-        case .emom, .circuit:
-            let count = exercise.plannedIntervals ?? 0
-            return count > 0 ? count * max(1, exercise.blockIntervalSeconds ?? 60) : 0
+        case .emom:
+            let intervals = max(1, exercise.plannedIntervals ?? exercise.blockRounds ?? 10)
+            return intervals * max(15, exercise.blockIntervalSeconds ?? 60)
+        case .deathBy:
+            let intervals = max(1, exercise.plannedIntervals ?? exercise.blockTimeCapMinutes ?? 30)
+            return intervals * max(15, exercise.blockIntervalSeconds ?? 60)
+        case .circuit:
+            return circuitPhases.reduce(0) { $0 + $1.duration }
         case .tabata:
-            let rounds = exercise.blockRounds ?? 0
-            guard rounds > 0 else { return 0 }
-            let work = max(1, exercise.blockWorkSeconds ?? 20)
-            let rest = max(0, exercise.blockRestSeconds ?? 10)
-            return rounds * work + max(0, rounds - 1) * rest
-        default: return 0
+            let rounds = max(1, exercise.blockRounds ?? 8)
+            let work = max(5, exercise.blockWorkSeconds ?? 20)
+            let rest = max(1, exercise.blockRestSeconds ?? 10)
+            return rounds * (work + rest)
+        case .amrap, .maxEffort:
+            return max(60, (exercise.blockTimeCapMinutes ?? 12) * 60)
+        case .forTime, .chipper, .afap, .ladder, .buyInCashOut:
+            // For Time time caps are informational: the clock keeps counting up.
+            return 0
+        case .strength, .partner, .roundsForQuality, .none:
+            return max(0, exercise.blockTimeCapMinutes ?? 0) * 60
         }
     }
-    var timeRemaining: Int? { timeCapSeconds > 0 ? max(0, timeCapSeconds - blockElapsed) : nil }
+
+    var timeRemaining: Int? {
+        clockCountsUp || timeCapSeconds <= 0 ? nil : max(0, timeCapSeconds - blockElapsed)
+    }
+
+    /// Never show the total duration as a second number in interval mode.
+    var primaryClockSeconds: Int {
+        intervalRemaining ?? timeRemaining ?? blockElapsed
+    }
+
+    var clockDescriptor: String? {
+        if isIntervalClock { return intervalLabel }
+        if !clockCountsUp, timeCapSeconds > 0 {
+            return current?.wodFormat?.displayName ?? "Cuenta atrás"
+        }
+        if clockCountsUp, (current?.blockTimeCapMinutes ?? 0) > 0,
+           blockElapsed > (current?.blockTimeCapMinutes ?? 0) * 60 {
+            return "TC superado"
+        }
+        return nil
+    }
+
     var plannedSets: Int { current?.plannedSets.count ?? 0 }
     var completedSets: Int { current?.loggedSets.count ?? 0 }
     var completedWorkingSets: Int {
@@ -170,17 +257,21 @@ final class WatchSessionHub: NSObject {
     var intervalLabel: String? {
         guard let current, let format = current.wodFormat else { return nil }
         switch format {
-        case .emom, .circuit:
+        case .emom, .deathBy:
             let interval = max(1, current.blockIntervalSeconds ?? 60)
-            let currentNumber = blockElapsed / interval + 1
-            let maxIntervals = current.plannedIntervals
-            if let maxIntervals { return "Intervalo \(min(currentNumber, maxIntervals))/\(maxIntervals)" }
-            return "Intervalo \(currentNumber)"
+            let number = blockElapsed / interval + 1
+            let maximum = current.plannedIntervals ?? current.blockRounds
+            let clamped = maximum.map { min(number, max(1, $0)) } ?? number
+            let kind = format == .deathBy ? "Ronda" : "Intervalo"
+            if let maximum { return "\(kind) \(clamped)/\(maximum)" }
+            return "\(kind) \(clamped)"
+        case .circuit:
+            return circuitPhase?.label
         case .tabata:
             let work = max(1, current.blockWorkSeconds ?? 20)
             let rest = max(0, current.blockRestSeconds ?? 10)
             let cycle = max(1, work + rest)
-            let round = blockElapsed / cycle + 1
+            let round = min(blockElapsed / cycle + 1, max(1, current.blockRounds ?? 8))
             let phase = blockElapsed % cycle < work ? "Trabajo" : "Descanso"
             return "\(phase) · ronda \(round)"
         default: return nil
@@ -887,7 +978,8 @@ final class WatchSessionHub: NSObject {
             from: lastClockTick, to: Date(),
             sessionElapsed: sessionElapsed, blockElapsed: blockElapsed,
             restRemaining: restRemaining, isCounting: active?.phase == .counting,
-            isWOD: currentIsWOD, timeCapSeconds: timeCapSeconds
+            isWOD: currentIsWOD,
+            timeCapSeconds: clockCountsUp ? 0 : timeCapSeconds
         )
         let delta = step.advancedSeconds
         guard delta > 0 else { return }
