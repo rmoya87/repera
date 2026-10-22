@@ -1,6 +1,6 @@
 # Guía de pruebas — Repera
 
-Última actualización: 2026-10-19 (monetización Freemium / Pro)
+Última actualización: 2026-10-22 (regresión de campos numéricos y teclado en Play)
 
 Checklist manual por feature. Preferible dispositivo real para Live Activity y Watch.
 
@@ -48,6 +48,19 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] Distinto de **Crear mi entreno**: no pide bloques/WOD.
 - [ ] **Ficha ejercicio → +** → mismo modal de series (no abre sesión completa).
 - [ ] En modal: check (guardar) estilo topbar; cancelar = X.
+
+## Play — conservación de entradas numéricas (iOS 27)
+
+- [ ] En una serie con peso y reps, introducir **72,5 kg** sin pulsar ✓; tocar reps, introducir **12** y tocar fuera: ambos valores siguen presentes.
+- [ ] Modificar solo las reps de una serie y pulsar el check directamente, sin confirmar el teclado; el registro conserva exactamente las últimas cifras.
+- [ ] Marcar la última serie, desmarcarla y editarla de nuevo: se muestran los valores **reales registrados**, no ceros ni los objetivos originales de la planificación.
+- [ ] Con varias series pendientes, pulsar la flecha **negra** del teclado: peso → reps → peso de la siguiente serie (o la primera casilla habilitada), sin cerrar el teclado y omitiendo series marcadas.
+- [ ] La última casilla ofrece **✓ verde**. Después de registrar, las series completadas permanecen bloqueadas hasta desmarcar.
+- [ ] Introducir peso con coma o punto decimal, borrar cifras y usar +/−; cambiar de campo o cerrar el teclado sin perder valores válidos.
+- [ ] Repetir con ejercicios de **solo reps**, **tiempo**, **déficit cm** y **Cal/metros**, incluyendo las series añadidas durante el entreno.
+- [ ] Cambiar de ejercicio desde la lista o flechas de la barra superior y volver: permanecen las series editadas aunque aún no se haya marcado el check.
+- [ ] En técnicas avanzadas, editar peso/reps del stepper y dropset; cambiar de campo sin pulsar ✓ y comprobar el valor actualizado.
+- [ ] En la planificación, editar dos valores de un formato WOD con el mismo teclado: el avance y los valores se mantienen al cambiar de campo.
 
 ## % → kg
 
