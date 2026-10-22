@@ -45,6 +45,26 @@ class XcodeSourceMembershipTests(unittest.TestCase):
     def test_current_generated_project(self):
         validate(self.root)
 
+    def test_app_launch_content_is_view_not_scene_group(self):
+        """SwiftUI environment/overlay belong to the WindowGroup's root View."""
+        app = (
+            Path(__file__).resolve().parents[1]
+            / "Apps/Repera/Sources/ReperaApp.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("WindowGroup {\n            launchRootView", app)
+        self.assertIn("@ViewBuilder\n    private var launchRootView: some View", app)
+        self.assertIn(".environment(store)", app)
+        self.assertIn(".overlay(alignment: .top)", app)
+        self.assertIn(".sheet(isPresented:", app)
+
+    def test_ai_change_request_store_is_present_in_repository_sources(self):
+        path = (
+            Path(__file__).resolve().parents[1]
+            / "Apps/Repera/Sources/AIChangeRequestStore.swift"
+        )
+        self.assertTrue(path.is_file())
+        self.assertIn("final class AIChangeRequestStore", path.read_text(encoding="utf-8"))
+
     def test_stale_generated_project_is_rejected(self):
         self.pbx.write_text("AppleAuthStore.swift in Sources", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "BusinessAuthStore.swift"):
