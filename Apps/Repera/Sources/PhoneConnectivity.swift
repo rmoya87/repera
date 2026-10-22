@@ -40,7 +40,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     }
 
     /// Latest-state sync via application context. Reachable message is optional hint only.
-    func send(session: WorkoutSession?, today: WorkoutSession? = nil, quickLogHint: (id: UUID, name: String)? = nil, sessionRevision: Int = 0, completedAck: UUID? = nil) {
+    func send(session: WorkoutSession?, today: WorkoutSession? = nil, quickLogHint: (id: UUID, name: String)? = nil, sessionRevision: Int = 0, completedAck: UUID? = nil, completedAckHealthKitUUID: UUID? = nil) {
         guard WCSession.isSupported() else { return }
         let wc = WCSession.default
         guard wc.activationState == .activated else { return }
@@ -62,6 +62,9 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             payload["todayWorkout"] = Data()
         }
         if let completedAck { payload["completedAck"] = completedAck.uuidString }
+        if let completedAckHealthKitUUID {
+            payload["completedAckHealthKitUUID"] = completedAckHealthKitUUID.uuidString
+        }
         // Absolute source day, not the day when a stale context is received.
         payload["todayDayStart"] = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
         if let hint = quickLogHint {
