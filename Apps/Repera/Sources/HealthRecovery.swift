@@ -470,6 +470,24 @@ struct HealthRecoveryProgressView: View {
         RecoveryEngine.sleepIndex(hours: headlineHours, recentAverage: headlineHours)
     }
 
+    private struct IndexedNight: Identifiable {
+        let date: Date
+        let score: Int
+        var id: Date { date }
+    }
+
+    /// Misma fórmula de descanso que utiliza el índice principal; no es una
+    /// medida clínica de recuperación muscular ni una puntuación deportiva.
+    private var scoredNights: [IndexedNight] {
+        displayNights.compactMap { night in
+            guard let score = RecoveryEngine.sleepIndex(
+                hours: night.hours,
+                recentAverage: recovery.averageHours
+            ) else { return nil }
+            return IndexedNight(date: night.date, score: score)
+        }.sorted { $0.date < $1.date }
+    }
+
     private var hoursLabel: String {
         if showingOutsideRange {
             return displayNights.count <= 1 ? "Última noche disponible" : "Media · noches recientes"
@@ -580,6 +598,67 @@ struct HealthRecoveryProgressView: View {
                 return String(format: "Media de %d noches en %@.", nights.count, range.subtitleLabel)
             }()
         )
+        if scoredNights.count >= 2 {
+            sleepTrendCard(scoredNights)
+        }
+    }
+
+    /// Evolución visible únicamente cuando existen al menos dos noches con índice real.
+    private func sleepTrendCard(_ values: [IndexedNight]) -> some View {
+        let latest = values[values.count - 1].score
+        let previous = values[values.count - 2].score
+        let delta = latest - previous
+        let headline = delta >= 4 ? "Mejora respecto a la noche anterior"
+            : delta <= -4 ? "Descanso por debajo de la noche anterior"
+            : "Descanso estable respecto a la noche anterior"
+        return VStack(alignment: .leading, spacing: 8) {
+            OGCardSectionTitle(title: "Evolución del descanso")
+            OGCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(headline)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(OG.label)
+                        Spacer(minLength: 4)
+                        Text("\(latest)/100")
+                            .font(.system(size: 17, weight: .bold, design: .rounded).monospacedDigit())
+                            .foregroundStyle(OG.label)
+                    }
+                    Chart(values) { night in
+                        LineMark(
+                            x: .value("Noche", night.date),
+                            y: .value("Índice de sueño", night.score)
+                        )
+                        .foregroundStyle(OG.accent)
+                        .interpolationMethod(.linear)
+                        .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                        PointMark(
+                            x: .value("Noche", night.date),
+                            y: .value("Índice de sueño", night.score)
+                        )
+                        .foregroundStyle(
+                            night.score >= 80 ? OG.accent : (night.score >= 60 ? OG.orange : OG.red)
+                        )
+                        .symbolSize(44)
+                    }
+                    .chartYScale(domain: 0...100)
+                    .chartYAxis {
+                        AxisMarks(position: .leading, values: [0, 50, 100])
+                    }
+                    .chartXAxis {
+                        AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                            AxisGridLine()
+                            AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+                        }
+                    }
+                    .frame(height: 160)
+
+                    Text("Índice orientativo calculado con horas de sueño, no una medición directa de recuperación.")
+                        .font(.caption)
+                        .foregroundStyle(OG.label3)
+                }
+            }
+        }
     }
 
     private func sleepNightCard(
