@@ -188,7 +188,11 @@ final class WatchSessionHub: NSObject {
         next.startOnPhone()
         controller = next
         startedOnThisWatch = true
-        health.start(id: next.session.id, at: next.session.startedAt ?? Date())
+        health.start(
+            id: next.session.id, at: next.session.startedAt ?? Date(),
+            includesWOD: plan.exercises.contains { $0.blockKind == .wod },
+            includesStrength: plan.exercises.contains { $0.blockKind == .strength }
+        )
         lastFinished = nil
         acknowledgedSessionID = nil
         isPaused = false
@@ -220,6 +224,12 @@ final class WatchSessionHub: NSObject {
         if ctrl.session.phase == .ready {
             ctrl.confirmCurrentExercise()
             controller = ctrl
+            if startedOnThisWatch, let exercise = ctrl.session.currentExercise {
+                health.beginBlock(
+                    id: exercise.blockId ?? exercise.id,
+                    isInterval: exercise.blockKind == .wod
+                )
+            }
             blockElapsed = 0
             completedRounds = 0
             remainingRoundReps = 0
