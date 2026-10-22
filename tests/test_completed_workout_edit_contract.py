@@ -1,0 +1,64 @@
+"""Regression contracts for editing the results of already finished Repera workouts.
+
+A completed WOD keeps its score or real logged sets, never fabricated planned
+sets. Swift domain tests cover the resulting model state on Xcode 27.
+"""
+from pathlib import Path
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def source(path):
+    return (ROOT / path).read_text(encoding="utf-8")
+
+
+class CompletedWorkoutEditContractTests(unittest.TestCase):
+    def test_every_global_wod_format_has_an_editable_result(self):
+        editor = source("Apps/Repera/Sources/PlanView.swift")
+        model = source("Packages/ReperaDomain/Sources/ReperaDomain/Models.swift")
+        self.assertIn("completedScoreEditor(for: block)", editor)
+        self.assertIn("format.resultCapture != .perMovementSets", editor)
+        self.assertIn("private func addCompletedResult(for block: RoutineBlock)", editor)
+        self.assertIn('Label("Añadir resultado", systemImage: "plus.circle")', editor)
+        self.assertIn("completedDetails?.wodResults.append(WODBlockResult(", editor)
+        self.assertIn("case .totalReps:", editor)
+        self.assertIn("case .elapsedTime:", editor)
+        for fmt in ("forTime", "chipper", "afap", "ladder", "buyInCashOut"):
+            self.assertIn("."+fmt, model.split("public var resultCapture:", 1)[1].split("public enum WODResultCapture", 1)[0])
+        self.assertIn("case .amrap, .deathBy, .maxEffort:", model)
+
+    def test_amrap_and_death_by_cannot_be_confused_with_elapsed_time(self):
+        editor = source("Apps/Repera/Sources/PlanView.swift")
+        self.assertIn("if format == .amrap || format == .deathBy", editor)
+        self.assertIn('title: "Rondas completas"', editor)
+        self.assertIn('title: "Reps adicionales"', editor)
+        self.assertIn('title: "Repeticiones máximas"', editor)
+        self.assertIn("Solo las repeticiones de la ronda incompleta", editor)
+        self.assertIn('title: "Minutos"', editor)
+        self.assertIn('title: "Segundos"', editor)
+        self.assertIn("Tiempo real empleado (no el time cap).", editor)
+
+    def test_per_movement_result_is_not_confused_with_prescription(self):
+        editor = source("Apps/Repera/Sources/PlanView.swift")
+        self.assertIn('Text("Prescripción · " + move.summaryLine)', editor)
+        self.assertIn('Text(logged ? "Series registradas" : "Sin series registradas · prescripción")', editor)
+        self.assertIn("InlineWODMovementSets(", editor)
+        self.assertIn("format.resultCapture != .perMovementSets", editor)
+
+    def test_store_saves_edited_session_instead_of_creating_a_new_one(self):
+        history = source("Apps/Repera/Sources/HistoryView.swift")
+        editor = source("Apps/Repera/Sources/PlanView.swift")
+        domain = source("Packages/ReperaDomain/Sources/ReperaDomain/CompletedWorkoutEditing.swift")
+        self.assertIn("CompletedWorkoutEditing.applying(", history)
+        self.assertIn("store.saveWorkout(updated)", history)
+        self.assertIn("onApplyCompleted(edited, completedDetails)", editor)
+        self.assertIn("updated.wodResults = updated.wodResults.compactMap", domain)
+        self.assertIn("result.format == nil || result.format == format", domain)
+        self.assertIn("entry.blockRestBetweenRoundsSeconds = block.restBetweenRoundsSeconds", domain)
+        self.assertIn("var updated = original", domain)
+        self.assertIn("updated.exercises = output", domain)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -129,6 +129,17 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] Guardar el score global de un bloque anterior cuando otro está seleccionado: solo se confirma el bloque correcto, sin finalizar el otro.
 - [ ] Validar test de dominio y `test_wod_play_contract.py` en CI iOS 27 y, manualmente, en dispositivo.
 
+## Editar resultados de entrenos terminados (todos los formatos)
+
+- [ ] Terminar AMRAP 8' con resultado 4 rondas + 7 reps; Historial → entreno → Editar: aparece la marca, no series por cada movimiento. Modificar a 5 rondas + 3 reps, Guardar, cerrar y reabrir: se conserva 5 + 3 en el mismo entrenamiento.
+- [ ] AMRAP y Death By sin `wodResults` históricos: aparece «Añadir resultado», se rellenan rondas/reps y Guardar actualiza la misma sesión sin generar series completadas.
+- [ ] For Time / RFT, Chipper, AFAP, Ladder y Buy-in/Cash-out: editar minutos y segundos reales, por ejemplo 12:11 → 10:42; el time cap es solo la configuración, el resultado corregido permanece tras reabrir.
+- [ ] Max Effort: editar reps máximas sin confundirlas con rondas AMRAP (marca de kg/cal/metros todavía no soportada globalmente).
+- [ ] EMOM/Every X, Tabata, Circuito, Partner, RFQ y Fuerza/Skill: editar una serie existente con carga, reps y RIR, guardar y volver; conservar ID de sesión/serie y no generar ninguna serie en movimientos sin registro.
+- [ ] Comprobar que «Prescripción» se muestra de forma separada del resultado global en AMRAP/For Time, y que la tabla por intervalos distingue «Series registradas» de «Sin series registradas · prescripción».
+- [ ] Cambiar el formato de AMRAP a For Time en un histórico: no reinterpretar sus rondas como segundos ni reutilizar la marca antigua; permitir añadir tiempo nuevo.
+- [ ] Con Circuito de tres rondas, modificar el resultado por serie sin perder los segundos de descanso entre rondas; mantener fechas, datos Salud, notas y ruta anteriores.
+
 ## Pizarra
 
 - [ ] Foto con EMOM 8’ @6-8 + 2 HIGH HSQ SNATCH → ejercicio correcto.

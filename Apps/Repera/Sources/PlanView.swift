@@ -715,24 +715,7 @@ struct DayEditorView: View {
                             .accessibilityLabel("Opciones del bloque \(block.title)")
                         }
                         formatSettings(index: index)
-                        if let result = completedDetails?.wodResults.first(where: { $0.id == block.id }) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Resultado registrado")
-                                    .font(.subheadline.weight(.semibold))
-                                if result.totalReps != nil {
-                                    TextField("Repeticiones", value: completedScoreBinding(id: block.id, field: .reps), format: .number)
-                                        .keyboardType(.numberPad)
-                                }
-                                if result.roundsCompleted != nil {
-                                    TextField("Rondas", value: completedScoreBinding(id: block.id, field: .rounds), format: .number)
-                                        .keyboardType(.numberPad)
-                                }
-                                if result.elapsedSeconds != nil {
-                                    TextField("Tiempo (segundos)", value: completedScoreBinding(id: block.id, field: .seconds), format: .number)
-                                        .keyboardType(.numberPad)
-                                }
-                            }
-                        }
+                        completedScoreEditor(for: block)
                     }
                     .listRowSeparator(.hidden)
                     if block.kind == .strength {
@@ -1378,7 +1361,106 @@ struct DayEditorView: View {
         }
     }
 
-    private enum CompletedScoreField { case reps, rounds, seconds }
+    /// Al editar una sesión finalizada se muestra el dato REAL anotado, no las
+    /// series prescritas del WOD. Todos los formatos de score tienen edición.
+    @ViewBuilder
+    private func completedScoreEditor(for block: RoutineBlock) -> some View {
+        if let format = block.wodFormat,
+           format.resultCapture != .perMovementSets,
+           completedDetails != nil {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Resultado del entreno")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(OG.label)
+
+                if completedDetails?.wodResults.contains(where: {
+                    $0.id == block.id && ($0.format == nil || $0.format == format)
+                }) == true {
+                    switch format.resultCapture {
+                    case .totalReps:
+                        if format == .amrap || format == .deathBy {
+                            HStack(spacing: 8) {
+                                OGFormatNumberField(
+                                    title: "Rondas completas", value: completedScoreBinding(id: block.id, field: .rounds),
+                                    range: 0...200, focus: $focusedFormatField,
+                                    fieldID: OGSetFieldID(rowID: block.id, column: 10),
+                                    nextID: OGSetFieldID(rowID: block.id, column: 11)
+                                )
+                                OGFormatNumberField(
+                                    title: "Reps adicionales", value: completedScoreBinding(id: block.id, field: .reps),
+                                    range: 0...5000, focus: $focusedFormatField,
+                                    fieldID: OGSetFieldID(rowID: block.id, column: 11)
+                                )
+                            }
+                            Text("Solo las repeticiones de la ronda incompleta, no las acumuladas.")
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                        } else {
+                            OGFormatNumberField(
+                                title: "Repeticiones máximas", value: completedScoreBinding(id: block.id, field: .reps),
+                                range: 0...5000, focus: $focusedFormatField,
+                                fieldID: OGSetFieldID(rowID: block.id, column: 10)
+                            )
+                        }
+                    case .elapsedTime:
+                        HStack(spacing: 8) {
+                            OGFormatNumberField(
+                                title: "Minutos", unit: "min",
+                                value: completedScoreBinding(id: block.id, field: .minutes),
+                                range: 0...180, focus: $focusedFormatField,
+                                fieldID: OGSetFieldID(rowID: block.id, column: 10),
+                                nextID: OGSetFieldID(rowID: block.id, column: 11)
+                            )
+                            OGFormatNumberField(
+                                title: "Segundos", unit: "s",
+                                value: completedScoreBinding(id: block.id, field: .seconds),
+                                range: 0...59, focus: $focusedFormatField,
+                                fieldID: OGSetFieldID(rowID: block.id, column: 11)
+                            )
+                        }
+                        Text("Tiempo real empleado (no el time cap).")
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                    case .perMovementSets:
+                        EmptyView()
+                    }
+                } else {
+                    Text("No hay resultado guardado para este bloque.")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                    Button {
+                        addCompletedResult(for: block)
+                    } label: {
+                        Label("Añadir resultado", systemImage: "plus.circle")
+                            .foregroundStyle(OG.accent)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 8)
+        }
+    }
+
+    private func addCompletedResult(for block: RoutineBlock) {
+        guard let format = block.wodFormat, format.resultCapture != .perMovementSets,
+              completedDetails != nil,
+              completedDetails?.wodResults.contains(where: {
+                  $0.id == block.id && ($0.format == nil || $0.format == format)
+              }) != true
+        else { return }
+        // Si el formato cambió, el score anterior ya no tiene las mismas
+        // unidades. Solo el usuario puede introducir la nueva marca.
+        completedDetails?.wodResults.removeAll { $0.id == block.id }
+        completedDetails?.wodResults.append(WODBlockResult(
+            id: block.id, format: format,
+            totalReps: format.resultCapture == .totalReps ? 0 : nil,
+            elapsedSeconds: format.resultCapture == .elapsedTime ? 0 : nil,
+            roundsCompleted: (format == .amrap || format == .deathBy) ? 0 : nil,
+            wodTemplateId: block.wodTemplateId
+        ))
+    }
+
+    private enum CompletedScoreField { case reps, rounds, minutes, seconds }
 
     private func completedScoreBinding(id: UUID, field: CompletedScoreField) -> Binding<Int> {
         Binding(
@@ -1387,15 +1469,23 @@ struct DayEditorView: View {
                 switch field {
                 case .reps: return result.totalReps ?? 0
                 case .rounds: return result.roundsCompleted ?? 0
-                case .seconds: return result.elapsedSeconds ?? 0
+                case .minutes: return max(0, result.elapsedSeconds ?? 0) / 60
+                case .seconds: return max(0, result.elapsedSeconds ?? 0) % 60
                 }
             },
             set: { value in
                 guard let index = completedDetails?.wodResults.firstIndex(where: { $0.id == id }) else { return }
                 switch field {
-                case .reps: completedDetails?.wodResults[index].totalReps = max(0, value)
-                case .rounds: completedDetails?.wodResults[index].roundsCompleted = max(0, value)
-                case .seconds: completedDetails?.wodResults[index].elapsedSeconds = max(0, value)
+                case .reps:
+                    completedDetails?.wodResults[index].totalReps = min(5000, max(0, value))
+                case .rounds:
+                    completedDetails?.wodResults[index].roundsCompleted = min(200, max(0, value))
+                case .minutes:
+                    let seconds = max(0, completedDetails?.wodResults[index].elapsedSeconds ?? 0)
+                    completedDetails?.wodResults[index].elapsedSeconds = min(180, max(0, value)) * 60 + seconds % 60
+                case .seconds:
+                    let seconds = max(0, completedDetails?.wodResults[index].elapsedSeconds ?? 0)
+                    completedDetails?.wodResults[index].elapsedSeconds = seconds / 60 * 60 + min(59, max(0, value))
                 }
             }
         )
@@ -1778,7 +1868,24 @@ struct DayEditorView: View {
                     in: 15...300,
                     step: 15
                 )
+            } else if completedDetails != nil,
+                      let format = routine.blocks[index].wodFormat,
+                      format.resultCapture != .perMovementSets {
+                // En WOD cronometrados estas cifras son la PRESCRIPCIÓN; el resultado
+                // global se edita arriba, nunca se convierte en sets completados.
+                Text("Prescripción · " + move.summaryLine)
+                    .font(.caption)
+                    .foregroundStyle(OG.label2)
             } else {
+                if completedDetails != nil {
+                    let logged = completedDetails?.exercises.first(where: { $0.id == move.id
+                        || ($0.blockId == routine.blocks[index].id
+                            && $0.exercise.name.localizedCaseInsensitiveCompare(move.name) == .orderedSame)
+                    })?.loggedSets.isEmpty == false
+                    Text(logged ? "Series registradas" : "Sin series registradas · prescripción")
+                        .font(.caption)
+                        .foregroundStyle(OG.label2)
+                }
                 InlineWODMovementSets(
                     movement: Binding(
                         get: { routine.blocks[index].movements[mIndex] },
