@@ -83,6 +83,12 @@ final class HealthKitStore {
         var kcal: Double
     }
 
+    struct DailyStepsPoint: Identifiable, Sendable, Equatable {
+        var id: Date { date }
+        var date: Date
+        var steps: Int
+    }
+
     struct RoutePoint: Identifiable, Sendable, Equatable {
         var id: Int
         var latitude: Double
@@ -382,6 +388,30 @@ final class HealthKitStore {
                 continuation.resume(returning: number.map { max(0, Int($0.rounded())) })
             }
             store.execute(query)
+        }
+    }
+
+    /// Serie de pasos de hasta siete días. Cada dato proviene de HealthKit;
+    /// no se fabrican ceros para días sin muestras ni para permisos denegados.
+    func dailySteps(endingAt day: Date, days: Int = 7) async -> [DailyStepsPoint] {
+        guard isAvailable else { return [] }
+        let cal = Calendar.current
+        let end = cal.startOfDay(for: day)
+        let dates = (0..<max(1, min(14, days))).compactMap {
+            cal.date(byAdding: .day, value: -$0, to: end)
+        }
+        return await withTaskGroup(of: DailyStepsPoint?.self) { group in
+            for date in dates {
+                group.addTask {
+                    guard let count = await self.steps(for: date) else { return nil }
+                    return DailyStepsPoint(date: date, steps: count)
+                }
+            }
+            var output: [DailyStepsPoint] = []
+            for await point in group {
+                if let point { output.append(point) }
+            }
+            return output.sorted { $0.date < $1.date }
         }
     }
 
