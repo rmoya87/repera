@@ -223,6 +223,9 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("func adjustScoreSeconds(_ delta: Int)", hub)
         self.assertIn("reviewElapsedSeconds: reviewElapsedSeconds", hub)
         self.assertIn("wodTemplateId: templateID", hub)
+        self.assertIn("var effectiveReps: Int", hub)
+        self.assertIn("setDraft.clusters.reduce(0) { $0 + $1.reps }", hub)
+        self.assertIn("hub.effectiveReps", view)
         self.assertIn("hub.adjustScoreSeconds(-1)", view)
         self.assertIn("hub.adjustScoreSeconds(1)", view)
 
