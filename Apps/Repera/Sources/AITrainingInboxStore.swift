@@ -108,12 +108,16 @@ final class AITrainingInboxStore {
         let title: String
         let scheduledDate: String
         let scheduledTimeMinutes: Int?
+        let scheduledAt: Date?
+        let scheduledTimeZone: String?
         let payload: Payload
 
         enum CodingKeys: String, CodingKey {
             case id, title, payload
             case scheduledDate = "scheduled_date"
             case scheduledTimeMinutes = "scheduled_time_minutes"
+            case scheduledAt = "scheduled_at"
+            case scheduledTimeZone = "scheduled_time_zone"
         }
     }
 
@@ -198,7 +202,7 @@ final class AITrainingInboxStore {
             guard !session.isExpired else { return false }
             let uid = session.user.id
             let rows: [PlanRow] = try await client.from("ai_training_plans")
-                .select("id,title,scheduled_date,scheduled_time_minutes,payload")
+                .select("id,title,scheduled_date,scheduled_time_minutes,scheduled_at,scheduled_time_zone,payload")
                 .eq("owner_id", value: uid.uuidString)
                 .eq("status", value: "pending")
                 .order("scheduled_date")
@@ -211,7 +215,14 @@ final class AITrainingInboxStore {
                 guard BusinessAuthStore.shared.isConnected,
                       client.auth.currentSession?.user.id == uid else { return false }
                 do {
-                    let date = try parseDay(row.scheduledDate)
+                    // Convert a resolved instant into the device's current civil
+                    // calendar day; date-only legacy plans keep their own day.
+                    let date: Date
+                    if let at = row.scheduledAt {
+                        date = Calendar.current.startOfDay(for: at)
+                    } else {
+                        date = try parseDay(row.scheduledDate)
+                    }
                     // Same ID is idempotent after a lost ACK; never duplicate.
                     let existing = store.state.routines.contains { routine in
                         routine.id != row.id && routine.scheduledDate.map {
@@ -365,7 +376,10 @@ final class AITrainingInboxStore {
             id: row.id,
             title: row.title, weekday: nil,
             scheduledDate: date,
-            scheduledTimeMinutes: row.scheduledTimeMinutes,
+            scheduledTimeMinutes: row.scheduledAt.map { instant in
+                let components = Calendar.current.dateComponents([.hour,.minute], from: instant)
+                return (components.hour ?? 0) * 60 + (components.minute ?? 0)
+            } ?? row.scheduledTimeMinutes,
             blocks: blocks,
             progression: .off
         )
