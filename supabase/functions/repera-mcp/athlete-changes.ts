@@ -14,8 +14,12 @@ const setPatch=z.strictObject({
   reps:z.number().int().min(0).max(50000).optional(),
   weightKg:z.number().finite().min(0).max(1200).nullable().optional(),
   rir:z.number().finite().min(0).max(10).nullable().optional(),
-}).refine(s=>s.reps!==undefined||s.weightKg!==undefined||s.rir!==undefined,
-  {message:"At least one value is required"});
+  clearWeight:z.boolean().optional(),
+  clearRir:z.boolean().optional(),
+}).refine(s=>s.reps!==undefined||s.weightKg!==undefined||s.rir!==undefined||s.clearWeight===true||s.clearRir===true,
+  {message:"At least one value is required"})
+  .refine(s=>!(s.weightKg!=null && s.clearWeight===true) && !(s.rir!=null && s.clearRir===true),
+  {message:"Cannot both set and clear the same field"});
 const exercise=z.strictObject({
   name:z.string().trim().min(2).max(120),
   muscleGroup:z.string().trim().min(2).max(80),
