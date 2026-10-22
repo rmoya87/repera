@@ -305,20 +305,21 @@ final class HealthRecoveryStore {
 
 /// Local-only, optional HealthKit observations. No values or derived scores
 /// are persisted in AppState, iCloud workout documents or Supabase.
+/// Sendable values produced by the nonisolated HealthKit query callback.
+private struct PhysiologyReading: Sendable {
+    let date: Date
+    let value: Double
+}
+
+private enum PhysiologicalUnit: Sendable {
+    case milliseconds, bpm, percent, celsius
+}
+
 @MainActor
 @Observable
 final class HealthPhysiologyStore {
     static let shared = HealthPhysiologyStore()
     private let healthStore = HKHealthStore()
-
-    private struct Reading: Sendable {
-        let date: Date
-        let value: Double
-    }
-
-    private enum VitalUnit: Sendable {
-        case milliseconds, bpm, percent, celsius
-    }
 
     private(set) var days: [RecoveryEngine.DailyVitals] = []
     private(set) var isLoading = false
@@ -345,7 +346,7 @@ final class HealthPhysiologyStore {
             .map { cal.startOfDay(for: $0.date) })
 
         func median(
-            _ samples: [Reading], for day: Date,
+            _ samples: [PhysiologyReading], for day: Date,
             valid: ClosedRange<Double>, beforeTrainingMorning: Bool = false
         ) -> Double? {
             let cutoff = cal.date(bySettingHour: 7, minute: 0, second: 0, of: day)
@@ -378,11 +379,11 @@ final class HealthPhysiologyStore {
     }
 
     private func read(
-        _ id: HKQuantityTypeIdentifier, unit: VitalUnit, since: Date
-    ) async -> [Reading] {
+        _ id: HKQuantityTypeIdentifier, unit: PhysiologicalUnit, since: Date
+    ) async -> [PhysiologyReading] {
         guard let type = HKObjectType.quantityType(forIdentifier: id) else { return [] }
         let predicate = HKQuery.predicateForSamples(withStart: since, end: Date())
-        return await withCheckedContinuation { (cont: CheckedContinuation<[Reading], Never>) in
+        return await withCheckedContinuation { (cont: CheckedContinuation<[PhysiologyReading], Never>) in
             let query = HKSampleQuery(
                 sampleType: type, predicate: predicate,
                 limit: HKObjectQueryNoLimit, sortDescriptors: nil
@@ -395,7 +396,7 @@ final class HealthPhysiologyStore {
                 case .celsius: hkUnit = .degreeCelsius()
                 }
                 let observed = (samples as? [HKQuantitySample] ?? []).map {
-                    Reading(date: $0.endDate, value: $0.quantity.doubleValue(for: hkUnit))
+                    PhysiologyReading(date: $0.endDate, value: $0.quantity.doubleValue(for: hkUnit))
                 }
                 cont.resume(returning: observed)
             }
