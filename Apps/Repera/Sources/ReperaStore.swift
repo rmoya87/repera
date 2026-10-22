@@ -1544,6 +1544,7 @@ final class ReperaStore: NSObject {
             state.rotation = rotation.routineIds.isEmpty ? nil : rotation
         }
         persist()
+        pushActiveToWatch()
     }
 
     /// Quita todas las asignaciones de días; conserva plantillas de Rutinas y entrenos sueltos.
@@ -1553,6 +1554,7 @@ final class ReperaStore: NSObject {
         }
         state.rotation = nil
         persist()
+        pushActiveToWatch()
     }
 
     func deleteAllRoutines() {
@@ -1569,6 +1571,7 @@ final class ReperaStore: NSObject {
         }
         state.rotation = nil
         persist()
+        pushActiveToWatch()
     }
 
     /// Días del plan semanal (Diario). Excluye entrenos sueltos.
@@ -1975,6 +1978,7 @@ final class ReperaStore: NSObject {
                 < ($1.weekday ?? 99, $1.scheduledDate ?? .distantFuture, $1.title)
         }
         persist()
+        pushActiveToWatch()
     }
 
     // MARK: - Body weight
