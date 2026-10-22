@@ -24,7 +24,7 @@ class WODFormatContractTests(unittest.TestCase):
         )
         contract = self.schema.split("export const wodFormatContract = {", 1)[1]
         contract = contract.split("} as const satisfies", 1)[0]
-        actual = re.findall(r"^  ([A-Za-z]+): \\{", contract, re.MULTILINE)
+        actual = re.findall(r"^  ([A-Za-z]+): \{", contract, re.MULTILINE)
         self.assertEqual(set(actual), set(formats))
         self.assertEqual(len(actual), len(formats))
 
