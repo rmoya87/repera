@@ -944,10 +944,15 @@ public enum SessionReviewEngine {
         let components = others.map {
             "\($0.title): \($0.observed)/\($0.prescribed) series registradas"
         }.joined(separator: " · ")
-        let info = "\(scoredBlock.title): \(wodReview.overallScore)/10 de ritmo estimado"
+        var info = "\(scoredBlock.title): \(wodReview.overallScore)/10 de ritmo estimado"
             + " · " + components
-            + ". Nota orientativa de sesión: combina ritmo y cobertura de registros; "
-            + "no mide técnica, esfuerzo percibido ni demuestra que las series sin registro no se hicieran."
+            + ". Nota orientativa: combina ritmo y cobertura de registros; no mide la calidad ni la intensidad."
+        let measuredMinutes = session.displayDurationMinutes
+        if measuredMinutes > 0, measuredMinutes < totalMinutes * 0.5 {
+            info += " El tiempo total guardado (\(Int(measuredMinutes.rounded())) min) "
+                + "no concuerda con los \(Int(totalMinutes.rounded())) min de bloques planificados; "
+                + "no se utiliza para calcular esta nota."
+        }
 
         return SessionReview(
             overallScore: score,
