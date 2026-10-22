@@ -205,7 +205,7 @@ final class WatchSessionHub: NSObject {
     }
 
     var clockDescriptor: String? {
-        if intervalsFinished { return "Intervalos finalizados" }
+        if intervalsFinished { return "Finalizado" }
         if isIntervalClock { return intervalLabel }
         if !clockCountsUp, timeCapSeconds > 0 {
             return current?.wodFormat?.displayName ?? "Cuenta atrás"
@@ -248,12 +248,14 @@ final class WatchSessionHub: NSObject {
     /// WODs with a global score can open their result form without reps;
     /// individual strength/interval sets must contain an actual quantity.
     var canConfirmCurrentEntry: Bool {
+        // Zero is valid for navigating to the next exercise, but is NEVER
+        // recorded as a completed set. The green arrow must remain tappable.
         active?.phase == .counting && !isPaused && !reviewingBlock
             && restRemaining == 0
-            && (currentIsWOD && !wodUsesSeries || effectiveReps > 0)
     }
     var nextActionIsFinish: Bool {
-        isFinalSet || (currentIsWOD && !wodUsesSeries)
+        (isLastWorkoutExercise && effectiveReps == 0)
+            || isFinalSet || (currentIsWOD && !wodUsesSeries)
     }
     var blockExercises: [SessionExercise] {
         guard let active, let current else { return [] }
@@ -659,15 +661,26 @@ final class WatchSessionHub: NSObject {
     /// The primary action commits the displayed set and advances only when
     /// all planned sets for this exercise were genuinely recorded.
     func confirmAndAdvance() {
-        guard active?.phase == .counting, !isPaused, !reviewingBlock else { return }
+        guard canConfirmCurrentEntry else { return }
         if currentIsWOD {
             if wodUsesSeries {
-                // EMOM / Tabata may contain many intervals of the last movement.
-                // One recorded set must never silently complete its whole WOD.
-                confirmIntervalSet()
+                if effectiveReps > 0 {
+                    // One WOD interval remains one saved set; never fabricate it.
+                    confirmIntervalSet()
+                } else {
+                    // The user can move to another WOD movement with zero reps.
+                    // The interval result remains unrecorded until confirmed.
+                    if hasNextExercise { nextExercise() } else { reviewBlock() }
+                }
             } else {
                 reviewBlock()
             }
+            return
+        }
+        if effectiveReps == 0 {
+            // Arrow means next exercise even if the current set is empty.
+            // Do not store a zero-repetition series.
+            if hasNextExercise { nextExercise() } else { finishWorkout() }
             return
         }
         let wasReviewingRecordedSet = selectedSetIndex != nil
