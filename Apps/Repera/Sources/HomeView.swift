@@ -20,7 +20,7 @@ struct HomeView: View {
     @ScaledMetric(relativeTo: .body) private var weekCarouselHeight: CGFloat = 72
     /// Shared baseline for a single exercise card and the no-workout state.
     /// Keeps the activity/progress cards below steady while changing days.
-    @ScaledMetric(relativeTo: .body) private var singleWorkoutMinHeight: CGFloat = 128
+    @ScaledMetric(relativeTo: .body) private var singleWorkoutMinHeight: CGFloat = 112
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: Date())
     /// Live refine for **today** only (HK query). Past days use bucket metrics — never wait on HealthKit to paint.
     @State private var todayHealthLive = HealthKitStore.DayMetrics()
@@ -138,9 +138,9 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    // Un único lienzo de borde a borde, independiente de las tarjetas
-                    // de Progreso, Actividad y Recuperación (que mantienen su margen).
+                VStack(alignment: .leading, spacing: 0) {
+                    // El blanco del calendario y Entreno continúa por detrás del
+                    // topbar transparente, sin crear un fondo propio para la barra.
                     VStack(alignment: .leading, spacing: 12) {
                         weekSelectorCard
                         dayWorkoutSection
@@ -149,29 +149,33 @@ struct HomeView: View {
                     .padding(.top, 12)
                     .padding(.bottom, 16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background {
-                        OG.surface.ignoresSafeArea(edges: .horizontal)
-                    }
+                    .background(OG.surface)
 
-                    weeklyProgressCard
-                        .padding(.horizontal, OG.pad)
-                    activityTodayCard
-                        .padding(.horizontal, OG.pad)
-                    if calendar.isDateInToday(selectedDay) {
-                        RecoveryHomeCard()
+                    // Progreso/Actividad conservan el lienzo agrupado gris,
+                    // que empieza justo donde termina la sección blanca.
+                    VStack(alignment: .leading, spacing: 12) {
+                        weeklyProgressCard
+                            .padding(.horizontal, OG.pad)
+                        activityTodayCard
+                            .padding(.horizontal, OG.pad)
+                        if calendar.isDateInToday(selectedDay) {
+                            RecoveryHomeCard()
+                                .padding(.horizontal, OG.pad)
+                        }
+                        professionalSessionsForSelectedDay
+                            .padding(.horizontal, OG.pad)
+                        confirmedBusinessBookingsCard
                             .padding(.horizontal, OG.pad)
                     }
-                    professionalSessionsForSelectedDay
-                        .padding(.horizontal, OG.pad)
-                    confirmedBusinessBookingsCard
-                        .padding(.horizontal, OG.pad)
+                    .padding(.top, 12)
+                    .padding(.bottom, 28)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(OG.bg)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 28)
             }
-            .background(OG.bg)
             .refreshable { await businessData.refresh() }
-            .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay), underlayColor: OG.surface) {
+            .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay)) {
                 if !businessData.athleteCenterIds.isEmpty {
                     NavigationLink {
                         MessagesInboxView()
@@ -205,6 +209,9 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Ajustes y cuenta iCloud")
+            }
+            .background {
+                OG.surface.ignoresSafeArea()
             }
             .onAppear {
                 LaunchTiming.mark("HomeView.onAppear")
@@ -690,22 +697,23 @@ struct HomeView: View {
             }
             .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
 
-            Text(value)
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(OG.label)
-                .lineLimit(1)
-                .minimumScaleFactor(0.65)
-            if !unit.isEmpty {
-                Text(unit)
-                    .font(.system(size: 11))
-                    .foregroundStyle(OG.label2)
-            }
-            if let goal, goal > 0 {
-                Text("Meta \(Int(goal).formatted())\(unit.isEmpty ? "" : " \(unit)")")
-                    .font(.system(size: 10))
-                    .foregroundStyle(OG.label2)
+            // Número y unidad comparten línea, sin incrementar la altura.
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(value)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(OG.label)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                    .minimumScaleFactor(0.65)
+                    .layoutPriority(1)
+                if !unit.isEmpty {
+                    Text(unit)
+                        .font(.system(size: 11))
+                        .foregroundStyle(OG.label2)
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if let goal, goal > 0 {
                 GeometryReader { geometry in
                     Capsule()
                         .fill(OG.surface3)
@@ -725,7 +733,7 @@ struct HomeView: View {
                 )
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 95, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .padding(10)
         .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .accessibilityElement(children: .combine)
@@ -739,7 +747,7 @@ struct HomeView: View {
         let hasActive = isToday && store.hasActiveSession
         let hasCompletedActivity = !workouts.isEmpty || !healthActivities.isEmpty
 
-        VStack(spacing: 10) {
+        VStack(spacing: 6) {
             if hasActive {
                 Button(action: onStart) {
                     dayActionRowContent
@@ -993,6 +1001,9 @@ struct HomeView: View {
                 OGRegisterChipsRow(leadingInset: Self.chipsTitleLeading) {
                     chips()
                 }
+                // La banda inferior ocupa lo mismo con o sin chips:
+                // un registro y la tarjeta de día vacío miden igual.
+                .frame(minHeight: 36, alignment: .topLeading)
             }
         )
         .accessibilityHint(accessibilityHint)
