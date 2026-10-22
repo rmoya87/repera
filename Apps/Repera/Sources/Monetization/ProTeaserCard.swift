@@ -126,7 +126,10 @@ struct ProTeaserCard: View {
                     mascotScene
                 }
             }
-            .padding(.horizontal, 12)
+            // La mascota de los banners con imagen a la derecha llega hasta el borde.
+            // El texto conserva su margen y Actividad mantiene el suyo a la derecha.
+            .padding(.leading, 12)
+            .padding(.trailing, appearance.imageOnLeft ? 12 : 0)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, minHeight: 228, alignment: .leading)
             .background(
