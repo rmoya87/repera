@@ -1650,9 +1650,7 @@ struct DayEditorView: View {
                 .foregroundStyle(OG.label3)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-            TextField(weight ? "Sin peso" : "Reps", text: value)
-                .keyboardType(weight ? .decimalPad : .numberPad)
-                .multilineTextAlignment(.center)
+            OGNumericTextField(text: value, allowsDecimal: weight, autoFocus: false, onCommit: {})
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
                 .accessibilityLabel(label + " · " + exercise.name)
@@ -1750,9 +1748,12 @@ struct DayEditorView: View {
                     Text(exercise.loggingStyle == .machineWork ? "CANTIDAD REAL" : "REPS REALES")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(OG.label3)
-                    TextField("Sin adaptar", text: completedWODScaledValue(movementID: movementID, weight: false))
-                        .keyboardType(.numberPad)
-                        .multilineTextAlignment(.center)
+                    OGNumericTextField(
+                        text: completedWODScaledValue(movementID: movementID, weight: false),
+                        allowsDecimal: false,
+                        autoFocus: false,
+                        onCommit: {}
+                    )
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
                         .accessibilityLabel("Repeticiones adaptadas · \(exercise.name)")
@@ -1762,9 +1763,12 @@ struct DayEditorView: View {
                         Text("KG REALES")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(OG.label3)
-                        TextField("Sin adaptar", text: completedWODScaledValue(movementID: movementID, weight: true))
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.center)
+                        OGNumericTextField(
+                            text: completedWODScaledValue(movementID: movementID, weight: true),
+                            allowsDecimal: true,
+                            autoFocus: false,
+                            onCommit: {}
+                        )
                             .frame(maxWidth: .infinity, minHeight: 44)
                             .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
                             .accessibilityLabel("Peso adaptado · \(exercise.name)")
