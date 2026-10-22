@@ -19,6 +19,9 @@ struct HomeView: View {
     private static let weekCarouselRadius = 52
     @State private var calendarScrollID: String?
     @ScaledMetric(relativeTo: .body) private var weekCarouselHeight: CGFloat = 72
+    /// Shared baseline for a single exercise card and the no-workout state.
+    /// Keeps the activity/progress cards below steady while changing days.
+    @ScaledMetric(relativeTo: .body) private var singleWorkoutMinHeight: CGFloat = 128
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: Date())
     /// Live refine for **today** only (HK query). Past days use bucket metrics — never wait on HealthKit to paint.
     @State private var todayHealthLive = HealthKitStore.DayMetrics()
@@ -171,7 +174,7 @@ struct HomeView: View {
             }
             .background(OG.bg)
             .refreshable { await businessData.refresh() }
-            .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay)) {
+            .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay), backgroundColor: OG.surface) {
                 if !businessData.athleteCenterIds.isEmpty {
                     NavigationLink {
                         MessagesInboxView()
@@ -856,7 +859,8 @@ struct HomeView: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// Entreno del día: sesión hecha (swipe eliminar), Salud (swipe eliminar), o descanso / plan.
+    /// Entreno del día: una ficha tiene la misma altura mínima en todos los estados.
+    /// Varias sesiones suman fichas y pueden crecer sin límite artificial.
     @ViewBuilder
     private func dayEntrenoStack(workouts: [WorkoutSession]) -> some View {
         let isToday = calendar.isDateInToday(selectedDay)
@@ -869,6 +873,7 @@ struct HomeView: View {
                     dayActionRowContent
                 }
                 .buttonStyle(.plain)
+                .frame(minHeight: singleWorkoutMinHeight, alignment: .top)
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     OGSwipeDeleteButton(accessibilityLabel: "Descartar entreno en curso") {
                         store.endActiveSession(save: false)
@@ -877,29 +882,64 @@ struct HomeView: View {
             } else if !workouts.isEmpty {
                 ForEach(workouts) { session in
                     dayWorkoutCard(session)
+                        .frame(minHeight: singleWorkoutMinHeight, alignment: .top)
                 }
             } else if let planned = plannedRoutineForSelectedDay {
-                // Planificado (aún sin registro): swipe borrar como en entrenos pasados.
+                // El plan mantiene todos los gestos existentes.
                 plannedDayCard(planned)
+                    .frame(minHeight: singleWorkoutMinHeight, alignment: .top)
             } else if !hasCompletedActivity {
-                Text("Sin entrenamientos programados")
-                    .font(.subheadline)
-                    .foregroundStyle(OG.label2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 8)
+                emptyWorkoutCard
             }
 
             ForEach(healthActivities) { activity in
                 healthActivityCard(activity)
+                    .frame(minHeight: singleWorkoutMinHeight, alignment: .top)
             }
 
-            // El botón siempre se distingue, haya o no un entreno anterior.
-            // Durante el entrenamiento en curso se conserva la acción Continuar.
+            // El CTA ocupa siempre la misma posición si solo hay una ficha.
+            // Cuando hay varias sesiones, el listado sí crece verticalmente.
             if !hasActive {
                 addAnotherWorkoutButton
             }
         }
         .swipeActionsContainer()
+    }
+
+    /// Usa la misma retícula del registro real (44 pt de icono, título y banda
+    /// inferior) en lugar de una sola línea que hacía saltar la Home.
+    private var emptyWorkoutCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 12) {
+                OGRegisterLeadingIcon(systemName: "calendar.badge.minus", tint: OG.label3)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(WorkoutListCaption.dayTimeLine(for: selectedDay, time: nil))
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(OG.label3)
+                        .tracking(0.3)
+                    Text("Sin entrenamientos programados")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(OG.label)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, Self.registerCardPad)
+
+            HStack(spacing: 7) {
+                Image(systemName: "moon.stars")
+                    .font(.system(size: 12, weight: .medium))
+                Text("Día libre · puedes añadir un entrenamiento")
+                    .font(.system(size: 12))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .foregroundStyle(OG.label2)
+            .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
+            .padding(.leading, Self.chipsTitleLeading)
+        }
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, minHeight: singleWorkoutMinHeight, alignment: .topLeading)
+        .accessibilityElement(children: .combine)
     }
 
     /// CTA inequívoco. Reutiliza el color exacto OG.accent (#30D158).
