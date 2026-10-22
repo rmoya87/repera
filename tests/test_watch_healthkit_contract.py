@@ -25,6 +25,18 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("NSHealthShareUsageDescription", plist)
         self.assertIn("NSHealthUpdateUsageDescription", plist)
 
+    def test_watch_app_has_an_explicit_runnable_xcode_scheme(self):
+        """Watch widget scheme cannot launch the actual workout application."""
+        spec = source("project.yml")
+        schemes = spec.partition("\nschemes:\n")[2]
+        self.assertTrue(schemes, "project.yml must declare shared schemes")
+        watch_scheme = schemes.partition("\n  ReperaWatch:\n")[2].partition("\n  Repera:\n")[0]
+        self.assertTrue(watch_scheme, "Missing the runnable ReperaWatch scheme")
+        self.assertIn("ReperaWatch: all", watch_scheme)
+        self.assertIn("executable: ReperaWatch", watch_scheme)
+        self.assertIn("config: Debug", watch_scheme)
+        self.assertNotIn("executable: ReperaWatchWidget", watch_scheme)
+
     def test_native_watch_session_and_recovery(self):
         watch = source("Apps/ReperaWatch/Sources/WatchHealthKitSession.swift")
         for symbol in (
