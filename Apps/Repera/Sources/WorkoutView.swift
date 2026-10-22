@@ -1413,6 +1413,8 @@ struct WorkoutView: View {
                             autoFocus: false,
                             isFocused: advancedFocusedField == OGSetFieldID(rowID: advancedFieldRowID, column: 0),
                             submitTitle: "Siguiente",
+                            focusIdentifier: OGSetFieldID(rowID: advancedFieldRowID, column: 0).accessibilityKey,
+                            nextFocusIdentifier: OGSetFieldID(rowID: advancedFieldRowID, column: 1).accessibilityKey,
                             onFocused: { advancedFocusedField = OGSetFieldID(rowID: advancedFieldRowID, column: 0) },
                             onFocusLost: { if advancedFocusedField?.column == 0 { advancedFocusedField = nil } },
                             onCommit: { advancedFocusedField = OGSetFieldID(rowID: advancedFieldRowID, column: 1) }
@@ -1425,6 +1427,7 @@ struct WorkoutView: View {
                             autoFocus: false,
                             isFocused: advancedFocusedField == OGSetFieldID(rowID: advancedFieldRowID, column: 1),
                             submitTitle: "✓",
+                            focusIdentifier: OGSetFieldID(rowID: advancedFieldRowID, column: 1).accessibilityKey,
                             onFocused: { advancedFocusedField = OGSetFieldID(rowID: advancedFieldRowID, column: 1) },
                             onFocusLost: { if advancedFocusedField?.column == 1 { advancedFocusedField = nil } },
                             onCommit: { advancedFocusedField = nil }
