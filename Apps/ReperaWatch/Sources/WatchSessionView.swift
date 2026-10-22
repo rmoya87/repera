@@ -414,7 +414,7 @@ struct WatchSessionView: View {
                 }
                 .accessibilityLabel("Restar repetición")
                 .disabled(hub.isPaused)
-                Text("\(hub.workingReps)")
+                Text("\(hub.effectiveReps)")
                     .font(.system(size: 38, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .frame(maxWidth: .infinity)
@@ -457,7 +457,7 @@ struct WatchSessionView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(accent)
                 .foregroundStyle(.black)
-                .disabled(hub.workingReps <= 0)
+                .disabled(hub.effectiveReps <= 0)
                 if hub.currentIsWOD && hub.wodUsesSeries {
                     Button("Terminar bloque") { hub.reviewBlock() }
                         .buttonStyle(.bordered)
