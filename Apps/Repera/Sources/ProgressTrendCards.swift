@@ -50,7 +50,7 @@ struct ProgressCardioChartCard: View {
                 OGCardSectionTitle(title: "Cardio")
                 Spacer(minLength: 8)
                 if let stats = periodStats {
-                    Text("media \(Int(stats.avg.rounded())) · \(ProgressChartAxis.rangeCaption(range: range, granularity: granularity))")
+                    Text("Media \(Int(stats.avg.rounded())) lpm")
                         .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(OG.label2)
                         .lineLimit(1)
@@ -216,7 +216,7 @@ struct ProgressCaloriesChartCard: View {
                 OGCardSectionTitle(title: "Calorías")
                 Spacer(minLength: 8)
                 if total > 0 {
-                    Text("\(Int(total.rounded())) kcal · \(ProgressChartAxis.rangeCaption(range: range, granularity: granularity))")
+                    Text("\(Int(total.rounded())) kcal")
                         .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(OG.label2)
                         .lineLimit(1)
@@ -357,9 +357,9 @@ struct ProgressWeightChartCard: View {
             return "\(sign)\(delta.formatted(.number.precision(.fractionLength(1)))) kg vs \(goal.formatted(.number.precision(.fractionLength(1))))"
         }
         if let latest {
-            return "\(latest.weightKg.formatted(.number.precision(.fractionLength(1)))) kg · \(range.title.lowercased())"
+            return "\(latest.weightKg.formatted(.number.precision(.fractionLength(1)))) kg"
         }
-        return range.title.lowercased()
+        return ""
     }
 
     private var yDomain: ClosedRange<Double> {
@@ -382,22 +382,20 @@ struct ProgressWeightChartCard: View {
         )
     }
 
-    private var deltaColor: Color {
-        guard let delta = deltaVsGoal else { return OG.label2 }
-        if abs(delta) < 0.3 { return OG.accent }
-        return OG.yellow
-    }
+    private var deltaColor: Color { OG.label }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 OGCardSectionTitle(title: "Peso")
                 Spacer(minLength: 8)
-                Text(statusLine)
-                    .font(.system(size: 12, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(deltaColor)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                if !statusLine.isEmpty {
+                    Text(statusLine)
+                        .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(OG.label)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
             }
             OGCard {
                 VStack(alignment: .leading, spacing: 10) {
