@@ -252,6 +252,19 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 
 `ReperaSmokeUITests` arranca la app Debug con `--repera-ui-test-tabs` y `REPERA_UI_TEST_MODE=1` para acceder únicamente al contenedor de pestañas sin cuenta Apple del runner. La compilación Release **no** reconoce este modo. Los tests comprueban `Inicio · Diario · Crear|Center · Progreso · Ejercicios` y navegación a Ejercicios. El login real con Apple debe probarse en otro escenario E2E con cuenta y TestFlight, nunca se simula como superado.
 
+## Escritura en Apple Salud y fuente de verdad (2026-10-22)
+
+- [ ] Autorizar lectura y escritura de **Entrenamientos** en Ajustes → Apple Salud. Terminar una sesión Repera desde iPhone: en la app Salud debe aparecer un HKWorkout de fuerza con inicio, fin, nombre Repera e identidad estable; el registro Repera almacena el mismo UUID.
+- [ ] Finalizar una sesión con un entrenamiento real de Entreno de Apple Watch solapado al menos 70 % y no ambiguo: enlazar el UUID externo, sus fechas y duración **aunque no tenga calorías**; no escribir otro HKWorkout de Repera. Si la sesión del reloj estuvo pausada, el indicador de tiempo de Inicio debe usar la duración real del HKWorkout, no el tiempo de pared.
+- [ ] Con energía medida por el propio HKWorkout de Apple Watch, mostrarla; sin muestra de energía, mostrar — en kcal por sesión, no energía activa ambiente del mismo periodo.
+- [ ] Denegar escritura pero permitir lectura: vincular un HKWorkout de Apple Watch coincidente. Si no existe, conservar el entrenamiento local sin marcarlo como guardado en Salud y comunicar permisos pendientes en Sincronizar ahora.
+- [ ] Sin permisos para escribir ni workout externo, guardar Repera únicamente en local. Dar el permiso posteriormente y pulsar Sincronizar ahora: se crea **una** muestra HealthKit con UUID y la app deja de informar de ella como pendiente.
+- [ ] Terminar entreno, cerrar/reabrir la app y repetir Sincronizar ahora: debe encontrar el HKWorkout propio por metadatos ReperaSessionID, sin generar duplicados.
+- [ ] Simular doble sincronización concurrente: «Terminar» y «Sincronizar ahora» no crean dos HKWorkout de la misma sesión. Mantener los datos originales si HealthKit devuelve error o no confirma UUID (p. ej. dispositivo bloqueado).
+- [ ] Con varios HKWorkout en un día, comprobar que un registro de Watch enlazado no se suma de nuevo como actividad externa ni duplica minutos. Una actividad externa distinta y no solapada sí se suma.
+- [ ] No dar por cubierta captura de FC y kcal propias de la app watchOS Repera: actualmente no ejecuta HKWorkoutSession; probar solo con entrenamientos de HealthKit reales (p. ej. Entreno de Apple).
+- [ ] Revisar permisos, modo avión, bloqueo/desbloqueo de pantalla, reintentos, cambios de día y sincronización iCloud con el iPhone real. Validar que se omiten kcal estimadas históricas.
+
 ## Conciliación de minutos y navegación de Progreso (2026-10-22)
 
 - [ ] En Inicio, elegir un día pasado con un entrenamiento Repera de 60 minutos sin actividad externa: Tiempo de entrenamiento muestra 60 min aunque la caché histórica de Salud no tenga una sesión propia.
