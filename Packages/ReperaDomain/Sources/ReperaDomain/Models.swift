@@ -1557,20 +1557,33 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         self.blockRestBetweenRoundsSeconds = blockRestBetweenRoundsSeconds
     }
 
-    /// Se marca como adaptado solo si existe una indicación de ejecución real.
-    /// Las cantidades prescritas permanecen intactas para comparación y auditoría.
-    public var hasWODScaling: Bool {
+    /// Se puede anotar lo realizado incluso si coincide con lo prescrito.
+    public var hasRecordedWODExecution: Bool {
         adaptedReps != nil || adaptedWeightKg != nil
     }
 
+    /// «Scaled» solo cuando la ejecución difiere realmente de la prescripción
+    /// corregida. Así, al editar el peso original, la nota se recalcula sobre
+    /// la nueva referencia sin etiquetar erróneamente como adaptado un Rx.
+    public var hasWODScaling: Bool {
+        if let adaptedReps, adaptedReps != plannedSets.first?.targetReps {
+            return true
+        }
+        if let adaptedWeightKg {
+            guard let rxKg = plannedSets.first?.targetWeightKg else { return true }
+            if abs(adaptedWeightKg - rxKg) >= 0.05 { return true }
+        }
+        return false
+    }
+
     public var adjustedSummaryLine: String? {
-        guard hasWODScaling else { return nil }
+        guard hasRecordedWODExecution else { return nil }
         var values: [String] = []
         if let adaptedReps { values.append("\(adaptedReps) reps") }
         if let adaptedWeightKg {
             values.append("\(adaptedWeightKg.formatted(.number.precision(.fractionLength(0...1)))) kg")
         }
-        return "Adaptado · " + values.joined(separator: " · ")
+        return (hasWODScaling ? "Adaptado · " : "Realizado · ") + values.joined(separator: " · ")
     }
 
     public var lastLoggedWeight: Double? {

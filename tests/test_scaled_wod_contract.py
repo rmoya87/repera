@@ -32,12 +32,13 @@ class ScaledWODContractTests(unittest.TestCase):
         self.assertIn("completedWODScalingFields(movementID: move.id", view)
         self.assertIn("completedWODScalingFields(movementID: item.id", view)
         self.assertIn("private func completedWODScaledValue(", view)
-        self.assertIn('Text("Adaptación realizada (opcional)")', view)
+        self.assertIn('Text("Realizado (opcional)")', view)
+        self.assertIn('Text("Prescrito (editable)")', view)
         self.assertIn("adaptedReps = nil", view)
         self.assertIn("adaptedWeightKg = nil", view)
         self.assertIn("scaledInputDrafts[key] = input", view)
         self.assertIn("ensureCompletedWorkoutDraft()", view)
-        self.assertIn('Text("Prescripción · " + move.summaryLine)', view)
+        self.assertIn("completedWODRxFields(blockIndex: index, movementIndex: mIndex", view)
         self.assertIn("onApplyCompleted(edited, completedDetails)", view)
 
     def test_mcp_projects_scaled_values_without_fabricating_logged_sets(self):
@@ -62,7 +63,7 @@ class ScaledWODContractTests(unittest.TestCase):
         self.assertIn("Versión adaptada", review)
         self.assertIn("partial / max(1, workPerRound)", review)
         self.assertIn("if !isScaled,", review)
-        self.assertIn("sessionReviewFormulaVersion = 7", store)
+        self.assertIn("sessionReviewFormulaVersion = 8", store)
         self.assertIn("exercise.adjustedSummaryLine", history)
 
 

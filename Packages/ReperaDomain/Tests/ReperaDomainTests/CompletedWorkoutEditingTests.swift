@@ -227,6 +227,92 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         XCTAssertTrue(decoded.exercises[0].loggedSets.isEmpty)
     }
 
+    func testEditingOriginalWODPrescriptionPreservesAdaptationGlobalScoreAndLoggedSet() {
+        let clean = Exercise(name: "Cargada y envión", muscleGroup: "Hombros")
+        let movement = WODMovement(
+            exerciseId: clean.id, name: clean.name, reps: 20, weightMaleKg: 40
+        )
+        let block = RoutineBlock(
+            title: "AMRAP 8'", kind: .wod,
+            movements: [movement], wodFormat: .amrap, timeCapMinutes: 8
+        )
+        let originalRoutine = Routine(title: "WOD original", blocks: [block])
+        var session = SessionController.from(routine: originalRoutine, exercises: [clean])
+        session.phase = .finished
+        session.wodResults = [WODBlockResult(
+            id: block.id, format: .amrap, totalReps: 4, roundsCompleted: 5
+        )]
+        session.exercises[0].loggedSets = [LoggedSet(reps: 16, weightKg: 27)]
+        session.exercises[0].adaptedReps = 15
+        session.exercises[0].adaptedWeightKg = 25
+
+        var editor = CompletedWorkoutEditing.routine(from: session)
+        // El formulario Rx NO se inicializa con el set realizado (16 @ 27).
+        XCTAssertEqual(editor.blocks[0].movements[0].explicitPlannedSets?.first?.targetReps, 20)
+        XCTAssertEqual(editor.blocks[0].movements[0].explicitPlannedSets?.first?.targetWeightKg, 40)
+        editor.blocks[0].movements[0].reps = 18
+        editor.blocks[0].movements[0].weightMaleKg = 35
+        editor.blocks[0].movements[0].explicitPlannedSets?[0].targetReps = 18
+        editor.blocks[0].movements[0].explicitPlannedSets?[0].targetWeightKg = 35
+
+        let saved = CompletedWorkoutEditing.applying(editor, to: session, catalog: [clean])
+        XCTAssertEqual(saved.id, session.id)
+        XCTAssertEqual(saved.routineBlocks?[0].movements[0].reps, 18)
+        XCTAssertEqual(saved.routineBlocks?[0].movements[0].weightMaleKg, 35)
+        XCTAssertEqual(saved.exercises[0].plannedSets.first?.targetReps, 18)
+        XCTAssertEqual(saved.exercises[0].plannedSets.first?.targetWeightKg, 35)
+        XCTAssertEqual(saved.exercises[0].adaptedReps, 15)
+        XCTAssertEqual(saved.exercises[0].adaptedWeightKg, 25)
+        XCTAssertTrue(saved.exercises[0].hasWODScaling)
+        XCTAssertEqual(saved.exercises[0].loggedSets.first?.reps, 16)
+        XCTAssertEqual(saved.exercises[0].loggedSets.first?.weightKg, 27)
+        XCTAssertEqual(saved.wodResults[0].roundsCompleted, 5)
+        XCTAssertEqual(saved.wodResults[0].totalReps, 4)
+        // El WOD plantilla nunca se actualiza por editar su sesión histórica.
+        XCTAssertEqual(originalRoutine.blocks[0].movements[0].weightMaleKg, 40)
+        XCTAssertEqual(originalRoutine.blocks[0].movements[0].reps, 20)
+    }
+
+    func testPerformedValuesEqualToEditedPrescriptionDoNotClaimScaled() {
+        let ex = Exercise(name: "Cargada y envión", muscleGroup: "Hombros")
+        var entry = SessionExercise(
+            exercise: ex,
+            plannedSets: [PlannedSet(targetReps: 20, targetWeightKg: 40)],
+            adaptedReps: 15, adaptedWeightKg: 25
+        )
+        XCTAssertTrue(entry.hasWODScaling)
+        XCTAssertEqual(entry.adjustedSummaryLine, "Adaptado · 15 reps · 25 kg")
+        // Corregir el Rx original al valor realmente prescrito: el registro de
+        // ejecución no desaparece, pero deja de ser una adaptación.
+        entry.plannedSets[0].targetReps = 15
+        entry.plannedSets[0].targetWeightKg = 25
+        XCTAssertTrue(entry.hasRecordedWODExecution)
+        XCTAssertFalse(entry.hasWODScaling)
+        XCTAssertEqual(entry.adjustedSummaryLine, "Realizado · 15 reps · 25 kg")
+    }
+
+    func testConvertedStrengthGlobalWODRetainsRxAndLoggedSetsSeparately() {
+        let press = Exercise(name: "Push press", muscleGroup: "Hombros")
+        let originalRoutine = Routine(title: "Bloque", blocks: [
+            RoutineBlock(
+                title: "AMRAP 8'", kind: .strength,
+                exercises: [RoutineExercise(
+                    exerciseId: press.id,
+                    plannedSets: [PlannedSet(targetReps: 10, targetWeightKg: 40)]
+                )],
+                wodFormat: .amrap, timeCapMinutes: 8
+            ),
+        ])
+        var session = SessionController.from(routine: originalRoutine, exercises: [press])
+        session.phase = .finished
+        session.exercises[0].loggedSets = [LoggedSet(reps: 8, weightKg: 30)]
+        let draft = CompletedWorkoutEditing.routine(from: session)
+        XCTAssertEqual(draft.blocks[0].exercises[0].plannedSets.first?.targetWeightKg, 40)
+        let saved = CompletedWorkoutEditing.applying(draft, to: session, catalog: [press])
+        XCTAssertEqual(saved.exercises[0].plannedSets.first?.targetWeightKg, 40)
+        XCTAssertEqual(saved.exercises[0].loggedSets.first?.weightKg, 30)
+    }
+
     func testChangingWODFormatDropsIncompatibleStoredScore() {
         let exercise = Exercise(name: "Burpees", muscleGroup: "Otros")
         let block = RoutineBlock(

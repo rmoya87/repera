@@ -18,7 +18,11 @@ public enum CompletedWorkoutEditing {
                     RoutineExercise(
                         id: entry.id,
                         exerciseId: entry.exercise.id,
-                        plannedSets: visibleSets(for: entry),
+                        plannedSets: source.wodFormat?.resultCapture == .totalReps
+                            || source.wodFormat?.resultCapture == .elapsedTime
+                            ? (source.exercises.indices.contains(index)
+                                ? source.exercises[index].plannedSets : entry.plannedSets)
+                            : visibleSets(for: entry),
                         quantityUnit: entry.quantityUnit,
                         restSeconds: source.exercises.indices.contains(index) ? source.exercises[index].restSeconds : nil
                     )
@@ -31,7 +35,11 @@ public enum CompletedWorkoutEditing {
                     if original.isRest {
                         movements.append(original)
                     } else if entries.indices.contains(index) {
-                        movements.append(movement(for: entries[index], original: original))
+                        movements.append(movement(
+                            for: entries[index], original: original,
+                            preservePrescription: source.wodFormat?.resultCapture != .perMovementSets
+                                && source.wodFormat != nil
+                        ))
                         index += 1
                     }
                 }
@@ -132,7 +140,11 @@ public enum CompletedWorkoutEditing {
                 entry.blockRestSeconds = block.restSeconds
                 entry.blockRestBetweenRoundsSeconds = block.restBetweenRoundsSeconds
                 entry.supersetGroup = nil
-                if let old, !old.loggedSets.isEmpty {
+                // Los sets completados no se reconstruyen al editar la
+                // prescripción de un WOD con resultado GLOBAL. Son dos hechos
+                // diferentes y ambos deben persistir sin contaminarse.
+                if let old, !old.loggedSets.isEmpty,
+                   block.wodFormat == nil || block.wodFormat?.resultCapture == .perMovementSets {
                     entry.loggedSets = sets.map { set in
                         if let previous = old.loggedSets.first(where: { $0.id == set.id }) {
                             var edited = previous
@@ -211,8 +223,14 @@ public enum CompletedWorkoutEditing {
         }
     }
 
-    private static func movement(for entry: SessionExercise, original: WODMovement?) -> WODMovement {
-        let sets = visibleSets(for: entry)
+    private static func movement(
+        for entry: SessionExercise,
+        original: WODMovement?,
+        preservePrescription: Bool = false
+    ) -> WODMovement {
+        let sets = preservePrescription
+            ? (original?.explicitPlannedSets ?? entry.plannedSets)
+            : visibleSets(for: entry)
         return WODMovement(
             id: entry.id,
             exerciseId: entry.exercise.id,
