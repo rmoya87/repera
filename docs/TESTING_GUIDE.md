@@ -251,3 +251,22 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 ## UI tests en simulador limpio (2026-10-19)
 
 `ReperaSmokeUITests` arranca la app Debug con `--repera-ui-test-tabs` y `REPERA_UI_TEST_MODE=1` para acceder únicamente al contenedor de pestañas sin cuenta Apple del runner. La compilación Release **no** reconoce este modo. Los tests comprueban `Inicio · Diario · Crear|Center · Progreso · Ejercicios` y navegación a Ejercicios. El login real con Apple debe probarse en otro escenario E2E con cuenta y TestFlight, nunca se simula como superado.
+
+## Inicio y objetivos de Salud — revisión iOS 27 (2026-10-22)
+
+- [ ] Abrir Inicio en modo claro y oscuro: calendario, entrenamiento (incluido día vacío) y «Añadir nuevo entreno» comparten un lienzo OG.surface a ancho total; Progreso semanal, Actividad y Recuperación mantienen sus márgenes.
+- [ ] Deslizar el calendario por días y cruzar un cambio de mes: la cabecera se actualiza, los días siguen siendo cuadrados y el seleccionado tiene color de marca OG.accent (#30D158).
+- [ ] En día vacío, planificado y completado, comprobar que «Añadir nuevo entreno» destaca como botón verde con letras negras. Abrir el flujo y regresar sin perder selección de fecha.
+- [ ] Con entrenamientos completados, probar swipe para revelar eliminar, detalle de sesión, y chips horizontales; nunca borrar sin confirmación.
+- [ ] Ajustes → Salud → Objetivos abre una pantalla real, con pasos, kcal activas, minutos diarios, entrenamientos semanales y objetivo de peso. El objetivo de peso se edita solo aquí; en Peso corporal queda registro e historial.
+- [ ] Tras actualizar desde versiones antiguas, el objetivo de peso configurado se conserva. Los nuevos objetivos son opcionales, vacíos por defecto; guardar, reiniciar y comprobar persistencia.
+- [ ] Establecer objetivos de pasos y energía: en Inicio las métricas presentan un progreso solo con datos medidos; si Salud no suministra dato, mostrar raya, no cero.
+- [ ] Bajo Actividad aparece la evolución de siete días con selector Pasos / Calorías / FC media. Mostrar barras/línea solo de datos medidos, incluyendo fechas con muestras a horas distintas; en ausencia de datos presentar explicación, no barras simuladas.
+- [ ] Entrenar dos veces en un día y comprobar que el progreso semanal muestra dos entrenamientos frente a la meta, aunque haya solo un check para el día.
+- [ ] Verificar Dynamic Type, VoiceOver, pantalla estrecha, pantalla amplia, reducción de movimiento y navegación de gestos dentro de un ScrollView vertical.
+
+### Incidencias de compilación y herramientas de Xcode
+
+- “Cannot find HealthGoalsView in scope”: desde este cambio HealthGoalsView reside en Apps/Repera/Sources/SettingsView.swift, un archivo ya incluido en el proyecto Xcode antiguo. Actualizar main y comprobar que el archivo local está actualizado; no debe quedar una definición duplicada de la vista. Si se regenera con XcodeGen, usar project.yml desde la raíz y reabrir el proyecto.
+- “Assets.xcassets: Could not get trait set for device Watch8,3 with version 27.0”: este mensaje procede del procesado del catálogo por Xcode/CoreSimulator; no confirma que falte el icono ni explica por sí solo el fallo SwiftCompile. Verificar que Xcode y los componentes de watchOS 27 están completos, instalar actualizaciones disponibles (Xcode → Ajustes → Componentes), cambiar al destino iPhone real para aislarlo, limpiar Build Folder y volver a compilar. Conservar el catálogo original si el JSON y los iconos son correctos; investigar el resto del log si la compilación falla.
+- Registrar por separado los errores reales de Swift y los avisos de actool y ejecutar el build completo con Xcode 27 antes de publicar TestFlight.
