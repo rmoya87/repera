@@ -100,7 +100,10 @@ export function registerAthleteChangeTools(
     const unique=new Set((setChanges??[]).map(s=>s.loggedSetId));
     if(unique.size!==(setChanges??[]).length)
       return fail("VALIDATION_ERROR","setChanges","No repitas una misma serie");
-    return stage("update_workout",workoutId,{...(title?{title}:{}),setChanges:setChanges??[]},row.updated_at);
+    return stage("update_workout",workoutId,{
+      workoutTitle:row.payload?.title??"Entrenamiento",
+      ...(title?{title}:{}),setChanges:setChanges??[],
+    },row.updated_at);
   });
   server.registerTool("delete_workout",{
     description:"Request deletion of a completed workout, requiring explicit athlete confirmation on device. Deletion may also affect linked Apple Health workout, exactly as native Delete Workout does.",
@@ -112,7 +115,9 @@ export function registerAthleteChangeTools(
     if(!row||row.deleted_at)return fail("NOT_FOUND","workoutId","Entrenamiento inexistente o eliminado");
     if(Date.parse(row.updated_at)!==Date.parse(expectedUpdatedAt))
       return fail("CONFLICT","expectedUpdatedAt","El entrenamiento ya cambió; recarga su revisión");
-    return stage("delete_workout",workoutId,{},row.updated_at);
+    return stage("delete_workout",workoutId,{
+      workoutTitle:row.payload?.title??"Entrenamiento",
+    },row.updated_at);
   });
   server.registerTool("create_custom_exercise",{
     description:"Propose a new PRIVATE exercise to athlete's iPhone catalog, subject to native subscription limits and confirmation.",
@@ -125,7 +130,7 @@ export function registerAthleteChangeTools(
     annotations:{readOnlyHint:false,destructiveHint:true},
   },async({exerciseId,exercise:patch})=>{
     const {data,error}=await db.from("athlete_custom_exercise_mirror")
-      .select("exercise_id").eq("owner_id",ownerId).eq("exercise_id",exerciseId).maybeSingle();
+      .select("exercise_id,name").eq("owner_id",ownerId).eq("exercise_id",exerciseId).maybeSingle();
     if(error)return fail("STORAGE_ERROR","exerciseId","Error consultando catálogo");
     if(!data)return fail("NOT_FOUND","exerciseId","Ejercicio personalizado no encontrado");
     return stage("update_exercise",exerciseId,patch);
@@ -136,9 +141,9 @@ export function registerAthleteChangeTools(
     annotations:{readOnlyHint:false,destructiveHint:true},
   },async({exerciseId})=>{
     const {data,error}=await db.from("athlete_custom_exercise_mirror")
-      .select("exercise_id").eq("owner_id",ownerId).eq("exercise_id",exerciseId).maybeSingle();
+      .select("exercise_id,name").eq("owner_id",ownerId).eq("exercise_id",exerciseId).maybeSingle();
     if(error)return fail("STORAGE_ERROR","exerciseId","Error consultando catálogo");
     if(!data)return fail("NOT_FOUND","exerciseId","Ejercicio personalizado no encontrado");
-    return stage("delete_exercise",exerciseId,{});
+    return stage("delete_exercise",exerciseId,{name:data.name});
   });
 }
