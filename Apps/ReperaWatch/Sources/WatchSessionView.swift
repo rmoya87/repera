@@ -456,6 +456,152 @@ struct WatchSessionView: View {
         }
     }
 
+    /// Reuse iPhone's loggingStyle so irrelevant fields never appear.
+    @ViewBuilder
+    private var exerciseFields: some View {
+        switch hub.loggingStyle {
+        case .loadAndReps:
+            if hub.current?.exercise.loadField == .deficitCm {
+                metricStepper(label: "Déficit (cm)",
+                    value: "\(hub.setDraft.deficitCm ?? 0)",
+                    down: { hub.adjustDeficit(-1) },
+                    up: { hub.adjustDeficit(1) })
+            } else {
+                metricStepper(label: "Peso kg",
+                    value: hub.workingWeightKg.map { $0.formatted() } ?? "—",
+                    down: { hub.adjustWeight(-0.5) },
+                    up: { hub.adjustWeight(0.5) })
+            }
+            rirControls
+        case .repsOnly:
+            rirControls
+        case .repsAndTime:
+            durationControls
+        case .machineWork:
+            HStack(spacing: 5) {
+                Button("Cal") { hub.selectUnit(.calories) }
+                    .tint(hub.setDraft.unit == .calories ? accent : .gray)
+                Button("Metros") { hub.selectUnit(.meters) }
+                    .tint(hub.setDraft.unit == .meters ? accent : .gray)
+            }
+            .font(.caption2)
+            .buttonStyle(.bordered)
+            durationControls
+        }
+        Button {
+            showSetDetails = true
+        } label: {
+            Label("Más datos", systemImage: "slider.horizontal.3")
+                .font(.caption2)
+        }
+        .buttonStyle(.bordered)
+        .disabled(hub.isPaused)
+    }
+
+    private var rirControls: some View {
+        metricStepper(
+            label: "RIR",
+            value: hub.setDraft.rir.map { $0.formatted(.number.precision(.fractionLength(0...1))) } ?? "—",
+            down: { hub.setRIR(max(0, (hub.setDraft.rir ?? 3) - 1)) },
+            up: { hub.setRIR(min(5, (hub.setDraft.rir ?? 1) + 1)) }
+        )
+    }
+
+    private var durationControls: some View {
+        metricStepper(label: "Tiempo serie",
+            value: timeLabel(hub.setDraft.durationSeconds ?? 0),
+            down: { hub.adjustDuration(-5) },
+            up: { hub.adjustDuration(5) })
+    }
+
+    private func metricStepper(label: String, value: String,
+        down: @escaping () -> Void, up: @escaping () -> Void) -> some View {
+        HStack(spacing: 5) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label).font(.caption2).foregroundStyle(.secondary)
+                Text(value).font(.caption.weight(.semibold)).monospacedDigit()
+            }
+            Spacer(minLength: 2)
+            Button(action: down) { Image(systemName: "minus") }
+                .accessibilityLabel("Reducir \(label)")
+            Button(action: up) { Image(systemName: "plus") }
+                .accessibilityLabel("Aumentar \(label)")
+        }
+        .font(.caption)
+        .buttonStyle(.bordered)
+        .disabled(hub.isPaused)
+    }
+
+    private var setDetailsView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 9) {
+                Text("Detalles de serie").font(.headline)
+                if hub.loggingStyle.usesRIR {
+                    Toggle("Al fallo", isOn: Binding(
+                        get: { hub.setDraft.toFailure },
+                        set: { hub.setToFailure($0) }
+                    ))
+                    Button("Sin RIR") { hub.setRIR(nil) }
+                        .font(.caption2)
+                }
+                Picker("Fase", selection: Binding(
+                    get: { hub.setDraft.phase },
+                    set: { hub.setPhase($0) }
+                )) {
+                    Text("Trabajo").tag(SetPhase.work)
+                    Text("Calentamiento").tag(SetPhase.warmup)
+                }
+                Picker("Tipo de serie", selection: Binding(
+                    get: { hub.setDraft.kind },
+                    set: { hub.setKind($0) }
+                )) {
+                    Text("Normal").tag(SetKind.straight)
+                    Text("Drop set").tag(SetKind.dropset)
+                    Text("Rest-pause").tag(SetKind.restpause)
+                }
+                if hub.setDraft.kind == .dropset {
+                    ForEach(hub.setDraft.drops) { drop in
+                        VStack(alignment: .leading, spacing: 3) {
+                            metricStepper(label: "Drop reps", value: "\(drop.reps)",
+                                down: { hub.adjustDrop(id: drop.id, reps: -1) },
+                                up: { hub.adjustDrop(id: drop.id, reps: 1) })
+                            metricStepper(label: "Drop kg",
+                                value: drop.weightKg.map { $0.formatted() } ?? "0",
+                                down: { hub.adjustDrop(id: drop.id, weightKg: -0.5) },
+                                up: { hub.adjustDrop(id: drop.id, weightKg: 0.5) })
+                            Button("Eliminar drop", role: .destructive) {
+                                hub.removeDrop(id: drop.id)
+                            }.font(.caption2)
+                        }
+                    }
+                    Button("Añadir drop") { hub.addDrop() }.buttonStyle(.bordered)
+                }
+                if hub.setDraft.kind == .restpause {
+                    ForEach(hub.setDraft.clusters) { cluster in
+                        VStack(alignment: .leading, spacing: 3) {
+                            metricStepper(label: "Reps bloque", value: "\(cluster.reps)",
+                                down: { hub.adjustCluster(id: cluster.id, reps: -1) },
+                                up: { hub.adjustCluster(id: cluster.id, reps: 1) })
+                            metricStepper(label: "Pausa (s)", value: "\(cluster.restSeconds)",
+                                down: { hub.adjustCluster(id: cluster.id, restSeconds: -5) },
+                                up: { hub.adjustCluster(id: cluster.id, restSeconds: 5) })
+                            Button("Eliminar bloque", role: .destructive) {
+                                hub.removeCluster(id: cluster.id)
+                            }.font(.caption2)
+                        }
+                    }
+                    Button("Añadir bloque") { hub.addCluster() }.buttonStyle(.bordered)
+                }
+                Button("Listo") { showSetDetails = false }
+                    .frame(maxWidth: .infinity)
+                    .buttonStyle(.borderedProminent)
+                    .tint(accent)
+                    .foregroundStyle(.black)
+            }
+            .padding(.horizontal, 7)
+        }
+    }
+
     private func restView(_ seconds: Int) -> some View {
         VStack(spacing: 9) {
             Image(systemName: "hourglass")
