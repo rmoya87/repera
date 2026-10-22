@@ -766,7 +766,10 @@ public enum SessionReviewEngine {
         // Solo pueden ajustar la nota WOD las series del MISMO bloque.
         // Push press y peso muerto de otro EMOM no pueden restar puntos al AMRAP.
         let scoredIDs = Set(session.exercises.filter { $0.blockId == scoredBlockID }.map { $0.exercise.id })
-        let scoredMovements = movements.filter { scoredIDs.contains($0.exerciseId) }
+        let scoredMovements = movements.filter { movement in
+            guard let exerciseID = movement.exerciseId else { return false }
+            return scoredIDs.contains(exerciseID)
+        }
         let adj = equivalenceAdjustment(from: scoredMovements)
         let score = clampScore(base.overallScore + adj)
         var history = base.vsHistorySummary
