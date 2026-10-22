@@ -32,6 +32,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     private var processedActionIds: Set<UUID> = []
     private let processedLimit = 64
     // Cache plans created before WatchConnectivity activation completes.
+    private let latestPayloadLock = NSLock()
     private var latestPayload: [String: Any]?
 
     func activate() {
@@ -72,13 +73,14 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             payload["quickLogExerciseName"] = hint.name
         }
 
-        latestPayload = payload
+        latestPayloadLock.withLock { latestPayload = payload }
         publishLatestContext()
     }
 
     /// Reliable latest state while offline; immediate state for a reachable Watch.
     private func publishLatestContext() {
-        guard WCSession.isSupported(), let payload = latestPayload else { return }
+        guard WCSession.isSupported(),
+              let payload = latestPayloadLock.withLock({ latestPayload }) else { return }
         let wc = WCSession.default
         guard wc.activationState == .activated else { return }
         do {
@@ -165,7 +167,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         case "requestToday":
             // Reply with the last cached state, then republish the freshest plan.
             delegate?.phoneConnectivityDidRequestToday()
-            return latestPayload ?? ["ok": true]
+            return latestPayloadLock.withLock { latestPayload } ?? ["ok": true]
         case "quickLog":
             let id = (message["exerciseId"] as? String).flatMap(UUID.init(uuidString:))
             delegate?.phoneConnectivityDidReceiveQuickLogRequest(exerciseId: id)
