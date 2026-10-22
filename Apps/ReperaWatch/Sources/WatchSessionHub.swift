@@ -522,38 +522,32 @@ final class WatchSessionHub: NSObject {
 
     private func tickClock() {
         guard hasWorkoutInProgress, !isPaused, let lastClockTick else { return }
-        let now = Date()
-        // The callback is only a UI refresh: elapsed time comes from real dates.
-        // Never truncate background time to an arbitrary one-hour window.
-        let delta = max(0, Int(now.timeIntervalSince(lastClockTick)))
+        let step = WorkoutClockMath.advance(
+            from: lastClockTick, to: Date(),
+            sessionElapsed: sessionElapsed, blockElapsed: blockElapsed,
+            restRemaining: restRemaining, isCounting: active?.phase == .counting,
+            isWOD: currentIsWOD, timeCapSeconds: timeCapSeconds
+        )
+        let delta = step.advancedSeconds
         guard delta > 0 else { return }
         self.lastClockTick = lastClockTick.addingTimeInterval(Double(delta))
-        sessionElapsed += delta
-        let isCounting = active?.phase == .counting
         let previous = blockElapsed
         let wasResting = restRemaining > 0
-        let consumedRest = min(max(0, restRemaining), delta)
-        if isCounting {
-            // Timed WOD intervals include rest; a strength set's active clock does not.
-            let increment = currentIsWOD ? delta : delta - consumedRest
-            if currentIsWOD, timeCapSeconds > 0 {
-                // A suspended app must never score more than the prescribed time cap.
-                blockElapsed = min(timeCapSeconds, blockElapsed + increment)
-            } else {
-                blockElapsed += increment
-            }
+        let isCounting = active?.phase == .counting
+        sessionElapsed = step.sessionElapsed
+        blockElapsed = step.blockElapsed
+        restRemaining = step.restRemaining
+
+        if step.reachedTimeCap {
+            reviewBlock()
+            return
         }
-        if wasResting {
-            restRemaining = max(0, restRemaining - delta)
-            if restRemaining == 0 {
-                WKInterfaceDevice.current().play(.notification)
-                startMotion()
-                checkpoint()
-            }
+        if wasResting, restRemaining == 0 {
+            WKInterfaceDevice.current().play(.notification)
+            startMotion()
+            checkpoint()
         }
-        guard isCounting else { return }
-        if currentIsWOD, timeRemaining == 0 { reviewBlock(); return }
-        if restRemaining > 0 { return }
+        guard isCounting, restRemaining == 0 else { return }
         if let current, let interval = current.blockIntervalSeconds, interval > 0,
            blockElapsed / interval > previous / interval {
             WKInterfaceDevice.current().play(.click)
@@ -568,9 +562,7 @@ final class WatchSessionHub: NSObject {
                 WKInterfaceDevice.current().play(.click)
             }
         }
-        if let timeRemaining, timeRemaining == 0, currentIsWOD {
-            reviewBlock()
-        } else if sessionElapsed % 10 < delta {
+        if sessionElapsed % 10 < delta {
             save()
         }
     }
