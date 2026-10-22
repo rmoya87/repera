@@ -12,7 +12,7 @@
 
 1. Al conectarse, el iPhone envía la rutina programada o una prescripción estructurada del entrenador, con día de calendario. El Watch la guarda. Nunca trata el contexto antiguo de otro día como entrenamiento de hoy.
 2. El botón **Iniciar** crea un UUID nuevo de ejecución; conserva el UUID de la prescripción como `routineId`. HealthKit pide permisos para leer FC/energía y compartir entrenamientos.
-3. Con los permisos autorizados, watchOS abre una sesión de `functionalStrengthTraining` con un builder; se habilita `workout-processing` para continuar con la muñeca baja. Un problema de permisos no produce kcal ni FC inventadas.
+3. Tras solicitar autorización con la API asíncrona de HealthKit, watchOS inicia un `HKWorkoutSession` con actividad `functionalStrengthTraining`, `highIntensityIntervalTraining` o `crossTraining` según los bloques y un `HKLiveWorkoutBuilder`. Usa `beginCollection(at:)` y `addMetadata(_:)` con `async/await`; se habilita `workout-processing` para continuar con la muñeca baja. Un problema de permisos no produce kcal ni FC inventadas.
 4. Las actividades de HealthKit se separan por bloques, sin crear un nuevo workout por ejercicio. La petición de pausa con los dos botones físicos del reloj pausa también el temporizador Repera. Las series se confirman con reps y carga reales. En AMRAP se confirma rondas + reps; en For Time, tiempo; EMOM y Tabata tienen intervalos y descansos y no crean series ficticias.
 5. Al finalizar, Repera guarda primero el trabajo confirmado en disco, incluso sin conexión. HealthKit detiene su sesión, cierra la colección y guarda un `HKWorkout`. El resumen se enriquece con el UUID, la energía, la FC y la duración **solo cuando Salud los proporciona**.
 6. `HKMetadataKeyExternalUUID` enlaza el sample de Salud con la ejecución de Repera. Esto permite recuperarlo cuando `finishWorkout` devuelve un `HKWorkout` nil porque el reloj está bloqueado.
@@ -43,6 +43,11 @@ El test `test_watch_complication_uses_widget_configuration_inside_widget` en `te
 - Probar la actualización de la planificación profesional tras descarga de Supabase.
 
 La disponibilidad efectiva de los permisos, sensores, background execution y estados de firma solo puede certificarse en dispositivos y perfiles de Apple válidos.
+
+## APIs asíncronas y compatibilidad con Swift 6
+
+El Watch utiliza las variantes `async throws` de `requestAuthorization(toShare:read:)`, `beginCollection(at:)`, `addMetadata(_:)`, `endCollection(at:)` y `finishWorkout()`. El inicio opcional del mirroring usa `startMirroringToCompanionDevice()` de manera independiente, para que el entrenamiento siga funcionando sin iPhone. No volver a introducir las sobrecargas con `completion` que Xcode 27 señala con **Consider using asynchronous alternative function**. Los errores se tratan sin atribuir mediciones inventadas a Salud. El contrato de código que comprueba estas APIs está en `tests/test_watch_healthkit_contract.py`.
+
 
 ## Recompilar después de incorporar archivos Swift al Watch
 
