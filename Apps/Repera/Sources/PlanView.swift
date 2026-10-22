@@ -36,11 +36,13 @@ struct PlanView: View {
         let id: UUID
         let title: String
         let startDate: String
+        let startTimeZone: String?
         let durationWeeks: Int
         let status: String
         enum CodingKeys: String, CodingKey {
             case id, title, status
             case startDate = "start_date"
+            case startTimeZone = "start_time_zone"
             case durationWeeks = "duration_weeks"
         }
     }
@@ -55,7 +57,7 @@ struct PlanView: View {
             let session = try await client.auth.session
             guard !session.isExpired else { return }
             let rows: [AIProgramSummary] = try await client.from("athlete_training_programs")
-                .select("id,title,start_date,duration_weeks,status")
+                .select("id,title,start_date,start_time_zone,duration_weeks,status")
                 .eq("owner_id", value: session.user.id.uuidString)
                 .in("status", values: ["active","proposed","paused"])
                 .order("start_date", ascending: false).limit(30).execute().value
@@ -197,7 +199,9 @@ struct PlanView: View {
                                 .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10))
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(program.title).font(.headline).foregroundStyle(OG.label)
-                                Text("\(program.durationWeeks) semanas · \(program.startDate) · \(program.status == "active" ? "Activo" : program.status == "paused" ? "En pausa" : "Propuesto")")
+                                Text("\(program.durationWeeks) semanas · \(program.startDate)" +
+                                     (program.startTimeZone.map { " · \($0)" } ?? "") +
+                                     " · \(program.status == "active" ? "Activo" : program.status == "paused" ? "En pausa" : "Propuesto")")
                                     .font(.caption).foregroundStyle(OG.label2)
                             }
                         }
