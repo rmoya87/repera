@@ -32,7 +32,7 @@ public enum SessionReviewEngine {
             // EMOM/Fuerza de una sesión mixta. Valorar también los registros
             // por bloque, señalando qué puede y qué no puede inferirse.
             base = mixedSessionReview(
-                scoredBlock: primary.id, session: session, wodReview: individualWOD
+                scoredBlockID: primary.id, session: session, wodReview: individualWOD
             ) ?? individualWOD
         } else {
             let movements = reviewMovements(session: session, prior: prior)
