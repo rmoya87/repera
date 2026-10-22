@@ -102,36 +102,32 @@ struct WatchSessionView: View {
                 Text(session.title)
                     .font(.headline)
                     .fixedSize(horizontal: false, vertical: true)
-                summaryChips(session)
-                if let blocks = session.routineBlocks, !blocks.isEmpty {
-                    ForEach(0..<blocks.count, id: \.self) { index in
-                        let block = blocks[index]
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("\(index + 1). \(block.title)")
-                                .font(.caption.weight(.semibold))
-                            Text(block.kind == .strength ? "Fuerza" : (block.wodFormat?.displayName ?? "WOD"))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            if let cap = block.timeCapMinutes {
-                                Text("\(cap) min")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(8)
-                        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
-                    }
-                } else {
-                    ForEach(session.exercises) { exercise in
-                        Text("• \(exercise.exercise.name) · \(exercise.queueTimeLabel)")
-                            .font(.caption)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                // The format and time are useful; movement/block counts are not.
+                HStack(spacing: 5) {
+                    Text(planFormat(session))
+                    Spacer(minLength: 4)
+                    Label(planDuration(session), systemImage: "timer")
                 }
-                Button {
-                    hub.startToday()
-                } label: {
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+                ForEach(blockStarts(in: session), id: \.self) { index in
+                    let first = session.exercises[index]
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(first.displayBlockHeader)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        ForEach(blockMembers(in: session, startingAt: index), id: \.self) { position in
+                            exerciseCard(session.exercises[position])
+                        }
+                    }
+                    .padding(9)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.white.opacity(0.07),
+                                in: RoundedRectangle(cornerRadius: 13))
+                }
+
+                Button { hub.startToday() } label: {
                     Label("Iniciar entreno", systemImage: "play.fill")
                         .frame(maxWidth: .infinity)
                 }
@@ -140,46 +136,80 @@ struct WatchSessionView: View {
                 .foregroundStyle(.black)
                 .accessibilityHint("El entrenamiento se registrará en este reloj")
             }
-            .padding(.horizontal, 6)
+            .padding(.horizontal, 5)
         }
     }
 
-    private func summaryChips(_ session: WorkoutSession) -> some View {
-        HStack(spacing: 8) {
-            Label("\(session.exercises.count)", systemImage: "figure.strengthtraining.traditional")
-            if let blocks = session.routineBlocks, !blocks.isEmpty {
-                Label("\(blocks.count)", systemImage: "square.stack.3d.up")
+    private func planFormat(_ session: WorkoutSession) -> String {
+        let kinds = Set(session.exercises.map { $0.blockKind })
+        if kinds.contains(.strength) && kinds.contains(.wod) { return "Mixto" }
+        return session.exercises.first?.wodFormat?.displayName ?? "Fuerza"
+    }
+
+    private func planDuration(_ session: WorkoutSession) -> String {
+        let cap = session.routineBlocks?.compactMap(\.timeCapMinutes).reduce(0, +) ?? 0
+        return cap > 0 ? "\(cap) min" : "Sin límite"
+    }
+
+    private func blockStarts(in session: WorkoutSession) -> [Int] {
+        var result: [Int] = []
+        var last: UUID?
+        for index in session.exercises.indices {
+            let id = session.exercises[index].blockId
+            if result.isEmpty || id == nil || last == nil || id != last {
+                result.append(index)
             }
+            last = id
         }
-        .font(.caption2)
-        .foregroundStyle(.secondary)
+        return result
+    }
+
+    private func blockMembers(in session: WorkoutSession, startingAt start: Int) -> [Int] {
+        guard session.exercises.indices.contains(start) else { return [] }
+        guard let blockID = session.exercises[start].blockId else { return [start] }
+        return session.exercises.indices.filter {
+            $0 >= start && session.exercises[$0].blockId == blockID
+        }
+    }
+
+    private func exerciseCard(_ exercise: SessionExercise) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            WatchExerciseThumb(exercise: exercise.exercise, size: 44)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(exercise.exercise.name)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(exercise.prescriptionSummaryLine)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(7)
+        .background(.white.opacity(0.06),
+                    in: RoundedRectangle(cornerRadius: 10))
     }
 
     private func readyView(_ session: WorkoutSession) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 9) {
-                header(title: "Preparado", subtitle: session.progressLabel)
-                Text(hub.current?.displayBlockHeader ?? "Ejercicio")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(accent)
+                Text(hub.current?.displayBlockHeader ?? session.title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(session.progressLabel)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
                 ForEach(hub.blockExercises) { exercise in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(exercise.exercise.name)
-                            .font(.subheadline.weight(.semibold))
-                        Text(exercise.prescriptionSummaryLine)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 3)
+                    exerciseCard(exercise)
                 }
                 if let minutes = hub.current?.blockTimeCapMinutes {
                     Label("\(minutes) min", systemImage: "timer")
-                        .font(.caption)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
-                Button {
-                    hub.play()
-                } label: {
+                Button { hub.play() } label: {
                     Label(hub.currentIsWOD ? "Iniciar bloque" : "Empezar ejercicio",
                           systemImage: "play.fill")
                         .frame(maxWidth: .infinity)
@@ -194,15 +224,17 @@ struct WatchSessionView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 6)
+            .padding(.horizontal, 5)
         }
     }
 
     private func runningView(_ session: WorkoutSession) -> some View {
         ScrollView {
             VStack(spacing: 8) {
-                header(title: hub.current?.displayBlockHeader ?? "Entrenamiento",
-                       subtitle: session.progressLabel)
+                Text(hub.current?.displayBlockHeader ?? session.title)
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
                 if hub.restRemaining > 0 {
                     restView(hub.restRemaining)
                 } else {
@@ -216,22 +248,31 @@ struct WatchSessionView: View {
                 Button("Ver plan completo") { showOutline = true }
                     .font(.caption2)
                     .buttonStyle(.borderless)
-                HStack(spacing: 8) {
-                    Button {
-                        if hub.isPaused { hub.play() } else { hub.pause() }
-                    } label: {
-                        Label(hub.isPaused ? "Seguir" : "Pausa",
-                              systemImage: hub.isPaused ? "play.fill" : "pause.fill")
-                    }
-                    .buttonStyle(.bordered)
-                    Button("Terminar") { confirmFinish = true }
+                if !hub.isFinalSet {
+                    HStack(spacing: 8) {
+                        Button {
+                            if hub.isPaused { hub.play() } else { hub.pause() }
+                        } label: {
+                            Label(hub.isPaused ? "Seguir" : "Pausa",
+                                  systemImage: hub.isPaused ? "play.fill" : "pause.fill")
+                        }
                         .buttonStyle(.bordered)
-                        .tint(.red)
+                        Button("Finalizar antes") { confirmFinish = true }
+                            .buttonStyle(.bordered)
+                            .tint(.red)
+                    }
+                    .font(.caption2)
                 }
-                .font(.caption)
             }
             .padding(.horizontal, 5)
         }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 35).onEnded { drag in
+                let horizontal = drag.translation.width
+                guard abs(horizontal) > abs(drag.translation.height) * 1.5 else { return }
+                hub.swipeSet(horizontal < 0 ? 1 : -1)
+            }
+        )
     }
 
     @ViewBuilder
