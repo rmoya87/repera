@@ -199,7 +199,13 @@ final class WatchSessionHub: NSObject {
         intervalRemaining ?? timeRemaining ?? blockElapsed
     }
 
+    var intervalsFinished: Bool {
+        isIntervalClock && wodUsesSeries && timeCapSeconds > 0
+            && blockElapsed >= timeCapSeconds
+    }
+
     var clockDescriptor: String? {
+        if intervalsFinished { return "Intervalos finalizados" }
         if isIntervalClock { return intervalLabel }
         if !clockCountsUp, timeCapSeconds > 0 {
             return current?.wodFormat?.displayName ?? "Cuenta atrás"
@@ -992,7 +998,17 @@ final class WatchSessionHub: NSObject {
         restRemaining = step.restRemaining
 
         if step.reachedTimeCap {
-            reviewBlock()
+            if wodUsesSeries && isIntervalClock {
+                // iPhone keeps EMOM/Tabata/Circuit sets editable after the
+                // timer ends. Do not start review or manufacture their score.
+                if previous < timeCapSeconds {
+                    restRemaining = 0
+                    WKInterfaceDevice.current().play(.notification)
+                    checkpoint()
+                }
+            } else {
+                reviewBlock()
+            }
             return
         }
         if wasResting, restRemaining == 0 {
