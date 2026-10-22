@@ -26,6 +26,9 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     var onPauseResumeRequest: (() -> Void)?
     var onPauseStateChanged: ((Bool) -> Void)?
     private var finishing = false
+    // An HKWorkoutSession can still report .paused while an asynchronous
+    // resume request is in flight. Do not send the same command twice.
+    private var pendingStateTransition: HKWorkoutSessionState?
     private(set) var pulseBpm: Int?
     private(set) var kcal: Double?
     private(set) var averageBpm: Double?
@@ -54,6 +57,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                 recovered.delegate = self
                 live.delegate = self
                 self.builder = live
+                self.pendingStateTransition = nil
                 self.isRecording = true
                 completion?(true)
             }
@@ -90,6 +94,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         lastRecordedBlockID = nil
         pendingBlock = nil
         finishing = false
+        pendingStateTransition = nil
         permissionIssue = nil
         let heart = HKObjectType.quantityType(forIdentifier: .heartRate)!
         let energy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
@@ -175,8 +180,22 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         }
     }
 
-    func pause() { workout?.pause() }
-    func resume() { workout?.resume() }
+    /// Only request state changes that HealthKit can actually perform.
+    /// In particular, the builder is already Running after startActivity,
+    /// so tapping "Iniciar bloque" must NOT resume it again.
+    func pause() {
+        guard !finishing, let workout, workout.state == .running,
+              pendingStateTransition != .paused else { return }
+        pendingStateTransition = .paused
+        workout.pause()
+    }
+
+    func resume() {
+        guard !finishing, let workout, workout.state == .paused,
+              pendingStateTransition != .running else { return }
+        pendingStateTransition = .running
+        workout.resume()
+    }
 
     func finish(_ callback: @escaping (Result) -> Void) {
         guard !finishing else { return }
@@ -195,6 +214,9 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         from fromState: HKWorkoutSessionState, date: Date
     ) {
         Task { @MainActor in
+            // Ignore callbacks from an older workout that has already ended.
+            guard self.workout === workoutSession else { return }
+            self.pendingStateTransition = nil
             switch toState {
             case .paused:
                 self.onPauseStateChanged?(true)
@@ -291,6 +313,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         workoutID = nil
         lastRecordedBlockID = nil
         pendingBlock = nil
+        pendingStateTransition = nil
         isRecording = false
         finishing = false
         let callback = finishHandler
