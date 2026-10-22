@@ -1583,6 +1583,15 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         self.blockRestBetweenRoundsSeconds = blockRestBetweenRoundsSeconds
     }
 
+    /// Prescription to prefill the NEXT editable work set on iPhone/Watch.
+    /// Warmups and unconfirmed draft values never consume prescribed work.
+    /// Once a prescription is exhausted, reuse its last target as guidance
+    /// without fabricating additional completed sets.
+    public var nextWorkSetPrescription: PlannedSet? {
+        let recordedWorkSets = loggedSets.filter { $0.phase == .work }.count
+        return plannedSets.dropFirst(recordedWorkSets).first ?? plannedSets.last
+    }
+
     /// Se puede anotar lo realizado incluso si coincide con lo prescrito.
     public var hasRecordedWODExecution: Bool {
         adaptedReps != nil || adaptedWeightKg != nil
