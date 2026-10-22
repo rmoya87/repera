@@ -154,7 +154,8 @@ struct SettingsView: View {
                             // No presentar como fallo de sincronización la
                             // ausencia de Rx históricos que nunca se guardaron.
                             // Los WOD y resultados siguen sincronizados; la
-                            // completitud de esos bloques se trata en Historial.
+                            // incompletitud histórica sigue registrada en el diagnóstico
+                            // de Supabase, sin alterar ejercicios ni resultados.
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .layoutPriority(1)
