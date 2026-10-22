@@ -734,7 +734,13 @@ struct DayEditorView: View {
                     }
                     .listRowSeparator(.hidden)
                     if block.kind == .strength {
-                        strengthBlock(index: index)
+                        if isEditingCompletedWorkout,
+                           let format = block.wodFormat,
+                           format.resultCapture != .perMovementSets {
+                            completedStrengthPrescription(index: index)
+                        } else {
+                            strengthBlock(index: index)
+                        }
                     } else {
                         wodBlock(index: index)
                     }
@@ -1528,6 +1534,30 @@ struct DayEditorView: View {
         let decision = store.lastAccessDenial
             ?? subscriptions.canCreateLibraryRoutine(isNew: true)
         subscriptions.presentPaywall(decision.paywallContext, feature: .unlimitedRoutines)
+    }
+
+    /// Un bloque originalmente de fuerza puede haber recibido después un
+    /// formato AMRAP o For Time. Al editar el entreno TERMINADO tampoco debe
+    /// volver a mostrar sus series de prescripción como resultado realizado.
+    @ViewBuilder
+    private func completedStrengthPrescription(index: Int) -> some View {
+        ForEach(routine.blocks[index].exercises) { item in
+            if let exercise = store.state.exercises.first(where: { $0.id == item.exerciseId })
+                ?? completedWorkoutDraft?.exercises.first(where: { $0.exercise.id == item.exerciseId })?.exercise {
+                HStack(spacing: 12) {
+                    ExerciseThumb(exercise: exercise, size: 48)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(exercise.name)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                        Text("Prescripción · " + item.plannedSets.map { "\($0.targetReps)" }.joined(separator: "-") + " reps")
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                    }
+                    Spacer()
+                }
+            }
+        }
     }
 
     @ViewBuilder
