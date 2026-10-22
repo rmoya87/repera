@@ -28,9 +28,11 @@ private struct ReperaWatchComplication: View {
             switch family {
             case .accessoryRectangular:
                 HStack(spacing: 7) {
-                    Image(systemName: "figure.strengthtraining.traditional")
-                        .font(.title3.bold())
-                        .foregroundStyle(accent)
+                    Image("ReperaIcon")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 29, height: 29)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Repera").font(.headline)
                         Text("Entreno de hoy").font(.caption2)
@@ -40,9 +42,11 @@ private struct ReperaWatchComplication: View {
             case .accessoryInline:
                 Label("Repera · Entreno", systemImage: "figure.strengthtraining.traditional")
             default:
-                Image(systemName: "figure.strengthtraining.traditional")
-                    .font(.system(size: 25, weight: .bold))
-                    .foregroundStyle(accent)
+                Image("ReperaIcon")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 41, height: 41)
+                    .clipShape(Circle())
                     .accessibilityLabel("Abrir Repera en el Apple Watch")
             }
         }
