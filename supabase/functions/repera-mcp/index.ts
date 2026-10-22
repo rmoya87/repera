@@ -20,6 +20,8 @@ const db = createClient(
 
 type ExerciseEntry = {
   id?: string;
+  adaptedReps?: number | null;
+  adaptedWeightKg?: number | null;
   exercise?: {
     name?: string; catalogId?: string; muscleGroup?: string; targetMuscle?: string;
     primaryRegions?: string[]; secondaryRegions?: string[]; secondaryMuscles?: string[];
@@ -55,6 +57,10 @@ function projectExercise(entry: ExerciseEntry) {
     target_muscle: ex.targetMuscle ?? null,
     primary_regions: ex.primaryRegions ?? [],
     secondary_regions: ex.secondaryRegions ?? [],
+    // Scaled WOD values are independent from completed sets and global WOD score.
+    scaled_movement: entry.adaptedReps != null || entry.adaptedWeightKg != null
+      ? { actual_reps: entry.adaptedReps ?? null, actual_weight_kg: entry.adaptedWeightKg ?? null }
+      : null,
     sets: (entry.loggedSets ?? []).map(s => ({
       logged_set_id:s.id ?? null,
       reps: s.reps ?? null, weight_kg: s.weightKg ?? null,
@@ -271,6 +277,7 @@ Deno.serve(async (request) => {
       })),hasMore,nextCursor:hasMore?nextCursor(offset+limit):null,
       order:"finished_at DESC,id ASC",days,
       wod_result_contract_tool:"get_wod_format_contract",
+      scaled_movement_semantics:"exercises[].scaled_movement records actual prescribed-dose adaptations of reps/weight, not additional completed sets. Do not attribute Rx records or compare scaled benchmark scores to Rx bands.",
       wod_result_semantics:"Raw WODBlockResult fields: AMRAP roundsCompleted are complete rounds and totalReps are ONLY partial-round reps; For Time elapsedSeconds is actual elapsed time. EMOM/Tabata/Circuit use loggedSets, not a global round score. Do not infer per-interval IDs not stored by iOS.",
       });
     });
