@@ -652,6 +652,8 @@ struct SettingsView: View {
         let workoutsUploaded = await workoutSync.sync(store: store)
         let plansSynced = await AITrainingInboxStore.shared.sync(store: store)
         let calendarSynced = await AITrainingContextStore.shared.syncCalendar(store: store)
+        let customExercisesSynced = await AIChangeRequestStore.shared.syncCustomExercises(store: store)
+        await AIChangeRequestStore.shared.refresh(store: store)
         // Perfil público es opcional: un error al subir una foto jamás bloquea
         // el historial deportivo. El diagnóstico se comunica en Cuenta.
         var incomplete: [String] = []
@@ -663,6 +665,9 @@ struct SettingsView: View {
         }
         if !calendarSynced {
             incomplete.append("calendario deportivo pendiente de envío")
+        }
+        if !customExercisesSynced {
+            incomplete.append("catálogo privado de ejercicios pendiente de envío")
         }
         if let profileError = businessAuth.profileMigrationErrorMessage {
             incomplete.append(profileError)
