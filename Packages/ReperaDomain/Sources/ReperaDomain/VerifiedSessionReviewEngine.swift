@@ -171,7 +171,7 @@ public enum VerifiedSessionReviewEngine {
               currentValue > 0 else { return nil }
 
         // One comparable reading per DISTINCT day, not several sets from one
-        // session. The reference uses the median of the last 3 days.
+        // session. The reference uses the median of the last 5 days.
         var perDay: [(Date, Double)] = []
         for workout in prior.sorted(by: {
             ($0.finishedAt ?? .distantPast) > ($1.finishedAt ?? .distantPast)
@@ -194,7 +194,7 @@ public enum VerifiedSessionReviewEngine {
                 return value
             }
             if let best = comparable.max() { perDay.append((day, best)) }
-            if perDay.count == 3 { break }
+            if perDay.count == 5 { break }
         }
         guard perDay.count >= minimumPriorSessions else { return nil }
         let sortedValues = perDay.map(\.1).sorted()
@@ -237,7 +237,7 @@ public enum VerifiedSessionReviewEngine {
             let previousScaled = workout.exercises.filter { $0.blockId == previous.id }
             guard sameScaling(scaled, previousScaled) else { continue }
             refs.append((day, value))
-            if refs.count == 3 { break }
+            if refs.count == 5 { break }
         }
         guard refs.count >= minimumPriorSessions else { return nil }
         let values = refs.map(\.1).sorted()
