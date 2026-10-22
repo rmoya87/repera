@@ -148,12 +148,10 @@ struct SettingsView: View {
                                     .foregroundStyle(OG.label2)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
-                            if workoutSync.incompleteHistoricalWODCount > 0 {
-                                Text("\(workoutSync.incompleteHistoricalWODCount) WOD antiguos aún no tienen el detalle original de bloques en Supabase. No se inventarán comparaciones.")
-                                    .font(.caption)
-                                    .foregroundStyle(OG.label2)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
+                            // No presentar como fallo de sincronización la
+                            // ausencia de Rx históricos que nunca se guardaron.
+                            // Los WOD y resultados siguen sincronizados; la
+                            // completitud de esos bloques se trata en Historial.
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .layoutPriority(1)
