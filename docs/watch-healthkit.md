@@ -17,6 +17,7 @@
 5. Al finalizar, Repera guarda primero el trabajo confirmado en disco, incluso sin conexión. HealthKit detiene su sesión, cierra la colección y guarda un `HKWorkout`. El resumen se enriquece con el UUID, la energía, la FC y la duración **solo cuando Salud los proporciona**.
 6. `HKMetadataKeyExternalUUID` enlaza el sample de Salud con la ejecución de Repera. Esto permite recuperarlo cuando `finishWorkout` devuelve un `HKWorkout` nil porque el reloj está bloqueado.
 7. El mirroring nativo de `HKWorkoutSession` avisa al iPhone del estado de la sesión; `WCSession.transferUserInfo` transfiere los resultados en segundo plano. La cola persiste hasta acuse del iPhone; la sesión repetida se reconcilia por UUID sin duplicar resultados. Un enriquecimiento tardío de Salud actualiza solo los campos de Salud.
+   Para la **planificación de hoy**, el iPhone usa `updateApplicationContext` (último plan, incluso desconectado) y `sendMessage` (plan inmediato cuando el Watch está disponible). Si `WCSession` no está activada todavía, guarda en memoria el último snapshot protegido por `NSLock` y lo publica al completar la activación. El Watch solicita `requestToday` en el arranque, al recuperar conectividad, al volver al primer plano y desde «Sincronizar con iPhone». El iPhone responde con el snapshot disponible y vuelve a publicar los datos actuales.
 8. En primer plano, el iPhone busca por external UUID muestras aún pendientes de sincronizar desde Apple Salud y actualiza su sesión. La sincronización autenticada con Supabase continúa siendo independiente de las mediciones de Salud.
 
 ## Permisos y privacidad
@@ -50,6 +51,14 @@ El Watch utiliza las variantes `async throws` de `requestAuthorization(toShare:r
 
 
 
+
+## Inicio del reloj: control multimedia y sincronización
+
+El botón de música/podcast en el extremo superior derecho utiliza un círculo verde de acento con el símbolo `playpause.fill` **negro** y monocromo para mantener el contraste en la interfaz oscura watchOS. Abre `NowPlayingView` nativo.
+
+«Sin entreno hoy» significa que **el reloj no tiene descargada una prescripción para su día local**, no que la cuenta carezca necesariamente de un entrenamiento. El botón «Sincronizar con iPhone» vuelve a solicitar el plan; para los simuladores, arrancar un iPhone y Apple Watch *emparejados* y abrir Repera también en el iPhone. No requiere que el iPhone esté conectado de forma continua una vez se descargó la planificación. Los cambios programados posteriormente se reenvían en vivo cuando ambas apps son alcanzables, o por `applicationContext` cuando watchOS permita la entrega.
+
+Para comprobarlo: abrir el Watch sin plan, programar el entreno para el **día actual** en el iPhone, verificar su aparición sin reinstalar, probar con el Watch desconectado y reconectado, pasar la app Watch a segundo plano y volver, y asegurar que una ejecución offline ya iniciada nunca se borra al refrescar.
 
 ## Identidad visual: icono único en iOS, watchOS y complicación
 
