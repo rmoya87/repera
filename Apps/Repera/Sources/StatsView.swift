@@ -124,7 +124,8 @@ struct StatsView: View {
                         .padding(.horizontal, OG.pad)
                         .padding(.top, 4)
                         .padding(.bottom, 10)
-                        .background(OG.bg)
+                        // Sin fondo: el selector mantiene el mismo aspecto transparente
+                        // que la cabecera mientras permanece anclado al hacer scroll.
                     }
                 }
             }
