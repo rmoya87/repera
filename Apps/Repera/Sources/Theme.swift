@@ -206,6 +206,9 @@ struct OGPrimaryButton: View {
 struct OGFixedTopBar<Trailing: View>: View {
     var title: String
     var subtitle: String? = nil
+    /// Optional opaque surface for screens whose header joins an edge-to-edge section.
+    /// Nil preserves the existing glass/transparent style on other screens.
+    var backgroundColor: Color? = nil
     @ViewBuilder var trailing: () -> Trailing
 
     var body: some View {
@@ -233,7 +236,13 @@ struct OGFixedTopBar<Trailing: View>: View {
         .padding(.top, 4)
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(OG.bg.opacity(0.001))
+        .background {
+            if let backgroundColor {
+                backgroundColor.ignoresSafeArea(edges: .top)
+            } else {
+                OG.bg.opacity(0.001)
+            }
+        }
     }
 }
 
@@ -329,12 +338,18 @@ extension View {
     func ogFixedTopBar(
         _ title: String,
         subtitle: String? = nil,
+        backgroundColor: Color? = nil,
         @ViewBuilder trailing: @escaping () -> some View
     ) -> some View {
         self
             .ogContentTitleNav()
             .safeAreaInset(edge: .top, spacing: 0) {
-                OGFixedTopBar(title: title, subtitle: subtitle, trailing: trailing)
+                OGFixedTopBar(
+                    title: title,
+                    subtitle: subtitle,
+                    backgroundColor: backgroundColor,
+                    trailing: trailing
+                )
             }
     }
 
