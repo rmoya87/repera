@@ -50,6 +50,15 @@ El Watch utiliza las variantes `async throws` de `requestAuthorization(toShare:r
 
 
 
+
+## Ejecutar la app Watch en el simulador
+
+La app del reloj es el target `ReperaWatch` y necesita su **scheme ejecutable** homónimo. El target `ReperaWatchWidget` es únicamente una extensión de WidgetKit para la complicación de la esfera; seleccionarlo en Xcode no ejecuta la app de entrenamientos. `project.yml` declara ahora explícitamente el scheme `ReperaWatch` con `build.targets.ReperaWatch: all` y `run.executable: ReperaWatch`.
+
+Tras actualizar `main`, cerrar Xcode y ejecutar `xcodegen generate --spec project.yml`, abrir `Repera.xcodeproj`. En la barra superior, elegir **ReperaWatch** (no `ReperaWatchWidget`) y después un simulador **Apple Watch con watchOS 27** o un Watch físico emparejado. Si no hay simuladores Watch disponibles, instalarlos en **Xcode → Settings → Components** y crearlos/emparejarlos en **Window → Devices and Simulators**. El scheme debe aparecer también en `xcodebuild -list -project Repera.xcodeproj`, comprobado por el CI.
+
+El simulador puede validar navegación, series, temporizadores y aspectos de UI, pero no sustituye a un Apple Watch real para pulsaciones, energía, sensores y sesiones HealthKit en segundo plano.
+
 ## Instalación de la complicación watchOS
 
 El `ReperaWatchWidget.appex` requiere un `CFBundleName` no vacío para que CoreSimulator/installd pueda instalarlo dentro de `ReperaWatch.app`. El nombre establecido es `ReperaWatch`, declarado **tanto** en `Apps/ReperaWatchWidget/Info.plist` como en `project.yml` (target `ReperaWatchWidget`, `info.properties`). También se mantiene `CFBundleInfoDictionaryVersion: 6.0`, el tipo `XPC!`, el identificador `com.app.repera.watchkitapp.widget` y el punto de extensión `com.apple.widgetkit-extension`.
