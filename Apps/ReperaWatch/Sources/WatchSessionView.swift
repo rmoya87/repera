@@ -602,6 +602,12 @@ struct WatchSessionView: View {
                 Text(session.title)
                     .font(.caption)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                // Normal HealthKit saves are silent. Surface only real failures.
+                if let warning = hub.healthWarning {
+                    Label(warning, systemImage: "exclamationmark.triangle")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                }
                 statsLine(
                     icon: "clock", label: "Tiempo",
                     value: timeLabel(Int(session.appleDurationSeconds ??
