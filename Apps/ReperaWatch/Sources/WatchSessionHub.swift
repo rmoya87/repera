@@ -17,6 +17,7 @@ final class WatchSessionHub: NSObject {
     private(set) var blockElapsed = 0
     private(set) var sessionElapsed = 0
     private(set) var workingReps = 0
+    private(set) var selectedSetIndex: Int?
     private(set) var workingWeightKg: Double?
     private(set) var completedRounds = 0
     private(set) var remainingRoundReps = 0
@@ -110,6 +111,17 @@ final class WatchSessionHub: NSObject {
     var timeRemaining: Int? { timeCapSeconds > 0 ? max(0, timeCapSeconds - blockElapsed) : nil }
     var plannedSets: Int { current?.plannedSets.count ?? 0 }
     var completedSets: Int { current?.loggedSets.count ?? 0 }
+    var displayedSetNumber: Int {
+        (selectedSetIndex.map { $0 + 1 }) ?? min(completedSets + 1, max(1, plannedSets))
+    }
+    var isLastWorkoutExercise: Bool {
+        guard let active else { return false }
+        return active.currentIndex == active.exercises.count - 1
+    }
+    var isFinalSet: Bool {
+        isLastWorkoutExercise && completedSets + 1 >= max(1, plannedSets)
+            && selectedSetIndex == nil
+    }
     var blockExercises: [SessionExercise] {
         guard let active, let current else { return [] }
         guard let blockID = current.blockId else { return [current] }
@@ -224,6 +236,7 @@ final class WatchSessionHub: NSObject {
         blockElapsed = 0
         sessionElapsed = 0
         workingReps = 0
+        selectedSetIndex = nil
         workingWeightKg = next.session.currentExercise?.plannedSets.first?.targetWeightKg
         completedRounds = 0
         remainingRoundReps = 0
@@ -247,6 +260,7 @@ final class WatchSessionHub: NSObject {
         if ctrl.session.phase == .ready {
             ctrl.confirmCurrentExercise()
             controller = ctrl
+            if startedOnThisWatch { health.resume() }
             if startedOnThisWatch, let exercise = ctrl.session.currentExercise {
                 health.beginBlock(
                     id: exercise.blockId ?? exercise.id,
@@ -258,6 +272,7 @@ final class WatchSessionHub: NSObject {
             remainingRoundReps = 0
             restRemaining = 0
             workingReps = 0
+            selectedSetIndex = nil
             workingWeightKg = ctrl.session.currentExercise?.plannedSets.first?.targetWeightKg
             repCounter.reset()
             lastIntervalIndex = 0
@@ -304,6 +319,19 @@ final class WatchSessionHub: NSObject {
               var ctrl = controller, ctrl.session.phase == .counting,
               let exercise = ctrl.session.currentExercise else { return }
         let reps = max(0, workingReps)
+        if let selectedSetIndex {
+            guard ctrl.reviseLoggedSet(at: selectedSetIndex, reps: reps,
+                                      weightKg: workingWeightKg) else { return }
+            controller = ctrl
+            self.selectedSetIndex = nil
+            workingReps = 0
+            workingWeightKg = ctrl.session.currentExercise?.plannedSets
+                .dropFirst(ctrl.session.currentExercise?.loggedSets.count ?? 0)
+                .first?.targetWeightKg
+            WKInterfaceDevice.current().play(.success)
+            checkpoint()
+            return
+        }
         let index = exercise.loggedSets.count
         let prescribed = exercise.plannedSets.indices.contains(index)
             ? exercise.plannedSets[index] : exercise.plannedSets.last
@@ -311,6 +339,7 @@ final class WatchSessionHub: NSObject {
                     quantityUnit: exercise.quantityUnit, rir: nil)
         controller = ctrl
         workingReps = 0
+        selectedSetIndex = nil
         repCounter.reset()
         workingWeightKg = ctrl.session.currentExercise?.plannedSets.dropFirst(index + 1).first?.targetWeightKg
             ?? prescribed?.targetWeightKg
@@ -334,6 +363,7 @@ final class WatchSessionHub: NSObject {
                     quantityUnit: ctrl.session.currentExercise?.quantityUnit)
         controller = ctrl
         workingReps = 0
+        selectedSetIndex = nil
         repCounter.reset()
         stopMotion()
         if let exercise = current {
@@ -363,9 +393,98 @@ final class WatchSessionHub: NSObject {
         ctrl.confirmCurrentExercise()
         controller = ctrl
         workingReps = 0
+        selectedSetIndex = nil
         workingWeightKg = ctrl.session.currentExercise?.plannedSets.first?.targetWeightKg
         repCounter.reset()
         if restRemaining == 0 && !isPaused { startMotion() }
+        checkpoint()
+    }
+
+    /// The primary action commits the displayed set and advances only when
+    /// all planned sets for this exercise were genuinely recorded.
+    func confirmAndAdvance() {
+        guard active?.phase == .counting, !isPaused, !reviewingBlock else { return }
+        if currentIsWOD {
+            if wodUsesSeries { confirmIntervalSet() } else { reviewBlock() }
+            return
+        }
+        if selectedSetIndex != nil {
+            confirmSet()
+            return
+        }
+        confirmSet()
+        if completedSets >= max(1, plannedSets), restRemaining == 0 {
+            advance()
+        }
+    }
+
+    /// Swipes browse recorded series. They never log a set or mark it complete.
+    /// Beyond the available series, navigate between exercises in this block.
+    func swipeSet(_ direction: Int) {
+        guard direction == -1 || direction == 1,
+              active?.phase == .counting, !reviewingBlock, !isPaused else { return }
+        guard !currentIsWOD else {
+            if wodUsesSeries && direction > 0 { nextWODMovement() }
+            return
+        }
+        let count = current?.loggedSets.count ?? 0
+        let position = selectedSetIndex ?? count
+        let next = position + direction
+        if next >= 0 && next < count,
+           let saved = current?.loggedSets[next] {
+            selectedSetIndex = next
+            workingReps = saved.reps
+            workingWeightKg = saved.weightKg
+            restRemaining = 0
+            checkpoint()
+        } else if next == count {
+            selectedSetIndex = nil
+            workingReps = 0
+            workingWeightKg = current?.plannedSets.dropFirst(count).first?.targetWeightKg
+            checkpoint()
+        } else if (next < 0 || next > count) {
+            moveWithinBlock(direction)
+        }
+    }
+
+    /// Jumping from Plan completo does not complete skipped exercises or
+    /// create fictitious sets; confirmed results from the previous block remain.
+    func selectBlock(startingAt index: Int) {
+        guard var ctrl = controller, ctrl.session.exercises.indices.contains(index),
+              !awaitingHealthSave else { return }
+        if ctrl.session.currentIndex == index, ctrl.session.phase == .ready { return }
+        tickClock()
+        stopMotion()
+        if startedOnThisWatch { health.pause() }
+        ctrl.selectExercise(at: index)
+        controller = ctrl
+        isPaused = false
+        reviewingBlock = false
+        restRemaining = 0
+        blockElapsed = 0
+        workingReps = 0
+        selectedSetIndex = nil
+        workingWeightKg = ctrl.session.currentExercise?.plannedSets.first?.targetWeightKg
+        repCounter.reset()
+        lastClockTick = Date()
+        checkpoint()
+    }
+
+    private func moveWithinBlock(_ direction: Int) {
+        guard let active, let current,
+              active.exercises.indices.contains(active.currentIndex + direction),
+              active.exercises[active.currentIndex + direction].blockId == current.blockId else { return }
+        let target = active.exercises[active.currentIndex + direction]
+        // A nil block ID denotes standalone exercises, not a shared block.
+        guard current.blockId != nil else { return }
+        var ctrl = SessionController(session: active)
+        ctrl.selectExercise(at: active.currentIndex + direction)
+        ctrl.confirmCurrentExercise()
+        controller = ctrl
+        selectedSetIndex = nil
+        workingReps = 0
+        workingWeightKg = target.plannedSets.first?.targetWeightKg
+        repCounter.reset()
         checkpoint()
     }
 
