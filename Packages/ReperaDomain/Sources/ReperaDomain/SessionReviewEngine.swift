@@ -201,7 +201,13 @@ public enum SessionReviewEngine {
             let estimate = WODPaceEstimator.estimateForTime(lines: lines, rounds: roundCount)
             return WODPaceEstimator.scoreForTime(elapsedSeconds: elapsed, estimate: estimate)
         case .totalReps:
-            guard let rounds = comparableRounds(result) else { return nil }
+            // La fracción de ronda se calcula sobre el trabajo del ciclo que
+            // realmente se hizo (adaptado o Rx), no sobre 100 reps arbitrarias.
+            let workPerRound = lines.reduce(0.0) { $0 + $1.quantity }
+            let completed = Double(result.roundsCompleted ?? 0)
+            let partial = Double(result.totalReps ?? 0)
+            guard completed > 0 || partial > 0 else { return nil }
+            let rounds = completed + min(0.99, partial / max(1, workPerRound))
             let windowMin = session.exercises.first(where: { $0.blockId == result.id })?.blockTimeCapMinutes
                 ?? template?.timeCapMinutes
                 ?? max(5, Int(session.durationMinutes.rounded()))
