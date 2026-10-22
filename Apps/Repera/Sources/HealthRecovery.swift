@@ -416,9 +416,79 @@ struct HealthRecoveryProgressView: View {
     var weekStartsOnMonday: Bool = true
 
     @State private var recovery = HealthRecoveryStore.shared
+    @State private var recoveryPoints: [TrainingRecoveryPoint] = []
+    @State private var tomorrowRecovery: RecoveryEngine.TrainingReadiness?
+    @Environment(ReperaStore.self) private var store
     @Environment(SubscriptionManager.self) private var subscriptions
 
     private var isPro: Bool { subscriptions.isPro }
+
+    private struct TrainingRecoveryPoint: Identifiable, Sendable {
+        let date: Date
+        let score: Double
+        var id: Date { date }
+    }
+
+    private var trainingRecoveryRefreshKey: String {
+        "\(range.rawValue)|\(weekStartsOnMonday)|\(store.workoutsEpoch)|\(recovery.lastRefreshed?.timeIntervalSince1970 ?? 0)|\(recovery.sleepEnabled)"
+    }
+
+    /// Cálculo fuera del MainActor para no bloquear el scroll de Progreso.
+    /// Un punto representa la disposición estimada al despertar ese día.
+    private func prepareTrainingRecovery() async {
+        guard isPro, recovery.sleepEnabled else {
+            recoveryPoints = []
+            tomorrowRecovery = nil
+            return
+        }
+        let nights = recovery.nights
+        let workouts = store.state.workouts.filter { $0.finishedAt != nil }
+        let averageHours = recovery.averageHours
+        let range = self.range
+        let monday = weekStartsOnMonday
+        let now = Date()
+        let result = await Task.detached(priority: .userInitiated) {
+            let calendar = Calendar.current
+            let points: [TrainingRecoveryPoint] = nights.compactMap { night in
+                guard range.contains(night.date, weekStartsOnMonday: monday),
+                      let morning = calendar.date(
+                        bySettingHour: 9, minute: 0, second: 0, of: night.date
+                      ), morning <= now,
+                      let value = RecoveryEngine.trainingReadiness(
+                        at: morning,
+                        sleepHours: night.hours,
+                        recentAverageSleepHours: averageHours,
+                        workouts: workouts
+                      ) else { return nil }
+                return TrainingRecoveryPoint(date: night.date, score: value.score)
+            }
+            // Proyección condicionada, nunca un dato observado de mañana.
+            let lastNight = nights.last
+            let recentSleep = lastNight.flatMap { night -> Double? in
+                now.timeIntervalSince(night.date) <= 48 * 3600 ? night.hours : nil
+            }
+            let tomorrowMorning = calendar.date(
+                byAdding: .day, value: 1, to: calendar.startOfDay(for: now)
+            ).flatMap {
+                calendar.date(bySettingHour: 9, minute: 0, second: 0, of: $0)
+            }
+            let tomorrow: RecoveryEngine.TrainingReadiness?
+            if let tomorrowMorning, let recentSleep {
+                tomorrow = RecoveryEngine.trainingReadiness(
+                    at: tomorrowMorning,
+                    sleepHours: recentSleep,
+                    recentAverageSleepHours: averageHours,
+                    workouts: workouts
+                )
+            } else {
+                tomorrow = nil
+            }
+            return (points.sorted { $0.date < $1.date }, tomorrow)
+        }.value
+        guard !Task.isCancelled else { return }
+        recoveryPoints = result.0
+        tomorrowRecovery = result.1
+    }
     private var hasCycleData: Bool { !recovery.menstrualDays.isEmpty }
 
     private enum NightSky {
@@ -505,6 +575,12 @@ struct HealthRecoveryProgressView: View {
                 softSleepEmpty
             }
 
+            // Sueño y recuperación son indicadores distintos: sin datos,
+            // no fabricar una falsa puntuación de disposición.
+            if isPro, (!recoveryPoints.isEmpty || tomorrowRecovery != nil) {
+                trainingRecoveryCard
+            }
+
             if hasCycleData {
                 cycleContent
             }
@@ -520,6 +596,9 @@ struct HealthRecoveryProgressView: View {
             }
         }
         .task { await recovery.refresh() }
+        .task(id: trainingRecoveryRefreshKey) {
+            await prepareTrainingRecovery()
+        }
     }
 
     @ViewBuilder
