@@ -66,6 +66,8 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_health_physio_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_health_permissions.py' -v
           python3 -m unittest discover -s tests -p 'test_watch_healthkit_contract.py' -v
+          python3 -m unittest discover -s tests -p 'test_watch_widget_plist.py' -v
+          python3 scripts/check_watch_widget_plist.py
           python3 -m unittest discover -s tests -p 'test_wod_play_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_completed_workout_edit_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_scaled_wod_contract.py' -v
@@ -126,10 +128,24 @@ jobs:
           # La etiqueta del modelo incluye paréntesis: extraer el UDID con awk
           # devolvía "46mm" en vez del UUID. El destino genérico es
           # suficiente para compilar watchOS y evita depender de un simulador.
-          xcodebuild -scheme ReperaWatch \
+          xcodebuild -project Repera.xcodeproj -scheme ReperaWatch \
+            -configuration Debug \
             -destination "generic/platform=watchOS Simulator" \
-            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
+            -derivedDataPath "$RUNNER_TEMP/ReperaDerivedData" \
+            CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
             -quiet build
+      - name: Verify packaged Watch widget Info.plist before simulator install
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/check_watch_widget_plist.py
+          WIDGET_PLIST="$(find "$RUNNER_TEMP/ReperaDerivedData/Build/Products" \
+            -path '*/ReperaWatchWidget.appex/Info.plist' -print -quit)"
+          if [[ -z "$WIDGET_PLIST" ]]; then
+            echo "::error::ReperaWatchWidget.appex/Info.plist no existe en los productos de compilación"
+            exit 1
+          fi
+          python3 scripts/check_watch_widget_plist.py --built "$WIDGET_PLIST"
       - name: UI tests (scheme Repera — fail hard)
         run: |
           set -euo pipefail
