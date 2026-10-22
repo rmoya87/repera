@@ -753,11 +753,13 @@ struct HomeView: View {
                                 .foregroundStyle(OG.label)
                         }
                         if let target, target > 0 {
-                            ProgressView(
-                                value: min(minutes ?? 0, Double(target)),
-                                total: Double(target)
-                            )
-                            .tint(OG.blue)
+                            if let minutes {
+                                ProgressView(
+                                    value: min(max(0, minutes), Double(target)),
+                                    total: Double(target)
+                                )
+                                .tint(OG.blue)
+                            }
                             Text("Objetivo: \(target) min")
                                 .font(.caption)
                                 .foregroundStyle(OG.label2)
