@@ -141,6 +141,10 @@ final class WatchSessionHub: NSObject {
         guard let active else { return false }
         return active.currentIndex == active.exercises.count - 1
     }
+    var hasNextExercise: Bool {
+        guard let active else { return false }
+        return active.exercises.indices.contains(active.currentIndex + 1)
+    }
     var isFinalSet: Bool {
         !currentIsWOD && isLastWorkoutExercise
             && setDraft.phase == .work
@@ -605,6 +609,45 @@ final class WatchSessionHub: NSObject {
         }
     }
 
+    /// Go to the next exercise without manufacturing or confirming a set.
+    /// Within a block the workout clock continues; a new block opens prepared.
+    func nextExercise() {
+        guard let active, active.phase == .counting, !isPaused,
+              !reviewingBlock, hasNextExercise else { return }
+        let nextIndex = active.currentIndex + 1
+        let next = active.exercises[nextIndex]
+        let sameBlock = current?.blockId != nil && current?.blockId == next.blockId
+        if !sameBlock {
+            selectBlock(startingAt: nextIndex)
+            return
+        }
+        tickClock()
+        stopMotion()
+        var ctrl = SessionController(session: active)
+        ctrl.selectExercise(at: nextIndex)
+        ctrl.confirmCurrentExercise()
+        controller = ctrl
+        selectedSetIndex = nil
+        workingReps = 0
+        workingWeightKg = next.plannedSets.first?.targetWeightKg
+        resetSetDraft()
+        repCounter.reset()
+        restRemaining = 0
+        if !isPaused { startMotion() }
+        checkpoint()
+    }
+
+    /// One explicit finishing action. A WOD score is requested only when it
+    /// must be entered, then confirmBlock saves without another dialog.
+    func finishFromSummary() {
+        guard active != nil else { return }
+        if currentIsWOD, active?.phase == .counting {
+            reviewBlock()
+        } else {
+            finishWorkout()
+        }
+    }
+
     /// Jumping from Plan completo does not complete skipped exercises or
     /// create fictitious sets; confirmed results from the previous block remain.
     func selectBlock(startingAt index: Int) {
@@ -740,7 +783,8 @@ final class WatchSessionHub: NSObject {
 
     /// The final action is explicit and saves the already-confirmed results.
     func finishWorkout() {
-        guard var ctrl = controller else { return }
+        guard var ctrl = controller, ctrl.session.phase != .finished,
+              !awaitingHealthSave else { return }
         tickClock()
         stopMotion()
         ctrl.finishWorkout()
@@ -758,7 +802,7 @@ final class WatchSessionHub: NSObject {
     }
 
     private func completeSession() {
-        guard let finished = controller?.session else { return }
+        guard let finished = controller?.session, lastFinished?.id != finished.id else { return }
         stopMotion()
         stopClock()
         var result = finished
