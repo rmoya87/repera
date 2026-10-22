@@ -173,12 +173,12 @@ public enum RecoveryEngine {
     }
 
     /// Estimación de disposición para entrenar a una hora determinada. Usa:
-    /// - sueño observado (o supuesto explícito para una proyección),
+    /// - sueño observado en Salud,
     /// - fatiga residual por músculos (mismo motor del mapa corporal),
-    /// - minutos de entrenamiento de las últimas 48 h.
+    /// - minutos de entrenamiento local y actividad HealthKit externa.
     ///
-    /// Requiere ambos tipos de datos y al menos un entrenamiento finalizado
-    /// en los últimos siete días. Jamás inventa cero esfuerzo sin registros.
+    /// Requiere sueño observado y actividad finalizada en los últimos siete
+    /// días. Jamás inventa cero esfuerzo sin registros.
     /// No incluye entrenamientos futuros ni cambia la nota deportiva.
     public static func trainingReadiness(
         at date: Date,
@@ -266,12 +266,13 @@ public enum RecoveryEngine {
             advice: advice,
             sleepContribution: sleepContribution,
             fatiguePenalty: penalty,
-            trainingCount: recent.count,
+            trainingCount: recent.count + recentExternal.count,
             physiologicalPenalty: vitals.penalty,
             calibratedVitalSignals: vitals.calibratedSignals,
             vitalNotes: vitals.notes,
-            cardioMinutes48h: recentExternal.contains(where: \.isCardio)
-                ? cardioMinutes48h : nil
+            cardioMinutes48h: recentExternal.contains {
+                $0.isCardio && date.timeIntervalSince($0.date) <= twoDays
+            } ? cardioMinutes48h : nil
         )
     }
 
