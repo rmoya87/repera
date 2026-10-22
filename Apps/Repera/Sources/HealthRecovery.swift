@@ -399,7 +399,7 @@ struct ConnectedHealthSettingsView: View {
         Form {
             Section {
                 if health.isAuthorized {
-                    Label("Apple Salud con permisos activos", systemImage: "checkmark.circle.fill")
+                    Label("Apple Salud conectada para entrenamientos", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(OG.label)
                     if let kcal = health.activeEnergyTodayKcal {
                         LabeledContent("kcal hoy", value: "\(Int(kcal.rounded()))")
@@ -428,10 +428,21 @@ struct ConnectedHealthSettingsView: View {
                         Text(err).font(.footnote).foregroundStyle(.red)
                     }
                 }
+                Button {
+                    Task {
+                        healthBusy = true
+                        defer { healthBusy = false }
+                        await health.requestAccess(includeSleep: recovery.sleepEnabled)
+                        await HealthPhysiologyStore.shared.refresh()
+                    }
+                } label: {
+                    Label("Ampliar permisos para métricas deportivas", systemImage: "waveform.path.ecg")
+                }
+                .disabled(!health.isAvailable || healthBusy)
             } header: {
                 Text("Apple Salud")
             } footer: {
-                Text("Permisos de entrenamientos, ritmo cardíaco y energía activa.")
+                Text("Permisos independientes y opcionales: frecuencia cardíaca, VFC, pulso en reposo, recuperación cardíaca, respiración, oxígeno y temperatura nocturna. Si no hay muestras, se muestran como no disponibles.")
             }
 
             Section {
@@ -455,7 +466,7 @@ struct ConnectedHealthSettingsView: View {
             } header: {
                 Text("Recuperación")
             } footer: {
-                Text("Sueño y ciclo se leen localmente desde Apple Salud. No se envían a Supabase ni se comparten con entrenadores.")
+                Text("Sueño, ciclo y constantes fisiológicas se leen localmente desde Apple Salud. No se envían a Supabase ni se comparten con entrenadores.")
             }
 
             Section("Privacidad") {
@@ -465,7 +476,10 @@ struct ConnectedHealthSettingsView: View {
                 if healthBusy { ProgressView("Solicitando permisos…") }
                 if let message = health.lastError { Text(message).foregroundStyle(OG.orange) }
                 if let message = recovery.errorMessage { Text(message).foregroundStyle(OG.orange) }
-                Button("Actualizar desde Apple Salud") { Task { await recovery.refresh() } }
+                Button("Actualizar desde Apple Salud") { Task {
+                    await recovery.refresh()
+                    await HealthPhysiologyStore.shared.refresh()
+                } }
             }
             Section {
                 Text("El sueño es orientativo. Las fases menstruales son estimaciones, no confirman la ovulación ni predicen la fertilidad. Las recomendaciones no sustituyen la valoración profesional.")
@@ -474,7 +488,10 @@ struct ConnectedHealthSettingsView: View {
         }
         .ogListChrome()
         .ogPinnedTransparentNav("Salud conectada")
-        .task { await recovery.refresh() }
+        .task {
+            await recovery.refresh()
+            await HealthPhysiologyStore.shared.refresh()
+        }
     }
 
     private func pendingRow(_ title: String) -> some View {
