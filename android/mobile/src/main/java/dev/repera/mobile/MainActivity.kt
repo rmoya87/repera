@@ -217,19 +217,36 @@ data class StateOverview(
     val routines: Int,
     val exercises: Int,
     val bodyWeights: Int,
-    val activeSessionTitle: String?
+    val activeSessionTitle: String?,
+    val recentWorkoutTitles: List<String>,
+    val routineTitles: List<String>,
+    val exerciseTitles: List<String>
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?): StateOverview? {
             if (bytes == null) return null
             LocalSnapshotStore.validate(bytes)
             val json = JSONObject(String(bytes, Charsets.UTF_8))
+            fun titles(key: String): List<String> {
+                val array = json.getJSONArray(key)
+                return (0 until array.length()).mapNotNull { index ->
+                    array.optJSONObject(index)?.optString(
+                        if (key == "exercises") "name" else "title"
+                    )?.takeIf { it.isNotBlank() }
+                }
+            }
+            val workoutTitles = titles("workouts")
+            val routineTitles = titles("routines")
+            val exerciseTitles = titles("exercises")
             return StateOverview(
-                workouts = json.getJSONArray("workouts").length(),
-                routines = json.getJSONArray("routines").length(),
-                exercises = json.getJSONArray("exercises").length(),
+                workouts = workoutTitles.size,
+                routines = routineTitles.size,
+                exercises = exerciseTitles.size,
                 bodyWeights = json.optJSONArray("bodyWeights")?.length() ?: 0,
-                activeSessionTitle = json.optJSONObject("activeSession")?.optString("title")
+                activeSessionTitle = json.optJSONObject("activeSession")?.optString("title"),
+                recentWorkoutTitles = workoutTitles.asReversed().take(20),
+                routineTitles = routineTitles,
+                exerciseTitles = exerciseTitles.sorted()
             )
         }
     }

@@ -24,7 +24,7 @@ Fecha base: 2026-10-23. Fuente de verdad: `main` del repositorio Repera,
 | Revisión sin duplicación | SessionController.replaceLoggedSet | `domain/SetPrescription.kt` | editor completo |
 | Sign in | AppleAuthStore | Credential Manager Google en MainActivity | OAuth cliente real / backend |
 | Almacén personal | LocalStore + iCloud | AtomicFile por Google ID + Drive appDataFolder | importación de histórico iCloud / comparación E2E |
-| Inicio, Diario, Crear, Progreso, Ejercicios | RootTabView y vistas SwiftUI | Navegación Material 3 base / lecturas reales | toda la funcionalidad e interacciones |
+| Inicio, Diario, Crear, Progreso, Ejercicios | RootTabView y vistas SwiftUI | Navegación Material 3, listado real de histórico/rutinas/catálogo | toda la funcionalidad e interacciones |
 | Watch | WatchSessionHub | pantalla Wear + Data Layer lectura del estado activo | sesión offline, Health Services, series, WOD y cronómetro |
 | Supabase centros | BusinessAuthStore y BusinessDataStore | no activado | proveedor Google, RLS, reservas, planes |
 | Pro / compras | StoreKit + RevenueCat | no activado | Play Billing y misma política `FeatureAccessPolicy` |

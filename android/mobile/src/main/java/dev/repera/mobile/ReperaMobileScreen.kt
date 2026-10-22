@@ -21,6 +21,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.darkColorScheme
@@ -71,6 +72,7 @@ fun ReperaMobileScreen(
             return@MaterialTheme
         }
         var selected by remember { mutableStateOf("Inicio") }
+        var exerciseSearch by remember { mutableStateOf("") }
         Scaffold(
             topBar = { TopAppBar(title = { Text("repera") }) },
             bottomBar = {
@@ -138,6 +140,46 @@ fun ReperaMobileScreen(
                                 Text(count?.toString() ?: "—", style = MaterialTheme.typography.headlineLarge)
                                 if (overview == null) Text("No hay datos locales cargados")
                             }
+                        }
+                    }
+                }
+                if (selected == "Inicio") {
+                    item { Text("Historial reciente", style = MaterialTheme.typography.titleMedium) }
+                    val workouts = overview?.recentWorkoutTitles.orEmpty()
+                    if (workouts.isEmpty()) item { Text("Todavía no hay sesiones registradas") }
+                    items(workouts) { title ->
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Text(title, modifier = Modifier.padding(16.dp))
+                        }
+                    }
+                }
+                if (selected == "Diario") {
+                    val routines = overview?.routineTitles.orEmpty()
+                    if (routines.isEmpty()) item { Text("Sin rutinas locales disponibles") }
+                    items(routines) { title ->
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Text(title, modifier = Modifier.padding(16.dp))
+                        }
+                    }
+                }
+                if (selected == "Ejercicios") {
+                    item {
+                        OutlinedTextField(
+                            value = exerciseSearch,
+                            onValueChange = { exerciseSearch = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            label = { Text("Buscar ejercicio") }
+                        )
+                    }
+                    val exerciseTitles = overview?.exerciseTitles.orEmpty()
+                        .asSequence()
+                        .filter { it.contains(exerciseSearch.trim(), ignoreCase = true) }
+                        .take(100).toList()
+                    if (exerciseTitles.isEmpty()) item { Text("Sin ejercicios coincidentes") }
+                    items(exerciseTitles) { name ->
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Text(name, modifier = Modifier.padding(16.dp))
                         }
                     }
                 }
