@@ -167,6 +167,34 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         }
     }
 
+    func testStrengthBlockUsingGlobalWODFormatKeepsItsEditedScore() {
+        let exercise = Exercise(name: "Sentadilla", muscleGroup: "Piernas")
+        let block = RoutineBlock(
+            title: "AMRAP con barra", kind: .strength,
+            exercises: [
+                RoutineExercise(exerciseId: exercise.id,
+                    plannedSets: [PlannedSet(targetReps: 8, targetWeightKg: 40)])
+            ],
+            wodFormat: .amrap, timeCapMinutes: 8
+        )
+        var session = SessionController.from(
+            routine: Routine(title: "WOD mixto", blocks: [block]), exercises: [exercise]
+        )
+        session.phase = .finished
+        session.wodResults = [
+            WODBlockResult(id: block.id, format: .amrap,
+                           totalReps: 5, roundsCompleted: 4)
+        ]
+        let edited = CompletedWorkoutEditing.routine(from: session)
+        session.wodResults[0].roundsCompleted = 6
+        session.wodResults[0].totalReps = 3
+        let saved = CompletedWorkoutEditing.applying(edited, to: session, catalog: [exercise])
+        XCTAssertEqual(saved.id, session.id)
+        XCTAssertEqual(saved.wodResults.count, 1)
+        XCTAssertEqual(saved.wodResults[0].roundsCompleted, 6)
+        XCTAssertEqual(saved.wodResults[0].totalReps, 3)
+    }
+
     func testChangingWODFormatDropsIncompatibleStoredScore() {
         let exercise = Exercise(name: "Burpees", muscleGroup: "Otros")
         let block = RoutineBlock(

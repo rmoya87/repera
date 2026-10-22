@@ -28,6 +28,30 @@ class CompletedWorkoutEditContractTests(unittest.TestCase):
             self.assertIn("."+fmt, model.split("public var resultCapture:", 1)[1].split("public enum WODResultCapture", 1)[0])
         self.assertIn("case .amrap, .deathBy, .maxEffort:", model)
 
+    def test_completed_layout_uses_session_identity_not_late_state(self):
+        editor = source("Apps/Repera/Sources/PlanView.swift")
+        self.assertIn("private var isEditingCompletedWorkout: Bool", editor)
+        self.assertIn("onApplyCompleted != nil && completedSession != nil", editor)
+        self.assertIn("private var completedWorkoutDraft: WorkoutSession?", editor)
+        self.assertIn("completedDetails ?? completedSession", editor)
+        score = editor.split("private func completedScoreEditor(", 1)[1].split("private func addCompletedResult(", 1)[0]
+        self.assertIn("if isEditingCompletedWorkout,", score)
+        self.assertNotIn("completedDetails != nil", score)
+        wod = editor.split("private func wodBlock(index: Int)", 1)[1].split("private func resolvedExercise(", 1)[0]
+        self.assertIn("} else if isEditingCompletedWorkout,", wod)
+        self.assertIn("format.resultCapture != .perMovementSets", wod)
+        self.assertIn('Text("Prescripción · " + move.summaryLine)', wod)
+        self.assertNotIn("} else if completedDetails != nil,", wod)
+
+    def test_scoring_follows_format_not_block_kind(self):
+        editor = source("Apps/Repera/Sources/PlanView.swift")
+        bridge = source("Packages/ReperaDomain/Sources/ReperaDomain/CompletedWorkoutEditing.swift")
+        self.assertIn("completedStrengthPrescription(index: index)", editor)
+        self.assertIn("if isEditingCompletedWorkout,", editor)
+        self.assertIn("format.resultCapture != .perMovementSets", editor)
+        self.assertIn('let block = routine.blocks.first(where: { $0.id == result.id })', bridge)
+        self.assertNotIn('$0.id == result.id && $0.kind == .wod', bridge)
+
     def test_amrap_and_death_by_cannot_be_confused_with_elapsed_time(self):
         editor = source("Apps/Repera/Sources/PlanView.swift")
         self.assertIn("if format == .amrap || format == .deathBy", editor)

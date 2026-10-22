@@ -592,6 +592,21 @@ struct DayEditorView: View {
     @State private var showsReorder = false
     @State private var completedDetails: WorkoutSession?
 
+    /// La ruta de Historial abre directamente una sesión finalizada. El diseño
+    /// no debe esperar a que onAppear inicialice el estado para saber si muestra
+    /// un score global o series: eso enseñaba el formulario de prescripción.
+    private var isEditingCompletedWorkout: Bool {
+        onApplyCompleted != nil && completedSession != nil
+    }
+
+    private var completedWorkoutDraft: WorkoutSession? {
+        completedDetails ?? completedSession
+    }
+
+    private func ensureCompletedWorkoutDraft() {
+        if completedDetails == nil { completedDetails = completedSession }
+    }
+
     var body: some View {
         Group {
             if embedsNavigationStack {
@@ -719,7 +734,13 @@ struct DayEditorView: View {
                     }
                     .listRowSeparator(.hidden)
                     if block.kind == .strength {
-                        strengthBlock(index: index)
+                        if isEditingCompletedWorkout,
+                           let format = block.wodFormat,
+                           format.resultCapture != .perMovementSets {
+                            completedStrengthPrescription(index: index)
+                        } else {
+                            strengthBlock(index: index)
+                        }
                     } else {
                         wodBlock(index: index)
                     }
@@ -758,7 +779,7 @@ struct DayEditorView: View {
         .listStyle(.insetGrouped)
         .ogListChrome()
         .onAppear {
-            if completedDetails == nil { completedDetails = completedSession }
+            ensureCompletedWorkoutDraft()
             ensureStrengthPlannedSets()
         }
         .reorderContainer(for: RoutineExercise.self, in: UUID.self) { difference in
@@ -1269,7 +1290,7 @@ struct DayEditorView: View {
     }
 
     private func confirm() {
-        if let onApplyCompleted, let completedDetails {
+        if let onApplyCompleted, let completedDetails = completedWorkoutDraft {
             var edited = routine
             for index in edited.blocks.indices { edited.blocks[index].deriveEmomRoundsIfNeeded() }
             if edited.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -1365,15 +1386,15 @@ struct DayEditorView: View {
     /// series prescritas del WOD. Todos los formatos de score tienen edición.
     @ViewBuilder
     private func completedScoreEditor(for block: RoutineBlock) -> some View {
-        if let format = block.wodFormat,
-           format.resultCapture != .perMovementSets,
-           completedDetails != nil {
+        if isEditingCompletedWorkout,
+           let format = block.wodFormat,
+           format.resultCapture != .perMovementSets {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Resultado del entreno")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(OG.label)
 
-                if completedDetails?.wodResults.contains(where: {
+                if completedWorkoutDraft?.wodResults.contains(where: {
                     $0.id == block.id && ($0.format == nil || $0.format == format)
                 }) == true {
                     switch format.resultCapture {
@@ -1442,14 +1463,16 @@ struct DayEditorView: View {
     }
 
     private func addCompletedResult(for block: RoutineBlock) {
-        guard let format = block.wodFormat, format.resultCapture != .perMovementSets,
-              completedDetails != nil,
-              completedDetails?.wodResults.contains(where: {
+        guard isEditingCompletedWorkout,
+              let format = block.wodFormat, format.resultCapture != .perMovementSets,
+              completedWorkoutDraft != nil,
+              completedWorkoutDraft?.wodResults.contains(where: {
                   $0.id == block.id && ($0.format == nil || $0.format == format)
               }) != true
         else { return }
         // Si el formato cambió, el score anterior ya no tiene las mismas
         // unidades. Solo el usuario puede introducir la nueva marca.
+        ensureCompletedWorkoutDraft()
         completedDetails?.wodResults.removeAll { $0.id == block.id }
         completedDetails?.wodResults.append(WODBlockResult(
             id: block.id, format: format,
@@ -1465,7 +1488,7 @@ struct DayEditorView: View {
     private func completedScoreBinding(id: UUID, field: CompletedScoreField) -> Binding<Int> {
         Binding(
             get: {
-                guard let result = completedDetails?.wodResults.first(where: { $0.id == id }) else { return 0 }
+                guard let result = completedWorkoutDraft?.wodResults.first(where: { $0.id == id }) else { return 0 }
                 switch field {
                 case .reps: return result.totalReps ?? 0
                 case .rounds: return result.roundsCompleted ?? 0
@@ -1474,6 +1497,7 @@ struct DayEditorView: View {
                 }
             },
             set: { value in
+                ensureCompletedWorkoutDraft()
                 guard let index = completedDetails?.wodResults.firstIndex(where: { $0.id == id }) else { return }
                 switch field {
                 case .reps:
@@ -1510,6 +1534,30 @@ struct DayEditorView: View {
         let decision = store.lastAccessDenial
             ?? subscriptions.canCreateLibraryRoutine(isNew: true)
         subscriptions.presentPaywall(decision.paywallContext, feature: .unlimitedRoutines)
+    }
+
+    /// Un bloque originalmente de fuerza puede haber recibido después un
+    /// formato AMRAP o For Time. Al editar el entreno TERMINADO tampoco debe
+    /// volver a mostrar sus series de prescripción como resultado realizado.
+    @ViewBuilder
+    private func completedStrengthPrescription(index: Int) -> some View {
+        ForEach(routine.blocks[index].exercises) { item in
+            if let exercise = store.state.exercises.first(where: { $0.id == item.exerciseId })
+                ?? completedWorkoutDraft?.exercises.first(where: { $0.exercise.id == item.exerciseId })?.exercise {
+                HStack(spacing: 12) {
+                    ExerciseThumb(exercise: exercise, size: 48)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(exercise.name)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                        Text("Prescripción · " + item.plannedSets.map { "\($0.targetReps)" }.joined(separator: "-") + " reps")
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                    }
+                    Spacer()
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -1868,7 +1916,7 @@ struct DayEditorView: View {
                     in: 15...300,
                     step: 15
                 )
-            } else if completedDetails != nil,
+            } else if isEditingCompletedWorkout,
                       let format = routine.blocks[index].wodFormat,
                       format.resultCapture != .perMovementSets {
                 // En WOD cronometrados estas cifras son la PRESCRIPCIÓN; el resultado
@@ -1877,8 +1925,8 @@ struct DayEditorView: View {
                     .font(.caption)
                     .foregroundStyle(OG.label2)
             } else {
-                if completedDetails != nil {
-                    let logged = completedDetails?.exercises.first(where: { $0.id == move.id
+                if isEditingCompletedWorkout {
+                    let logged = completedWorkoutDraft?.exercises.first(where: { $0.id == move.id
                         || ($0.blockId == routine.blocks[index].id
                             && $0.exercise.name.localizedCaseInsensitiveCompare(move.name) == .orderedSame)
                     })?.loggedSets.isEmpty == false
