@@ -62,6 +62,8 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             payload["todayWorkout"] = Data()
         }
         if let completedAck { payload["completedAck"] = completedAck.uuidString }
+        // Absolute source day, not the day when a stale context is received.
+        payload["todayDayStart"] = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
         if let hint = quickLogHint {
             payload["quickLogExerciseId"] = hint.id.uuidString
             payload["quickLogExerciseName"] = hint.name
