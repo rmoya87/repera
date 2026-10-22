@@ -618,7 +618,13 @@ final class WatchSessionHub: NSObject {
         let next = active.exercises[nextIndex]
         let sameBlock = current?.blockId != nil && current?.blockId == next.blockId
         if !sameBlock {
-            selectBlock(startingAt: nextIndex)
+            // Leaving a WOD must not discard an unrecorded AMRAP/For Time
+            // score. The athlete enters it once; confirmBlock advances.
+            if currentIsWOD {
+                reviewBlock()
+            } else {
+                selectBlock(startingAt: nextIndex)
+            }
             return
         }
         tickClock()
