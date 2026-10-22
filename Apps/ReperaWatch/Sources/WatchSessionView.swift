@@ -113,18 +113,31 @@ struct WatchSessionView: View {
 
                 ForEach(blockStarts(in: session), id: \.self) { index in
                     let first = session.exercises[index]
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(first.displayBlockHeader)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.primary)
-                        ForEach(blockMembers(in: session, startingAt: index), id: \.self) { position in
-                            exerciseCard(session.exercises[position])
+                    Button {
+                        hub.startToday()
+                        hub.selectBlock(startingAt: index)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(first.displayBlockHeader)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.primary)
+                                Spacer(minLength: 0)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption2.bold())
+                                    .foregroundStyle(.secondary)
+                            }
+                            ForEach(blockMembers(in: session, startingAt: index), id: \.self) { position in
+                                exerciseCard(session.exercises[position])
+                            }
                         }
+                        .padding(9)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.white.opacity(0.07),
+                                    in: RoundedRectangle(cornerRadius: 13))
                     }
-                    .padding(9)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.white.opacity(0.07),
-                                in: RoundedRectangle(cornerRadius: 13))
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Iniciar el entrenamiento directamente por este bloque")
                 }
 
                 Button { hub.startToday() } label: {
