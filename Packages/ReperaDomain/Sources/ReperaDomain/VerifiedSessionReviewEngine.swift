@@ -215,7 +215,7 @@ public enum VerifiedSessionReviewEngine {
     ) -> Evidence? {
         guard let currentBlock = session.routineBlocks?.first(where: { $0.id == result.id }),
               let format = result.format,
-              let current = wodMetric(result: result, block: currentBlock),
+              let current = wodMetric(result: result, block: currentBlock, session: session),
               current > 0 else { return nil }
         let scaled = session.exercises.filter { $0.blockId == result.id }
         var refs: [(Date, Double)] = []
@@ -232,7 +232,7 @@ public enum VerifiedSessionReviewEngine {
                     }) == true
             }),
             let pastBlock = workout.routineBlocks?.first(where: { $0.id == previous.id }),
-            let value = wodMetric(result: previous, block: pastBlock),
+            let value = wodMetric(result: previous, block: pastBlock, session: workout),
             value > 0 else { continue }
             let previousScaled = workout.exercises.filter { $0.blockId == previous.id }
             guard sameScaling(scaled, previousScaled) else { continue }
@@ -285,7 +285,9 @@ public enum VerifiedSessionReviewEngine {
         return true
     }
 
-    private static func wodMetric(result: WODBlockResult, block: RoutineBlock) -> Double? {
+    private static func wodMetric(
+        result: WODBlockResult, block: RoutineBlock, session: WorkoutSession
+    ) -> Double? {
         guard let format = result.format else { return nil }
         switch format.resultCapture {
         case .elapsedTime:
@@ -293,8 +295,13 @@ public enum VerifiedSessionReviewEngine {
             return 1.0 / Double(seconds) // Less time = better
         case .totalReps:
             if format == .amrap || format == .deathBy {
-                let perRound = block.movements.filter { !$0.isRest }
-                    .reduce(0) { $0 + max(0, $1.reps ?? 0) }
+                let registered = session.exercises.filter { $0.blockId == result.id }
+                let perRound = block.movements.filter { !$0.isRest }.reduce(0) { total, move in
+                    let adapted = registered.first {
+                        ExerciseEquivalence.sameName($0.exercise.name, move.name)
+                    }?.adaptedReps
+                    return total + max(0, adapted ?? move.reps ?? 0)
+                }
                 guard perRound > 0 else { return nil }
                 return Double(result.roundsCompleted ?? 0)
                     + Double(result.totalReps ?? 0) / Double(perRound)
