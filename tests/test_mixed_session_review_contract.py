@@ -31,7 +31,7 @@ class MixedSessionReviewContractTests(unittest.TestCase):
         self.assertIn("review.indicators.count == ReviewDimension.allCases.count", ui)
         self.assertIn("if let dayScore {", home)
         self.assertIn("review.scoreBasis == .personalHistory", home)
-        self.assertIn("sessionReviewFormulaVersion = 10", store)
+        self.assertIn("sessionReviewFormulaVersion = 11", store)
         self.assertIn("refreshSessionReviewsIfNeeded()", store)
 
 if __name__ == "__main__":
