@@ -859,6 +859,103 @@ struct HealthRecoveryProgressView: View {
         }
     }
 
+    private struct VitalPlot: Identifiable {
+        let date: Date
+        let value: Double
+        var id: Date { date }
+    }
+
+    private func vitalChart(
+        _ title: String, unit: String,
+        keyPath: KeyPath<RecoveryEngine.DailyVitals, Double?>
+    ) -> some View {
+        let values = physiology.days.filter {
+            range.contains($0.date, weekStartsOnMonday: weekStartsOnMonday)
+        }.compactMap { sample -> VitalPlot? in
+            guard let value = sample[keyPath: keyPath] else { return nil }
+            return VitalPlot(date: sample.date, value: value)
+        }
+        return VStack(alignment: .leading, spacing: 7) {
+            HStack {
+                Text(title).font(.subheadline.weight(.medium)).foregroundStyle(OG.label)
+                Spacer()
+                if let last = values.last {
+                    Text(String(format: "%.0f %@", last.value, unit))
+                        .font(.caption.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(OG.label2)
+                }
+            }
+            if values.count >= 2 {
+                Chart(values) { sample in
+                    LineMark(
+                        x: .value("Día", sample.date),
+                        y: .value(title, sample.value)
+                    )
+                    .interpolationMethod(.linear)
+                    .foregroundStyle(OG.accent)
+                    PointMark(
+                        x: .value("Día", sample.date),
+                        y: .value(title, sample.value)
+                    )
+                    .foregroundStyle(OG.accent)
+                    .symbolSize(24)
+                }
+                .chartXAxis {
+                    AxisMarks(values: .automatic(desiredCount: 3)) {
+                        AxisGridLine()
+                        AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+                    }
+                }
+                .frame(height: 105)
+                .accessibilityLabel("Tendencia: \(title)")
+            } else {
+                Text(values.isEmpty ? "Sin mediciones en este periodo." : "Una medición; aún no hay tendencia.")
+                    .font(.caption).foregroundStyle(OG.label3)
+            }
+        }
+    }
+
+    private var physiologyContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            OGCardSectionTitle(title: "Constantes fisiológicas")
+            OGCard {
+                VStack(alignment: .leading, spacing: 14) {
+                    if let latest = physiology.days.last {
+                        let context = RecoveryEngine.vitalContext(
+                            at: latest.date, history: physiology.days
+                        )
+                        Text(context.calibratedSignals > 0
+                             ? "Comparación personal disponible para \(context.calibratedSignals) indicadores."
+                             : "Construyendo tu referencia personal. Cada indicador necesita 7 días anteriores con lecturas.")
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                    }
+                    vitalChart("Variabilidad cardíaca (VFC)", unit: "ms", keyPath: \.hrvMilliseconds)
+                    Divider().opacity(0.25)
+                    vitalChart("Frecuencia en reposo", unit: "lpm", keyPath: \.restingHeartRateBpm)
+                    Divider().opacity(0.25)
+                    vitalChart("Frecuencia respiratoria", unit: "resp/min", keyPath: \.respiratoryRateBpm)
+                    if let latest = physiology.days.last {
+                        if let recovery = latest.heartRateRecoveryBpm {
+                            Text("Recuperación cardíaca 1 min: \(Int(recovery.rounded())) lpm")
+                                .font(.caption).foregroundStyle(OG.label2)
+                        }
+                        if let oxygen = latest.oxygenSaturationPercent {
+                            Text(String(format: "Oxígeno registrado: %.0f%%", oxygen))
+                                .font(.caption).foregroundStyle(OG.label2)
+                        }
+                        if let wrist = latest.wristTemperatureCelsius {
+                            Text(String(format: "Temperatura nocturna de muñeca: %.1f °C", wrist))
+                                .font(.caption).foregroundStyle(OG.label2)
+                        }
+                    }
+                    Text("Solo se emplean los indicadores autorizados y registrados. Oxígeno, temperatura y recuperación cardíaca son contexto, no una nota clínica. Los datos no salen del dispositivo.")
+                        .font(.caption).foregroundStyle(OG.label3)
+                }
+            }
+        }
+    }
+
     // MARK: - Recuperación para entrenar, independiente del sueño
 
     private var trainingRecoveryCard: some View {
