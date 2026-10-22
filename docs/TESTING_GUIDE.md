@@ -252,6 +252,16 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 
 `ReperaSmokeUITests` arranca la app Debug con `--repera-ui-test-tabs` y `REPERA_UI_TEST_MODE=1` para acceder únicamente al contenedor de pestañas sin cuenta Apple del runner. La compilación Release **no** reconoce este modo. Los tests comprueban `Inicio · Diario · Crear|Center · Progreso · Ejercicios` y navegación a Ejercicios. El login real con Apple debe probarse en otro escenario E2E con cuenta y TestFlight, nunca se simula como superado.
 
+## Inicio, Recuperación y sincronización histórica (2026-10-22)
+
+- [ ] Inicio → Actividad: tres tarjetas del mismo ancho **Pasos, Calorías, Tiempo**. No aparece FC media ni la franja ancha de Tiempo. Con 57 min propios y 4 min de lectura parcial de Salud debe verse **57 min** y no 61; las barras respetan el objetivo configurado, incluida la fracción extra más oscura si se supera.
+- [ ] Con y sin objetivos de minutos, tarjeta Tiempo compacta y unidad «min» en la misma línea. Sin duración real, mostrar «—» sin inventar minutos.
+- [ ] Progreso → Recuperación: primera tarjeta «Preparación para entrenar» con nota entera 0–10 y consejo (8–10 verde, 6–7 amarillo, 0–5 rojo). Iconos moon, dumbbell, heart, waveform/bed de contorno. La segunda tarjeta es una **sola curva de evolución** 0–10 suavizada con gradiente de abajo rojo, medio amarillo y arriba verde; puntos coloreados según el score. Revisar 1 punto: no mostrar gráfica vacía.
+- [ ] La tarjeta Sueño muestra exclusivamente horas y fases con una única gráfica; no aparece «Evolución del sueño», texto «Puntuación orientativa…», ni proyección de mañana basada en sueño supuesto. Sin sueño/carga observada, no mostrar nota: «Datos insuficientes».
+- [ ] Salud con VFC/FC en reposo sin referencia histórica: no restar puntos. Con siete días de comparación calibrada y VFC baja o FC reposo alta: reducir la nota; sin ese dato no inventar pulsaciones. Cardio externo de HKWorkout añadido en últimas 48–96 h influye en la carga **una sola vez**, sin duplicar sesiones Repera enlazadas.
+- [ ] Ajustes → Sincronizar ahora: tras una sincronización correcta, debe aparecer solo «Última actualización» con fecha en español, sin el aviso de «WOD antiguos sin detalle original» bajo el botón. En Supabase los registros de ejercicios/resultados permanecen; si falta Rx del snapshot histórico, no generar sets/cargas/notas a partir de una rutina actual ni reclamar haberlos recuperado.
+- [ ] Revisar modo oscuro/claro, Dynamic Type, VoiceOver de nota y tendencia, permisos parciales de Apple Salud y estados de carga.
+
 ## Escritura en Apple Salud y fuente de verdad (2026-10-22)
 
 - [ ] Autorizar lectura y escritura de **Entrenamientos** en Ajustes → Apple Salud. Terminar una sesión Repera desde iPhone: en la app Salud debe aparecer un HKWorkout de fuerza con inicio, fin, nombre Repera e identidad estable; el registro Repera almacena el mismo UUID.
