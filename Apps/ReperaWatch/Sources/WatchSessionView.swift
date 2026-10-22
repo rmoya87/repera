@@ -629,18 +629,6 @@ struct WatchSessionView: View {
         }
     }
 
-    private func header(title: String, subtitle: String) -> some View {
-        HStack {
-            Text(title)
-                .font(.caption.weight(.bold))
-                .lineLimit(2)
-            Spacer(minLength: 3)
-            Text(subtitle)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-    }
-
     private func timeLabel(_ seconds: Int) -> String {
         let n = max(0, seconds)
         return String(format: "%02d:%02d", n / 60, n % 60)
