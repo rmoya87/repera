@@ -88,13 +88,14 @@ public struct SessionController: Sendable {
               session.exercises[session.currentIndex].loggedSets.indices.contains(index) else {
             return false
         }
-        let old = session.exercises[session.currentIndex].loggedSets[index]
         session.exercises[session.currentIndex].loggedSets[index].reps = max(0, reps)
         session.exercises[session.currentIndex].loggedSets[index].weightKg = weightKg
-        session.exercises[session.currentIndex].completedReps = max(
-            0, session.exercises[session.currentIndex].completedReps
-                - old.reps + max(0, reps)
-        )
+        // A return from another exercise may reset its transient completedReps.
+        // Recompute from the durable, actually logged sets instead.
+        session.exercises[session.currentIndex].completedReps =
+            session.exercises[session.currentIndex].loggedSets
+                .filter { $0.phase == .work }
+                .reduce(0) { $0 + $1.reps }
         return true
     }
 
