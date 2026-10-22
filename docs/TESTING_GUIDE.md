@@ -1,6 +1,6 @@
 # Guía de pruebas — Repera
 
-Última actualización: 2026-10-19 (monetización Freemium / Pro)
+Última actualización: 2026-10-22 (comprobación de calorías reales desde Apple Salud)
 
 Checklist manual por feature. Preferible dispositivo real para Live Activity y Watch.
 
@@ -25,6 +25,19 @@ Checklist manual por feature. Preferible dispositivo real para Live Activity y W
 - [ ] Center muestra «Completo» si aforo=reservas, sin filtrar información de otras personas ni ofrecer botón Reservar; si falla RPC, deshabilita la reserva.
 - [ ] Modo avión, token caducado, Apple ocultar correo, sesión revocada y eliminación/revocación del vínculo.
 - [ ] Ejecutar build/UITests con Xcode e iOS 27 y revisar todo el CI antes de merge.
+
+## Calorías de Apple Salud — Inicio, Historial y Progreso
+
+- [ ] Sin permitir lectura de Salud, registrar un entreno manual, finalizarlo y regresar a Inicio: **sin chip kcal**; el total diario muestra «—», no una estimación por minutos.
+- [ ] Con Salud autorizado pero sin datos reales de energía, finalizar un entreno de fuerza sin Watch: **sin chip kcal**, y el workout guardado en Apple Salud **sin muestra sintética** de energía activa.
+- [ ] Sin entrenos, pero con energía activa realmente registrada por Apple Watch en Salud, Inicio debe mostrar **las kcal reales del día** (aunque no exista registro de Repera).
+- [ ] Vincular un HKWorkout **externo** con energía registrada: aparece su chip kcal en Inicio e Historial con el valor obtenido de Salud; el resumen corresponde al dato verificado.
+- [ ] Vincular un workout sin energía o propio de Repera con un valor histórico estimado: **no** aparece chip de kcal; no se debe tratar como entrenamiento externo de Salud.
+- [ ] Importar sesiones antiguas que llevaban `appleActiveEnergyKcal` estimado: la migración limpia el número no verificado y no modifica las series, el tiempo ni la ruta.
+- [ ] Revisar días pasados: el total solo recoge energía medida por Salud; Progreso usa los mismos datos, sin sumar de nuevo las estimaciones antiguas.
+- [ ] Revocar lectura de Salud o utilizar un dispositivo sin HealthKit: no se pintan calorías ficticias ni se convierte «sin datos» en «0 kcal».
+- [ ] Tras autorizar Salud y sincronizar, los datos aparecen sin reiniciar el entrenamiento; repetir tras reiniciar la aplicación para verificar la caché v2.
+- [ ] Revisar en Apple Salud que una sesión creada por Repera no genera nuevas muestras de kcal calculadas; las muestras de versiones anteriores no se borran automáticamente.
 
 ## Monetización (Gratis / Pro)
 
