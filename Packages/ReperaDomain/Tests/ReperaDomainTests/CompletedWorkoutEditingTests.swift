@@ -195,6 +195,38 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         XCTAssertEqual(saved.wodResults[0].totalReps, 3)
     }
 
+    func testScaledMovementAndWODScorePersistAcrossEditAndJSON() throws {
+        let exercise = Exercise(name: "Cargada y envión", muscleGroup: "Hombros")
+        let block = RoutineBlock(
+            title: "AMRAP 8'", kind: .wod,
+            movements: [WODMovement(exerciseId: exercise.id, name: exercise.name,
+                                    reps: 20, weightMaleKg: 40)],
+            wodFormat: .amrap, timeCapMinutes: 8
+        )
+        var session = SessionController.from(
+            routine: Routine(title: "Adaptado", blocks: [block]), exercises: [exercise]
+        )
+        session.phase = .finished
+        session.wodResults = [WODBlockResult(
+            id: block.id, format: .amrap, totalReps: 4, roundsCompleted: 5
+        )]
+        session.exercises[0].adaptedReps = 15
+        session.exercises[0].adaptedWeightKg = 25.5
+        let edit = CompletedWorkoutEditing.routine(from: session)
+        let saved = CompletedWorkoutEditing.applying(edit, to: session, catalog: [exercise])
+        XCTAssertEqual(saved.id, session.id)
+        XCTAssertEqual(saved.wodResults[0].roundsCompleted, 5)
+        XCTAssertEqual(saved.wodResults[0].totalReps, 4)
+        XCTAssertEqual(saved.exercises[0].adaptedReps, 15)
+        XCTAssertEqual(saved.exercises[0].adaptedWeightKg, 25.5)
+        XCTAssertTrue(saved.exercises[0].loggedSets.isEmpty)
+        XCTAssertTrue(saved.exercises[0].adjustedSummaryLine?.contains("Adaptado") == true)
+        let decoded = try JSONDecoder().decode(WorkoutSession.self, from: JSONEncoder().encode(saved))
+        XCTAssertEqual(decoded.exercises[0].adaptedReps, 15)
+        XCTAssertEqual(decoded.exercises[0].adaptedWeightKg, 25.5)
+        XCTAssertTrue(decoded.exercises[0].loggedSets.isEmpty)
+    }
+
     func testChangingWODFormatDropsIncompatibleStoredScore() {
         let exercise = Exercise(name: "Burpees", muscleGroup: "Otros")
         let block = RoutineBlock(
