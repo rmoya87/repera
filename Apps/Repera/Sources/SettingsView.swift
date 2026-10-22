@@ -136,7 +136,10 @@ struct SettingsView: View {
                                     .multilineTextAlignment(.leading)
                                     .fixedSize(horizontal: false, vertical: true)
                             } else if lastFullSyncAt > 0 {
-                                Text("Última actualización: \(Date(timeIntervalSince1970: lastFullSyncAt).formatted(date: .abbreviated, time: .shortened))")
+                                Text("Última actualización: \(Date(timeIntervalSince1970: lastFullSyncAt).formatted(
+                                    .dateTime.day().month(.abbreviated).year().hour().minute()
+                                        .locale(Locale(identifier: "es_ES"))
+                                ))")
                                     .font(.caption)
                                     .foregroundStyle(OG.label2)
                                     .multilineTextAlignment(.leading)
@@ -148,12 +151,11 @@ struct SettingsView: View {
                                     .foregroundStyle(OG.label2)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
-                            if workoutSync.incompleteHistoricalWODCount > 0 {
-                                Text("\(workoutSync.incompleteHistoricalWODCount) WOD antiguos aún no tienen el detalle original de bloques en Supabase. No se inventarán comparaciones.")
-                                    .font(.caption)
-                                    .foregroundStyle(OG.label2)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
+                            // No presentar como fallo de sincronización la
+                            // ausencia de Rx históricos que nunca se guardaron.
+                            // Los WOD y resultados siguen sincronizados; la
+                            // incompletitud histórica sigue registrada en el diagnóstico
+                            // de Supabase, sin alterar ejercicios ni resultados.
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .layoutPriority(1)
