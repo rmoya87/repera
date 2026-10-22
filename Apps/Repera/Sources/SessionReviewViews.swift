@@ -145,9 +145,15 @@ struct SessionReviewCard: View {
                         }
                     }
 
-                    Text("El nivel compara tu marca con referencias de catálogo, no con otros usuarios.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(OG.label3)
+                    if review.scoreBasis == .catalogBands {
+                        Text("Referencia de catálogo para este WOD concreto; no representa automáticamente toda la sesión.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(OG.label3)
+                    } else {
+                        Text("Valoración orientativa según datos registrados y referencias estimadas. No mide por sí sola la intensidad, la técnica ni el nivel del deportista.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(OG.label3)
+                    }
                 }
                 .padding(.horizontal, 14)
                 .padding(.bottom, 14)
