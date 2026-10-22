@@ -16,7 +16,7 @@ struct HomeView: View {
     @State private var weekOffset = 0
     /// Rango de páginas del carrusel (±1 año).
     private static let weekCarouselRadius = 52
-    @ScaledMetric(relativeTo: .body) private var weekCarouselHeight: CGFloat = 82
+    @ScaledMetric(relativeTo: .body) private var weekCarouselHeight: CGFloat = 72
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: Date())
     /// Live refine for **today** only (HK query). Past days use bucket metrics — never wait on HealthKit to paint.
     @State private var todayHealthLive = HealthKitStore.DayMetrics()
@@ -135,8 +135,13 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    weekSelectorCard
-                    dayWorkoutSection
+                    // Calendario y registro forman una única sección, sin tarjetas exteriores.
+                    VStack(alignment: .leading, spacing: 6) {
+                        // Extiende el gesto horizontal del carrusel de borde a borde.
+                        weekSelectorCard
+                            .padding(.horizontal, -OG.pad)
+                        dayWorkoutSection
+                    }
                     weeklyProgressCard
                     activityTodayCard
                     if calendar.isDateInToday(selectedDay) {
@@ -388,78 +393,65 @@ struct HomeView: View {
             }
     }
 
-    /// El calendario se mantiene navegable por días y semanas, con la selección en verde Repera.
+    /// Calendario a ancho completo, con una casilla cuadrada por día.
+    /// El carrusel conserva el gesto nativo de pasar semanas sin márgenes laterales.
     private var weekSelectorCard: some View {
-        OGCard {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Button {
-                        withAnimation(.snappy(duration: 0.25)) {
-                            weekOffset = max(weekOffset - 1, -Self.weekCarouselRadius)
-                        }
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(OG.label2)
-                            .frame(width: 30, height: 30)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Button {
+                    withAnimation(.snappy(duration: 0.25)) {
+                        weekOffset = max(weekOffset - 1, -Self.weekCarouselRadius)
                     }
-                    .disabled(weekOffset <= -Self.weekCarouselRadius)
-                    .accessibilityLabel("Semana anterior")
-                    Spacer()
-                    Text(visibleWeekMonthTitle)
-                        .font(.system(size: 13, weight: .medium))
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(OG.label2)
-                    Spacer()
-                    Button {
-                        withAnimation(.snappy(duration: 0.25)) {
-                            weekOffset = min(weekOffset + 1, Self.weekCarouselRadius)
-                        }
-                    } label: {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(OG.label2)
-                            .frame(width: 30, height: 30)
-                    }
-                    .disabled(weekOffset >= Self.weekCarouselRadius)
-                    .accessibilityLabel("Semana siguiente")
+                        .frame(width: 30, height: 30)
                 }
+                .disabled(weekOffset <= -Self.weekCarouselRadius)
+                .accessibilityLabel("Semana anterior")
 
-                TabView(selection: $weekOffset) {
-                    ForEach(-Self.weekCarouselRadius...Self.weekCarouselRadius, id: \.self) { offset in
-                        WeekCarouselPage(
-                            selectedDay: $selectedDay,
-                            calendar: calendar,
-                            buildDays: { makeWeekDays(offset: offset) },
-                            dayDot: dayDot
-                        )
-                        .tag(offset)
+                Spacer()
+                Text(visibleWeekMonthTitle)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(OG.label2)
+                Spacer()
+
+                Button {
+                    withAnimation(.snappy(duration: 0.25)) {
+                        weekOffset = min(weekOffset + 1, Self.weekCarouselRadius)
                     }
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(OG.label2)
+                        .frame(width: 30, height: 30)
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: weekCarouselHeight)
+                .disabled(weekOffset >= Self.weekCarouselRadius)
+                .accessibilityLabel("Semana siguiente")
             }
+            .padding(.horizontal, OG.pad)
+
+            TabView(selection: $weekOffset) {
+                ForEach(-Self.weekCarouselRadius...Self.weekCarouselRadius, id: \.self) { offset in
+                    WeekCarouselPage(
+                        selectedDay: $selectedDay,
+                        calendar: calendar,
+                        buildDays: { makeWeekDays(offset: offset) },
+                        dayDot: dayDot
+                    )
+                    .tag(offset)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: weekCarouselHeight)
         }
     }
 
-    /// Mantiene las fichas reales y todas las acciones que ya tenía Repera:
-    /// continuar, iniciar, ver detalle, eliminar y sumar otro entrenamiento.
+    /// Debajo del calendario, sin cabecera redundante ni tarjeta contenedora.
+    /// Se conservan las tarjetas nativas de Repera y sus acciones originales.
     private var dayWorkoutSection: some View {
-        OGCard {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text(calendar.isDateInToday(selectedDay) ? "Entrenamiento de hoy" : "Entrenamiento del día")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(OG.label)
-                    Spacer()
-                    if calendar.isDateInToday(selectedDay), store.hasActiveSession {
-                        Text("EN CURSO")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(OG.orange)
-                    }
-                }
-                dayEntrenoStack(workouts: workoutsOnSelectedDay)
-            }
-        }
+        dayEntrenoStack(workouts: workoutsOnSelectedDay)
     }
 
     /// Resumen 100 % local: los checks no navegan fuera de Inicio.
@@ -561,10 +553,9 @@ struct HomeView: View {
                 if let score {
                     HStack(spacing: 12) {
                         Image(systemName: "star.fill")
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.system(size: 19, weight: .semibold))
                             .foregroundStyle(OG.accent)
-                            .frame(width: 40, height: 40)
-                            .background(OG.accent.opacity(0.12), in: Circle())
+                            .frame(width: 26, alignment: .leading)
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Puntuación del entrenamiento")
                                 .font(.system(size: 13, weight: .medium))
@@ -589,19 +580,21 @@ struct HomeView: View {
         symbol: String,
         tint: Color
     ) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            ZStack {
-                Circle().strokeBorder(OG.surface3, lineWidth: 4)
+        VStack(alignment: .leading, spacing: 8) {
+            // Símbolo y título alineados en una fila; sin anillo decorativo.
+            HStack(spacing: 5) {
                 Image(systemName: symbol)
-                    .font(.system(size: 19, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(tint)
+                    .frame(width: 20, alignment: .leading)
+                Text(title)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(OG.label2)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
-            .frame(width: 39, height: 39)
-            Text(title)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(OG.label2)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
+            .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
+
             Text(value)
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundStyle(OG.label)
@@ -613,7 +606,7 @@ struct HomeView: View {
                     .foregroundStyle(OG.label2)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 114, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 95, alignment: .topLeading)
         .padding(10)
         .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .accessibilityElement(children: .combine)
@@ -677,7 +670,7 @@ struct HomeView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(OG.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -957,7 +950,7 @@ struct HomeView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(OG.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func metricTile(title: String, value: String, icon: String, tint: Color) -> some View {
@@ -1218,7 +1211,8 @@ struct HomeView: View {
         var hasPlan: Bool
     }
 
-    /// Una página del carrusel semanal — el body solo corre cuando TabView la muestra.
+    /// Una página de siete cuadrados. El ancho se calcula con el espacio real
+    /// disponible, sin márgenes: el swipe cubre de lado a lado de la pantalla.
     private struct WeekCarouselPage: View {
         @Binding var selectedDay: Date
         var calendar: Calendar
@@ -1227,44 +1221,53 @@ struct HomeView: View {
 
         var body: some View {
             let days = buildDays()
-            HStack(alignment: .top, spacing: 2) {
-                ForEach(days, id: \.iso) { day in
-                    Button {
-                        selectedDay = day.date
-                    } label: {
-                        dayColumn(day)
+            GeometryReader { geometry in
+                let spacing: CGFloat = 4
+                let side = max(1, (geometry.size.width - spacing * 6) / 7)
+                HStack(alignment: .top, spacing: spacing) {
+                    ForEach(days, id: \.iso) { day in
+                        Button {
+                            selectedDay = day.date
+                        } label: {
+                            dayColumn(day, side: side)
+                        }
+                        .buttonStyle(.plain)
+                        .frame(width: side, height: side)
                     }
-                    .buttonStyle(.plain)
-                    .frame(maxWidth: .infinity)
                 }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
         }
 
-        private func dayColumn(_ day: DayCell) -> some View {
+        private func dayColumn(_ day: DayCell, side: CGFloat) -> some View {
             let selected = calendar.isDate(day.date, inSameDayAs: selectedDay)
-            return VStack(spacing: 0) {
+            return VStack(spacing: 2) {
                 Text(day.lbl)
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(selected ? OG.onAccent : OG.label3)
-                    .tracking(0.3)
+                    .foregroundStyle(selected ? OG.onAccent : OG.label2)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 Text("\(day.num)")
-                    .font(.system(size: 17, weight: selected ? .semibold : .regular))
+                    .font(.system(size: 17, weight: selected ? .semibold : .medium))
                     .foregroundStyle(selected ? OG.onAccent : OG.label)
-                    .padding(.top, 5)
                 Circle()
                     .fill(selected ? OG.onAccent : dayDot(day))
-                    .frame(width: 5, height: 5)
-                    .padding(.top, 5)
+                    .frame(width: 4, height: 4)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 64)
-            .background {
-                if selected {
-                    RoundedRectangle(cornerRadius: 13, style: .continuous)
-                        .fill(OG.accent)
+            .frame(width: side, height: side)
+            .background(
+                selected ? OG.accent : OG.surface,
+                in: RoundedRectangle(cornerRadius: 11, style: .continuous)
+            )
+            .overlay {
+                if !selected {
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .strokeBorder(OG.surface3.opacity(0.75), lineWidth: 0.7)
                 }
             }
-            .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(day.lbl) \(day.num)")
             .accessibilityAddTraits(selected ? [.isSelected] : [])
         }
     }
