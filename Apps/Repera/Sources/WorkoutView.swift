@@ -530,7 +530,9 @@ struct WorkoutView: View {
                 Text(entry.exercise.name)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(OG.label)
-                Text(entry.plannedSets.compactSummary)
+                Text(entry.usesBlockScoreResult
+                     ? entry.prescriptionSummaryLine
+                     : entry.plannedSets.compactSummary)
                     .font(.caption)
                     .foregroundStyle(OG.label2)
             }
