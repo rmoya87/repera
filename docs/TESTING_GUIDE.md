@@ -131,6 +131,12 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 
 ## Editar resultados de entrenos terminados (todos los formatos)
 
+- [ ] Verificar **en una compilación nueva instalada en el iPhone** que Editar desde el detalle de una sesión **terminada** enseña «Resultado del entreno» justo debajo de la configuración del AMRAP; no se ven cuadros de «SERIE ANTERIOR / KG / REPS / RIR» por movimiento. Si aparecen, la versión instalada no está usando el editor terminado actualizado.
+- [ ] Con un AMRAP antiguo que carece de `wodResults`, aparece «Añadir resultado» desde el primer render y permite grabar las rondas completas y las reps de la ronda parcial sin inventar series.
+- [ ] Editar el mismo AMRAP dos veces seguidas y comprobar que reabre siempre la marca persistida (ningún estado cargado tarde borra ni oculta la puntuación).
+- [ ] Un bloque marcado AMRAP que originalmente era de Fuerza no muestra series previstas como score, y guarda las rondas/reps corregidas.
+
+
 - [ ] Terminar AMRAP 8' con resultado 4 rondas + 7 reps; Historial → entreno → Editar: aparece la marca, no series por cada movimiento. Modificar a 5 rondas + 3 reps, Guardar, cerrar y reabrir: se conserva 5 + 3 en el mismo entrenamiento.
 - [ ] AMRAP y Death By sin `wodResults` históricos: aparece «Añadir resultado», se rellenan rondas/reps y Guardar actualiza la misma sesión sin generar series completadas.
 - [ ] For Time / RFT, Chipper, AFAP, Ladder y Buy-in/Cash-out: editar minutos y segundos reales, por ejemplo 12:11 → 10:42; el time cap es solo la configuración, el resultado corregido permanece tras reabrir.
