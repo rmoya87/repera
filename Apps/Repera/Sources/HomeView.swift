@@ -251,9 +251,9 @@ struct HomeView: View {
                 let requestedDay = selectedDay
                 let requestedKey = dayKey(requestedDay)
                 selectedDaySteps = nil
-                    let series = await health.dailySteps(endingAt: requestedDay)
+                let series = await health.dailySteps(endingAt: requestedDay)
                 guard !Task.isCancelled, dayKey(selectedDay) == requestedKey else { return }
-                    selectedDaySteps = series.first(where: {
+                selectedDaySteps = series.first(where: {
                     calendar.isDate($0.date, inSameDayAs: requestedDay)
                 })?.steps
             }

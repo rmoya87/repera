@@ -107,7 +107,7 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
     var chipsBandHeight: CGFloat
     var onOpen: () -> Void
     var onDelete: () -> Void
-    var onRevealChange: (Bool) -> Void
+    var onRevealChange: @MainActor (Bool) -> Void
     @ViewBuilder var content: () -> Content
 
     func makeCoordinator() -> Coordinator {
@@ -175,7 +175,7 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
         var chipsBandHeight: CGFloat
         var onOpen: () -> Void
         var onDelete: () -> Void
-        var onRevealChange: (Bool) -> Void
+        var onRevealChange: @MainActor (Bool) -> Void
         private var deleteRevealed = false
 
         var host: UIHostingController<Content>?
@@ -187,7 +187,7 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
         private var currentX: CGFloat = 0
         private var lockedHorizontal: Bool?
 
-        init(revealWidth: CGFloat, chipsBandHeight: CGFloat, onOpen: @escaping () -> Void, onDelete: @escaping () -> Void, onRevealChange: @escaping (Bool) -> Void) {
+        init(revealWidth: CGFloat, chipsBandHeight: CGFloat, onOpen: @escaping () -> Void, onDelete: @escaping () -> Void, onRevealChange: @escaping @MainActor (Bool) -> Void) {
             self.revealWidth = revealWidth
             self.chipsBandHeight = chipsBandHeight
             self.onOpen = onOpen
@@ -325,7 +325,7 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
             let shouldReveal = x < -1
             if shouldReveal != deleteRevealed {
                 deleteRevealed = shouldReveal
-                onRevealChange(shouldReveal)
+                MainActor.assumeIsolated { onRevealChange(shouldReveal) }
             }
             let transform = CGAffineTransform(translationX: x, y: 0)
             guard let cardView else { return }
