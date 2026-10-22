@@ -595,6 +595,10 @@ final class ReperaStore: NSObject {
     }
 
     func startSession(from routine: Routine) {
+        guard !HealthKitStore.shared.isWatchWorkoutMirrored else {
+            HealthKitStore.shared.lastError = "El Apple Watch ya está registrando un entrenamiento. Termínalo desde el reloj antes de iniciar otro."
+            return
+        }
         let base = SessionController.from(routine: routine, exercises: state.exercises)
         let allowAdvanced = featureAccess?().canAccess(.advancedStrengthProgression) ?? false
         let session: WorkoutSession
@@ -628,6 +632,10 @@ final class ReperaStore: NSObject {
         ocrText: String? = nil,
         blocks: [RoutineBlock]? = nil
     ) -> Bool {
+        guard !HealthKitStore.shared.isWatchWorkoutMirrored else {
+            HealthKitStore.shared.lastError = "El Apple Watch ya está registrando un entrenamiento. Finalízalo primero desde el reloj."
+            return false
+        }
         // Si la revisión ya trae bloques (LiteParser), no re-parsear con BoardImportParser (cuelga la UI).
         var routine: Routine
         if let blocks, !blocks.isEmpty {
