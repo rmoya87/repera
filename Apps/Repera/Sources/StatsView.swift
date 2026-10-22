@@ -32,6 +32,15 @@ struct StatsView: View {
                 // VStack (no Lazy): LazyVStack al final del scroll reciclaba charts/heatmap y
                 // al subir el offset saltaba otra vez hacia abajo.
                 VStack(alignment: .leading, spacing: 12) {
+                    // No dibujar primero métricas vacías ni reorganizar tarjetas a mitad de carga.
+                    if topic != .recovery && (snap.key.syncRevision < 0 || snap.range != model.range) {
+                        OGCard {
+                            ProgressView("Preparando progreso…")
+                                .tint(OG.accent)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 180)
+                        }
+                    } else {
                     switch topic {
                     case .training:
                         if isPro {
@@ -67,6 +76,7 @@ struct StatsView: View {
                             weekStartsOnMonday: mondayFirst
                         )
                     }
+                    }
 
                     NavigationLink {
                         HistoryView()
@@ -88,31 +98,36 @@ struct StatsView: View {
                 .padding(.bottom, 28)
             }
             .background(OG.bg)
-            .ogFixedTopBar("Progreso", subtitle: model.range.title) {
-                Button {
-                    showRangePicker = true
-                } label: {
-                    Image(systemName: "calendar")
-                        .font(.system(size: OG.toolbarGlassIcon, weight: .semibold))
-                        .foregroundStyle(OG.label)
-                        .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
-                        .contentShape(Circle())
-                        .glassEffect(.regular.interactive(), in: .circle)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Filtrar periodo")
-            }
-            // Tabs fijas bajo el top bar (mismo patrón safeAreaInset).
+            // Una sola cabecera fijada: Progreso → periodo → pestañas.
+            // Evita que los dos safeAreaInset se inviertan al componer modificadores.
+            .ogContentTitleNav()
             .safeAreaInset(edge: .top, spacing: 0) {
-                Picker("Categoría", selection: $topic) {
-                    ForEach(ProgressTopic.allCases, id: \.self) { option in
-                        Text(option.rawValue).tag(option)
+                VStack(spacing: 0) {
+                    OGFixedTopBar(title: "Progreso", subtitle: model.range.title) {
+                        Button {
+                            showRangePicker = true
+                        } label: {
+                            Image(systemName: "calendar")
+                                .font(.system(size: OG.toolbarGlassIcon, weight: .semibold))
+                                .foregroundStyle(OG.label)
+                                .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
+                                .contentShape(Circle())
+                                .glassEffect(.regular.interactive(), in: .circle)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Filtrar periodo")
                     }
+
+                    Picker("Categoría", selection: $topic) {
+                        ForEach(ProgressTopic.allCases, id: \.self) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, OG.pad)
+                    .padding(.top, 4)
+                    .padding(.bottom, 10)
                 }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, OG.pad)
-                .padding(.top, 4)
-                .padding(.bottom, 10)
                 .background(OG.bg)
             }
             .sheet(isPresented: $showRangePicker) {
@@ -121,6 +136,8 @@ struct StatsView: View {
             }
             .task {
                 enforceFreeRangeIfNeeded()
+                // Preparar datos locales inmediatamente; Salud puede tardar en refrescar.
+                schedulePrepare(reason: "initial")
                 guard health.isAuthorized else {
                     ProgressLog.info("Progreso: Salud no autorizada, skip HK")
                     schedulePrepare(reason: "no-health")
@@ -207,6 +224,14 @@ struct StatsView: View {
 
     @ViewBuilder
     private var healthSections: some View {
+        // Solo sesiones con nota real basada en historial personal comparable.
+        // Sin nota no aparece ni la tarjeta ni una gráfica simulada.
+        ProgressSessionScoreChartCard(
+            workouts: snap.filteredWorkouts,
+            range: model.range,
+            weekStartsOnMonday: mondayFirst
+        )
+
         if health.isAuthorized {
             if model.isPreparing && snap.range != model.range {
                 ProgressView("Actualizando gráficas…")
@@ -444,15 +469,11 @@ struct StatsView: View {
         let summary = snap.summary
         let previous = snap.previousSummary
         let streak = snap.streak
-        let avgHr = snap.averageHeartRate
-        let prevAvgHr = snap.previousAverageHeartRate
-        let showCardio = avgHr != nil
-        // Sin cardio → 3 en una fila; con FC → 2×2.
-        let columns = Array(
-            repeating: GridItem(.flexible(), spacing: 8),
-            count: showCardio ? 2 : 3
-        )
-        return LazyVGrid(columns: columns, spacing: 8) {
+        // FC media ya está en Actividad: tres indicadores estables en una fila.
+        return LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3),
+            spacing: 8
+        ) {
             tile(
                 icon: "dumbbell.fill",
                 label: "Entrenos",
@@ -468,23 +489,10 @@ struct StatsView: View {
                 delta: {
                     guard let prev = previous,
                           let cur = summary.averageMinutes,
-                          let old = prev.averageMinutes
-                    else { return nil }
+                          let old = prev.averageMinutes else { return nil }
                     return Int((cur - old).rounded())
                 }()
             )
-            if showCardio, let avgHr {
-                tile(
-                    icon: "heart.fill",
-                    label: "FC media",
-                    value: "\(Int(avgHr.rounded()))",
-                    iconColor: OG.red,
-                    delta: {
-                        guard let old = prevAvgHr else { return nil }
-                        return Int((avgHr - old).rounded())
-                    }()
-                )
-            }
             tile(
                 icon: "flame.fill",
                 label: "Racha",
@@ -636,6 +644,92 @@ struct StatsView: View {
                                 Divider().overlay(Color.white.opacity(0.08))
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Evolución de notas verificadas de entrenos. Nunca reintroduce puntuaciones
+/// heurísticas antiguas: solo `personalHistory` persistido en cada sesión.
+private struct ProgressSessionScoreChartCard: View {
+    var workouts: [WorkoutSession]
+    var range: ProgressTimeRange
+    var weekStartsOnMonday: Bool
+
+    private struct ScoreDay: Identifiable {
+        let date: Date
+        let score: Double
+        var id: Date { date }
+    }
+
+    private var points: [ScoreDay] {
+        let calendar = Calendar.current
+        let rated: [(Date, Double)] = workouts.compactMap { session in
+            guard let finishedAt = session.finishedAt,
+                  let review = session.sessionReview,
+                  review.scoreBasis == .personalHistory else { return nil }
+            return (calendar.startOfDay(for: finishedAt), Double(review.overallScore))
+        }
+        let byDay = Dictionary(grouping: rated, by: { $0.0 })
+        return byDay.keys.sorted().compactMap { day in
+            guard let scores = byDay[day], !scores.isEmpty else { return nil }
+            return ScoreDay(
+                date: day,
+                score: scores.reduce(0.0) { $0 + $1.1 } / Double(scores.count)
+            )
+        }
+    }
+
+    @ViewBuilder
+    var body: some View {
+        let values = points
+        if !values.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline) {
+                    OGCardSectionTitle(title: "Puntuación de entrenos")
+                    Spacer(minLength: 8)
+                    Text(String(format: "%.1f/10", values.map(\.score).reduce(0, +) / Double(values.count)))
+                        .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(OG.label)
+                }
+                OGCard {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Chart(values) { point in
+                            LineMark(
+                                x: .value("Día", point.date),
+                                y: .value("Puntuación", point.score)
+                            )
+                            .interpolationMethod(.linear)
+                            .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                            .foregroundStyle(OG.accent)
+                            PointMark(
+                                x: .value("Día", point.date),
+                                y: .value("Puntuación", point.score)
+                            )
+                            .symbolSize(42)
+                            .foregroundStyle(OG.accent)
+                        }
+                        .chartXScale(domain: ProgressChartAxis.xDomain(
+                            points: values.map(\.date),
+                            range: range,
+                            weekStartsOnMonday: weekStartsOnMonday
+                        ))
+                        .chartYScale(domain: 0...10)
+                        .chartYAxis {
+                            AxisMarks(position: .leading, values: [0, 5, 10])
+                        }
+                        .chartXAxis {
+                            AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                                AxisGridLine()
+                                AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+                            }
+                        }
+                        .frame(height: 164)
+                        Text("Media diaria de notas basadas en tu historial comparable.")
+                            .font(.caption)
+                            .foregroundStyle(OG.label3)
                     }
                 }
             }
