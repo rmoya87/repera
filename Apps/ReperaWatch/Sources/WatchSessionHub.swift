@@ -118,6 +118,9 @@ final class WatchSessionHub: NSObject {
     var timeRemaining: Int? { timeCapSeconds > 0 ? max(0, timeCapSeconds - blockElapsed) : nil }
     var plannedSets: Int { current?.plannedSets.count ?? 0 }
     var completedSets: Int { current?.loggedSets.count ?? 0 }
+    var completedWorkingSets: Int {
+        current?.loggedSets.filter { $0.phase == .work }.count ?? 0
+    }
     var displayedSetNumber: Int {
         (selectedSetIndex.map { $0 + 1 }) ?? min(completedSets + 1, max(1, plannedSets))
     }
@@ -127,7 +130,8 @@ final class WatchSessionHub: NSObject {
     }
     var isFinalSet: Bool {
         !currentIsWOD && isLastWorkoutExercise
-            && completedSets + 1 >= max(1, plannedSets)
+            && setDraft.phase == .work
+            && completedWorkingSets + 1 >= max(1, plannedSets)
             && selectedSetIndex == nil
     }
     var blockExercises: [SessionExercise] {
@@ -326,14 +330,16 @@ final class WatchSessionHub: NSObject {
 
     private func resetSetDraft() {
         let ex = current
-        let planned = ex?.plannedSets.dropFirst(ex?.loggedSets.count ?? 0).first
+        let workIndex = ex?.loggedSets.filter { $0.phase == .work }.count ?? 0
+        let planned = ex?.plannedSets.dropFirst(workIndex).first
             ?? ex?.plannedSets.last
         setDraft = WatchSetDraft(
             rir: ex?.exercise.loggingStyle.usesRIR == true ? planned?.targetRir : nil,
             deficitCm: ex?.exercise.loadField == .deficitCm
                 ? planned?.targetWeightKg.map { Int($0.rounded()) } : nil,
             durationSeconds: ex?.exercise.loggingStyle.usesDuration == true ? 60 : nil,
-            unit: ex?.quantityUnit ?? ex?.exercise.defaultQuantityUnit ?? .reps
+            unit: ex?.quantityUnit ?? ex?.exercise.defaultQuantityUnit ?? .reps,
+            toFailure: planned?.targetRir == 0
         )
     }
 
@@ -444,7 +450,7 @@ final class WatchSessionHub: NSObject {
             checkpoint()
             return
         }
-        let index = exercise.loggedSets.count
+        let index = exercise.loggedSets.filter { $0.phase == .work }.count
         let prescribed = exercise.plannedSets.indices.contains(index)
             ? exercise.plannedSets[index] : exercise.plannedSets.last
         let set = preparedSet(reps: reps)
@@ -462,7 +468,7 @@ final class WatchSessionHub: NSObject {
         workingWeightKg = ctrl.session.currentExercise?.plannedSets.dropFirst(index + 1).first?.targetWeightKg
             ?? prescribed?.targetWeightKg
         stopMotion()
-        if ctrl.session.currentExercise?.loggedSets.count ?? 0 < plannedSets {
+        if set.phase == .work && completedWorkingSets < plannedSets {
             restRemaining = max(0, exercise.restSeconds ?? exercise.blockRestSeconds ?? 0)
         } else {
             restRemaining = 0
@@ -543,7 +549,8 @@ final class WatchSessionHub: NSObject {
         confirmSet()
         // Editing a historical set must never advance or finish the exercise.
         guard !wasReviewingRecordedSet else { return }
-        if completedSets >= max(1, plannedSets), restRemaining == 0 {
+        if completedWorkingSets >= max(1, plannedSets),
+           restRemaining == 0, setDraft.phase == .work {
             advance()
         }
     }
@@ -552,7 +559,8 @@ final class WatchSessionHub: NSObject {
     /// Beyond the available series, navigate between exercises in this block.
     func swipeSet(_ direction: Int) {
         guard direction == -1 || direction == 1,
-              active?.phase == .counting, !reviewingBlock, !isPaused else { return }
+              active?.phase == .counting, !reviewingBlock, !isPaused,
+              restRemaining == 0 else { return }
         guard !currentIsWOD else {
             if wodUsesSeries && direction > 0 { nextWODMovement() }
             return
@@ -600,6 +608,7 @@ final class WatchSessionHub: NSObject {
         workingReps = 0
         selectedSetIndex = nil
         workingWeightKg = ctrl.session.currentExercise?.plannedSets.first?.targetWeightKg
+        resetSetDraft()
         repCounter.reset()
         lastClockTick = Date()
         checkpoint()
@@ -619,6 +628,7 @@ final class WatchSessionHub: NSObject {
         selectedSetIndex = nil
         workingReps = 0
         workingWeightKg = target.plannedSets.first?.targetWeightKg
+        resetSetDraft()
         repCounter.reset()
         checkpoint()
     }
@@ -643,6 +653,7 @@ final class WatchSessionHub: NSObject {
         restRemaining = 0
         workingReps = 0
         workingWeightKg = ctrl.session.currentExercise?.plannedSets.first?.targetWeightKg
+        resetSetDraft()
         repCounter.reset()
         if ctrl.session.phase == .finished { completeSession() }
         else {
@@ -894,8 +905,12 @@ final class WatchSessionHub: NSObject {
         sessionElapsed = snapshot.sessionElapsed
         workingReps = snapshot.workingReps
         workingWeightKg = snapshot.workingWeightKg
-        setDraft = snapshot.setDraft ?? WatchSetDraft()
         selectedSetIndex = snapshot.selectedSetIndex
+        if let draft = snapshot.setDraft {
+            setDraft = draft
+        } else {
+            resetSetDraft()
+        }
         summaryDismissed = snapshot.summaryDismissed ?? false
         completedRounds = snapshot.completedRounds
         remainingRoundReps = snapshot.remainingRoundReps
@@ -913,6 +928,7 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
             guard self.controller == nil, self.lastFinished?.id != session.id,
                   session.phase != .finished else { return }
             self.controller = SessionController(session: session)
+            self.resetSetDraft()
             self.lastClockTick = Date()
             self.startClock()
             self.save()
