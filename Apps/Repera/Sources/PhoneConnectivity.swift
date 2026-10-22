@@ -31,6 +31,8 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     private let logger = Logger(subsystem: "com.app.repera", category: "WatchConnectivity")
     private var processedActionIds: Set<UUID> = []
     private let processedLimit = 64
+    // Cache plans created before WatchConnectivity activation completes.
+    private var latestPayload: [String: Any]?
 
     func activate() {
         guard WCSession.isSupported() else { return }
@@ -43,8 +45,6 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     func send(session: WorkoutSession?, today: WorkoutSession? = nil, quickLogHint: (id: UUID, name: String)? = nil, sessionRevision: Int = 0, completedAck: UUID? = nil, completedAckHealthKitUUID: UUID? = nil) {
         guard WCSession.isSupported() else { return }
         let wc = WCSession.default
-        guard wc.activationState == .activated else { return }
-
         var payload: [String: Any]
         if let session,
            let data = try? JSONEncoder().encode(session) {
@@ -72,15 +72,23 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             payload["quickLogExerciseName"] = hint.name
         }
 
+        latestPayload = payload
+        publishLatestContext()
+    }
+
+    /// Reliable latest state while offline; immediate state for a reachable Watch.
+    private func publishLatestContext() {
+        guard WCSession.isSupported(), let payload = latestPayload else { return }
+        let wc = WCSession.default
+        guard wc.activationState == .activated else { return }
         do {
             try wc.updateApplicationContext(payload)
         } catch {
             logger.error("updateApplicationContext failed: \(error.localizedDescription, privacy: .public)")
         }
-
         if wc.isReachable {
-            wc.sendMessage(["ping": true], replyHandler: nil) { error in
-                self.logger.debug("ping failed: \(error.localizedDescription, privacy: .public)")
+            wc.sendMessage(payload, replyHandler: nil) { [weak self] error in
+                self?.logger.debug("Watch live update deferred: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
@@ -93,6 +101,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         if let error {
             logger.error("WCSession activation error: \(error.localizedDescription, privacy: .public)")
         }
+        publishLatestContext()
         delegate?.phoneConnectivityDidUpdateReachability(session.isReachable)
     }
 
@@ -154,8 +163,9 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     private func handleAction(_ action: String, message: [String: Any]) async -> [String: Any] {
         switch action {
         case "requestToday":
+            // Reply with the last cached state, then republish the freshest plan.
             delegate?.phoneConnectivityDidRequestToday()
-            return ["ok": true]
+            return latestPayload ?? ["ok": true]
         case "quickLog":
             let id = (message["exerciseId"] as? String).flatMap(UUID.init(uuidString:))
             delegate?.phoneConnectivityDidReceiveQuickLogRequest(exerciseId: id)
