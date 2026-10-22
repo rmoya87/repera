@@ -52,6 +52,21 @@ El Watch utiliza las variantes `async throws` de `requestAuthorization(toShare:r
 
 
 
+## Interfaz nativa de entrenamiento en Apple Watch
+
+El flujo se organiza por **Hoy → bloque preparado → Play → Bien hecho**:
+
+- **Hoy:** muestra el formato y a su derecha el tiempo prescrito; se eliminan los contadores de movimientos y bloques. Cada bloque es una tarjeta con ejercicios y miniaturas, pulsable para empezar directamente desde ese bloque.
+- **Preparado:** título del bloque inmediatamente bajo la hora del sistema, tarjetas compactas por ejercicio (ilustración original y prescripción) y una sola acción principal para iniciar el bloque.
+- **Play:** título del bloque, mediciones opcionales de Salud, ejercicio con miniatura, serie activa y control de repeticiones mediante Digital Crown y botones grandes de menos/mas. **Siguiente** registra la serie de fuerza y, cuando es la última del ejercicio, avanza automáticamente. **Terminar** en la última serie guarda y abre el resumen directamente; no genera un segundo diálogo. El diálogo único de confirmación queda reservado para abandono manual anticipado.
+- **Gestos horizontales:** derecha hacia la serie anterior, izquierda hacia la siguiente. Para series ya guardadas, se recuperan sus datos reales y se edita el mismo registro (conserva UUID); mover el dedo por sí solo nunca genera series. Al llegar al borde de una secuencia, puede navegar al ejercicio contiguo dentro del mismo bloque. El scroll vertical sigue disponible.
+- **Plan completo:** accesible desde el bloque; la X nativa de la hoja sustituye al botón «Volver». El título se alinea a la derecha y cada bloque se selecciona para pasar a **Preparado** en ese punto, manteniendo las series confirmadas anteriormente y sin marcar como hechos los ejercicios omitidos.
+- **Fin:** encabezado horizontal con icono y «¡Bien hecho!», resultados reales disponibles y botón de volver. Se ocultan los mensajes técnicos normales de «Registrado en Salud» y «Guardado en Watch»; la persistencia HealthKit y la cola offline siguen funcionando y no se simula el éxito si Salud devuelve errores.
+
+Las miniaturas proceden de las **mismas ilustraciones originales de Repera iOS**. Hay 188 imágenes de lista de 192 px incluidas en `Apps/ReperaWatch/Resources/Assets.xcassets`; `WatchExerciseArtwork` resuelve el nombre del ejercicio sin conexión y utiliza SF Symbol cuando todavía no existe ilustración. La prueba `test_watch_exercise_thumbnail_assets_are_ios_originals` verifica que cada JPEG es idéntico al thumbnail iOS. Las pruebas Swift del dominio (`WatchSetNavigationTests`) cubren edición sin duplicados, salto seguro y finalización del último ejercicio; el contrato estático de vista se verifica en `test_watch_workout_native_play_and_one_tap_save`.
+
+El emulador no sustituye un Apple Watch real para probar Digital Crown, haptics, gestos a la vez que el scroll, FC en vivo y el cierre de una sesión HealthKit cuando la pantalla se apaga.
+
 ## Inicio del reloj: control multimedia y sincronización
 
 El botón de música/podcast en el extremo superior derecho utiliza un círculo verde de acento con el símbolo `playpause.fill` **negro** y monocromo para mantener el contraste en la interfaz oscura watchOS. Abre `NowPlayingView` nativo.
