@@ -1105,11 +1105,20 @@ final class HealthKitStore {
               let start = session.startedAt, let finished = session.finishedAt,
               finished > start
         else { return nil }
-        let workout: HKWorkout?
+        let linked: HKWorkout?
         if let id = session.healthKitWorkoutUUID {
-            workout = await fetchWorkout(uuid: id)
+            linked = await fetchWorkout(uuid: id)
         } else {
-            workout = await overlappingWorkout(from: start, to: finished)
+            linked = nil
+        }
+        // A Repera-authored workout may have no recorded HR zone samples.
+        // Look for a separate Apple Watch workout only if it has real zone
+        // evidence and an unambiguous overlap with this completed session.
+        let workout: HKWorkout?
+        if let linked, linked.zoneGroup(for: heartType) != nil {
+            workout = linked
+        } else {
+            workout = await overlappingWorkoutWithZones(from: start, to: finished)
         }
         guard let workout, let group = workout.zoneGroup(for: heartType) else { return nil }
         let bpmUnit = HKUnit.count().unitDivided(by: .minute())
@@ -1143,6 +1152,43 @@ final class HealthKitStore {
             title: session.title, zones: zones, source: source,
             coveredFraction: coveredFraction, intensityLoad: intensity
         )
+    }
+
+    private func overlappingWorkoutWithZones(
+        from start: Date, to end: Date
+    ) async -> HKWorkout? {
+        let duration = max(60, end.timeIntervalSince(start))
+        let predicate = HKQuery.predicateForSamples(
+            withStart: start.addingTimeInterval(-15 * 60),
+            end: end.addingTimeInterval(15 * 60)
+        )
+        return await withCheckedContinuation { (cont: CheckedContinuation<HKWorkout?, Never>) in
+            let query = HKSampleQuery(
+                sampleType: .workoutType(), predicate: predicate,
+                limit: 50, sortDescriptors: nil
+            ) { _, samples, _ in
+                guard let type = HKObjectType.quantityType(forIdentifier: .heartRate) else {
+                    cont.resume(returning: nil)
+                    return
+                }
+                let matches = (samples as? [HKWorkout] ?? [])
+                    .filter { $0.zoneGroup(for: type) != nil }
+                    .map { workout -> (HKWorkout, TimeInterval) in
+                        let overlap = max(0, min(workout.endDate, end)
+                            .timeIntervalSince(max(workout.startDate, start)))
+                        return (workout, overlap)
+                    }
+                    .filter { $0.1 >= duration * 0.40 }
+                    .sorted { $0.1 > $1.1 }
+                // Never associate an ambiguous HR zone series with a WOD.
+                if matches.count > 1 && matches[1].1 >= matches[0].1 * 0.85 {
+                    cont.resume(returning: nil)
+                } else {
+                    cont.resume(returning: matches.first?.0)
+                }
+            }
+            store.execute(query)
+        }
     }
 
     private func loadHealthExtras(
