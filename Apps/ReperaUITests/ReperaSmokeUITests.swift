@@ -28,6 +28,26 @@ final class ReperaSmokeUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["Ejercicios"].exists)
     }
 
+    /// Regression check for size changes (rotation, and re-layout on Duo).
+    /// Folding itself must additionally be exercised on a Duo simulator/device.
+    @MainActor
+    func testProgressNavigationSurvivesSizeChange() throws {
+        let app = makeTestApp()
+        app.launch()
+        let progressTab = app.tabBars.buttons["Progreso"]
+        XCTAssertTrue(progressTab.waitForExistence(timeout: 8))
+        progressTab.tap()
+        let title = app.staticTexts["Progreso"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+
+        defer { XCUIDevice.shared.orientation = .portrait }
+        XCUIDevice.shared.orientation = .landscapeLeft
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCUIDevice.shared.orientation = .portrait
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["Progreso"].exists)
+    }
+
     @MainActor
     func testOpenExercisesTab() throws {
         let app = makeTestApp()
