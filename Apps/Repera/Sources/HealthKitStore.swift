@@ -953,6 +953,11 @@ final class HealthKitStore {
         excludingUUIDs: Set<UUID>,
         matchIndex: ReperaSessionMatchIndex
     ) -> ExternalActivity? {
+        // Un workout propio de Repera no es una actividad externa de Salud.
+        // Además, las versiones antiguas podían escribirle kcal calculadas.
+        guard w.sourceRevision.source.bundleIdentifier != Bundle.main.bundleIdentifier else {
+            return nil
+        }
         guard !excludingUUIDs.contains(w.uuid) else { return nil }
         if matchIndex.matches(
             healthStart: w.startDate,
