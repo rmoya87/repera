@@ -811,7 +811,7 @@ final class ReperaStore: NSObject {
                     updated.finishedAt = apple.finishedAt
                     updated.appleActiveEnergyKcal = apple.kcal > 0 ? apple.kcal : nil
                     updated.appleDurationSeconds = apple.durationSeconds
-                    updated.healthKitWorkoutUUID = apple.workoutUUID
+                    updated.healthKitWorkoutUUID = apple.workoutUUID ?? updated.healthKitWorkoutUUID
                     if updated.sessionReview == nil {
                         updated.sessionReview = savedReview
                     }
@@ -1204,7 +1204,7 @@ final class ReperaStore: NSObject {
                 updated.finishedAt = apple.finishedAt
                 updated.appleActiveEnergyKcal = apple.kcal > 0 ? apple.kcal : nil
                 updated.appleDurationSeconds = apple.durationSeconds
-                updated.healthKitWorkoutUUID = apple.workoutUUID
+                updated.healthKitWorkoutUUID = apple.workoutUUID ?? updated.healthKitWorkoutUUID
                 if updated.sessionReview == nil {
                     updated.sessionReview = savedReview
                 }
@@ -1269,9 +1269,63 @@ final class ReperaStore: NSObject {
         persistWorkouts()
         if draft.phase == .finished {
             Task {
+                // Una edición permite reintentar una escritura de Salud pendiente.
+                if draft.healthKitWorkoutUUID == nil {
+                    _ = await syncWorkoutToHealth(sessionId: draft.id)
+                }
                 await refineSessionReviewWithHealth(sessionId: draft.id)
             }
         }
+    }
+
+    /// Escribe un entrenamiento local terminado en Salud o enlaza un
+    /// HKWorkout ya capturado por Apple Watch. No crea sesiones duplicadas
+    /// si el identificador de Salud aún no se había sincronizado.
+    @discardableResult
+    private func syncWorkoutToHealth(sessionId: UUID) async -> Bool {
+        guard let session = state.workouts.first(where: { $0.id == sessionId }),
+              session.healthKitWorkoutUUID == nil,
+              let start = session.startedAt,
+              let end = session.finishedAt,
+              end >= start else { return false }
+        let apple = await HealthKitStore.shared.finishWorkout(
+            sessionId: session.id,
+            title: session.title,
+            start: start,
+            end: end
+        )
+        guard let uuid = apple.workoutUUID,
+              var current = state.workouts.first(where: { $0.id == sessionId })
+        else { return false }
+        guard current.healthKitWorkoutUUID == nil else { return true }
+        current.healthKitWorkoutUUID = uuid
+        current.startedAt = apple.startedAt
+        current.finishedAt = apple.finishedAt
+        current.appleDurationSeconds = apple.durationSeconds
+        current.appleActiveEnergyKcal = apple.kcal > 0 ? apple.kcal : nil
+        upsertWorkout(current)
+        persistWorkouts()
+        await refineSessionReviewWithHealth(sessionId: sessionId)
+        return true
+    }
+
+    /// Reintenta sesiones ya finalizadas sin UUID desde Sincronizar ahora.
+    /// Devuelve las que siguen pendientes, por ejemplo por permisos de Salud.
+    @discardableResult
+    func syncMissingWorkoutsToHealth() async -> Int {
+        let health = HealthKitStore.shared
+        health.refreshAuthorizationStatus()
+        let pending = state.workouts.filter {
+            $0.finishedAt != nil && $0.startedAt != nil && $0.healthKitWorkoutUUID == nil
+        }.map(\.id)
+        guard health.canWriteWorkouts else { return pending.count }
+        for id in pending {
+            if Task.isCancelled { break }
+            _ = await syncWorkoutToHealth(sessionId: id)
+        }
+        return state.workouts.filter {
+            $0.finishedAt != nil && $0.startedAt != nil && $0.healthKitWorkoutUUID == nil
+        }.count
     }
 
     func removeLastSet() {
