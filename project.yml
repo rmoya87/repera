@@ -259,6 +259,15 @@ targets:
       - target: Repera
 
 schemes:
+  # Esquema ejecutable para elegir Apple Watch como destino de Run en Xcode.
+  # El target ReperaWatchWidget es solo la complicación, no la app.
+  ReperaWatch:
+    build:
+      targets:
+        ReperaWatch: all
+    run:
+      config: Debug
+      executable: ReperaWatch
   Repera:
     # Xcode ejecuta esta acción antes de compilar y preserva las versiones
     # introducidas en el proyecto (Build Settings o General del target Repera).
