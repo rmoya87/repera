@@ -72,6 +72,80 @@ enum OG {
     static let pad: CGFloat = 16
 }
 
+/// Retícula para métricas que reacciona al espacio *disponible*, no al modelo
+/// de iPhone. Al plegar/desplegar el Duo, rotar o usar Split View, los hijos
+/// mantienen su identidad y sus estados: solo cambian las columnas.
+struct OGAdaptiveMetricLayout: Layout {
+    var minimumItemWidth: CGFloat = 96
+    var spacing: CGFloat = 8
+
+    private func measurements(
+        availableWidth: CGFloat,
+        subviews: Subviews
+    ) -> (columns: Int, cellWidth: CGFloat, heights: [CGFloat]) {
+        let columns = max(
+            1,
+            min(subviews.count, Int((availableWidth + spacing) / (minimumItemWidth + spacing)))
+        )
+        let cellWidth = max(0, (availableWidth - CGFloat(columns - 1) * spacing) / CGFloat(columns))
+        let rows = (subviews.count + columns - 1) / columns
+        var heights = Array(repeating: CGFloat.zero, count: rows)
+        for index in subviews.indices {
+            let height = subviews[index].sizeThatFits(
+                ProposedViewSize(width: cellWidth, height: nil)
+            ).height
+            heights[index / columns] = max(heights[index / columns], height)
+        }
+        return (columns, cellWidth, heights)
+    }
+
+    private func resolvedWidth(_ width: CGFloat?, itemCount: Int) -> CGFloat {
+        if let width, width.isFinite, width > 0 { return width }
+        return CGFloat(itemCount) * minimumItemWidth
+            + CGFloat(max(0, itemCount - 1)) * spacing
+    }
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) -> CGSize {
+        guard !subviews.isEmpty else { return .zero }
+        let width = resolvedWidth(proposal.width, itemCount: subviews.count)
+        let rows = measurements(availableWidth: width, subviews: subviews).heights
+        return CGSize(
+            width: width,
+            height: rows.reduce(0, +) + CGFloat(max(0, rows.count - 1)) * spacing
+        )
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        guard !subviews.isEmpty else { return }
+        let layout = measurements(availableWidth: bounds.width, subviews: subviews)
+        var rowStart = bounds.minY
+        for index in subviews.indices {
+            let row = index / layout.columns
+            let column = index % layout.columns
+            if column == 0 && row > 0 {
+                rowStart += layout.heights[row - 1] + spacing
+            }
+            subviews[index].place(
+                at: CGPoint(
+                    x: bounds.minX + CGFloat(column) * (layout.cellWidth + spacing),
+                    y: rowStart
+                ),
+                anchor: .topLeading,
+                proposal: ProposedViewSize(width: layout.cellWidth, height: layout.heights[row])
+            )
+        }
+    }
+}
+
 /// Título de sección **encima** de una `OGCard` (gris, estilo Ajustes / Form).
 struct OGCardSectionTitle: View {
     var title: String
