@@ -224,6 +224,62 @@ class WatchHealthKitContractTests(unittest.TestCase):
         details = view.partition("private var setDetailsView: some View")[2]
         self.assertIn("rirControls", details)
 
+    def test_watch_timers_and_primary_buttons_match_ios(self):
+        view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        hub = source("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
+        iphone = source("Apps/Repera/Sources/WorkoutView.swift")
+        theme = source("Apps/Repera/Sources/Theme.swift")
+
+        # One brand hue: iOS OG.accent is #30D158, black for filled controls.
+        self.assertIn("static let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)", theme)
+        self.assertIn("private let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)", view)
+        self.assertIn(".background(accent, in: Circle())", view)
+        self.assertIn(".frame(width: 42, height: 42)", view)
+        self.assertIn('Image(systemName: hub.isPaused ? "play.fill" : "pause.fill")', view)
+        self.assertIn(".foregroundStyle(.black)", view)
+
+        # A real swipe to review a series remains; only its explanatory text goes.
+        self.assertIn("DragGesture(minimumDistance: 35)", view)
+        self.assertIn("hub.swipeSet(horizontal < 0 ? 1 : -1)", view)
+        self.assertIn("func swipeSet(_ direction: Int)", hub)
+        self.assertNotIn("Desliza ← → para revisar otras series", view)
+
+        # The interval is the ONLY large clock and its label sits beside it
+        # in the same VStack, not a separate timer underneath.
+        self.assertIn("Text(timeLabel(hub.primaryClockSeconds))", view)
+        self.assertIn("font(.system(size: 43, weight: .bold, design: .rounded))", view)
+        self.assertIn("if let descriptor = hub.clockDescriptor", view)
+        clock = view.partition("private var clockControls: some View")[2].partition(
+            "private var wodContent: some View"
+        )[0]
+        self.assertNotIn("timeLabel(hub.intervalRemaining)", clock)
+        self.assertNotIn("hub.timeRemaining ?? hub.blockElapsed", clock)
+        self.assertNotIn("Text(timeLabel(remaining))", clock)
+        self.assertIn("intervalRemaining ?? timeRemaining ?? blockElapsed", hub)
+
+        # Interval formats follow the iPhone clock, including circuit rests.
+        for format in (".emom", ".tabata", ".circuit", ".deathBy"):
+            self.assertIn(format, hub)
+        self.assertIn("private var circuitPhases", hub)
+        self.assertIn("private var circuitPhase", hub)
+        self.assertIn("roundRest > 0", hub)
+        self.assertIn("rounds * (work + rest)", hub)
+        self.assertIn("case .emom, .deathBy:", hub)
+        self.assertIn("case .emom:", iphone)
+        self.assertIn("case .tabata:", iphone)
+
+        # For Time and its equivalents count up; TC is informational.
+        self.assertIn("var clockCountsUp: Bool", hub)
+        self.assertIn("case .forTime, .chipper, .afap, .ladder, .buyInCashOut:", hub)
+        self.assertIn("return 0", hub)
+        self.assertIn("timeCapSeconds: clockCountsUp ? 0 : timeCapSeconds", hub)
+        self.assertIn('return "TC superado"', hub)
+        self.assertIn("countingUp: true", iphone)
+
+        # Green prominence uses a black icon or text.
+        for section in view.split(".buttonStyle(.borderedProminent)")[1:]:
+            self.assertIn(".foregroundStyle(.black)", section.split(".accessibility", 1)[0][:180])
+
     def test_watch_thumbnail_view_is_in_an_existing_compiled_source(self):
         """A stale Xcode project still compiles the miniature component."""
         view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
