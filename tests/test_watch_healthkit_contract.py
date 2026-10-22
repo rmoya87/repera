@@ -156,8 +156,18 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("reviseLoggedSet(at:", hub)
         self.assertIn("public mutating func reviseLoggedSet(", domain)
 
+    def test_watch_thumbnail_view_is_in_an_existing_compiled_source(self):
+        """A stale Xcode project still compiles the miniature component."""
+        view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        self.assertIn("struct WatchSessionView: View {", view)
+        self.assertIn("struct WatchExerciseThumb: View {", view)
+        self.assertIn("enum WatchExerciseArtwork {", view)
+        self.assertFalse((ROOT / "Apps/ReperaWatch/Sources/WatchExerciseThumb.swift").exists())
+        checker = source("scripts/check_xcode_sources.py")
+        self.assertIn('watch.glob("*.swift")', checker)
+
     def test_watch_exercise_thumbnail_assets_are_ios_originals(self):
-        artwork = source("Apps/ReperaWatch/Sources/WatchExerciseThumb.swift")
+        artwork = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
         names = set(re.findall(r'"(art_[^"]+)"', artwork))
         self.assertGreaterEqual(len(names), 180)
         for name in names:

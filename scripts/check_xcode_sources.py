@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that the generated Xcode project compiles Auth and AI feature stores.
+"""Check the generated Xcode project compiles required iOS and all Watch sources.
 
 XcodeGen project files are local/generated and can be older than checked-out Swift.
 Never delete them or change app data: regenerate with `xcodegen generate`.
@@ -93,7 +93,10 @@ def validate(root: Path) -> None:
             )
 
     watch_sources = _watch_compile_sources(pbx)
-    for name in WATCH_REQUIRED:
+    # Verify every current Watch Swift source, not just a fixed list:
+    # adding a new view must not silently leave its type out of this target.
+    watch_swift = {p.name for p in watch.glob("*.swift")}
+    for name in sorted(watch_swift | set(WATCH_REQUIRED)):
         if f"{name} in Sources" not in watch_sources:
             raise ValueError(
                 f"ReperaWatch no compila {name}: falta en Build Phases → Compile Sources. "
