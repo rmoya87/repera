@@ -522,7 +522,9 @@ struct HealthRecoveryProgressView: View {
     @State private var recovery = HealthRecoveryStore.shared
     @State private var physiology = HealthPhysiologyStore.shared
     @State private var recoveryPoints: [TrainingRecoveryPoint] = []
-    @State private var tomorrowRecovery: RecoveryEngine.TrainingReadiness?
+    @State private var currentReadiness: RecoveryEngine.TrainingReadiness?
+    @State private var currentSleepHours: Double?
+    @Environment(HealthKitStore.self) private var health
     @State private var appliedRecoveryKey: String = ""
     @Environment(ReperaStore.self) private var store
     @Environment(SubscriptionManager.self) private var subscriptions
@@ -536,70 +538,66 @@ struct HealthRecoveryProgressView: View {
     }
 
     private var trainingRecoveryRefreshKey: String {
-        "\(range.rawValue)|\(weekStartsOnMonday)|\(store.workoutsEpoch)|\(recovery.lastRefreshed?.timeIntervalSince1970 ?? 0)|\(recovery.sleepEnabled)|\(physiology.lastRefreshed?.timeIntervalSince1970 ?? 0)"
+        "\(range.rawValue)|\(weekStartsOnMonday)|\(store.workoutsEpoch)|\(recovery.lastRefreshed?.timeIntervalSince1970 ?? 0)|\(recovery.sleepEnabled)|\(physiology.lastRefreshed?.timeIntervalSince1970 ?? 0)|\(health.healthDataRevision)"
     }
 
-    /// Cálculo fuera del MainActor para no bloquear el scroll de Progreso.
-    /// Un punto representa la disposición estimada a primera hora del día,
-    /// antes de posibles sesiones matinales (referencia 07:00).
+    /// Evolución de las mañanas registradas y estado actual tras la actividad
+    /// de hoy. No se proyecta una nota futura usando sueño supuesto.
     private func prepareTrainingRecovery() async {
         let key = trainingRecoveryRefreshKey
         guard recovery.sleepEnabled else {
             recoveryPoints = []
-            tomorrowRecovery = nil
+            currentReadiness = nil
+            currentSleepHours = nil
             appliedRecoveryKey = key
             return
         }
         let nights = recovery.nights
         let vitalHistory = physiology.days
         let workouts = store.state.workouts.filter { $0.finishedAt != nil }
+        // HealthKit ya excluye UUID y solapes con entrenamientos Repera.
+        let external = health.recentExternalActivities.map { activity in
+            RecoveryEngine.ObservedActivity(
+                date: activity.start, durationMinutes: activity.durationMinutes,
+                isCardio: HealthMuscleMapper.isCardio(activity.activityType)
+            )
+        }
         let averageHours = recovery.averageHours
-        let range = self.range
-        let monday = weekStartsOnMonday
+        let selectedRange = range
+        let mondayFirst = weekStartsOnMonday
         let now = Date()
         let result = await Task.detached(priority: .userInitiated) {
             let calendar = Calendar.current
             let points: [TrainingRecoveryPoint] = nights.compactMap { night in
-                guard range.contains(night.date, now: now, weekStartsOnMonday: monday),
+                guard selectedRange.contains(night.date, now: now, weekStartsOnMonday: mondayFirst),
                       let morning = calendar.date(
                         bySettingHour: 7, minute: 0, second: 0, of: night.date
                       ), morning <= now,
                       let value = RecoveryEngine.trainingReadiness(
-                        at: morning,
-                        sleepHours: night.hours,
+                        at: morning, sleepHours: night.hours,
                         recentAverageSleepHours: averageHours,
-                        workouts: workouts,
-                        vitalHistory: vitalHistory
+                        workouts: workouts, vitalHistory: vitalHistory,
+                        observedActivities: external
                       ) else { return nil }
                 return TrainingRecoveryPoint(date: night.date, score: value.score)
             }
-            // Proyección condicionada, nunca un dato observado de mañana.
-            let lastNight = nights.last
-            let recentSleep = lastNight.flatMap { night -> Double? in
-                (0...48 * 3600).contains(now.timeIntervalSince(night.date)) ? night.hours : nil
+            let todayNight = nights.last {
+                calendar.isDate($0.date, inSameDayAs: now)
             }
-            let tomorrowMorning = calendar.date(
-                byAdding: .day, value: 1, to: calendar.startOfDay(for: now)
-            ).flatMap {
-                calendar.date(bySettingHour: 7, minute: 0, second: 0, of: $0)
-            }
-            let tomorrow: RecoveryEngine.TrainingReadiness?
-            if let tomorrowMorning, let recentSleep {
-                tomorrow = RecoveryEngine.trainingReadiness(
-                    at: tomorrowMorning,
-                    sleepHours: recentSleep,
+            let current = todayNight.flatMap { night in
+                RecoveryEngine.trainingReadiness(
+                    at: now, sleepHours: night.hours,
                     recentAverageSleepHours: averageHours,
-                    workouts: workouts,
-                    vitalHistory: vitalHistory
+                    workouts: workouts, vitalHistory: vitalHistory,
+                    observedActivities: external
                 )
-            } else {
-                tomorrow = nil
             }
-            return (points.sorted { $0.date < $1.date }, tomorrow)
+            return (points.sorted { $0.date < $1.date }, current, todayNight?.hours)
         }.value
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled, key == trainingRecoveryRefreshKey else { return }
         recoveryPoints = result.0
-        tomorrowRecovery = result.1
+        currentReadiness = result.1
+        currentSleepHours = result.2
         appliedRecoveryKey = key
     }
     private var hasCycleData: Bool { !recovery.menstrualDays.isEmpty }
@@ -649,28 +647,6 @@ struct HealthRecoveryProgressView: View {
         return (deep, rem, light)
     }
 
-    private var periodIndex: Int? {
-        RecoveryEngine.sleepIndex(hours: headlineHours, recentAverage: headlineHours)
-    }
-
-    private struct IndexedNight: Identifiable {
-        let date: Date
-        let score: Int
-        var id: Date { date }
-    }
-
-    /// Misma fórmula de descanso que utiliza el índice principal; no es una
-    /// medida clínica de recuperación muscular ni una puntuación deportiva.
-    private var scoredNights: [IndexedNight] {
-        displayNights.compactMap { night in
-            guard let score = RecoveryEngine.sleepIndex(
-                hours: night.hours,
-                recentAverage: recovery.averageHours
-            ) else { return nil }
-            return IndexedNight(date: night.date, score: score)
-        }.sorted { $0.date < $1.date }
-    }
-
     private var hoursLabel: String {
         if showingOutsideRange {
             return displayNights.count <= 1 ? "Última noche disponible" : "Media · noches recientes"
@@ -680,19 +656,18 @@ struct HealthRecoveryProgressView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            trainingRecoveryCard
+            if appliedRecoveryKey == trainingRecoveryRefreshKey,
+               recoveryPoints.count >= 2 {
+                trainingRecoveryTrendCard
+            }
+
             if hasSleepData {
                 sleepContent
             } else if !isPro {
                 freeRecoveryPreview
             } else {
                 softSleepEmpty
-            }
-
-            // Sueño y recuperación son indicadores distintos: sin datos,
-            // no fabricar una falsa puntuación de disposición.
-            if appliedRecoveryKey == trainingRecoveryRefreshKey,
-               (!recoveryPoints.isEmpty || tomorrowRecovery != nil) {
-                trainingRecoveryCard
             }
 
             if !physiology.days.isEmpty {
@@ -706,7 +681,7 @@ struct HealthRecoveryProgressView: View {
             if !isPro {
                 ProTeaserCard(
                     title: "Recuperación completa",
-                    bodyText: "Tendencias de sueño, fases y consejos locales con Repera Pro.",
+                    bodyText: "Consulta cómo evolucionan tu descanso y tu preparación para entrenar.",
                     cta: "Descubrir Repera Pro",
                     appearance: .recovery
                 ) {
@@ -735,12 +710,10 @@ struct HealthRecoveryProgressView: View {
             sleepNightCard(
                 hours: hours,
                 hoursCaption: sample.count <= 1 ? "Última noche" : "Media · \(range.subtitleLabel)",
-                index: 82,
                 deep: deep,
                 rem: rem,
                 light: light,
-                nights: sample,
-                caption: "Así se vería tu descanso con datos de Apple Salud."
+                nights: sample
             )
             .opacity(0.9)
             .allowsHitTesting(false)
@@ -784,82 +757,11 @@ struct HealthRecoveryProgressView: View {
         sleepNightCard(
             hours: headlineHours,
             hoursCaption: hoursLabel,
-            index: periodIndex,
             deep: phases.deep,
             rem: phases.rem,
             light: phases.light,
-            nights: nights,
-            caption: {
-                if showingOutsideRange {
-                    return "Sin noches en \(range.subtitleLabel) · mostrando registros anteriores."
-                }
-                if isSingleNight {
-                    return "Fases estimadas por el dispositivo · una fuente por noche."
-                }
-                return String(format: "Media de %d noches en %@.", nights.count, range.subtitleLabel)
-            }()
+            nights: nights
         )
-        if scoredNights.count >= 2 {
-            sleepTrendCard(scoredNights)
-        }
-    }
-
-    /// Tendencia exclusivamente del sueño; no estima recuperación muscular.
-    private func sleepTrendCard(_ values: [IndexedNight]) -> some View {
-        let latest = Int((Double(values[values.count - 1].score) / 10.0).rounded())
-        let previous = Int((Double(values[values.count - 2].score) / 10.0).rounded())
-        let delta = latest - previous
-        let headline = delta >= 1 ? "Mejor sueño que la noche anterior"
-            : delta <= -1 ? "Menor descanso que la noche anterior"
-            : "Descanso estable respecto a la noche anterior"
-        return VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Evolución del sueño")
-            OGCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(headline)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(OG.label)
-                        Spacer(minLength: 4)
-                        Text("\(latest)/10")
-                            .font(.system(size: 17, weight: .bold, design: .rounded).monospacedDigit())
-                            .foregroundStyle(OG.label)
-                    }
-                    Chart(values) { night in
-                        LineMark(
-                            x: .value("Noche", night.date),
-                            y: .value("Índice de sueño", Int((Double(night.score) / 10.0).rounded()))
-                        )
-                        .foregroundStyle(OG.accent)
-                        .interpolationMethod(.linear)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                        PointMark(
-                            x: .value("Noche", night.date),
-                            y: .value("Índice de sueño", Int((Double(night.score) / 10.0).rounded()))
-                        )
-                        .foregroundStyle(
-                            night.score >= 80 ? OG.accent : (night.score >= 60 ? OG.orange : OG.red)
-                        )
-                        .symbolSize(44)
-                    }
-                    .chartYScale(domain: 0.0...10.0)
-                    .chartYAxis {
-                        AxisMarks(position: .leading, values: [0.0, 5.0, 10.0])
-                    }
-                    .chartXAxis {
-                        AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                            AxisGridLine()
-                            AxisValueLabel(format: .dateTime.day().month(.abbreviated))
-                        }
-                    }
-                    .frame(height: 160)
-
-                    Text("Puntuación orientativa del sueño observado. La recuperación para entrenar se muestra por separado.")
-                        .font(.caption)
-                        .foregroundStyle(OG.label3)
-                }
-            }
-        }
     }
 
     private struct VitalPlot: Identifiable {
@@ -1064,12 +966,10 @@ struct HealthRecoveryProgressView: View {
     private func sleepNightCard(
         hours: Double?,
         hoursCaption: String,
-        index: Int?,
         deep: Double,
         rem: Double,
         light: Double,
-        nights: [RecoverySleepNight],
-        caption: String
+        nights: [RecoverySleepNight]
     ) -> some View {
         let yLo = max(3.5, (nights.map(\.hours).min() ?? 5) - 0.6)
         let yHi = min(11, (nights.map(\.hours).max() ?? 8) + 0.7)
@@ -1078,7 +978,7 @@ struct HealthRecoveryProgressView: View {
         return OGCard {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .center, spacing: 12) {
-                    Image(systemName: "moon.stars.fill")
+                    Image(systemName: "moon.stars")
                         .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(NightSky.glow)
                         .frame(width: 40, height: 40)
@@ -1097,12 +997,6 @@ struct HealthRecoveryProgressView: View {
                         }
                     }
                     Spacer(minLength: 8)
-                    if let index {
-                        Text("\(Int((Double(index) / 10.0).rounded()))/10")
-                            .font(.system(size: 22, weight: .semibold, design: .rounded).monospacedDigit())
-                            .foregroundStyle(OG.label)
-                            .accessibilityLabel("Sueño \(Int((Double(index) / 10.0).rounded())) de 10")
-                    }
                 }
 
                 if deep + rem + light > 0.2 {
@@ -1162,9 +1056,6 @@ struct HealthRecoveryProgressView: View {
                     .foregroundStyle(OG.label3)
                 }
 
-                Text(caption)
-                    .font(.caption)
-                    .foregroundStyle(OG.label3)
             }
         }
     }
@@ -1291,7 +1182,7 @@ struct RecoveryTrainingTip: View {
         Group {
             if let tip = recovery.trainingTip {
                 HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "moon.stars.fill").foregroundStyle(OG.accent)
+                Image(systemName: "moon.stars").foregroundStyle(OG.accent)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
                         Text("Tu contexto de hoy").font(.subheadline.weight(.semibold)).foregroundStyle(OG.label)
@@ -1346,7 +1237,7 @@ struct RecoveryHomeCard: View {
                     } label: {
                         OGCard {
                             HStack(spacing: 14) {
-                                Image(systemName: "moon.stars.fill")
+                                Image(systemName: "moon.stars")
                                     .font(.system(size: 22, weight: .semibold))
                                     .foregroundStyle(Self.nightGlow)
                                     .frame(width: 42, height: 42)
