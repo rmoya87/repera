@@ -18,7 +18,7 @@ class VerifiedSessionScoreContractTests(unittest.TestCase):
         self.assertIn("minimumPriorSessions = 2",verified)
         self.assertIn("minimumEvidenceCoverage = 0.60",verified)
         self.assertIn("historyHorizonDays = 180",verified)
-        self.assertIn("perDay.count >= minimumPriorSessions",verified)
+        self.assertIn("days.count >= minimumPriorSessions",verified)
         self.assertIn("refs.count >= minimumPriorSessions",verified)
         self.assertIn("guard coverage >= minimumEvidenceCoverage else { return nil }",verified)
         self.assertIn("Calendar.current.startOfDay",verified)
@@ -47,7 +47,7 @@ class VerifiedSessionScoreContractTests(unittest.TestCase):
             self.assertIn(label,model)
         self.assertIn("if let dayScore {",home)
         self.assertIn("review.scoreBasis == .personalHistory",home)
-        self.assertIn("private static let sessionReviewFormulaVersion = 10",
+        self.assertIn("private static let sessionReviewFormulaVersion = 11",
                       read("Apps/Repera/Sources/ReperaStore.swift"))
 
     def test_synthetic_cardio_points_not_in_new_engine(self):

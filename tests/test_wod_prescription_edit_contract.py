@@ -60,7 +60,7 @@ class CompletedWODPrescriptionTests(unittest.TestCase):
         self.assertIn("let isScaled = session.exercises.contains", review)
         self.assertIn("if !isScaled, let bands = template?.scoreBands", review)
         store = read("Apps/Repera/Sources/ReperaStore.swift")
-        self.assertIn("sessionReviewFormulaVersion = 10", store)
+        self.assertIn("sessionReviewFormulaVersion = 11", store)
 
 
 if __name__ == "__main__":

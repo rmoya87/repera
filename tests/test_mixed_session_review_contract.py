@@ -17,7 +17,7 @@ class MixedSessionReviewContractTests(unittest.TestCase):
         self.assertIn("VerifiedSessionReviewEngine.review(session: session, history: history", engine)
         self.assertIn("minimumPriorSessions = 2", trusted)
         self.assertIn("minimumEvidenceCoverage = 0.60", trusted)
-        self.assertIn("perDay.count >= minimumPriorSessions", trusted)
+        self.assertIn("days.count >= minimumPriorSessions", trusted)
         self.assertIn("refs.count >= minimumPriorSessions", trusted)
         self.assertIn("guard coverage >= minimumEvidenceCoverage else { return nil }", trusted)
         self.assertNotIn("registrationScore", trusted)
@@ -31,7 +31,7 @@ class MixedSessionReviewContractTests(unittest.TestCase):
         self.assertIn("review.indicators.count == ReviewDimension.allCases.count", ui)
         self.assertIn("if let dayScore {", home)
         self.assertIn("review.scoreBasis == .personalHistory", home)
-        self.assertIn("sessionReviewFormulaVersion = 10", store)
+        self.assertIn("sessionReviewFormulaVersion = 11", store)
         self.assertIn("refreshSessionReviewsIfNeeded()", store)
 
 if __name__ == "__main__":

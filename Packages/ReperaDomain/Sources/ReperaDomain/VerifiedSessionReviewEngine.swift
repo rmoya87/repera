@@ -1,17 +1,19 @@
 import Foundation
 
-/// Formula v10: no numeric score without independent personal history.
+/// Formula v11: evidence tiers with no synthetic rating without personal history.
 /// Three separate indicators; the registration coverage is NEVER fitness points.
 public enum VerifiedSessionReviewEngine {
     public static let minimumPriorSessions = 2
     public static let minimumEvidenceCoverage = 0.60
     public static let historyHorizonDays = 180
+    public static let minimumStimulusReferenceDays = 3
 
     private struct Evidence {
         let score: Int
         let weight: Double
         let referenceCount: Int
         let explanation: String
+        let tier: Int
     }
 
     public static func review(
@@ -49,8 +51,9 @@ public enum VerifiedSessionReviewEngine {
         let movementEvidence = movementEntries.compactMap {
             personalEvidence(entry: $0, prior: prior)
         }
-        let wodEvidence = wodResults.compactMap {
-            wodEvidence(result: $0, session: session, prior: prior)
+        let wodEvidence = wodResults.compactMap { result in
+            wodEvidence(result: result, session: session, prior: prior)
+                ?? calibratedStimulusEvidence(result: result, session: session, prior: prior)
         }
         let eligible = movementEvidence + wodEvidence
         guard !eligible.isEmpty else { return nil }
@@ -76,8 +79,17 @@ public enum VerifiedSessionReviewEngine {
             $0 + $1.loggedSets.filter { !$0.isWarmup }.count
         }
         let minReferences = eligible.map(\.referenceCount).min() ?? minimumPriorSessions
-        let confidence = minReferences >= 5 && coverage >= 0.80
-            ? "Alta" : "En construcción"
+        let weakestTier = eligible.map(\.tier).max() ?? 1
+        let confidence: String
+        if weakestTier == 1 && minReferences >= 5 && coverage >= 0.80 {
+            confidence = "Alta"
+        } else if weakestTier == 3 {
+            confidence = "Baja · estímulo estimado"
+        } else if weakestTier == 2 {
+            confidence = "Media · distinto contexto"
+        } else {
+            confidence = "En construcción"
+        }
         let coveragePercent = Int((coverage * 100).rounded())
 
         let indicators: [ReviewIndicator] = [
@@ -87,7 +99,8 @@ public enum VerifiedSessionReviewEngine {
                 detail: personal == nil
                     ? "Faltan dos sesiones previas comparables de cada ejercicio."
                     : movementEvidence.map(\.explanation).joined(separator: " · "),
-                referenceSessions: movementEvidence.map(\.referenceCount).min() ?? 0
+                referenceSessions: movementEvidence.map(\.referenceCount).min() ?? 0,
+                comparisonLevel: movementEvidence.map(\.tier).max()
             ),
             ReviewIndicator(
                 dimension: .adherence,
@@ -103,7 +116,8 @@ public enum VerifiedSessionReviewEngine {
                 detail: wod == nil
                     ? "Faltan dos marcas anteriores del mismo WOD, formato y prescripción."
                     : wodEvidence.map(\.explanation).joined(separator: " · "),
-                referenceSessions: wodEvidence.map(\.referenceCount).min() ?? 0
+                referenceSessions: wodEvidence.map(\.referenceCount).min() ?? 0,
+                comparisonLevel: wodEvidence.map(\.tier).max()
             )
         ]
         return SessionReview(
@@ -111,8 +125,8 @@ public enum VerifiedSessionReviewEngine {
             level: nil,
             headline: "Rendimiento personal · \(score)/10",
             vsHistorySummary: "\(coveragePercent)% del rendimiento registrado tiene referencias personales comparables.",
-            vsStandardSummary: "Nota basada en historial propio; no se comparan ejercicios distintos ni se puntúa el número de series anotadas.",
-            keepTips: ["Los valores se comparan solo con sesiones del mismo ejercicio o WOD y esfuerzo comparable."],
+            vsStandardSummary: "Historial personal: se prioriza la coincidencia exacta, después el mismo ejercicio en distinta sesión y por último el estímulo calibrado. No se convierten series registradas en puntos.",
+            keepTips: ["Cada referencia muestra su nivel de comparabilidad. No se equiparan ejercicios diferentes sin calibración de resultados."],
             improveTips: ["Con más sesiones independientes aumentará la confianza de esta valoración."],
             movements: [],
             wodTemplateId: nil,
@@ -179,43 +193,73 @@ public enum VerifiedSessionReviewEngine {
               let currentValue = loadMetric(currentSet, style: entry.exercise.loggingStyle),
               currentValue > 0 else { return nil }
 
-        // One comparable reading per DISTINCT day, not several sets from one
-        // session. The reference uses the median of the last 5 days.
-        var perDay: [(Date, Double)] = []
-        for workout in prior.sorted(by: {
-            ($0.finishedAt ?? .distantPast) > ($1.finishedAt ?? .distantPast)
-        }) {
-            guard let date = workout.finishedAt else { continue }
-            let day = Calendar.current.startOfDay(for: date)
-            if perDay.contains(where: { $0.0 == day }) { continue }
-            let comparable = workout.exercises.filter {
-                sameExercise($0.exercise, entry.exercise)
-                    && $0.wodFormat == entry.wodFormat
-                    && $0.blockIntervalSeconds == entry.blockIntervalSeconds
-            }.compactMap { candidate -> Double? in
-                guard let otherSet = bestComparableSet(entry: candidate, reference: currentSet),
-                      let value = loadMetric(otherSet, style: entry.exercise.loggingStyle),
-                      value > 0 else { return nil }
-                // If the athlete deliberately prescribed lighter work, don't
-                // mistake it for deteriorating maximum strength.
-                if let currentTarget = entry.plannedSets.first?.targetWeightKg,
-                   let priorTarget = candidate.plannedSets.first?.targetWeightKg,
-                   currentTarget > 0, priorTarget > 0,
-                   currentTarget < priorTarget * 0.90 { return nil }
-                return value
-            }
-            if let best = comparable.max() { perDay.append((day, best)) }
-            if perDay.count == 5 { break }
+        // Nivel 1: mismo ejercicio y mismo contexto. Nivel 2: el mismo ejercicio
+        // entre formatos de bloques diferentes (por ejemplo EMOM -> fuerza).
+        // Las variantes de ejercicio JAMÁS son referencias de carga válidas.
+        func sameContext(_ candidate: SessionExercise) -> Bool {
+            candidate.wodFormat == entry.wodFormat
+                && candidate.blockIntervalSeconds == entry.blockIntervalSeconds
+                && candidate.blockTimeCapMinutes == entry.blockTimeCapMinutes
         }
-        guard perDay.count >= minimumPriorSessions else { return nil }
-        let sortedValues = perDay.map(\.1).sorted()
+
+        func readings(allowOtherContext: Bool) -> [(Date, Double)] {
+            var perDay: [(Date, Double)] = []
+            for workout in prior.sorted(by: {
+                ($0.finishedAt ?? .distantPast) > ($1.finishedAt ?? .distantPast)
+            }) {
+                guard let date = workout.finishedAt else { continue }
+                let day = Calendar.current.startOfDay(for: date)
+                if perDay.contains(where: { $0.0 == day }) { continue }
+                let values = workout.exercises.compactMap { candidate -> Double? in
+                    guard sameExercise(candidate.exercise, entry.exercise) else { return nil }
+                    let same = sameContext(candidate)
+                    if !same {
+                        guard allowOtherContext else { return nil }
+                        // Comparison of different intervals is meaningful only
+                        // for a measured load. Bare rep counts in varied circuits
+                        // or gymnastics have no equivalent effort denominator.
+                        guard entry.exercise.loggingStyle == .loadAndReps else { return nil }
+                        // In different contexts, only comparable RIR can validate
+                        // effort. Do not infer it from the programmed repetitions.
+                        guard let a = currentSet.rir,
+                              let b = bestComparableSet(entry: candidate, reference: currentSet)?.rir,
+                              abs(a - b) <= 1.5 else { return nil }
+                    }
+                    guard let pastSet = bestComparableSet(entry: candidate, reference: currentSet),
+                          let value = loadMetric(pastSet, style: entry.exercise.loggingStyle),
+                          value > 0 else { return nil }
+                    if let currentTarget = entry.plannedSets.first?.targetWeightKg,
+                       let previousTarget = candidate.plannedSets.first?.targetWeightKg,
+                       currentTarget > 0, previousTarget > 0,
+                       currentTarget < previousTarget * 0.90 { return nil }
+                    return value
+                }
+                if let best = values.max() { perDay.append((day, best)) }
+                if perDay.count == 5 { break }
+            }
+            return perDay
+        }
+
+        var days = readings(allowOtherContext: false)
+        let tier: Int
+        if days.count >= minimumPriorSessions {
+            tier = 1
+        } else {
+            days = readings(allowOtherContext: true)
+            guard days.count >= minimumPriorSessions else { return nil }
+            tier = 2
+        }
+        let sortedValues = days.map(\.1).sorted()
         let reference = median(sortedValues)
         guard reference > 0 else { return nil }
         let ratio = currentValue / reference
+        let prefix = tier == 1 ? "Nivel 1 · mismo contexto" : "Nivel 2 · mismo ejercicio, distinto formato (RIR comparable)"
         return Evidence(
-            score: points(ratio: ratio), weight: 5,
-            referenceCount: perDay.count,
-            explanation: "\(entry.exercise.name): \(signedChange(ratio)) respecto a tus \(perDay.count) sesiones comparables"
+            score: points(ratio: ratio),
+            weight: tier == 1 ? 5 : 3,
+            referenceCount: days.count,
+            explanation: "\(prefix) · \(entry.exercise.name): \(signedChange(ratio)) respecto a \(days.count) días anteriores",
+            tier: tier
         )
     }
 
@@ -259,8 +303,151 @@ public enum VerifiedSessionReviewEngine {
         return Evidence(
             score: points(ratio: ratio), weight: minutes,
             referenceCount: refs.count,
-            explanation: "\(currentBlock.title): \(signedChange(ratio)) frente a \(refs.count) marcas comparables"
+            explanation: "Nivel 1 · \(currentBlock.title): \(signedChange(ratio)) frente a \(refs.count) marcas idénticas",
+            tier: 1
         )
+    }
+
+    /// Nivel 3: trabajo por minuto con las MISMAS tareas motoras.
+    /// Permite variar AMRAP/For Time/RFT, tiempo y repeticiones programadas
+    /// sin equiparar burpees con push-ups ni kg de un movimiento con otro.
+    /// Es un indicador orientativo de densidad, nunca un benchmark Rx.
+    /// Solo se habilita con tres días históricos independientes.
+    private static func calibratedStimulusEvidence(
+        result: WODBlockResult,
+        session: WorkoutSession,
+        prior: [WorkoutSession]
+    ) -> Evidence? {
+        guard let currentBlock = session.routineBlocks?.first(where: { $0.id == result.id }),
+              let currentDensity = normalizedDensity(result: result, block: currentBlock),
+              let currentSeconds = stimulusDuration(result: result, block: currentBlock),
+              currentDensity > 0 else { return nil }
+        let currentScaled = session.exercises.filter { $0.blockId == result.id }
+        // Different scaled doses cannot be reduced to a common time/work unit.
+        guard !currentScaled.contains(where: { $0.hasWODScaling }) else { return nil }
+        var priorDays: [(Date, Double)] = []
+        for workout in prior.sorted(by: {
+            ($0.finishedAt ?? .distantPast) > ($1.finishedAt ?? .distantPast)
+        }) {
+            guard let completedAt = workout.finishedAt else { continue }
+            let day = Calendar.current.startOfDay(for: completedAt)
+            if priorDays.contains(where: { $0.0 == day }) { continue }
+            guard let best = workout.wodResults.compactMap({ previous -> Double? in
+                guard validScore(previous),
+                      let block = workout.routineBlocks?.first(where: { $0.id == previous.id }),
+                      comparableStimulus(currentBlock, block),
+                      !workout.exercises.contains(where: { $0.blockId == previous.id && $0.hasWODScaling }),
+                      sameScaling(currentScaled, workout.exercises.filter { $0.blockId == previous.id }),
+                      let rate = normalizedDensity(result: previous, block: block),
+                      rate > 0 else { return nil }
+                // Exclude grossly different time domains (sprints vs long WODs).
+                guard let priorSeconds = stimulusDuration(result: previous, block: block),
+                      max(currentSeconds, priorSeconds) / min(currentSeconds, priorSeconds) <= 1.5
+                else { return nil }
+                return rate
+            }).max() else { continue }
+            priorDays.append((day, best))
+            if priorDays.count == 5 { break }
+        }
+        guard priorDays.count >= minimumStimulusReferenceDays else { return nil }
+        let reference = median(priorDays.map(\.1).sorted())
+        guard reference > 0 else { return nil }
+        let ratio = currentDensity / reference
+        let minutes = currentSeconds / 60
+        return Evidence(
+            score: points(ratio: ratio),
+            weight: max(1, min(12, minutes)) * 0.5,
+            referenceCount: priorDays.count,
+            explanation: "Nivel 3 · estímulo comparable · \(signedChange(ratio)) de densidad de reps, \(priorDays.count) días calibrados (mismos movimientos y cargas)",
+            tier: 3
+        )
+    }
+
+    private static func stimulusDuration(
+        result: WODBlockResult, block: RoutineBlock
+    ) -> Double? {
+        switch result.format {
+        case .amrap:
+            guard let minutes = block.timeCapMinutes, minutes > 0 else { return nil }
+            return Double(minutes * 60)
+        case .forTime, .afap, .chipper:
+            guard let seconds = result.elapsedSeconds, seconds > 0 else { return nil }
+            return Double(seconds)
+        default: return nil
+        }
+    }
+
+    private static func normalizedDensity(
+        result: WODBlockResult, block: RoutineBlock
+    ) -> Double? {
+        guard let seconds = stimulusDuration(result: result, block: block),
+              !block.movements.isEmpty else { return nil }
+        let movements = block.movements
+        guard movements.allSatisfy({
+            !$0.isRest && ($0.reps ?? 0) > 0
+                && $0.repScheme == nil && $0.distanceMeters == nil
+                && $0.calories == nil
+                && ($0.scaleAlternative?.isEmpty ?? true)
+        }) else { return nil }
+        let perCycle = movements.reduce(0) { $0 + ($1.reps ?? 0) }
+        guard perCycle > 0 else { return nil }
+        let performed: Int
+        switch result.format {
+        case .amrap:
+            let rounds = result.roundsCompleted ?? 0
+            let partial = result.totalReps ?? 0
+            guard rounds >= 0, partial >= 0, partial < perCycle,
+                  rounds > 0 || partial > 0 else { return nil }
+            performed = rounds * perCycle + partial
+        case .forTime:
+            guard let rounds = block.rounds, rounds > 0 else { return nil }
+            performed = rounds * perCycle
+        case .afap, .chipper:
+            // Only simple one-pass prescriptions are comparable.
+            guard block.rounds == nil || block.rounds == 1 else { return nil }
+            performed = perCycle
+        default: return nil
+        }
+        return Double(performed) * 60.0 / seconds
+    }
+
+    private static func comparableStimulus(
+        _ current: RoutineBlock, _ previous: RoutineBlock
+    ) -> Bool {
+        let left = current.movements
+        let right = previous.movements
+        guard !left.isEmpty, left.count == right.count, left.count <= 5,
+              left.allSatisfy({ !$0.isRest }),
+              right.allSatisfy({ !$0.isRest }) else { return false }
+        // Allow a different order or modestly different reps, but keep each
+        // movement's identity, dose unit, weight and equipment prescription.
+        var used = Set<Int>()
+        for move in left {
+            guard let index = right.indices.first(where: { index in
+                guard !used.contains(index) else { return false }
+                let old = right[index]
+                guard ExerciseEquivalence.sameName(move.name, old.name),
+                      let a = move.reps, let b = old.reps, a > 0, b > 0,
+                      Double(max(a, b)) / Double(min(a, b)) <= 1.25,
+                      move.repScheme == nil && old.repScheme == nil,
+                      move.distanceMeters == nil && old.distanceMeters == nil,
+                      move.calories == nil && old.calories == nil,
+                      (move.scaleAlternative?.isEmpty ?? true),
+                      (old.scaleAlternative?.isEmpty ?? true)
+                else { return false }
+                let weights = [
+                    (move.weightMaleKg, old.weightMaleKg),
+                    (move.weightFemaleKg, old.weightFemaleKg)
+                ]
+                return weights.allSatisfy { a, b in
+                    if a == nil && b == nil { return true }
+                    guard let a, let b, a > 0, b > 0 else { return false }
+                    return abs(a - b) / max(a, b) <= 0.05
+                }
+            }) else { return false }
+            used.insert(index)
+        }
+        return true
     }
 
     private static func sameScaling(_ current: [SessionExercise], _ previous: [SessionExercise]) -> Bool {

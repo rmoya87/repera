@@ -122,6 +122,13 @@ struct SessionReviewCard: View {
                 Text(indicator.dimension.title)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(OG.label)
+                if indicator.score != nil, let tier = indicator.comparisonLevel {
+                    Text(tier == 1 ? "Nivel 1 · Referencia idéntica"
+                         : tier == 2 ? "Nivel 2 · Mismo ejercicio"
+                         : "Nivel 3 · Estímulo comparable")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(tier == 3 ? OG.label3 : OG.accent)
+                }
                 Text(indicator.detail)
                     .font(.system(size: 12))
                     .foregroundStyle(OG.label2)

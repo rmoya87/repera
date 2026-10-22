@@ -157,12 +157,19 @@ public struct ReviewIndicator: Codable, Sendable, Hashable {
     public var score: Int?
     public var detail: String
     public var referenceSessions: Int
+    /// 1: misma referencia; 2: mismo ejercicio en otra estructura;
+    /// 3: estímulo normalizado con calibración histórica personal.
+    public var comparisonLevel: Int?
 
-    public init(dimension: ReviewDimension, score: Int?, detail: String, referenceSessions: Int = 0) {
+    public init(
+        dimension: ReviewDimension, score: Int?, detail: String,
+        referenceSessions: Int = 0, comparisonLevel: Int? = nil
+    ) {
         self.dimension = dimension
         self.score = score
         self.detail = detail
         self.referenceSessions = referenceSessions
+        self.comparisonLevel = comparisonLevel
     }
 }
 

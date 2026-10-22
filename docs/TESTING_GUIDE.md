@@ -140,6 +140,18 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] También verificar bloques originalmente de Fuerza con formato de puntuación global: editar Rx no sustituye sus series registradas; la nota se recalcula.
 - [ ] En edición de rutinas y entrenos por series (EMOM, Tabata, Circuito) mantener el comportamiento habitual de las series sin convertir Rx en resultados.
 
+## Valoración v11: ejercicios entre formatos y WOD con estímulo calibrado
+
+- [ ] Repetir un push press en dos EMOM históricos y en un bloque de Fuerza nuevo, con RIR similar, mismo material y reps ±2: Evolución personal aparece como **Nivel 2 · Mismo ejercicio**, confianza media; NO se exige repetir idéntico EMOM.
+- [ ] Mismas series pero sin RIR registrado entre contextos: no crear una nota de comparación cruzada. Push press no puede heredar datos de press banca.
+- [ ] Con dos sesiones previas del mismo formato/contexto exacto, dar prioridad a **Nivel 1** sobre las referencias Nivel 2 y no mezclar marcas incompatibles.
+- [ ] AMRAP 8 min de burpees con 4 rondas y dos For Time/RFT previos de burpees: con solo dos días anteriores NO se activa Nivel 3; necesita al menos **tres días** independientes.
+- [ ] Con tres For Time de la misma tarea y repeticiones por ronda similares (≤25%), carga idéntica y tiempos similares (máximo ratio 1,5), un AMRAP distinto puede obtener **Nivel 3 · Estímulo comparable**, puntuado por reps/minuto y confianza baja.
+- [ ] Si los nombres de los movimientos difieren (por ejemplo burpees vs push-ups, push press vs banca), las cargas no coinciden, hay escalado sin normalizar, diferentes unidades o esquemas variables, ocultar Nivel 3.
+- [ ] Una sesión mixta con cobertura válida inferior al 60% del trabajo prescrito no muestra nota global aunque alguno de sus movimientos sí tenga referencias.
+- [ ] Abrir el historial tras actualizar a fórmula 11: recalcular o eliminar puntuaciones v10 y mantener series, rondas, tiempos y kcal originales.
+- [ ] La tarjeta iOS enseña la fuente Nivel 1/2/3 en cada indicador disponible, y Cumplimiento continúa sin puntuación numérica.
+
 ## Valoración verificable v10 (sin nota antes del histórico mínimo)
 
 - [ ] Primera sesión terminada de un ejercicio: Inicio **solo Kcal y Tiempo** (sin tarjeta Nota), Historial mantiene kg/reps/RIR pero **no presenta card de valoración ni nivel**; tampoco se muestra hoja de puntuación al acabar.
