@@ -591,6 +591,11 @@ struct WorkoutView: View {
                 Button {
                     guard let first = block.indexes.first,
                           session.exercises.indices.contains(first) else { return }
+                    // La confirmación debe finalizar ESTE bloque, no otro que
+                    // estuviese seleccionado al abrir su resultado manualmente.
+                    if store.state.activeSession?.currentIndex != first {
+                        store.selectExercise(at: first)
+                    }
                     presentScoreEditor(for: session.exercises[first])
                 } label: {
                     Label(existing == nil ? "Registrar resultado" : "Editar resultado",
@@ -1242,7 +1247,11 @@ struct WorkoutView: View {
             let stations = max(1, store.state.activeSession?.exercises.filter {
                 $0.blockId == current.blockId
             }.count ?? 1)
-            let totalWork = max(1, current.plannedIntervals ?? stations * max(1, current.blockRounds ?? 1))
+            let totalWork = max(1,
+                (current.blockTimeCapMinutes ?? 0) > 0
+                    ? (current.plannedIntervals ?? stations)
+                    : stations * max(1, current.blockRounds ?? 1)
+            )
             let rest = max(0, current.blockRestBetweenRoundsSeconds ?? 0)
             var durations: [Int] = []
             var phases: [String] = []
