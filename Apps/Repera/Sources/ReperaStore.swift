@@ -1371,6 +1371,7 @@ final class ReperaStore: NSObject {
 
             if changed { persistWorkouts() }
             let snapshot = state
+            let needsSync = changed
             Task { @MainActor in
                 await LocalStore.shared.persistAndFlush(snapshot)
                 // The acknowledgment means the phone has persisted it, NOT that
@@ -1378,10 +1379,10 @@ final class ReperaStore: NSObject {
                 guard LocalStore.shared.lastPersistenceError == nil else { return }
                 self.lastWatchAcknowledgedSession = session.id
                 self.pushActiveToWatch(immediate: true)
-                if changed && BusinessAuthStore.shared.isConnected {
+                if needsSync && BusinessAuthStore.shared.isConnected {
                     _ = await BusinessWorkoutSyncStore.shared.sync(store: self)
                 }
-                if changed, session.healthKitWorkoutUUID != nil {
+                if needsSync, session.healthKitWorkoutUUID != nil {
                     await HealthKitStore.shared.refreshVerifiedWorkoutEnergy(
                         for: self.state.workouts
                     )
