@@ -682,16 +682,16 @@ struct HealthRecoveryProgressView: View {
         }
     }
 
-    /// Evolución visible únicamente cuando existen al menos dos noches con índice real.
+    /// Tendencia exclusivamente del sueño; no estima recuperación muscular.
     private func sleepTrendCard(_ values: [IndexedNight]) -> some View {
-        let latest = values[values.count - 1].score
-        let previous = values[values.count - 2].score
+        let latest = Double(values[values.count - 1].score) / 10.0
+        let previous = Double(values[values.count - 2].score) / 10.0
         let delta = latest - previous
-        let headline = delta >= 4 ? "Mejora respecto a la noche anterior"
-            : delta <= -4 ? "Descanso por debajo de la noche anterior"
+        let headline = delta >= 0.4 ? "Mejor sueño que la noche anterior"
+            : delta <= -0.4 ? "Menor descanso que la noche anterior"
             : "Descanso estable respecto a la noche anterior"
         return VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Evolución del descanso")
+            OGCardSectionTitle(title: "Evolución del sueño")
             OGCard {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .firstTextBaseline) {
@@ -699,30 +699,30 @@ struct HealthRecoveryProgressView: View {
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(OG.label)
                         Spacer(minLength: 4)
-                        Text("\(latest)/100")
+                        Text(String(format: "%.1f/10", latest))
                             .font(.system(size: 17, weight: .bold, design: .rounded).monospacedDigit())
                             .foregroundStyle(OG.label)
                     }
                     Chart(values) { night in
                         LineMark(
                             x: .value("Noche", night.date),
-                            y: .value("Índice de sueño", night.score)
+                            y: .value("Índice de sueño", Double(night.score) / 10.0)
                         )
                         .foregroundStyle(OG.accent)
                         .interpolationMethod(.linear)
                         .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
                         PointMark(
                             x: .value("Noche", night.date),
-                            y: .value("Índice de sueño", night.score)
+                            y: .value("Índice de sueño", Double(night.score) / 10.0)
                         )
                         .foregroundStyle(
                             night.score >= 80 ? OG.accent : (night.score >= 60 ? OG.orange : OG.red)
                         )
                         .symbolSize(44)
                     }
-                    .chartYScale(domain: 0...100)
+                    .chartYScale(domain: 0.0...10.0)
                     .chartYAxis {
-                        AxisMarks(position: .leading, values: [0, 50, 100])
+                        AxisMarks(position: .leading, values: [0.0, 5.0, 10.0])
                     }
                     .chartXAxis {
                         AxisMarks(values: .automatic(desiredCount: 4)) { _ in
@@ -732,7 +732,7 @@ struct HealthRecoveryProgressView: View {
                     }
                     .frame(height: 160)
 
-                    Text("Índice orientativo calculado con horas de sueño, no una medición directa de recuperación.")
+                    Text("Puntuación orientativa del sueño observado. La recuperación para entrenar se muestra por separado.")
                         .font(.caption)
                         .foregroundStyle(OG.label3)
                 }
@@ -865,10 +865,10 @@ struct HealthRecoveryProgressView: View {
                     }
                     Spacer(minLength: 8)
                     if let index {
-                        Text("\(index)/100")
+                        Text(String(format: "%.1f/10", Double(index) / 10.0))
                             .font(.system(size: 22, weight: .semibold, design: .rounded).monospacedDigit())
                             .foregroundStyle(OG.label)
-                            .accessibilityLabel("Descanso \(index) de 100")
+                            .accessibilityLabel("Sueño \(Double(index) / 10.0) de 10")
                     }
                 }
 
@@ -1064,7 +1064,7 @@ struct RecoveryTrainingTip: View {
                         Text("Tu contexto de hoy").font(.subheadline.weight(.semibold)).foregroundStyle(OG.label)
                         Spacer(minLength: 0)
                         if let index = recovery.sleepIndex {
-                            Text("Sueño \(index)/100")
+                            Text(String(format: "Sueño %.1f/10", Double(index) / 10.0))
                                 .font(.caption.weight(.semibold))
                                 .monospacedDigit()
                                 .foregroundStyle(OG.accent)
@@ -1125,7 +1125,7 @@ struct RecoveryHomeCard: View {
                                                 .font(.subheadline.weight(.semibold))
                                                 .foregroundStyle(OG.label)
                                             if let index = recovery.sleepIndex {
-                                                Text("· \(index)/100")
+                                                Text(String(format: "· %.1f/10", Double(index) / 10.0))
                                                     .font(.subheadline.weight(.semibold).monospacedDigit())
                                                     .foregroundStyle(OG.label2)
                                             }
