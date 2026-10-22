@@ -82,6 +82,27 @@ struct MovementPaceStandardsTests {
             || review?.vsStandardSummary?.contains("Hiciste") == true)
     }
 
+    @Test func adaptedRepsAndKgChangeEstimatedEffortWithoutMakingSets() {
+        let clean = Exercise(name: "Cargada y envión", muscleGroup: "Hombros", equipment: "Barra")
+        let original = SessionExercise(
+            exercise: clean, plannedSets: [PlannedSet(targetReps: 20, targetWeightKg: 40)]
+        )
+        var actual = original
+        actual.adaptedReps = 15
+        actual.adaptedWeightKg = 25
+        let rxLine = WODPaceEstimator.prescription(fromExercises: [original]).first!
+        let adaptedLine = WODPaceEstimator.prescription(fromExercises: [actual]).first!
+        #expect(rxLine.quantity == 20)
+        #expect(adaptedLine.quantity == 15)
+        #expect(adaptedLine.effortMultiplier < 1)
+        #expect(actual.loggedSets.isEmpty)
+        let rxTime = WODPaceEstimator.estimateForTime(lines: [rxLine])
+            .expectedSeconds(for: .intermediate)!
+        let scaledTime = WODPaceEstimator.estimateForTime(lines: [adaptedLine])
+            .expectedSeconds(for: .intermediate)!
+        #expect(scaledTime < rxTime)
+    }
+
     @Test func levelMultipliersAreOrdered() {
         let thruster = MovementPaceKind.thruster
         let elite = MovementPaceStandards.secondsPerUnit(thruster, level: .elite)
