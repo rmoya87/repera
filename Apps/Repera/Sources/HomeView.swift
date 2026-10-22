@@ -114,7 +114,11 @@ struct HomeView: View {
             }
             let resolved: Double
             if let measured, measured > 0,
-               abs(measured - logged) <= max(5, logged * 0.25) {
+               (session.healthKitWorkoutUUID.map {
+                   health.verifiedExternalWorkoutUUIDs.contains($0)
+               } == true || abs(measured - logged) <= max(5, logged * 0.25)) {
+                // HealthKit Watch tiene prioridad incluso cuando sus pausas
+                // producen una duración distinta al tiempo de pared.
                 resolved = measured
             } else {
                 resolved = logged
@@ -129,11 +133,11 @@ struct HomeView: View {
         let key = dayKey(selectedDay)
         let recordedMinutes = recordedDayWorkoutMinutes
         if calendar.isDateInToday(selectedDay) {
-            // La suma de Salud puede llegar tarde o estar incompleta. Nunca
-            // reemplazar 57 min registrados por una lectura parcial de 4 min,
-            // ni SUMAR ambos totales (duplicaría sesiones enlazadas).
+            // Priorizar los HKWorkouts conciliados individualmente; una
+            // suma cruda de Salud podría contener duplicados anteriores.
+            // Si aún no existen entradas conciliadas, usar la lectura de hoy.
             let healthToday = todayHealthLive.workoutMinutes ?? health.workoutMinutesToday
-            let minutes = max(recordedMinutes, healthToday ?? 0)
+            let minutes = recordedMinutes > 0 ? recordedMinutes : (healthToday ?? 0)
             return HealthKitStore.DayMetrics(
                 activeEnergyKcal: todayHealthLive.activeEnergyKcal
                     ?? health.activeEnergyTodayKcal
