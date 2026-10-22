@@ -218,7 +218,12 @@ final class HealthKitStore {
 
     /// Solicita sueño con las métricas generales en un único panel de Apple Salud.
     /// `nil` respeta una negativa explícita previa del usuario a analizar el sueño.
-    func requestAccess(includeSleep: Bool? = nil) async {
+    /// Apple only reopens its sheet for not-yet-decided types. Already
+    /// authorized/denied types are managed in iOS Settings > Health.
+    private(set) var permissionManagementRequiresSettings = false
+
+    func requestAccess(includeSleep: Bool? = nil, includeAllOptional: Bool = false) async {
+        permissionManagementRequiresSettings = false
         guard isAvailable else {
             lastError = "HealthKit no disponible en este dispositivo"
             isAuthorized = false
@@ -239,9 +244,21 @@ final class HealthKitStore {
             HKObjectType.workoutType(),
         ]
         read.insert(HKSeriesType.workoutRoute())
-        let includeSleepInRequest = includeSleep ?? HealthRecoveryStore.shared.shouldRequestSleepWithHealth
+        // Tapping the Apple Salud row explicitly requests the complete
+        // permission panel, including sleep and cycle, without silently
+        // turning on optional local analysis if the user had disabled it.
+        let includeSleepInRequest = includeAllOptional
+            || (includeSleep ?? HealthRecoveryStore.shared.shouldRequestSleepWithHealth)
         if includeSleepInRequest, let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) {
             read.insert(sleepType)
+        }
+        if includeAllOptional {
+            if let menstrual = HKObjectType.categoryType(forIdentifier: .menstrualFlow) {
+                read.insert(menstrual)
+            }
+            if let ovulation = HKObjectType.categoryType(forIdentifier: .ovulationTestResult) {
+                read.insert(ovulation)
+            }
         }
         let share: Set<HKSampleType> = [
             HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
@@ -249,8 +266,10 @@ final class HealthKitStore {
             HKObjectType.workoutType(),
         ]
         do {
+            let status = try? await store.statusForAuthorizationRequest(toShare: share, read: read)
             try await store.requestAuthorization(toShare: share, read: read)
-            if includeSleepInRequest {
+            permissionManagementRequiresSettings = includeAllOptional && status == .unnecessary
+            if includeSleepInRequest && !includeAllOptional {
                 // HealthKit no permite consultar si se ha concedido la lectura.
                 // Se registra la elección de solicitarla, nunca una concesión supuesta.
                 await HealthRecoveryStore.shared.acceptSleepFromHealthAuthorization()
