@@ -40,11 +40,12 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     func sendFinished(_ session: WorkoutSession) {
         guard let data = try? JSONEncoder().encode(session) else { return }
         var queued = UserDefaults.standard.array(forKey: pendingKey) as? [Data] ?? []
-        if !queued.contains(where: {
+        // HealthKit can finish AFTER the workout snapshot was first queued.
+        // Replace unsent content and enqueue the richer revision with the same ID.
+        queued.removeAll {
             (try? JSONDecoder().decode(WorkoutSession.self, from: $0))?.id == session.id
-        }) {
-            queued.append(data)
         }
+        queued.append(data)
         UserDefaults.standard.set(queued, forKey: pendingKey)
         flushPending()
     }
@@ -58,7 +59,16 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         for data in queued {
             WCSession.default.transferUserInfo(["session": data])
         }
-        UserDefaults.standard.removeObject(forKey: pendingKey)
+        // Keep a durable outbox until the iPhone acknowledges persistence.
+        // watchOS may deliver twice; the iPhone reconciles using workout.id.
+    }
+
+    func acknowledge(_ id: UUID) {
+        var queued = UserDefaults.standard.array(forKey: pendingKey) as? [Data] ?? []
+        queued.removeAll {
+            (try? JSONDecoder().decode(WorkoutSession.self, from: $0))?.id == id
+        }
+        UserDefaults.standard.set(queued, forKey: pendingKey)
     }
 
     private func requestToday() {
