@@ -1,17 +1,52 @@
 import ReperaDomain
 import SwiftUI
 
-/// Banner Pro reutilizable: verde Repera, mascota y CTA, sin datos simulados.
-/// Lo comparten Progreso, evolución de ejercicios y otros puntos de conversión.
+/// Banner Pro reutilizable. Cada contexto dispone de mascota y composición propias.
+/// El fondo verde se aplica solo al contenedor: nunca a los píxeles del personaje.
 struct ProTeaserCard: View {
+    enum Appearance {
+        case progress
+        case activity
+        case evolution
+
+        var pose: ReperaMascotPose {
+            switch self {
+            case .progress: .welcome
+            case .activity: .watch
+            case .evolution: .permissions
+            }
+        }
+
+        var imageAlignment: Alignment {
+            switch self {
+            case .progress: .bottomTrailing
+            case .activity: .topLeading
+            case .evolution: .topTrailing
+            }
+        }
+
+        var imageOnLeft: Bool { self == .activity }
+    }
+
     var title: String
     var bodyText: String
     var cta: String = "Ver con Repera Pro"
+    var appearance: Appearance = .evolution
     var action: () -> Void
+
+    private var mascot: some View {
+        ReperaMascot(pose: appearance.pose, maxHeight: 138)
+            .frame(width: 100, height: 154, alignment: appearance.imageAlignment)
+            .accessibilityHidden(true)
+    }
 
     var body: some View {
         Button(action: action) {
             HStack(alignment: .center, spacing: 12) {
+                if appearance.imageOnLeft {
+                    mascot
+                }
+
                 VStack(alignment: .leading, spacing: 9) {
                     Text("REPERA PRO")
                         .font(.system(size: 11, weight: .heavy, design: .rounded))
@@ -44,8 +79,9 @@ struct ProTeaserCard: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                ReperaMascot(pose: .hero, maxHeight: 140)
-                    .frame(width: 104)
+                if !appearance.imageOnLeft {
+                    mascot
+                }
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -110,7 +146,8 @@ struct FreeExerciseSummaryCard: View {
             ProTeaserCard(
                 title: "Tu evolución",
                 bodyText: "Consulta todas tus marcas, compara tus entrenamientos y descubre cómo has progresado con este ejercicio.",
-                cta: "Ver con Repera Pro"
+                cta: "Ver con Repera Pro",
+                appearance: .evolution
             ) {
                 subscriptions.presentPaywall(.exerciseEvolution, feature: .exerciseEvolution)
             }
