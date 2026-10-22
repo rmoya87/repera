@@ -655,9 +655,15 @@ struct SettingsView: View {
         }
 
         syncFeedback = nil
+        // Apple Salud se sincroniza independientemente de iCloud/Supabase.
+        // Así un fallo de red no bloquea el guardado de entrenos locales.
+        let pendingHealthWorkouts = await store.syncMissingWorkoutsToHealth()
+        let healthPendingDescription = pendingHealthWorkouts > 0
+            ? " · \(pendingHealthWorkouts) entrenamientos pendientes en Apple Salud"
+            : ""
         await store.refreshFromiCloud()
         guard store.syncPhase == .ready else {
-            syncFeedback = "No se ha confirmado iCloud."
+            syncFeedback = "No se ha confirmado iCloud." + healthPendingDescription
             return
         }
         if !businessAuth.isConnected {
@@ -667,7 +673,7 @@ struct SettingsView: View {
             }
         }
         guard businessAuth.isConnected else {
-            syncFeedback = "iCloud sincronizado. La sesión de Supabase no está disponible con esta cuenta Apple; vuelve a iniciar sesión para recuperar la conexión."
+            syncFeedback = "iCloud sincronizado. La sesión de Supabase no está disponible con esta cuenta Apple; vuelve a iniciar sesión para recuperar la conexión." + healthPendingDescription
             return
         }
         await businessAuth.syncPublicProfile(
@@ -694,6 +700,13 @@ struct SettingsView: View {
         // Perfil público es opcional: un error al subir una foto jamás bloquea
         // el historial deportivo. El diagnóstico se comunica en Cuenta.
         var incomplete: [String] = []
+        if pendingHealthWorkouts > 0 {
+            incomplete.append(
+                health.canWriteWorkouts
+                    ? "\(pendingHealthWorkouts) entrenamientos pendientes en Salud"
+                    : "Autoriza la escritura de entrenamientos en Apple Salud (\(pendingHealthWorkouts) pendientes)"
+            )
+        }
         if !workoutsUploaded {
             incomplete.append(workoutSync.lastError ?? "entrenamientos pendientes (iCloud o Supabase no están listos)")
         }
