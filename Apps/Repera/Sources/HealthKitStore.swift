@@ -970,6 +970,13 @@ final class HealthKitStore {
     }
 
     /// Filtrar tanto el bundle actual como posibles fuentes Repera antiguas.
+    /// El Watch guarda muestras reales de sensores. La versión iOS antigua
+    /// podía crear sesiones con kcal calculadas: no equiparar ambos orígenes.
+    nonisolated private static func isWatchRecordedSource(_ source: HKSource) -> Bool {
+        source.bundleIdentifier == "com.app.repera.watchkitapp"
+            || source.bundleIdentifier.hasPrefix("com.app.repera.watchkitapp.")
+    }
+
     nonisolated private static func isReperaSource(_ source: HKSource) -> Bool {
         source.bundleIdentifier == Bundle.main.bundleIdentifier
             || source.name.localizedCaseInsensitiveContains("repera")
@@ -980,7 +987,7 @@ final class HealthKitStore {
     nonisolated private static func measuredEnergyKcal(_ statistics: HKStatistics?) -> Double {
         guard let statistics else { return 0 }
         let kcal = (statistics.sources ?? []).reduce(0.0) { sum, source in
-            guard !isReperaSource(source) else { return sum }
+            guard !isReperaSource(source) || isWatchRecordedSource(source) else { return sum }
             return sum + (statistics.sumQuantity(for: source)?.doubleValue(for: .kilocalorie()) ?? 0)
         }
         return max(0, kcal)
@@ -1153,7 +1160,8 @@ final class HealthKitStore {
         // Una estimación antigua de Repera nunca prevalece sobre Apple Salud.
         // Incluso si se escribió como muestra en nuestro HKWorkout, se oculta.
         if let workout,
-           Self.isReperaSource(workout.sourceRevision.source) {
+           Self.isReperaSource(workout.sourceRevision.source),
+           !Self.isWatchRecordedSource(workout.sourceRevision.source) {
             extras.activeEnergyKcal = nil
         } else if let workoutUUID {
             extras.activeEnergyKcal = await externalWorkoutEnergyKcal(uuid: workoutUUID)
@@ -1466,7 +1474,8 @@ final class HealthKitStore {
     /// Sirve para no tratar como «verdad Apple» las kcal que Repera escribió mal (p. ej. 2 kcal ambiente).
     func externalWorkoutEnergyKcal(uuid: UUID) async -> Double? {
         guard let workout = await fetchWorkout(uuid: uuid) else { return nil }
-        if Self.isReperaSource(workout.sourceRevision.source) { return nil }
+        if Self.isReperaSource(workout.sourceRevision.source),
+           !Self.isWatchRecordedSource(workout.sourceRevision.source) { return nil }
         guard let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
               let burned = workout.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie()),
               burned > 0
@@ -1706,7 +1715,15 @@ final class HealthKitStore {
         var savedUUID: UUID?
 
         if let existing = apple.existingWorkout {
-            if Self.isReperaSource(existing.sourceRevision.source) {
+            if Self.isWatchRecordedSource(existing.sourceRevision.source) {
+                // El Watch ya guardó sensores auténticos: no crear un duplicado en iPhone.
+                verifiedKcal = await externalWorkoutEnergyKcal(uuid: existing.uuid) ?? 0
+                savedUUID = existing.uuid
+                resolvedStart = existing.startDate
+                resolvedEnd = existing.endDate
+                duration = existing.duration
+                await discardLocalBuilder()
+            } else if Self.isReperaSource(existing.sourceRevision.source) {
                 // Entreno que guardó Repera: sus kcal podrían ser estimaciones.
                 savedUUID = existing.uuid
                 await discardLocalBuilder()
