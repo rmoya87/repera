@@ -922,7 +922,7 @@ public enum SessionReviewEngine {
             // 5…9/10 indica exclusivamente cobertura del registro, NO que la
             // carga elegida o la técnica merezca una nota determinada.
             let registrationScore = Int((5.0 + 4.0 * coverage).rounded())
-            let minutes = Double(max(1, min(90, block.timeCapMinutes ?? block.rounds ?? 1)))
+            let minutes = Double(max(1, min(90, block.timeCapMinutes ?? 1)))
             others.append(RegisteredBlock(
                 title: block.title,
                 observed: observed,
