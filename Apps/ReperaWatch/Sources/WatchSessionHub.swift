@@ -236,7 +236,7 @@ final class WatchSessionHub: NSObject {
         let prescribed = exercise.plannedSets.indices.contains(index)
             ? exercise.plannedSets[index] : exercise.plannedSets.last
         ctrl.logSet(reps: reps, weightKg: workingWeightKg,
-                    rir: nil)
+                    quantityUnit: exercise.quantityUnit, rir: nil)
         controller = ctrl
         workingReps = 0
         repCounter.reset()
@@ -258,7 +258,8 @@ final class WatchSessionHub: NSObject {
     func confirmIntervalSet() {
         guard wodUsesSeries, currentIsWOD, !isPaused, !reviewingBlock,
               var ctrl = controller, ctrl.session.phase == .counting else { return }
-        ctrl.logSet(reps: max(0, workingReps), weightKg: workingWeightKg)
+        ctrl.logSet(reps: max(0, workingReps), weightKg: workingWeightKg,
+                    quantityUnit: ctrl.session.currentExercise?.quantityUnit)
         controller = ctrl
         workingReps = 0
         repCounter.reset()
@@ -572,10 +573,10 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
         }
     }
 
-    nonisolated func watchConnectivityDidReceiveToday(_ today: WorkoutSession?) {
+    nonisolated func watchConnectivityDidReceiveToday(_ today: WorkoutSession?, scheduledDay: Date?) {
         Task { @MainActor in
             self.todayPlan = today
-            self.todayUpdatedAt = Date()
+            self.todayUpdatedAt = scheduledDay
             self.save()
         }
     }
