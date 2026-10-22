@@ -10,7 +10,7 @@ class CrossFormatRatingContracts(unittest.TestCase):
         self.assertIn("wodEvidence(result: result, session: session, prior: prior)", s)
         self.assertIn("?? calibratedStimulusEvidence(result: result, session: session, prior: prior)", s)
         self.assertIn("tier: 1",s)
-        self.assertIn("tier: 2",s)
+        self.assertIn("tier = 2",s)
         self.assertIn("tier: 3",s)
 
     def test_same_exercise_can_compare_across_strength_emom_when_rir_known(self):
