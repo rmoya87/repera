@@ -655,13 +655,14 @@ struct SettingsView: View {
         }
 
         syncFeedback = nil
-        // Apple Salud se sincroniza independientemente de iCloud/Supabase.
-        // Así un fallo de red no bloquea el guardado de entrenos locales.
+        // Reconciliar iCloud primero para no reintroducir una copia anterior
+        // justo después de enlazar en Salud el UUID del entrenamiento.
+        await store.refreshFromiCloud()
+        // Salud no depende de que haya funcionado iCloud ni Supabase.
         let pendingHealthWorkouts = await store.syncMissingWorkoutsToHealth()
         let healthPendingDescription = pendingHealthWorkouts > 0
             ? " · \(pendingHealthWorkouts) entrenamientos pendientes en Apple Salud"
             : ""
-        await store.refreshFromiCloud()
         guard store.syncPhase == .ready else {
             syncFeedback = "No se ha confirmado iCloud." + healthPendingDescription
             return
