@@ -2043,6 +2043,7 @@ final class HealthKitStore {
         // Otro intento puede haber finalizado correctamente aunque no llegase
         // a guardarse el UUID en Repera. No volver a crear ese HKWorkout.
         if let existing = await existingReperaWorkout(sessionId: sessionId, start: start, end: end) {
+            if preferBuilder != nil { await discardLocalBuilder() }
             return existing.uuid
         }
         if let builder = preferBuilder {
