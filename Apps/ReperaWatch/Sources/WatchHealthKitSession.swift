@@ -68,7 +68,9 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     /// Keep the same configuration for intervals as Apple requires.
     func beginBlock(id: UUID, isInterval: Bool) {
         guard !finishing, id != lastRecordedBlockID else { return }
-        guard isRecording, let session = workout else {
+        // Activity transitions are valid only for a running workout.
+        // Switching blocks while paused queues the boundary until resume.
+        guard isRecording, let session = workout, session.state == .running else {
             pendingBlock = (id, isInterval)
             return
         }
@@ -219,8 +221,13 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
             self.pendingStateTransition = nil
             switch toState {
             case .paused:
+                guard workoutSession.state == .paused else { return }
                 self.onPauseStateChanged?(true)
             case .running:
+                guard workoutSession.state == .running else { return }
+                if let pending = self.pendingBlock {
+                    self.beginBlock(id: pending.id, isInterval: pending.isInterval)
+                }
                 self.onPauseStateChanged?(false)
             case .stopped:
                 self.endBuilder(at: date)
