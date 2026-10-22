@@ -1337,8 +1337,10 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
             // que toca. Con varios movimientos se alternan las estaciones,
             // no se prescriben 8 series a cada una para un Tabata de 8 rondas.
             let workIntervals = max(1, rounds ?? 8)
-            let station = movements.firstIndex(where: { $0.id == movement.id }) ?? 0
-            let count = max(0, (workIntervals + stationCount - 1 - station) / stationCount)
+            let activeStations = movements.filter { !$0.isRest }
+            let stationTotal = max(1, activeStations.count)
+            let station = activeStations.firstIndex(where: { $0.id == movement.id }) ?? 0
+            let count = max(0, (workIntervals + stationTotal - 1 - station) / stationTotal)
             return count > 0 ? movement.repeatingPlannedSets(count: count) : []
         case .forTime, .roundsForQuality:
             guard let n = rounds, n > 1 else { return base }
