@@ -59,7 +59,7 @@ struct WatchSessionView: View {
     /// Native watchOS navigation title sits under the system clock.
     /// Do not repeat it as a heading inside scrolling workout content.
     private var pageTitle: String {
-        if hub.presentedSummary != nil { return "¡Bien hecho!" }
+        if hub.presentedSummary != nil { return "Resultado" }
         if hub.reviewingBlock { return hub.current?.displayBlockHeader ?? "Resultado" }
         if let active = hub.active {
             return hub.current?.displayBlockHeader ?? active.title
@@ -400,21 +400,33 @@ struct WatchSessionView: View {
 
     private var seriesContent: some View {
         VStack(spacing: 8) {
-            HStack(alignment: .center, spacing: 9) {
-                if let exercise = hub.current?.exercise {
-                    WatchExerciseThumb(exercise: exercise, size: 53)
-                }
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(hub.current?.exercise.name ?? "Ejercicio")
-                        .font(.caption.weight(.semibold))
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(hub.setDraft.phase == .warmup ? "Calentamiento"
-                         : "Serie \(hub.displayedSetNumber) de \(max(1, hub.plannedSets))")
-                        .font(.caption2)
+            Button {
+                // Keep complete logging parity without occupying Play with
+                // RIR and advanced fields. Tap the exercise to edit them.
+                showSetDetails = true
+            } label: {
+                HStack(alignment: .center, spacing: 9) {
+                    if let exercise = hub.current?.exercise {
+                        WatchExerciseThumb(exercise: exercise, size: 53)
+                    }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(hub.current?.exercise.name ?? "Ejercicio")
+                            .font(.caption.weight(.semibold))
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(hub.setDraft.phase == .warmup ? "Calentamiento"
+                             : "Serie \(hub.displayedSetNumber) de \(max(1, hub.plannedSets))")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "ellipsis")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Spacer(minLength: 0)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Editar detalles del ejercicio y serie")
             .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 8) {
                 Button { hub.adjustReps(-1) } label: {
@@ -493,9 +505,8 @@ struct WatchSessionView: View {
                     down: { hub.adjustWeight(-0.5) },
                     up: { hub.adjustWeight(0.5) })
             }
-            rirControls
         case .repsOnly:
-            rirControls
+            EmptyView()
         case .repsAndTime:
             durationControls
         case .machineWork:
@@ -509,14 +520,6 @@ struct WatchSessionView: View {
             .buttonStyle(.bordered)
             durationControls
         }
-        Button {
-            showSetDetails = true
-        } label: {
-            Label("Más datos", systemImage: "slider.horizontal.3")
-                .font(.caption2)
-        }
-        .buttonStyle(.bordered)
-        .disabled(hub.isPaused)
     }
 
     private var rirControls: some View {
@@ -558,6 +561,7 @@ struct WatchSessionView: View {
             VStack(alignment: .leading, spacing: 9) {
                 Text("Detalles de serie").font(.headline)
                 if hub.loggingStyle.usesRIR {
+                    rirControls
                     Toggle("Al fallo", isOn: Binding(
                         get: { hub.setDraft.toFailure },
                         set: { hub.setToFailure($0) }
@@ -650,13 +654,8 @@ struct WatchSessionView: View {
     private func blockReviewView(_ session: WorkoutSession) -> some View {
         ScrollView {
             VStack(spacing: 10) {
-                Image(systemName: "checkmark.circle")
-                    .font(.title2)
-                    .foregroundStyle(accent)
-                Text("Confirmar bloque")
-                    .font(.headline)
-                Text(hub.current?.displayBlockHeader ?? "WOD")
-                    .font(.caption)
+                Text("Resultado del bloque")
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                 if hub.current?.wodFormat == .amrap ||
                     hub.current?.wodFormat == .deathBy ||
@@ -691,7 +690,7 @@ struct WatchSessionView: View {
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }
-                Button("Confirmar resultado") { hub.confirmBlock() }
+                Button("Terminar") { hub.confirmBlock() }
                     .buttonStyle(.borderedProminent)
                     .tint(accent)
                     .foregroundStyle(.black)
@@ -757,6 +756,18 @@ struct WatchSessionView: View {
                     .buttonStyle(.plain)
                     .accessibilityHint("Ir al bloque sin confirmar los ejercicios omitidos")
                 }
+                Button {
+                    showOutline = false
+                    hub.finishFromSummary()
+                } label: {
+                    Label("Finalizar entrenamiento", systemImage: "checkmark")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .tint(.red)
+                .accessibilityHint("Finaliza el entrenamiento guardando lo registrado")
+
+
             }
             .padding(.horizontal, 5)
         }
