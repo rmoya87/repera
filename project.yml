@@ -188,6 +188,8 @@ targets:
       SDKROOT: watchos
     dependencies:
       - package: ReperaDomain
+      - target: ReperaWatchWidget
+        embed: true
     info:
       path: Apps/ReperaWatch/Resources/Info.plist
       properties:
@@ -198,8 +200,33 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         WKApplication: true
         WKCompanionAppBundleIdentifier: com.app.repera
-        WKRunsIndependentlyOfCompanionApp: false
+        WKRunsIndependentlyOfCompanionApp: true
         NSMotionUsageDescription: Repera usa el movimiento del Watch para contar repeticiones durante el entrenamiento.
+
+  ReperaWatchWidget:
+    type: app-extension
+    platform: watchOS
+    sources:
+      - path: Apps/ReperaWatchWidget/ReperaWatchWidget.swift
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.app.repera.watchkitapp.widget
+      MARKETING_VERSION: "$(inherited)"
+      CURRENT_PROJECT_VERSION: "$(inherited)"
+      INFOPLIST_FILE: Apps/ReperaWatchWidget/Info.plist
+      GENERATE_INFOPLIST_FILE: false
+      CODE_SIGN_STYLE: Automatic
+      DEVELOPMENT_TEAM: 9DTDGQ8UUQ
+    dependencies:
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    info:
+      path: Apps/ReperaWatchWidget/Info.plist
+      properties:
+        CFBundleDisplayName: Repera
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
 
   ReperaUITests:
     type: bundle.ui-testing
