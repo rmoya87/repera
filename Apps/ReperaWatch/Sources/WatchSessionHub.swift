@@ -124,7 +124,12 @@ final class WatchSessionHub: NSObject {
         current?.loggedSets.filter { $0.phase == .work }.count ?? 0
     }
     var displayedSetNumber: Int {
-        (selectedSetIndex.map { $0 + 1 }) ?? min(completedSets + 1, max(1, plannedSets))
+        if let selectedSetIndex {
+            let work = current?.loggedSets.prefix(selectedSetIndex + 1)
+                .filter { $0.phase == .work }.count ?? 0
+            return max(1, work)
+        }
+        return min(completedWorkingSets + 1, max(1, plannedSets))
     }
     var isLastWorkoutExercise: Bool {
         guard let active else { return false }
@@ -326,7 +331,7 @@ final class WatchSessionHub: NSObject {
 
     func adjustWeight(_ delta: Double) {
         guard active?.phase == .counting, !isPaused, !reviewingBlock else { return }
-        workingWeightKg = max(0, ((workingWeightKg ?? 0) + delta) * 2).rounded() / 2
+        workingWeightKg = max(0, ((workingWeightKg ?? 0) + delta) * 10).rounded() / 10
         save()
     }
 
