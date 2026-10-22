@@ -111,7 +111,12 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
             errorHandler: { [weak self] error in
                 self?.logger.debug("Day refresh deferred: \(error.localizedDescription, privacy: .public)")
                 if WCSession.default.activationState == .activated {
-                    WCSession.default.transferUserInfo(request)
+                    // Construct a fresh idempotent request inside the callback;
+                    // don't capture a non-Sendable [String: Any] across actors.
+                    WCSession.default.transferUserInfo([
+                        "action": "requestToday",
+                        "actionId": UUID().uuidString
+                    ])
                 }
             }
         )
