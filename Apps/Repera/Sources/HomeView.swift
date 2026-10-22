@@ -139,23 +139,32 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    // Calendario y registro forman una única sección, sin tarjetas exteriores.
-                    VStack(alignment: .leading, spacing: 6) {
-                        // Extiende el gesto horizontal del carrusel de borde a borde.
+                    // Un único lienzo de borde a borde, independiente de las tarjetas
+                    // de Progreso, Actividad y Recuperación (que mantienen su margen).
+                    VStack(alignment: .leading, spacing: 12) {
                         weekSelectorCard
-                            .padding(.horizontal, -OG.pad)
                         dayWorkoutSection
+                            .padding(.horizontal, OG.pad)
                     }
+                    .padding(.top, 12)
+                    .padding(.bottom, 16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(OG.surface)
+
                     weeklyProgressCard
+                        .padding(.horizontal, OG.pad)
                     activityTodayCard
+                        .padding(.horizontal, OG.pad)
                     if calendar.isDateInToday(selectedDay) {
                         RecoveryHomeCard()
+                            .padding(.horizontal, OG.pad)
                     }
                     professionalSessionsForSelectedDay
+                        .padding(.horizontal, OG.pad)
                     confirmedBusinessBookingsCard
+                        .padding(.horizontal, OG.pad)
                 }
-                .padding(.horizontal, OG.pad)
-                .padding(.top, 0)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.bottom, 28)
             }
             .background(OG.bg)
@@ -871,41 +880,54 @@ struct HomeView: View {
                 // Planificado (aún sin registro): swipe borrar como en entrenos pasados.
                 plannedDayCard(planned)
             } else if !hasCompletedActivity {
-                // Día libre → añadir.
-                dayActionRow
+                Text("Sin entrenamientos programados")
+                    .font(.subheadline)
+                    .foregroundStyle(OG.label2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
             }
 
             ForEach(healthActivities) { activity in
                 healthActivityCard(activity)
             }
 
-            // Ya hay algo ese día → permitir sumar otro entreno.
-            if hasCompletedActivity, !hasActive {
+            // El botón siempre se distingue, haya o no un entreno anterior.
+            // Durante el entrenamiento en curso se conserva la acción Continuar.
+            if !hasActive {
                 addAnotherWorkoutButton
             }
         }
         .swipeActionsContainer()
     }
 
+    /// CTA inequívoco. Reutiliza el color exacto OG.accent (#30D158).
     private var addAnotherWorkoutButton: some View {
         Button {
             showCreatePlanForDay = true
         } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(OG.accent)
+            HStack(spacing: 12) {
+                Image(systemName: "plus")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(OG.onAccent)
                 Text("Añadir nuevo entreno")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(OG.label)
+                    .foregroundStyle(OG.onAccent)
                 Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(OG.onAccent.opacity(0.85))
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(OG.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.horizontal, 18)
+            .frame(maxWidth: .infinity, minHeight: 54)
+            .background(
+                OG.accent,
+                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Añadir nuevo entreno")
+        .accessibilityHint("Abre el menú para crear o importar un entrenamiento para el día seleccionado")
     }
 
     /// Entreno planificado del día (aún sin sesión hecha): mismo swipe de borrar que los registros.
@@ -1041,7 +1063,7 @@ struct HomeView: View {
             onOpen: open,
             onDelete: onDelete,
             deleteAccessibilityLabel: deleteLabel,
-            cardBackground: OG.surface,
+            cardBackground: .clear,
             title: title,
             chips: {
                 OGRegisterChipsRow(leadingInset: Self.chipsTitleLeading) {
@@ -1187,7 +1209,7 @@ struct HomeView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Color.clear, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func metricTile(title: String, value: String, icon: String, tint: Color) -> some View {
