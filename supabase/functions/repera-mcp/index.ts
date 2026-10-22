@@ -303,7 +303,7 @@ Deno.serve(async (request) => {
     if (canWrite) {
     server.registerTool("create_workout", {
       description: "Create one fully structured workout with typed strength/WOD blocks, sets, RIR, weights and schedule date. Repera imports it to Diario/Inicio, without overwriting existing day plans. Explicit user-requested write.",
-      inputSchema: workout.extend({ idempotencyKey: z.string().uuid().optional() }),
+      inputSchema: workout.safeExtend({ idempotencyKey: z.string().uuid().optional() }),
       annotations: { readOnlyHint: false, destructiveHint: false },
     }, async ({idempotencyKey,...args}) => reply(await saveWorkouts([args],undefined,idempotencyKey)));
     server.registerTool("create_training_plan", {
