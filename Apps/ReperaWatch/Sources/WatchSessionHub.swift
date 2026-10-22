@@ -137,6 +137,12 @@ final class WatchSessionHub: NSObject {
         if active?.phase == .counting && !isPaused { startMotion() }
     }
 
+    func recoverHealthSession() {
+        if let active, startedOnThisWatch {
+            health.recoverIfNeeded(id: active.id)
+        }
+    }
+
     func applicationWillResignActive() {
         tickClock()
         save()
