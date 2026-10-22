@@ -149,7 +149,9 @@ struct HomeView: View {
                     .padding(.top, 12)
                     .padding(.bottom, 16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(OG.surface)
+                    .background {
+                        OG.surface.ignoresSafeArea(edges: .horizontal)
+                    }
 
                     weeklyProgressCard
                         .padding(.horizontal, OG.pad)
