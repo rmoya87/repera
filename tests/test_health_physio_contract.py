@@ -33,8 +33,13 @@ class LocalHealthPhysiologyContract(unittest.TestCase):
             "/// Compat: redirige al detalle unificado.", 1
         )[0]
         self.assertIn('Label("Apple Salud", systemImage: "heart.text.square")', view)
-        self.assertIn('Toggle("Analizar descanso"', view)
-        self.assertIn('Toggle("Seguimiento del ciclo"', view)
+        self.assertNotIn('Toggle("Analizar descanso"', view)
+        self.assertNotIn('Toggle("Seguimiento del ciclo"', view)
+        self.assertNotIn("Toggle(", view)
+        self.assertIn("await health.requestAccess(includeAllOptional: true)", view)
+        self.assertIn("enableUnifiedHealthAnalysis()", source("Apps/Repera/Sources/HealthKitStore.swift"))
+        self.assertIn("sleepEnabled = true", screen)
+        self.assertIn("cycleEnabled = true", screen)
         self.assertNotIn('Text("Recuperación")', view)
         self.assertNotIn('Text("Permisos independientes', view)
         self.assertNotIn("Sueño, ciclo y constantes fisiológicas", view)
