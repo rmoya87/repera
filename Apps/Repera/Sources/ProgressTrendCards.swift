@@ -49,7 +49,12 @@ struct ProgressCardioChartCard: View {
             HStack(alignment: .firstTextBaseline) {
                 OGCardSectionTitle(title: "Cardio")
                 Spacer(minLength: 8)
-                if let stats = periodStats {
+                if prepared.isTeaserPreview {
+                    Text("Ejemplo")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(OG.label2)
+                        .accessibilityLabel("Ejemplo, datos ficticios")
+                } else if let stats = periodStats {
                     Text("Media \(Int(stats.avg.rounded())) lpm")
                         .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(OG.label2)
@@ -137,7 +142,7 @@ struct ProgressCardioChartCard: View {
                         .frame(maxWidth: .infinity)
                         .clipped()
 
-                        if let stats = periodStats {
+                        if !prepared.isTeaserPreview, let stats = periodStats {
                             HStack(spacing: 8) {
                                 cardioStatPill(title: "Mín", value: stats.min, tint: Self.minTint)
                                 cardioStatPill(title: "Media", value: stats.avg, tint: Self.avgTint)
@@ -215,7 +220,12 @@ struct ProgressCaloriesChartCard: View {
             HStack(alignment: .firstTextBaseline) {
                 OGCardSectionTitle(title: "Calorías")
                 Spacer(minLength: 8)
-                if total > 0 {
+                if prepared.isTeaserPreview {
+                    Text("Ejemplo")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(OG.label2)
+                        .accessibilityLabel("Ejemplo, datos ficticios")
+                } else if total > 0 {
                     Text("\(Int(total.rounded())) kcal")
                         .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(OG.label2)
@@ -389,7 +399,12 @@ struct ProgressWeightChartCard: View {
             HStack(alignment: .firstTextBaseline) {
                 OGCardSectionTitle(title: "Peso")
                 Spacer(minLength: 8)
-                if !statusLine.isEmpty {
+                if isTeaserPreview {
+                    Text("Ejemplo")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(OG.label2)
+                        .accessibilityLabel("Ejemplo, datos ficticios")
+                } else if !statusLine.isEmpty {
                     Text(statusLine)
                         .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(OG.label2)
