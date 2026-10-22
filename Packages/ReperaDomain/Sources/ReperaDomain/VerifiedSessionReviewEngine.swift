@@ -198,7 +198,7 @@ public enum VerifiedSessionReviewEngine {
         }
         guard perDay.count >= minimumPriorSessions else { return nil }
         let sortedValues = perDay.map(\.1).sorted()
-        let reference = sortedValues[sortedValues.count / 2]
+        let reference = median(sortedValues)
         guard reference > 0 else { return nil }
         let ratio = currentValue / reference
         return Evidence(
@@ -241,7 +241,7 @@ public enum VerifiedSessionReviewEngine {
         }
         guard refs.count >= minimumPriorSessions else { return nil }
         let values = refs.map(\.1).sorted()
-        let reference = values[values.count / 2]
+        let reference = median(values)
         guard reference > 0 else { return nil }
         let ratio = current / reference
         let minutes = Double(max(1, min(90, currentBlock.timeCapMinutes ?? 8)))
@@ -302,6 +302,14 @@ public enum VerifiedSessionReviewEngine {
             return Double(result.totalReps ?? 0)
         case .perMovementSets: return nil
         }
+    }
+
+    private static func median(_ sorted: [Double]) -> Double {
+        let mid = sorted.count / 2
+        if sorted.count.isMultiple(of: 2) {
+            return (sorted[mid - 1] + sorted[mid]) / 2
+        }
+        return sorted[mid]
     }
 
     private static func points(ratio: Double) -> Int {
