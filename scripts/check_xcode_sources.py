@@ -33,7 +33,7 @@ WATCH_REQUIRED = (
 
 
 def _watch_compile_sources(pbx: str) -> str:
-    """Read the Watch target\'s Sources phase, not just file references elsewhere."""
+    """Read the Watch target\'s Sources phase, not file references elsewhere."""
     native = re.search(
         r"/\* ReperaWatch \*/\s*=\s*\{\s*isa = PBXNativeTarget;(.*?)\n\s*\};",
         pbx, re.DOTALL,
@@ -83,14 +83,6 @@ def validate(root: Path) -> None:
         raise ValueError("No existe Repera.xcodeproj. Regenera con xcodegen generate --spec project.yml.")
 
     pbx = project.read_text(encoding="utf-8")
-    watch_sources = _watch_compile_sources(pbx)
-    for name in WATCH_REQUIRED:
-        if f"{name} in Sources" not in watch_sources:
-            raise ValueError(
-                f"ReperaWatch no compila {name}: falta en Build Phases → Compile Sources. "
-                "Cierra Xcode, regenera con xcodegen generate --spec project.yml "
-                "y vuelve a abrir Repera.xcodeproj."
-            )
     for name in REQUIRED:
         # A file reference alone is not enough: the Swift source must belong to
         # the app's Compile Sources phase, or references to its types will fail.
@@ -98,6 +90,15 @@ def validate(root: Path) -> None:
             raise ValueError(
                 f"Xcode utiliza un proyecto antiguo sin {name}. "
                 "Cierra Xcode y ejecuta xcodegen generate --spec project.yml."
+            )
+
+    watch_sources = _watch_compile_sources(pbx)
+    for name in WATCH_REQUIRED:
+        if f"{name} in Sources" not in watch_sources:
+            raise ValueError(
+                f"ReperaWatch no compila {name}: falta en Build Phases → Compile Sources. "
+                "Cierra Xcode, regenera con xcodegen generate --spec project.yml "
+                "y vuelve a abrir Repera.xcodeproj."
             )
 
 
