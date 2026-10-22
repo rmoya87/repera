@@ -591,6 +591,7 @@ struct DayEditorView: View {
     @FocusState private var focusedFormatField: OGSetFieldID?
     @State private var showsReorder = false
     @State private var completedDetails: WorkoutSession?
+    @State private var scaledInputDrafts: [String: String] = [:]
 
     /// La ruta de Historial abre directamente una sesión finalizada. El diseño
     /// no debe esperar a que onAppear inicialice el estado para saber si muestra
@@ -1571,7 +1572,7 @@ struct DayEditorView: View {
                 .foregroundStyle(OG.label2)
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("REPS REALES")
+                    Text(exercise.loggingStyle == .machineWork ? "CANTIDAD REAL" : "REPS REALES")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(OG.label3)
                     TextField("Según WOD", text: completedWODScaledValue(movementID: movementID, weight: false))
@@ -1604,8 +1605,12 @@ struct DayEditorView: View {
     }
 
     private func completedWODScaledValue(movementID: UUID, weight: Bool) -> Binding<String> {
-        Binding(
+        let key = movementID.uuidString + (weight ? "-kg" : "-reps")
+        return Binding(
             get: {
+                // Conservar la coma, el punto y los decimales a medio escribir.
+                // No volver a formatear desde el modelo al pulsar cada tecla.
+                if let draft = scaledInputDrafts[key] { return draft }
                 guard let entry = completedWorkoutDraft?.exercises.first(where: { $0.id == movementID }) else {
                     return ""
                 }
@@ -1615,6 +1620,7 @@ struct DayEditorView: View {
                 return entry.adaptedReps.map(String.init) ?? ""
             },
             set: { input in
+                scaledInputDrafts[key] = input
                 ensureCompletedWorkoutDraft()
                 guard let index = completedDetails?.exercises.firstIndex(where: { $0.id == movementID })
                 else { return }
