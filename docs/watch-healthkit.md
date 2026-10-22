@@ -81,6 +81,19 @@ Las miniaturas proceden de las **mismas ilustraciones originales de Repera iOS**
 
 El emulador no sustituye un Apple Watch real para probar Digital Crown, haptics, gestos a la vez que el scroll, FC en vivo y el cierre de una sesión HealthKit cuando la pantalla se apaga.
 
+## Controles y temporizadores: paridad visual y funcional con iOS
+
+- **Gestos:** se conserva el gesto horizontal para revisar y corregir series guardadas. Solo se elimina el texto visible «Desliza ← → para revisar otras series»; las acciones `swipeSet(-1/1)`, los identificadores de serie y la edición sin duplicados permanecen intactos.
+- **Verde oficial:** `WatchSessionView` usa el mismo `OG.accent` de iPhone, RGB 48/209/88 (`#30D158`). Todos los botones rellenos en ese verde muestran texto o símbolo **negro** (`OG.onAccent`). También el selector Cal/Metros seleccionado contrasta en negro.
+- **Pausa/reanudación:** botón circular de 42 × 42 puntos con fondo verde de Repera e icono negro. Deja más anchura disponible al cronómetro, ahora en fuente redondeada grande (43 pt); cambia de pausa a play según el estado.
+- **EMOM / Every X, Death By:** el número principal es la cuenta atrás del **intervalo vigente**, no el acumulado de la sesión. La leyenda «Intervalo N/M» o «Ronda N/M» aparece inmediatamente bajo la cifra. En la expiración se evita un intervalo N+1 ficticio.
+- **Tabata:** muestra el tiempo restante de la fase activa (trabajo o descanso) y justo debajo «Trabajo/Descanso · ronda N». Se respeta la secuencia de iPhone, incluida la fase de descanso de cada ronda.
+- **Circuito:** el cronómetro principal muestra la fase de estación o descanso entre rondas y la leyenda indica qué estación o ronda corresponde. Las pausas entre rondas se añaden a la planificación del tiempo como en iPhone, nunca tras la ronda final.
+- **AMRAP / Max Effort:** cuenta atrás del bloque, sin reloj de intervalo adicional. **For Time, AFAP, Chipper, Ladder y Buy-in/Cash-out:** cronómetro **ascendente**; el time cap es informativo y no termina ni recorta el resultado automáticamente. **Fuerza y restantes formatos:** cronómetro ascendente sin límite prescrito o cuenta atrás cuando la planificación establece límite, igual que la lógica del temporizador de iPhone.
+- **Descansos:** al estar en un formato por intervalos no se dibuja un segundo reloj grande de descanso, pues el principal ya corresponde a la fase vigente.
+
+Las comprobaciones estáticas están en `test_watch_timers_and_primary_buttons_match_ios` del contrato Watch. La validación completa de intervalos, estados HealthKit, haptics y tamaño del reloj sigue requiriendo compilar y probar en Xcode con watchOS 27.
+
 ## Inicio del reloj: control multimedia y sincronización
 
 El botón de música/podcast en el extremo superior derecho utiliza un círculo verde de acento con el símbolo `playpause.fill` **negro** y monocromo para mantener el contraste en la interfaz oscura watchOS. Abre `NowPlayingView` nativo.
