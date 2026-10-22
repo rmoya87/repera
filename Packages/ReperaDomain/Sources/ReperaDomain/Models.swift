@@ -15,6 +15,11 @@ public struct AppSettings: Codable, Sendable, Equatable {
     public var weekStartsOn: WeekStart
     public var defaultRestSeconds: Int
     public var bodyWeightGoalKg: Double?
+    /// Objetivos optativos. nil = sin fijar (no se inventan progresos).
+    public var dailyStepsGoal: Int?
+    public var dailyActiveEnergyGoalKcal: Int?
+    public var dailyWorkoutMinutesGoal: Int?
+    public var weeklyWorkoutGoal: Int?
     public var defaultProgression: ProgressionPolicy
     public var weightIncrementKg: Double
     public var barbellKg: Double
@@ -35,6 +40,10 @@ public struct AppSettings: Codable, Sendable, Equatable {
         weekStartsOn: WeekStart = .monday,
         defaultRestSeconds: Int = 90,
         bodyWeightGoalKg: Double? = nil,
+        dailyStepsGoal: Int? = nil,
+        dailyActiveEnergyGoalKcal: Int? = nil,
+        dailyWorkoutMinutesGoal: Int? = nil,
+        weeklyWorkoutGoal: Int? = nil,
         defaultProgression: ProgressionPolicy = .linear,
         weightIncrementKg: Double = 2.5,
         barbellKg: Double = PlateMath.defaultBarKg,
@@ -51,6 +60,10 @@ public struct AppSettings: Codable, Sendable, Equatable {
         self.weekStartsOn = weekStartsOn
         self.defaultRestSeconds = defaultRestSeconds
         self.bodyWeightGoalKg = bodyWeightGoalKg
+        self.dailyStepsGoal = dailyStepsGoal
+        self.dailyActiveEnergyGoalKcal = dailyActiveEnergyGoalKcal
+        self.dailyWorkoutMinutesGoal = dailyWorkoutMinutesGoal
+        self.weeklyWorkoutGoal = weeklyWorkoutGoal
         self.defaultProgression = defaultProgression
         self.weightIncrementKg = weightIncrementKg
         self.barbellKg = barbellKg
@@ -66,6 +79,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case weightUnit, weekStartsOn, defaultRestSeconds, bodyWeightGoalKg
+        case dailyStepsGoal, dailyActiveEnergyGoalKcal, dailyWorkoutMinutesGoal, weeklyWorkoutGoal
         case defaultProgression, weightIncrementKg, barbellKg, ownedPlatesKg, effortUnit
         case scheduleMode, restSoundEnabled, restHapticEnabled
         case profileAvatarJPEG, profileDisplayName, favoriteWODTemplateIds
@@ -77,6 +91,10 @@ public struct AppSettings: Codable, Sendable, Equatable {
         weekStartsOn = try c.decodeIfPresent(WeekStart.self, forKey: .weekStartsOn) ?? .monday
         defaultRestSeconds = try c.decodeIfPresent(Int.self, forKey: .defaultRestSeconds) ?? 90
         bodyWeightGoalKg = try c.decodeIfPresent(Double.self, forKey: .bodyWeightGoalKg)
+        dailyStepsGoal = try c.decodeIfPresent(Int.self, forKey: .dailyStepsGoal)
+        dailyActiveEnergyGoalKcal = try c.decodeIfPresent(Int.self, forKey: .dailyActiveEnergyGoalKcal)
+        dailyWorkoutMinutesGoal = try c.decodeIfPresent(Int.self, forKey: .dailyWorkoutMinutesGoal)
+        weeklyWorkoutGoal = try c.decodeIfPresent(Int.self, forKey: .weeklyWorkoutGoal)
         defaultProgression = try c.decodeIfPresent(ProgressionPolicy.self, forKey: .defaultProgression) ?? .linear
         weightIncrementKg = try c.decodeIfPresent(Double.self, forKey: .weightIncrementKg) ?? 2.5
         barbellKg = try c.decodeIfPresent(Double.self, forKey: .barbellKg) ?? PlateMath.defaultBarKg
