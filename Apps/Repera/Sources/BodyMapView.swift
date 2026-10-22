@@ -137,8 +137,11 @@ private struct BodySilhouetteView: View {
         ctx.translateBy(x: dx, y: dy)
         ctx.scaleBy(x: scale, y: scale)
 
-        for paths in view.inertPaths.values {
-            for cg in paths {
+        // Orden reproducible: el cuello se dibuja detrás y la cabeza limpia
+        // por encima. Las curvas faciales del SVG original se superponían
+        // entre sí y daban lugar a una silueta deformada.
+        for key in view.inertPaths.keys.sorted() where key != "head" {
+            for cg in view.inertPaths[key] ?? [] {
                 ctx.fill(Path(cg), with: .color(BodyMapPalette.silhouette))
             }
         }
@@ -152,6 +155,9 @@ private struct BodySilhouetteView: View {
                     ctx.stroke(p, with: .color(.white), lineWidth: 1.5 / scale)
                 }
             }
+        }
+        for cg in view.inertPaths["head"] ?? [] {
+            ctx.fill(Path(cg), with: .color(BodyMapPalette.silhouette))
         }
     }
 
@@ -211,6 +217,10 @@ final class CompiledBodyPaths: @unchecked Sendable {
         var inert: [String: [CGPath]] = [:]
         var muscles: [String: [CGPath]] = [:]
         for (slug, strings) in view.p {
+            // Los paths importados de rostro y pelo incluyen curvas/solapes que
+            // se leen como protuberancias a escala de iPhone. Se reemplazan por
+            // una cabeza neutra anatómica, sin alterar ningún grupo muscular.
+            if slug == "head" || slug == "hair" { continue }
             let paths = strings.compactMap { SVGPathParser.path(from: $0) }
             guard !paths.isEmpty else { continue }
             if MuscleTaxonomy.inert.contains(slug) {
@@ -219,6 +229,11 @@ final class CompiledBodyPaths: @unchecked Sendable {
                 muscles[slug] = paths
             }
         }
+        // Ambos viewBox comparten altura; solo cambia su origen horizontal.
+        if vb.width > 0 {
+            let headRect = CGRect(x: vb.midX - 57, y: vb.minY + 12, width: 114, height: 143)
+            inert["head"] = [CGPath(ellipseIn: headRect, transform: nil)]
+        }
         return CompiledBodyView(viewBox: vb, inertPaths: inert, musclePaths: muscles)
     }
 }
@@ -226,7 +241,7 @@ final class CompiledBodyPaths: @unchecked Sendable {
 private actor BodyPathsLoader {
     static let shared = BodyPathsLoader()
     /// Subir si cambia el parser (evita caché rota en sesiones de debug).
-    private static let cacheVersion = 2
+    private static let cacheVersion = 3
     private var cachedVersion = 0
     private var cache: CompiledBodyPaths?
 
