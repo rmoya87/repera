@@ -702,7 +702,8 @@ struct HealthRecoveryProgressView: View {
                 ProTeaserCard(
                     title: "Recuperación completa",
                     bodyText: "Tendencias de sueño, fases y consejos locales con Repera Pro.",
-                    cta: "Descubrir Repera Pro"
+                    cta: "Descubrir Repera Pro",
+                    appearance: .recovery
                 ) {
                     subscriptions.presentPaywall(.progress, feature: .advancedProgress)
                 }
