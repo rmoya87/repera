@@ -18,6 +18,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
     /// Objetivos optativos. nil = sin fijar (no se inventan progresos).
     public var dailyStepsGoal: Int?
     public var dailyActiveEnergyGoalKcal: Int?
+    public var dailyAverageHeartRateGoalBpm: Int?
     public var dailyWorkoutMinutesGoal: Int?
     public var weeklyWorkoutGoal: Int?
     public var defaultProgression: ProgressionPolicy
@@ -42,6 +43,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
         bodyWeightGoalKg: Double? = nil,
         dailyStepsGoal: Int? = nil,
         dailyActiveEnergyGoalKcal: Int? = nil,
+        dailyAverageHeartRateGoalBpm: Int? = nil,
         dailyWorkoutMinutesGoal: Int? = nil,
         weeklyWorkoutGoal: Int? = nil,
         defaultProgression: ProgressionPolicy = .linear,
@@ -62,6 +64,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
         self.bodyWeightGoalKg = bodyWeightGoalKg
         self.dailyStepsGoal = dailyStepsGoal
         self.dailyActiveEnergyGoalKcal = dailyActiveEnergyGoalKcal
+        self.dailyAverageHeartRateGoalBpm = dailyAverageHeartRateGoalBpm
         self.dailyWorkoutMinutesGoal = dailyWorkoutMinutesGoal
         self.weeklyWorkoutGoal = weeklyWorkoutGoal
         self.defaultProgression = defaultProgression
@@ -79,7 +82,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case weightUnit, weekStartsOn, defaultRestSeconds, bodyWeightGoalKg
-        case dailyStepsGoal, dailyActiveEnergyGoalKcal, dailyWorkoutMinutesGoal, weeklyWorkoutGoal
+        case dailyStepsGoal, dailyActiveEnergyGoalKcal, dailyAverageHeartRateGoalBpm, dailyWorkoutMinutesGoal, weeklyWorkoutGoal
         case defaultProgression, weightIncrementKg, barbellKg, ownedPlatesKg, effortUnit
         case scheduleMode, restSoundEnabled, restHapticEnabled
         case profileAvatarJPEG, profileDisplayName, favoriteWODTemplateIds
@@ -93,6 +96,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
         bodyWeightGoalKg = try c.decodeIfPresent(Double.self, forKey: .bodyWeightGoalKg)
         dailyStepsGoal = try c.decodeIfPresent(Int.self, forKey: .dailyStepsGoal)
         dailyActiveEnergyGoalKcal = try c.decodeIfPresent(Int.self, forKey: .dailyActiveEnergyGoalKcal)
+        dailyAverageHeartRateGoalBpm = try c.decodeIfPresent(Int.self, forKey: .dailyAverageHeartRateGoalBpm)
         dailyWorkoutMinutesGoal = try c.decodeIfPresent(Int.self, forKey: .dailyWorkoutMinutesGoal)
         weeklyWorkoutGoal = try c.decodeIfPresent(Int.self, forKey: .weeklyWorkoutGoal)
         defaultProgression = try c.decodeIfPresent(ProgressionPolicy.self, forKey: .defaultProgression) ?? .linear

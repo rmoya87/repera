@@ -339,6 +339,7 @@ extension View {
         _ title: String,
         subtitle: String? = nil,
         backgroundColor: Color? = nil,
+        underlayColor: Color? = nil,
         @ViewBuilder trailing: @escaping () -> some View
     ) -> some View {
         self
@@ -350,6 +351,12 @@ extension View {
                     backgroundColor: backgroundColor,
                     trailing: trailing
                 )
+                .background {
+                    // El topbar es transparente; el lienzo detrás es blanco.
+                    if let underlayColor {
+                        underlayColor.ignoresSafeArea(edges: .top)
+                    }
+                }
             }
     }
 
@@ -1006,6 +1013,7 @@ struct OGNumericTextField: UIViewRepresentable {
         weak var field: UITextField?
         fileprivate weak var pad: OGReperaNumericKeypad?
         private var suppressNextEndCommit = false
+        private var replaceDefaultZeroOnNextKey = false
 
         init(
             text: Binding<String>,
@@ -1024,6 +1032,7 @@ struct OGNumericTextField: UIViewRepresentable {
         }
 
         func textFieldDidBeginEditing(_ textField: UITextField) {
+            replaceDefaultZeroOnNextKey = textField.text == "0"
             onFocused()
             textField.selectAll(nil)
         }
@@ -1036,6 +1045,7 @@ struct OGNumericTextField: UIViewRepresentable {
         }
 
         func textFieldDidEndEditing(_ textField: UITextField) {
+            replaceDefaultZeroOnNextKey = false
             text.wrappedValue = textField.text ?? ""
             if suppressNextEndCommit {
                 suppressNextEndCommit = false
@@ -1090,6 +1100,16 @@ struct OGNumericTextField: UIViewRepresentable {
 
         @objc func keypadKey(_ sender: UIButton) {
             guard let field, let key = sender.accessibilityIdentifier else { return }
+            if replaceDefaultZeroOnNextKey {
+                replaceDefaultZeroOnNextKey = false
+                // La primera cifra reemplaza el cero inicial en el teclado UIKit.
+                if key == "point" || (key.count == 1 && key.first?.isNumber == true) {
+                    field.text = ""
+                    field.selectedTextRange = field.textRange(
+                        from: field.beginningOfDocument, to: field.endOfDocument
+                    )
+                }
+            }
             switch key {
             case "dismiss":
                 field.resignFirstResponder()
