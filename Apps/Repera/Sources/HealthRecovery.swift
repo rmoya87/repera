@@ -418,6 +418,7 @@ struct HealthRecoveryProgressView: View {
     @State private var recovery = HealthRecoveryStore.shared
     @State private var recoveryPoints: [TrainingRecoveryPoint] = []
     @State private var tomorrowRecovery: RecoveryEngine.TrainingReadiness?
+    @State private var appliedRecoveryKey: String = ""
     @Environment(ReperaStore.self) private var store
     @Environment(SubscriptionManager.self) private var subscriptions
 
@@ -430,15 +431,17 @@ struct HealthRecoveryProgressView: View {
     }
 
     private var trainingRecoveryRefreshKey: String {
-        "\(range.rawValue)|\(weekStartsOnMonday)|\(store.workoutsEpoch)|\(recovery.lastRefreshed?.timeIntervalSince1970 ?? 0)|\(recovery.sleepEnabled)"
+        "\(range.rawValue)|\(weekStartsOnMonday)|\(store.workoutsEpoch)|\(recovery.lastRefreshed?.timeIntervalSince1970 ?? 0)|\(recovery.sleepEnabled)|\(isPro)"
     }
 
     /// Cálculo fuera del MainActor para no bloquear el scroll de Progreso.
     /// Un punto representa la disposición estimada al despertar ese día.
     private func prepareTrainingRecovery() async {
+        let key = trainingRecoveryRefreshKey
         guard isPro, recovery.sleepEnabled else {
             recoveryPoints = []
             tomorrowRecovery = nil
+            appliedRecoveryKey = key
             return
         }
         let nights = recovery.nights
@@ -450,7 +453,7 @@ struct HealthRecoveryProgressView: View {
         let result = await Task.detached(priority: .userInitiated) {
             let calendar = Calendar.current
             let points: [TrainingRecoveryPoint] = nights.compactMap { night in
-                guard range.contains(night.date, weekStartsOnMonday: monday),
+                guard range.contains(night.date, now: now, weekStartsOnMonday: monday),
                       let morning = calendar.date(
                         bySettingHour: 9, minute: 0, second: 0, of: night.date
                       ), morning <= now,
@@ -465,7 +468,7 @@ struct HealthRecoveryProgressView: View {
             // Proyección condicionada, nunca un dato observado de mañana.
             let lastNight = nights.last
             let recentSleep = lastNight.flatMap { night -> Double? in
-                now.timeIntervalSince(night.date) <= 48 * 3600 ? night.hours : nil
+                (0...48 * 3600).contains(now.timeIntervalSince(night.date)) ? night.hours : nil
             }
             let tomorrowMorning = calendar.date(
                 byAdding: .day, value: 1, to: calendar.startOfDay(for: now)
@@ -488,6 +491,7 @@ struct HealthRecoveryProgressView: View {
         guard !Task.isCancelled else { return }
         recoveryPoints = result.0
         tomorrowRecovery = result.1
+        appliedRecoveryKey = key
     }
     private var hasCycleData: Bool { !recovery.menstrualDays.isEmpty }
 
@@ -577,7 +581,8 @@ struct HealthRecoveryProgressView: View {
 
             // Sueño y recuperación son indicadores distintos: sin datos,
             // no fabricar una falsa puntuación de disposición.
-            if isPro, (!recoveryPoints.isEmpty || tomorrowRecovery != nil) {
+            if isPro, appliedRecoveryKey == trainingRecoveryRefreshKey,
+               (!recoveryPoints.isEmpty || tomorrowRecovery != nil) {
                 trainingRecoveryCard
             }
 
