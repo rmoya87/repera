@@ -63,7 +63,7 @@ class ScaledWODContractTests(unittest.TestCase):
         self.assertIn("Versión adaptada", review)
         self.assertIn("partial / max(1, workPerRound)", review)
         self.assertIn("if !isScaled,", review)
-        self.assertIn("sessionReviewFormulaVersion = 7", store)
+        self.assertIn("sessionReviewFormulaVersion = 8", store)
         self.assertIn("exercise.adjustedSummaryLine", history)
 
 
