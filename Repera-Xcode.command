@@ -25,6 +25,12 @@ bash "$ROOT/scripts/update_repera_checkout.sh" "$ROOT"
 
 # AppleAuthStore.swift lives in Sources/Onboarding; the Python validator
 # checks nested paths. These newer stores are direct children of Sources/.
+# WatchHealthKitSession.swift must be present BEFORE XcodeGen refreshes target membership.
+if [[ ! -f "Apps/ReperaWatch/Sources/WatchHealthKitSession.swift" ]]; then
+  echo "ERROR: falta WatchHealthKitSession.swift en la copia local."
+  echo "Comprueba git status; actualiza con git pull --ff-only origin main sin perder cambios."
+  exit 1
+fi
 for source in BusinessAuthStore.swift BusinessDataStore.swift BusinessWorkoutSyncStore.swift AITrainingInboxStore.swift AIAccessView.swift AITrainingContextStore.swift AITrainingProgramsView.swift AIChangeRequestStore.swift; do
   if [[ ! -f "Apps/Repera/Sources/$source" ]]; then
     echo "ERROR: Falta $source en esta copia local de Repera."
@@ -49,5 +55,5 @@ python3 scripts/check_xcode_sources.py
 
 echo "Abriendo Repera.xcodeproj en Xcode..."
 open "$ROOT/Repera.xcodeproj"
-echo "El target Repera incluye los archivos de autenticación, sincronización y las nuevas fuentes IA."
+echo "Targets Repera y ReperaWatch actualizados: WatchHealthKitSession.swift figura en Compile Sources."
 echo "Puedes compilar con ⌘B y ejecutar con ⌘R."
