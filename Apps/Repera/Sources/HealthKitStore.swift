@@ -244,9 +244,9 @@ final class HealthKitStore {
             HKObjectType.workoutType(),
         ]
         read.insert(HKSeriesType.workoutRoute())
-        // Tapping the Apple Salud row explicitly requests the complete
-        // permission panel, including sleep and cycle, without silently
-        // turning on optional local analysis if the user had disabled it.
+        // Apple Salud is the sole place to request all available data
+        // types, including sleep and cycle. Only observations actually
+        // returned by HealthKit are used for local recovery analysis.
         let includeSleepInRequest = includeAllOptional
             || (includeSleep ?? HealthRecoveryStore.shared.shouldRequestSleepWithHealth)
         if includeSleepInRequest, let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) {
@@ -269,9 +269,12 @@ final class HealthKitStore {
             let status = try? await store.statusForAuthorizationRequest(toShare: share, read: read)
             try await store.requestAuthorization(toShare: share, read: read)
             permissionManagementRequiresSettings = includeAllOptional && status == .unnecessary
-            if includeSleepInRequest && !includeAllOptional {
-                // HealthKit no permite consultar si se ha concedido la lectura.
-                // Se registra la elección de solicitarla, nunca una concesión supuesta.
+            if includeAllOptional {
+                // This only enables local queries for user-requested Health
+                // types. Read access remains unobservable; declined types
+                // return no samples and never contribute to a score.
+                await HealthRecoveryStore.shared.enableUnifiedHealthAnalysis()
+            } else if includeSleepInRequest {
                 await HealthRecoveryStore.shared.acceptSleepFromHealthAuthorization()
             }
             refreshAuthorizationStatus()
