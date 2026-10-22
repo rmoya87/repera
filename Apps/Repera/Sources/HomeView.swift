@@ -101,21 +101,49 @@ struct HomeView: View {
         healthByDayKey[dayKey(selectedDay)] ?? []
     }
 
+    /// Reconciliación diaria sin duplicados: los entrenos de Repera aportan
+    /// duración registrada, los externos no solapados aportan su duración de Salud.
+    /// Cuando existe HKWorkout enlazado se usa su duración si coincide
+    /// razonablemente con el intervalo registrado; si está truncado no
+    /// sustituye una sesión completa por unos pocos minutos.
+    private var recordedDayWorkoutMinutes: Double {
+        let local = workoutsOnSelectedDay.reduce(0.0) { total, session in
+            let logged = max(0, session.displayDurationMinutes)
+            let measured = session.healthKitWorkoutUUID.flatMap {
+                health.verifiedWorkoutDurationMinutes[$0]
+            }
+            let resolved: Double
+            if let measured, measured > 0,
+               abs(measured - logged) <= max(5, logged * 0.25) {
+                resolved = measured
+            } else {
+                resolved = logged
+            }
+            return total + resolved
+        }
+        let external = healthMinutesByDayKey[dayKey(selectedDay)] ?? 0
+        return local + external
+    }
+
     private var dayHealth: HealthKitStore.DayMetrics {
         let key = dayKey(selectedDay)
+        let recordedMinutes = recordedDayWorkoutMinutes
         if calendar.isDateInToday(selectedDay) {
+            // La suma de Salud puede llegar tarde o estar incompleta. Nunca
+            // reemplazar 57 min registrados por una lectura parcial de 4 min,
+            // ni SUMAR ambos totales (duplicaría sesiones enlazadas).
+            let healthToday = todayHealthLive.workoutMinutes ?? health.workoutMinutesToday
+            let minutes = max(recordedMinutes, healthToday ?? 0)
             return HealthKitStore.DayMetrics(
                 activeEnergyKcal: todayHealthLive.activeEnergyKcal
                     ?? health.activeEnergyTodayKcal
                     ?? kcalByDayKey[key],
-                workoutMinutes: todayHealthLive.workoutMinutes
-                    ?? health.workoutMinutesToday
-                    ?? healthMinutesByDayKey[key]
+                workoutMinutes: minutes > 0 ? minutes : nil
             )
         }
         return HealthKitStore.DayMetrics(
             activeEnergyKcal: kcalByDayKey[key],
-            workoutMinutes: healthMinutesByDayKey[key]
+            workoutMinutes: recordedMinutes > 0 ? recordedMinutes : nil
         )
     }
 
