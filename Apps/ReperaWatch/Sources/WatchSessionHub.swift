@@ -68,6 +68,7 @@ final class WatchSessionHub: NSObject {
     }
     var current: SessionExercise? { active?.currentExercise }
     var currentIsWOD: Bool { current?.blockKind == .wod && current?.wodFormat != .strength }
+    var wodUsesSeries: Bool { [.emom, .tabata, .circuit].contains(current?.wodFormat) }
     var timeCapSeconds: Int {
         guard let exercise = current else { return 0 }
         if let minutes = exercise.blockTimeCapMinutes, minutes > 0 { return minutes * 60 }
@@ -231,6 +232,49 @@ final class WatchSessionHub: NSObject {
         checkpoint()
     }
 
+    /// EMOM/Tabata/circuit: each performed interval must be confirmed by the athlete.
+    /// The timer never manufactures a set or assumes a repetition took place.
+    func confirmIntervalSet() {
+        guard wodUsesSeries, currentIsWOD, !isPaused, !reviewingBlock,
+              var ctrl = controller, ctrl.session.phase == .counting else { return }
+        ctrl.logSet(reps: max(0, workingReps), weightKg: workingWeightKg)
+        controller = ctrl
+        workingReps = 0
+        repCounter.reset()
+        stopMotion()
+        if let exercise = current {
+            if exercise.wodFormat == .tabata {
+                restRemaining = max(0, exercise.blockRestSeconds ?? 10)
+            } else {
+                let length = max(1, exercise.blockIntervalSeconds ?? 60)
+                let remainder = blockElapsed % length
+                restRemaining = remainder == 0 ? 0 : length - remainder
+            }
+        }
+        if restRemaining == 0 { startMotion() }
+        WKInterfaceDevice.current().play(.success)
+        checkpoint()
+    }
+
+    func nextWODMovement() {
+        guard currentIsWOD, wodUsesSeries, !reviewingBlock,
+              let session = active, var ctrl = controller,
+              let currentID = current?.blockId else { return }
+        let members = session.exercises.indices.filter {
+            session.exercises[$0].blockId == currentID
+        }
+        guard members.count > 1, let position = members.firstIndex(of: session.currentIndex) else { return }
+        let next = members[(position + 1) % members.count]
+        ctrl.selectExercise(at: next)
+        ctrl.confirmCurrentExercise()
+        controller = ctrl
+        workingReps = 0
+        workingWeightKg = ctrl.session.currentExercise?.plannedSets.first?.targetWeightKg
+        repCounter.reset()
+        if restRemaining == 0 && !isPaused { startMotion() }
+        checkpoint()
+    }
+
     /// "Siguiente" is explicit; never manufacture a missing prescribed set.
     func advance() {
         guard var ctrl = controller, !isPaused, !reviewingBlock,
@@ -285,7 +329,7 @@ final class WatchSessionHub: NSObject {
         let score = WODBlockResult(id: id, format: format,
                                    totalReps: reps, elapsedSeconds: elapsed,
                                    roundsCompleted: rounds)
-        ctrl.recordWODResult(score)
+        if !wodUsesSeries { ctrl.recordWODResult(score) }
         _ = ctrl.finishCurrentBlock()
         controller = ctrl
         reviewingBlock = false
