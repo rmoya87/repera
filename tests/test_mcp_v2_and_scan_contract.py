@@ -60,7 +60,7 @@ class MCPV2Contracts(unittest.TestCase):
         self.assertIn("token_hash",migration)
         self.assertIn("relrowsecurity",migration)
         self.assertIn('token_prefix,created_at,expires_at,revoked_at,last_used_at,scopes',token_view)
-        self.assertRegex(token_view,r"tokens = items\\s+errorMessage = nil")
+        self.assertRegex(token_view,r"tokens = items\s+errorMessage = nil")
         self.assertIn(".refreshable { await refreshTokens() }",token_view)
 
     def test_no_silent_truncation_of_main_lists(self):
