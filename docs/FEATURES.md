@@ -152,6 +152,11 @@
 
 ## Salud (Apple)
 
+- **Permisos opcionales unificados:** Ajustes → Salud conectada → «Ampliar permisos para métricas deportivas» solicita en el panel nativo lectura de VFC/HRV (SDNN), frecuencia cardíaca en reposo, respiratoria, recuperación cardíaca a un minuto, SpO₂ y temperatura nocturna de muñeca. El sistema no revela qué permisos de lectura se rechazaron; si no hay muestras auténticas se indica ausencia de datos, nunca un valor 0.
+- **Recuperación fisiológica progresiva:** las muestras de HealthKit se leen localmente al abrir Progreso/Salud, sin persistirse en AppState, iCloud o Supabase. Cada indicador necesita siete días anteriores independientes dentro de 28 días; solo entonces una VFC significativamente reducida, FC de reposo elevada o respiración notablemente acelerada frente al patrón personal puede disminuir (máximo 1,8 puntos) la estimación de disposición para entrenar. La nota v11 del rendimiento se mantiene aislada de estas mediciones. Sueño y actividad reciente siguen siendo necesarios para generar la estimación; ausencia de constantes no resta puntos ni fabrica puntuaciones. Se excluyen muestras posteriores a las 07:00 del índice al despertar.
+- **Actividad: zonas cardíacas:** iOS 27 muestra, cuando HealthKit dispone del entrenamiento vinculado, los tiempos y porcentajes por zona según la configuración concreta del workout (automática, de usuario o de app). Se presenta una carga cardiovascular opcional de intensidad 0–10 **solo con ≥60% de duración cubierta**; no equivale a nota deportiva. Si no existen zonas de Apple, no se inventan límites basados en la edad. Las medidas y las curvas se muestran solo en el dispositivo.
+
+
 - Workouts externos → muestras diarias + estímulo muscular (`HealthMuscleMapper`) que alimenta **equilibrio/fatiga** y el heatmap; también en **Historial** (junto a Repera) y en la racha de Inicio.
 - FC por día (min/avg/max) para gráfica Cardio.
 - Energía activa diaria leída de HealthKit para Inicio y Progreso; se excluyen muestras cuyo origen es Repera porque versiones anteriores escribían estimaciones.
