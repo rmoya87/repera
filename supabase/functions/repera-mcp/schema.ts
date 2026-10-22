@@ -28,10 +28,77 @@ const movement = z.strictObject({
   scaleAlternative: z.string().max(180).optional(),
   explicitPlannedSets: z.array(plannedSet).max(30).optional(),
 });
-const wodFormat = z.enum([
+export const wodFormat = z.enum([
   "amrap", "emom", "forTime", "tabata", "chipper", "deathBy", "strength", "afap",
   "ladder", "partner", "buyInCashOut", "roundsForQuality", "circuit", "maxEffort",
 ]);
+// Contract shared by the MCP's format reference tool and incoming WOD plans.
+// Align values with ReperaDomain.WODFormat.resultCapture. These describe actual
+// persisted iOS results, not unimplemented fields or invented telemetry.
+export const wodFormatContract = {
+  amrap: {
+    resultCapture: "totalReps", primaryResult: "rounds_completed_plus_partial_reps",
+    timer: "countdown", details: "roundsCompleted = vueltas completas; totalReps = SOLO reps de la vuelta incompleta. No multiplicar ni sumar todas las reps a este campo.",
+  },
+  forTime: {
+    resultCapture: "elapsedTime", primaryResult: "elapsed_seconds",
+    timer: "countup_optional_time_cap", details: "RFT usa rounds como prescripción. elapsedSeconds es tiempo REAL; el time cap avisa, nunca reemplaza la marca.",
+  },
+  emom: {
+    resultCapture: "perMovementSets", primaryResult: "sets_and_repetitions_per_interval",
+    timer: "configured_intervals", details: "Cada Every X configura ventanas en segundos; el descanso es el tiempo sobrante dentro de la ventana. No crear un score global de rondas.",
+  },
+  tabata: {
+    resultCapture: "perMovementSets", primaryResult: "work_interval_results",
+    timer: "alternating_work_and_rest", details: "Por defecto 20s de trabajo + 10s de descanso × 8. Cada ventana de TRABAJO corresponde a registro por serie/movimiento; el descanso no es una serie.",
+    limitation: "Historial iOS actual: loggedSets por movimiento, sin intervalId persistente; no atribuir un log a un intervalo exacto sin evidencia.",
+  },
+  chipper: {
+    resultCapture: "elapsedTime", primaryResult: "elapsed_seconds",
+    timer: "countup", details: "Prescripción de movimientos en una pasada y resultado de tiempo total.",
+  },
+  afap: {
+    resultCapture: "elapsedTime", primaryResult: "elapsed_seconds",
+    timer: "countup", details: "La marca es el tiempo total para completar la prescripción.",
+  },
+  ladder: {
+    resultCapture: "elapsedTime", primaryResult: "elapsed_seconds",
+    timer: "countup", details: "La escalera/repScheme es prescripción; elapsedSeconds es la marca.",
+  },
+  buyInCashOut: {
+    resultCapture: "elapsedTime", primaryResult: "elapsed_seconds",
+    timer: "countup", details: "Tiempo del bloque completo, incluidas las partes buy-in y cash-out.",
+  },
+  strength: {
+    resultCapture: "perMovementSets", primaryResult: "sets_load_reps_rir",
+    timer: "optional_stopwatch", details: "Fuerza/Skill: cada serie conserva carga, reps y RIR, sin resultado global de rondas.",
+  },
+  deathBy: {
+    resultCapture: "totalReps", primaryResult: "rounds_completed_plus_partial_reps",
+    timer: "progressive_intervals", details: "roundsCompleted indica intervalos superados y totalReps las reps del intervalo incompleto. El reloj permite parar al fallar.",
+  },
+  maxEffort: {
+    resultCapture: "totalReps", primaryResult: "max_repetitions",
+    timer: "specific_countdown", details: "El score actual de Repera solo admite reps máximas (totalReps).",
+    limitation: "Una marca máxima en kg/calorías/metros aún no dispone de campo de score global en iOS. No inventarla ni convertirla en reps.",
+  },
+  circuit: {
+    resultCapture: "perMovementSets", primaryResult: "sets_per_station",
+    timer: "station_intervals_and_round_rests", details: "Registrar estación/movimiento por serie, con descansos configurables entre rondas.",
+  },
+  partner: {
+    resultCapture: "perMovementSets", primaryResult: "per_movement_sets",
+    timer: "optional_stopwatch", details: "YGIG/Partner se registra por movimientos y series según prescripción.",
+  },
+  roundsForQuality: {
+    resultCapture: "perMovementSets", primaryResult: "per_movement_sets",
+    timer: "optional_stopwatch", details: "Rounds for Quality prioriza calidad; no tratar rounds como AMRAP cronometrado.",
+  },
+} as const satisfies Record<z.infer<typeof wodFormat>, {
+  resultCapture: "totalReps" | "elapsedTime" | "perMovementSets";
+  primaryResult: string; timer: string; details: string; limitation?: string;
+}>;
+
 const block = z.strictObject({
   title: z.string().trim().min(1).max(100),
   kind: z.enum(["strength", "wod"]),
@@ -51,6 +118,9 @@ const block = z.strictObject({
   }
   if (b.kind === "wod" && (!b.wodFormat || b.movements.length === 0 || b.exercises.length > 0)) {
     ctx.addIssue({ code: "custom", message: "WOD blocks need format and movements" });
+  }
+  if (b.kind === "wod" && b.wodFormat === "amrap" && b.timeCapMinutes == null) {
+    ctx.addIssue({ code: "custom", path: ["timeCapMinutes"], message: "AMRAP requires a fixed countdown duration in minutes" });
   }
   if (b.kind === "wod" && b.wodFormat === "emom" && b.emomIntervalSeconds == null) {
     ctx.addIssue({ code: "custom", path: ["emomIntervalSeconds"], message: "EMOM requires its interval in seconds" });
