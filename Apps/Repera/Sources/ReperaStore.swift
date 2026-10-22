@@ -1302,37 +1302,65 @@ final class ReperaStore: NSObject {
     }
 
     func applyWatchSession(_ session: WorkoutSession) {
-        // A completed workout is immutable on replay: transferUserInfo can be retried.
         if session.phase == .finished {
-            if !state.workouts.contains(where: { $0.id == session.id }) {
-                var completed = session
-                if completed.appleDurationSeconds == nil, let start = completed.startedAt,
-                   let end = completed.finishedAt {
-                    completed.appleDurationSeconds = max(0, end.timeIntervalSince(start))
+            var changed = false
+            if let index = state.workouts.firstIndex(where: { $0.id == session.id }) {
+                // An earlier offline transfer may arrive before HealthKit finishes saving.
+                // Merge genuine Apple measurements into the SAME workout; never replace
+                // confirmed sets or user edits with a stale Watch snapshot.
+                var saved = state.workouts[index]
+                if let uuid = session.healthKitWorkoutUUID,
+                   saved.healthKitWorkoutUUID != uuid {
+                    saved.healthKitWorkoutUUID = uuid
+                    changed = true
                 }
+                if let energy = session.appleActiveEnergyKcal, energy > 0,
+                   saved.appleActiveEnergyKcal != energy {
+                    saved.appleActiveEnergyKcal = energy
+                    changed = true
+                }
+                if let duration = session.appleDurationSeconds, duration > 0,
+                   saved.appleDurationSeconds != duration {
+                    saved.appleDurationSeconds = duration
+                    changed = true
+                }
+                if let heartRate = session.appleAverageHeartRateBpm, heartRate > 0,
+                   saved.appleAverageHeartRateBpm != heartRate {
+                    saved.appleAverageHeartRateBpm = heartRate
+                    changed = true
+                }
+                if changed { upsertWorkout(saved) }
+            } else {
+                var completed = session
+                // No fabricated Health duration: displayDurationMinutes already
+                // provides the wall-clock fallback in the UI when HK is unavailable.
                 attachSessionReview(&completed, present: false)
                 upsertWorkout(completed)
                 if state.activeSession?.id == completed.id { state.activeSession = nil }
-                persistWorkouts()
-                let snapshot = state
-                Task { @MainActor in
-                    await LocalStore.shared.persistAndFlush(snapshot)
-                    // Acknowledge only after the iPhone has committed the workout to disk.
-                    guard LocalStore.shared.lastPersistenceError == nil else { return }
-                    self.lastWatchAcknowledgedSession = session.id
-                    self.pushActiveToWatch(immediate: true)
-                    if BusinessAuthStore.shared.isConnected {
-                        _ = await BusinessWorkoutSyncStore.shared.sync(store: self)
-                    }
+                changed = true
+            }
+
+            if changed { persistWorkouts() }
+            let snapshot = state
+            Task { @MainActor in
+                await LocalStore.shared.persistAndFlush(snapshot)
+                // The acknowledgment means the phone has persisted it, NOT that
+                // Supabase has completed or that the Health sample is yet visible.
+                guard LocalStore.shared.lastPersistenceError == nil else { return }
+                self.lastWatchAcknowledgedSession = session.id
+                self.pushActiveToWatch(immediate: true)
+                if changed && BusinessAuthStore.shared.isConnected {
+                    _ = await BusinessWorkoutSyncStore.shared.sync(store: self)
                 }
-            } else {
-                // Existing finished session: an earlier transfer was already persisted.
-                lastWatchAcknowledgedSession = session.id
-                pushActiveToWatch(immediate: true)
+                if changed, session.healthKitWorkoutUUID != nil {
+                    await HealthKitStore.shared.refreshVerifiedWorkoutEnergy(
+                        for: self.state.workouts
+                    )
+                }
             }
             return
         }
-        // Never replace a different phone-controlled workout or a previously finished one.
+        // Never overwrite another active iPhone workout or resurrect a completed one.
         guard !state.workouts.contains(where: { $0.id == session.id }),
               state.activeSession == nil || state.activeSession?.id == session.id
         else { return }
@@ -1340,7 +1368,6 @@ final class ReperaStore: NSObject {
         persist()
         pushActiveToWatch(immediate: true)
     }
-
 
     /// Merge-only recovery from authenticated Supabase, after iCloud recovery.
     /// Never replaces an existing local workout, active session or local settings.
