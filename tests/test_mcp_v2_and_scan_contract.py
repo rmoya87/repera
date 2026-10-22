@@ -50,6 +50,19 @@ class MCPV2Contracts(unittest.TestCase):
         self.assertIn("ai_access_tokens_scope_vocabulary",
                       read("supabase/migrations/20261022004000_ai_pat_scopes.sql"))
 
+    def test_ai_access_tokens_grants_new_scopes_without_exposing_secrets(self):
+        migration=read("supabase/migrations/20261022070000_ai_access_tokens_scopes_column_grant.sql")
+        token_view=read("Apps/Repera/Sources/AIAccessView.swift")
+        self.assertIn("GRANT SELECT (scopes)",migration)
+        self.assertIn("TO authenticated",migration)
+        self.assertNotIn("GRANT SELECT ON",migration)
+        self.assertNotIn("GRANT ALL",migration)
+        self.assertIn("token_hash",migration)
+        self.assertIn("relrowsecurity",migration)
+        self.assertIn('token_prefix,created_at,expires_at,revoked_at,last_used_at,scopes',token_view)
+        self.assertRegex(token_view,r"tokens = items\s+errorMessage = nil")
+        self.assertIn(".refreshable { await refreshTokens() }",token_view)
+
     def test_no_silent_truncation_of_main_lists(self):
         index=read("supabase/functions/repera-mcp/index.ts")
         coach=read("supabase/functions/repera-mcp/coach.ts")
