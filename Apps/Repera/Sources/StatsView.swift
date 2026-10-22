@@ -12,6 +12,7 @@ struct StatsView: View {
     @State private var heatmapMetric: HeatmapMetric = .time
     @State private var showRangePicker = false
     @State private var topic: ProgressTopic = .training
+    @Namespace private var topicSelectionNamespace
 
     private enum ProgressTopic: String, CaseIterable {
         case training = "Entreno"
@@ -115,17 +116,41 @@ struct StatsView: View {
                         .padding(.top, 0)
                         .padding(.bottom, 28)
                     } header: {
-                        Picker("Categoría", selection: $topic) {
+                        // El Picker segmentado de UIKit pinta un track gris opaco.
+                        // Un único glass track deja ver el contenido desenfocado
+                        // también detrás de las pestañas no seleccionadas.
+                        HStack(spacing: 2) {
                             ForEach(ProgressTopic.allCases, id: \.self) { option in
-                                Text(option.rawValue).tag(option)
+                                Button {
+                                    topic = option
+                                } label: {
+                                    Text(option.rawValue)
+                                        .font(.system(size: 15, weight: topic == option ? .semibold : .medium))
+                                        .foregroundStyle(OG.label)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 36)
+                                        .background {
+                                            if topic == option {
+                                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                    .fill(OG.surface.opacity(0.85))
+                                                    .matchedGeometryEffect(
+                                                        id: "selectedProgressTopic",
+                                                        in: topicSelectionNamespace
+                                                    )
+                                            }
+                                        }
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityAddTraits(topic == option ? .isSelected : [])
                             }
                         }
-                        .pickerStyle(.segmented)
+                        .padding(3)
+                        .glassEffect(.regular, in: .rect(cornerRadius: 18))
+                        .animation(.smooth(duration: 0.2), value: topic)
                         .padding(.horizontal, OG.pad)
                         .padding(.top, 4)
                         .padding(.bottom, 10)
-                        // Sin fondo: el selector mantiene el mismo aspecto transparente
-                        // que la cabecera mientras permanece anclado al hacer scroll.
                     }
                 }
             }
