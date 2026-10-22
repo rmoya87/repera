@@ -740,6 +740,94 @@ struct HealthRecoveryProgressView: View {
         }
     }
 
+    // MARK: - Recuperación para entrenar, independiente del sueño
+
+    private var trainingRecoveryCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            OGCardSectionTitle(title: "Recuperación para entrenar")
+            OGCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let outlook = tomorrowRecovery {
+                        HStack(alignment: .top, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Orientación para mañana")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(OG.label2)
+                                Text(outlook.advice.rawValue)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(OG.label)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Spacer(minLength: 4)
+                            Text(String(format: "%.1f/10", outlook.score))
+                                .font(.system(size: 23, weight: .bold, design: .rounded).monospacedDigit())
+                                .foregroundStyle(
+                                    outlook.score >= 7.5 ? OG.accent :
+                                    (outlook.score >= 5.5 ? OG.orange : OG.red)
+                                )
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                        Text("Proyección si esta noche duermes como la última noche registrada y no realizas otra sesión antes de mañana.")
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                    }
+
+                    if recoveryPoints.count >= 2 {
+                        Chart(recoveryPoints) { point in
+                            LineMark(
+                                x: .value("Día", point.date),
+                                y: .value("Recuperación", point.score)
+                            )
+                            .interpolationMethod(.linear)
+                            .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                            .foregroundStyle(OG.accent)
+
+                            PointMark(
+                                x: .value("Día", point.date),
+                                y: .value("Recuperación", point.score)
+                            )
+                            .foregroundStyle(
+                                point.score >= 7.5 ? OG.accent :
+                                (point.score >= 5.5 ? OG.orange : OG.red)
+                            )
+                            .symbolSize(42)
+                        }
+                        .chartYScale(domain: 0.0...10.0)
+                        .chartYAxis {
+                            AxisMarks(position: .leading, values: [0.0, 5.0, 10.0])
+                        }
+                        .chartXAxis {
+                            AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                                AxisGridLine()
+                                AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+                            }
+                        }
+                        .frame(height: 162)
+
+                        HStack {
+                            Text("Evolución al despertar")
+                            Spacer()
+                            if let last = recoveryPoints.last {
+                                Text(String(format: "%.1f/10", last.score))
+                                    .monospacedDigit()
+                            }
+                        }
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(OG.label2)
+                    } else if let latest = recoveryPoints.last {
+                        Text(String(format: "Última recuperación estimada: %.1f/10", latest.score))
+                            .font(.footnote)
+                            .foregroundStyle(OG.label2)
+                    }
+                    Text("Estimación a partir de carga y fatiga muscular recientes y sueño observado. No mide la recuperación fisiológica ni sustituye tus sensaciones, dolor o enfermedad.")
+                        .font(.caption)
+                        .foregroundStyle(OG.label3)
+                }
+            }
+        }
+    }
+
     private func sleepNightCard(
         hours: Double?,
         hoursCaption: String,
