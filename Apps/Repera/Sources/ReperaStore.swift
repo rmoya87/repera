@@ -1724,8 +1724,12 @@ final class ReperaStore: NSObject {
         secondaryMuscles: [String] = [],
         bodyPart: String? = nil,
         detailDescription: String? = nil,
-        instructions: [String] = []
+        instructions: [String] = [],
+        id: UUID = UUID()
     ) -> Bool {
+        if state.exercises.contains(where: { $0.id == id && $0.isCustom }) {
+            return true // Accepted change awaiting server ACK: idempotent replay.
+        }
         let customCount = state.exercises.filter(\.isCustom).count
         var policy = featureAccess?() ?? FeatureAccessPolicy()
         policy.customExerciseCount = customCount
@@ -1736,6 +1740,7 @@ final class ReperaStore: NSObject {
         }
         lastAccessDenial = nil
         let exercise = Exercise(
+            id: id,
             name: name,
             muscleGroup: muscleGroup,
             equipment: equipment,
@@ -1747,6 +1752,26 @@ final class ReperaStore: NSObject {
             instructions: instructions
         )
         state.exercises.append(exercise)
+        catalogEpoch &+= 1
+        persist()
+        return true
+    }
+
+    /// Owner-confirmed MCP edit; never mutates a curated catalog exercise.
+    @discardableResult
+    func updateCustomExercise(
+        id: UUID, name: String, muscleGroup: String,
+        equipment: String?, targetMuscle: String?, secondaryMuscles: [String]
+    ) -> Bool {
+        guard let index = state.exercises.firstIndex(where: { $0.id == id && $0.isCustom })
+        else { return false }
+        var exercise = state.exercises[index]
+        exercise.name = name
+        exercise.muscleGroup = muscleGroup
+        exercise.equipment = equipment
+        exercise.targetMuscle = targetMuscle
+        exercise.secondaryMuscles = secondaryMuscles
+        state.exercises[index] = exercise
         catalogEpoch &+= 1
         persist()
         return true
