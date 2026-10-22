@@ -174,6 +174,11 @@ final class WatchSessionHub: NSObject {
         }
     }
 
+    /// Refresh the prescription without touching an offline workout in progress.
+    func refreshToday() {
+        connectivity.refreshToday()
+    }
+
     func applicationWillResignActive() {
         tickClock()
         save()
