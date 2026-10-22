@@ -124,7 +124,7 @@ struct StatsView: View {
                         }
                         .pickerStyle(.segmented)
                         .controlSize(.large)
-                        .glassEffect(.regular, in: .rect(cornerRadius: 18))
+                        .glassEffect(.regular, in: .capsule)
                         .padding(.horizontal, OG.pad)
                         .padding(.top, 4)
                         .padding(.bottom, 10)
@@ -334,14 +334,11 @@ struct StatsView: View {
     private var freeHealthPreview: some View {
         let sample = ProgressPreparedCharts.teaserSample(weekStartsOnMonday: mondayFirst)
         VStack(alignment: .leading, spacing: 12) {
-            Text("Así se vería con Pro")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(OG.label2)
             ProgressCardioChartCard(prepared: sample)
             ProgressCaloriesChartCard(prepared: sample)
             ProgressWeightChartCard(
                 entries: [],
-                goalKg: store.state.settings.bodyWeightGoalKg ?? 75,
+                goalKg: nil,
                 range: .week,
                 weekStartsOnMonday: mondayFirst,
                 preparedPoints: ProgressPreparedCharts.teaserWeightPoints(),
@@ -350,7 +347,7 @@ struct StatsView: View {
         }
         .opacity(0.88)
         .allowsHitTesting(false)
-        .accessibilityLabel("Vista de ejemplo de métricas de actividad")
+        .accessibilityLabel("Gráficas de ejemplo de actividad. Los valores no son datos reales.")
     }
 
     private func schedulePrepare(reason: String) {
