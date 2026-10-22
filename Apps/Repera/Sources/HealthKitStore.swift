@@ -202,6 +202,9 @@ final class HealthKitStore {
     var recentDailyHeartRate: [DailyHeartRatePoint] = []
     /// kcal activas diarias cacheadas para Progreso.
     var recentDailyActiveEnergy: [DailyActiveEnergyPoint] = []
+    /// Minutos de HKWorkout comprobados por UUID, incluidos entrenos escritos por Repera.
+    /// Una muestra ausente no equivale a una sesión de cero minutos.
+    private(set) var verifiedWorkoutDurationMinutes: [UUID: Double] = [:]
     /// Monotonic bump whenever progressive Health arrays are committed or invalidated.
     private(set) var healthDataRevision: Int = 0
 
@@ -1444,22 +1447,34 @@ final class HealthKitStore {
         }
     }
 
-    /// Consulta los UUID enlazados y solo publica las kcal que Salud ha registrado
-    /// en un workout externo. Los UUID propios nunca producen chips de calorías.
+    /// Consulta una vez los UUID enlazados: duración auténtica para Inicio y
+    /// energía verificada solo cuando la fuente es Watch/Salud ajena a Repera.
     func refreshVerifiedWorkoutEnergy(for sessions: [WorkoutSession]) async {
         guard isAvailable else {
             verifiedWorkoutEnergyKcal = [:]
+            verifiedWorkoutDurationMinutes = [:]
             return
         }
         let uuids = Set(sessions.compactMap(\.healthKitWorkoutUUID))
         var verified: [UUID: Double] = [:]
+        var durations: [UUID: Double] = [:]
+        let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)
         for uuid in uuids {
             if Task.isCancelled { return }
-            if let kcal = await externalWorkoutEnergyKcal(uuid: uuid) {
-                verified[uuid] = kcal
+            guard let workout = await fetchWorkout(uuid: uuid) else { continue }
+            if workout.duration > 0 {
+                durations[uuid] = workout.duration / 60
             }
+            guard !Self.isReperaSource(workout.sourceRevision.source),
+                  let energyType,
+                  let kcal = workout.statistics(for: energyType)?
+                    .sumQuantity()?.doubleValue(for: .kilocalorie()),
+                  kcal > 0 else { continue }
+            verified[uuid] = kcal
         }
+        guard !Task.isCancelled else { return }
         verifiedWorkoutEnergyKcal = verified
+        verifiedWorkoutDurationMinutes = durations
     }
 
     /// kcal de un workout de Salud **ajeno** (Watch / otra app). `nil` si es nuestro o no hay energía.
