@@ -1015,6 +1015,16 @@ struct WorkoutView: View {
                 }
                 .buttonStyle(.bordered)
                 .tint(OG.accent)
+                Button {
+                    clock.stop()
+                    runningTimerBlockID = nil
+                } label: {
+                    Image(systemName: "stop.fill")
+                        .frame(minWidth: 32, minHeight: 32)
+                }
+                .buttonStyle(.bordered)
+                .tint(OG.label2)
+                .accessibilityLabel("Detener temporizador")
             }
             .padding(12)
             .background(OG.surface, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
