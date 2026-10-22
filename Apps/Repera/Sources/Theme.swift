@@ -690,8 +690,15 @@ struct OGRepeatStepper: View {
                 text: $draft,
                 allowsDecimal: keyboard == .decimalPad || keyboard == .numbersAndPunctuation,
                 textAlignment: .center,
+                onFocusLost: { commitEdit() },
                 onCommit: { commitEdit() }
             )
+            .onChange(of: draft) { _, value in
+                // Mantener el stepper actualizado incluso sin pulsar ✓.
+                if editing {
+                    onCommitText(value.trimmingCharacters(in: .whitespacesAndNewlines))
+                }
+            }
             .font(.system(size: 18, weight: .semibold).monospacedDigit())
             .frame(maxWidth: .infinity)
             .frame(height: controlHeight)
@@ -1117,7 +1124,7 @@ fileprivate final class OGReperaNumericKeypad: UIInputView {
             case "submit":
                 let isNext = actionTitle != "✓" && actionTitle.lowercased() != "listo"
                 button.backgroundColor = isNext
-                    ? UIColor(red: 0.03, green: 0.53, blue: 1.0, alpha: 1)
+                    ? .black
                     : UIColor(red: 0.10, green: 0.79, blue: 0.33, alpha: 1)
                 button.tintColor = .white
                 button.setImage(UIImage(systemName: isNext ? "arrow.right" : "checkmark"), for: .normal)
@@ -1306,6 +1313,8 @@ struct OGSetEntryRow: View {
     var previous: String?
     var firstValue: String
     var secondValue: String? = nil
+    /// Primer campo editable de la siguiente serie (si existe).
+    var nextEditableRowID: UUID? = nil
     var firstAllowsDecimal = true
     var secondAllowsDecimal = false
     var enabled = true
@@ -1340,7 +1349,9 @@ struct OGSetEntryRow: View {
                 display: firstValue,
                 allowsDecimal: firstAllowsDecimal,
                 fieldID: OGSetFieldID(rowID: rowID, column: 0),
-                nextID: secondValue == nil ? nil : OGSetFieldID(rowID: rowID, column: 1),
+                nextID: secondValue == nil
+                    ? nextEditableRowID.map { OGSetFieldID(rowID: $0, column: 0) }
+                    : OGSetFieldID(rowID: rowID, column: 1),
                 enabled: enabled && !completed,
                 focus: focus,
                 onCommit: onFirstCommit,
@@ -1353,7 +1364,7 @@ struct OGSetEntryRow: View {
                     display: secondValue,
                     allowsDecimal: secondAllowsDecimal,
                     fieldID: OGSetFieldID(rowID: rowID, column: 1),
-                    nextID: nil,
+                    nextID: nextEditableRowID.map { OGSetFieldID(rowID: $0, column: 0) },
                     enabled: enabled && !completed,
                     focus: focus,
                     onCommit: onSecondCommit,
@@ -1464,7 +1475,16 @@ private struct OGSetNumericCell: View {
                     || (allowsDecimal && ($0 == "." || $0 == ","))
                     || (display.contains(":") && $0 == ":")
             }
-            if valid != value { draft = valid }
+            if valid != value {
+                draft = valid
+                return
+            }
+            // La cifra se incorpora al modelo en cada pulsación, no únicamente
+            // con la acción del teclado. Esto evita pérdidas al tocar otra celda
+            // o al marcar/desmarcar el check de una serie.
+            if focus.wrappedValue == fieldID {
+                onCommit(valid.trimmingCharacters(in: .whitespacesAndNewlines))
+            }
         }
     }
 
@@ -1531,7 +1551,13 @@ struct OGFormatNumberField: View {
         }
         .onChange(of: draft) { _, text in
             let cleaned = text.filter { $0.isNumber }
-            if cleaned != text { draft = cleaned }
+            if cleaned != text {
+                draft = cleaned
+                return
+            }
+            if focus.wrappedValue == fieldID, let entered = Int(cleaned) {
+                value = min(range.upperBound, max(range.lowerBound, entered))
+            }
         }
     }
 
