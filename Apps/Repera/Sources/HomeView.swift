@@ -12,10 +12,11 @@ struct HomeView: View {
     var onStartRoutine: (Routine) -> Void = { _ in }
     var onGoPlan: () -> Void
 
-    /// 0 = semana actual; negativo = pasadas; positivo = futuras. Carrusel horizontal.
+    /// La semana seleccionada gobierna el resumen, no la posición del scroll horizontal.
     @State private var weekOffset = 0
-    /// Rango de páginas del carrusel (±1 año).
+    /// Un año a cada lado del presente, con desplazamiento continuo día a día.
     private static let weekCarouselRadius = 52
+    @State private var calendarScrollID: String?
     @ScaledMetric(relativeTo: .body) private var weekCarouselHeight: CGFloat = 72
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: Date())
     /// Live refine for **today** only (HK query). Past days use bucket metrics — never wait on HealthKit to paint.
@@ -39,7 +40,7 @@ struct HomeView: View {
     @State private var prCountBySessionId: [UUID: Int] = [:]
     /// Semana / racha precalculados — cambiar de día no recalcula dots ni streak.
     @State private var cachedWeekDays: [DayCell] = []
-    @State private var cachedWeekMonthTitle = "—"
+    @State private var cachedCalendarDays: [DayCell] = []
     @State private var cachedStreakWeeks = 0
     @State private var cachedStreakWeekDone = 0
     @State private var cachedStreakPlanned = 0
@@ -210,13 +211,17 @@ struct HomeView: View {
                 rebuildWeekChrome()
             }
             .onChange(of: selectedDay) { _, newDay in
+                // Al elegir un cuadrado, el progreso semanal sigue esa fecha.
+                let newOffset = weekOffset(for: newDay)
+                if weekOffset != newOffset {
+                    weekOffset = newOffset
+                }
                 if calendar.isDateInToday(newDay) {
                     Task(priority: .utility) { await refineTodayMetricsInBackground() }
                 }
             }
             .onChange(of: weekOffset) { _, _ in
                 rebuildWeekChrome()
-                snapSelectedDayToVisibleWeek()
             }
             .onChange(of: health.isAuthorized) { _, authorized in
                 if authorized {
@@ -393,59 +398,71 @@ struct HomeView: View {
             }
     }
 
-    /// Calendario a ancho completo, con una casilla cuadrada por día.
-    /// El carrusel conserva el gesto nativo de pasar semanas sin márgenes laterales.
+    /// Calendario horizontal de cuadrados: se mueve por días, sin flechas ni
+    /// saltos obligatorios de semana. El mes corresponde a los días visibles.
     private var weekSelectorCard: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Button {
-                    withAnimation(.snappy(duration: 0.25)) {
-                        weekOffset = max(weekOffset - 1, -Self.weekCarouselRadius)
+        VStack(alignment: .leading, spacing: 8) {
+            Text(visibleCalendarMonthTitle)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(OG.label2)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.horizontal, OG.pad)
+
+            GeometryReader { geo in
+                let spacing: CGFloat = 4
+                let side = max(1, (geo.size.width - spacing * 6) / 7)
+                ScrollView(.horizontal) {
+                    LazyHStack(spacing: spacing) {
+                        ForEach(cachedCalendarDays, id: \.iso) { day in
+                            Button {
+                                selectedDay = day.date
+                            } label: {
+                                calendarDayColumn(day, side: side)
+                            }
+                            .buttonStyle(.plain)
+                            .id(day.iso)
+                        }
                     }
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(OG.label2)
-                        .frame(width: 30, height: 30)
+                    .scrollTargetLayout()
                 }
-                .disabled(weekOffset <= -Self.weekCarouselRadius)
-                .accessibilityLabel("Semana anterior")
-
-                Spacer()
-                Text(visibleWeekMonthTitle)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(OG.label2)
-                Spacer()
-
-                Button {
-                    withAnimation(.snappy(duration: 0.25)) {
-                        weekOffset = min(weekOffset + 1, Self.weekCarouselRadius)
-                    }
-                } label: {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(OG.label2)
-                        .frame(width: 30, height: 30)
-                }
-                .disabled(weekOffset >= Self.weekCarouselRadius)
-                .accessibilityLabel("Semana siguiente")
+                .scrollIndicators(.hidden)
+                .scrollTargetBehavior(.viewAligned)
+                .scrollPosition(id: $calendarScrollID, anchor: .leading)
             }
-            .padding(.horizontal, OG.pad)
-
-            TabView(selection: $weekOffset) {
-                ForEach(-Self.weekCarouselRadius...Self.weekCarouselRadius, id: \.self) { offset in
-                    WeekCarouselPage(
-                        selectedDay: $selectedDay,
-                        calendar: calendar,
-                        buildDays: { makeWeekDays(offset: offset) },
-                        dayDot: dayDot
-                    )
-                    .tag(offset)
-                }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: weekCarouselHeight)
         }
+    }
+
+    private func calendarDayColumn(_ day: DayCell, side: CGFloat) -> some View {
+        let selected = calendar.isDate(day.date, inSameDayAs: selectedDay)
+        return VStack(spacing: 2) {
+            Text(day.lbl)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(selected ? OG.onAccent : OG.label2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Text("\(day.num)")
+                .font(.system(size: 17, weight: selected ? .semibold : .medium))
+                .foregroundStyle(selected ? OG.onAccent : OG.label)
+            Circle()
+                .fill(selected ? OG.onAccent : dayDot(day))
+                .frame(width: 4, height: 4)
+        }
+        .frame(width: side, height: side)
+        .background(
+            selected ? OG.accent : OG.surface,
+            in: RoundedRectangle(cornerRadius: 11, style: .continuous)
+        )
+        .overlay {
+            if !selected {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .strokeBorder(OG.surface3.opacity(0.75), lineWidth: 0.7)
+            }
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(day.lbl) \(day.num)")
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 
     /// Debajo del calendario, sin cabecera redundante ni tarjeta contenedora.
@@ -873,16 +890,19 @@ struct HomeView: View {
         showCreatePlanForDay = true
     }
 
-    /// Al cambiar de semana (swipe/chevrons), conservar el weekday ISO si está en la nueva semana.
-    private func snapSelectedDayToVisibleWeek() {
-        let wanted = CalendarHelpers.isoWeekday(for: selectedDay)
-        if let match = cachedWeekDays.first(where: {
-            CalendarHelpers.isoWeekday(for: $0.date) == wanted
-        }) {
-            selectedDay = match.date
-        } else if let first = cachedWeekDays.first {
-            selectedDay = first.date
+    /// Calcula la semana (respecto de hoy) a la que pertenece el día pulsado.
+    /// Las fechas visibles pueden avanzar día a día sin modificar la selección.
+    private func weekOffset(for day: Date) -> Int {
+        let today = calendar.startOfDay(for: Date())
+        let weekday = calendar.component(.weekday, from: today)
+        let startOffset = store.state.settings.weekStartsOn == .monday
+            ? (weekday == 1 ? -6 : 2 - weekday)
+            : 1 - weekday
+        guard let weekStart = calendar.date(byAdding: .day, value: startOffset, to: today) else {
+            return 0
         }
+        let delta = calendar.dateComponents([.day], from: weekStart, to: day).day ?? 0
+        return min(Self.weekCarouselRadius, max(-Self.weekCarouselRadius, Int(floor(Double(delta) / 7.0))))
     }
 
     private var dayActionRow: some View {
@@ -1063,12 +1083,13 @@ struct HomeView: View {
     }
 
     private func rebuildWeekChrome() {
-        let days = makeWeekDays(offset: weekOffset)
-        cachedWeekDays = days
-        if let first = days.first?.date, let last = days.last?.date {
-            cachedWeekMonthTitle = SpanishDate.monthHeadline(from: first, to: last, calendar: calendar)
-        } else {
-            cachedWeekMonthTitle = "—"
+        cachedWeekDays = makeWeekDays(offset: weekOffset)
+        cachedCalendarDays = (-Self.weekCarouselRadius...Self.weekCarouselRadius).flatMap { offset in
+            makeWeekDays(offset: offset)
+        }
+        // La primera vez se ve la semana actual; no saltar al reconstruir datos.
+        if calendarScrollID == nil {
+            calendarScrollID = makeWeekDays(offset: 0).first?.iso
         }
     }
 
@@ -1212,68 +1233,14 @@ struct HomeView: View {
         var hasPlan: Bool
     }
 
-    /// Una página de siete cuadrados. El ancho se calcula con el espacio real
-    /// disponible, sin márgenes: el swipe cubre de lado a lado de la pantalla.
-    private struct WeekCarouselPage: View {
-        @Binding var selectedDay: Date
-        var calendar: Calendar
-        var buildDays: () -> [DayCell]
-        var dayDot: (DayCell) -> Color
-
-        var body: some View {
-            let days = buildDays()
-            GeometryReader { geometry in
-                let spacing: CGFloat = 4
-                let side = max(1, (geometry.size.width - spacing * 6) / 7)
-                HStack(alignment: .top, spacing: spacing) {
-                    ForEach(days, id: \.iso) { day in
-                        Button {
-                            selectedDay = day.date
-                        } label: {
-                            dayColumn(day, side: side)
-                        }
-                        .buttonStyle(.plain)
-                        .frame(width: side, height: side)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-            }
-        }
-
-        private func dayColumn(_ day: DayCell, side: CGFloat) -> some View {
-            let selected = calendar.isDate(day.date, inSameDayAs: selectedDay)
-            return VStack(spacing: 2) {
-                Text(day.lbl)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(selected ? OG.onAccent : OG.label2)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                Text("\(day.num)")
-                    .font(.system(size: 17, weight: selected ? .semibold : .medium))
-                    .foregroundStyle(selected ? OG.onAccent : OG.label)
-                Circle()
-                    .fill(selected ? OG.onAccent : dayDot(day))
-                    .frame(width: 4, height: 4)
-            }
-            .frame(width: side, height: side)
-            .background(
-                selected ? OG.accent : OG.surface,
-                in: RoundedRectangle(cornerRadius: 11, style: .continuous)
-            )
-            .overlay {
-                if !selected {
-                    RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .strokeBorder(OG.surface3.opacity(0.75), lineWidth: 0.7)
-                }
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(day.lbl) \(day.num)")
-            .accessibilityAddTraits(selected ? [.isSelected] : [])
-        }
+    /// Actualiza el mes conforme se desplazan las casillas visibles.
+    /// Se toma el centro del grupo de siete días para los cambios entre meses.
+    private var visibleCalendarMonthTitle: String {
+        let leading = cachedCalendarDays.first(where: { $0.iso == calendarScrollID })?.date
+            ?? selectedDay
+        let center = calendar.date(byAdding: .day, value: 3, to: leading) ?? leading
+        return SpanishDate.monthHeadline(from: center, to: center, calendar: calendar)
     }
-
-    private var visibleWeekMonthTitle: String { cachedWeekMonthTitle }
 
     private func makeWeekDays(offset: Int) -> [DayCell] {
         let today = Date()
