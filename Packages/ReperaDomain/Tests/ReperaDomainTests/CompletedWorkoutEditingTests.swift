@@ -80,4 +80,107 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         XCTAssertEqual(saved.routineBlocks?[0].movements[1].restSeconds, 60)
         XCTAssertEqual(saved.wodResults[0].elapsedSeconds, 250)
     }
+    func testAllGlobalWODResultsCanBeCorrectedWithoutCreatingCompletedSets() {
+        let burpee = Exercise(name: "Burpees", muscleGroup: "Otros")
+        for format: WODFormat in [.amrap, .deathBy, .maxEffort, .forTime,
+                                  .chipper, .afap, .ladder, .buyInCashOut] {
+            let block = RoutineBlock(
+                title: "WOD", kind: .wod,
+                movements: [WODMovement(exerciseId: burpee.id, name: burpee.name, reps: 10)],
+                wodFormat: format, timeCapMinutes: 8
+            )
+            var session = SessionController.from(
+                routine: Routine(title: "Hecho", blocks: [block]), exercises: [burpee]
+            )
+            session.phase = .finished
+            session.wodResults = [WODBlockResult(
+                id: block.id, format: format,
+                totalReps: format.resultCapture == .totalReps ? 4 : nil,
+                elapsedSeconds: format.resultCapture == .elapsedTime ? 480 : nil,
+                roundsCompleted: (format == .amrap || format == .deathBy) ? 3 : nil
+            )]
+            let draft = CompletedWorkoutEditing.routine(from: session)
+            // Los valores modificados son datos realizados, no series prescritas.
+            session.wodResults[0].totalReps = format.resultCapture == .totalReps ? 7 : nil
+            session.wodResults[0].elapsedSeconds = format.resultCapture == .elapsedTime ? 392 : nil
+            if format == .amrap || format == .deathBy {
+                session.wodResults[0].roundsCompleted = 5
+            }
+            let saved = CompletedWorkoutEditing.applying(
+                draft, to: session, catalog: [burpee]
+            )
+            XCTAssertEqual(saved.id, session.id)
+            XCTAssertEqual(saved.phase, .finished)
+            XCTAssertEqual(saved.wodResults.count, 1, "\(format)")
+            XCTAssertEqual(saved.wodResults[0].format, format)
+            XCTAssertEqual(saved.wodResults[0].totalReps,
+                           format.resultCapture == .totalReps ? 7 : nil)
+            XCTAssertEqual(saved.wodResults[0].elapsedSeconds,
+                           format.resultCapture == .elapsedTime ? 392 : nil)
+            XCTAssertEqual(saved.wodResults[0].roundsCompleted,
+                           (format == .amrap || format == .deathBy) ? 5 : nil)
+            XCTAssertTrue(saved.exercises.allSatisfy { $0.loggedSets.isEmpty })
+        }
+    }
+
+    func testPerMovementFormatsSaveEditedLoggedSetsWithoutInventingNewResults() {
+        let press = Exercise(name: "Push press", muscleGroup: "Hombros")
+        let squat = Exercise(name: "Sentadilla", muscleGroup: "Piernas")
+        for format: WODFormat in [.emom, .tabata, .circuit, .partner,
+                                  .roundsForQuality, .strength] {
+            let block = RoutineBlock(
+                title: "Por serie", kind: .wod,
+                movements: [
+                    WODMovement(exerciseId: press.id, name: press.name, reps: 5),
+                    WODMovement(exerciseId: squat.id, name: squat.name, reps: 8)
+                ],
+                wodFormat: format, timeCapMinutes: 8, rounds: 4
+            )
+            var session = SessionController.from(
+                routine: Routine(title: "Hecho", blocks: [block]), exercises: [press, squat]
+            )
+            session.phase = .finished
+            XCTAssertEqual(session.exercises.count, 2)
+            session.exercises[0].loggedSets = [LoggedSet(reps: 5, weightKg: 30, rir: 2)]
+            let oldSetID = session.exercises[0].loggedSets[0].id
+            var draft = CompletedWorkoutEditing.routine(from: session)
+            var sets = draft.blocks[0].movements[0].explicitPlannedSets!
+            sets[0].targetReps = 6
+            sets[0].targetWeightKg = 35
+            sets[0].targetRir = 1
+            draft.blocks[0].movements[0].explicitPlannedSets = sets
+            let saved = CompletedWorkoutEditing.applying(
+                draft, to: session, catalog: [press, squat]
+            )
+            XCTAssertEqual(saved.exercises[0].loggedSets.count, 1, "\(format)")
+            XCTAssertEqual(saved.exercises[0].loggedSets[0].id, oldSetID)
+            XCTAssertEqual(saved.exercises[0].loggedSets[0].reps, 6)
+            XCTAssertEqual(saved.exercises[0].loggedSets[0].weightKg, 35)
+            XCTAssertEqual(saved.exercises[0].loggedSets[0].rir, 1)
+            XCTAssertTrue(saved.exercises[1].loggedSets.isEmpty)
+            XCTAssertTrue(saved.wodResults.isEmpty)
+        }
+    }
+
+    func testChangingWODFormatDropsIncompatibleStoredScore() {
+        let exercise = Exercise(name: "Burpees", muscleGroup: "Otros")
+        let block = RoutineBlock(
+            title: "AMRAP", kind: .wod,
+            movements: [WODMovement(exerciseId: exercise.id, name: exercise.name, reps: 10)],
+            wodFormat: .amrap, timeCapMinutes: 8
+        )
+        var session = SessionController.from(
+            routine: Routine(title: "Hecho", blocks: [block]), exercises: [exercise]
+        )
+        session.phase = .finished
+        session.wodResults = [WODBlockResult(
+            id: block.id, format: .amrap, totalReps: 5, roundsCompleted: 4
+        )]
+        var draft = CompletedWorkoutEditing.routine(from: session)
+        draft.blocks[0].wodFormat = .forTime
+        let saved = CompletedWorkoutEditing.applying(draft, to: session, catalog: [exercise])
+        XCTAssertTrue(saved.wodResults.isEmpty)
+        XCTAssertTrue(saved.exercises.allSatisfy { $0.loggedSets.isEmpty })
+    }
+
 }
