@@ -55,8 +55,13 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
               WCSession.default.activationState == .activated else { return }
         let queued = UserDefaults.standard.array(forKey: pendingKey) as? [Data] ?? []
         guard !queued.isEmpty else { return }
-        // transferUserInfo is queued and guaranteed by watchOS; do not require isReachable.
-        for data in queued {
+        // watchOS has a durable transfer queue. Do not enqueue identical
+        // payloads on every activation, especially after a long offline period.
+        // A richer HealthKit revision (different encoded Data) is still sent.
+        let inFlight = Set(WCSession.default.outstandingUserInfoTransfers.compactMap {
+            $0.userInfo["session"] as? Data
+        })
+        for data in queued where !inFlight.contains(data) {
             WCSession.default.transferUserInfo(["session": data])
         }
         // Keep a durable outbox until the iPhone acknowledges persistence.
