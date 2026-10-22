@@ -654,9 +654,18 @@ struct WatchSessionView: View {
                         up: { hub.adjustExtraReps(1) }
                     )
                 }
-                Text("Tiempo: \(timeLabel(hub.blockElapsed))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if hub.current?.wodFormat?.resultCapture == .elapsedTime {
+                    metricStepper(
+                        label: "Tiempo final",
+                        value: timeLabel(hub.reviewElapsedSeconds ?? hub.blockElapsed),
+                        down: { hub.adjustScoreSeconds(-1) },
+                        up: { hub.adjustScoreSeconds(1) }
+                    )
+                } else {
+                    Text("Tiempo: \(timeLabel(hub.blockElapsed))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 if hub.current?.wodFormat == .emom || hub.current?.wodFormat == .tabata {
                     Text("Los intervalos se controlan automáticamente. No se inventan repeticiones.")
                         .font(.caption2)
