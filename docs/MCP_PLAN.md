@@ -1,5 +1,24 @@
 # Repera IA — tokens personales, planificación y MCP
 
+## Contrato WOD por formato (22/10/2026)
+
+El MCP publica `get_wod_format_contract` como herramienta de **solo lectura**, con correspondencia explícita entre `WODFormat.resultCapture` de iOS, resultado principal y temporizador:
+
+| Formato | Resultado / captura | Reloj |
+| --- | --- | --- |
+| AMRAP | `roundsCompleted` (completas) + `totalReps` (**solo reps parciales**) | Cuenta atrás de `timeCapMinutes`, obligatorio para nuevos planes |
+| For Time / RFT | `elapsedSeconds` real; `rounds` es prescripción | Ascendente, time cap como aviso |
+| EMOM / Every X | Series y reps en cada ventana/movimiento, nunca score global | Intervalos de `emomIntervalSeconds`, descanso restante dentro de la ventana |
+| Tabata | Registro por serie/movimiento de **cada trabajo**; el descanso no se registra como serie | Trabajo y descanso alternos (20/10 × 8 predeterminado) |
+| Chipper / AFAP / Ladder / Buy-in-Cash-out | Tiempo total, respetando secuencia y repScheme | Ascendente |
+| Fuerza / Skill | Series con peso, reps y RIR | Cronómetro opcional |
+| Death By | Intervalos/rondas superados + reps del intervalo incompleto | Progresión por intervalo |
+| Max Effort | Actualmente **solo reps máximas** | Cuenta atrás específica |
+| Circuito / Partner / RFQ | Series por estación, movimiento o bloque | Intervalos con descansos de circuito o cronómetro opcional |
+
+**Compatibilidad y límites conocidos:** `get_workout_history` mantiene `wod_results` sin cambiar su estructura; acompaña la respuesta de la semántica y referencia a la nueva herramienta. Las series de Tabata todavía **no** incluyen un `intervalId` nativo persistido, así que el MCP no atribuye el número exacto de intervalo sin evidencia. Para marcas de Max Effort en kg, calorías o metros falta ampliar el score global de iOS; el MCP no lo anuncia como soportado ni lo transforma artificialmente a repeticiones. La herramienta no concede permiso de escritura ni modifica entrenos guardados.
+
+
 ## IA conversacional, material y sincronización de Apple (21/10/2026)
 
 - Se eliminó la pantalla `AITrainingProfileView`. `get_training_profile` devuelve la frecuencia **observada** (no la disponibilidad supuesta), movimientos frecuentes, calidad de la muestra y preguntas necesarias; el usuario confirma objetivos, días, tiempo y material por chat mediante `set_training_preferences`. Las sesiones antiguas no se sobrescriben.

@@ -96,7 +96,7 @@ class MCPV2Contracts(unittest.TestCase):
         plan=read("Apps/Repera/Sources/PlanView.swift")
         self.assertIn("opensExerciseDetail: true",preview)
         self.assertIn("ExerciseDetailView(exerciseId:",cards)
-        self.assertIn("PhotosPicker(selection: $photoItem",settings)
+        self.assertIn(".photosPicker(",settings)
         self.assertNotIn("Quitar foto",settings)
         self.assertNotIn("Compras no configuradas en este build",settings)
         self.assertNotIn("Programas de entrenamiento IA",settings)

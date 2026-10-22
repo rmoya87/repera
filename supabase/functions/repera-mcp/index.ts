@@ -4,7 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.58.0";
 import { z } from "npm:zod@4.3.6";
 import { registerCoachTools } from "./coach.ts";
 import { registerMutationTools } from "./mutations.ts";
-import { workout } from "./schema.ts";
+import { workout, wodFormat, wodFormatContract } from "./schema.ts";
 import { scheduledInstant } from "./time.ts";
 import { registerAthleteChangeTools } from "./athlete-changes.ts";
 
@@ -233,6 +233,22 @@ Deno.serve(async (request) => {
       protocol:"Personal HTTPS Bearer token (PAT), not OAuth. Do not forward to third parties.",
       date_semantics:"scheduledDate is athlete-local date. If scheduledTimeMinutes is given, scheduledTimeZone (IANA) and scheduledUtcOffsetMinutes (UTC east-positive) are required; scheduled_at resolves an exact instant including DST.",
     }));
+    server.registerTool("get_wod_format_contract", {
+      description: "Read the canonical Repera WOD result capture and timer rules for AMRAP, RFT/For Time, EMOM/Every X, Tabata, Chipper/AFAP/Ladder, Strength/Skill, Death By, Max Effort and other formats. Check this before creating or interpreting WOD scores.",
+      inputSchema: z.strictObject({ format: wodFormat.optional() }),
+      annotations: { readOnlyHint: true },
+    }, async ({ format }) => reply({
+      schema_version: 1,
+      formats: format
+        ? { [format]: wodFormatContract[format] }
+        : wodFormatContract,
+      persisted_results: {
+        amrap: "roundsCompleted = completed rounds; totalReps = reps in partial final round (NOT aggregate reps)",
+        for_time: "elapsedSeconds = actual elapsed time; time cap is a warning",
+        intervals: "loggedSets by movement; do not infer explicit interval IDs absent in stored history",
+      },
+      note: "This is the contract of current iOS storage. See per-format limitations; never fabricate unrecorded scores or split total time by exercise.",
+    }));
     server.registerTool("get_workout_history", {
       description: "History of completed Repera exercises, logged sets and WOD results; no HealthKit, routes, GPS, energy, body weight or notes.",
       inputSchema: pagedInput,
@@ -253,7 +269,10 @@ Deno.serve(async (request) => {
         updated_at:row.updated_at,
         exercises:(row.exercises??[]).map(projectExercise),wod_results:row.wod_results??[],
       })),hasMore,nextCursor:hasMore?nextCursor(offset+limit):null,
-      order:"finished_at DESC,id ASC",days});
+      order:"finished_at DESC,id ASC",days,
+      wod_result_contract_tool:"get_wod_format_contract",
+      wod_result_semantics:"Raw WODBlockResult fields: AMRAP roundsCompleted are complete rounds and totalReps are ONLY partial-round reps; For Time elapsedSeconds is actual elapsed time. EMOM/Tabata/Circuit use loggedSets, not a global round score. Do not infer per-interval IDs not stored by iOS.",
+      });
     });
     server.registerTool("analyze_muscle_balance", {
       description: "Estimate muscle-region weighted set volume from the user's logged workouts, not measured fatigue.",
@@ -302,12 +321,12 @@ Deno.serve(async (request) => {
     });
     if (canWrite) {
     server.registerTool("create_workout", {
-      description: "Create one fully structured workout with typed strength/WOD blocks, sets, RIR, weights and schedule date. Repera imports it to Diario/Inicio, without overwriting existing day plans. Explicit user-requested write.",
+      description: "Create one scheduled workout with Repera WOD semantics. AMRAP requires timeCapMinutes (countdown/rounds+partial reps); For Time/RFT, Chipper, AFAP and Ladder use elapsed time (countup); EMOM and Tabata track per-interval sets and work/rest; strength uses sets/weight/reps/RIR. Consult get_wod_format_contract. Explicit user-requested write; no overwrite.",
       inputSchema: workout.safeExtend({ idempotencyKey: z.string().uuid().optional() }),
       annotations: { readOnlyHint: false, destructiveHint: false },
     }, async ({idempotencyKey,...args}) => reply(await saveWorkouts([args],undefined,idempotencyKey)));
     server.registerTool("create_training_plan", {
-      description: "Create 1-14 dated workouts with native Repera strength and WOD blocks. Writes actual structured plans for Diario/Inicio; do this only at user request.",
+      description: "Create 1-14 dated workouts using format-specific Repera WOD blocks; preserve AMRAP rounds/reps, RFT elapsed-time goals, EMOM/Tabata per-interval sets and work/rest, and strength sets/RIR. Consult get_wod_format_contract before writing. Do this only at user request.",
       inputSchema: z.strictObject({ workouts: z.array(workout).min(1).max(14),
         programId: z.string().uuid().optional(), idempotencyKey: z.string().uuid().optional() }),
       annotations: { readOnlyHint: false, destructiveHint: false },
