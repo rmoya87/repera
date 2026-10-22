@@ -289,15 +289,23 @@ final class WatchSessionHub: NSObject {
             return
         }
         stopMotion()
+        let previousBlock = ctrl.session.currentExercise?.blockId
         _ = ctrl.finishCurrentExercise()
+        let continuesBlock = previousBlock != nil
+            && ctrl.session.currentExercise?.blockId == previousBlock
+            && ctrl.session.phase == .ready
+        if continuesBlock { ctrl.confirmCurrentExercise() }
         controller = ctrl
-        blockElapsed = 0
+        if !continuesBlock { blockElapsed = 0 }
         restRemaining = 0
         workingReps = 0
         workingWeightKg = ctrl.session.currentExercise?.plannedSets.first?.targetWeightKg
         repCounter.reset()
         if ctrl.session.phase == .finished { completeSession() }
-        else { checkpoint() }
+        else {
+            if continuesBlock { startMotion() }
+            checkpoint()
+        }
     }
 
     func adjustRounds(_ delta: Int) {
