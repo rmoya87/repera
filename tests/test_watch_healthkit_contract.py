@@ -191,6 +191,7 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn('func nextExercise()', hub)
         self.assertIn('ctrl.selectExercise(at: nextIndex)', hub)
         self.assertIn('func finishFromSummary()', hub)
+        self.assertIn("if currentIsWOD {\n                reviewBlock()", hub)
         self.assertNotIn("confirmationDialog(", view)
         self.assertNotIn('Button("Guardar entrenamiento")', view)
 
