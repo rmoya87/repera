@@ -20,6 +20,7 @@ REQUIRED = (
     "AIAccessView.swift",
     "AITrainingContextStore.swift",
     "AITrainingProgramsView.swift",
+    "AIChangeRequestStore.swift",
 )
 
 
