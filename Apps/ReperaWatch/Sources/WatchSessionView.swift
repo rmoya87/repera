@@ -84,7 +84,8 @@ struct WatchSessionView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 summaryChips(session)
                 if let blocks = session.routineBlocks, !blocks.isEmpty {
-                    ForEach(Array(blocks.enumerated()), id: \.element.id) { index, block in
+                    ForEach(0..<blocks.count, id: \.self) { index in
+                        let block = blocks[index]
                         VStack(alignment: .leading, spacing: 3) {
                             Text("\(index + 1). \(block.title)")
                                 .font(.caption.weight(.semibold))
