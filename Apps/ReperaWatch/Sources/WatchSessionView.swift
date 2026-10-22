@@ -35,7 +35,9 @@ struct WatchSessionView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showNowPlaying = true } label: {
                         Image(systemName: "playpause.fill")
-                            .font(.caption)
+                            .font(.caption.weight(.bold))
+                            .symbolRenderingMode(.monochrome)
+                            .foregroundStyle(.black)
                     }
                     .tint(accent)
                     .accessibilityLabel("Controlar música o podcast")
@@ -70,9 +72,18 @@ struct WatchSessionView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            Text("Al conectar, se descargará automáticamente.")
+            Button {
+                hub.refreshToday()
+            } label: {
+                Label("Sincronizar con iPhone", systemImage: "arrow.triangle.2.circlepath")
+                    .font(.caption2.weight(.semibold))
+            }
+            .buttonStyle(.bordered)
+            .accessibilityHint("Solicita al iPhone el entrenamiento programado para hoy")
+            Text("Comprueba que el iPhone y el Watch estén emparejados.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
         .padding(.horizontal, 8)
     }
