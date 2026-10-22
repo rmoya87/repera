@@ -795,7 +795,7 @@ struct HomeView: View {
     }
 
     private func metricTile(title: String, value: String, icon: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 7) {
                 Image(systemName: icon)
                     .font(.system(size: 13, weight: .semibold))
@@ -807,12 +807,12 @@ struct HomeView: View {
                     .minimumScaleFactor(0.8)
             }
             Text(value)
-                .font(.system(size: 20, weight: .semibold))
+                .font(.system(size: 28, weight: .semibold))
                 .foregroundStyle(OG.label)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        // Conserva el alto visual de las tres tarjetas del día.
+        // El valor ocupa el alto libre sin dejar más aire abajo que encima de la cabecera.
         .frame(maxWidth: .infinity, minHeight: 62, alignment: .topLeading)
         .padding(12)
         .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
