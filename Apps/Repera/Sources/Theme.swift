@@ -237,10 +237,9 @@ struct OGFixedTopBar<Trailing: View>: View {
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
+            // Ausencia de fondo = transparencia real, como la barra de Ejercicios.
             if let backgroundColor {
                 backgroundColor.ignoresSafeArea(edges: .top)
-            } else {
-                OG.bg.opacity(0.001)
             }
         }
     }
@@ -339,7 +338,6 @@ extension View {
         _ title: String,
         subtitle: String? = nil,
         backgroundColor: Color? = nil,
-        underlayColor: Color? = nil,
         @ViewBuilder trailing: @escaping () -> some View
     ) -> some View {
         self
@@ -351,12 +349,6 @@ extension View {
                     backgroundColor: backgroundColor,
                     trailing: trailing
                 )
-                .background {
-                    // El topbar es transparente; el lienzo detrás es blanco.
-                    if let underlayColor {
-                        underlayColor.ignoresSafeArea(edges: .top)
-                    }
-                }
             }
     }
 
