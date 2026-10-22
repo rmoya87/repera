@@ -956,7 +956,7 @@ final class ReperaStore: NSObject {
     }
 
     /// Versión de la fórmula de Resultado; al subir, se recalculan todas las notas.
-    private static let sessionReviewFormulaVersion = 9
+    private static let sessionReviewFormulaVersion = 10
 
     /// Recomputa la review con la fórmula actual y la persiste.
     @discardableResult
@@ -974,6 +974,8 @@ final class ReperaStore: NSObject {
         let key = "sessionReviewFormulaVersion"
         let stored = UserDefaults.standard.integer(forKey: key)
         guard stored < Self.sessionReviewFormulaVersion else { return }
+        // También elimina notas antiguas calculadas sin suficiente histórico;
+        // no volverán a aparecer en Inicio/Historial al actualizar.
         refreshAllSessionReviews()
         UserDefaults.standard.set(Self.sessionReviewFormulaVersion, forKey: key)
     }
