@@ -81,6 +81,16 @@ Las miniaturas proceden de las **mismas ilustraciones originales de Repera iOS**
 
 El emulador no sustituye un Apple Watch real para probar Digital Crown, haptics, gestos a la vez que el scroll, FC en vivo y el cierre de una sesión HealthKit cuando la pantalla se apaga.
 
+## Ajustes de Play y avance con cero
+
+La interfaz del reloj **no muestra el botón de música/podcast**. La navegación conserva el título del bloque bajo la hora del sistema. El control `pause.fill/play.fill` es un **círculo verde de 70 × 70 puntos** con icono negro, con una altura aproximada equivalente a cronómetro grande más su leyenda. Se mantienen las reglas de los temporizadores de iOS y sus métricas HealthKit.
+
+**Un solo sistema visual para acciones y valores:** `#30D158`, el verde original de Repera iOS, con icono/texto **negro**. En Play, «Resumen» y la flecha de avance usan relleno verde. Los botones `− / número / +` de repeticiones, peso, déficit, duración, puntuación WOD y RIR comparten tamaño, fondo verde, iconos negros y la unidad justo debajo; los ajustes avanzados siguen estando en la hoja del ejercicio. Los botones de borrado dentro de esa hoja también respetan el verde/negro, sin controles rojos ni grises por defecto.
+
+La flecha **no se deshabilita por ver 0**. Pulsarla con una serie individual a cero avanza al próximo ejercicio **sin crear ni confirmar un `LoggedSet` ficticio**; en el último ejercicio finaliza sin inventar repeticiones. Si hay cantidad positiva, registra la serie y avanza según los conjuntos prescritos. Los WOD con puntuación global pasan a la pantalla de resultado, y los WOD por intervalos solo registran series positivas o permiten saltar al siguiente movimiento sin afirmar que se hizo uno. Mantener deshabilitada la flecha cuando la sesión esté realmente pausada, en revisión de bloque o durante un descanso.
+
+Al agotarse los intervalos el texto se simplifica a **«Finalizado»**; los ejercicios y resultados siguen registrables según las reglas del formato. Se conserva el gesto horizontal de revisar series y se elimina únicamente el mensaje explicativo, no la interacción.
+
 ## Controles y temporizadores: paridad visual y funcional con iOS
 
 - **Gestos:** se conserva el gesto horizontal para revisar y corregir series guardadas. Solo se elimina el texto visible «Desliza ← → para revisar otras series»; las acciones `swipeSet(-1/1)`, los identificadores de serie y la edición sin duplicados permanecen intactos.
