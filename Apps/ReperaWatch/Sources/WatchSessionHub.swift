@@ -68,7 +68,12 @@ final class WatchSessionHub: NSObject {
     }
     var current: SessionExercise? { active?.currentExercise }
     var currentIsWOD: Bool { current?.blockKind == .wod && current?.wodFormat != .strength }
-    var wodUsesSeries: Bool { [.emom, .tabata, .circuit].contains(current?.wodFormat) }
+    var wodUsesSeries: Bool {
+        switch current?.wodFormat {
+        case .emom, .tabata, .circuit: return true
+        default: return false
+        }
+    }
     var timeCapSeconds: Int {
         guard let exercise = current else { return 0 }
         if let minutes = exercise.blockTimeCapMinutes, minutes > 0 { return minutes * 60 }
