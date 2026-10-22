@@ -145,6 +145,8 @@
 - **Live Activity** de descanso (isla / pantalla bloqueo; `NSSupportsLiveActivities`).
 - Watch: confirmar ejercicio, conteo, **+1 serie** / log rápido del último ejercicio.
 - **Resultado post-entreno** (`SessionReviewEngine`): nota 1–10 por **rendimiento** (bandas → ritmos → típico → formato). Si Salud aporta **FC media/máx** (y/o kcal), `SessionCardioEffort` afina la nota ±2 según el esfuerzo real y lo explica en el texto. El **nivel** va como subtítulo bajo la nota. Recálculo al subir `sessionReviewFormulaVersion`.
+- **Valoración de sesiones mixtas (fórmula v9)**: un AMRAP con marca global ya no se utiliza como nota única de todos los bloques. Se combina de forma **orientativa** su score de ritmo con la cobertura de series registradas en cada bloque EMOM/Fuerza, ponderada por la duración configurada del bloque. El desglose indica AMRAP por separado (p. ej. 2 rondas + 20 reps) y cantidad de series registradas de los EMOM; la ausencia de una serie no demuestra que no se realizara, y esta nota **no mide técnica, calidad ni esfuerzo**. No se usa la duración global de una sesión cuando difiere del programa; esa discrepancia se avisa en el texto. El nivel «Principiante» del AMRAP no clasifica al atleta de una sesión mixta. Los ajustes de historial solo afectan al bloque puntuado, y **push press / press de banca no son equivalentes** para extrapolar e1RM (ni otras variantes de press sin evidencia suficiente). La sesión se recalcula automáticamente al actualizar la versión del algoritmo, sin alterar la carga, las series ni los resultados guardados en Supabase.
+
 
 ## Salud (Apple)
 
