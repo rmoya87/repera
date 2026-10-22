@@ -1373,7 +1373,9 @@ struct DayEditorView: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(OG.label)
 
-                if completedDetails?.wodResults.contains(where: { $0.id == block.id }) == true {
+                if completedDetails?.wodResults.contains(where: {
+                    $0.id == block.id && ($0.format == nil || $0.format == format)
+                }) == true {
                     switch format.resultCapture {
                     case .totalReps:
                         if format == .amrap || format == .deathBy {
@@ -1442,8 +1444,13 @@ struct DayEditorView: View {
     private func addCompletedResult(for block: RoutineBlock) {
         guard let format = block.wodFormat, format.resultCapture != .perMovementSets,
               completedDetails != nil,
-              completedDetails?.wodResults.contains(where: { $0.id == block.id }) != true
+              completedDetails?.wodResults.contains(where: {
+                  $0.id == block.id && ($0.format == nil || $0.format == format)
+              }) != true
         else { return }
+        // Si el formato cambió, el score anterior ya no tiene las mismas
+        // unidades. Solo el usuario puede introducir la nueva marca.
+        completedDetails?.wodResults.removeAll { $0.id == block.id }
         completedDetails?.wodResults.append(WODBlockResult(
             id: block.id, format: format,
             totalReps: format.resultCapture == .totalReps ? 0 : nil,
@@ -1862,9 +1869,8 @@ struct DayEditorView: View {
                     step: 15
                 )
             } else if completedDetails != nil,
-                      routine.blocks[index].wodFormat?.resultCapture == .totalReps
-                        || completedDetails != nil
-                            && routine.blocks[index].wodFormat?.resultCapture == .elapsedTime {
+                      let format = routine.blocks[index].wodFormat,
+                      format.resultCapture != .perMovementSets {
                 // En WOD cronometrados estas cifras son la PRESCRIPCIÓN; el resultado
                 // global se edita arriba, nunca se convierte en sets completados.
                 Text("Prescripción · " + move.summaryLine)
