@@ -70,7 +70,8 @@ struct StatsView: View {
                                     ProTeaserCard(
                                         title: "Descubre todo tu progreso",
                                         bodyText: "Analiza tu evolución, tus marcas personales y el equilibrio muscular.",
-                                        cta: "Descubrir Repera Pro"
+                                        cta: "Descubrir Repera Pro",
+                                        appearance: .progress
                                     ) {
                                         subscriptions.presentPaywall(.progress, feature: .advancedProgress)
                                     }
@@ -83,7 +84,8 @@ struct StatsView: View {
                                     ProTeaserCard(
                                         title: "Métricas de actividad avanzadas",
                                         bodyText: "Consulta frecuencia cardíaca, calorías y evolución de peso con Repera Pro.",
-                                        cta: "Descubrir Repera Pro"
+                                        cta: "Descubrir Repera Pro",
+                                        appearance: .activity
                                     ) {
                                         subscriptions.presentPaywall(.progress, feature: .advancedProgress)
                                     }
