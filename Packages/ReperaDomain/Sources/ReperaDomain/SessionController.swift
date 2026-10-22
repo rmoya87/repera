@@ -88,14 +88,26 @@ public struct SessionController: Sendable {
               session.exercises[session.currentIndex].loggedSets.indices.contains(index) else {
             return false
         }
-        session.exercises[session.currentIndex].loggedSets[index].reps = max(0, reps)
-        session.exercises[session.currentIndex].loggedSets[index].weightKg = weightKg
-        // A return from another exercise may reset its transient completedReps.
-        // Recompute from the durable, actually logged sets instead.
+        var revised = session.exercises[session.currentIndex].loggedSets[index]
+        revised.reps = max(0, reps)
+        revised.weightKg = weightKg
+        return replaceLoggedSet(at: index, with: revised)
+    }
+
+    /// Edit every iPhone-equivalent field while preserving the original set UUID,
+    /// timestamp and order. A Watch edit must never append a second set.
+    @discardableResult
+    public mutating func replaceLoggedSet(at index: Int, with set: LoggedSet) -> Bool {
+        guard session.exercises.indices.contains(session.currentIndex),
+              session.exercises[session.currentIndex].loggedSets.indices.contains(index),
+              session.exercises[session.currentIndex].loggedSets[index].id == set.id
+        else { return false }
+        session.exercises[session.currentIndex].loggedSets[index] = set
         session.exercises[session.currentIndex].completedReps =
             session.exercises[session.currentIndex].loggedSets
                 .filter { $0.phase == .work }
-                .reduce(0) { $0 + $1.reps }
+                .reduce(0) { $0 + $1.reps + ($1.kind == .dropset
+                    ? $1.drops.reduce(0) { $0 + $1.reps } : 0) }
         return true
     }
 
