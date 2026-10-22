@@ -27,7 +27,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Repera usa la cámara para leer ejercicios de una pizarra o TV y montar la sesión.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Repera lee con tu permiso actividad, sueño y registros menstruales de Apple Salud para mostrar estadísticas y consejos locales. El sueño y el ciclo no se envían a Supabase.</string>
+	<string>Repera lee con tu permiso entrenamientos, pulsaciones, zonas cardíacas y, si los autorizas, sueño, variabilidad cardíaca, pulso en reposo, respiración, oxígeno y temperatura nocturna para gráficos y orientación de recuperación. Estas constantes se analizan en tu iPhone y no se envían a Supabase.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Repera guarda el entreno en Apple Salud usando las calorías y el tiempo que reporta Salud / Apple Watch.</string>
 	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
