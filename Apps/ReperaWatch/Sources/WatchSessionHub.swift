@@ -415,11 +415,10 @@ final class WatchSessionHub: NSObject {
             }
             return
         }
-        if selectedSetIndex != nil {
-            confirmSet()
-            return
-        }
+        let wasReviewingRecordedSet = selectedSetIndex != nil
         confirmSet()
+        // Editing a historical set must never advance or finish the exercise.
+        guard !wasReviewingRecordedSet else { return }
         if completedSets >= max(1, plannedSets), restRemaining == 0 {
             advance()
         }
