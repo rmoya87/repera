@@ -85,6 +85,31 @@ final class RecoveryEngineTests: XCTestCase {
         XCTAssertEqual(base, ignoringFuture)
     }
 
+    func testTrainingReadinessUsesWholePointsOnZeroToTenScale() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let workout = WorkoutSession(
+            title: "WOD de prueba",
+            exercises: [],
+            startedAt: now.addingTimeInterval(-3600 * 14),
+            finishedAt: now.addingTimeInterval(-3600 * 13)
+        )
+        for hours in [4.5, 5.5, 6.5, 7.25, 8, 9.5] {
+            guard let result = RecoveryEngine.trainingReadiness(
+                at: now, sleepHours: hours, recentAverageSleepHours: 8,
+                workouts: [workout]
+            ) else {
+                XCTFail("Debe existir una estimación con sueño y carga conocidos")
+                continue
+            }
+            XCTAssertEqual(result.score, result.score.rounded())
+            XCTAssertGreaterThanOrEqual(result.score, 0)
+            XCTAssertLessThanOrEqual(result.score, 10)
+            let expected: RecoveryEngine.TrainingReadinessAdvice =
+                result.score >= 8 ? .usual : (result.score >= 6 ? .moderate : .rest)
+            XCTAssertEqual(result.advice, expected)
+        }
+    }
+
     func testUnknownWithInsufficientOrIrregularCycles() {
         var c = Calendar(identifier: .gregorian)
         c.timeZone = TimeZone(secondsFromGMT: 0)!
