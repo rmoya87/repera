@@ -168,6 +168,7 @@ struct AIAccessView: View {
                 }
             }
         }
+        .refreshable { await refreshTokens() }
         .navigationTitle("Acceso IA")
         .navigationBarTitleDisplayMode(.large)
         .sheet(isPresented: Binding(
@@ -240,6 +241,7 @@ struct AIAccessView: View {
                 .execute().value
             guard auth.apiClient?.auth.currentSession?.user.id == session.user.id else { return }
             tokens = items
+            errorMessage = nil
         } catch {
             errorMessage = "No se pudieron obtener los tokens: \(error.localizedDescription)"
         }
