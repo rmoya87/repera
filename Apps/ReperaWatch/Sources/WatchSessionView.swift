@@ -212,7 +212,7 @@ struct WatchSessionView: View {
         }
     }
 
-    private func readyView(_ session: WorkoutSession) -> some View {
+    private func readyView(_: WorkoutSession) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 9) {
                 VStack(alignment: .leading, spacing: 0) {
@@ -247,7 +247,7 @@ struct WatchSessionView: View {
         }
     }
 
-    private func runningView(_ session: WorkoutSession) -> some View {
+    private func runningView(_: WorkoutSession) -> some View {
         ScrollView {
             VStack(spacing: 8) {
                 clockControls
@@ -766,8 +766,6 @@ struct WatchSessionView: View {
                 .buttonStyle(.bordered)
                 .tint(.red)
                 .accessibilityHint("Finaliza el entrenamiento guardando lo registrado")
-
-
             }
             .padding(.horizontal, 5)
         }
