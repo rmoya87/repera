@@ -169,7 +169,10 @@ public enum CompletedWorkoutEditing {
         updated.exercises = output
         updated.currentIndex = output.isEmpty ? 0 : min(original.currentIndex, output.count - 1)
         updated.wodResults = updated.wodResults.compactMap { result in
-            guard let block = routine.blocks.first(where: { $0.id == result.id && $0.kind == .wod }),
+            // Cualquier bloque puede tener formato WOD, incluso uno de fuerza
+            // convertido a AMRAP/For Time. La captura depende del formato,
+            // no de su clase visual original.
+            guard let block = routine.blocks.first(where: { $0.id == result.id }),
                   let format = block.wodFormat,
                   format.resultCapture != .perMovementSets,
                   result.format == nil || result.format == format
