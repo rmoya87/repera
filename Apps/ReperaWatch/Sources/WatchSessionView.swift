@@ -9,7 +9,9 @@ struct WatchSessionView: View {
     @State private var showOutline = false
     @State private var showSetDetails = false
 
-    private let accent = Color(red: 0.54, green: 0.91, blue: 0.49)
+    // Exact Repera iOS theme accent (OG.accent, #30D158).
+    // Filled accent buttons use OG.onAccent: black.
+    private let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)
 
     var body: some View {
         NavigationStack {
@@ -252,7 +254,14 @@ struct WatchSessionView: View {
             VStack(spacing: 8) {
                 clockControls
                 if hub.restRemaining > 0 {
-                    restView(hub.restRemaining)
+                    if hub.isIntervalClock {
+                        // The interval countdown is already the large clock.
+                        Button("Saltar descanso") { hub.skipRest() }
+                            .buttonStyle(.bordered)
+                            .disabled(hub.isPaused)
+                    } else {
+                        restView(hub.restRemaining)
+                    }
                 } else if hub.currentIsWOD && !hub.wodUsesSeries {
                     wodContent
                 } else {
@@ -295,37 +304,43 @@ struct WatchSessionView: View {
 
     @ViewBuilder
     private var clockControls: some View {
-        HStack(spacing: 8) {
-            let currentTime = hub.timeRemaining ?? hub.blockElapsed
-            Text(timeLabel(currentTime))
-                .font(.system(size: 31, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .minimumScaleFactor(0.7)
-                .contentTransition(.numericText())
-                .accessibilityLabel(
-                    hub.timeRemaining == nil ? "Tiempo transcurrido" : "Tiempo restante"
-                )
-            Spacer(minLength: 0)
+        HStack(alignment: .center, spacing: 6) {
+            VStack(alignment: .leading, spacing: 1) {
+                // EMOM, Tabata, Death By and Circuit show ONLY the current
+                // interval countdown as the main clock, never total duration.
+                Text(timeLabel(hub.primaryClockSeconds))
+                    .font(.system(size: 43, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.65)
+                    .lineLimit(1)
+                    .contentTransition(.numericText())
+                    .accessibilityLabel(
+                        hub.isIntervalClock ? "Tiempo del intervalo"
+                            : (hub.clockCountsUp ? "Tiempo transcurrido" : "Tiempo restante")
+                    )
+                if let descriptor = hub.clockDescriptor {
+                    Text(descriptor)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .accessibilityAddTraits(.updatesFrequently)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             Button {
                 if hub.isPaused { hub.play() } else { hub.pause() }
             } label: {
                 Image(systemName: hub.isPaused ? "play.fill" : "pause.fill")
-                    .font(.headline)
-                    .frame(minWidth: 42, minHeight: 40)
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.black)
+                    .frame(width: 42, height: 42)
+                    .background(accent, in: Circle())
+                    .contentShape(Circle())
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.plain)
             .accessibilityLabel(hub.isPaused ? "Reanudar entrenamiento" : "Pausar entrenamiento")
-        }
-        if let label = hub.intervalLabel {
-            HStack(spacing: 6) {
-                Text(label).font(.caption2).foregroundStyle(.secondary)
-                Spacer(minLength: 4)
-                if let remaining = hub.intervalRemaining {
-                    Text(timeLabel(remaining))
-                        .font(.caption.weight(.bold))
-                        .monospacedDigit()
-                }
-            }
         }
         HStack(spacing: 12) {
             if let pulse = hub.heartRateBpm {
@@ -486,8 +501,10 @@ struct WatchSessionView: View {
             HStack(spacing: 5) {
                 Button("Cal") { hub.selectUnit(.calories) }
                     .tint(hub.setDraft.unit == .calories ? accent : .gray)
+                    .foregroundStyle(hub.setDraft.unit == .calories ? Color.black : Color.primary)
                 Button("Metros") { hub.selectUnit(.meters) }
                     .tint(hub.setDraft.unit == .meters ? accent : .gray)
+                    .foregroundStyle(hub.setDraft.unit == .meters ? Color.black : Color.primary)
             }
             .font(.caption2)
             .buttonStyle(.bordered)
