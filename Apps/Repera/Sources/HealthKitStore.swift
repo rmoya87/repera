@@ -317,9 +317,10 @@ final class HealthKitStore {
         let energyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
         let energyStatus = store.authorizationStatus(for: energyType)
         canWriteWorkouts = workoutStatus == .sharingAuthorized
-        // HealthKit does not expose a dedicated "read authorized" flag for workouts;
-        // treat sharingDenied as no write, and allow read attempts unless unavailable.
-        canReadWorkouts = workoutStatus != .sharingDenied
+        // HealthKit no revela el permiso de LECTURA: sharingDenied se
+        // refiere a escritura. Consultar HealthKit sigue siendo válido y
+        // devolverá cero muestras si la lectura no está permitida.
+        canReadWorkouts = isAvailable
         // Conectado = podemos escribir entrenos o al menos energía activa.
         isAuthorized = canWriteWorkouts || energyStatus == .sharingAuthorized
     }
