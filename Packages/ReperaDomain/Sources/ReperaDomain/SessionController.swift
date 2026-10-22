@@ -80,6 +80,24 @@ public struct SessionController: Sendable {
         }
     }
 
+    /// Editing a previously confirmed set preserves its identity, timestamp,
+    /// metadata and scoring; a swipe alone never creates another set.
+    @discardableResult
+    public mutating func reviseLoggedSet(at index: Int, reps: Int, weightKg: Double?) -> Bool {
+        guard session.exercises.indices.contains(session.currentIndex),
+              session.exercises[session.currentIndex].loggedSets.indices.contains(index) else {
+            return false
+        }
+        let old = session.exercises[session.currentIndex].loggedSets[index]
+        session.exercises[session.currentIndex].loggedSets[index].reps = max(0, reps)
+        session.exercises[session.currentIndex].loggedSets[index].weightKg = weightKg
+        session.exercises[session.currentIndex].completedReps = max(
+            0, session.exercises[session.currentIndex].completedReps
+                - old.reps + max(0, reps)
+        )
+        return true
+    }
+
     public mutating func removeLastLoggedSet() {
         guard session.exercises.indices.contains(session.currentIndex) else { return }
         guard let removed = session.exercises[session.currentIndex].loggedSets.popLast() else { return }
