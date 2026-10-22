@@ -220,7 +220,7 @@ Deno.serve(async (request) => {
     const server = new McpServer({ name: "repera-training", version: "0.4.0" });
     registerCoachTools(server, db, ownerId, token.id, canWrite);
     registerAthleteChangeTools(server,db,ownerId,token.id,canWrite);
-    if (canWrite) registerMutationTools(server, db, ownerId, workout);
+    if (canWrite) registerMutationTools(server, db, ownerId);
     server.registerTool("get_mcp_access_info", {
       description:"Display the current personal token's permission scopes, expiry and revocation instructions. No credential contents are exposed.",
       inputSchema:z.strictObject({}),annotations:{readOnlyHint:true},
