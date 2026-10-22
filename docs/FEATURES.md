@@ -56,7 +56,7 @@
 
 ### Progreso (`StatsView`)
 
-- Título arriba + periodo como subtítulo; calendario a la derecha (`ogFixedTopBar`).
+- Título «Progreso» y periodo como subtítulo, con calendario a la derecha (`OGFixedTopBar`) integrado en el scroll y sin fondo de topbar opaco.
 - **Gratis · Entreno:** periodo **Esta semana** (tiles entrenos/tiempo/racha + heatmap + teaser Pro). Los tiles **no** se repiten en Actividad.
 - **Gratis · Actividad:** preview ondulada (no rectas) de cardio/kcal/peso dentro del plot + teaser; sin tiles duplicados.
 - **Gratis · Recuperación:** sueño acotado al **periodo** de Progreso (media si hay >1 noche); gráfica nocturna a borde; fases en la barra (sin tiles); Inicio solo con datos y mismo icono luna.
@@ -73,7 +73,7 @@
 - Calorías: datos diarios de Salud/Watch y entrenos externos verificados únicamente; los valores estimados por Repera no entran en la gráfica ni en `summary.totalKcal`. Los días sin dato no se inventan.
 - Salud: caché diaria ≤360d; match de sesiones indexado; sin sobrescribir ventanas grandes con refrescos cortos.
 - Heatmap (tiempo/volumen precalculados), equilibrio (all/hard precalculados), progreso por ejercicio y PRs; enlace a historial.
-- `VStack` en el scroll de Progreso (evita salto al subir desde el final por reciclado de LazyVStack).
+- Scroll de Progreso: `LazyVStack(pinnedViews: [.sectionHeaders])` solo para anclar el selector Entreno/Actividad/Recuperación; el bloque completo de métricas sigue en un `VStack` no lazy para evitar reciclado de Charts/heatmap y saltos de offset.
 - Equilibrio: mapa coloreado por **fatiga retenida** (`MuscleMapEngine`, vida media por músculo) — gris → verde → amarillo → naranja → rojo (Recuperado→Fatigado). Incluye entrenos Repera **y** Apple Salud (`HealthMuscleMapper`: correr, tenis/raqueta, bici, natación, HIIT, deportes de equipo, etc.). Barras = series del periodo; color de barra = fatiga. Toggle Todas/Duras.
 
 ### Ejercicios (`LibraryView`)
@@ -222,7 +222,7 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 
 ## Sueño y ciclo (iOS 27)
 
-- Progreso agrupa **Entreno**, **Actividad** y **Recuperación** con el segmented **fijo** bajo la barra (no hace scroll con el contenido).
+- Progreso agrupa **Entreno**, **Actividad** y **Recuperación** con el segmented que sube junto al encabezado y queda **fijo en la parte superior** al alcanzarla; título, periodo y calendario desaparecen al seguir desplazándose.
 - En Recuperación, **Sueño** es título de sección; **Ciclo** solo aparece si hay registros reales de menstruación. Si el periodo filtrado no tiene noches pero sí hay historial, se muestran las noches anteriores con una nota.
 - **Sueño** no se solicita automáticamente en el onboarding ni aparece como pendiente sin respuesta. Solo se solicita desde la activación expresa «Analizar descanso» en Apple Salud; **no hay alerta independiente en Progreso → Recuperación**. La selección se guarda solo en el dispositivo y HealthKit no permite comprobar si el permiso de lectura fue concedido.
 - Ajustes → **Salud conectada**: activación/desactivación del sueño, ciclo y métricas generales. Al activar sueño más tarde se usa la misma solicitud unificada de HealthKit; una negativa explícita se respeta. Punto rojo para decisiones pendientes, sin interrumpir Progreso.
