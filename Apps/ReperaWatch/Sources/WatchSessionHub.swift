@@ -458,9 +458,7 @@ final class WatchSessionHub: NSObject {
     /// Warmup sets do not consume the next prescribed working-set target.
     private func resetSetDraft() {
         let ex = current
-        let workIndex = ex?.loggedSets.filter { $0.phase == .work }.count ?? 0
-        let planned = ex?.plannedSets.dropFirst(workIndex).first
-            ?? ex?.plannedSets.last
+        let planned = ex?.nextWorkSetPrescription
         workingReps = max(0, planned?.targetReps ?? 0)
         workingWeightKg = ex?.exercise.loadField == .weightKg
             ? planned?.targetWeightKg : nil
