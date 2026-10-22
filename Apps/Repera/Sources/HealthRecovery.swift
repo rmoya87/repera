@@ -303,6 +303,91 @@ final class HealthRecoveryStore {
     }
 }
 
+/// Local-only, optional HealthKit observations. No values or derived scores
+/// are persisted in AppState, iCloud workout documents or Supabase.
+@MainActor
+@Observable
+final class HealthPhysiologyStore {
+    static let shared = HealthPhysiologyStore()
+    private let healthStore = HKHealthStore()
+
+    private struct Reading: Sendable {
+        let date: Date
+        let value: Double
+    }
+
+    private(set) var days: [RecoveryEngine.DailyVitals] = []
+    private(set) var isLoading = false
+    private(set) var lastRefreshed: Date?
+
+    private init() {}
+
+    /// Missing rows are omitted, never interpreted as zero or as accepted
+    /// permission. Each HealthKit type is independently optional.
+    func refresh() async {
+        guard HKHealthStore.isHealthDataAvailable(), !isLoading else { return }
+        isLoading = true
+        defer { isLoading = false }
+        let since = Date().addingTimeInterval(-45 * 86_400)
+        let bpm = HKUnit.count().unitDivided(by: .minute())
+        let hrv = await read(.heartRateVariabilitySDNN, unit: .secondUnit(with: .milli), since: since)
+        let rest = await read(.restingHeartRate, unit: bpm, since: since)
+        let breathing = await read(.respiratoryRate, unit: bpm, since: since)
+        let oxygen = await read(.oxygenSaturation, unit: .percent(), since: since)
+        let wrist = await read(.appleSleepingWristTemperature, unit: .degreeCelsius(), since: since)
+        let hrRecovery = await read(.heartRateRecoveryOneMinute, unit: bpm, since: since)
+
+        let cal = Calendar.current
+        let dates = Set((hrv + rest + breathing + oxygen + wrist + hrRecovery)
+            .map { cal.startOfDay(for: $0.date) })
+
+        func median(_ samples: [Reading], for day: Date, valid: ClosedRange<Double>) -> Double? {
+            let sorted = samples.compactMap { record -> Double? in
+                guard cal.isDate(record.date, inSameDayAs: day),
+                      record.value.isFinite, valid.contains(record.value) else { return nil }
+                return record.value
+            }.sorted()
+            guard !sorted.isEmpty else { return nil }
+            let i = sorted.count / 2
+            return sorted.count.isMultiple(of: 2) ? (sorted[i-1] + sorted[i]) / 2 : sorted[i]
+        }
+
+        days = dates.sorted().map { day in
+            // HealthKit oxygen percentages may be stored as ratios (0…1).
+            let oxygenValue = median(oxygen, for: day, valid: 0...100)
+            return RecoveryEngine.DailyVitals(
+                date: day,
+                hrvMilliseconds: median(hrv, for: day, valid: 5...300),
+                restingHeartRateBpm: median(rest, for: day, valid: 30...130),
+                respiratoryRateBpm: median(breathing, for: day, valid: 6...40),
+                oxygenSaturationPercent: oxygenValue.map { $0 <= 1 ? $0 * 100 : $0 },
+                wristTemperatureCelsius: median(wrist, for: day, valid: 25...42),
+                heartRateRecoveryBpm: median(hrRecovery, for: day, valid: 0...100)
+            )
+        }
+        lastRefreshed = Date()
+    }
+
+    private func read(
+        _ id: HKQuantityTypeIdentifier, unit: HKUnit, since: Date
+    ) async -> [Reading] {
+        guard let type = HKObjectType.quantityType(forIdentifier: id) else { return [] }
+        let predicate = HKQuery.predicateForSamples(withStart: since, end: Date())
+        return await withCheckedContinuation { (cont: CheckedContinuation<[Reading], Never>) in
+            let query = HKSampleQuery(
+                sampleType: type, predicate: predicate,
+                limit: HKObjectQueryNoLimit, sortDescriptors: nil
+            ) { _, samples, _ in
+                let observed = (samples as? [HKQuantitySample] ?? []).map {
+                    Reading(date: $0.endDate, value: $0.quantity.doubleValue(for: unit))
+                }
+                cont.resume(returning: observed)
+            }
+            healthStore.execute(query)
+        }
+    }
+}
+
 /// Detalle unificado: conexión HealthKit + sueño/ciclo (antes «Salud y recuperación»).
 struct ConnectedHealthSettingsView: View {
     @Environment(HealthKitStore.self) private var health
