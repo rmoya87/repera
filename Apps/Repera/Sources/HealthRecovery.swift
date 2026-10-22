@@ -815,7 +815,7 @@ struct HealthRecoveryProgressView: View {
     // MARK: - Preparación para entrenar (sin duplicar sueño)
 
     private func readinessColor(_ score: Double) -> Color {
-        score >= 8 ? OG.accent : (score >= 6 ? OG.orange : OG.red)
+        score >= 8 ? OG.accent : (score >= 6 ? OG.yellow : OG.red)
     }
 
     private func readinessRecommendation(
@@ -974,8 +974,8 @@ struct HealthRecoveryProgressView: View {
                             stops: [
                                 .init(color: OG.red, location: 0),
                                 .init(color: OG.red, location: 0.40),
-                                .init(color: OG.orange, location: 0.60),
-                                .init(color: OG.orange, location: 0.72),
+                                .init(color: OG.yellow, location: 0.60),
+                                .init(color: OG.yellow, location: 0.72),
                                 .init(color: OG.accent, location: 0.84),
                                 .init(color: OG.accent, location: 1)
                             ],
