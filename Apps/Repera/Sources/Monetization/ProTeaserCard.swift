@@ -1,31 +1,26 @@
 import ReperaDomain
 import SwiftUI
 
-/// Banner Pro reutilizable. Cada contexto dispone de mascota y composición propias.
-/// El fondo verde se aplica solo al contenedor: nunca a los píxeles del personaje.
+/// Banner Repera Pro con las ilustraciones ORIGINALES del catálogo de la app.
+/// Los motivos (pesas, movimiento, descanso y evolución) se componen en SwiftUI
+/// sin regenerar el personaje ni alterar el alfa de su piel, ojos, cinta o accesorios.
 struct ProTeaserCard: View {
     enum Appearance {
         case progress
         case activity
+        case recovery
         case evolution
+
+        var imageOnLeft: Bool { self == .activity }
 
         var pose: ReperaMascotPose {
             switch self {
-            case .progress: .welcome
+            case .progress: .hero
             case .activity: .watch
+            case .recovery: .welcome
             case .evolution: .permissions
             }
         }
-
-        var imageAlignment: Alignment {
-            switch self {
-            case .progress: .bottomTrailing
-            case .activity: .topLeading
-            case .evolution: .topTrailing
-            }
-        }
-
-        var imageOnLeft: Bool { self == .activity }
     }
 
     var title: String
@@ -34,17 +29,60 @@ struct ProTeaserCard: View {
     var appearance: Appearance = .evolution
     var action: () -> Void
 
-    private var mascot: some View {
-        ReperaMascot(pose: appearance.pose, maxHeight: 138)
-            .frame(width: 100, height: 154, alignment: appearance.imageAlignment)
-            .accessibilityHidden(true)
+    /// Ilustración grande que aprovecha la altura de la tarjeta, con escena
+    /// independiente por funcionalidad. Los símbolos solo decoran su exterior.
+    @ViewBuilder
+    private var mascotScene: some View {
+        ZStack {
+            switch appearance {
+            case .progress:
+                ReperaMascot(pose: appearance.pose, maxHeight: 214)
+                    .rotationEffect(.degrees(-7))
+                    .offset(x: 7, y: 17)
+            case .activity:
+                Image(systemName: "wind")
+                    .font(.system(size: 40, weight: .light))
+                    .foregroundStyle(Color.white.opacity(0.55))
+                    .offset(x: -51, y: -5)
+                ReperaMascot(pose: appearance.pose, maxHeight: 209)
+                    .rotationEffect(.degrees(-17), anchor: .bottom)
+                    .offset(x: 12, y: 24)
+                Image(systemName: "figure.run")
+                    .font(.system(size: 25, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.85))
+                    .offset(x: -48, y: -62)
+            case .recovery:
+                RoundedRectangle(cornerRadius: 25, style: .continuous)
+                    .fill(Color.white.opacity(0.82))
+                    .frame(width: 152, height: 39)
+                    .rotationEffect(.degrees(-10))
+                    .offset(x: 10, y: 65)
+                ReperaMascot(pose: appearance.pose, maxHeight: 194)
+                    .rotationEffect(.degrees(-63))
+                    .offset(x: 5, y: 22)
+                Image(systemName: "moon.zzz.fill")
+                    .font(.system(size: 33, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.95))
+                    .offset(x: -54, y: -72)
+            case .evolution:
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 69, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.37))
+                    .offset(x: 22, y: -44)
+                ReperaMascot(pose: appearance.pose, maxHeight: 208)
+                    .rotationEffect(.degrees(5))
+                    .offset(x: 8, y: 21)
+            }
+        }
+        .frame(width: 148, height: 210)
+        .accessibilityHidden(true)
     }
 
     var body: some View {
         Button(action: action) {
-            HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .center, spacing: 4) {
                 if appearance.imageOnLeft {
-                    mascot
+                    mascotScene
                 }
 
                 VStack(alignment: .leading, spacing: 9) {
@@ -54,13 +92,13 @@ struct ProTeaserCard: View {
                         .foregroundStyle(Color.black.opacity(0.7))
 
                     Text(title)
-                        .font(.system(size: 19, weight: .bold, design: .rounded))
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundStyle(.black)
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
 
                     Text(bodyText)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 12.5, weight: .medium))
                         .foregroundStyle(Color.black.opacity(0.8))
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
@@ -70,21 +108,22 @@ struct ProTeaserCard: View {
                         Image(systemName: "arrow.up.right")
                             .font(.system(size: 11, weight: .bold))
                     }
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.black)
-                    .padding(.horizontal, 11)
+                    .padding(.horizontal, 10)
                     .padding(.vertical, 9)
-                    .background(Color.black.opacity(0.1), in: Capsule())
+                    .background(Color.white.opacity(0.83), in: Capsule())
                     .padding(.top, 2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 if !appearance.imageOnLeft {
-                    mascot
+                    mascotScene
                 }
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, minHeight: 228, alignment: .leading)
             .background(
                 LinearGradient(
                     colors: [OG.accent, Color(red: 0.41, green: 0.91, blue: 0.53)],
@@ -93,6 +132,7 @@ struct ProTeaserCard: View {
                 ),
                 in: RoundedRectangle(cornerRadius: 22, style: .continuous)
             )
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(title). \(bodyText). \(cta)")
