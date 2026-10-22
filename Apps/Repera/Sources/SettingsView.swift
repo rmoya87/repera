@@ -363,6 +363,13 @@ struct SettingsView: View {
                 }
 
                 NavigationLink {
+                    HealthGoalsView()
+                } label: {
+                    Label("Objetivos", systemImage: "target")
+                        .foregroundStyle(OG.label)
+                }
+
+                NavigationLink {
                     BodyWeightListView()
                 } label: {
                     HStack {
