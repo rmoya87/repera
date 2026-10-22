@@ -96,6 +96,39 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertEqual(watch.read_bytes(), ios.read_bytes())
         self.assertEqual(complication.read_bytes(), ios.read_bytes())
 
+    def test_watch_today_refresh_after_late_scheduling(self):
+        phone = source("Apps/Repera/Sources/PhoneConnectivity.swift")
+        client = source("Apps/ReperaWatch/Sources/WatchConnectivityClient.swift")
+        hub = source("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
+        app = source("Apps/ReperaWatch/Sources/ReperaWatchApp.swift")
+        view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+
+        # Changes before WCSession activates must be retained, not dropped.
+        self.assertIn("private var latestPayload: [String: Any]?", phone)
+        self.assertIn("latestPayload = payload", phone)
+        self.assertIn("publishLatestContext()", phone)
+        self.assertIn("try wc.updateApplicationContext(payload)", phone)
+        self.assertIn("wc.sendMessage(payload, replyHandler: nil)", phone)
+        self.assertNotIn('wc.sendMessage(["ping": true]', phone)
+        self.assertIn('case "requestToday":', phone)
+        self.assertIn('return latestPayload ?? ["ok": true]', phone)
+
+        # A reachable Watch gets a direct reply; unavailable devices keep context.
+        self.assertIn("replyHandler: { [weak self] payload in", client)
+        self.assertIn("self?.applyContext(payload)", client)
+        self.assertIn("func refreshToday()", client)
+        self.assertIn("lastInboundTodayDay", client)
+        self.assertIn("func refreshToday()", hub)
+        self.assertIn("hub.refreshToday()", app)
+        self.assertIn("hub.refreshToday()", view)
+
+    def test_watch_music_icon_contrasts_with_accent_button(self):
+        view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        self.assertIn('Image(systemName: "playpause.fill")', view)
+        self.assertIn(".foregroundStyle(.black)", view)
+        self.assertIn(".symbolRenderingMode(.monochrome)", view)
+        self.assertIn("Sincronizar con iPhone", view)
+
     def test_watch_complication_uses_widget_configuration_inside_widget(self):
         """WidgetBundleBuilder accepts Widget, not StaticConfiguration."""
         widget = source("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
