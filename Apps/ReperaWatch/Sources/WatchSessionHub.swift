@@ -136,6 +136,10 @@ final class WatchSessionHub: NSObject {
     }
 
     func activate() {
+        health.onPauseResumeRequest = { [weak self] in self?.applyHealthPauseRequest() }
+        health.onPauseStateChanged = { [weak self] paused in
+            self?.alignWithHealthState(paused: paused)
+        }
         connectivity.delegate = self
         connectivity.activate()
         if let active, startedOnThisWatch { health.recoverIfNeeded(id: active.id) }
@@ -157,8 +161,22 @@ final class WatchSessionHub: NSObject {
         save()
     }
 
+    /// HealthKit sends physical two-button pause requests and state changes.
+    /// Repera remains the owner of interval and set timers; both clocks pause together.
+    private func applyHealthPauseRequest() {
+        guard hasWorkoutInProgress, active?.phase == .counting, !reviewingBlock else { return }
+        if isPaused { play() } else { pause() }
+    }
+
+    private func alignWithHealthState(paused: Bool) {
+        guard hasWorkoutInProgress, active?.phase == .counting, !reviewingBlock,
+              paused != isPaused else { return }
+        if paused { pause() } else { play() }
+    }
+
     func startToday() {
-        guard let plan = todaysWorkout, !plan.exercises.isEmpty else { return }
+        guard !hasWorkoutInProgress, !awaitingHealthSave,
+              let plan = todaysWorkout, !plan.exercises.isEmpty else { return }
         stopMotion()
         // The prescription ID is not the execution ID. Repeating a plan
         // creates a fresh workout, never overwriting a previous result.
@@ -384,7 +402,7 @@ final class WatchSessionHub: NSObject {
         controller = ctrl
         reviewingBlock = false
         isPaused = false
-        if startedOnThisWatch { health.resume() }
+        if ctrl.session.phase != .finished, startedOnThisWatch { health.resume() }
         blockElapsed = 0
         restRemaining = 0
         workingReps = 0
@@ -477,24 +495,31 @@ final class WatchSessionHub: NSObject {
     private func tickClock() {
         guard hasWorkoutInProgress, !isPaused, let lastClockTick else { return }
         let now = Date()
-        let delta = max(0, min(3600, Int(now.timeIntervalSince(lastClockTick))))
+        // The callback is only a UI refresh: elapsed time comes from real dates.
+        // Never truncate background time to an arbitrary one-hour window.
+        let delta = max(0, Int(now.timeIntervalSince(lastClockTick)))
         guard delta > 0 else { return }
         self.lastClockTick = lastClockTick.addingTimeInterval(Double(delta))
         sessionElapsed += delta
         let isCounting = active?.phase == .counting
         let previous = blockElapsed
-        if isCounting { blockElapsed += delta }
-        if restRemaining > 0 {
-            if currentIsWOD, timeRemaining == 0 { reviewBlock(); return }
+        let wasResting = restRemaining > 0
+        let consumedRest = min(max(0, restRemaining), delta)
+        if isCounting {
+            // Timed WOD intervals include rest; a strength set's active clock does not.
+            blockElapsed += currentIsWOD ? delta : delta - consumedRest
+        }
+        if wasResting {
             restRemaining = max(0, restRemaining - delta)
             if restRemaining == 0 {
                 WKInterfaceDevice.current().play(.notification)
                 startMotion()
                 checkpoint()
             }
-            return
         }
         guard isCounting else { return }
+        if currentIsWOD, timeRemaining == 0 { reviewBlock(); return }
+        if restRemaining > 0 { return }
         if let current, let interval = current.blockIntervalSeconds, interval > 0,
            blockElapsed / interval > previous / interval {
             WKInterfaceDevice.current().play(.click)
