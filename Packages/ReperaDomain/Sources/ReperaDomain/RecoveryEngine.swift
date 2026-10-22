@@ -113,6 +113,20 @@ public enum RecoveryEngine {
         return Int((100 * min(max(0, hours / target), 1)).rounded())
     }
 
+    /// Entrenos de Salud no vinculados a una sesión de Repera: proceden de
+    /// HKWorkout real, sin calorías ni intensidad inventadas.
+    public struct ObservedActivity: Sendable, Equatable {
+        public let date: Date
+        public let durationMinutes: Double
+        public let isCardio: Bool
+
+        public init(date: Date, durationMinutes: Double, isCardio: Bool) {
+            self.date = date
+            self.durationMinutes = durationMinutes
+            self.isCardio = isCardio
+        }
+    }
+
     /// Orientación de carga del día, NO diagnóstico ni medición fisiológica
     /// directa (sin HRV, dolor muscular, percepción de fatiga, etc.).
     public enum TrainingReadinessAdvice: String, Sendable, Equatable {
@@ -132,6 +146,8 @@ public enum RecoveryEngine {
         public let physiologicalPenalty: Double
         public let calibratedVitalSignals: Int
         public let vitalNotes: [String]
+        /// Minutos de cardio observado en Apple Salud (actividades externas).
+        public let cardioMinutes48h: Double?
 
         public init(
             score: Double,
@@ -141,7 +157,8 @@ public enum RecoveryEngine {
             trainingCount: Int,
             physiologicalPenalty: Double = 0,
             calibratedVitalSignals: Int = 0,
-            vitalNotes: [String] = []
+            vitalNotes: [String] = [],
+            cardioMinutes48h: Double? = nil
         ) {
             self.score = score
             self.advice = advice
@@ -151,23 +168,25 @@ public enum RecoveryEngine {
             self.physiologicalPenalty = physiologicalPenalty
             self.calibratedVitalSignals = calibratedVitalSignals
             self.vitalNotes = vitalNotes
+            self.cardioMinutes48h = cardioMinutes48h
         }
     }
 
     /// Estimación de disposición para entrenar a una hora determinada. Usa:
-    /// - sueño observado (o supuesto explícito para una proyección),
+    /// - sueño observado en Salud,
     /// - fatiga residual por músculos (mismo motor del mapa corporal),
-    /// - minutos de entrenamiento de las últimas 48 h.
+    /// - minutos de entrenamiento local y actividad HealthKit externa.
     ///
-    /// Requiere ambos tipos de datos y al menos un entrenamiento finalizado
-    /// en los últimos siete días. Jamás inventa cero esfuerzo sin registros.
+    /// Requiere sueño observado y actividad finalizada en los últimos siete
+    /// días. Jamás inventa cero esfuerzo sin registros.
     /// No incluye entrenamientos futuros ni cambia la nota deportiva.
     public static func trainingReadiness(
         at date: Date,
         sleepHours: Double?,
         recentAverageSleepHours: Double?,
         workouts: [WorkoutSession],
-        vitalHistory: [DailyVitals] = []
+        vitalHistory: [DailyVitals] = [],
+        observedActivities: [ObservedActivity] = []
     ) -> TrainingReadiness? {
         guard let hours = sleepHours,
               hours.isFinite,
@@ -183,7 +202,12 @@ public enum RecoveryEngine {
             let age = date.timeIntervalSince(finished)
             return age >= 0 && age <= sevenDays
         }
-        guard !recent.isEmpty else { return nil }
+        let recentExternal = observedActivities.filter { activity in
+            let age = date.timeIntervalSince(activity.date)
+            return age >= 0 && age <= sevenDays
+                && activity.durationMinutes.isFinite && activity.durationMinutes > 0
+        }
+        guard !recent.isEmpty || !recentExternal.isEmpty else { return nil }
 
         // Solo sesiones ya acabadas. MuscleMapEngine respeta los grupos
         // musculares y la vida media propia de cada uno.
@@ -200,6 +224,19 @@ public enum RecoveryEngine {
             let minutes = min(180.0, max(0.0, workout.durationMinutes))
             if age <= fourDays { minutes96h += minutes }
             if age <= twoDays { minutes48h += minutes }
+        }
+        // El cardio externo que Salud registró y que NO coincide con
+        // sesiones Repera también produce carga. No se deduce intensidad
+        // cardíaca de minutos ni de kcal no disponibles.
+        var cardioMinutes48h = 0.0
+        for activity in recentExternal {
+            let age = date.timeIntervalSince(activity.date)
+            let minutes = min(180, activity.durationMinutes)
+            if age <= fourDays { minutes96h += minutes }
+            if age <= twoDays {
+                minutes48h += minutes
+                if activity.isCardio { cardioMinutes48h += minutes }
+            }
         }
         // Si un WOD solo tiene duración y no series mapeadas, la densidad
         // temporal sigue representando esfuerzo real: no asumir fatiga nula.
@@ -229,10 +266,13 @@ public enum RecoveryEngine {
             advice: advice,
             sleepContribution: sleepContribution,
             fatiguePenalty: penalty,
-            trainingCount: recent.count,
+            trainingCount: recent.count + recentExternal.count,
             physiologicalPenalty: vitals.penalty,
             calibratedVitalSignals: vitals.calibratedSignals,
-            vitalNotes: vitals.notes
+            vitalNotes: vitals.notes,
+            cardioMinutes48h: recentExternal.contains {
+                $0.isCardio && date.timeIntervalSince($0.date) <= twoDays
+            } ? cardioMinutes48h : nil
         )
     }
 
