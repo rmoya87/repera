@@ -7,6 +7,8 @@ protocol PhoneConnectivityDelegate: AnyObject {
     func phoneConnectivityDidUpdateReachability(_ reachable: Bool)
     func phoneConnectivityDidReceive(session: WorkoutSession)
     func phoneConnectivityDidRequestToday()
+    /// An explicit request replies with today's CURRENT prescription.
+    func phoneConnectivityLatestWorkoutForToday() async -> WorkoutSession?
     func phoneConnectivityDidReceiveQuickLogRequest(exerciseId: UUID?)
     /// Persist then ACK. Returns sessionRevision after durable write (0 on failure).
     func phoneConnectivityDidReceiveLogSet(
@@ -18,6 +20,7 @@ protocol PhoneConnectivityDelegate: AnyObject {
 
 extension PhoneConnectivityDelegate {
     func phoneConnectivityDidRequestToday() {}
+    func phoneConnectivityLatestWorkoutForToday() async -> WorkoutSession? { nil }
     func phoneConnectivityDidReceiveQuickLogRequest(exerciseId: UUID?) {}
     func phoneConnectivityDidReceiveLogSet(
         reps: Int,
@@ -164,9 +167,20 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     private func handleAction(_ action: String, message: [String: Any]) async -> [String: Any] {
         switch action {
         case "requestToday":
-            // Reply with the last cached state, then republish the freshest plan.
-            delegate?.phoneConnectivityDidRequestToday()
-            return latestPayloadLock.withLock { latestPayload } ?? ["ok": true]
+            // The iPhone resolves its current date-specific plan BEFORE replying,
+            // rather than returning an outdated applicationContext payload.
+            // Returning empty Data is intentional only when there is no plan.
+            guard let delegate else {
+                return ["ok": false]
+            }
+            let today = await delegate.phoneConnectivityLatestWorkoutForToday()
+            let data = today.flatMap { try? JSONEncoder().encode($0) } ?? Data()
+            delegate.phoneConnectivityDidRequestToday()
+            return [
+                "ok": true,
+                "todayWorkout": data,
+                "todayDayStart": Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
+            ]
         case "quickLog":
             let id = (message["exerciseId"] as? String).flatMap(UUID.init(uuidString:))
             delegate?.phoneConnectivityDidReceiveQuickLogRequest(exerciseId: id)
