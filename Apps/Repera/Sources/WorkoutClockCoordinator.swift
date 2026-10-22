@@ -41,6 +41,15 @@ final class WorkoutClockCoordinator {
     private var tabataWork = 20
     private var tabataRest = 10
     private var isTabata = false
+    /// Número mostrado al atleta: una ronda Tabata incluye trabajo y descanso.
+    var displayedRound: Int {
+        guard isIntervalMode else { return 0 }
+        return isTabata ? intervalIndex / 2 + 1 : intervalIndex + 1
+    }
+    var displayedRoundsTotal: Int {
+        guard isIntervalMode else { return 0 }
+        return isTabata ? max(1, totalIntervals / 2) : totalIntervals
+    }
     /// Duración real de cada fase (trabajo/descanso), no una longitud constante.
     private var phaseDurations: [Int] = []
     private var phaseSubtitles: [String] = []
@@ -261,15 +270,21 @@ final class WorkoutClockCoordinator {
             // Saltar cada frontera de tiempo real, también tras ir a background,
             // sin repetir la longitud del primer intervalo.
             var boundary = end
+            var advanced = false
             while now >= boundary {
                 if intervalIndex + 1 >= totalIntervals {
                     finishComplete()
                     return
                 }
-                advanceInterval(announce: true)
+                advanceInterval(announce: false)
+                advanced = true
                 boundary = boundary.addingTimeInterval(TimeInterval(intervalLength))
             }
             phaseEndDate = boundary
+            if advanced {
+                // Un solo aviso al volver de background, no uno por cada fase perdida.
+                RestFeedback.intervalBeep(sound: soundEnabled, haptic: hapticEnabled)
+            }
             scheduleFeedback()
         } else {
             finishComplete()
