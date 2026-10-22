@@ -716,9 +716,9 @@ private struct ProgressSessionScoreChartCard: View {
                             range: range,
                             weekStartsOnMonday: weekStartsOnMonday
                         ))
-                        .chartYScale(domain: 0...10)
+                        .chartYScale(domain: 0.0...10.0)
                         .chartYAxis {
-                            AxisMarks(position: .leading, values: [0, 5, 10])
+                            AxisMarks(position: .leading, values: [0.0, 5.0, 10.0])
                         }
                         .chartXAxis {
                             AxisMarks(values: .automatic(desiredCount: 4)) { _ in
