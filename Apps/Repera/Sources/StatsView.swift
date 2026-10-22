@@ -677,7 +677,7 @@ private struct ProgressSessionScoreChartCard: View {
             guard let scores = byDay[day], !scores.isEmpty else { return nil }
             return ScoreDay(
                 date: day,
-                score: scores.reduce(0.0) { $0 + $1.1 } / Double(scores.count)
+                score: (scores.reduce(0.0) { $0 + $1.1 } / Double(scores.count)).rounded()
             )
         }
     }
@@ -690,7 +690,7 @@ private struct ProgressSessionScoreChartCard: View {
                 HStack(alignment: .firstTextBaseline) {
                     OGCardSectionTitle(title: "Puntuación de entrenos")
                     Spacer(minLength: 8)
-                    Text(String(format: "%.1f/10", values.map(\.score).reduce(0, +) / Double(values.count)))
+                    Text("\(Int((values.map(\.score).reduce(0, +) / Double(values.count)).rounded()))/10")
                         .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(OG.label)
                 }
