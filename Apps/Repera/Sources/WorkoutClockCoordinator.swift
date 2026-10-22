@@ -242,7 +242,7 @@ final class WorkoutClockCoordinator {
 
     /// Call when returning from background — catch up multiple skipped intervals at once.
     func syncFromWallClock(now: Date = Date()) {
-        guard isVisible, isRunning else { return }
+        guard isRunning else { return }
         if let pre = preCountdownEnd {
             if now >= pre {
                 preCountdownEnd = nil
@@ -292,6 +292,16 @@ final class WorkoutClockCoordinator {
         } else {
             finishComplete()
         }
+    }
+
+    /// Regresar a Play y apuntar series sin detener el reloj ni sus avisos.
+    func minimize() {
+        isVisible = false
+    }
+
+    func showClock() {
+        guard hasStarted else { return }
+        isVisible = true
     }
 
     /// Stop without dismissing UI (pause dock).
@@ -426,7 +436,7 @@ final class WorkoutClockCoordinator {
         cancelFeedback()
         lastTickAnnounced = -1
         feedbackTask = Task { @MainActor in
-            while !Task.isCancelled, isVisible, isRunning {
+            while !Task.isCancelled, isRunning {
                 syncFromWallClock()
                 let remaining = displaySeconds
                 if isPreCountdown || (!isCountingUp && remaining <= 3 && remaining > 0) {
