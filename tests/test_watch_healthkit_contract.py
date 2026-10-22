@@ -130,6 +130,24 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn(".symbolRenderingMode(.monochrome)", view)
         self.assertIn("Sincronizar con iPhone", view)
 
+    def test_healthkit_state_transitions_never_repeat_running_resume(self):
+        """A startActivity session is already running; resume only from paused."""
+        health = source("Apps/ReperaWatch/Sources/WatchHealthKitSession.swift")
+        hub = source("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
+        view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        self.assertIn("workout.state == .paused", health)
+        self.assertIn("workout.state == .running", health)
+        self.assertIn("pendingStateTransition != .running", health)
+        self.assertIn("pendingStateTransition != .paused", health)
+        self.assertIn("self.pendingStateTransition = nil", health)
+        self.assertNotIn("func resume() { workout?.resume() }", health)
+        self.assertNotIn("func pause() { workout?.pause() }", health)
+        self.assertIn("hub.confirmAndAdvance()", view)
+        self.assertEqual(view.count("hub.confirmAndAdvance()"), 1)
+        self.assertNotIn('Text("Desliza ← → para revisar otras series")', view)
+        self.assertNotIn('Label(hub.isFinalSet ? "Terminar" : "Siguiente"', view)
+        self.assertIn("func canConfirmCurrentEntry", hub.replace("var canConfirmCurrentEntry", "func canConfirmCurrentEntry"))
+
     def test_watch_workout_native_play_and_one_tap_save(self):
         view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
         hub = source("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
@@ -141,9 +159,10 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("hub.selectBlock(startingAt: index)", view)
         self.assertIn("hub.swipeSet(horizontal < 0 ? 1 : -1)", view)
         self.assertIn("hub.confirmAndAdvance()", view)
-        self.assertIn('Label(hub.isFinalSet ? "Terminar" : "Siguiente"', view)
-        self.assertIn("hub.hasNextExercise", view)
-        self.assertIn("hub.nextExercise()", view)
+        self.assertIn('Image(systemName: hub.nextActionIsFinish ? "checkmark" : "arrow.right")', view)
+        self.assertIn("hub.canConfirmCurrentEntry", view)
+        self.assertIn("hub.confirmAndAdvance()", view)
+        self.assertNotIn('Text("Desliza ← → para revisar otras series")', view)
         self.assertIn('Button("Resumen") { showOutline = true }', view)
         self.assertNotIn("Confirmar serie", view)
         self.assertNotIn("Saltar al siguiente", view)
@@ -186,10 +205,10 @@ class WatchHealthKitContractTests(unittest.TestCase):
 
         # Shortcuts are exposed on Play without saving skipped/unconfirmed sets.
         self.assertIn('Button("Resumen")', view)
-        self.assertIn('Image(systemName: "arrow.right")', view)
-        self.assertIn('hub.nextExercise()', view)
-        self.assertIn('func nextExercise()', hub)
-        self.assertIn('ctrl.selectExercise(at: nextIndex)', hub)
+        self.assertIn('Image(systemName: hub.nextActionIsFinish ? "checkmark" : "arrow.right")', view)
+        self.assertIn("hub.confirmAndAdvance()", view)
+        self.assertNotIn("hub.nextExercise()", view)
+        self.assertIn(".buttonStyle(.borderedProminent)", view)
         self.assertIn('func finishFromSummary()', hub)
         self.assertIn("if currentIsWOD {\n                reviewBlock()", hub)
         self.assertNotIn("confirmationDialog(", view)
