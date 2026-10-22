@@ -20,7 +20,10 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     private var workout: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
     private var workoutID: UUID?
+    private var lastRecordedBlockID: UUID?
     private var finishHandler: ((Result) -> Void)?
+    var onPauseResumeRequest: (() -> Void)?
+    var onPauseStateChanged: ((Bool) -> Void)?
     private var finishing = false
     private(set) var pulseBpm: Int?
     private(set) var kcal: Double?
@@ -51,12 +54,30 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         }
     }
 
+    /// Segment boundaries belong to HealthKit, not to guessed heart-rate samples.
+    /// Keep the same configuration for intervals as Apple requires.
+    func beginBlock(id: UUID, isInterval: Bool) {
+        guard workout != nil, !finishing, id != lastRecordedBlockID,
+              let session = workout else { return }
+        lastRecordedBlockID = id
+        let metadata: [String: Any] = [
+            "com.app.repera.blockID": id.uuidString,
+            "com.app.repera.blockKind": isInterval ? "wod" : "strength"
+        ]
+        session.beginNewActivity(
+            configuration: session.workoutConfiguration,
+            date: Date(),
+            metadata: metadata
+        )
+    }
+
     func start(id: UUID, at date: Date) {
         guard workout == nil, HKHealthStore.isHealthDataAvailable() else {
             permissionIssue = "Salud no disponible o entrenamiento de Salud ya iniciado."
             return
         }
         workoutID = id
+        lastRecordedBlockID = nil
         finishing = false
         permissionIssue = nil
         let heart = HKObjectType.quantityType(forIdentifier: .heartRate)!
@@ -83,6 +104,9 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                     self.workout = session
                     self.builder = builder
                     session.startActivity(with: date)
+                    // Mirroring is optional; a disconnected iPhone must never block
+                    // the Watch's local HealthKit collection or offline results.
+                    session.startMirroringToCompanionDevice { _, _ in }
                     builder.beginCollection(withStart: date) { [weak self] ok, err in
                         if ok {
                             // Matches HealthKit's independent sample UUID to Repera's
@@ -127,9 +151,25 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         _ workoutSession: HKWorkoutSession, didChangeTo toState: HKWorkoutSessionState,
         from fromState: HKWorkoutSessionState, date: Date
     ) {
-        if toState == .stopped {
-            Task { @MainActor in self.endBuilder(at: date) }
+        Task { @MainActor in
+            switch toState {
+            case .paused:
+                self.onPauseStateChanged?(true)
+            case .running:
+                self.onPauseStateChanged?(false)
+            case .stopped:
+                self.endBuilder(at: date)
+            default:
+                break
+            }
         }
+    }
+
+    nonisolated func workoutSession(
+        _ workoutSession: HKWorkoutSession, didGenerate event: HKWorkoutEvent
+    ) {
+        guard event.type == .pauseOrResumeRequest else { return }
+        Task { @MainActor in self.onPauseResumeRequest?() }
     }
 
     nonisolated func workoutSession(
@@ -202,6 +242,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         workout = nil
         builder = nil
         workoutID = nil
+        lastRecordedBlockID = nil
         isRecording = false
         finishing = false
         let callback = finishHandler
