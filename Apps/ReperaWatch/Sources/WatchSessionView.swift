@@ -179,8 +179,8 @@ struct WatchSessionView: View {
             VStack(spacing: 8) {
                 header(title: hub.current?.displayBlockHeader ?? "Entrenamiento",
                        subtitle: session.progressLabel)
-                if let rest = hub.restRemaining as Int?, rest > 0 {
-                    restView(rest)
+                if hub.restRemaining > 0 {
+                    restView(hub.restRemaining)
                 } else {
                     clockAndProgress
                     if hub.currentIsWOD {
