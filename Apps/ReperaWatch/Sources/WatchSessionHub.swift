@@ -430,7 +430,10 @@ final class WatchSessionHub: NSObject {
 
     private func applySavedHealth(_ metrics: WatchHealthKitSession.Result, to id: UUID) {
         guard var saved = lastFinished, saved.id == id else { return }
-        if let uuid = metrics.uuid { saved.healthKitWorkoutUUID = uuid }
+        if let uuid = metrics.uuid {
+            saved.healthKitWorkoutUUID = uuid
+            saved.appleHealthProvenance = "watchHealthKit"
+        }
         if let seconds = metrics.durationSeconds { saved.appleDurationSeconds = seconds }
         if let kcal = metrics.activeEnergyKcal { saved.appleActiveEnergyKcal = kcal }
         if let bpm = metrics.averageHeartRateBpm { saved.appleAverageHeartRateBpm = bpm }
