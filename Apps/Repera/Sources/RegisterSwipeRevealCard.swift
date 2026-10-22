@@ -9,6 +9,8 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
     var onOpen: () -> Void
     var onDelete: () -> Void
     var deleteAccessibilityLabel: String
+    /// Color de tarjeta configurable sin alterar el estilo usado en otras pantallas.
+    private let cardBackground: Color
     private let title: () -> Title
     private let chips: () -> Chips
 
@@ -19,12 +21,14 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
         onOpen: @escaping () -> Void,
         onDelete: @escaping () -> Void,
         deleteAccessibilityLabel: String = "Eliminar",
+        cardBackground: Color = OG.surface2,
         @ViewBuilder title: @escaping () -> Title,
         @ViewBuilder chips: @escaping () -> Chips
     ) {
         self.onOpen = onOpen
         self.onDelete = onDelete
         self.deleteAccessibilityLabel = deleteAccessibilityLabel
+        self.cardBackground = cardBackground
         self.title = title
         self.chips = chips
     }
@@ -46,7 +50,7 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
                 }
                 .padding(.vertical, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(cardBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
         }
