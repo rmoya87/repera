@@ -24,6 +24,7 @@ final class AIChangeRequestStore {
     }
     struct Payload: Decodable {
         let title: String?
+        let workoutTitle: String?
         let setChanges: [SetChange]?
         let name: String?
         let muscleGroup: String?
@@ -46,11 +47,11 @@ final class AIChangeRequestStore {
         }
         var summary: String {
             switch operation {
-            case "update_workout": "Corregir entreno: \(payload.title ?? "\(payload.setChanges?.count ?? 0) series")"
-            case "delete_workout": "Eliminar entrenamiento registrado"
+            case "update_workout": "Corregir: \(payload.workoutTitle ?? "entrenamiento")"
+            case "delete_workout": "Eliminar: \(payload.workoutTitle ?? "entrenamiento registrado")"
             case "create_exercise": "Añadir ejercicio: \(payload.name ?? "")"
             case "update_exercise": "Editar ejercicio personalizado: \(payload.name ?? "")"
-            case "delete_exercise": "Eliminar ejercicio personalizado"
+            case "delete_exercise": "Eliminar ejercicio: \(payload.name ?? "personalizado")"
             default: "Cambio solicitado"
             }
         }
