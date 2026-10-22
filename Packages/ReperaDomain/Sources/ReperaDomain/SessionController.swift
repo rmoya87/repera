@@ -158,6 +158,7 @@ public struct SessionController: Sendable {
                                 exercise: exercise,
                                 plannedSets: item.plannedSets,
                                 quantityUnit: item.quantityUnit,
+                                restSeconds: item.restSeconds,
                                 supersetGroup: nil,
                                 blockId: block.id,
                                 blockKind: .strength,
@@ -215,6 +216,7 @@ public struct SessionController: Sendable {
                 return SessionExercise(
                     exercise: exercise,
                     plannedSets: item.plannedSets,
+                    restSeconds: item.restSeconds,
                     supersetGroup: nil
                 )
             }
