@@ -82,7 +82,7 @@ final class CompletedWorkoutEditingTests: XCTestCase {
     }
     func testAllGlobalWODResultsCanBeCorrectedWithoutCreatingCompletedSets() {
         let burpee = Exercise(name: "Burpees", muscleGroup: "Otros")
-        for format: WODFormat in [.amrap, .deathBy, .maxEffort, .forTime,
+        for format in [WODFormat.amrap, .deathBy, .maxEffort, .forTime,
                                   .chipper, .afap, .ladder, .buyInCashOut] {
             let block = RoutineBlock(
                 title: "WOD", kind: .wod,
@@ -126,7 +126,7 @@ final class CompletedWorkoutEditingTests: XCTestCase {
     func testPerMovementFormatsSaveEditedLoggedSetsWithoutInventingNewResults() {
         let press = Exercise(name: "Push press", muscleGroup: "Hombros")
         let squat = Exercise(name: "Sentadilla", muscleGroup: "Piernas")
-        for format: WODFormat in [.emom, .tabata, .circuit, .partner,
+        for format in [WODFormat.emom, .tabata, .circuit, .partner,
                                   .roundsForQuality, .strength] {
             let block = RoutineBlock(
                 title: "Por serie", kind: .wod,
