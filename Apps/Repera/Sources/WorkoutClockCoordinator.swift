@@ -44,15 +44,21 @@ final class WorkoutClockCoordinator {
     /// Número mostrado al atleta: una ronda Tabata incluye trabajo y descanso.
     var displayedRound: Int {
         guard isIntervalMode else { return 0 }
+        if phaseRoundNumbers.indices.contains(intervalIndex) {
+            return phaseRoundNumbers[intervalIndex]
+        }
         return isTabata ? intervalIndex / 2 + 1 : intervalIndex + 1
     }
     var displayedRoundsTotal: Int {
         guard isIntervalMode else { return 0 }
+        if let explicitRoundsTotal { return explicitRoundsTotal }
         return isTabata ? max(1, totalIntervals / 2) : totalIntervals
     }
     /// Duración real de cada fase (trabajo/descanso), no una longitud constante.
     private var phaseDurations: [Int] = []
     private var phaseSubtitles: [String] = []
+    private var phaseRoundNumbers: [Int] = []
+    private var explicitRoundsTotal: Int?
     private var allowsEarlyIntervalFinish = false
 
     /// Absolute end of pre-countdown (nil when not in pre).
@@ -123,6 +129,8 @@ final class WorkoutClockCoordinator {
         timeCapSeconds: Int? = nil,
         customPhaseDurations: [Int]? = nil,
         customPhaseSubtitles: [String]? = nil,
+        customRoundNumbers: [Int]? = nil,
+        customRoundsTotal: Int? = nil,
         allowEarlyIntervalFinish: Bool = false,
         sound: Bool,
         haptic: Bool
@@ -141,6 +149,8 @@ final class WorkoutClockCoordinator {
         self.tabataWork = tabataWork ?? 20
         self.tabataRest = tabataRest ?? 10
         self.allowsEarlyIntervalFinish = allowEarlyIntervalFinish
+        phaseRoundNumbers = customRoundNumbers ?? []
+        explicitRoundsTotal = customRoundsTotal
         if intervalMode {
             if let custom = customPhaseDurations, !custom.isEmpty {
                 phaseDurations = custom.map { max(1, $0) }
@@ -361,6 +371,8 @@ final class WorkoutClockCoordinator {
             isTabata = false
             phaseDurations = []
             phaseSubtitles = []
+            phaseRoundNumbers = []
+            explicitRoundsTotal = nil
             allowsEarlyIntervalFinish = false
             configuredCapSeconds = 0
             countUpCapSeconds = nil
