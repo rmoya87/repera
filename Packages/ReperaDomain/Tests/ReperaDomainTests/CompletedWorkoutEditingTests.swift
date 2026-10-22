@@ -263,6 +263,7 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         XCTAssertEqual(saved.exercises[0].plannedSets.first?.targetWeightKg, 35)
         XCTAssertEqual(saved.exercises[0].adaptedReps, 15)
         XCTAssertEqual(saved.exercises[0].adaptedWeightKg, 25)
+        XCTAssertTrue(saved.exercises[0].hasWODScaling)
         XCTAssertEqual(saved.exercises[0].loggedSets.first?.reps, 16)
         XCTAssertEqual(saved.exercises[0].loggedSets.first?.weightKg, 27)
         XCTAssertEqual(saved.wodResults[0].roundsCompleted, 5)
@@ -270,6 +271,24 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         // El WOD plantilla nunca se actualiza por editar su sesión histórica.
         XCTAssertEqual(originalRoutine.blocks[0].movements[0].weightMaleKg, 40)
         XCTAssertEqual(originalRoutine.blocks[0].movements[0].reps, 20)
+    }
+
+    func testPerformedValuesEqualToEditedPrescriptionDoNotClaimScaled() {
+        let ex = Exercise(name: "Cargada y envión", muscleGroup: "Hombros")
+        var entry = SessionExercise(
+            exercise: ex,
+            plannedSets: [PlannedSet(targetReps: 20, targetWeightKg: 40)],
+            adaptedReps: 15, adaptedWeightKg: 25
+        )
+        XCTAssertTrue(entry.hasWODScaling)
+        XCTAssertEqual(entry.adjustedSummaryLine, "Adaptado · 15 reps · 25 kg")
+        // Corregir el Rx original al valor realmente prescrito: el registro de
+        // ejecución no desaparece, pero deja de ser una adaptación.
+        entry.plannedSets[0].targetReps = 15
+        entry.plannedSets[0].targetWeightKg = 25
+        XCTAssertTrue(entry.hasRecordedWODExecution)
+        XCTAssertFalse(entry.hasWODScaling)
+        XCTAssertEqual(entry.adjustedSummaryLine, "Realizado · 15 reps · 25 kg")
     }
 
     func testConvertedStrengthGlobalWODRetainsRxAndLoggedSetsSeparately() {
