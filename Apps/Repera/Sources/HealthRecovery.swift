@@ -518,6 +518,7 @@ struct HealthRecoveryProgressView: View {
     var weekStartsOnMonday: Bool = true
 
     @State private var recovery = HealthRecoveryStore.shared
+    @State private var physiology = HealthPhysiologyStore.shared
     @State private var recoveryPoints: [TrainingRecoveryPoint] = []
     @State private var tomorrowRecovery: RecoveryEngine.TrainingReadiness?
     @State private var appliedRecoveryKey: String = ""
@@ -533,7 +534,7 @@ struct HealthRecoveryProgressView: View {
     }
 
     private var trainingRecoveryRefreshKey: String {
-        "\(range.rawValue)|\(weekStartsOnMonday)|\(store.workoutsEpoch)|\(recovery.lastRefreshed?.timeIntervalSince1970 ?? 0)|\(recovery.sleepEnabled)"
+        "\(range.rawValue)|\(weekStartsOnMonday)|\(store.workoutsEpoch)|\(recovery.lastRefreshed?.timeIntervalSince1970 ?? 0)|\(recovery.sleepEnabled)|\(physiology.lastRefreshed?.timeIntervalSince1970 ?? 0)"
     }
 
     /// Cálculo fuera del MainActor para no bloquear el scroll de Progreso.
@@ -548,6 +549,7 @@ struct HealthRecoveryProgressView: View {
             return
         }
         let nights = recovery.nights
+        let vitalHistory = physiology.days
         let workouts = store.state.workouts.filter { $0.finishedAt != nil }
         let averageHours = recovery.averageHours
         let range = self.range
@@ -564,7 +566,8 @@ struct HealthRecoveryProgressView: View {
                         at: morning,
                         sleepHours: night.hours,
                         recentAverageSleepHours: averageHours,
-                        workouts: workouts
+                        workouts: workouts,
+                        vitalHistory: vitalHistory
                       ) else { return nil }
                 return TrainingRecoveryPoint(date: night.date, score: value.score)
             }
@@ -584,7 +587,8 @@ struct HealthRecoveryProgressView: View {
                     at: tomorrowMorning,
                     sleepHours: recentSleep,
                     recentAverageSleepHours: averageHours,
-                    workouts: workouts
+                    workouts: workouts,
+                    vitalHistory: vitalHistory
                 )
             } else {
                 tomorrow = nil
@@ -689,6 +693,10 @@ struct HealthRecoveryProgressView: View {
                 trainingRecoveryCard
             }
 
+            if !physiology.days.isEmpty {
+                physiologyContent
+            }
+
             if hasCycleData {
                 cycleContent
             }
@@ -703,7 +711,10 @@ struct HealthRecoveryProgressView: View {
                 }
             }
         }
-        .task { await recovery.refresh() }
+        .task {
+            await recovery.refresh()
+            await physiology.refresh()
+        }
         .task(id: trainingRecoveryRefreshKey) {
             await prepareTrainingRecovery()
         }
@@ -876,7 +887,7 @@ struct HealthRecoveryProgressView: View {
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
                         }
-                        Text("Proyección si esta noche duermes como la última noche registrada y no realizas otra sesión antes de mañana.")
+                        Text("Proyección si esta noche duermes como la última noche registrada y no realizas otra sesión antes de mañana. No presupone constantes futuras.")
                             .font(.caption)
                             .foregroundStyle(OG.label2)
                     }
@@ -928,7 +939,21 @@ struct HealthRecoveryProgressView: View {
                             .font(.footnote)
                             .foregroundStyle(OG.label2)
                     }
-                    Text("Estimación a partir de carga y fatiga muscular recientes y sueño observado. No mide la recuperación fisiológica ni sustituye tus sensaciones, dolor o enfermedad.")
+                    if let last = recoveryPoints.last,
+                       let snapshot = physiology.days.last(where: {
+                           Calendar.current.isDate($0.date, inSameDayAs: last.date)
+                       }) {
+                        let context = RecoveryEngine.vitalContext(at: snapshot.date, history: physiology.days)
+                        if context.calibratedSignals > 0 {
+                            Text("Referencia individual: \(context.calibratedSignals) señales fisiológicas calibradas.")
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                            ForEach(context.notes, id: \.self) { note in
+                                Text(note).font(.caption).foregroundStyle(OG.orange)
+                            }
+                        }
+                    }
+                    Text("Estimación de descanso, carga muscular y señales fisiológicas solo cuando existen referencias suficientes. No es un diagnóstico ni sustituye cómo te encuentras.")
                         .font(.caption)
                         .foregroundStyle(OG.label3)
                 }
