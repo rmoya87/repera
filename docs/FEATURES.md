@@ -61,7 +61,7 @@
 - **Gratis · Actividad:** preview ondulada de cardio/kcal/peso con etiqueta **«Ejemplo» en cada gráfica**, sin medias, totales ni resúmenes numéricos de ficción; no se usa la meta de peso real como objetivo de la muestra. Sin texto global «Así se vería con Pro», con banner Pro verde y mascota, sin tiles duplicados.
 - **Gratis · Recuperación:** sueño acotado al **periodo** de Progreso (media si hay >1 noche); gráfica nocturna a borde; fases en la barra (sin tiles); Inicio solo con datos y mismo icono luna.
 - **Pro:** todos los periodos y métricas avanzadas.
-- Los banners **Pro** de Progreso y evolución por ejercicio comparten `ProTeaserCard`: fondo verde Repera, mascota `ReperaMascot(.hero)` y acceso al paywall contextual.
+- Los banners **Pro** de Progreso y evolución por ejercicio comparten `ProTeaserCard`: fondo verde Repera y acceso al paywall contextual, pero **tres mascotas/posiciones diferentes** (Entreno: saludo a la derecha abajo; Actividad: reloj a la izquierda arriba; evolución por ejercicio: pulgares arriba a la derecha arriba). No se utiliza `MascotHero` en estos banners. Las tres ilustraciones se han corregido para mantener el **fondo exterior transparente** y los **detalles interiores opacos** (sin agujeros alfa en ojos, cinta o reloj).
 - Selector visible: periodos largos marcados Pro → paywall.
 - Títulos de sección grises encima de cada card (actividad, cardio, peso, equilibrio…).
 - Filtro: **Hoy / Esta semana / Este mes / 90 / 180 / 360 días** (sin «Todo»). Modal fitted + glass.
