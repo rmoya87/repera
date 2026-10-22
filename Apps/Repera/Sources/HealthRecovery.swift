@@ -145,6 +145,18 @@ final class HealthRecoveryStore {
         }
     }
 
+    /// Desde la única solicitud de Apple Salud se habilitan las consultas
+    /// locales de sueño y ciclo. Esto NO afirma que el permiso de lectura
+    /// se haya concedido: HealthKit solo devuelve las muestras autorizadas.
+    /// Nunca se fabrican datos ni se incorporan estos datos a Supabase.
+    func enableUnifiedHealthAnalysis() async {
+        sleepDecisionMade = true
+        cycleDecisionMade = true
+        sleepEnabled = true
+        cycleEnabled = true
+        await refresh()
+    }
+
     /// Se invoca solo al finalizar la solicitud conjunta de Apple Salud.
     /// Salud no revela a terceros si se aceptó la lectura: habilitar no implica tener muestras.
     func acceptSleepFromHealthAuthorization() async {
@@ -459,23 +471,6 @@ struct ConnectedHealthSettingsView: View {
                         .foregroundStyle(OG.label)
                 }
 
-                Toggle("Analizar descanso", isOn: Binding(
-                    get: { recovery.sleepEnabled },
-                    set: { enabled in
-                        Task {
-                            healthBusy = true
-                            defer { healthBusy = false }
-                            await recovery.setSleep(enabled)
-                        }
-                    }
-                ))
-                .disabled(healthBusy)
-
-                Toggle("Seguimiento del ciclo", isOn: Binding(
-                    get: { recovery.cycleEnabled },
-                    set: { enabled in Task { await recovery.setCycle(enabled) } }
-                ))
-                .disabled(healthBusy)
             }
 
             Section("Privacidad") {
