@@ -325,6 +325,8 @@ final class WatchSessionHub: NSObject {
             controller = ctrl
             self.selectedSetIndex = nil
             workingReps = 0
+            repCounter.reset()
+            if restRemaining == 0 { startMotion() }
             workingWeightKg = ctrl.session.currentExercise?.plannedSets
                 .dropFirst(ctrl.session.currentExercise?.loggedSets.count ?? 0)
                 .first?.targetWeightKg
@@ -438,6 +440,7 @@ final class WatchSessionHub: NSObject {
         let next = position + direction
         if next >= 0 && next < count,
            let saved = current?.loggedSets[next] {
+            stopMotion() // Reviewing historical sets must not count live motion.
             selectedSetIndex = next
             workingReps = saved.reps
             workingWeightKg = saved.weightKg
@@ -446,6 +449,8 @@ final class WatchSessionHub: NSObject {
         } else if next == count {
             selectedSetIndex = nil
             workingReps = 0
+            repCounter.reset()
+            if restRemaining == 0 { startMotion() }
             workingWeightKg = current?.plannedSets.dropFirst(count).first?.targetWeightKg
             checkpoint()
         } else if (next < 0 || next > count) {
