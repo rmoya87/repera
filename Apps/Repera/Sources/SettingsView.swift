@@ -858,14 +858,17 @@ struct RotationPlanEditor: View {
 /// Mantiene el objetivo de peso histórico sin migraciones destructivas.
 struct HealthGoalsView: View {
     @Environment(ReperaStore.self) private var store
-    @Environment(\.dismiss) private var dismiss
 
     @State private var steps = ""
     @State private var energy = ""
+    @State private var heartRate = ""
     @State private var minutes = ""
     @State private var weekly = ""
     @State private var weight = ""
     @State private var hasLoaded = false
+    @State private var focusedGoal: GoalField?
+
+    private enum GoalField: String { case steps, energy, heartRate, minutes, weekly, weight }
 
     private func parseInt(_ text: String, range: ClosedRange<Int>) -> Bool {
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -885,6 +888,7 @@ struct HealthGoalsView: View {
     private var valid: Bool {
         parseInt(steps, range: 100...100_000)
             && parseInt(energy, range: 10...10_000)
+            && parseInt(heartRate, range: 30...220)
             && parseInt(minutes, range: 1...1_440)
             && parseInt(weekly, range: 1...21)
             && parseWeight(weight)
@@ -893,61 +897,48 @@ struct HealthGoalsView: View {
     var body: some View {
         Form {
             Section {
-                goalRow("Pasos", icon: "figure.walk", text: $steps, unit: "pasos")
-                goalRow("Calorías activas", icon: "flame.fill", text: $energy, unit: "kcal")
-                goalRow("Tiempo de entreno", icon: "clock.fill", text: $minutes, unit: "min")
+                goalRow("Pasos", icon: "figure.walk", field: .steps, next: .energy, text: $steps, unit: "pasos")
+                goalRow("Calorías activas", icon: "flame.fill", field: .energy, next: .heartRate, text: $energy, unit: "kcal")
+                goalRow("FC media (referencia)", icon: "heart.fill", field: .heartRate, next: .minutes, text: $heartRate, unit: "lpm")
+                goalRow("Tiempo de entreno", icon: "clock.fill", field: .minutes, next: .weekly, text: $minutes, unit: "min")
             } header: {
                 Text("Objetivos diarios")
-            } footer: {
-                Text("Se comparan con las mediciones reales de Apple Salud. No se incluyen calorías estimadas.")
             }
 
             Section {
-                goalRow("Entrenamientos", icon: "checkmark.circle.fill", text: $weekly, unit: "semana")
+                goalRow("Entrenamientos", icon: "checkmark.circle.fill", field: .weekly, next: .weight, text: $weekly, unit: "semana")
             } header: {
                 Text("Objetivo semanal")
-            } footer: {
-                Text("Se aplica a los entrenamientos registrados, incluidos los importados de Salud.")
             }
 
             Section {
-                goalRow("Peso objetivo", icon: "scalemass", text: $weight, unit: "kg", decimal: true)
+                goalRow("Peso objetivo", icon: "scalemass", field: .weight, text: $weight, unit: "kg", decimal: true)
                 if let current = store.state.bodyWeights.first?.weightKg {
                     LabeledContent("Peso registrado", value: "\(current.formatted(.number.precision(.fractionLength(1)))) kg")
                         .foregroundStyle(OG.label2)
                 }
             } header: {
                 Text("Objetivo corporal")
-            } footer: {
-                Text("El peso objetivo se muestra como referencia en Progreso. No es una meta diaria que debas cumplir.")
             }
 
-            if !valid {
-                Section {
-                    Label("Revisa los valores: deben ser positivos y estar dentro de rangos razonables.", systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(OG.orange)
-                }
-            }
 
-            Section {
-                Button("Guardar objetivos") {
-                    save()
-                }
-                .fontWeight(.semibold)
-                .frame(maxWidth: .infinity)
-                .disabled(!valid)
-            } footer: {
-                Text("Deja un campo vacío para no establecer ese objetivo. Puedes cambiarlos cuando quieras.")
-            }
         }
         .ogListChrome()
         .ogPinnedTransparentNav("Objetivos")
         .onAppear(perform: loadOnce)
+        .onChange(of: steps) { _, text in persistInt(text, range: 100...100_000, keyPath: \.dailyStepsGoal) }
+        .onChange(of: energy) { _, text in persistInt(text, range: 10...10_000, keyPath: \.dailyActiveEnergyGoalKcal) }
+        .onChange(of: heartRate) { _, text in persistInt(text, range: 30...220, keyPath: \.dailyAverageHeartRateGoalBpm) }
+        .onChange(of: minutes) { _, text in persistInt(text, range: 1...1_440, keyPath: \.dailyWorkoutMinutesGoal) }
+        .onChange(of: weekly) { _, text in persistInt(text, range: 1...21, keyPath: \.weeklyWorkoutGoal) }
+        .onChange(of: weight) { _, text in persistWeight(text) }
     }
 
     private func goalRow(
         _ name: String,
         icon: String,
+        field: GoalField,
+        next: GoalField? = nil,
         text: Binding<String>,
         unit: String,
         decimal: Bool = false
@@ -956,13 +947,22 @@ struct HealthGoalsView: View {
             Label(name, systemImage: icon)
                 .foregroundStyle(OG.label)
             Spacer(minLength: 6)
-            TextField("—", text: text)
-                .keyboardType(decimal ? .decimalPad : .numberPad)
-                .multilineTextAlignment(.trailing)
-                .foregroundStyle(OG.label)
-                .frame(width: 78)
-                .accessibilityLabel(name)
-                .ogKeyboardDone()
+            OGNumericTextField(
+                text: text,
+                allowsDecimal: decimal,
+                textAlignment: .right,
+                fontSize: 17,
+                autoFocus: false,
+                isFocused: focusedGoal == field,
+                submitTitle: next == nil ? "✓" : "Siguiente",
+                focusIdentifier: "health-goal-\(field.rawValue)",
+                nextFocusIdentifier: next.map { "health-goal-\($0.rawValue)" },
+                onFocused: { focusedGoal = field },
+                onFocusLost: { if focusedGoal == field { focusedGoal = nil } },
+                onCommit: { focusedGoal = next }
+            )
+            .frame(width: 82, height: 44)
+            .accessibilityLabel(name)
             Text(unit)
                 .font(.footnote)
                 .foregroundStyle(OG.label2)
@@ -975,22 +975,41 @@ struct HealthGoalsView: View {
         let s = store.state.settings
         steps = s.dailyStepsGoal.map { String($0) } ?? ""
         energy = s.dailyActiveEnergyGoalKcal.map { String($0) } ?? ""
+        heartRate = s.dailyAverageHeartRateGoalBpm.map { String($0) } ?? ""
         minutes = s.dailyWorkoutMinutesGoal.map { String($0) } ?? ""
         weekly = s.weeklyWorkoutGoal.map { String($0) } ?? ""
         weight = s.bodyWeightGoalKg.map { String(format: "%g", $0) } ?? ""
     }
 
-    private func save() {
-        guard valid else { return }
-        var s = store.state.settings
-        s.dailyStepsGoal = Int(steps.trimmingCharacters(in: .whitespacesAndNewlines))
-        s.dailyActiveEnergyGoalKcal = Int(energy.trimmingCharacters(in: .whitespacesAndNewlines))
-        s.dailyWorkoutMinutesGoal = Int(minutes.trimmingCharacters(in: .whitespacesAndNewlines))
-        s.weeklyWorkoutGoal = Int(weekly.trimmingCharacters(in: .whitespacesAndNewlines))
-        let weightText = weight.trimmingCharacters(in: .whitespacesAndNewlines)
-        s.bodyWeightGoalKg = weightText.isEmpty ? nil : Double(weightText.replacingOccurrences(of: ",", with: "."))
-        store.updateSettings(s)
-        dismiss()
+    /// Persiste solo el campo editado; permite borrar su meta dejándolo vacío.
+    private func persistInt(_ draft: String, range: ClosedRange<Int>, keyPath: WritableKeyPath<AppSettings, Int?>) {
+        guard hasLoaded else { return }
+        let input = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let next: Int?
+        if input.isEmpty { next = nil }
+        else {
+            guard let number = Int(input), range.contains(number) else { return }
+            next = number
+        }
+        var settings = store.state.settings
+        guard settings[keyPath: keyPath] != next else { return }
+        settings[keyPath: keyPath] = next
+        store.updateSettings(settings)
+    }
+
+    private func persistWeight(_ draft: String) {
+        guard hasLoaded else { return }
+        let input = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let next: Double?
+        if input.isEmpty { next = nil }
+        else {
+            guard let number = Double(input.replacingOccurrences(of: ",", with: ".")),
+                  number.isFinite, (20...350).contains(number) else { return }
+            next = number
+        }
+        var settings = store.state.settings
+        guard settings.bodyWeightGoalKg != next else { return }
+        settings.bodyWeightGoalKg = next
+        store.updateSettings(settings)
     }
 }
-
