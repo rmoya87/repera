@@ -808,6 +808,7 @@ struct HomeView: View {
             onOpen: open,
             onDelete: onDelete,
             deleteAccessibilityLabel: deleteLabel,
+            cardBackground: OG.surface,
             title: title,
             chips: {
                 OGRegisterChipsRow(leadingInset: Self.chipsTitleLeading) {
