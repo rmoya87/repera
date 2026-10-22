@@ -49,6 +49,8 @@ final class ReperaStore: NSObject {
     private let store = LocalStore.shared
     private let connectivity = PhoneConnectivity()
     private var watchPushTask: Task<Void, Never>?
+    /// Last durable Watch result acknowledged back to the watch.
+    private var lastWatchAcknowledgedSession: UUID?
 
     func bumpCatalogEpoch() { catalogEpoch &+= 1 }
     func bumpWorkoutsEpoch() { workoutsEpoch &+= 1; statsCache.invalidate() }
@@ -98,6 +100,7 @@ final class ReperaStore: NSObject {
             sessionEpoch &+= 1
         }
         publishSessionChrome()
+        sendWatchContextNow()
         LaunchTiming.span(hadPaint ? "hydrate.disk(confirm)" : "hydrate.disk", from: t0)
 
         // First install: fill seed in background after Home is already visible.
@@ -1299,16 +1302,37 @@ final class ReperaStore: NSObject {
     }
 
     func applyWatchSession(_ session: WorkoutSession) {
-        state.activeSession = session
+        // A completed workout is immutable on replay: transferUserInfo can be retried.
         if session.phase == .finished {
-            upsertWorkout(session)
-            state.activeSession = nil
-            persistWorkouts()
+            if !state.workouts.contains(where: { $0.id == session.id }) {
+                var completed = session
+                if completed.appleDurationSeconds == nil, let start = completed.startedAt,
+                   let end = completed.finishedAt {
+                    completed.appleDurationSeconds = max(0, end.timeIntervalSince(start))
+                }
+                attachSessionReview(&completed, present: false)
+                upsertWorkout(completed)
+                if state.activeSession?.id == completed.id { state.activeSession = nil }
+                persistWorkouts()
+                let snapshot = state
+                Task { @MainActor in
+                    await LocalStore.shared.persistAndFlush(snapshot)
+                    if BusinessAuthStore.shared.isConnected {
+                        _ = await BusinessWorkoutSyncStore.shared.sync(store: self)
+                    }
+                }
+            }
+            lastWatchAcknowledgedSession = session.id
             pushActiveToWatch(immediate: true)
-        } else {
-            persist()
-            pushActiveToWatch(immediate: true)
+            return
         }
+        // Never replace a different phone-controlled workout or a previously finished one.
+        guard !state.workouts.contains(where: { $0.id == session.id }),
+              state.activeSession == nil || state.activeSession?.id == session.id
+        else { return }
+        state.activeSession = session
+        persist()
+        pushActiveToWatch(immediate: true)
     }
 
 
@@ -1393,10 +1417,15 @@ final class ReperaStore: NSObject {
     }
 
     private func sendWatchContextNow() {
+        let today = routineForToday().map {
+            SessionController.from(routine: $0, exercises: state.exercises)
+        }
         connectivity.send(
             session: state.activeSession,
+            today: today,
             quickLogHint: quickLogHintPayload(),
-            sessionRevision: state.syncRevision
+            sessionRevision: state.syncRevision,
+            completedAck: lastWatchAcknowledgedSession
         )
     }
 
@@ -1498,6 +1527,7 @@ final class ReperaStore: NSObject {
                 < ($1.weekday ?? 99, $1.scheduledDate ?? .distantFuture, $1.title)
         }
         persist()
+        pushActiveToWatch()
         return true
     }
 
@@ -2064,7 +2094,12 @@ extension ReperaStore: PhoneConnectivityDelegate {
     nonisolated func phoneConnectivityDidUpdateReachability(_ reachable: Bool) {
         Task { @MainActor in
             self.isWatchReachable = reachable
+            self.sendWatchContextNow()
         }
+    }
+
+    nonisolated func phoneConnectivityDidRequestToday() {
+        Task { @MainActor in self.sendWatchContextNow() }
     }
 
     nonisolated func phoneConnectivityDidReceive(session: WorkoutSession) {
