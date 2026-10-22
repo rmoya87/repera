@@ -47,7 +47,7 @@ class VerifiedSessionScoreContractTests(unittest.TestCase):
             self.assertIn(label,model)
         self.assertIn("if let dayScore {",home)
         self.assertIn("review.scoreBasis == .personalHistory",home)
-        self.assertIn("private static let sessionReviewFormulaVersion = 10",
+        self.assertIn("private static let sessionReviewFormulaVersion = 11",
                       read("Apps/Repera/Sources/ReperaStore.swift"))
 
     def test_synthetic_cardio_points_not_in_new_engine(self):
