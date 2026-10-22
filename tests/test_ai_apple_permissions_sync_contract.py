@@ -30,6 +30,21 @@ class AppleSyncAndAIChatContracts(unittest.TestCase):
         self.assertIn("incomplete.joined",settings)
         self.assertNotIn('?? "operación incompleta"',settings)
 
+    def test_last_confirmed_sync_timestamp_is_reactive_and_error_uses_full_row_width(self):
+        settings=src("Apps/Repera/Sources/SettingsView.swift")
+        self.assertIn('@AppStorage("repera.settings.lastFullSyncAt") private var lastFullSyncAt: Double = 0',settings)
+        self.assertIn('lastFullSyncAt = Date().timeIntervalSince1970',settings)
+        self.assertIn('Text("Última actualización:',settings)
+        self.assertIn('.formatted(date: .abbreviated, time: .shortened)',settings)
+        self.assertIn('.foregroundStyle(OG.label2)',settings)
+        self.assertIn('Text(syncFeedback)',settings)
+        self.assertIn('.foregroundStyle(OG.red)',settings)
+        self.assertIn('.frame(maxWidth: .infinity, alignment: .leading)',settings)
+        self.assertIn('.layoutPriority(1)',settings)
+        self.assertIn('syncFeedback = "No se ha confirmado iCloud."',settings)
+        self.assertNotIn('syncFeedback = "Sincronización completada."',settings)
+        self.assertNotIn('UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "repera.settings.lastFullSyncAt")',settings)
+
     def test_no_profile_form_and_no_gym_auth_error(self):
         settings=src("Apps/Repera/Sources/SettingsView.swift")
         self.assertNotIn("AITrainingProfileView()",settings)
