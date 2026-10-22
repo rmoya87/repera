@@ -690,11 +690,11 @@ struct HealthRecoveryProgressView: View {
 
     /// Tendencia exclusivamente del sueño; no estima recuperación muscular.
     private func sleepTrendCard(_ values: [IndexedNight]) -> some View {
-        let latest = Double(values[values.count - 1].score) / 10.0
-        let previous = Double(values[values.count - 2].score) / 10.0
+        let latest = Int((Double(values[values.count - 1].score) / 10.0).rounded())
+        let previous = Int((Double(values[values.count - 2].score) / 10.0).rounded())
         let delta = latest - previous
-        let headline = delta >= 0.4 ? "Mejor sueño que la noche anterior"
-            : delta <= -0.4 ? "Menor descanso que la noche anterior"
+        let headline = delta >= 1 ? "Mejor sueño que la noche anterior"
+            : delta <= -1 ? "Menor descanso que la noche anterior"
             : "Descanso estable respecto a la noche anterior"
         return VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Evolución del sueño")
@@ -705,21 +705,21 @@ struct HealthRecoveryProgressView: View {
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(OG.label)
                         Spacer(minLength: 4)
-                        Text(String(format: "%.1f/10", latest))
+                        Text("\(latest)/10")
                             .font(.system(size: 17, weight: .bold, design: .rounded).monospacedDigit())
                             .foregroundStyle(OG.label)
                     }
                     Chart(values) { night in
                         LineMark(
                             x: .value("Noche", night.date),
-                            y: .value("Índice de sueño", Double(night.score) / 10.0)
+                            y: .value("Índice de sueño", Int((Double(night.score) / 10.0).rounded()))
                         )
                         .foregroundStyle(OG.accent)
                         .interpolationMethod(.linear)
                         .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
                         PointMark(
                             x: .value("Noche", night.date),
-                            y: .value("Índice de sueño", Double(night.score) / 10.0)
+                            y: .value("Índice de sueño", Int((Double(night.score) / 10.0).rounded()))
                         )
                         .foregroundStyle(
                             night.score >= 80 ? OG.accent : (night.score >= 60 ? OG.orange : OG.red)
@@ -765,7 +765,7 @@ struct HealthRecoveryProgressView: View {
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                             Spacer(minLength: 4)
-                            Text(String(format: "%.1f/10", outlook.score))
+                            Text("\(Int(outlook.score.rounded()))/10")
                                 .font(.system(size: 23, weight: .bold, design: .rounded).monospacedDigit())
                                 .foregroundStyle(
                                     outlook.score >= 7.5 ? OG.accent :
@@ -815,14 +815,14 @@ struct HealthRecoveryProgressView: View {
                             Text("Evolución al despertar")
                             Spacer()
                             if let last = recoveryPoints.last {
-                                Text(String(format: "%.1f/10", last.score))
+                                Text("\(Int(last.score.rounded()))/10")
                                     .monospacedDigit()
                             }
                         }
                         .font(.caption.weight(.medium))
                         .foregroundStyle(OG.label2)
                     } else if let latest = recoveryPoints.last {
-                        Text(String(format: "Última recuperación estimada: %.1f/10", latest.score))
+                        Text("Última recuperación estimada: \(Int(latest.score.rounded()))/10")
                             .font(.footnote)
                             .foregroundStyle(OG.label2)
                     }
@@ -871,10 +871,10 @@ struct HealthRecoveryProgressView: View {
                     }
                     Spacer(minLength: 8)
                     if let index {
-                        Text(String(format: "%.1f/10", Double(index) / 10.0))
+                        Text("\(Int((Double(index) / 10.0).rounded()))/10")
                             .font(.system(size: 22, weight: .semibold, design: .rounded).monospacedDigit())
                             .foregroundStyle(OG.label)
-                            .accessibilityLabel("Sueño \(Double(index) / 10.0) de 10")
+                            .accessibilityLabel("Sueño \(Int((Double(index) / 10.0).rounded())) de 10")
                     }
                 }
 
@@ -1070,7 +1070,7 @@ struct RecoveryTrainingTip: View {
                         Text("Tu contexto de hoy").font(.subheadline.weight(.semibold)).foregroundStyle(OG.label)
                         Spacer(minLength: 0)
                         if let index = recovery.sleepIndex {
-                            Text(String(format: "Sueño %.1f/10", Double(index) / 10.0))
+                            Text("Sueño \(Int((Double(index) / 10.0).rounded()))/10")
                                 .font(.caption.weight(.semibold))
                                 .monospacedDigit()
                                 .foregroundStyle(OG.accent)
@@ -1131,7 +1131,7 @@ struct RecoveryHomeCard: View {
                                                 .font(.subheadline.weight(.semibold))
                                                 .foregroundStyle(OG.label)
                                             if let index = recovery.sleepIndex {
-                                                Text(String(format: "· %.1f/10", Double(index) / 10.0))
+                                                Text("· \(Int((Double(index) / 10.0).rounded()))/10")
                                                     .font(.subheadline.weight(.semibold).monospacedDigit())
                                                     .foregroundStyle(OG.label2)
                                             }
