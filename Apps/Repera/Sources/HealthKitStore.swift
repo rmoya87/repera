@@ -232,6 +232,7 @@ final class HealthKitStore {
         var read: Set<HKObjectType> = [
             HKObjectType.quantityType(forIdentifier: .bodyMass)!,
             HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
+            HKObjectType.quantityType(forIdentifier: .stepCount)!,
             HKObjectType.quantityType(forIdentifier: .heartRate)!,
             // Opt-in read scopes; HealthKit may return no samples when declined.
             // Do not use authorizationStatus to infer READ grants.
@@ -361,6 +362,27 @@ final class HealthKitStore {
             activeEnergyKcal: k > 0 ? k : nil,
             workoutMinutes: m > 0 ? m : nil
         )
+    }
+
+    /// Pasos medidos por Apple Salud. nil si faltan datos o no se concedió lectura.
+    func steps(for day: Date) async -> Int? {
+        guard isAvailable,
+              let type = HKObjectType.quantityType(forIdentifier: .stepCount) else { return nil }
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: day)
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return nil }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
+        return await withCheckedContinuation { (continuation: CheckedContinuation<Int?, Never>) in
+            let query = HKStatisticsQuery(
+                quantityType: type,
+                quantitySamplePredicate: predicate,
+                options: .cumulativeSum
+            ) { _, statistics, _ in
+                let number = statistics?.sumQuantity()?.doubleValue(for: .count())
+                continuation.resume(returning: number.map { max(0, Int($0.rounded())) })
+            }
+            store.execute(query)
+        }
     }
 
     /// HKObserverQuery + background delivery (entitlement already on). Marks dirty; refresh on foreground.
