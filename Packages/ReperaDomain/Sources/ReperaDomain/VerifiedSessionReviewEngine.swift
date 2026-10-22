@@ -193,43 +193,73 @@ public enum VerifiedSessionReviewEngine {
               let currentValue = loadMetric(currentSet, style: entry.exercise.loggingStyle),
               currentValue > 0 else { return nil }
 
-        // One comparable reading per DISTINCT day, not several sets from one
-        // session. The reference uses the median of the last 5 days.
-        var perDay: [(Date, Double)] = []
-        for workout in prior.sorted(by: {
-            ($0.finishedAt ?? .distantPast) > ($1.finishedAt ?? .distantPast)
-        }) {
-            guard let date = workout.finishedAt else { continue }
-            let day = Calendar.current.startOfDay(for: date)
-            if perDay.contains(where: { $0.0 == day }) { continue }
-            let comparable = workout.exercises.filter {
-                sameExercise($0.exercise, entry.exercise)
-                    && $0.wodFormat == entry.wodFormat
-                    && $0.blockIntervalSeconds == entry.blockIntervalSeconds
-            }.compactMap { candidate -> Double? in
-                guard let otherSet = bestComparableSet(entry: candidate, reference: currentSet),
-                      let value = loadMetric(otherSet, style: entry.exercise.loggingStyle),
-                      value > 0 else { return nil }
-                // If the athlete deliberately prescribed lighter work, don't
-                // mistake it for deteriorating maximum strength.
-                if let currentTarget = entry.plannedSets.first?.targetWeightKg,
-                   let priorTarget = candidate.plannedSets.first?.targetWeightKg,
-                   currentTarget > 0, priorTarget > 0,
-                   currentTarget < priorTarget * 0.90 { return nil }
-                return value
-            }
-            if let best = comparable.max() { perDay.append((day, best)) }
-            if perDay.count == 5 { break }
+        // Nivel 1: mismo ejercicio y mismo contexto. Nivel 2: el mismo ejercicio
+        // entre formatos de bloques diferentes (por ejemplo EMOM -> fuerza).
+        // Las variantes de ejercicio JAMÁS son referencias de carga válidas.
+        func sameContext(_ candidate: SessionExercise) -> Bool {
+            candidate.wodFormat == entry.wodFormat
+                && candidate.blockIntervalSeconds == entry.blockIntervalSeconds
+                && candidate.blockTimeCapMinutes == entry.blockTimeCapMinutes
         }
-        guard perDay.count >= minimumPriorSessions else { return nil }
-        let sortedValues = perDay.map(\.1).sorted()
+
+        func readings(allowOtherContext: Bool) -> [(Date, Double)] {
+            var perDay: [(Date, Double)] = []
+            for workout in prior.sorted(by: {
+                ($0.finishedAt ?? .distantPast) > ($1.finishedAt ?? .distantPast)
+            }) {
+                guard let date = workout.finishedAt else { continue }
+                let day = Calendar.current.startOfDay(for: date)
+                if perDay.contains(where: { $0.0 == day }) { continue }
+                let values = workout.exercises.compactMap { candidate -> Double? in
+                    guard sameExercise(candidate.exercise, entry.exercise) else { return nil }
+                    let same = sameContext(candidate)
+                    if !same {
+                        guard allowOtherContext else { return nil }
+                        // Comparison of different intervals is meaningful only
+                        // for a measured load. Bare rep counts in varied circuits
+                        // or gymnastics have no equivalent effort denominator.
+                        guard entry.exercise.loggingStyle == .loadAndReps else { return nil }
+                        // In different contexts, only comparable RIR can validate
+                        // effort. Do not infer it from the programmed repetitions.
+                        guard let a = currentSet.rir,
+                              let b = bestComparableSet(entry: candidate, reference: currentSet)?.rir,
+                              abs(a - b) <= 1.5 else { return nil }
+                    }
+                    guard let pastSet = bestComparableSet(entry: candidate, reference: currentSet),
+                          let value = loadMetric(pastSet, style: entry.exercise.loggingStyle),
+                          value > 0 else { return nil }
+                    if let currentTarget = entry.plannedSets.first?.targetWeightKg,
+                       let previousTarget = candidate.plannedSets.first?.targetWeightKg,
+                       currentTarget > 0, previousTarget > 0,
+                       currentTarget < previousTarget * 0.90 { return nil }
+                    return value
+                }
+                if let best = values.max() { perDay.append((day, best)) }
+                if perDay.count == 5 { break }
+            }
+            return perDay
+        }
+
+        var days = readings(allowOtherContext: false)
+        let tier: Int
+        if days.count >= minimumPriorSessions {
+            tier = 1
+        } else {
+            days = readings(allowOtherContext: true)
+            guard days.count >= minimumPriorSessions else { return nil }
+            tier = 2
+        }
+        let sortedValues = days.map(\.1).sorted()
         let reference = median(sortedValues)
         guard reference > 0 else { return nil }
         let ratio = currentValue / reference
+        let prefix = tier == 1 ? "Nivel 1 · mismo contexto" : "Nivel 2 · mismo ejercicio, distinto formato (RIR comparable)"
         return Evidence(
-            score: points(ratio: ratio), weight: 5,
-            referenceCount: perDay.count,
-            explanation: "\(entry.exercise.name): \(signedChange(ratio)) respecto a tus \(perDay.count) sesiones comparables"
+            score: points(ratio: ratio),
+            weight: tier == 1 ? 5 : 3,
+            referenceCount: days.count,
+            explanation: "\(prefix) · \(entry.exercise.name): \(signedChange(ratio)) respecto a \(days.count) días anteriores",
+            tier: tier
         )
     }
 
