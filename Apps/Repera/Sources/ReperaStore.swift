@@ -1317,13 +1317,19 @@ final class ReperaStore: NSObject {
                 let snapshot = state
                 Task { @MainActor in
                     await LocalStore.shared.persistAndFlush(snapshot)
+                    // Acknowledge only after the iPhone has committed the workout to disk.
+                    guard LocalStore.shared.lastPersistenceError == nil else { return }
+                    self.lastWatchAcknowledgedSession = session.id
+                    self.pushActiveToWatch(immediate: true)
                     if BusinessAuthStore.shared.isConnected {
                         _ = await BusinessWorkoutSyncStore.shared.sync(store: self)
                     }
                 }
+            } else {
+                // Existing finished session: an earlier transfer was already persisted.
+                lastWatchAcknowledgedSession = session.id
+                pushActiveToWatch(immediate: true)
             }
-            lastWatchAcknowledgedSession = session.id
-            pushActiveToWatch(immediate: true)
             return
         }
         // Never replace a different phone-controlled workout or a previously finished one.
