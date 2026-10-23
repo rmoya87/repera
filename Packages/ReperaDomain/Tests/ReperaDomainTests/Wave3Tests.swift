@@ -71,22 +71,31 @@ final class Wave3Tests: XCTestCase {
         XCTAssertEqual(totalPerSide, 40)
     }
 
-    func testSupersetPartnerDetection() {
+    func testLegacySupersetMetadataDoesNotForcePairedNavigation() {
+        // Superseries desactivadas: son metadatos históricos, no un modo de
+        // reproducción. El controlador mantiene el orden normal de ejercicios.
         let exercises = Catalog.seed()
         var controller = SessionController(
             session: WorkoutSession(
-                title: "SS",
+                title: "Fuerza",
                 exercises: [
-                    SessionExercise(exercise: exercises[0], plannedSets: [PlannedSet(targetReps: 8)], supersetGroup: 1),
-                    SessionExercise(exercise: exercises[1], plannedSets: [PlannedSet(targetReps: 8)], supersetGroup: 1),
-                    SessionExercise(exercise: exercises[2], plannedSets: [PlannedSet(targetReps: 8)], supersetGroup: nil),
+                    SessionExercise(
+                        exercise: exercises[0],
+                        plannedSets: [PlannedSet(targetReps: 8)],
+                        supersetGroup: 1
+                    ),
+                    SessionExercise(
+                        exercise: exercises[1],
+                        plannedSets: [PlannedSet(targetReps: 8)],
+                        supersetGroup: 1
+                    ),
                 ],
                 phase: .ready
             )
         )
-        XCTAssertTrue(controller.nextIsSupersetPartner)
+        XCTAssertEqual(controller.session.currentIndex, 0)
         controller.selectExercise(at: 1)
-        XCTAssertFalse(controller.nextIsSupersetPartner)
-        XCTAssertEqual(SessionController.supersetLabel(1), "SS A")
+        XCTAssertEqual(controller.session.currentIndex, 1)
+        XCTAssertEqual(controller.session.currentExercise?.exercise.id, exercises[1].id)
     }
 }
