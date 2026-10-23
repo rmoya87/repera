@@ -1,5 +1,8 @@
--- Nombre visible de halterofilia en inglés; clave histórica/UUID inalterados.
+-- Identificador histórico 'catalog:' || name protegido por check constraint catalog_key_valid.
+-- Nombre visible EN separado de la identidad; no se alteran ni name ni catalog_key.
 -- Los alias bilingües/abreviaturas se incorporan de manera aditiva al catálogo MCP.
+ALTER TABLE public.business_exercise_catalog ADD COLUMN IF NOT EXISTS display_name_en text;
+ALTER TABLE public.training_exercise_catalog ADD COLUMN IF NOT EXISTS display_name_en text;
 WITH source(catalog_key, display_name, aliases) AS (VALUES
  ('catalog:Remo máquina','Remo máquina',ARRAY['Remo máquina','rowerg','row erg','rowing erg','ergometro remo']::text[]),
  ('catalog:Arrancada','Snatch',ARRAY['Arrancada','Snatch','full snatch','squat snatch','arrancada completa','sn']::text[]),
@@ -72,9 +75,9 @@ WITH source(catalog_key, display_name, aliases) AS (VALUES
  ('catalog:Push press con agarre de arrancada','Snatch-Grip Push Press',ARRAY['Push press con agarre de arrancada','Snatch-Grip Push Press','sgpp','snatch grip pp','push press ancho']::text[])
 )
 UPDATE public.business_exercise_catalog c
-SET name=s.display_name
+SET display_name_en=s.display_name
 FROM source s WHERE c.catalog_key=s.catalog_key AND c.category='Halterofilia'
-  AND c.name IS DISTINCT FROM s.display_name;
+  AND c.display_name_en IS DISTINCT FROM s.display_name;
 
 WITH source(catalog_key, display_name, aliases) AS (VALUES
  ('catalog:Remo máquina','Remo máquina',ARRAY['Remo máquina','rowerg','row erg','rowing erg','ergometro remo']::text[]),
@@ -148,9 +151,9 @@ WITH source(catalog_key, display_name, aliases) AS (VALUES
  ('catalog:Push press con agarre de arrancada','Snatch-Grip Push Press',ARRAY['Push press con agarre de arrancada','Snatch-Grip Push Press','sgpp','snatch grip pp','push press ancho']::text[])
 )
 UPDATE public.training_exercise_catalog c
-SET name=s.display_name
+SET display_name_en=s.display_name
 FROM source s WHERE c.catalog_key=s.catalog_key AND c.category='Halterofilia'
-  AND c.name IS DISTINCT FROM s.display_name;
+  AND c.display_name_en IS DISTINCT FROM s.display_name;
 
 WITH source(catalog_key, display_name, aliases) AS (VALUES
  ('catalog:Remo máquina','Remo máquina',ARRAY['Remo máquina','rowerg','row erg','rowing erg','ergometro remo']::text[]),
