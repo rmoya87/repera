@@ -567,6 +567,12 @@ extension [PlannedSet] {
     /// Resumen compacto para listas: `3×8 · 60 kg`, `2×3, 2×1 · 150 kg`, `3 @ 100, 2 @ 110`.
     public var compactSummary: String {
         guard !isEmpty else { return "—" }
+        if contains(where: { $0.targetDurationSeconds != nil }) {
+            return map { set in
+                let seconds = set.targetDurationSeconds.map { "\($0)s" } ?? "—"
+                return set.targetReps == 1 ? seconds : "\(set.targetReps) reps · \(seconds)"
+            }.joined(separator: ", ")
+        }
         if contains(where: { $0.targetPercent1RM != nil }) {
             var groups: [(reps:Int,percent:Double?,isMinimum:Bool,count:Int)] = []
             for set in self {
