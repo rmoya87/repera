@@ -22,7 +22,7 @@ class MobilityCatalogInstrumentedTest {
         assertTrue(MobilityCatalogMigration.ensure(context, account))
         val migrated = JSONObject(String(store.read()!!))
         val exercises = migrated.getJSONArray("exercises")
-        assertEquals(278, exercises.length())
+        assertEquals(280, exercises.length())
         val mobility = (0 until exercises.length()).map { exercises.getJSONObject(it) }
             .filter { it.optString("sportTag") == "Movilidad" }
         assertEquals(82, mobility.size)
@@ -43,7 +43,7 @@ class MobilityCatalogInstrumentedTest {
         val aliases = ExerciseSearchAssets.load(context)
         assertEquals("Flexión cervical suave",
             aliases[dev.repera.domain.ExerciseAliasSearch.normalize("Neck flexion stretch")])
-        assertEquals(278, StateOverview.fromBytes(store.read())!!.exercises)
+        assertEquals(280, StateOverview.fromBytes(store.read())!!.exercises)
     }
 
     @Test fun migrationOfExistingWorkoutsNeverRewritesAthleteHistoryOrCustomExercises() {
@@ -63,7 +63,7 @@ class MobilityCatalogInstrumentedTest {
         val originalWorkout = existing.getJSONArray("workouts").toString()
         assertTrue(MobilityCatalogMigration.ensure(context, account))
         val migrated = JSONObject(String(store.read()!!))
-        assertEquals(279, migrated.getJSONArray("exercises").length())
+        assertEquals(281, migrated.getJSONArray("exercises").length())
         assertEquals(originalWorkout, migrated.getJSONArray("workouts").toString())
         assertEquals(13, migrated.getInt("syncRevision"))
         assertTrue((0 until migrated.getJSONArray("exercises").length()).any {

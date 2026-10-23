@@ -24,6 +24,16 @@ class ExerciseCatalogFiltersInstrumentedTest {
         assertFalse(ExerciseCatalogFilters.matches(e("Remo con barra"), "Hyrox"))
     }
 
+    @Test fun hyroxSharesCrossfitMovementsWithoutDuplicateVisibleChips() {
+        val entries = listOf(e("SkiErg"), e("Burpee Broad Jump", sport = "HYROX"),
+            e("Sandbag Lunges", sport = "HYROX"))
+        val available = ExerciseCatalogFilters.available(entries)
+        assertEquals(1, available.count { it.equals("Hyrox", ignoreCase = true) })
+        assertTrue(ExerciseCatalogFilters.matches(entries[0], "Hyrox"))
+        assertTrue(ExerciseCatalogFilters.matches(entries[1], "Hyrox"))
+        assertTrue(ExerciseCatalogFilters.matches(entries[2], "Hyrox"))
+    }
+
     @Test fun filtersAreNotShownWithoutRealMatchingMovements() {
         val moves = listOf(e("Sentadilla", sport = "Halterofilia"))
         assertEquals(listOf("Todos", "Halterofilia"), ExerciseCatalogFilters.available(moves))

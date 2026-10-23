@@ -28,6 +28,22 @@ class ExerciseInputModeTest {
             ExerciseInput.mode("Press banca", "Barra", "pectorals", "Pecho"))
     }
 
+    @Test fun hyroxLoadedDistanceUsesMetresWithoutCalorieToggle() {
+        val sled = ExerciseInput.mode("Sled push", "Trineo", null, "Piernas")
+        assertEquals(ExerciseInputMode.LOAD_DISTANCE, sled)
+        assertTrue(sled.showsWeight)
+        assertEquals("meters", ExerciseInput.defaultQuantityUnit("Sled push", "Trineo"))
+        assertFalse(ExerciseInput.supportsCaloriesAndMeters("Sled push", "Trineo"))
+        assertEquals(ExerciseInputMode.LOAD_DISTANCE,
+            ExerciseInput.mode("Sandbag Lunges", "Saco", "quads", "Piernas", "HYROX"))
+        assertEquals("meters", ExerciseInput.defaultQuantityUnit("Sandbag Lunges", "Saco"))
+        assertEquals(ExerciseInputMode.MACHINE_WORK,
+            ExerciseInput.mode("Burpee Broad Jump", "Peso corporal", null, "Cardio", "HYROX"))
+        assertEquals("meters", ExerciseInput.defaultQuantityUnit("Burpee Broad Jump", "Peso corporal"))
+        assertFalse(ExerciseInput.supportsCaloriesAndMeters("Burpee Broad Jump", "Peso corporal"))
+        assertEquals("meters", ExerciseInput.defaultQuantityUnit("Farmer carry", "Mancuernas"))
+    }
+
     @Test fun cardioAndJumpRopeAreRecordableWithCorrectUnits() {
         assertTrue(ExerciseInput.mode("SkiErg", null, null, "Cardio").basicRecorderAvailable)
         assertTrue(ExerciseInput.mode("Double under", "Comba", null, "Cardio").basicRecorderAvailable)
