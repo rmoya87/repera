@@ -40,6 +40,23 @@ class WodClockTest {
         assertEquals("Finalizado", WodClock.face(spec, 320).label)
     }
 
+    @Test fun circuitWithTimeCapStillRunsEveryStationInAllRounds() {
+        val spec = WodClockSpec(WodFormat.CIRCUIT,
+            blockTimeCapMinutes = 12, stations = 2, rounds = 3,
+            intervalSeconds = 45, restBetweenRoundsSeconds = 25)
+        assertEquals(320, WodClock.timeCapSeconds(spec))
+        assertEquals("Estación 1/2 · R3", WodClock.face(spec, 230).label)
+        assertEquals("Finalizado", WodClock.face(spec, 320).label)
+    }
+
+    @Test fun tabataCanHaveZeroRestAsPrescribed() {
+        val spec = WodClockSpec(WodFormat.TABATA, rounds = 4,
+            workSeconds = 20, restSeconds = 0)
+        assertEquals(80, WodClock.timeCapSeconds(spec))
+        assertEquals("Trabajo", WodClock.face(spec, 40).label)
+        assertEquals("Finalizado", WodClock.face(spec, 80).label)
+    }
+
     @Test fun amrapCountsDownRatherThanFakePerMovementSets() {
         val spec = WodClockSpec(WodFormat.AMRAP, blockTimeCapMinutes = 12)
         assertEquals(720, WodClock.face(spec, 0).primarySeconds)

@@ -842,6 +842,9 @@ private fun WodScoreCard(
     val suggestedInterval = when (WodFormat.fromWire(wod.format)) {
         WodFormat.EMOM, WodFormat.DEATH_BY ->
             elapsedClock / (wod.intervalSeconds ?: 60).coerceAtLeast(1) + 1
+        WodFormat.CIRCUIT ->
+            // Circuit uses one interval for each station, with extra rests between rounds.
+            (elapsedClock / (wod.intervalSeconds ?: 60).coerceAtLeast(1)) + 1
         WodFormat.TABATA ->
             elapsedClock / ((wod.workSeconds ?: 20).coerceAtLeast(1) +
                 (wod.restSeconds ?: 10).coerceAtLeast(0)).coerceAtLeast(1) + 1
@@ -1130,10 +1133,12 @@ private fun RoutineCreatorCard(
                         modifier = Modifier.fillMaxWidth(), singleLine = true
                     )
                 }
-                if (kind == "emom") {
+                if (kind == "emom" || kind == "circuit") {
                     OutlinedTextField(value = interval,
                         onValueChange = { interval = it.filter(Char::isDigit) },
-                        label = { Text("Duración del intervalo (segundos)") },
+                        label = { Text(if (kind == "circuit")
+                            "Duración por estación (segundos)"
+                            else "Duración del intervalo (segundos)") },
                         singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
                 if (kind == "tabata") {
@@ -1245,7 +1250,7 @@ private fun RoutineCreatorCard(
             val validCap = cap.toIntOrNull()?.let { it in 1..180 } == true
             val validRounds = kind !in setOf("forTime", "emom", "tabata", "circuit") ||
                 rounds.toIntOrNull()?.let { it in 1..100 } == true
-            val validIntervals = (kind != "emom" ||
+            val validIntervals = (kind !in setOf("emom", "circuit") ||
                 interval.toIntOrNull()?.let { it in 15..600 } == true) &&
                 (kind != "tabata" ||
                     (workSeconds.toIntOrNull()?.let { it in 5..600 } == true &&

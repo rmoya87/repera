@@ -31,9 +31,10 @@ object WodClock {
         if (spec.format != WodFormat.CIRCUIT) return emptyList()
         val stations = spec.stations.coerceAtLeast(1)
         val interval = (spec.intervalSeconds ?: 60).coerceAtLeast(5)
-        val count = if ((spec.blockTimeCapMinutes ?: 0) > 0)
-            (spec.plannedIntervals ?: stations).coerceAtLeast(1)
-        else (stations * (spec.rounds ?: 1).coerceAtLeast(1)).coerceAtLeast(1)
+        // Total station intervals = stations × rounds, regardless of whether
+        // the block also carries a time cap. A cap must never erase later rounds.
+        val count = (spec.plannedIntervals
+            ?: stations * (spec.rounds ?: 1).coerceAtLeast(1)).coerceIn(1, 10000)
         val rest = (spec.restBetweenRoundsSeconds ?: 0).coerceAtLeast(0)
         return buildList {
             for (index in 0 until count) {
@@ -53,7 +54,7 @@ object WodClock {
             WodFormat.DEATH_BY -> (spec.plannedIntervals ?: spec.blockTimeCapMinutes ?: 30).coerceAtLeast(1) * interval
             WodFormat.CIRCUIT -> phases(spec).sumOf { it.seconds }
             WodFormat.TABATA -> (spec.rounds ?: 8).coerceAtLeast(1) *
-                ((spec.workSeconds ?: 20).coerceAtLeast(5) + (spec.restSeconds ?: 10).coerceAtLeast(1))
+                ((spec.workSeconds ?: 20).coerceAtLeast(5) + (spec.restSeconds ?: 10).coerceAtLeast(0))
             WodFormat.AMRAP, WodFormat.MAX_EFFORT -> (cap.takeIf { it > 0 } ?: 12).coerceAtLeast(1) * 60
             WodFormat.FOR_TIME, WodFormat.CHIPPER, WodFormat.AFAP,
             WodFormat.LADDER, WodFormat.BUY_IN_CASH_OUT -> 0

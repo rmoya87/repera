@@ -69,7 +69,10 @@ class NativeWodCreatorInstrumentedTest {
                 assertEquals(20, block.getInt("workSeconds"))
                 assertEquals(10, block.getInt("restSeconds"))
                 assertEquals(4, block.getInt("timeCapMinutes"))
-            } else assertEquals(10, block.getInt("restBetweenRoundsSeconds"))
+            } else {
+                assertEquals(10, block.getInt("restBetweenRoundsSeconds"))
+                assertEquals(60, block.getInt("emomIntervalSeconds"))
+            }
             repo.startRoutine(routine)
             assertThrows(IllegalArgumentException::class.java) {
                 repo.recordWodMovement(0, 8, 12, null)

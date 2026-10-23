@@ -133,7 +133,8 @@ class WorkoutRepository(context: Context, googleId: String) {
                 })
             if (format in setOf("forTime", "emom", "tabata", "circuit"))
                 block.put("rounds", rounds)
-            if (format == "emom") block.put("emomIntervalSeconds", emomIntervalSeconds)
+            if (format == "emom" || format == "circuit")
+                block.put("emomIntervalSeconds", emomIntervalSeconds)
             if (format == "tabata") block.put("workSeconds", workSeconds)
                 .put("restSeconds", restSeconds)
             if (format == "circuit") block.put("restBetweenRoundsSeconds", restSeconds)
@@ -493,9 +494,17 @@ class WorkoutRepository(context: Context, googleId: String) {
                 .firstOrNull { it.optString("id") == blockId }
         }
         val maximumInterval = when (format) {
-            WodFormat.EMOM, WodFormat.TABATA, WodFormat.CIRCUIT ->
+            WodFormat.EMOM, WodFormat.TABATA ->
                 sourceBlock?.optInt("rounds", if (format == WodFormat.TABATA) 8 else 0)
                     ?.takeIf { it > 0 }
+            WodFormat.CIRCUIT -> {
+                val rounds = sourceBlock?.optInt("rounds", 0) ?: 0
+                val stations = sourceBlock?.optJSONArray("movements")?.let { array ->
+                    (0 until array.length()).count { !array.getJSONObject(it).optBoolean("isRest") }
+                } ?: 0
+                (rounds.toLong() * stations).takeIf { it in 1..10000 }
+                    ?.toInt()
+            }
             else -> null
         }
         if (maximumInterval != null)
