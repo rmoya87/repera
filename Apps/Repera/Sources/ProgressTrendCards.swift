@@ -76,8 +76,13 @@ struct ProgressHeartZonesCard: View {
 /// Cardio: FC mín / media / máx (series ya preparadas).
 struct ProgressCardioChartCard: View {
     var prepared: ProgressPreparedCharts
+    @State private var selectedDate: Date?
 
     private var points: [ProgressPreparedCharts.HeartRatePlotPoint] { prepared.heartRate }
+    private var selectedPoint: ProgressPreparedCharts.HeartRatePlotPoint? {
+        guard let selectedDate else { return nil }
+        return points.min { abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate)) }
+    }
     private var granularity: ProgressSeriesGranularity { prepared.granularity }
     private var range: ProgressTimeRange { prepared.range }
     private var weekStartsOnMonday: Bool { prepared.weekStartsOnMonday }
@@ -165,14 +170,18 @@ struct ProgressCardioChartCard: View {
                                 .lineStyle(StrokeStyle(lineWidth: 1.75, lineCap: .round, lineJoin: .round))
                                 .interpolationMethod(lineInterpolation)
 
-                                if prepared.isTeaserPreview || points.count <= 4 {
-                                    PointMark(
-                                        x: .value("Día", point.date),
-                                        y: .value("lpm", point.avgBpm)
-                                    )
-                                    .foregroundStyle(Self.avgTint)
-                                    .symbolSize(prepared.isTeaserPreview ? 28 : (points.count == 1 ? 64 : 36))
-                                }
+                            }
+                            if let selectedPoint {
+                                RuleMark(x: .value("Día seleccionado", selectedPoint.date))
+                                    .foregroundStyle(OG.label2)
+                                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                                    .annotation(position: .top, alignment: .center) {
+                                        Text("\(Int(selectedPoint.avgBpm.rounded())) lpm")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(OG.label)
+                                            .padding(5)
+                                            .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
+                                    }
                             }
                         }
                         .chartForegroundStyleScale([
@@ -181,6 +190,7 @@ struct ProgressCardioChartCard: View {
                             "Máx": Self.maxTint
                         ])
                         .chartXScale(domain: xDomain)
+                        .chartXSelection(value: $selectedDate)
                         .chartYScale(domain: yDomain)
                         .chartPlotStyle { $0.clipped() }
                         .chartXAxis {
@@ -257,8 +267,13 @@ struct ProgressCardioChartCard: View {
 /// Calorías: series ya preparadas.
 struct ProgressCaloriesChartCard: View {
     var prepared: ProgressPreparedCharts
+    @State private var selectedDate: Date?
 
     private var points: [ProgressDayPoint] { prepared.calories }
+    private var selectedPoint: ProgressDayPoint? {
+        guard let selectedDate else { return nil }
+        return points.min { abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate)) }
+    }
     private var range: ProgressTimeRange { prepared.range }
     private var granularity: ProgressSeriesGranularity { prepared.granularity }
     private var weekStartsOnMonday: Bool { prepared.weekStartsOnMonday }
@@ -330,17 +345,22 @@ struct ProgressCaloriesChartCard: View {
                                 .lineStyle(StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round))
                                 .interpolationMethod(calorieInterpolation)
 
-                                if prepared.isTeaserPreview || points.count <= 4 {
-                                    PointMark(
-                                        x: .value("Día", point.date),
-                                        y: .value("kcal", point.value)
-                                    )
-                                    .foregroundStyle(OG.orange)
-                                    .symbolSize(prepared.isTeaserPreview ? 28 : (points.count == 1 ? 64 : 36))
-                                }
+                            }
+                            if let selectedPoint {
+                                RuleMark(x: .value("Día seleccionado", selectedPoint.date))
+                                    .foregroundStyle(OG.label2)
+                                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                                    .annotation(position: .top, alignment: .center) {
+                                        Text("\(Int(selectedPoint.value.rounded())) kcal")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(OG.label)
+                                            .padding(5)
+                                            .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
+                                    }
                             }
                         }
                         .chartXScale(domain: xDomain)
+                        .chartXSelection(value: $selectedDate)
                         .chartYScale(domain: 0...yMax)
                         .chartPlotStyle { $0.clipped() }
                         .chartXAxis {
@@ -388,6 +408,7 @@ struct ProgressCaloriesChartCard: View {
 /// Peso corporal vs objetivo (línea de meta + delta).
 struct ProgressWeightChartCard: View {
     var entries: [BodyWeightEntry]
+    @State private var selectedDate: Date?
     var goalKg: Double?
     var range: ProgressTimeRange
     var weekStartsOnMonday: Bool = true
@@ -423,6 +444,10 @@ struct ProgressWeightChartCard: View {
     }
 
     private var latest: ProgressWeightPoint? { points.last }
+    private var selectedPoint: ProgressWeightPoint? {
+        guard let selectedDate else { return nil }
+        return points.min { abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate)) }
+    }
 
     private var deltaVsGoal: Double? {
         guard let goal = goalKg, let latest else { return nil }
@@ -514,15 +539,22 @@ struct ProgressWeightChartCard: View {
                                 .lineStyle(StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round))
                                 .interpolationMethod(.catmullRom)
 
-                                PointMark(
-                                    x: .value("Fecha", entry.date),
-                                    y: .value("kg", entry.weightKg)
-                                )
-                                .foregroundStyle(OG.accent)
-                                .symbolSize(isTeaserPreview || points.count <= 8 ? 32 : 18)
+                            }
+                            if let selectedPoint {
+                                RuleMark(x: .value("Día seleccionado", selectedPoint.date))
+                                    .foregroundStyle(OG.label2)
+                                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                                    .annotation(position: .top, alignment: .center) {
+                                        Text("\(selectedPoint.weightKg.formatted(.number.precision(.fractionLength(1)))) kg")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(OG.label)
+                                            .padding(5)
+                                            .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
+                                    }
                             }
                         }
                         .chartXScale(domain: xDomain)
+                        .chartXSelection(value: $selectedDate)
                         .chartYScale(domain: yDomain)
                         .chartPlotStyle { $0.clipped() }
                         .chartXAxis {
