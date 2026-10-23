@@ -87,8 +87,8 @@ fun ReperaMobileScreen(
     onDeleteWodMovement: (String) -> Unit,
     onQuickLog: (String) -> Unit,
     onInitializeLocal: () -> Unit,
-    onLogSet: (Int, Double?, Double?, Boolean, String?, Int?) -> Unit,
-    onReviseSet: (String, Int, Double?, String?, Int?) -> Unit,
+    onLogSet: (Int, Double?, Double?, Boolean, String?, Int?, Int?) -> Unit,
+    onReviseSet: (String, Int, Double?, String?, Int?, Int?) -> Unit,
     onDeleteSet: (String) -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit,
@@ -483,6 +483,9 @@ private fun ActiveWorkoutCard(
     var weight by remember(active.id, active.index, active.completedSets) {
         mutableStateOf(active.prescribedWeightKg?.toString() ?: "")
     }
+    var deficit by remember(active.id, active.index, active.completedSets) {
+        mutableStateOf("")
+    }
     var unit by remember(active.id, active.index, active.completedSets) {
         mutableStateOf(active.quantityUnit)
     }
@@ -510,6 +513,7 @@ private fun ActiveWorkoutCard(
     var editingId by remember(active.id, active.index) { mutableStateOf<String?>(null) }
     var editingQuantity by remember(active.id, active.index) { mutableStateOf("") }
     var editingWeight by remember(active.id, active.index) { mutableStateOf("") }
+    var editingDeficit by remember(active.id, active.index) { mutableStateOf("") }
     var editingUnit by remember(active.id, active.index) { mutableStateOf(active.quantityUnit) }
     var editingDuration by remember(active.id, active.index) { mutableStateOf("") }
     val parsedRir = rirText.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
@@ -518,6 +522,8 @@ private fun ActiveWorkoutCard(
     val valid = parsedQuantity != null && parsedQuantity >= 0 &&
         (!active.allowsWeight || weight.isBlank() ||
             (parsedWeight != null && parsedWeight.isFinite() && parsedWeight >= 0)) &&
+        (!active.allowsDeficit || deficit.isBlank() ||
+            (deficit.toIntOrNull()?.let { it in 0..100 } == true)) &&
         (rirText.isBlank() || (parsedRir != null && parsedRir.isFinite() && parsedRir >= 0)) &&
         validDuration && (unit in if (active.cardioToggle) setOf("calories", "meters")
             else setOf(active.quantityUnit))
@@ -537,6 +543,7 @@ private fun ActiveWorkoutCard(
                             else -> "reps"
                         } +
                         (set.weightKg?.let { " · $it kg" } ?: "") +
+                        (set.deficitCm?.let { " · $it cm déficit" } ?: "") +
                         (set.rir?.let { " · RIR $it" } ?: "") +
                         (set.durationSeconds?.let { " · ${it / 60}:${(it % 60).toString().padStart(2,'0')}" } ?: ""))
                     Row {
@@ -544,6 +551,7 @@ private fun ActiveWorkoutCard(
                             editingId = set.id
                             editingQuantity = set.reps.toString()
                             editingWeight = set.weightKg?.toString() ?: ""
+                            editingDeficit = set.deficitCm?.toString() ?: ""
                             editingUnit = set.unit
                             editingDuration = set.durationSeconds?.toString() ?: ""
                         }, enabled = !busy) { Text("Editar") }
@@ -571,6 +579,12 @@ private fun ActiveWorkoutCard(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
+                if (active.allowsDeficit) {
+                    OutlinedTextField(value = editingDeficit,
+                        onValueChange = { editingDeficit = it.filter(Char::isDigit) },
+                        label = { Text("Corregir déficit HSPU (cm)") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth())
+                }
                 if (active.cardioToggle) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = editingUnit == "calories",
@@ -589,6 +603,8 @@ private fun ActiveWorkoutCard(
                 val editWeight = editingWeight.trim().replace(',', '.')
                     .takeIf { it.isNotBlank() }?.toDoubleOrNull()
                 val editValid = parsedEdit != null &&
+                    (!active.allowsDeficit || editingDeficit.isBlank() ||
+                        editingDeficit.toIntOrNull()?.let { it in 0..100 } == true) &&
                     (!active.durationInput || editingDuration.isBlank() ||
                         editingDuration.toIntOrNull()?.let { it in 1..86400 } == true) &&
                     (!active.allowsWeight || editingWeight.isBlank() ||
@@ -602,7 +618,8 @@ private fun ActiveWorkoutCard(
                         val id = editingId
                         if (id != null && parsedEdit != null) {
                             onReviseSet(id, parsedEdit, if (active.allowsWeight) editWeight else null,
-                                editingUnit, editingDuration.toIntOrNull())
+                                editingUnit, editingDuration.toIntOrNull(),
+                                if (active.allowsDeficit) editingDeficit.toIntOrNull() else null)
                             editingId = null
                         }
                     }, enabled = !busy && editValid) { Text("Guardar corrección") }
@@ -619,6 +636,13 @@ private fun ActiveWorkoutCard(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
+            if (active.allowsDeficit) {
+                OutlinedTextField(
+                    value = deficit,
+                    onValueChange = { deficit = it.filter(Char::isDigit) },
+                    label = { Text("Déficit HSPU (cm, opcional)") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth())
+            }
             if (active.cardioToggle) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = unit == "calories",
@@ -672,7 +696,8 @@ private fun ActiveWorkoutCard(
                         if (active.durationInput) null else parsedRir,
                         if (active.durationInput) false else warmup,
                         unit,
-                        parsedDuration
+                        parsedDuration,
+                        if (active.allowsDeficit) deficit.toIntOrNull() else null
                     )
                 },
                 enabled = !busy && valid,

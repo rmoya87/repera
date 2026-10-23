@@ -55,6 +55,9 @@ internal object WorkoutHistorySets {
                 reps = set.optInt("reps"),
                 quantityUnit = resolvedUnit(set, exercise),
                 weight = valueOrNull(set, "weightKg"),
+                deficitCm = set.optInt("deficitCm").takeIf {
+                    set.has("deficitCm") && !set.isNull("deficitCm")
+                },
                 rir = valueOrNull(set, "rir"),
                 durationSeconds = set.optInt("durationSeconds").takeIf {
                     set.has("durationSeconds") && it > 0
@@ -82,6 +85,7 @@ internal object WorkoutHistorySets {
                 reps = set.getInt("targetReps"),
                 quantityUnit = resolvedUnit(set, exercise),
                 weight = valueOrNull(set, "targetWeightKg"),
+                deficitCm = null,
                 rir = valueOrNull(set, "targetRir"),
                 durationSeconds = null,
                 warmup = false
@@ -106,11 +110,12 @@ internal object WorkoutHistorySets {
         }
     }
 
-    private fun line(reps: Int, quantityUnit: String, weight: Double?, rir: Double?,
-                     durationSeconds: Int?, warmup: Boolean): String = buildString {
+    private fun line(reps: Int, quantityUnit: String, weight: Double?, deficitCm: Int?,
+                     rir: Double?, durationSeconds: Int?, warmup: Boolean): String = buildString {
         if (warmup) append("Calentamiento · ")
         append("$reps $quantityUnit")
         if (weight != null) append(" · $weight kg")
+        if (deficitCm != null) append(" · $deficitCm cm déficit")
         if (rir != null) append(" · RIR $rir")
         if (durationSeconds != null)
             append(" · ${durationSeconds / 60}:${(durationSeconds % 60).toString().padStart(2, '0')}")

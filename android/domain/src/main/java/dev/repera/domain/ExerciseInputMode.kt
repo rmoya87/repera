@@ -6,7 +6,7 @@ enum class ExerciseInputMode(val basicRecorderAvailable: Boolean, val showsWeigh
     REPS_ONLY(true, false),
     REPS_AND_TIME(true, false),
     MACHINE_WORK(true, false),
-    HSPU_DEFICIT(false, false)
+    HSPU_DEFICIT(true, false)
 }
 
 object ExerciseInput {

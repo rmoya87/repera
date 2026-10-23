@@ -285,13 +285,15 @@ class WorkoutRepository(context: Context, googleId: String) {
         warmup: Boolean = false,
         setId: String? = null,
         quantityUnit: String? = null,
-        durationSeconds: Int? = null
+        durationSeconds: Int? = null,
+        deficitCm: Int? = null
     ): ActiveWorkout {
         require(setId == null || setId.isNotBlank())
         require(quantity >= 0) { "Cantidad inválida" }
         require(weightKg == null || (weightKg.isFinite() && weightKg >= 0)) { "Peso inválido" }
         require(rir == null || (rir.isFinite() && rir >= 0)) { "RIR inválido" }
         require(durationSeconds == null || durationSeconds in 1..86400) { "Duración inválida" }
+        require(deficitCm == null || deficitCm in 0..100) { "Déficit HSPU inválido" }
         require(quantityUnit == null || quantityUnit in setOf("reps", "calories", "meters"))
         val state = requireState()
         val session = requireActive(state)
@@ -302,6 +304,9 @@ class WorkoutRepository(context: Context, googleId: String) {
         val movement = exercise.getJSONObject("exercise")
         val inputMode = inputMode(movement)
         check(inputMode.basicRecorderAvailable)
+        check(deficitCm == null || inputMode == ExerciseInputMode.HSPU_DEFICIT) {
+            "El déficit solo se registra en HSPU"
+        }
         if (inputMode == ExerciseInputMode.MACHINE_WORK || inputMode == ExerciseInputMode.REPS_AND_TIME) {
             check(weightKg == null && rir == null && !warmup) { "Cardio no admite lastre, RIR o calentamiento de fuerza" }
         }
@@ -321,6 +326,7 @@ class WorkoutRepository(context: Context, googleId: String) {
             .put("clusters", JSONArray())
         if (weightKg != null) set.put("weightKg", weightKg)
         if (rir != null) set.put("rir", rir)
+        if (deficitCm != null) set.put("deficitCm", deficitCm)
         val unit = quantityUnit ?: exercise.optString("quantityUnit")
             .takeIf { it in setOf("reps", "calories", "meters") }
             ?: ExerciseInput.defaultQuantityUnit(
@@ -625,6 +631,9 @@ class WorkoutRepository(context: Context, googleId: String) {
         check(exercise.optString("blockKind") != "wod" && !exercise.optBoolean("isCompleted")) {
             "El reloj solo puede registrar series de fuerza abiertas"
         }
+        check(inputMode(exercise.getJSONObject("exercise")) != ExerciseInputMode.HSPU_DEFICIT) {
+            "El déficit de HSPU requiere confirmación con cm en el móvil"
+        }
         logCurrentSet(quantity, weightKg, rir = null, warmup = false, setId = setId)
         return true
     }
@@ -664,10 +673,12 @@ class WorkoutRepository(context: Context, googleId: String) {
 
     @Synchronized fun reviseCurrentSet(
         setId: String, quantity: Int, weightKg: Double?,
-        quantityUnit: String? = null, durationSeconds: Int? = null
+        quantityUnit: String? = null, durationSeconds: Int? = null,
+        deficitCm: Int? = null
     ): ActiveWorkout {
         require(quantity >= 0 && (weightKg == null || (weightKg.isFinite() && weightKg >= 0)))
         require(durationSeconds == null || durationSeconds in 1..86400)
+        require(deficitCm == null || deficitCm in 0..100)
         require(quantityUnit == null || quantityUnit in setOf("reps", "calories", "meters"))
         val state = requireState()
         val session = requireActive(state)
@@ -679,9 +690,11 @@ class WorkoutRepository(context: Context, googleId: String) {
         val movement = exercise.getJSONObject("exercise")
         check(supportsSimpleInput(movement)) { "Este editor no admite el tipo de movimiento" }
         check(inputMode(movement).showsWeight || weightKg == null) { "Este ejercicio no registra peso" }
+        check(deficitCm == null || inputMode(movement) == ExerciseInputMode.HSPU_DEFICIT)
         val original = logged.getJSONObject(index)
         original.put("reps", quantity)
         if (weightKg == null) original.remove("weightKg") else original.put("weightKg", weightKg)
+        if (deficitCm == null) original.remove("deficitCm") else original.put("deficitCm", deficitCm)
         if (quantityUnit != null) {
             if (inputMode(movement) == ExerciseInputMode.MACHINE_WORK) {
                 check(quantityUnit in setOf("calories", "meters"))
@@ -837,6 +850,7 @@ class WorkoutRepository(context: Context, googleId: String) {
             prescribedWeightKg = next?.takeIf { it.has("targetWeightKg") && !it.isNull("targetWeightKg") }
                 ?.getDouble("targetWeightKg"),
             allowsWeight = inputMode(current.getJSONObject("exercise")).showsWeight,
+            allowsDeficit = inputMode(current.getJSONObject("exercise")) == ExerciseInputMode.HSPU_DEFICIT,
             quantityUnit = current.optString("quantityUnit").takeIf { it in setOf("calories","meters","reps") }
                 ?: ExerciseInput.defaultQuantityUnit(
                     current.getJSONObject("exercise").getString("name"),
@@ -861,6 +875,9 @@ class WorkoutRepository(context: Context, googleId: String) {
                     durationSeconds = set.optInt("durationSeconds").takeIf {
                         set.has("durationSeconds") && it > 0
                     },
+                    deficitCm = set.optInt("deficitCm").takeIf {
+                        set.has("deficitCm") && !set.isNull("deficitCm")
+                    },
                     rir = if (set.has("rir") && !set.isNull("rir")) set.getDouble("rir") else null
                 )
             }
@@ -875,7 +892,8 @@ data class WorkoutSetSummary(
     val phase: String = "work",
     val rir: Double? = null,
     val unit: String = "reps",
-    val durationSeconds: Int? = null
+    val durationSeconds: Int? = null,
+    val deficitCm: Int? = null
 )
 data class ActiveWorkout(
     val id: String,
@@ -888,6 +906,7 @@ data class ActiveWorkout(
     val prescribedWeightKg: Double?,
     val allowsWeight: Boolean,
     val sets: List<WorkoutSetSummary>,
+    val allowsDeficit: Boolean = false,
     val quantityUnit: String = "reps",
     val durationInput: Boolean = false,
     val cardioToggle: Boolean = false,
