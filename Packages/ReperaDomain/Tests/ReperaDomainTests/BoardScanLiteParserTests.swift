@@ -2,6 +2,91 @@ import Testing
 @testable import ReperaDomain
 
 struct BoardScanLiteParserTests {
+    @Test func photographedNinetySecondComplexAndSnatchBalanceWave() {
+        let board = """
+        EVERY 90" X 6 @6-8
+        1 CLEAN PULL
+        1 HANG POWER CLEAN
+        1 T&G SQUAT CLEAN
+
+        EVERY 2' X 4
+        3-3-2-2 SNATCH BALANCE @6-8
+
+        AMRAP 12'
+        5 POWER CLEAN 50/35
+        5 FRONT SQUAT 50/35
+        10 PULL UPS
+        100M RUN
+        """
+        let catalog = Catalog.seed()
+        let result = BoardScanLiteParser.parse(ocrText: board, catalog: catalog)
+        #expect(result.blocks.count == 3)
+        guard result.blocks.count == 3 else { return }
+
+        let complex = result.blocks[0]
+        #expect(complex.kind == .strength)
+        #expect(complex.emomIntervalSeconds == 90)
+        #expect(complex.timeCapMinutes == 9)
+        #expect(complex.exercises.count == 3)
+        #expect(complex.exercises.allSatisfy {
+            $0.plannedSets.count == 6
+                && $0.plannedSets.allSatisfy { $0.targetReps == 1 && $0.targetRir == 3 }
+        })
+        let complexNames = complex.exercises.compactMap { entry in
+            catalog.first(where: { $0.id == entry.exerciseId })?.name
+        }
+        #expect(complexNames == ["Clean Pull", "Hang power clean", "Clean"])
+        #expect(complex.wodNotes?.contains("T&G SQUAT CLEAN") == true)
+
+        let snatch = result.blocks[1]
+        #expect(snatch.kind == .strength)
+        #expect(snatch.emomIntervalSeconds == 120)
+        #expect(snatch.exercises.count == 1)
+        #expect(snatch.exercises.first?.plannedSets.map(\.targetReps) == [3, 3, 2, 2])
+        #expect(snatch.exercises.first?.plannedSets.first?.targetRir == 3)
+        let snatchName = snatch.exercises.first.flatMap { entry in
+            catalog.first(where: { $0.id == entry.exerciseId })?.name
+        }
+        #expect(snatchName == "Snatch Balance")
+
+        let amrap = result.blocks[2]
+        #expect(amrap.wodFormat == .amrap)
+        #expect(amrap.timeCapMinutes == 12)
+        #expect(amrap.movements.count == 4)
+        #expect(amrap.movements.allSatisfy { $0.exerciseId != nil })
+        #expect(amrap.movements[0].name == "Power Clean")
+        #expect(amrap.movements[0].reps == 5)
+        #expect(amrap.movements[0].weightMaleKg == 50)
+        #expect(amrap.movements[0].weightFemaleKg == 35)
+        #expect(amrap.movements[1].reps == 5)
+        #expect(amrap.movements[2].reps == 10)
+        #expect(amrap.movements[3].name == "Run")
+        #expect(amrap.movements[3].distanceMeters == 100)
+
+        let session = SessionController.from(
+            routine: Routine(title: "Pizarra fotografiada", blocks: result.blocks),
+            exercises: catalog
+        )
+        #expect(session.exercises.count == 8)
+        #expect(session.exercises.filter { $0.blockId == complex.id }.count == 3)
+        #expect(session.exercises.filter { $0.blockId == complex.id }
+            .allSatisfy { $0.plannedSets.count == 6 })
+    }
+
+    @Test func scanEnglishCompoundNamesHaveDistinctCanonicalMatches() {
+        let catalog = Catalog.seed()
+        let names = ["CLEAN PULL", "HANG POWER CLEAN", "SQUAT CLEAN", "SNATCH BALANCE"]
+        let expected = ["Clean Pull", "Hang power clean", "Clean", "Snatch Balance"]
+        for (input, output) in zip(names, expected) {
+            let b = BoardScanLiteParser.parse(
+                ocrText: "AMRAP 10'\n5 \(input)", catalog: catalog
+            ).blocks
+            #expect(b.count == 1)
+            #expect(b.first?.movements.first?.name == output)
+            #expect(b.first?.movements.first?.exerciseId != nil)
+        }
+    }
+
     @Test func spacedSexSpecificCaloriesDoNotBecomeScalingAlternatives() {
         let blocks = BoardScanLiteParser.parse(ocrText: """
             FOR TIME (TC 14')
