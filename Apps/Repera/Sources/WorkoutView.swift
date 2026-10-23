@@ -150,39 +150,48 @@ struct WorkoutView: View {
                 }
                 .accessibilityLabel("Más opciones")
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 8) {
-                    if let index = store.state.activeSession?.currentIndex, index > 0 {
-                        Button {
-                            store.selectExercise(at: index - 1)
-                        } label: {
-                            Label("Anterior", systemImage: "arrow.left")
-                        }
-                        .accessibilityLabel("Ejercicio anterior")
-                        .tint(OG.accent)
+            // iOS 27 agrupa acciones contiguas en una única cápsula.
+            // Las flechas son neutras e independientes del check verde.
+            ToolbarSpacer(.fixed, placement: .topBarTrailing)
+            if let index = store.state.activeSession?.currentIndex, index > 0 {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        store.selectExercise(at: index - 1)
+                    } label: {
+                        Image(systemName: "arrow.left")
+                            .font(.system(size: 16, weight: .semibold))
                     }
-                    if let index = store.state.activeSession?.currentIndex, hasMoreExercises {
-                        Button {
-                            // Navegar no finaliza ni inventa resultados del ejercicio.
-                            store.selectExercise(at: index + 1)
-                        } label: {
-                            Label("Siguiente", systemImage: "arrow.right")
-                        }
-                        .accessibilityLabel("Ejercicio siguiente")
-                        .tint(OG.accent)
-                    } else {
-                        Button {
-                            store.workoutClock.stop()
-                            store.endActiveSession(save: true)
-                            closeFlow()
-                        } label: {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 16, weight: .bold))
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(OG.accent)
-                        .accessibilityLabel("Terminar entreno")
+                    .accessibilityLabel("Ejercicio anterior")
+                    .tint(OG.label)
+                }
+            }
+            if let index = store.state.activeSession?.currentIndex, hasMoreExercises {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        // Navegar no finaliza ni inventa resultados del ejercicio.
+                        store.selectExercise(at: index + 1)
+                    } label: {
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 16, weight: .semibold))
                     }
+                    .accessibilityLabel("Ejercicio siguiente")
+                    .tint(OG.label)
+                }
+            } else {
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        store.workoutClock.stop()
+                        store.endActiveSession(save: true)
+                        closeFlow()
+                    } label: {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(OG.onAccent)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(OG.accent)
+                    .accessibilityLabel("Terminar entreno")
                 }
             }
         }
