@@ -40,7 +40,8 @@ class CompletedWorkoutEditContractTests(unittest.TestCase):
         wod = editor.split("private func wodBlock(index: Int)", 1)[1].split("private func resolvedExercise(", 1)[0]
         self.assertIn("} else if isEditingCompletedWorkout,", wod)
         self.assertIn("format.resultCapture != .perMovementSets", wod)
-        self.assertIn("completedWODRxFields(blockIndex: index, movementIndex: mIndex", wod)
+        self.assertIn("InlineWODMovementSets(", wod)
+        self.assertIn('DisclosureGroup("Adaptación del movimiento (opcional)")', wod)
         self.assertNotIn("} else if completedDetails != nil,", wod)
 
     def test_scoring_follows_format_not_block_kind(self):

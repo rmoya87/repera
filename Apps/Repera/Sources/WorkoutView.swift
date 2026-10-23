@@ -34,6 +34,8 @@ struct WorkoutView: View {
     @State private var setCompletionPulse = 0
     @State private var restStartedPulse = 0
     @State private var pendingWODConfirm: PendingWODConfirm?
+    /// Las marcas de bloque usan filas expandibles normales, igual que los ejercicios.
+    @State private var expandedScoreBlocks: Set<UUID> = []
     @State private var usesAutomaticTimer = false
     @State private var pendingTimerBlockID: UUID?
     /// EMOM/Tabata: el reloj ha terminado, pero todavía se pueden registrar series.
@@ -391,9 +393,7 @@ struct WorkoutView: View {
 
                     if let format = block.format, format.resultCapture != .perMovementSets {
                         inlineWODScoreEditor(block, format: format, session: session)
-                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
                             .listRowBackground(OG.surface)
-                            .listRowSeparator(.hidden)
                     }
 
                     ForEach(block.indexes, id: \.self) { index in
@@ -528,8 +528,8 @@ struct WorkoutView: View {
         .contentShape(Rectangle())
     }
 
-    /// El score global se registra directamente en Play. Se mantiene
-    /// debajo el editor habitual de series de CADA ejercicio del bloque.
+    /// Una fila del bloque, sin una tarjeta ni un diseño separado.
+    /// Se expande para anotar el score, igual que una fila de ejercicio.
     private func inlineWODScoreEditor(
         _ block: WorkoutBlockEntry,
         format: WODFormat,
@@ -540,22 +540,17 @@ struct WorkoutView: View {
             ? pendingWODConfirm?.elapsedSeconds : nil
         let templateID = session.routineBlocks?
             .first(where: { $0.id == block.id })?.wodTemplateId
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Resultado · \(format.displayName)")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(OG.label)
-                Spacer()
-                if let existing {
-                    Text(existing.summaryLabel)
-                        .font(.system(size: 15, weight: .bold).monospacedDigit())
-                        .foregroundStyle(OG.accent)
+
+        return DisclosureGroup(isExpanded: Binding(
+            get: { expandedScoreBlocks.contains(block.id) },
+            set: { expanded in
+                if expanded {
+                    expandedScoreBlocks.insert(block.id)
                 } else {
-                    Text("Pendiente")
-                        .font(.subheadline)
-                        .foregroundStyle(OG.label3)
+                    expandedScoreBlocks.remove(block.id)
                 }
             }
+        )) {
             WODResultInlineEditor(
                 blockId: block.id,
                 format: format,
@@ -571,9 +566,23 @@ struct WorkoutView: View {
                 }
             }
             .id(block.id)
+            .padding(.vertical, 8)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "stopwatch")
+                    .foregroundStyle(OG.label2)
+                    .frame(width: 27)
+                Text("Resultado del bloque")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                Spacer(minLength: 6)
+                Text(existing?.summaryLabel ?? "Sin registrar")
+                    .font(.system(size: 13, weight: .medium).monospacedDigit())
+                    .foregroundStyle(existing == nil ? OG.label3 : OG.accent)
+                    .lineLimit(1)
+            }
         }
-        .padding(14)
-        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .tint(OG.label2)
     }
 
     private func openBlockTimer(_ block: WorkoutBlockEntry, session: WorkoutSession) {
@@ -1238,6 +1247,8 @@ struct WorkoutView: View {
         let saved = store.state.activeSession?.wodResults.first(where: { $0.id == blockID })
         let templateID = store.state.activeSession?.routineBlocks?
             .first(where: { $0.id == blockID })?.wodTemplateId
+        // El resultado se edita dentro de la fila del bloque, sin modal.
+        expandedScoreBlocks.insert(blockID)
         pendingWODConfirm = PendingWODConfirm(
             blockId: blockID,
             format: format,
@@ -2014,31 +2025,32 @@ struct WODResultInlineEditor: View {
                 numericField("Tiempo · m:ss", text: $timeText, field: .time)
             }
 
-            Button {
-                focusedField = nil
-                guard canSave else { return }
-                onSave(WODBlockResult(
-                    id: blockId,
-                    format: format,
-                    totalReps: format.resultCapture == .totalReps
-                        ? min(5000, max(0, Int(repsText) ?? 0)) : nil,
-                    elapsedSeconds: format.resultCapture == .elapsedTime
-                        ? min(180 * 60, max(1, DurationText.parse(timeText) ?? 0)) : nil,
-                    roundsCompleted: format == .amrap || format == .deathBy
-                        ? min(200, max(0, Int(roundsText) ?? 0)) : nil,
-                    wodTemplateId: wodTemplateId ?? existing?.wodTemplateId
-                ))
-            } label: {
-                Label(existing == nil ? "Guardar resultado" : "Actualizar resultado",
-                      systemImage: "checkmark")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity, minHeight: 48)
-                    .background(OG.accent, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            HStack {
+                Spacer(minLength: 0)
+                Button {
+                    focusedField = nil
+                    guard canSave else { return }
+                    onSave(WODBlockResult(
+                        id: blockId,
+                        format: format,
+                        totalReps: format.resultCapture == .totalReps
+                            ? min(5000, max(0, Int(repsText) ?? 0)) : nil,
+                        elapsedSeconds: format.resultCapture == .elapsedTime
+                            ? min(180 * 60, max(1, DurationText.parse(timeText) ?? 0)) : nil,
+                        roundsCompleted: format == .amrap || format == .deathBy
+                            ? min(200, max(0, Int(roundsText) ?? 0)) : nil,
+                        wodTemplateId: wodTemplateId ?? existing?.wodTemplateId
+                    ))
+                } label: {
+                    Label(existing == nil ? "Guardar" : "Actualizar", systemImage: "checkmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(canSave ? OG.accent : OG.label3)
+                        .frame(minHeight: 44)
+                        .padding(.horizontal, 8)
+                }
+                .buttonStyle(.plain)
+                .disabled(!canSave)
             }
-            .buttonStyle(.plain)
-            .disabled(!canSave)
-            .opacity(canSave ? 1 : 0.5)
         }
         .onChange(of: suggestedElapsedSeconds) { _, seconds in
             // Reloj For Time: conservar cualquier registro previo y solo
@@ -2065,8 +2077,8 @@ struct WODResultInlineEditor: View {
                 .font(.system(size: 21, weight: .medium).monospacedDigit())
                 .foregroundStyle(OG.label)
                 .focused($focusedField, equals: field)
-                .frame(minHeight: 48)
-                .background(OG.surface3, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .frame(minHeight: 44)
+                .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
                 .accessibilityLabel(label)
         }
         .frame(maxWidth: .infinity)

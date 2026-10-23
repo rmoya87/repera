@@ -1551,8 +1551,17 @@ struct DayEditorView: View {
                         Text(exercise.name)
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(OG.label)
-                        completedStrengthRxFields(blockIndex: index, exerciseIndex: itemIndex, exercise: exercise)
-                        completedWODScalingFields(movementID: item.id, exercise: exercise)
+                        // Los ajustes de Rx y adaptación no sustituyen la
+                        // presentación habitual del movimiento.
+                        Text(item.plannedSets.compactSummary)
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                        DisclosureGroup("Corregir prescripción o adaptación") {
+                            completedStrengthRxFields(blockIndex: index, exerciseIndex: itemIndex, exercise: exercise)
+                            completedWODScalingFields(movementID: item.id, exercise: exercise)
+                        }
+                        .font(.system(size: 13, weight: .medium))
+                        .tint(OG.label2)
                     }
                     Spacer()
                 }
@@ -2179,12 +2188,22 @@ struct DayEditorView: View {
             } else if isEditingCompletedWorkout,
                       let format = routine.blocks[index].wodFormat,
                       format.resultCapture != .perMovementSets {
-                // En WOD cronometrados estas cifras son la PRESCRIPCIÓN; el resultado
-                // global se edita arriba, nunca se convierte en sets completados.
-                VStack(alignment: .leading, spacing: 8) {
-                    completedWODRxFields(blockIndex: index, movementIndex: mIndex, exercise: resolved)
+                // Mismo editor de series que Crear/Editar/Play. Corrige la
+                // prescripción original sin fabricar series realizadas.
+                InlineWODMovementSets(
+                    movement: Binding(
+                        get: { routine.blocks[index].movements[mIndex] },
+                        set: { routine.blocks[index].movements[mIndex] = $0 }
+                    ),
+                    block: routine.blocks[index]
+                )
+
+                DisclosureGroup("Adaptación del movimiento (opcional)") {
                     completedWODScalingFields(movementID: move.id, exercise: resolved)
+                        .padding(.top, 6)
                 }
+                .font(.system(size: 13, weight: .medium))
+                .tint(OG.label2)
             } else {
                 if isEditingCompletedWorkout {
                     let logged = completedWorkoutDraft?.exercises.first(where: { $0.id == move.id

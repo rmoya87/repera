@@ -15,12 +15,12 @@ def read(path):
 class CompletedWODPrescriptionTests(unittest.TestCase):
     def test_finished_wod_displays_original_and_performed_separately(self):
         view = read("Apps/Repera/Sources/PlanView.swift")
-        self.assertIn('Text("Prescrito (editable)")', view)
-        self.assertIn('Text("Realizado (opcional)")', view)
+        self.assertIn('DisclosureGroup("Adaptación del movimiento (opcional)")', view)
+        self.assertIn('DisclosureGroup("Corregir prescripción o adaptación")', view)
         self.assertIn('label: "KG PRESCRITOS"', view)
         self.assertIn('label: "REPS PRESCRITAS"', view)
         self.assertIn('TextField("Sin adaptar", text: completedWODScaledValue', view)
-        self.assertIn("completedWODRxFields(blockIndex: index, movementIndex: mIndex", view)
+        self.assertIn("InlineWODMovementSets(", view)
         self.assertIn("completedStrengthRxFields(blockIndex: index, exerciseIndex: itemIndex", view)
         self.assertIn("completedWODScalingFields(movementID: move.id", view)
         self.assertIn("completedScoreEditor(for: block)", view)
