@@ -406,6 +406,7 @@ class MainActivity : ComponentActivity() {
 
 data class StateOverview(
     val workouts: Int,
+    val workoutsThisWeek: Int,
     val routines: Int,
     val exercises: Int,
     val bodyWeights: Int,
@@ -454,6 +455,17 @@ data class StateOverview(
                     if (recordedSets > 0) details += "$recordedSets series"
                     workout.optString("title") + if (details.isEmpty()) ""
                         else " · " + details.joinToString(" / ")
+                }
+            }
+            val today = java.time.LocalDate.now()
+            val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+            val workoutsThisWeek = json.getJSONArray("workouts").let { archive ->
+                (0 until archive.length()).count { index ->
+                    val session = archive.optJSONObject(index) ?: return@count false
+                    val date = runCatching {
+                        java.time.LocalDate.parse(session.optString("startedAt").take(10))
+                    }.getOrNull()
+                    date != null && !date.isBefore(monday) && !date.isAfter(today)
                 }
             }
             val history = json.getJSONArray("workouts").let { archive ->
@@ -554,6 +566,7 @@ data class StateOverview(
             }
             return StateOverview(
                 workouts = workoutTitles.size,
+                workoutsThisWeek = workoutsThisWeek,
                 routines = routineEntries.size,
                 exercises = exerciseEntries.size,
                 bodyWeights = json.optJSONArray("bodyWeights")?.length() ?: 0,
