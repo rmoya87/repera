@@ -907,8 +907,8 @@ class WorkoutRepository(context: Context, googleId: String) {
             exerciseName = current.getJSONObject("exercise").getString("name"),
             completedSets = logged.length(),
             prescribedQuantity = next?.optInt("targetReps"),
-            prescribedDurationSeconds = next?.optInt("targetDurationSeconds")
-                ?.takeIf { next.has("targetDurationSeconds") && it > 0 },
+            prescribedDurationSeconds = next?.takeIf { it.has("targetDurationSeconds") }
+                ?.optInt("targetDurationSeconds")?.takeIf { it > 0 },
             mobilityHold = isMobilityHold(current.getJSONObject("exercise")),
             mobility = current.getJSONObject("exercise").optString("sportTag") == "Movilidad",
             prescribedWeightKg = next?.takeIf { it.has("targetWeightKg") && !it.isNull("targetWeightKg") }

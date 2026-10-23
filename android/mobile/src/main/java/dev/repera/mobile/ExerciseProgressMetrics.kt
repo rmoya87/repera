@@ -35,7 +35,8 @@ internal object ExerciseProgressMetrics {
                 when (set.unit) {
                     "cal" -> bestCalories = maxOf(bestCalories, set.reps)
                     "m" -> bestMeters = maxOf(bestMeters, set.reps)
-                    else -> bestReps = maxOf(bestReps, set.reps)
+                    else -> if (!set.mobilityHold)
+                        bestReps = maxOf(bestReps, set.reps)
                 }
                 val weight = set.weightKg
                 if (weight != null && weight > 0) {

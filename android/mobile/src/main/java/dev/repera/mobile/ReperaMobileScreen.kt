@@ -569,10 +569,12 @@ private fun ActiveWorkoutCard(
         mutableStateOf(active.quantityUnit)
     }
     var durationMin by remember(active.id, active.index, active.completedSets) {
-        mutableStateOf("")
+        mutableStateOf(active.prescribedDurationSeconds
+            ?.let { (it / 60).toString() } ?: "")
     }
     var durationSec by remember(active.id, active.index, active.completedSets) {
-        mutableStateOf("")
+        mutableStateOf(active.prescribedDurationSeconds
+            ?.let { (it % 60).toString().padStart(2, '0') } ?: "")
     }
     val parsedDuration = if (!active.durationInput ||
         (durationMin.isBlank() && durationSec.isBlank())) null else {
@@ -582,7 +584,8 @@ private fun ActiveWorkoutCard(
             mm * 60 + ss else null
     }
     val validDuration = !active.durationInput ||
-        (durationMin.isBlank() && durationSec.isBlank()) || parsedDuration != null
+        (!active.mobilityHold && durationMin.isBlank() && durationSec.isBlank()) ||
+        parsedDuration != null
     var warmup by remember(active.id, active.index, active.completedSets) {
         mutableStateOf(false)
     }
@@ -645,7 +648,9 @@ private fun ActiveWorkoutCard(
                 OutlinedTextField(
                     value = editingQuantity,
                     onValueChange = { editingQuantity = it.filter(Char::isDigit) },
-                    label = { Text("Corregir repeticiones") },
+                    label = { Text(if (active.mobilityHold) "Postura (1)"
+                        else if (active.mobility) "Repeticiones"
+                        else "Corregir repeticiones") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -710,7 +715,12 @@ private fun ActiveWorkoutCard(
                 label = { Text(when (unit) {
                     "calories" -> "Calorías"
                     "meters" -> "Metros"
-                    else -> if (active.durationInput) "Veces" else "Repeticiones"
+                    else -> when {
+                        active.mobilityHold -> "Postura (1)"
+                        active.mobility -> "Repeticiones"
+                        active.durationInput -> "Veces"
+                        else -> "Repeticiones"
+                    }
                 }) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
@@ -731,6 +741,10 @@ private fun ActiveWorkoutCard(
                 }
             }
             if (active.durationInput) {
+                if (active.mobilityHold) {
+                    Text("Tiempo mantenido · obligatorio",
+                        style = MaterialTheme.typography.labelMedium)
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = durationMin,

@@ -13,7 +13,8 @@ import org.json.JSONObject
 internal object WorkoutHistorySets {
     /** Effective positive working sets for statistics; never writes inferred sets to disk. */
     data class EffectiveSet(
-        val reps: Int, val weightKg: Double?, val unit: String, val durationSeconds: Int? = null
+        val reps: Int, val weightKg: Double?, val unit: String,
+        val durationSeconds: Int? = null, val mobilityHold: Boolean = false
     )
 
     fun effectiveWorkSets(workout: JSONObject, exercise: JSONObject): List<EffectiveSet> {
@@ -29,7 +30,16 @@ internal object WorkoutHistorySets {
                 (set.optInt("reps") <= 0 && seconds == null))
                 null else EffectiveSet(set.optInt("reps"),
                     valueOrNull(set, "weightKg"), resolvedUnit(set, exercise),
-                    seconds)
+                    seconds,
+                    exercise.optJSONObject("exercise")?.optString("sportTag") == "Movilidad" &&
+                        exercise.optJSONObject("exercise")?.optString("catalogId") in setOf(
+                            "mobility-14","mobility-15","mobility-16","mobility-20",
+                            "mobility-21","mobility-30","mobility-31","mobility-32",
+                            "mobility-36","mobility-38","mobility-39","mobility-40",
+                            "mobility-41","mobility-42","mobility-44","mobility-46",
+                            "mobility-60","mobility-61","mobility-62","mobility-67",
+                            "mobility-70","mobility-80"
+                        ))
         }
         if (actual.isNotEmpty()) return actual
         // A score-only WOD has no work-set history. Its prescribed movement targets
