@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "source": "Packages/ReperaDomain/Sources/ReperaDomain/Catalog.swift",
-  "count": 280,
+  "count": 288,
   "exercises": [
     {
       "catalogKey": "catalog:Press banca",
@@ -1402,6 +1402,46 @@
       "catalogKey": "catalog:Rockback global en cuadrupedia",
       "name": "Rockback global en cuadrupedia",
       "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Tirón alto de arrancada",
+      "name": "Tirón alto de arrancada",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Tirón alto de cargada",
+      "name": "Tirón alto de cargada",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Peso muerto de cargada",
+      "name": "Peso muerto de cargada",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Envión en sentadilla",
+      "name": "Envión en sentadilla",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Dip y drive de envión",
+      "name": "Dip y drive de envión",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Arrancada de potencia desde bloques",
+      "name": "Arrancada de potencia desde bloques",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Cargada de potencia desde bloques",
+      "name": "Cargada de potencia desde bloques",
+      "category": "Halterofilia"
+    },
+    {
+      "catalogKey": "catalog:Push press con agarre de arrancada",
+      "name": "Push press con agarre de arrancada",
+      "category": "Halterofilia"
     }
   ]
 }
