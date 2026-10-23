@@ -3,10 +3,12 @@
 Implementación nativa independiente en `android/`:
 
 - `mobile`: Kotlin + Jetpack Compose / Material 3, Credential Manager Google,
-  Google Drive appDataFolder, historial local, importación JSON y ejecución de
+  Google Drive appDataFolder, historial local, importación/exportación JSON y ejecución de
   rutinas de fuerza y WOD con resultado global, cronómetro local persistente,\n  programación por fecha/semana y persistencia compatible con `AppState` Swift.
 - `domain`: reloj, captura de resultado WOD, prescripción y resolución de conflictos.
-- `wear`: Compose for Wear OS Material 3 y recepción de sesión activa mediante Data Layer.
+- `wear`: Compose for Wear OS Material 3, sesión desde Data Layer y registro de series de fuerza
+  con cola offline y confirmaciones; faltan reconciliación automática sin abrir el móvil,
+  ejecución completa de WOD y Health Services.
 - `Health Connect`: lectura voluntaria de pasos y calorías activas reales, sin datos inventados ni escrituras.
 
 Google reemplaza a Apple en Android; Google Drive reemplaza a iCloud para
@@ -44,8 +46,9 @@ y `docs/AUDIT_2026_10_23.md`.
 
 Ya hay inicio de rutinas mixtas fuerza + WOD **con resultado global**,
 registro por bloque (reps/rondas o tiempo) y guardado sin series inventadas.
-Los formatos por movimiento (EMOM, Tabata, Circuito, etc.) permanecen
-bloqueados. Tampoco se afirma que el reloj en Play funcione aún como iOS.
+Los movimientos por intervalo (EMOM, Tabata, Circuito) disponen de registro
+manual, corrección y borrado. No hay paridad completa de los editores y
+cronómetros iOS: revisar los casos todavía no cubiertos en `docs/PARITY_BACKLOG_2026_10_23.md`.
 Ver `docs/STATUS_AND_PARITY.md`.
 
 ## Autenticación Google y Supabase

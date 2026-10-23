@@ -67,3 +67,22 @@ El lector `WorkoutHistorySets` aplica fallback de sets prescritos terminados **s
 - El reloj reintenta al abrir la actividad, recibir una sesión y al pulsar Reenviar. Al cerrar sesión recibida limpia la cola por privacidad.
 - **Limitación explícita:** aún no hay reconciliación automática en segundo plano sin abrir el teléfono, Health Services ni captura Wear de WOD por movimiento. No considerar Watch al nivel de Apple hasta completar E2E físico.
 - CI: nuevas pruebas de idempotencia tras reinicio, duplicados y rechazo de sesiones ajenas. No extrapolar tests Android Emulator a un Wear físico.
+
+
+## Paridad adicional incorporada tras la auditoría
+
+- Android Play permite eliminar sets de fuerza sin tocar los demás registros.
+- El menú de cuenta exporta un JSON local validado mediante el selector de
+  documentos de Android (sin subirlo automáticamente a ningún servidor).
+- Diario usa calendario de siete días con saltos de semana y conserva la
+  selección de fecha al recrearse la Activity; sigue pendiente la edición de
+  programación y planes profesionales.
+- Progreso muestra barras de las siete fechas actuales y cuenta sesiones
+  del historial completo usando la zona horaria local, sin fabricar actividad.
+- Progreso por ejercicio calcula mejor carga, reps, calorías, metros, e1RM y
+  veces a partir de sets efectivos. Esto NO significa tener las pantallas de
+  evolución/periodos/pro/recuperación equivalentes a iOS.
+- Los tests de regresión revelaron un error real en For Time (prescripción de
+  WOD leída como serie). Corregido con `e8e4f3d`, CI `39959971235` verde.
+- El último head requiere siempre verificación independiente del CI y de
+  dispositivos Google reales; ningún feature sin E2E debe marcarse production-ready.

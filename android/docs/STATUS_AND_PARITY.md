@@ -220,3 +220,24 @@ autónomo y conciliación del reloj sin teléfono, servicio de ejercicio y
 sensores Wear, panel completo de Progreso, OCR ML Kit, planes profesionales,
 facturación Google Play y distribución firmada. Nada de esto debe describirse
 como completado.
+
+
+## Revisión posterior y límites (23/10/2026)
+
+La rama integra mediante `e43e52b` las 59 correcciones del `main` auditado.
+Los commits Android posteriores incorporan: sets efectivos en sesiones terminadas
+(sin inventar series WOD), indicadores por ejercicio sobre todo el historial,
+editor para eliminar series de fuerza, exportación JSON, calendario semanal con
+selección persistente y barras de progreso semanal ajustadas a hora local.
+
+Wear añade envío de series de fuerza con una cola local y ACK del teléfono,
+con validación de sesión y deduplicación por UUID. Esta solución **no** ofrece
+sincronización en segundo plano cuando la Activity Android está cerrada.
+
+La ejecución CI `39959971235` sobre `e8e4f3d` terminó satisfactoriamente.
+El último commit de rama debe validarse por su propia ejecución de Actions;
+no considerar validados los cambios posteriores por una ejecución anterior.
+Quedan E2E OAuth/Drive, pruebas de hardware Wear, medidas Health Services,
+Pro/billing, OCR, MCP/planificación profesional, UI completa de progreso y
+paridad visual. El documento actualizado `PARITY_BACKLOG_2026_10_23.md`
+detalla los criterios de aceptación.
