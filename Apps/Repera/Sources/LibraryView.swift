@@ -96,8 +96,9 @@ struct LibraryView: View {
             Group {
                 // En WODs, si la búsqueda no pega con ningún WOD (p. ej. «back squat»),
                 // mostrar ejercicios: si no, parece que «no hay ejercicio».
-                if filterMode == .wods, query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    || !filteredWODTemplates.isEmpty {
+                if filterMode == .wods &&
+                    (query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || !filteredWODTemplates.isEmpty) {
                     wodsList
                 } else {
                     LibraryExerciseList(
