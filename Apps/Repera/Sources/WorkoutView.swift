@@ -198,45 +198,6 @@ struct WorkoutView: View {
                 usesPageCloseHeader: true
             )
         }
-        .sheet(item: $pendingWODConfirm) { pending in
-            WODResultConfirmSheet(
-                title: pending.title,
-                capture: pending.capture,
-                format: pending.format,
-                totalReps: Binding(
-                    get: { pendingWODConfirm?.totalReps ?? pending.totalReps },
-                    set: { pendingWODConfirm?.totalReps = $0 }
-                ),
-                elapsedSeconds: Binding(
-                    get: { pendingWODConfirm?.elapsedSeconds ?? pending.elapsedSeconds },
-                    set: { pendingWODConfirm?.elapsedSeconds = $0 }
-                ),
-                roundsCompleted: Binding(
-                    get: { pendingWODConfirm?.roundsCompleted ?? pending.roundsCompleted },
-                    set: { pendingWODConfirm?.roundsCompleted = $0 }
-                ),
-                onSave: {
-                    guard let current = pendingWODConfirm else { return }
-                    store.applyWODResult(
-                        WODBlockResult(
-                            id: current.blockId,
-                            format: current.format,
-                            totalReps: current.capture == .totalReps ? current.totalReps : nil,
-                            elapsedSeconds: current.capture == .elapsedTime ? current.elapsedSeconds : nil,
-                            roundsCompleted: (current.format == .amrap || current.format == .deathBy)
-                                ? current.roundsCompleted : nil,
-                            wodTemplateId: current.wodTemplateId
-                        )
-                    )
-                    pendingWODConfirm = nil
-                    store.finishCurrentTimedBlock()
-                    if store.state.activeSession == nil {
-                        closeFlow()
-                    }
-                },
-                onCancel: { pendingWODConfirm = nil }
-            )
-        }
         .onAppear {
             notesDraft = store.state.activeSession?.notes ?? ""
             prefill()
@@ -428,6 +389,13 @@ struct WorkoutView: View {
                     }
                     .listRowBackground(OG.surface)
 
+                    if let format = block.format, format.resultCapture != .perMovementSets {
+                        inlineWODScoreEditor(block, format: format, session: session)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
+                            .listRowBackground(OG.surface)
+                            .listRowSeparator(.hidden)
+                    }
+
                     ForEach(block.indexes, id: \.self) { index in
                         let entry = session.exercises[index]
                         Group {
@@ -439,14 +407,14 @@ struct WorkoutView: View {
                                         highlightSessionId: session.id
                                     )
                                 } label: {
-                                    workoutExerciseRow(entry, isOpen: true)
+                                    workoutExerciseRow(entry, isOpen: true, blockResult: session.wodResults.first(where: { $0.id == block.id }))
                                 }
                             } else {
                                 // Cerrado: un toque expande sus series (no navega).
                                 Button {
                                     store.selectExercise(at: index)
                                 } label: {
-                                    workoutExerciseRow(entry, isOpen: false)
+                                    workoutExerciseRow(entry, isOpen: false, blockResult: session.wodResults.first(where: { $0.id == block.id }))
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -522,16 +490,30 @@ struct WorkoutView: View {
         }
     }
 
-    private func workoutExerciseRow(_ entry: SessionExercise, isOpen: Bool) -> some View {
+    private func workoutExerciseRow(
+        _ entry: SessionExercise,
+        isOpen: Bool,
+        blockResult: WODBlockResult?
+    ) -> some View {
         HStack(spacing: 12) {
             ExerciseThumb(exercise: entry.exercise, size: 48)
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(entry.exercise.name)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(OG.label)
                 Text(entry.plannedSets.compactSummary)
                     .font(.caption)
                     .foregroundStyle(OG.label2)
+                if !entry.loggedSets.isEmpty {
+                    Text("Registrado · " + entry.loggedSets.map(\.displaySummaryLine).joined(separator: " · "))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(OG.accent)
+                        .lineLimit(2)
+                } else if let blockResult, entry.usesBlockScoreResult {
+                    Text("Resultado del bloque · \(blockResult.summaryLabel)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(OG.accent)
+                }
             }
             Spacer(minLength: 6)
             if entry.isCompleted {
@@ -542,9 +524,56 @@ struct WorkoutView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(OG.label3)
             }
-            // Sin chevron hacia abajo: la fila abierta lleva a la ficha.
         }
         .contentShape(Rectangle())
+    }
+
+    /// El score global se registra directamente en Play. Se mantiene
+    /// debajo el editor habitual de series de CADA ejercicio del bloque.
+    private func inlineWODScoreEditor(
+        _ block: WorkoutBlockEntry,
+        format: WODFormat,
+        session: WorkoutSession
+    ) -> some View {
+        let existing = session.wodResults.first(where: { $0.id == block.id })
+        let suggested = pendingWODConfirm?.blockId == block.id
+            ? pendingWODConfirm?.elapsedSeconds : nil
+        let templateID = session.routineBlocks?
+            .first(where: { $0.id == block.id })?.wodTemplateId
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Resultado · \(format.displayName)")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                Spacer()
+                if let existing {
+                    Text(existing.summaryLabel)
+                        .font(.system(size: 15, weight: .bold).monospacedDigit())
+                        .foregroundStyle(OG.accent)
+                } else {
+                    Text("Pendiente")
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label3)
+                }
+            }
+            WODResultInlineEditor(
+                blockId: block.id,
+                format: format,
+                existing: existing,
+                suggestedElapsedSeconds: suggested,
+                wodTemplateId: templateID
+            ) { result in
+                store.applyWODResult(result)
+                if pendingWODConfirm?.blockId == block.id {
+                    pendingWODConfirm = nil
+                    store.finishCurrentTimedBlock()
+                    if store.state.activeSession == nil { closeFlow() }
+                }
+            }
+            .id(block.id)
+        }
+        .padding(14)
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func openBlockTimer(_ block: WorkoutBlockEntry, session: WorkoutSession) {

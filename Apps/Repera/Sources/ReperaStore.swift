@@ -946,6 +946,10 @@ final class ReperaStore: NSObject {
             }
         }
         state.activeSession = session
+        // Persistir inmediatamente el marcador, incluso cuando el atleta sigue
+        // en el mismo bloque y no se llama a finishCurrentTimedBlock().
+        persist()
+        pushActiveToWatch()
     }
 
     /// Calcula y opcionalmente presenta la valoración post-entreno.

@@ -21,7 +21,10 @@ public enum BoardScanLiteParser {
 
         func flush() {
             guard let cur = current else { return }
-            if let strength = Self.structuredStrength(
+            if let strength = Self.structuredIntervalComplex(
+                cur.header, cur.body, interval: cur.interval,
+                cap: cur.cap, rounds: cur.rounds, catalog: catalog
+            ) ?? Self.structuredStrength(
                 cur.header, cur.body, interval: cur.interval,
                 cap: cur.cap, rounds: cur.rounds, catalog: catalog
             ) {
@@ -126,7 +129,9 @@ public enum BoardScanLiteParser {
                 b.movements = block.movements.map { move in
                     guard !move.isRest else { return move }
                     var m = move
-                    let canonical = CrossFitGlossary.canonicalName(for: move.name)
+                    let canonical = SportExerciseNames.canonicalName(
+                        CrossFitGlossary.canonicalName(for: move.name)
+                    )
                     let keys = [norm(move.name), norm(canonical)]
                     if let ex = keys.lazy.compactMap({ index[$0] }).first {
                         m.exerciseId = ex.id
@@ -300,15 +305,22 @@ public enum BoardScanLiteParser {
         if upper.contains("TABATA") {
             return Header(title: line, format: .tabata, cap: nil)
         }
-        // Every 2' x 4 / Every 2 min x 4. Conserva el intervalo y las cuatro series.
-        if let match = upper.range(of: #"^(?:EVERY|CADA)\s+\d+\s*(?:'|MIN(?:UTES?)?)?\s*X\s*\d+"#,
-                                   options: .regularExpression) {
-            let values = String(upper[match]).split { !$0.isNumber }.compactMap { Int($0) }
-            if values.count == 2 {
-                let seconds = values[0] * 60
-                return Header(title: line, format: .emom,
-                              cap: values[0] * values[1], rounds: values[1], interval: seconds)
-            }
+        // Every 90" x 6 (segundos), Every 2' x 4 (minutos), o Every 2 x 4.
+        // Conservar seis intervalos de 90s y el TC de 9 min, no 90 minutos.
+        if let fields = capture(
+            #"(?i)^(?:EVERY|CADA)\s+(\d+)\s*("|''?|S\b|SEC(?:ONDS?)?\b|MIN(?:UTES?)?\b)?\s*X\s*(\d+)\b"#,
+            from: line
+        ), (fields.count == 2 || fields.count == 3),
+           let amount = Int(fields[0]), let count = Int(fields.last ?? ""),
+           amount > 0 && count > 0 && count <= 200 {
+            let unit = fields.count == 3 ? fields[1].uppercased() : ""
+            let isSeconds = unit == "\"" || unit == "S" || unit.hasPrefix("SEC")
+            let intervalSeconds = isSeconds ? amount : amount * 60
+            return Header(
+                title: line, format: .emom,
+                cap: (intervalSeconds * count + 59) / 60,
+                rounds: count, interval: intervalSeconds
+            )
         }
         if upper.hasPrefix("EVERY") || upper.hasPrefix("CADA") {
             let value = firstInt(upper) ?? 1
@@ -327,6 +339,50 @@ public enum BoardScanLiteParser {
         return (1..<match.numberOfRanges).compactMap { index in
             Range(match.range(at: index), in: text).map { String(text[$0]) }
         }
+    }
+
+    /// Complejo de halterofilia por ronda: cada movimiento se repite en
+    /// CADA intervalo, p.ej. 90" × 6 con 1 Clean Pull + 1 Hang Power Clean
+    /// + 1 T&G Squat Clean. No es un circuito de estaciones alternas.
+    private static func structuredIntervalComplex(
+        _ header: String, _ lines: [String], interval: Int?,
+        cap: Int?, rounds: Int?, catalog: [Exercise]
+    ) -> RoutineBlock? {
+        guard header.uppercased().hasPrefix("EVERY")
+                || header.uppercased().hasPrefix("CADA"),
+              header.contains("@"),
+              let interval, interval > 0,
+              let rounds, (2...30).contains(rounds),
+              lines.count >= 2 else { return nil }
+
+        let index = Dictionary(
+            catalog.map { (norm($0.name), $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let rir = rpeMidpointRIR(from: header)
+        var items: [RoutineExercise] = []
+        for line in lines {
+            let move = movement(from: line)
+            guard !move.isRest, move.reps == 1,
+                  move.repScheme == nil, move.distanceMeters == nil,
+                  move.calories == nil else { return nil }
+            let canonical = SportExerciseNames.canonicalName(
+                CrossFitGlossary.canonicalName(for: move.name)
+            )
+            guard let exercise = index[norm(canonical)] ?? index[norm(move.name)]
+            else { return nil }
+            let sets = (0..<rounds).map { _ in
+                PlannedSet(targetReps: 1,
+                           targetWeightKg: move.weightMaleKg,
+                           targetRir: rir)
+            }
+            items.append(RoutineExercise(exerciseId: exercise.id, plannedSets: sets))
+        }
+        var block = RoutineBlock.strength(title: header, exercises: items)
+        block.emomIntervalSeconds = interval
+        block.timeCapMinutes = cap
+        block.wodNotes = ([header] + lines).joined(separator: "\n")
+        return block
     }
 
     private static func structuredStrength(
@@ -353,7 +409,7 @@ public enum BoardScanLiteParser {
             }
             let expected = rounds ?? plan.count
             guard expected > 0, plan.count == expected,
-                  let exercise = catalog.first(where: { name($0.name) == name("Arrancada") })
+                  let exercise = catalog.first(where: { ExerciseEquivalence.sameName($0.name, "Arrancada") })
             else { return nil }
             let sets = (1...expected).compactMap { plan[$0] }
             guard sets.count == expected else { return nil }
@@ -395,7 +451,7 @@ public enum BoardScanLiteParser {
     /// y empleamos el punto medio RPE 7 (≈ RIR 3) como objetivo editable de fuerza.
     private static func rpeMidpointRIR(from notes: String?) -> Double? {
         guard let notes,
-              let match = notes.range(of: #"RPE\s*(\d+(?:[.,]\d+)?)\s*[-–]\s*(\d+(?:[.,]\d+)?)"#,
+              let match = notes.range(of: #"(?:RPE|@)\s*(\d+(?:[.,]\d+)?)\s*[-–]\s*(\d+(?:[.,]\d+)?)"#,
                                       options: .regularExpression) else { return nil }
         let numbers = String(notes[match]).split { !$0.isNumber && $0 != "." && $0 != "," }
             .compactMap { Double($0.replacingOccurrences(of: ",", with: ".")) }
