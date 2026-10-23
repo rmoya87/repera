@@ -185,11 +185,13 @@
 - **Sincronizar ahora** unifica iCloud + datos Business + espejo privado de entrenamientos.
 - Mensajes en Inicio (topbar), no en Ajustes. Avatares de org en app y en Repera Business.
 
+- **Vinculación segura Apple/Google:** Supabase Auth enlaza automáticamente cuentas OAuth con el mismo correo **verificado** y un **único user.id**. Repera almacena el UUID propietario local (sin tokens), lo coteja en login y en restore, y rechaza una cuenta distinta; no fusiona datos por texto de email. Si Apple usa «Ocultar mi correo», se requiere **Cuenta → Vincular cuenta de Google** bajo la sesión Apple auténtica, con Manual Linking habilitado en Supabase. En el cambio de proveedor no se borran sesiones deportivas ni se repite la pantalla de precios ya vista. Los entrenos locales/iCloud siguen usando la cuenta iCloud del dispositivo; la identidad común garantiza la continuidad de datos Supabase, no transfiere automáticamente el contenedor iCloud a otro Apple ID.
+
 ## Onboarding (primer acceso y usuarios existentes)
 
-- Wizard full-screen antes de las tabs: **Sign in with Apple** (obligatorio, CTA en español) → **permisos** → **Gratis o Pro** (si aún no se vieron precios).
-- Pantalla de login: fondo **blanco en modo día / negro en modo noche**; botón Apple **negro+texto blanco** de día y **blanco+texto negro** de noche.
-- Puerta: **Apple → Supabase** en el primer acceso. Luego: onboarding + (sesión viva | refresh Keychain | binding). Si Apple Keychain se vacía (p. ej. `.revoked` espurio) pero Supabase/binding siguen, se entra igual; la identidad Apple también se espeja en UserDefaults. **No** se borra Apple Keychain en `getCredentialState(.revoked)`. Trazas Consola `com.app.repera`/`AuthSession` y DEBUG `🔐 AUTH`.
+- Wizard full-screen antes de las tabs: **Apple o Google** (ambos desde Supabase; Google con `ASWebAuthenticationSession` de iOS, callback `repera://auth/callback`) → **permisos** → **Gratis o Pro** (si aún no se vieron precios).
+- Pantalla de login: fondo **blanco en modo día / negro en modo noche**; botón Apple **negro+texto blanco** de día y **blanco+texto negro** de noche; Google ofrece un segundo botón nativo con fondo de superficie.
+- Puerta: **Apple o Google → Supabase** en el primer acceso. Luego: onboarding + (sesión viva | refresh Keychain | binding). Si Apple Keychain se vacía (p. ej. `.revoked` espurio) pero Supabase/binding siguen, se entra igual; la identidad Apple también se espeja en UserDefaults. **No** se borra Apple Keychain en `getCredentialState(.revoked)`. Trazas Consola `com.app.repera`/`AuthSession` y DEBUG `🔐 AUTH`.
 - Mascota Repera: saludo en login (`MascotWelcome`), thumbs-up en permisos (`MascotPermissions`); plan Pro usa `MascotHero` (PNG con fondo transparente). En permisos, tras conceder, el CTA pasa de «Permitir» a «Hecho».
 - Plan Pro del onboarding: precios y cargos desde StoreKit / App Store Connect (RevenueCat si hay API key).
 - Sin iCloud del sistema: usable en local; aviso para activarlo y poder recuperar tras reinstalar.
