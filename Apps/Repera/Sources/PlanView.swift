@@ -1492,34 +1492,29 @@ struct DayEditorView: View {
         subscriptions.presentPaywall(decision.paywallContext, feature: .unlimitedRoutines)
     }
 
-    /// Un bloque originalmente de fuerza puede haber recibido después un
-    /// formato AMRAP o For Time. Al editar el entreno TERMINADO tampoco debe
-    /// volver a mostrar sus series de prescripción como resultado realizado.
+    /// Al editar una sesión terminada la miniatura se alinea al título,
+    /// y solo se muestran los campos de resultado realmente modificables.
     @ViewBuilder
     private func completedStrengthPrescription(index: Int) -> some View {
-        ForEach(Array(routine.blocks[index].exercises.enumerated()), id: \.element.id) { itemIndex, item in
+        ForEach(Array(routine.blocks[index].exercises.enumerated()), id: \.element.id) { _, item in
             if let exercise = store.state.exercises.first(where: { $0.id == item.exerciseId })
                 ?? completedWorkoutDraft?.exercises.first(where: { $0.exercise.id == item.exerciseId })?.exercise {
-                HStack(spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
                     ExerciseThumb(exercise: exercise, size: 48)
-                    VStack(alignment: .leading, spacing: 3) {
+                        .padding(.top, 2)
+                    VStack(alignment: .leading, spacing: 8) {
                         Text(exercise.name)
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(OG.label)
-                        // Los ajustes de Rx y adaptación no sustituyen la
-                        // presentación habitual del movimiento.
                         Text(item.plannedSets.compactSummary)
                             .font(.caption)
                             .foregroundStyle(OG.label2)
-                        DisclosureGroup("Corregir prescripción o adaptación") {
-                            completedStrengthRxFields(blockIndex: index, exerciseIndex: itemIndex, exercise: exercise)
-                            completedWODScalingFields(movementID: item.id, exercise: exercise)
-                        }
-                        .font(.system(size: 13, weight: .medium))
-                        .tint(OG.label2)
+                        completedWODScalingFields(movementID: item.id, exercise: exercise)
                     }
-                    Spacer()
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .padding(.vertical, 5)
             }
         }
     }
@@ -1699,52 +1694,66 @@ struct DayEditorView: View {
         )
     }
 
-    /// Las adaptaciones NO son series completadas: cada movimiento conserva
-    /// cantidad/carga utilizada de forma independiente al score global de WOD.
+    /// Los valores reales se presentan con los prescritos como valor inicial.
+    /// No guardan una adaptación por el mero hecho de abrir el editor.
     @ViewBuilder
     private func completedWODScalingFields(movementID: UUID, exercise: Exercise) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Realizado (opcional)")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(OG.label2)
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(exercise.loggingStyle == .machineWork ? "CANTIDAD REAL" : "REPS REALES")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(OG.label3)
-                    OGNumericTextField(
-                        text: completedWODScaledValue(movementID: movementID, weight: false),
-                        allowsDecimal: false,
-                        autoFocus: false,
-                        onCommit: {}
-                    )
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
-                        .accessibilityLabel("Repeticiones adaptadas · \(exercise.name)")
-                }
-                if exercise.loggingStyle == .loadAndReps {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("KG REALES")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(OG.label3)
-                        OGNumericTextField(
-                            text: completedWODScaledValue(movementID: movementID, weight: true),
-                            allowsDecimal: true,
-                            autoFocus: false,
-                            onCommit: {}
-                        )
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
-                            .accessibilityLabel("Peso adaptado · \(exercise.name)")
-                    }
-                }
+        let showsWeight = exercise.loggingStyle == .loadAndReps
+            || !completedPrescribedValue(movementID: movementID, weight: true).isEmpty
+        HStack(alignment: .top, spacing: 8) {
+            completedActualField(
+                label: exercise.loggingStyle == .machineWork ? "CANTIDAD REAL" : "REPS REALES",
+                value: completedWODScaledValue(movementID: movementID, weight: false),
+                allowsDecimal: false,
+                name: exercise.name
+            )
+            if showsWeight && exercise.loadField != .deficitCm {
+                completedActualField(
+                    label: "KG REALES",
+                    value: completedWODScaledValue(movementID: movementID, weight: true),
+                    allowsDecimal: true,
+                    name: exercise.name
+                )
             }
-            Text("En blanco = prescripción original. No añade series ni cambia las rondas del bloque.")
-                .font(.caption2)
-                .foregroundStyle(OG.label3)
-                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func completedActualField(
+        label: String, value: Binding<String>, allowsDecimal: Bool, name: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(OG.label3)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            OGNumericTextField(text: value, allowsDecimal: allowsDecimal, autoFocus: false, onCommit: {})
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
+                .accessibilityLabel(label + " · " + name)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func completedPrescribedValue(movementID: UUID, weight: Bool) -> String {
+        for block in routine.blocks {
+            if let item = block.exercises.first(where: { $0.id == movementID }) {
+                let first = item.plannedSets.first
+                if weight {
+                    return first?.targetWeightKg.map { String(format: "%g", $0) } ?? ""
+                }
+                return first.map { String($0.targetReps) } ?? ""
+            }
+            if let move = block.movements.first(where: { $0.id == movementID }) {
+                let first = block.plannedSets(for: move).first
+                if weight {
+                    return (move.weightMaleKg ?? first?.targetWeightKg).map { String(format: "%g", $0) } ?? ""
+                }
+                return (first?.targetReps ?? move.reps).map(String.init) ?? ""
+            }
+        }
+        return ""
     }
 
     private func completedWODScaledValue(movementID: UUID, weight: Bool) -> Binding<String> {
@@ -1754,13 +1763,14 @@ struct DayEditorView: View {
                 // Conservar la coma, el punto y los decimales a medio escribir.
                 // No volver a formatear desde el modelo al pulsar cada tecla.
                 if let draft = scaledInputDrafts[key] { return draft }
+                let prescribed = completedPrescribedValue(movementID: movementID, weight: weight)
                 guard let entry = completedWorkoutDraft?.exercises.first(where: { $0.id == movementID }) else {
-                    return ""
+                    return prescribed
                 }
                 if weight {
-                    return entry.adaptedWeightKg.map { String(format: "%g", $0) } ?? ""
+                    return entry.adaptedWeightKg.map { String(format: "%g", $0) } ?? prescribed
                 }
-                return entry.adaptedReps.map(String.init) ?? ""
+                return entry.adaptedReps.map(String.init) ?? prescribed
             },
             set: { input in
                 scaledInputDrafts[key] = input
@@ -1768,17 +1778,21 @@ struct DayEditorView: View {
                 guard let index = completedDetails?.exercises.firstIndex(where: { $0.id == movementID })
                 else { return }
                 let cleaned = input.trimmingCharacters(in: .whitespacesAndNewlines)
+                let prescribed = completedPrescribedValue(movementID: movementID, weight: weight)
                 if weight {
                     if cleaned.isEmpty {
                         completedDetails?.exercises[index].adaptedWeightKg = nil
                     } else if let kg = Double(cleaned.replacingOccurrences(of: ",", with: ".")),
                               kg.isFinite, (0...1000).contains(kg) {
-                        completedDetails?.exercises[index].adaptedWeightKg = kg
+                        let rx = Double(prescribed.replacingOccurrences(of: ",", with: "."))
+                        completedDetails?.exercises[index].adaptedWeightKg =
+                            rx.map { abs(kg - $0) < 0.05 } == true ? nil : kg
                     }
                 } else if cleaned.isEmpty {
                     completedDetails?.exercises[index].adaptedReps = nil
                 } else if let reps = Int(cleaned), (0...10000).contains(reps) {
-                    completedDetails?.exercises[index].adaptedReps = reps
+                    completedDetails?.exercises[index].adaptedReps =
+                        reps == Int(prescribed) ? nil : reps
                 }
             }
         )
