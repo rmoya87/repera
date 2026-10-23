@@ -328,7 +328,7 @@ public enum ExerciseSearch {
             QueryVariant(tokens: original, phrase: original.joined(separator: " "), isAlias: false)
         ]
         let key = normalize(raw)
-        if let alias = bilingualPhrases[key] ?? CrossFitGlossary.aliases[key] {
+        if let alias = SportExerciseNames.englishAlias(forSpanish: raw) ?? bilingualPhrases[key] ?? CrossFitGlossary.aliases[key] {
             let synonym = tokens(from: alias)
             let full = normalize(alias)
             if !synonym.isEmpty {
@@ -422,10 +422,11 @@ public enum ExerciseSearch {
             let target = ExerciseSearch.normalize(exercise.targetMuscle ?? "")
             let body = ExerciseSearch.normalize(exercise.bodyPart ?? "")
             let aliases = (ExerciseSearch.englishAliasesByCatalogName[name] ?? []).joined(separator: " ")
+            let spanishAlias = SportExerciseNames.spanishAlias(for: exercise.name).map(ExerciseSearch.normalize) ?? ""
             self.name = name
             self.muscle = muscle
             // Aliases EN en meta: «back squat» encuentra Sentadilla aunque la frase no se traduzca.
-            self.meta = [muscle, sport, equipmentNorm, target, body, aliases]
+            self.meta = [muscle, sport, equipmentNorm, target, body, aliases, spanishAlias]
                 .filter { !$0.isEmpty }
                 .joined(separator: " ")
             self.isFavorite = exercise.isFavorite
