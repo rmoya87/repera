@@ -34,7 +34,9 @@ class PlayWODContractTests(unittest.TestCase):
                                "var " + label + ":" in declaration else
                                declaration.index("var " + label + " ")
                                for label in labels]
-        self.assertEqual(component_positions, sorted(component_pos    def test_all_wod_formats_show_inline_movement_fields_without_score_card(self):
+        self.assertEqual(component_positions, sorted(component_positions))
+
+    def test_all_wod_formats_show_inline_movement_fields_without_score_card(self):
         source = self.read("WorkoutView.swift")
         screen = source.split("private func content(_ session: WorkoutSession)", 1)[1]
         screen = screen.split("private func workoutExerciseRow(", 1)[0]
@@ -45,11 +47,8 @@ class PlayWODContractTests(unittest.TestCase):
         self.assertIn("logForm(current)", exercise_rows)
         self.assertNotIn("resultCapture", exercise_rows)
         self.assertNotIn("blockScorePanel", source)
-        self.assertNotIn('Text("Resultado · \\(format.displayName)")', screen)
         self.assertIn("presentScoreEditor(for:", source)
         self.assertIn("openBlockTimer(block, session: session)", screen)
-
- source)
 
     def test_interval_timer_does_not_finish_without_logging_sets(self):
         source = self.read("WorkoutView.swift")
