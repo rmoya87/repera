@@ -14,15 +14,17 @@ internal class WearPendingSetStore(context: Context) {
     private val prefs = context.getSharedPreferences("repera.wear.set-outbox", Context.MODE_PRIVATE)
 
     @Synchronized fun append(sessionId: String, exerciseIndex: Int,
-                              quantity: Int, weightKg: Double?): String {
+                              quantity: Int, weightKg: Double?, durationSeconds: Int? = null): String {
         require(sessionId.isNotBlank() && exerciseIndex >= 0 && quantity in 1..10000)
         require(weightKg == null || (weightKg.isFinite() && weightKg >= 0))
+        require(durationSeconds == null || durationSeconds in 1..3600)
         val values = JSONArray(prefs.getString("outbox", "[]"))
         require(values.length() < 100) { "Hay demasiadas series sin sincronizar" }
         val id = UUID.randomUUID().toString()
         val command = JSONObject().put("id", id).put("sessionId", sessionId)
             .put("exerciseIndex", exerciseIndex).put("quantity", quantity)
         if (weightKg != null) command.put("weightKg", weightKg)
+        if (durationSeconds != null) command.put("durationSeconds", durationSeconds)
         values.put(command)
         check(prefs.edit().putString("outbox", values.toString()).commit())
         return id
