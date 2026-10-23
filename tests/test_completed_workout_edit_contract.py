@@ -66,7 +66,8 @@ class CompletedWorkoutEditContractTests(unittest.TestCase):
 
     def test_per_movement_result_is_not_confused_with_prescription(self):
         editor = source("Apps/Repera/Sources/PlanView.swift")
-        self.assertIn("completedWODRxFields(blockIndex: index, movementIndex: mIndex", editor)
+        self.assertIn("preservePrescriptionOnAppear: true", editor)
+        self.assertIn("if !preservePrescriptionOnAppear {", editor)
         self.assertIn('Text(logged ? "Series registradas" : "Sin series registradas · prescripción")', editor)
         self.assertIn("InlineWODMovementSets(", editor)
         self.assertIn("format.resultCapture != .perMovementSets", editor)

@@ -2195,7 +2195,8 @@ struct DayEditorView: View {
                         get: { routine.blocks[index].movements[mIndex] },
                         set: { routine.blocks[index].movements[mIndex] = $0 }
                     ),
-                    block: routine.blocks[index]
+                    block: routine.blocks[index],
+                    preservePrescriptionOnAppear: true
                 )
 
                 DisclosureGroup("Adaptación del movimiento (opcional)") {
@@ -2298,6 +2299,8 @@ private struct InlineWODMovementSets: View {
     @Environment(ReperaStore.self) private var store
     @Binding var movement: WODMovement
     var block: RoutineBlock
+    /// En historial, dibujar las series no reescribe automáticamente la prescripción Rx.
+    var preservePrescriptionOnAppear = false
 
     @State private var draftSets: [PlannedSet] = []
     @State private var didSeedSets = false
@@ -2395,7 +2398,9 @@ private struct InlineWODMovementSets: View {
         if draftSets.isEmpty {
             draftSets = [PlannedSet(targetReps: movement.reps ?? 10, targetWeightKg: movement.weightMaleKg)]
         }
-        writeSetsToMovement()
+        if !preservePrescriptionOnAppear {
+            writeSetsToMovement()
+        }
     }
 
     @ViewBuilder
