@@ -554,8 +554,8 @@ private fun WodScoreCard(
             Text(active.title, style = MaterialTheme.typography.titleLarge)
             Text("%d:%02d".format(face.primarySeconds / 60, face.primarySeconds % 60),
                 style = MaterialTheme.typography.displayMedium)
-            if (face.label != null) {
-                Text(face.label, style = MaterialTheme.typography.titleMedium)
+            face.label?.let { label ->
+                Text(label, style = MaterialTheme.typography.titleMedium)
             }
             Row(modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {

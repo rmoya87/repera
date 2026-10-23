@@ -5,7 +5,7 @@ import android.os.SystemClock
 import java.security.MessageDigest
 
 /** Monotonic, persisted Android clock, isolated per Google user and active WOD block. */
-internal data class WodTimerState(val elapsedMillis: Long, val running: Boolean) {
+data class WodTimerState(val elapsedMillis: Long, val running: Boolean) {
     val elapsedSeconds: Int get() = (elapsedMillis / 1000L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 }
 

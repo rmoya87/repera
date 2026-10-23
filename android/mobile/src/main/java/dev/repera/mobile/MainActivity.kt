@@ -120,8 +120,7 @@ class MainActivity : ComponentActivity() {
                 overview = snapshot,
                 todayHealth = todayHealth,
                 onHealthConnect = ::connectHealth,
-                activeWorkout = active
-        refreshWodTimer()Workout,
+                activeWorkout = activeWorkout,
                 wodTimer = wodTimer,
                 onWodTimerAction = ::changeWodTimer,
                 onWodTimerTick = ::refreshWodTimer,
@@ -299,6 +298,7 @@ class MainActivity : ComponentActivity() {
         }
         snapshot = overview
         activeWorkout = active
+        refreshWodTimer()
         withContext(Dispatchers.IO) {
             WearActiveSessionBridge.publish(this@MainActivity, bytes)
         }
