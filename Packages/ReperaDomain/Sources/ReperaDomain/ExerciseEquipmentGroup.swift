@@ -17,26 +17,32 @@ public enum ExerciseEquipmentGroup {
         func equipped(_ parts: [String]) -> Bool { parts.contains { e.contains($0) } }
 
         // Máquinas concretas: el seed puede registrar solo «Máquina» o nil.
-        if named(["skierg", "ski erg", "ski-erg", "esqui de aire", "esqui ergometro"]) {
+        if named(["skierg", "ski erg", "ski-erg", "esqui de aire", "esquis de aire", "esqui ergometro"]) ||
+            equipped(["skierg", "ski erg", "esqui de aire", "esquis de aire"]) {
             return "SkiErg / esquí de aire"
         }
         if named(["rowerg", "row erg", "remo maquina", "remoergometro", "rowing erg", "rowing machine"])
+            || equipped(["rowerg", "row erg", "remoergometro"]) || e == "remo"
             || (e == "maquina" && named(["remo"])) {
             return "Remoergómetros"
         }
-        if named(["ghd", "glute ham developer", "glute-ham developer"]) {
+        if named(["ghd", "glute ham developer", "glute-ham developer"]) ||
+            equipped(["ghd", "glute ham developer"]) {
             return "GHD"
         }
         if named(["air bike", "echo bike", "assault bike", "bikeerg", "bike erg",
-                  "bici estatica", "bicicleta de aire"]) {
+                  "bici estatica", "bicicleta de aire"]) ||
+            equipped(["air bike", "echo bike", "assault bike", "bikeerg"]) {
             return "Bicicletas y Air Bikes"
         }
 
         // Balones distintos: Wall Ball ≠ Slam Ball ≠ balón medicinal genérico.
-        if named(["wall ball", "wallball", "wall-ball", "lanzamiento de balon a pared"]) {
+        if named(["wall ball", "wallball", "wall-ball", "lanzamiento de balon a pared"]) ||
+            equipped(["wall ball", "wallball"]) {
             return "Wall Balls"
         }
-        if named(["ball slam", "slam ball", "slamball", "golpeo de balon al suelo"]) {
+        if named(["ball slam", "slam ball", "slamball", "golpeo de balon al suelo"]) ||
+            equipped(["slam ball", "slamball"]) {
             return "Slam Balls"
         }
         if named(["sandbag", "saco de arena", "zancadas con saco"]) ||
@@ -53,7 +59,7 @@ public enum ExerciseEquipmentGroup {
         if named(["box jump", "box step", "box squat", "box step-up",
                   "burpee box", "salto al cajon", "step-up al cajon",
                   "burpee al cajon", "box jump over"]) ||
-            equipped(["cajon", "plyo box", "jump box"]) {
+            equipped(["cajon", "plyo box", "jump box"]) || e == "box" {
             return "Cajones"
         }
         if named(["double-under", "single-under", "triple-under", "jump rope",
@@ -107,7 +113,7 @@ public enum ExerciseEquipmentGroup {
         }
         if e.isEmpty { return "Sin material" }
         // Material añadido por el usuario: preservar la etiqueta, nunca descartarlo.
-        return equipment!.trimmingCharacters(in: .whitespacesAndNewlines)
+        return equipment?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "Sin material"
     }
 
     private static func normalized(_ value: String) -> String {
