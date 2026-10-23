@@ -455,7 +455,7 @@ final class BusinessAuthStore {
         do {
             // ASWebAuthenticationSession mantiene toda la autorización en el
             // diálogo web nativo del sistema (sin Safari/Chrome externo).
-            let oauth = try await client.auth.linkIdentityURL(
+            let oauth = try await client.auth.getLinkIdentityURL(
                 provider: .google,
                 redirectTo: Self.googleRedirectURL
             )
