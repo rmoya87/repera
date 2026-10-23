@@ -201,3 +201,22 @@ Las fechas se codifican como inicio de día de la zona horaria local y se
 recuperan desde ISO-8601. Pendiente: integración con programas IA y
 planificaciones profesionales, edición/reprogramación y vistas de calendario
 más avanzadas.
+
+## Incremento verificado en rama (23/10/2026)
+
+La ejecución GitHub Actions `39935572402` terminó con conclusión `success`
+para el commit `cf1255e`. Incluye pruebas de registro, persistencia,
+corrección y eliminación de movimientos en WOD por intervalos. No sustituye
+pruebas con Wear OS real o sesiones Google reales.
+
+Desde `172045f`, Play propone automáticamente el número de intervalo de
+EMOM y Tabata según el cronómetro monotónico. Al editarlo manualmente se
+respeta la selección del usuario; el avance del reloj nunca guarda repeticiones
+ni marca movimientos como realizados. Este último cambio requiere superar
+su propia ejecución de CI.
+
+**Pendiente para paridad real**: pruebas E2E Android/Google Drive, registro
+autónomo y conciliación del reloj sin teléfono, servicio de ejercicio y
+sensores Wear, panel completo de Progreso, OCR ML Kit, planes profesionales,
+facturación Google Play y distribución firmada. Nada de esto debe describirse
+como completado.
