@@ -4,19 +4,25 @@ import SwiftUI
 private enum ExerciseSortMode: String, CaseIterable, Identifiable, Sendable {
     case alphabetical
     case muscle
+    case equipment
 
     var id: String { rawValue }
     var title: String {
         switch self {
         case .alphabetical: return "Alfabético"
         case .muscle: return "Músculo"
+        case .equipment: return "Material"
         }
     }
     var icon: String {
         switch self {
-        case .alphabetical: return "textformat.abc"
-        case .muscle: return "figure.strengthtraining.traditional"
+        case .alphabetical: return "a.circle"
+        case .muscle: return "square.stack"
+        case .equipment: return "wrench"
         }
+    }
+    var selectedIcon: String {
+        icon + ".fill"
     }
 }
 
@@ -37,7 +43,7 @@ private enum ExerciseFilterMode: String, CaseIterable, Identifiable, Sendable {
         case .all: return "Todos"
         case .weightlifting: return "Halterofilia"
         case .crossfit: return "CrossFit"
-        case .gymnastics: return "Gimnasia"
+        case .gymnastics: return "Gimnásticos"
         case .cardio: return "Cardio"
         case .hyrox: return "HYROX"
         case .mobility: return "Movilidad"
@@ -48,15 +54,20 @@ private enum ExerciseFilterMode: String, CaseIterable, Identifiable, Sendable {
     var icon: String {
         switch self {
         case .all: return "square.grid.2x2"
-        case .weightlifting: return "figure.strengthtraining.traditional"
-        case .crossfit: return "figure.highintensity.intervaltraining"
-        case .gymnastics: return "figure.gymnastics"
-        case .cardio: return "heart.fill"
-        case .hyrox: return "figure.run"
-        case .mobility: return "figure.flexibility"
-        case .favorites: return "star.fill"
-        case .wods: return "timer"
+        case .weightlifting: return "dumbbell"
+        case .crossfit: return "bolt"
+        case .gymnastics: return "person.crop.circle"
+        case .cardio: return "heart"
+        case .hyrox: return "flame"
+        case .mobility: return "leaf"
+        case .favorites: return "star"
+        case .wods: return "stopwatch"
         }
+    }
+    var selectedIcon: String { icon + ".fill" }
+    /// Orden de presentación alfabético, sin alterar los valores estables de filtrado.
+    static var alphabeticalCases: [ExerciseFilterMode] {
+        allCases.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
     }
 }
 
@@ -356,57 +367,93 @@ struct LibraryView: View {
         muscle = "Pecho"
     }
 
-    /// Ordenación y filtro son estados independientes: uno no borra la elección del otro.
-    /// Se mantienen en la misma hoja nativa para escoger ambos sin cerrarla entre cambios.
+    /// Contenedor opaco, con el mismo patrón de tarjetas y cabecera que «Añadir entreno».
+    /// El fondo del sistema de la hoja también es opaco para evitar transparentar el diario.
     private var filterSheet: some View {
-        NavigationStack {
-            Form {
-                Section("Ordenar") {
-                    ForEach(ExerciseSortMode.allCases) { mode in
-                        Button {
-                            sortMode = mode
-                        } label: {
-                            optionRow(title: mode.title, icon: mode.icon, selected: sortMode == mode)
+        VStack(alignment: .leading, spacing: 0) {
+            OGPageHeader(title: "Ordenar y filtrar") {
+                CloseToolbarButton { showFilter = false }
+            }
+            .padding(.horizontal, OG.pad)
+            .padding(.top, 4)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    modalSection("Ordenar") {
+                        ForEach(ExerciseSortMode.allCases) { mode in
+                            Button {
+                                sortMode = mode
+                            } label: {
+                                optionRow(title: mode.title, icon: mode.icon,
+                                          selectedIcon: mode.selectedIcon, selected: sortMode == mode)
+                            }
+                            .accessibilityAddTraits(sortMode == mode ? .isSelected : [])
+                            if mode != ExerciseSortMode.allCases.last {
+                                Divider().opacity(0.35).padding(.leading, 52)
+                            }
                         }
-                        .accessibilityAddTraits(sortMode == mode ? .isSelected : [])
                     }
-                }
-                Section("Filtrar") {
-                    ForEach(ExerciseFilterMode.allCases) { mode in
-                        Button {
-                            filterMode = mode
-                        } label: {
-                            optionRow(title: mode.title, icon: mode.icon, selected: filterMode == mode)
+
+                    modalSection("Filtrar") {
+                        ForEach(ExerciseFilterMode.alphabeticalCases) { mode in
+                            Button {
+                                filterMode = mode
+                            } label: {
+                                optionRow(title: mode.title, icon: mode.icon,
+                                          selectedIcon: mode.selectedIcon, selected: filterMode == mode)
+                            }
+                            .accessibilityAddTraits(filterMode == mode ? .isSelected : [])
+                            if mode != ExerciseFilterMode.alphabeticalCases.last {
+                                Divider().opacity(0.35).padding(.leading, 52)
+                            }
                         }
-                        .accessibilityAddTraits(filterMode == mode ? .isSelected : [])
                     }
-                }
-                if sortMode != .alphabetical || filterMode != .all {
-                    Section {
+
+                    if sortMode != .alphabetical || filterMode != .all {
                         Button("Restablecer opciones") {
                             sortMode = .alphabetical
                             filterMode = .all
                         }
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 4)
                     }
                 }
+                .padding(.horizontal, OG.pad)
+                .padding(.top, 14)
+                .padding(.bottom, 20)
             }
-            .navigationTitle("Ordenar y filtrar")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Hecho") { showFilter = false }
-                        .fontWeight(.semibold)
-                }
-            }
+            .scrollIndicators(.hidden)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(OG.bg.ignoresSafeArea())
+        .presentationBackground(OG.bg)
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
 
-    private func optionRow(title: String, icon: String, selected: Bool) -> some View {
+    private func modalSection<Content: View>(
+        _ heading: String, @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(heading)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(OG.label2)
+                .textCase(.uppercase)
+                .padding(.horizontal, 4)
+            VStack(spacing: 0, content: content)
+                .background(
+                    OG.surface,
+                    in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous)
+                )
+        }
+    }
+
+    private func optionRow(
+        title: String, icon: String, selectedIcon: String, selected: Bool
+    ) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: icon)
-                .frame(width: 24)
+            Image(systemName: selected ? selectedIcon : icon)
+                .font(.system(size: 19, weight: .regular))
+                .frame(width: 26)
                 .foregroundStyle(selected ? OG.accent : OG.label2)
             Text(title)
                 .foregroundStyle(OG.label)
@@ -417,6 +464,8 @@ struct LibraryView: View {
                     .foregroundStyle(OG.accent)
             }
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 13)
         .contentShape(Rectangle())
     }
 
@@ -517,13 +566,46 @@ struct LibraryView: View {
         if !q.isEmpty || sortMode == .alphabetical {
             return [LibrarySectionModel(key: "flat", title: nil, items: rows)]
         }
-        return Dictionary(grouping: rows, by: {
-            exercisesById[$0.id]?.muscleGroup ?? "Otros"
-        })
-        .map { key, value in
+        let groups = Dictionary(grouping: rows) { row in
+            switch sortMode {
+            case .muscle:
+                return exercisesById[row.id]?.muscleGroup ?? "Otros"
+            case .equipment:
+                return equipmentSection(for: exercisesById[row.id]?.equipment)
+            case .alphabetical:
+                return ""
+            }
+        }
+        return groups.map { key, value in
             LibrarySectionModel(key: key, title: key, items: value)
         }
         .sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }
+    }
+
+    nonisolated private static func equipmentSection(for raw: String?) -> String {
+        guard let raw, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return "Sin material"
+        }
+        let value = raw.folding(options: [.diacriticInsensitive, .caseInsensitive],
+                                locale: Locale(identifier: "es_ES")).lowercased()
+        if value.contains("mancuern") || value.contains("dumbbell") { return "Mancuernas" }
+        if value.contains("kettlebell") || value.contains("pesa rusa") { return "Kettlebells" }
+        if value.contains("banda") || value.contains("goma") || value.contains("resistance band") {
+            return "Bandas y gomas"
+        }
+        if value.contains("barra") || value.contains("barbell") { return "Barra" }
+        if value.contains("anilla") || value.contains("rings") { return "Anillas" }
+        if value.contains("comba") || value.contains("cuerda") { return "Comba y cuerdas" }
+        if value.contains("trineo") || value.contains("sled") { return "Trineo" }
+        if value.contains("cajon") || value.contains("box") { return "Cajón" }
+        if value.contains("saco") || value.contains("sandbag") { return "Sacos" }
+        if value.contains("balon") || value.contains("medicine ball") { return "Balones" }
+        if value.contains("pica") || value.contains("pvc") { return "Picas" }
+        if value.contains("maquina") || value.contains("erg") || value.contains("bike") {
+            return "Máquinas y ergómetros"
+        }
+        if value.contains("peso corporal") || value.contains("bodyweight") { return "Peso corporal" }
+        return raw
     }
 
     nonisolated private static func librarySubtitle(_ doc: ExerciseSearch.Document) -> String {
