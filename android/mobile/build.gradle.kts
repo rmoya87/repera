@@ -12,8 +12,12 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        val webClientId = providers.gradleProperty("REPERA_GOOGLE_WEB_CLIENT_ID").orElse("").get()
+        val webClientId = providers.gradleProperty("REPERA_GOOGLE_WEB_CLIENT_ID").orElse("1026054616574-qmugi1nalpar1vv0tdftv97cn6aljoji.apps.googleusercontent.com").get()
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$webClientId\"")
+        // OAuth ID and publishable key are public app settings; never use service_role here.
+        val publicKey = providers.gradleProperty("REPERA_SUPABASE_PUBLISHABLE_KEY").orElse("sb_publishable_uY9c82Ur7VK4VOo9n2zCEg_PmywmLbA").get()
+        buildConfigField("String", "SUPABASE_URL", "\"https://uvzgujlrqohreoucirms.supabase.co\"")
+        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"$publicKey\"")
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions {

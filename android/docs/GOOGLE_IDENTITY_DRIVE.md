@@ -48,3 +48,16 @@ Referencias:
 - https://developer.android.com/identity/sign-in/credential-manager-siwg-implementation
 - https://developer.android.com/identity/authorization
 - https://developers.google.com/workspace/drive/api/guides/appdata
+
+## Configuración pública OAuth — Repera 2026
+
+- Web OAuth Client ID (para Credential Manager): `1026054616574-qmugi1nalpar1vv0tdftv97cn6aljoji.apps.googleusercontent.com`.
+- Android OAuth Client ID: `1026054616574-aklvn35uk4np08a3b61c5utq06j9vr24.apps.googleusercontent.com`.
+- Nombre de paquete Android: `com.app.repera`.
+- Supabase URL: `https://uvzgujlrqohreoucirms.supabase.co`.
+- El Google ID token **se intercambia con Supabase** con `POST /auth/v1/token?grant_type=id_token` y el nonce original. Solo la respuesta verificada habilita el acceso local.
+- `sb_publishable_` es una clave pública apta para incluir en el cliente; el client secret OAuth y las claves `service_role` nunca se incluyen.
+- Las sesiones Supabase se mantienen solo en memoria: tras cerrar el proceso se exige volver a autenticarse.
+- El proveedor de Google y la API Drive han sido configurados por el propietario, pero faltan pruebas E2E con el dispositivo firmado y la cuenta de prueba.
+- Confirmar que **ambos** Client IDs (Web y Android) figuran en el proveedor Google de Supabase, y registrar también la SHA-1 de Google Play cuando haya firma de distribución.
+- No vincular cuentas Apple/iOS automáticamente basándose solo en coincidencia de correo.

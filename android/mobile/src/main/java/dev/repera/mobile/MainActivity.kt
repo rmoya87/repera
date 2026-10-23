@@ -46,6 +46,7 @@ class MainActivity : ComponentActivity() {
     private var activeWorkout by mutableStateOf<ActiveWorkout?>(null)
     private var todayHealth by mutableStateOf<TodayHealth?>(null)
     private val credentialManager by lazy { CredentialManager.create(this) }
+    private var verifiedSupabase: SupabaseIdentity.Session? = null
 
     private val requestHealthPermissions = registerForActivityResult(
         PermissionController.createRequestPermissionResultContract()
@@ -164,7 +165,12 @@ class MainActivity : ComponentActivity() {
                 check(credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL)
                 val google = GoogleIdTokenCredential.createFrom(credential.data)
                 val id = google.uniqueId
-                check(id.isNotBlank())
+                check(id.isNotBlank() && google.idToken.isNotBlank())
+                // The native Google identity must be verified by GoTrue before any login.
+                val session = withContext(Dispatchers.IO) {
+                    SupabaseIdentity().signInWithGoogle(google.idToken, nonce)
+                }
+                verifiedSupabase = session
                 profile = GoogleProfile(
                     uniqueId = id,
                     email = google.email ?: "",
@@ -173,7 +179,11 @@ class MainActivity : ComponentActivity() {
                 reloadFor(id)
                 status = if (snapshot == null) "No hay datos locales. Sincroniza Google Drive." else null
             } catch (error: Exception) {
-                status = "No se pudo iniciar sesión con Google: " + error.localizedMessage
+                verifiedSupabase = null
+                profile = null
+                snapshot = null
+                activeWorkout = null
+                status = "Google/Supabase: " + (error.localizedMessage ?: "no se ha podido autenticar")
             } finally {
                 busy = false
             }
@@ -330,10 +340,15 @@ class MainActivity : ComponentActivity() {
         busy = true
         lifecycleScope.launch {
             try {
+                val session = verifiedSupabase
+                if (session != null) {
+                    withContext(Dispatchers.IO) { runCatching { SupabaseIdentity().signOut(session) } }
+                }
                 credentialManager.clearCredentialState(ClearCredentialStateRequest())
             } catch (_: Exception) {
                 // UI still returns to login; existing account files stay isolated.
             } finally {
+                verifiedSupabase = null
                 withContext(Dispatchers.IO) {
                     WearActiveSessionBridge.publish(this@MainActivity, null)
                 }
