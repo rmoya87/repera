@@ -4,12 +4,32 @@ package dev.repera.domain
 enum class ExerciseInputMode(val basicRecorderAvailable: Boolean, val showsWeight: Boolean) {
     LOAD_REPS(true, true),
     REPS_ONLY(true, false),
-    REPS_AND_TIME(false, false),
-    MACHINE_WORK(false, false),
+    REPS_AND_TIME(true, false),
+    MACHINE_WORK(true, false),
     HSPU_DEFICIT(false, false)
 }
 
 object ExerciseInput {
+    /** Mirrors Swift Exercise.defaultQuantityUnit; never use reps for machine-work by default. */
+    fun defaultQuantityUnit(name: String, equipment: String?): String {
+        val n = ExerciseAliasSearch.normalize(name)
+        val style = mode(name, equipment, null, null)
+        if (style != ExerciseInputMode.MACHINE_WORK) return "reps"
+        val rower = n.contains("rower") || n.contains("remoerg") ||
+            n.contains("concept2") || (n.contains("remo") &&
+            (n.contains("maquina") || n.contains("erg")))
+        val run = listOf("carrera", "running", "run", "shuttle", "treadmill", "cinta")
+            .any { n.contains(it) }
+        return if (rower || run) "meters" else "calories"
+    }
+
+    fun supportsCaloriesAndMeters(name: String, equipment: String?): Boolean {
+        if (mode(name, equipment, null, null) != ExerciseInputMode.MACHINE_WORK) return false
+        val n = ExerciseAliasSearch.normalize(name)
+        return listOf("carrera", "running", "run", "shuttle", "treadmill", "cinta")
+            .none { n.contains(it) }
+    }
+
     fun mode(name: String, equipment: String?, target: String?, group: String?): ExerciseInputMode {
         val n = ExerciseAliasSearch.normalize(name)
         val eq = ExerciseAliasSearch.normalize(equipment ?: "")

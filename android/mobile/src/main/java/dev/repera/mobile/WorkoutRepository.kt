@@ -84,7 +84,9 @@ class WorkoutRepository(context: Context, googleId: String) {
                     planned.put(set)
                 }
                 exercises.put(JSONObject().put("id", UUID.randomUUID().toString())
-                    .put("exerciseId", entry.exerciseId).put("plannedSets", planned))
+                    .put("exerciseId", entry.exerciseId).put("plannedSets", planned)
+                    .put("quantityUnit", ExerciseInput.defaultQuantityUnit(
+                        movement.getString("name"), movement.optString("equipment"))))
             }
             block.put("exercises", exercises)
         } else {
@@ -215,6 +217,10 @@ class WorkoutRepository(context: Context, googleId: String) {
             .firstOrNull { it.optString("id") == exerciseId }
             ?: error("Ejercicio no encontrado")
         val history = state.getJSONArray("workouts")
+        val inputMode = inputMode(exercise)
+        val defaultUnit = ExerciseInput.defaultQuantityUnit(
+            exercise.getString("name"), exercise.optString("equipment"))
+        var lastUnit = defaultUnit
         var lastReps: Int? = null
         var lastWeight: Double? = null
         historyLoop@ for (w in history.length() - 1 downTo 0) {
@@ -227,6 +233,11 @@ class WorkoutRepository(context: Context, googleId: String) {
                     val set = logged.getJSONObject(k)
                     if (set.optString("phase", "work") != "work") continue
                     lastReps = set.optInt("reps", 8)
+                    lastUnit = set.optString("quantityUnit").takeIf {
+                        it == "calories" || it == "meters" || it == "reps"
+                    } ?: previous.optString("quantityUnit").takeIf {
+                        it == "calories" || it == "meters" || it == "reps"
+                    } ?: defaultUnit
                     if (set.has("weightKg") && !set.isNull("weightKg")) lastWeight = set.getDouble("weightKg")
                     break@historyLoop
                 }
@@ -236,10 +247,11 @@ class WorkoutRepository(context: Context, googleId: String) {
             "Este ejercicio requiere un tipo de entrada aún no disponible"
         }
         val presets = JSONArray()
-        repeat(3) {
+        repeat(if (inputMode == ExerciseInputMode.MACHINE_WORK ||
+            inputMode == ExerciseInputMode.REPS_AND_TIME) 1 else 3) {
             val target = JSONObject()
                 .put("id", UUID.randomUUID().toString())
-                .put("targetReps", lastReps ?: 8)
+                .put("targetReps", lastReps ?: if (inputMode == ExerciseInputMode.MACHINE_WORK) 0 else 8)
                 .put("targetPercent1RMIsMinimum", false)
             if (lastWeight != null) target.put("targetWeightKg", lastWeight)
             presets.put(target)
@@ -251,6 +263,7 @@ class WorkoutRepository(context: Context, googleId: String) {
             .put("loggedSets", JSONArray())
             .put("completedReps", 0)
             .put("isCompleted", false)
+            .put("quantityUnit", lastUnit)
         val session = JSONObject()
             .put("id", UUID.randomUUID().toString())
             .put("title", "Apuntar · " + exercise.getString("name"))
@@ -270,12 +283,16 @@ class WorkoutRepository(context: Context, googleId: String) {
         weightKg: Double?,
         rir: Double? = null,
         warmup: Boolean = false,
-        setId: String? = null
+        setId: String? = null,
+        quantityUnit: String? = null,
+        durationSeconds: Int? = null
     ): ActiveWorkout {
         require(setId == null || setId.isNotBlank())
         require(quantity >= 0) { "Cantidad inválida" }
         require(weightKg == null || (weightKg.isFinite() && weightKg >= 0)) { "Peso inválido" }
         require(rir == null || (rir.isFinite() && rir >= 0)) { "RIR inválido" }
+        require(durationSeconds == null || durationSeconds in 1..86400) { "Duración inválida" }
+        require(quantityUnit == null || quantityUnit in setOf("reps", "calories", "meters"))
         val state = requireState()
         val session = requireActive(state)
         val array = session.getJSONArray("exercises")
@@ -285,6 +302,9 @@ class WorkoutRepository(context: Context, googleId: String) {
         val movement = exercise.getJSONObject("exercise")
         val inputMode = inputMode(movement)
         check(inputMode.basicRecorderAvailable)
+        if (inputMode == ExerciseInputMode.MACHINE_WORK || inputMode == ExerciseInputMode.REPS_AND_TIME) {
+            check(weightKg == null && rir == null && !warmup) { "Cardio no admite lastre, RIR o calentamiento de fuerza" }
+        }
         check(inputMode.showsWeight || weightKg == null) {
             "Este ejercicio no registra peso"
         }
@@ -301,8 +321,23 @@ class WorkoutRepository(context: Context, googleId: String) {
             .put("clusters", JSONArray())
         if (weightKg != null) set.put("weightKg", weightKg)
         if (rir != null) set.put("rir", rir)
-        val unit = exercise.optString("quantityUnit")
-        if (unit.isNotBlank()) set.put("quantityUnit", unit)
+        val unit = quantityUnit ?: exercise.optString("quantityUnit")
+            .takeIf { it in setOf("reps", "calories", "meters") }
+            ?: ExerciseInput.defaultQuantityUnit(
+                movement.getString("name"), movement.optString("equipment"))
+        if (inputMode == ExerciseInputMode.MACHINE_WORK) {
+            check(unit == "meters" || unit == "calories")
+            if (!ExerciseInput.supportsCaloriesAndMeters(
+                    movement.getString("name"), movement.optString("equipment"))) {
+                check(unit == ExerciseInput.defaultQuantityUnit(
+                    movement.getString("name"), movement.optString("equipment"))) {
+                    "Este ejercicio registra distancia en metros"
+                }
+            }
+        } else check(unit == "reps") { "Unidad incompatible con el ejercicio" }
+        set.put("quantityUnit", unit)
+        if (durationSeconds != null) set.put("durationSeconds", durationSeconds)
+        exercise.put("quantityUnit", unit)
         logged.put(set)
         if (!warmup) exercise.put("completedReps", exercise.optInt("completedReps") + quantity)
         session.put("phase", "counting")
@@ -627,8 +662,13 @@ class WorkoutRepository(context: Context, googleId: String) {
         return summarize(session)
     }
 
-    @Synchronized fun reviseCurrentSet(setId: String, quantity: Int, weightKg: Double?): ActiveWorkout {
+    @Synchronized fun reviseCurrentSet(
+        setId: String, quantity: Int, weightKg: Double?,
+        quantityUnit: String? = null, durationSeconds: Int? = null
+    ): ActiveWorkout {
         require(quantity >= 0 && (weightKg == null || (weightKg.isFinite() && weightKg >= 0)))
+        require(durationSeconds == null || durationSeconds in 1..86400)
+        require(quantityUnit == null || quantityUnit in setOf("reps", "calories", "meters"))
         val state = requireState()
         val session = requireActive(state)
         val exercise = session.getJSONArray("exercises").getJSONObject(session.getInt("currentIndex"))
@@ -642,6 +682,17 @@ class WorkoutRepository(context: Context, googleId: String) {
         val original = logged.getJSONObject(index)
         original.put("reps", quantity)
         if (weightKg == null) original.remove("weightKg") else original.put("weightKg", weightKg)
+        if (quantityUnit != null) {
+            if (inputMode(movement) == ExerciseInputMode.MACHINE_WORK) {
+                check(quantityUnit in setOf("calories", "meters"))
+                check(ExerciseInput.supportsCaloriesAndMeters(
+                    movement.getString("name"), movement.optString("equipment")) ||
+                    quantityUnit == ExerciseInput.defaultQuantityUnit(
+                        movement.getString("name"), movement.optString("equipment")))
+            } else check(quantityUnit == "reps")
+            original.put("quantityUnit", quantityUnit)
+        }
+        if (durationSeconds != null) original.put("durationSeconds", durationSeconds)
         // Recompute only work sets, preserving each existing identity and completedAt.
         val total = (0 until logged.length()).sumOf { i ->
             val set = logged.getJSONObject(i)
@@ -783,6 +834,15 @@ class WorkoutRepository(context: Context, googleId: String) {
             prescribedWeightKg = next?.takeIf { it.has("targetWeightKg") && !it.isNull("targetWeightKg") }
                 ?.getDouble("targetWeightKg"),
             allowsWeight = inputMode(current.getJSONObject("exercise")).showsWeight,
+            quantityUnit = current.optString("quantityUnit").takeIf { it in setOf("calories","meters","reps") }
+                ?: ExerciseInput.defaultQuantityUnit(
+                    current.getJSONObject("exercise").getString("name"),
+                    current.getJSONObject("exercise").optString("equipment")),
+            durationInput = inputMode(current.getJSONObject("exercise")) in
+                setOf(ExerciseInputMode.MACHINE_WORK, ExerciseInputMode.REPS_AND_TIME),
+            cardioToggle = ExerciseInput.supportsCaloriesAndMeters(
+                current.getJSONObject("exercise").getString("name"),
+                current.getJSONObject("exercise").optString("equipment")),
             wod = wod,
             sets = (0 until logged.length()).map { n ->
                 val set = logged.getJSONObject(n)
@@ -792,6 +852,12 @@ class WorkoutRepository(context: Context, googleId: String) {
                     weightKg = if (set.has("weightKg") && !set.isNull("weightKg"))
                         set.getDouble("weightKg") else null,
                     phase = set.optString("phase", "work"),
+                    unit = set.optString("quantityUnit").takeIf { it in setOf("reps","calories","meters") }
+                        ?: current.optString("quantityUnit").takeIf { it in setOf("reps","calories","meters") }
+                        ?: "reps",
+                    durationSeconds = set.optInt("durationSeconds").takeIf {
+                        set.has("durationSeconds") && it > 0
+                    },
                     rir = if (set.has("rir") && !set.isNull("rir")) set.getDouble("rir") else null
                 )
             }
@@ -804,7 +870,9 @@ data class WorkoutSetSummary(
     val reps: Int,
     val weightKg: Double?,
     val phase: String = "work",
-    val rir: Double? = null
+    val rir: Double? = null,
+    val unit: String = "reps",
+    val durationSeconds: Int? = null
 )
 data class ActiveWorkout(
     val id: String,
@@ -817,6 +885,9 @@ data class ActiveWorkout(
     val prescribedWeightKg: Double?,
     val allowsWeight: Boolean,
     val sets: List<WorkoutSetSummary>,
+    val quantityUnit: String = "reps",
+    val durationInput: Boolean = false,
+    val cardioToggle: Boolean = false,
     val wod: WodExecution? = null
 )
 
