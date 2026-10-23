@@ -225,8 +225,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             val quantity = payload.optInt("quantity", -1)
             val weight = if (payload.has("weightKg") && !payload.isNull("weightKg"))
                 payload.optDouble("weightKg", Double.NaN) else null
+            val durationSeconds = payload.optInt("durationSeconds").takeIf {
+                payload.has("durationSeconds") && it in 1..3600
+            }
             if (sessionId.isBlank() || exerciseIndex < 0 || quantity !in 1..10000 ||
-                (weight != null && (!weight.isFinite() || weight < 0))) {
+                (weight != null && (!weight.isFinite() || weight < 0)) ||
+                (payload.has("durationSeconds") && durationSeconds == null)) {
                 sendWearAck(event.sourceNodeId, id, "rejected")
                 return@runOnUiThread
             }
@@ -235,7 +239,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 val result = runCatching {
                     withContext(Dispatchers.IO) {
                         WorkoutRepository(this@MainActivity, signedIn.uniqueId).logWearSet(
-                            sessionId, exerciseIndex, id, quantity, weight
+                            sessionId, exerciseIndex, id, quantity, weight, durationSeconds
                         )
                     }
                     reloadFor(signedIn.uniqueId)
