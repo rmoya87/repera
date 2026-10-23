@@ -84,12 +84,27 @@ class PlayWODContractTests(unittest.TestCase):
         self.assertIn("allowEarlyIntervalFinish: true", workout)
         self.assertIn("blockRestBetweenRoundsSeconds = try c.decodeIfPresent", models)
 
-    def test_amrap_and_for_time_have_different_result_fields(self):
-        source = self.read("WODResultConfirmSheet.swift")
-        self.assertIn('numberInput("Rondas completas"', source)
-        self.assertIn('numberInput("Reps adicionales"', source)
-        self.assertIn('numberInput("Tiempo · m:ss"', source)
+    def test_amrap_and_for_time_have_inline_score_fields_without_modal(self):
+        source = self.read("WODResultInlineEditor.swift")
+        play = self.read("WorkoutView.swift")
+        self.assertIn('numericField("Rondas completas"', source)
+        self.assertIn('numericField("Reps adicionales"', source)
+        self.assertIn('numericField("Tiempo · m:ss"', source)
         self.assertIn("format == .amrap || format == .deathBy", source)
+        self.assertIn("inlineWODScoreEditor(block, format: format, session: session)", play)
+        self.assertIn("WODResultInlineEditor(", play)
+        self.assertNotIn(".sheet(item: $pendingWODConfirm)", play)
+        self.assertNotIn("WODResultConfirmSheet(", play)
+        self.assertIn("setsBoard(entry)", play)
+
+    def test_play_score_persists_without_advancing_to_next_block(self):
+        source = self.read("ReperaStore.swift")
+        method = source.split("func applyWODResult(_ result: WODBlockResult)", 1)[1]
+        method = method.split("/// Calcula y opcionalmente", 1)[0]
+        self.assertIn("state.activeSession = session", method)
+        self.assertIn("persist()", method)
+        self.assertIn("pushActiveToWatch()", method)
+        self.assertIn("entry.loggedSets.map", self.read("WorkoutView.swift"))
 
 
 if __name__ == "__main__":
