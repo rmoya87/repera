@@ -306,6 +306,8 @@ public enum ExerciseProgressMetric: String, CaseIterable, Sendable, Identifiable
     case bestQuantity
     /// Suma de cal / m / reps de la sesión.
     case totalQuantity
+    /// Mayor tiempo mantenido en una sola serie de movilidad.
+    case bestHold
     /// Segundos totales de series con duración.
     case duration
 
@@ -318,6 +320,7 @@ public enum ExerciseProgressMetric: String, CaseIterable, Sendable, Identifiable
         case .effort: return "Esfuerzo"
         case .bestQuantity: return "Mejor"
         case .totalQuantity: return "Total"
+        case .bestHold: return "Mejor sostén"
         case .duration: return "Tiempo"
         }
     }
@@ -544,6 +547,9 @@ extension StatsEngine {
                         quantityUnit: unit
                     )
                 )
+            case .bestHold:
+                guard ex.exercise.isMobilityHold, let seconds = work.compactMap(\.durationSeconds).max(), seconds > 0 else { continue }
+                points.append(ExerciseProgressPoint(date: date, value: Double(seconds), durationSeconds: seconds))
             case .duration:
                 let totalSec = work.compactMap(\.durationSeconds).reduce(0, +)
                 guard totalSec > 0 else { continue }
