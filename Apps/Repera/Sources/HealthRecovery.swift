@@ -730,7 +730,7 @@ struct HealthRecoveryProgressView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label2)
             }
-            OGCard {
+            OGCard(padding: 10, verticalPadding: 20) {
                 Chart {
                     ForEach(0..<scores.count, id: \.self) { index in
                         LineMark(
@@ -742,11 +742,13 @@ struct HealthRecoveryProgressView: View {
                         .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round))
                     }
                 }
+                .chartXScale(domain: 0...8)
                 .chartYScale(domain: 0.0...10.0)
+                .chartPlotStyle { $0.clipped() }
                 .chartYAxis {
                     AxisMarks(position: .leading, values: [0.0, 5.0, 10.0])
                 }
-                .frame(height: 185)
+                .frame(height: 220)
                 .allowsHitTesting(false)
             }
         }
@@ -763,11 +765,17 @@ struct HealthRecoveryProgressView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label2)
             }
-            OGCard {
+            OGCard(padding: 10, verticalPadding: 20) {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("Variabilidad cardíaca (VFC) · datos ficticios")
-                        .font(.subheadline)
-                        .foregroundStyle(OG.label2)
+                    HStack {
+                        Text("Variabilidad cardíaca (VFC)")
+                            .font(.subheadline)
+                            .foregroundStyle(OG.label2)
+                        Spacer()
+                        Text("\(Int(hrv.last ?? 0)) ms")
+                            .font(.caption.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(OG.label2)
+                    }
                     Chart {
                         ForEach(0..<hrv.count, id: \.self) { index in
                             LineMark(
@@ -778,11 +786,13 @@ struct HealthRecoveryProgressView: View {
                             .foregroundStyle(OG.accent)
                         }
                     }
-                    .frame(height: 105)
+                    .chartXScale(domain: 0...8)
+                    .chartPlotStyle { $0.clipped() }
+                    .frame(height: 128)
                     Divider().opacity(0.25)
                     HStack(alignment: .top, spacing: 10) {
-                        physiologyPreviewBars("Pulso en reposo", values: [66, 63, 65, 61, 60, 62, 58])
-                        physiologyPreviewBars("Respiración", values: [16, 15, 15, 14, 16, 14, 13])
+                        physiologyPreviewBars("Pulso en reposo", unit: "lpm", values: [66, 63, 65, 61, 60, 62, 58])
+                        physiologyPreviewBars("Respiración", unit: "rpm", values: [16, 15, 15, 14, 16, 14, 13])
                     }
                 }
                 .allowsHitTesting(false)
@@ -791,11 +801,14 @@ struct HealthRecoveryProgressView: View {
         .accessibilityLabel("Ejemplo de constantes fisiológicas, datos ficticios.")
     }
 
-    private func physiologyPreviewBars(_ title: String, values: [Double]) -> some View {
+    private func physiologyPreviewBars(_ title: String, unit: String, values: [Double]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(OG.label2)
+            Text("\(Int(values.last ?? 0)) \(unit)")
+                .font(.system(size: 17, weight: .semibold).monospacedDigit())
+                .foregroundStyle(OG.label)
             Chart {
                 ForEach(0..<values.count, id: \.self) { index in
                     BarMark(
@@ -806,9 +819,11 @@ struct HealthRecoveryProgressView: View {
                     .cornerRadius(3)
                 }
             }
+            .chartXScale(domain: 0...8)
+            .chartPlotStyle { $0.clipped() }
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
-            .frame(height: 82)
+            .frame(height: 98)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
@@ -896,14 +911,14 @@ struct HealthRecoveryProgressView: View {
                         AxisValueLabel(format: .dateTime.day().month(.abbreviated))
                     }
                 }
-                .frame(height: 105)
+                .frame(height: 128)
                 .accessibilityLabel("Tendencia: \(title)")
             } else {
                 ProgressEmptyChart(
                     message: values.isEmpty
                         ? "Sin mediciones en este periodo."
                         : "Una medición; aún no hay tendencia.",
-                    height: 105,
+                    height: 128,
                     yRange: 0.0...100.0
                 )
             }
@@ -955,11 +970,11 @@ struct HealthRecoveryProgressView: View {
                 .chartXSelection(value: $selectedPhysiologyDate)
                 .chartXAxis(.hidden)
                 .chartYAxis(.hidden)
-                .frame(height: 82)
+                .frame(height: 98)
             } else {
                 ProgressEmptyChart(
                     message: "Sin datos",
-                    height: 82,
+                    height: 98,
                     yRange: 0.0...100.0
                 )
             }
@@ -986,7 +1001,7 @@ struct HealthRecoveryProgressView: View {
     private var physiologyContent: some View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Constantes fisiológicas")
-            OGCard {
+            OGCard(padding: 10, verticalPadding: 20) {
                 VStack(alignment: .leading, spacing: 14) {
                     vitalChart("Variabilidad cardíaca (VFC)", unit: "ms", keyPath: \.hrvMilliseconds)
                     Divider().opacity(0.25)
@@ -1159,7 +1174,7 @@ struct HealthRecoveryProgressView: View {
     private var trainingRecoveryTrendCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Evolución de recuperación")
-            OGCard {
+            OGCard(padding: 10, verticalPadding: 20) {
                 Chart {
                     ForEach(recoveryPoints) { point in
                     LineMark(
@@ -1213,7 +1228,7 @@ struct HealthRecoveryProgressView: View {
                     }
                 }
                 .chartPlotStyle { $0.clipped() }
-                .frame(height: 185)
+                .frame(height: 220)
                 .accessibilityLabel("Evolución de preparación para entrenar")
             }
         }
@@ -1380,7 +1395,7 @@ struct HealthRecoveryProgressView: View {
                 }
                 .chartYScale(domain: 0...2)
                 .chartYAxis(.hidden)
-                .frame(height: 105)
+                .frame(height: 128)
                 Text("Registros de menstruación de los últimos 90 días")
                     .font(.caption).foregroundStyle(OG.label2)
                 Divider().opacity(0.3)

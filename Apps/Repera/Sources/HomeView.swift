@@ -19,17 +19,25 @@ private struct HomeGoalProgressBar: View {
         let overflow = max(0, value - safeGoal) / scale
 
         GeometryReader { geometry in
-            HStack(spacing: 0) {
-                Rectangle()
-                    .fill(tint)
-                    .frame(width: geometry.size.width * CGFloat(covered))
-                Rectangle()
-                    .fill(tint)
-                    .overlay(Color.black.opacity(0.32))
-                    .frame(width: geometry.size.width * CGFloat(overflow))
+            ZStack(alignment: .leading) {
+                Capsule().fill(OG.surface3)
+                if covered + overflow > 0 {
+                    Capsule()
+                        .fill(tint)
+                        .frame(width: min(
+                            geometry.size.width,
+                            max(geometry.size.height, geometry.size.width * CGFloat(covered + overflow))
+                        ))
+                }
+                if overflow > 0 {
+                    Capsule()
+                        .fill(tint)
+                        .overlay(Color.black.opacity(0.32), in: Capsule())
+                        .frame(width: geometry.size.width * CGFloat(overflow))
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(OG.surface3)
             .clipShape(Capsule())
         }
         .frame(height: 6)
@@ -248,6 +256,9 @@ struct HomeView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            // El gris agrupado debe ocupar el viewport entero y la zona
+            // inferior segura, incluso si no hay tarjetas más abajo.
+            .background(OG.bg.ignoresSafeArea(edges: .bottom))
             .refreshable { await businessData.refresh() }
             .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay)) {
                 if !businessData.athleteCenterIds.isEmpty {

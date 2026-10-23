@@ -108,6 +108,7 @@ struct ReperaApp: App {
                     // Restaurar Supabase aunque falle Apple local: las trazas mostraron
                     // cache=true binding=true con userID=false → antes se saltaba restore.
                     if appleOK
+                        || businessAuth.isGoogleSignedIn
                         || businessAuth.hasCachedSupabaseSession
                         || businessAuth.hasPriorSupabaseBinding
                     {
@@ -288,7 +289,7 @@ struct ReperaApp: App {
         }
     }
 
-    /// Apple + (Supabase viva | cache | binding previo) + onboarding hecho.
+    /// Apple o Google verificado + Supabase + onboarding hecho.
     private var canEnterMainApp: Bool {
         AuthSessionLaunchPolicy.decide(
             .init(

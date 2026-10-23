@@ -19,7 +19,7 @@ struct WorkoutView: View {
     @State private var dropRepsText = ""
     @State private var pendingDrops: [DropSegment] = []
     @State private var clusterRepsText = ""
-    @State private var clusterRest = 15
+    @State private var clusterRestText = "15"
     @State private var pendingClusters: [RestPauseCluster] = []
     @State private var editingRoutine: Routine?
     @State private var notesDraft = ""
@@ -34,6 +34,9 @@ struct WorkoutView: View {
     @State private var setCompletionPulse = 0
     @State private var restStartedPulse = 0
     @State private var pendingWODConfirm: PendingWODConfirm?
+    /// Las marcas de bloque usan filas expandibles normales, igual que los ejercicios.
+    @State private var expandedScoreBlocks: Set<UUID> = []
+    @State private var expandedTechniquesExerciseID: UUID?
     @State private var usesAutomaticTimer = false
     @State private var pendingTimerBlockID: UUID?
     /// EMOM/Tabata: el reloj ha terminado, pero todavía se pueden registrar series.
@@ -147,39 +150,48 @@ struct WorkoutView: View {
                 }
                 .accessibilityLabel("Más opciones")
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 8) {
-                    if let index = store.state.activeSession?.currentIndex, index > 0 {
-                        Button {
-                            store.selectExercise(at: index - 1)
-                        } label: {
-                            Label("Anterior", systemImage: "arrow.left")
-                        }
-                        .accessibilityLabel("Ejercicio anterior")
-                        .tint(OG.accent)
+            // iOS 27 agrupa acciones contiguas en una única cápsula.
+            // Las flechas son neutras e independientes del check verde.
+            ToolbarSpacer(.fixed, placement: .topBarTrailing)
+            if let index = store.state.activeSession?.currentIndex, index > 0 {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        store.selectExercise(at: index - 1)
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .semibold))
                     }
-                    if let index = store.state.activeSession?.currentIndex, hasMoreExercises {
-                        Button {
-                            // Navegar no finaliza ni inventa resultados del ejercicio.
-                            store.selectExercise(at: index + 1)
-                        } label: {
-                            Label("Siguiente", systemImage: "arrow.right")
-                        }
-                        .accessibilityLabel("Ejercicio siguiente")
-                        .tint(OG.accent)
-                    } else {
-                        Button {
-                            store.workoutClock.stop()
-                            store.endActiveSession(save: true)
-                            closeFlow()
-                        } label: {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 16, weight: .bold))
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(OG.accent)
-                        .accessibilityLabel("Terminar entreno")
+                    .accessibilityLabel("Ejercicio anterior")
+                    .tint(OG.label)
+                }
+            }
+            if let index = store.state.activeSession?.currentIndex, hasMoreExercises {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        // Navegar no finaliza ni inventa resultados del ejercicio.
+                        store.selectExercise(at: index + 1)
+                    } label: {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 16, weight: .semibold))
                     }
+                    .accessibilityLabel("Ejercicio siguiente")
+                    .tint(OG.label)
+                }
+            } else {
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        store.workoutClock.stop()
+                        store.endActiveSession(save: true)
+                        closeFlow()
+                    } label: {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(OG.onAccent)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(OG.accent)
+                    .accessibilityLabel("Terminar entreno")
                 }
             }
         }
@@ -391,9 +403,7 @@ struct WorkoutView: View {
 
                     if let format = block.format, format.resultCapture != .perMovementSets {
                         inlineWODScoreEditor(block, format: format, session: session)
-                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
                             .listRowBackground(OG.surface)
-                            .listRowSeparator(.hidden)
                     }
 
                     ForEach(block.indexes, id: \.self) { index in
@@ -420,6 +430,11 @@ struct WorkoutView: View {
                             }
                         }
                         .listRowBackground(OG.surface)
+                        // Sin línea entre el ejercicio abierto y la cabecera de series.
+                        .listRowSeparator(
+                            session.currentIndex == index ? .hidden : .visible,
+                            edges: .bottom
+                        )
 
                         if session.currentIndex == index {
                             setsBoard(entry)
@@ -431,14 +446,41 @@ struct WorkoutView: View {
 
                     if block.indexes.contains(session.currentIndex),
                        let current = session.currentExercise {
-                        DisclosureGroup("Técnicas de serie · dropset / rest-pause") {
-                            logForm(current)
-                                .padding(.top, 8)
+                        Button {
+                            expandedTechniquesExerciseID =
+                                expandedTechniquesExerciseID == current.id ? nil : current.id
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text("Técnicas de serie · dropset / rest-pause")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(OG.label)
+                                Spacer(minLength: 8)
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .rotationEffect(.degrees(
+                                        expandedTechniquesExerciseID == current.id ? 180 : 0
+                                    ))
+                                    .foregroundStyle(OG.label2)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            .contentShape(Rectangle())
                         }
-                        .font(.system(size: 13, weight: .medium))
-                        .tint(OG.label2)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Técnicas de serie")
+                        .accessibilityValue(
+                            expandedTechniquesExerciseID == current.id ? "Desplegadas" : "Plegadas"
+                        )
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 4, trailing: 16))
                         .listRowBackground(OG.surface)
+                        .listRowSeparator(.hidden)
+
+                        if expandedTechniquesExerciseID == current.id {
+                            logForm(current)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 12, trailing: 16))
+                                .listRowBackground(OG.surface)
+                                .listRowSeparator(.hidden)
+                        }
                     }
                     if finishedTimedBlockID == block.id,
                        block.format?.resultCapture == .perMovementSets {
@@ -495,8 +537,9 @@ struct WorkoutView: View {
         isOpen: Bool,
         blockResult: WODBlockResult?
     ) -> some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             ExerciseThumb(exercise: entry.exercise, size: 48)
+                .padding(.top, 2)
             VStack(alignment: .leading, spacing: 4) {
                 Text(entry.exercise.name)
                     .font(.system(size: 16, weight: .semibold))
@@ -528,8 +571,8 @@ struct WorkoutView: View {
         .contentShape(Rectangle())
     }
 
-    /// El score global se registra directamente en Play. Se mantiene
-    /// debajo el editor habitual de series de CADA ejercicio del bloque.
+    /// Una fila del bloque, sin una tarjeta ni un diseño separado.
+    /// Se expande para anotar el score, igual que una fila de ejercicio.
     private func inlineWODScoreEditor(
         _ block: WorkoutBlockEntry,
         format: WODFormat,
@@ -540,22 +583,17 @@ struct WorkoutView: View {
             ? pendingWODConfirm?.elapsedSeconds : nil
         let templateID = session.routineBlocks?
             .first(where: { $0.id == block.id })?.wodTemplateId
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Resultado · \(format.displayName)")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(OG.label)
-                Spacer()
-                if let existing {
-                    Text(existing.summaryLabel)
-                        .font(.system(size: 15, weight: .bold).monospacedDigit())
-                        .foregroundStyle(OG.accent)
+
+        return DisclosureGroup(isExpanded: Binding(
+            get: { expandedScoreBlocks.contains(block.id) },
+            set: { expanded in
+                if expanded {
+                    expandedScoreBlocks.insert(block.id)
                 } else {
-                    Text("Pendiente")
-                        .font(.subheadline)
-                        .foregroundStyle(OG.label3)
+                    expandedScoreBlocks.remove(block.id)
                 }
             }
+        )) {
             WODResultInlineEditor(
                 blockId: block.id,
                 format: format,
@@ -571,9 +609,23 @@ struct WorkoutView: View {
                 }
             }
             .id(block.id)
+            .padding(.vertical, 8)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "stopwatch")
+                    .foregroundStyle(OG.label2)
+                    .frame(width: 27)
+                Text("Resultado del bloque")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                Spacer(minLength: 6)
+                Text(existing?.summaryLabel ?? "Sin registrar")
+                    .font(.system(size: 13, weight: .medium).monospacedDigit())
+                    .foregroundStyle(existing == nil ? OG.label3 : OG.accent)
+                    .lineLimit(1)
+            }
         }
-        .padding(14)
-        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .tint(OG.label2)
     }
 
     private func openBlockTimer(_ block: WorkoutBlockEntry, session: WorkoutSession) {
@@ -1238,6 +1290,8 @@ struct WorkoutView: View {
         let saved = store.state.activeSession?.wodResults.first(where: { $0.id == blockID })
         let templateID = store.state.activeSession?.routineBlocks?
             .first(where: { $0.id == blockID })?.wodTemplateId
+        // El resultado se edita dentro de la fila del bloque, sin modal.
+        expandedScoreBlocks.insert(blockID)
         pendingWODConfirm = PendingWODConfirm(
             blockId: blockID,
             format: format,
@@ -1573,37 +1627,78 @@ struct WorkoutView: View {
                         .font(.caption2)
                         .foregroundStyle(OG.label2)
                     ForEach(Array(pendingClusters.enumerated()), id: \.element.id) { idx, cluster in
-                        Text("\(idx + 1). \(cluster.reps) reps · descanso \(cluster.restSeconds)s")
+                        Text("\(idx + 1). \(cluster.reps) reps · descanso \(cluster.restSeconds) s")
                             .font(.caption.monospacedDigit())
                     }
-                    HStack(spacing: 10) {
-                        OGNumericTextField(
-                            text: $clusterRepsText,
-                            allowsDecimal: false,
-                            autoFocus: false,
-                            isFocused: advancedFocusedField == OGSetFieldID(rowID: advancedFieldRowID, column: 2),
-                            submitTitle: "✓",
-                            onFocused: { advancedFocusedField = OGSetFieldID(rowID: advancedFieldRowID, column: 2) },
-                            onFocusLost: { if advancedFocusedField?.column == 2 { advancedFocusedField = nil } },
-                            onCommit: { advancedFocusedField = nil }
-                        )
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
 
-                        Stepper("\(clusterRest)s", value: $clusterRest, in: 5...30, step: 5)
-                        Button("Añadir") {
-                            let reps = Int(clusterRepsText) ?? 0
-                            guard reps > 0 else { return }
-                            pendingClusters.append(RestPauseCluster(reps: reps, restSeconds: clusterRest))
-                            clusterRepsText = ""
+                    HStack(alignment: .bottom, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("REPS")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(OG.label3)
+                            OGNumericTextField(
+                                text: $clusterRepsText,
+                                allowsDecimal: false,
+                                autoFocus: false,
+                                isFocused: advancedFocusedField == OGSetFieldID(rowID: advancedFieldRowID, column: 2),
+                                submitTitle: "✓",
+                                onFocused: { advancedFocusedField = OGSetFieldID(rowID: advancedFieldRowID, column: 2) },
+                                onFocusLost: { if advancedFocusedField?.column == 2 { advancedFocusedField = nil } },
+                                onCommit: { advancedFocusedField = nil }
+                            )
+                            .frame(maxWidth: .infinity, minHeight: 46)
+                            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
+                            .accessibilityLabel("Repeticiones del cluster")
                         }
+                        .frame(maxWidth: .infinity)
+
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("DESCANSO")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(OG.label3)
+                            HStack(spacing: 4) {
+                                OGNumericTextField(
+                                    text: $clusterRestText,
+                                    allowsDecimal: false,
+                                    autoFocus: false,
+                                    onCommit: {}
+                                )
+                                .frame(maxWidth: .infinity, minHeight: 46)
+                                Text("s")
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundStyle(OG.label2)
+                                    .fixedSize(horizontal: true, vertical: false)
+                            }
+                            .padding(.horizontal, 10)
+                            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
+                            .accessibilityLabel("Descanso del cluster en segundos")
+                        }
+                        .frame(maxWidth: .infinity)
                     }
+
+                    Button {
+                        let reps = Int(clusterRepsText) ?? 0
+                        let seconds = Int(clusterRestText) ?? 0
+                        guard reps > 0, (5...30).contains(seconds) else { return }
+                        pendingClusters.append(RestPauseCluster(reps: reps, restSeconds: seconds))
+                        clusterRepsText = ""
+                    } label: {
+                        Label("Añadir cluster", systemImage: "plus")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(OG.accent)
+                            .frame(maxWidth: .infinity, minHeight: 46)
+                            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled((Int(clusterRepsText) ?? 0) <= 0
+                        || !(5...30).contains(Int(clusterRestText) ?? 0))
                 }
             }
         }
-        .padding(OG.pad)
+        // La sección List ya aplica sus márgenes y el fondo blanco.
+        // Evitar otra caja con padding lateral que estreche los controles.
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
     }
 
     private func loggedList(_ current: SessionExercise) -> some View {
@@ -2014,31 +2109,32 @@ struct WODResultInlineEditor: View {
                 numericField("Tiempo · m:ss", text: $timeText, field: .time)
             }
 
-            Button {
-                focusedField = nil
-                guard canSave else { return }
-                onSave(WODBlockResult(
-                    id: blockId,
-                    format: format,
-                    totalReps: format.resultCapture == .totalReps
-                        ? min(5000, max(0, Int(repsText) ?? 0)) : nil,
-                    elapsedSeconds: format.resultCapture == .elapsedTime
-                        ? min(180 * 60, max(1, DurationText.parse(timeText) ?? 0)) : nil,
-                    roundsCompleted: format == .amrap || format == .deathBy
-                        ? min(200, max(0, Int(roundsText) ?? 0)) : nil,
-                    wodTemplateId: wodTemplateId ?? existing?.wodTemplateId
-                ))
-            } label: {
-                Label(existing == nil ? "Guardar resultado" : "Actualizar resultado",
-                      systemImage: "checkmark")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity, minHeight: 48)
-                    .background(OG.accent, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            HStack {
+                Spacer(minLength: 0)
+                Button {
+                    focusedField = nil
+                    guard canSave else { return }
+                    onSave(WODBlockResult(
+                        id: blockId,
+                        format: format,
+                        totalReps: format.resultCapture == .totalReps
+                            ? min(5000, max(0, Int(repsText) ?? 0)) : nil,
+                        elapsedSeconds: format.resultCapture == .elapsedTime
+                            ? min(180 * 60, max(1, DurationText.parse(timeText) ?? 0)) : nil,
+                        roundsCompleted: format == .amrap || format == .deathBy
+                            ? min(200, max(0, Int(roundsText) ?? 0)) : nil,
+                        wodTemplateId: wodTemplateId ?? existing?.wodTemplateId
+                    ))
+                } label: {
+                    Label(existing == nil ? "Guardar" : "Actualizar", systemImage: "checkmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(canSave ? OG.accent : OG.label3)
+                        .frame(minHeight: 44)
+                        .padding(.horizontal, 8)
+                }
+                .buttonStyle(.plain)
+                .disabled(!canSave)
             }
-            .buttonStyle(.plain)
-            .disabled(!canSave)
-            .opacity(canSave ? 1 : 0.5)
         }
         .onChange(of: suggestedElapsedSeconds) { _, seconds in
             // Reloj For Time: conservar cualquier registro previo y solo
@@ -2065,8 +2161,8 @@ struct WODResultInlineEditor: View {
                 .font(.system(size: 21, weight: .medium).monospacedDigit())
                 .foregroundStyle(OG.label)
                 .focused($focusedField, equals: field)
-                .frame(minHeight: 48)
-                .background(OG.surface3, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .frame(minHeight: 44)
+                .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
                 .accessibilityLabel(label)
         }
         .frame(maxWidth: .infinity)

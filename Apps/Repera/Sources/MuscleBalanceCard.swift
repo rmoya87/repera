@@ -16,15 +16,15 @@ struct MuscleBalanceCard: View {
     var preparedHasHardSets: Bool? = nil
 
     private enum Mode: String, CaseIterable {
-        case all = "Todas"
-        case hard = "Duras"
+        case fatigue = "Fatiga"
+        case effort = "Esfuerzo"
     }
 
-    @State private var mode: Mode = .all
+    @State private var mode: Mode = .fatigue
     @State private var selected: String? = nil
     @State private var expanded = false
 
-    private var hardOnly: Bool { mode == .hard }
+    private var hardOnly: Bool { mode == .effort }
 
     private var load: [String: Double] {
         if hardOnly, let preparedLoadHard { return preparedLoadHard }
@@ -64,23 +64,31 @@ struct MuscleBalanceCard: View {
         let ranked = MuscleLoadEngine.ranked(load: load)
         return VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Equilibrio muscular")
-            if hasHardSets {
-                Picker("Series", selection: $mode) {
-                    ForEach(Mode.allCases, id: \.self) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .onChange(of: mode) { _, _ in selected = nil }
-            }
             OGCard {
                 VStack(alignment: .leading, spacing: 12) {
+                    Picker("Métrica muscular", selection: $mode) {
+                        ForEach(Mode.allCases, id: \.self) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .onChange(of: mode) { _, _ in
+                        selected = nil
+                        expanded = false
+                    }
+
                     BodyMapView(load: load, fatigueScores: fatigue, selected: selected) { slug in
                         selected = (selected == slug) ? nil : slug
                     }
                     BodyMapLegend()
 
                     barsSection(load: load, fatigue: fatigue, ranked: ranked)
+
+                    if hardOnly && !hasHardSets {
+                        Text("Registra el RIR de las series para identificar el esfuerzo alto.")
+                            .font(.footnote)
+                            .foregroundStyle(OG.label3)
+                    }
 
                     if ranked.missed.count > 0 {
                         Text(hardOnly ? "Sin series duras en este periodo" : "Sin entrenar en este periodo")

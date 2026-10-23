@@ -225,47 +225,9 @@ struct PlanView: View {
             }
         }
 
-        let datedPlans = store.state.routines
-            .filter { $0.scheduledDate != nil }
-            .sorted { ($0.scheduledDate ?? .distantFuture) < ($1.scheduledDate ?? .distantFuture) }
-        if !datedPlans.isEmpty {
-            Section {
-                ForEach(datedPlans) { routine in
-                    Button {
-                        onOpenRoutine(routine)
-                    } label: {
-                        HStack(spacing: 14) {
-                            Image(systemName: "calendar.badge.clock")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(OG.accent)
-                                .frame(width: 44, height: 44)
-                                .background(OG.surface2, in: Circle())
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text(routine.title)
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(OG.label)
-                                if let date = routine.scheduledDate {
-                                    Text(date.formatted(date: .abbreviated, time: .omitted))
-                                        .font(.system(size: 13))
-                                        .foregroundStyle(OG.label2)
-                                }
-                                scheduleChips(for: routine)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(OG.label3)
-                        }
-                        .padding(.vertical, 5)
-                    }
-                }
-            } header: {
-                Text("Entrenamientos con fecha")
-            } footer: {
-                Text("Incluye los entrenamientos planificados desde Inicio y por tus asistentes de IA.")
-            }
-        }
-
+        // Diario únicamente muestra su plan semanal y publicaciones profesionales.
+        // Rutinas con scheduledDate (entrenos sueltos de Inicio/IA) NO pertenecen
+        // necesariamente a la programación del Diario y no deben aparecer aquí.
         Section {
             ForEach(1...7, id: \.self) { day in
                 let routine = store.routine(forWeekday: day)
@@ -505,6 +467,7 @@ struct PlanView: View {
 
 /// Chrome del editor: página push → volver + check; modal → solo check (swipe para cerrar).
 private struct DayEditorChromeModifier: ViewModifier {
+    @Environment(\.dismiss) private var dismiss
     let title: String
     let usesPageCloseHeader: Bool
     let embedsNavigationStack: Bool
@@ -516,8 +479,20 @@ private struct DayEditorChromeModifier: ViewModifier {
         if usesPageCloseHeader {
             content
                 .ogPinnedTransparentNav(title)
+                // Los botones no comparten cápsula ni color: volver neutro,
+                // confirmar verde al otro lado del topbar.
+                .navigationBarBackButtonHidden(true)
                 .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { dismiss() } label: {
+                            Image(systemName: "arrow.left")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(OG.label)
+                        }
+                        .tint(OG.label)
+                        .accessibilityLabel("Volver")
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
                         confirmButton
                     }
                 }
@@ -535,6 +510,7 @@ private struct DayEditorChromeModifier: ViewModifier {
             Button(action: onConfirm) {
                 Image(systemName: "checkmark")
                     .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(OG.onAccent)
             }
             .buttonStyle(.borderedProminent)
             .tint(OG.accent)
@@ -674,7 +650,7 @@ struct DayEditorView: View {
                 case .favorite:
                     Text("Los favoritos se reutilizan desde Crear. Opcionalmente puedes asignarlos a un día en Programado.")
                 case .oneOff:
-                    Text("Entreno solo para este día. No aparece en el plan semanal de Diario.")
+                    EmptyView()
                 case .plan:
                     Text("La rutina es reutilizable. En Programado puedes cambiar el día sin editar el contenido.")
                 }
@@ -767,13 +743,6 @@ struct DayEditorView: View {
                     } label: {
                         Label("Añadir rutina", systemImage: "list.bullet.rectangle")
                     }
-                }
-            } footer: {
-                switch mode {
-                case .session:
-                    Text("Cada bloque permite configurar un formato de reloj opcional. Elegir WOD añade un benchmark; también puedes añadir una rutina.")
-                case .oneOff, .plan, .favorite:
-                    Text("Configura el formato en cualquier bloque o déjalo sin formato. Elegir WOD importa benchmarks; Añadir rutina copia bloques.")
                 }
             }
         }
@@ -1537,112 +1506,60 @@ struct DayEditorView: View {
         subscriptions.presentPaywall(decision.paywallContext, feature: .unlimitedRoutines)
     }
 
-    /// Un bloque originalmente de fuerza puede haber recibido después un
-    /// formato AMRAP o For Time. Al editar el entreno TERMINADO tampoco debe
-    /// volver a mostrar sus series de prescripción como resultado realizado.
+    /// Al editar una sesión terminada la miniatura se alinea al título,
+    /// y solo se muestran los campos de resultado realmente modificables.
     @ViewBuilder
     private func completedStrengthPrescription(index: Int) -> some View {
-        ForEach(Array(routine.blocks[index].exercises.enumerated()), id: \.element.id) { itemIndex, item in
+        ForEach(Array(routine.blocks[index].exercises.enumerated()), id: \.element.id) { _, item in
             if let exercise = store.state.exercises.first(where: { $0.id == item.exerciseId })
                 ?? completedWorkoutDraft?.exercises.first(where: { $0.exercise.id == item.exerciseId })?.exercise {
-                HStack(spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
                     ExerciseThumb(exercise: exercise, size: 48)
-                    VStack(alignment: .leading, spacing: 3) {
+                        .padding(.top, 2)
+                    VStack(alignment: .leading, spacing: 8) {
                         Text(exercise.name)
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(OG.label)
-                        completedStrengthRxFields(blockIndex: index, exerciseIndex: itemIndex, exercise: exercise)
+                        Text(item.plannedSets.compactSummary)
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
                         completedWODScalingFields(movementID: item.id, exercise: exercise)
                     }
-                    Spacer()
-                }
-            }
-        }
-    }
-
-    /// Valores originales del entrenamiento terminado: se editan en la copia
-    /// local de la sesión, nunca en la rutina reutilizable del calendario.
-    @ViewBuilder
-    private func completedWODRxFields(blockIndex: Int, movementIndex: Int, exercise: Exercise) -> some View {
-        let movement = routine.blocks[blockIndex].movements[movementIndex]
-        let sets = routine.blocks[blockIndex].plannedSets(for: movement)
-        let hasScheme = Set(sets.map(\.targetReps)).count > 1
-            || (movement.repScheme?.count ?? 0) > 1
-        let showsWeight = exercise.loggingStyle == .loadAndReps
-            || movement.weightMaleKg != nil
-            || sets.contains(where: { $0.targetWeightKg != nil })
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Prescrito (editable)")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(OG.label2)
-            HStack(spacing: 10) {
-                if hasScheme {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("ESQUEMA DE REPS")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(OG.label3)
-                        Text(sets.map { String($0.targetReps) }.joined(separator: "-"))
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(OG.label)
-                    }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    completedRxInput(
-                        label: exercise.loggingStyle == .machineWork ? "CANTIDAD PRESCRITA" : "REPS PRESCRITAS",
-                        value: completedWODRxValue(blockIndex: blockIndex, movementIndex: movementIndex, weight: false),
-                        weight: false,
-                        exercise: exercise
-                    )
                 }
-                if showsWeight && exercise.loadField != .deficitCm {
-                    completedRxInput(
-                        label: "KG PRESCRITOS",
-                        value: completedWODRxValue(blockIndex: blockIndex, movementIndex: movementIndex, weight: true),
-                        weight: true,
-                        exercise: exercise
-                    )
-                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .padding(.vertical, 5)
             }
         }
-        .padding(.top, 3)
     }
 
+    /// Los valores reales se presentan con los prescritos como valor inicial.
+    /// No guardan una adaptación por el mero hecho de abrir el editor.
     @ViewBuilder
-    private func completedStrengthRxFields(blockIndex: Int, exerciseIndex: Int, exercise: Exercise) -> some View {
-        let item = routine.blocks[blockIndex].exercises[exerciseIndex]
-        let hasScheme = Set(item.plannedSets.map(\.targetReps)).count > 1
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Prescrito (editable)")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(OG.label2)
-            HStack(spacing: 10) {
-                if hasScheme {
-                    Text(item.plannedSets.map { String($0.targetReps) }.joined(separator: "-") + " reps")
-                        .font(.caption)
-                        .foregroundStyle(OG.label2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    completedRxInput(
-                        label: "REPS PRESCRITAS",
-                        value: completedStrengthRxValue(blockIndex: blockIndex, exerciseIndex: exerciseIndex, weight: false),
-                        weight: false,
-                        exercise: exercise
-                    )
-                }
-                if exercise.loggingStyle == .loadAndReps && exercise.loadField != .deficitCm {
-                    completedRxInput(
-                        label: "KG PRESCRITOS",
-                        value: completedStrengthRxValue(blockIndex: blockIndex, exerciseIndex: exerciseIndex, weight: true),
-                        weight: true,
-                        exercise: exercise
-                    )
-                }
+    private func completedWODScalingFields(movementID: UUID, exercise: Exercise) -> some View {
+        let showsWeight = exercise.loggingStyle == .loadAndReps
+            || !completedPrescribedValue(movementID: movementID, weight: true).isEmpty
+        HStack(alignment: .top, spacing: 8) {
+            completedActualField(
+                label: exercise.loggingStyle == .machineWork ? "CANTIDAD REAL" : "REPS REALES",
+                value: completedWODScaledValue(movementID: movementID, weight: false),
+                allowsDecimal: false,
+                name: exercise.name
+            )
+            if showsWeight && exercise.loadField != .deficitCm {
+                completedActualField(
+                    label: "KG REALES",
+                    value: completedWODScaledValue(movementID: movementID, weight: true),
+                    allowsDecimal: true,
+                    name: exercise.name
+                )
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func completedRxInput(
-        label: String, value: Binding<String>, weight: Bool, exercise: Exercise
+    private func completedActualField(
+        label: String, value: Binding<String>, allowsDecimal: Bool, name: String
     ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
@@ -1650,137 +1567,32 @@ struct DayEditorView: View {
                 .foregroundStyle(OG.label3)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-            OGNumericTextField(text: value, allowsDecimal: weight, autoFocus: false, onCommit: {})
+            OGNumericTextField(text: value, allowsDecimal: allowsDecimal, autoFocus: false, onCommit: {})
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
-                .accessibilityLabel(label + " · " + exercise.name)
+                .accessibilityLabel(label + " · " + name)
         }
         .frame(maxWidth: .infinity)
     }
 
-    private func completedWODRxValue(
-        blockIndex: Int, movementIndex: Int, weight: Bool
-    ) -> Binding<String> {
-        let id = routine.blocks[blockIndex].movements[movementIndex].id
-        let key = id.uuidString + (weight ? "-rx-kg" : "-rx-reps")
-        return Binding(
-            get: {
-                if let draft = scaledInputDrafts[key] { return draft }
-                let move = routine.blocks[blockIndex].movements[movementIndex]
-                let first = routine.blocks[blockIndex].plannedSets(for: move).first
+    private func completedPrescribedValue(movementID: UUID, weight: Bool) -> String {
+        for block in routine.blocks {
+            if let item = block.exercises.first(where: { $0.id == movementID }) {
+                let first = item.plannedSets.first
+                if weight {
+                    return first?.targetWeightKg.map { String(format: "%g", $0) } ?? ""
+                }
+                return first.map { String($0.targetReps) } ?? ""
+            }
+            if let move = block.movements.first(where: { $0.id == movementID }) {
+                let first = block.plannedSets(for: move).first
                 if weight {
                     return (move.weightMaleKg ?? first?.targetWeightKg).map { String(format: "%g", $0) } ?? ""
                 }
                 return (first?.targetReps ?? move.reps).map(String.init) ?? ""
-            },
-            set: { input in
-                scaledInputDrafts[key] = input
-                let normalized = input.trimmingCharacters(in: .whitespacesAndNewlines)
-                if weight {
-                    let value: Double?
-                    if normalized.isEmpty {
-                        value = nil
-                    } else if let number = Double(normalized.replacingOccurrences(of: ",", with: ".")),
-                              number.isFinite, (0...1000).contains(number) {
-                        value = number
-                    } else { return }
-                    routine.blocks[blockIndex].movements[movementIndex].weightMaleKg = value
-                    if var explicit = routine.blocks[blockIndex].movements[movementIndex].explicitPlannedSets {
-                        for i in explicit.indices { explicit[i].targetWeightKg = value }
-                        routine.blocks[blockIndex].movements[movementIndex].explicitPlannedSets = explicit
-                    }
-                } else if let reps = Int(normalized), (1...10000).contains(reps) {
-                    routine.blocks[blockIndex].movements[movementIndex].reps = reps
-                    if var explicit = routine.blocks[blockIndex].movements[movementIndex].explicitPlannedSets {
-                        for i in explicit.indices { explicit[i].targetReps = reps }
-                        routine.blocks[blockIndex].movements[movementIndex].explicitPlannedSets = explicit
-                    }
-                }
             }
-        )
-    }
-
-    private func completedStrengthRxValue(
-        blockIndex: Int, exerciseIndex: Int, weight: Bool
-    ) -> Binding<String> {
-        let id = routine.blocks[blockIndex].exercises[exerciseIndex].id
-        let key = id.uuidString + (weight ? "-strength-rx-kg" : "-strength-rx-reps")
-        return Binding(
-            get: {
-                if let draft = scaledInputDrafts[key] { return draft }
-                let first = routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets.first
-                if weight { return first?.targetWeightKg.map { String(format: "%g", $0) } ?? "" }
-                return first.map { String($0.targetReps) } ?? ""
-            },
-            set: { input in
-                scaledInputDrafts[key] = input
-                let normalized = input.trimmingCharacters(in: .whitespacesAndNewlines)
-                if weight {
-                    let value: Double?
-                    if normalized.isEmpty {
-                        value = nil
-                    } else if let number = Double(normalized.replacingOccurrences(of: ",", with: ".")),
-                              number.isFinite, (0...1000).contains(number) {
-                        value = number
-                    } else { return }
-                    for i in routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets.indices {
-                        routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets[i].targetWeightKg = value
-                    }
-                } else if let reps = Int(normalized), (1...10000).contains(reps) {
-                    for i in routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets.indices {
-                        routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets[i].targetReps = reps
-                    }
-                }
-            }
-        )
-    }
-
-    /// Las adaptaciones NO son series completadas: cada movimiento conserva
-    /// cantidad/carga utilizada de forma independiente al score global de WOD.
-    @ViewBuilder
-    private func completedWODScalingFields(movementID: UUID, exercise: Exercise) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Realizado (opcional)")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(OG.label2)
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(exercise.loggingStyle == .machineWork ? "CANTIDAD REAL" : "REPS REALES")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(OG.label3)
-                    OGNumericTextField(
-                        text: completedWODScaledValue(movementID: movementID, weight: false),
-                        allowsDecimal: false,
-                        autoFocus: false,
-                        onCommit: {}
-                    )
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
-                        .accessibilityLabel("Repeticiones adaptadas · \(exercise.name)")
-                }
-                if exercise.loggingStyle == .loadAndReps {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("KG REALES")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(OG.label3)
-                        OGNumericTextField(
-                            text: completedWODScaledValue(movementID: movementID, weight: true),
-                            allowsDecimal: true,
-                            autoFocus: false,
-                            onCommit: {}
-                        )
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
-                            .accessibilityLabel("Peso adaptado · \(exercise.name)")
-                    }
-                }
-            }
-            Text("En blanco = prescripción original. No añade series ni cambia las rondas del bloque.")
-                .font(.caption2)
-                .foregroundStyle(OG.label3)
-                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.vertical, 4)
+        return ""
     }
 
     private func completedWODScaledValue(movementID: UUID, weight: Bool) -> Binding<String> {
@@ -1790,13 +1602,14 @@ struct DayEditorView: View {
                 // Conservar la coma, el punto y los decimales a medio escribir.
                 // No volver a formatear desde el modelo al pulsar cada tecla.
                 if let draft = scaledInputDrafts[key] { return draft }
+                let prescribed = completedPrescribedValue(movementID: movementID, weight: weight)
                 guard let entry = completedWorkoutDraft?.exercises.first(where: { $0.id == movementID }) else {
-                    return ""
+                    return prescribed
                 }
                 if weight {
-                    return entry.adaptedWeightKg.map { String(format: "%g", $0) } ?? ""
+                    return entry.adaptedWeightKg.map { String(format: "%g", $0) } ?? prescribed
                 }
-                return entry.adaptedReps.map(String.init) ?? ""
+                return entry.adaptedReps.map(String.init) ?? prescribed
             },
             set: { input in
                 scaledInputDrafts[key] = input
@@ -1804,17 +1617,21 @@ struct DayEditorView: View {
                 guard let index = completedDetails?.exercises.firstIndex(where: { $0.id == movementID })
                 else { return }
                 let cleaned = input.trimmingCharacters(in: .whitespacesAndNewlines)
+                let prescribed = completedPrescribedValue(movementID: movementID, weight: weight)
                 if weight {
                     if cleaned.isEmpty {
                         completedDetails?.exercises[index].adaptedWeightKg = nil
                     } else if let kg = Double(cleaned.replacingOccurrences(of: ",", with: ".")),
                               kg.isFinite, (0...1000).contains(kg) {
-                        completedDetails?.exercises[index].adaptedWeightKg = kg
+                        let rx = Double(prescribed.replacingOccurrences(of: ",", with: "."))
+                        completedDetails?.exercises[index].adaptedWeightKg =
+                            rx.map { abs(kg - $0) < 0.05 } == true ? nil : kg
                     }
                 } else if cleaned.isEmpty {
                     completedDetails?.exercises[index].adaptedReps = nil
                 } else if let reps = Int(cleaned), (0...10000).contains(reps) {
-                    completedDetails?.exercises[index].adaptedReps = reps
+                    completedDetails?.exercises[index].adaptedReps =
+                        reps == Int(prescribed) ? nil : reps
                 }
             }
         )
@@ -1839,6 +1656,7 @@ struct DayEditorView: View {
                     }
                 }
                 .accessibilityHint("Ver ficha del ejercicio. Arrastra para cambiar el orden.")
+                .listRowSeparator(.hidden, edges: .bottom)
                 .swipeActions {
                     OGSwipeDeleteButton(accessibilityLabel: "Quitar") {
                         routine.blocks[index].exercises.remove(at: exIndex)
@@ -1866,6 +1684,7 @@ struct DayEditorView: View {
                     showsRIR: ex.loggingStyle.usesRIR
                 )
                 .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 4, trailing: 16))
+                .listRowSeparator(.hidden, edges: .top)
 
                 ForEach(Array(routine.blocks[index].exercises[exIndex].plannedSets.enumerated()), id: \.element.id) { setIndex, _ in
                     PlannedSetConfigRow(
@@ -2148,22 +1967,59 @@ struct DayEditorView: View {
         ForEach(Array(routine.blocks[index].movements.enumerated()), id: \.element.id) { mIndex, move in
             let resolved = resolvedExercise(for: move)
             let hasCatalog = !move.isRest && store.state.exercises.contains(where: { $0.id == resolved.id })
-            Group {
-                if hasCatalog {
-                    NavigationLink {
-                        ExerciseDetailView(exerciseId: resolved.id)
-                    } label: {
+            if !move.isRest, isEditingCompletedWorkout,
+               let format = routine.blocks[index].wodFormat,
+               format.resultCapture != .perMovementSets {
+                HStack(alignment: .top, spacing: 12) {
+                    ExerciseThumb(exercise: resolved, size: 48)
+                        .padding(.top, 2)
+                    VStack(alignment: .leading, spacing: 8) {
+                        if hasCatalog {
+                            NavigationLink {
+                                ExerciseDetailView(exerciseId: resolved.id)
+                            } label: {
+                                Text(resolved.name)
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(OG.label)
+                            }
+                        } else {
+                            Text(resolved.name)
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(OG.label)
+                        }
+                        Text(move.summaryLine)
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                        completedWODScalingFields(movementID: move.id, exercise: resolved)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .padding(.vertical, 5)
+                .swipeActions {
+                    OGSwipeDeleteButton(accessibilityLabel: "Quitar") {
+                        routine.blocks[index].movements.remove(at: mIndex)
+                    }
+                }
+            } else {
+                Group {
+                    if hasCatalog {
+                        NavigationLink {
+                            ExerciseDetailView(exerciseId: resolved.id)
+                        } label: {
+                            movementRowLabel(move: move, resolved: resolved, showSummary: false)
+                        }
+                        .accessibilityHint("Ver ficha del ejercicio")
+                    } else {
                         movementRowLabel(move: move, resolved: resolved, showSummary: false)
                     }
-                    .accessibilityHint("Ver ficha del ejercicio")
-                } else {
-                    movementRowLabel(move: move, resolved: resolved, showSummary: false)
                 }
-            }
-            .swipeActions {
-                OGSwipeDeleteButton(accessibilityLabel: "Quitar") {
-                    routine.blocks[index].movements.remove(at: mIndex)
+                .swipeActions {
+                    OGSwipeDeleteButton(accessibilityLabel: "Quitar") {
+                        routine.blocks[index].movements.remove(at: mIndex)
+                    }
                 }
+                .listRowSeparator(.hidden, edges: .bottom)
             }
 
             if move.isRest {
@@ -2179,12 +2035,8 @@ struct DayEditorView: View {
             } else if isEditingCompletedWorkout,
                       let format = routine.blocks[index].wodFormat,
                       format.resultCapture != .perMovementSets {
-                // En WOD cronometrados estas cifras son la PRESCRIPCIÓN; el resultado
-                // global se edita arriba, nunca se convierte en sets completados.
-                VStack(alignment: .leading, spacing: 8) {
-                    completedWODRxFields(blockIndex: index, movementIndex: mIndex, exercise: resolved)
-                    completedWODScalingFields(movementID: move.id, exercise: resolved)
-                }
+                // Ya se registran los datos reales junto al título y miniatura.
+                EmptyView()
             } else {
                 if isEditingCompletedWorkout {
                     let logged = completedWorkoutDraft?.exercises.first(where: { $0.id == move.id
@@ -2243,7 +2095,7 @@ struct DayEditorView: View {
 
     @ViewBuilder
     private func movementRowLabel(move: WODMovement, resolved: Exercise, showSummary: Bool = true) -> some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             if move.isRest {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -2279,6 +2131,8 @@ private struct InlineWODMovementSets: View {
     @Environment(ReperaStore.self) private var store
     @Binding var movement: WODMovement
     var block: RoutineBlock
+    /// En historial, dibujar las series no reescribe automáticamente la prescripción Rx.
+    var preservePrescriptionOnAppear = false
 
     @State private var draftSets: [PlannedSet] = []
     @State private var didSeedSets = false
@@ -2376,7 +2230,9 @@ private struct InlineWODMovementSets: View {
         if draftSets.isEmpty {
             draftSets = [PlannedSet(targetReps: movement.reps ?? 10, targetWeightKg: movement.weightMaleKg)]
         }
-        writeSetsToMovement()
+        if !preservePrescriptionOnAppear {
+            writeSetsToMovement()
+        }
     }
 
     @ViewBuilder

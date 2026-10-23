@@ -40,7 +40,7 @@ struct OnboardingFlowView: View {
             let businessOK = business.isConnected
                 || business.hasCachedSupabaseSession
                 || business.hasPriorSupabaseBinding
-            let ok = appleOK && businessOK
+            let ok = businessOK && (appleOK || business.isGoogleSignedIn)
             AuthSessionTrace.event(
                 "onboardingFlow reconcile ok=\(ok) apple=\(appleOK) connected=\(business.isConnected) cache=\(business.hasCachedSupabaseSession) binding=\(business.hasPriorSupabaseBinding)"
             )
@@ -80,7 +80,7 @@ private struct OnboardingSignInStep: View {
                     .font(.system(size: 28, weight: .bold))
                     .foregroundStyle(OG.label)
                     .multilineTextAlignment(.center)
-                Text("Accede con Apple para empezar. Tu historial de entrenamientos sigue bajo tu control en el iPhone e iCloud.")
+                Text("Accede con Apple o Google. Tu historial permanece protegido y la misma cuenta verificada conserva su identidad en Supabase.")
                     .font(.body)
                     .foregroundStyle(OG.label2)
                     .multilineTextAlignment(.center)
@@ -120,6 +120,29 @@ private struct OnboardingSignInStep: View {
             .disabled(busy)
             .accessibilityLabel("Iniciar sesión con Apple")
 
+            Button {
+                Task { await signInGoogle() }
+            } label: {
+                HStack(spacing: 10) {
+                    if busy {
+                        ProgressView().tint(OG.label)
+                    } else {
+                        Image(systemName: "g.circle.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                    }
+                    Text("Continuar con Google")
+                        .font(.system(size: 17, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .foregroundStyle(OG.label)
+                .background(OG.surface, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(OG.surface3))
+            }
+            .buttonStyle(.plain)
+            .disabled(busy)
+            .accessibilityLabel("Iniciar sesión con Google")
+
             if let errorText {
                 Text(errorText)
                     .font(.footnote)
@@ -135,9 +158,26 @@ private struct OnboardingSignInStep: View {
             let businessOK = business.isConnected
                 || business.hasCachedSupabaseSession
                 || business.hasPriorSupabaseBinding
-            if appleAuth.isSignedIn && businessOK {
+            if (appleAuth.isSignedIn || business.isGoogleSignedIn) && businessOK {
                 onboarding.reconcile(isSignedIn: true)
             }
+        }
+    }
+
+    private func signInGoogle() async {
+        busy = true
+        defer { busy = false }
+        errorText = nil
+        let auth = BusinessAuthStore.shared
+        guard await auth.signInWithGoogle() else {
+            errorText = auth.lastErrorMessage ?? "No se pudo acceder con Google."
+            return
+        }
+        // Mismo flujo de permisos/planes que con Apple.
+        // No se borra ni se reemplaza ningún entrenamiento local.
+        onboarding.reconcile(isSignedIn: true)
+        if onboarding.step == .appleSignIn {
+            onboarding.advance(to: .permissions)
         }
     }
 

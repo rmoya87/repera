@@ -162,11 +162,14 @@ struct OGCardSectionTitle: View {
 
 struct OGCard<Content: View>: View {
     var padding: CGFloat = OG.pad
+    /// Mayor separación vertical en las gráficas, sin ampliar el margen lateral.
+    var verticalPadding: CGFloat? = nil
     @ViewBuilder var content: () -> Content
 
     var body: some View {
         content()
-            .padding(padding)
+            .padding(.horizontal, padding)
+            .padding(.vertical, verticalPadding ?? padding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous).stroke(OG.surface3.opacity(0.75), lineWidth: 0.7))
@@ -314,14 +317,20 @@ extension View {
             .listSectionSpacing(12)
     }
 
-    /// Top bar transparente: sin fondo sólido al hacer scroll.
+    /// Compatibilidad con vistas existentes: la barra de navegación visible
+    /// usa SIEMPRE el lienzo gris agrupado, también al compactarse en scroll.
+    /// No cambiar a blanco/surface ni esconder el background del sistema.
+    /// Inicio utiliza ogContentTitleNav (barra del sistema oculta) y mantiene
+    /// su propio topbar transparente sobre el componente blanco.
     func ogTransparentNav() -> some View {
         self
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarBackground(OG.bg, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
     }
 
-    /// Topbar fijo como Ejercicios: título large que colapsa; botones del toolbar no se van con el scroll.
-    /// Usar cuando hay volver / acciones en la barra (el título queda debajo de esos botones).
+    /// Topbar de páginas secundarias: título large que colapsa, barra gris
+    /// OG.bg durante scroll y botones nativos que permanecen visibles.
+    /// Usar cuando hay volver / acciones en la barra (título debajo).
     /// Fuerza la barra visible: Inicio/Progreso ocultan el toolbar del sistema (`ogContentTitleNav`);
     /// sin esto, al pushear Ajustes/Historial queda el hueco del large title sin el texto «Ajustes».
     func ogPinnedTransparentNav(_ title: String) -> some View {
@@ -356,12 +365,14 @@ extension View {
         ogFixedTopBar(title, subtitle: subtitle) { EmptyView() }
     }
 
-    /// Título en el contenido (`OGPageHeader`); sin barra del sistema.
+    /// Título propio en el contenido, sin barra nativa.
+    /// La excepción de Inicio conserva la transparencia sobre el fondo blanco
+    /// del calendario; no hereda el OG.bg de las barras que colapsan.
     func ogContentTitleNav() -> some View {
         self
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .ogTransparentNav()
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar(.hidden, for: .navigationBar)
     }
 

@@ -38,9 +38,10 @@ class CompletedWorkoutEditContractTests(unittest.TestCase):
         self.assertIn("if isEditingCompletedWorkout,", score)
         self.assertNotIn("completedDetails != nil", score)
         wod = editor.split("private func wodBlock(index: Int)", 1)[1].split("private func resolvedExercise(", 1)[0]
-        self.assertIn("} else if isEditingCompletedWorkout,", wod)
+        self.assertIn("if !move.isRest, isEditingCompletedWorkout,", wod)
         self.assertIn("format.resultCapture != .perMovementSets", wod)
-        self.assertIn("completedWODRxFields(blockIndex: index, movementIndex: mIndex", wod)
+        self.assertIn("completedWODScalingFields(movementID: move.id", wod)
+        self.assertNotIn('DisclosureGroup("Adaptación del movimiento (opcional)")', wod)
         self.assertNotIn("} else if completedDetails != nil,", wod)
 
     def test_scoring_follows_format_not_block_kind(self):
@@ -65,7 +66,8 @@ class CompletedWorkoutEditContractTests(unittest.TestCase):
 
     def test_per_movement_result_is_not_confused_with_prescription(self):
         editor = source("Apps/Repera/Sources/PlanView.swift")
-        self.assertIn("completedWODRxFields(blockIndex: index, movementIndex: mIndex", editor)
+        self.assertIn("private func completedPrescribedValue(", editor)
+        self.assertIn("reps == Int(prescribed) ? nil : reps", editor)
         self.assertIn('Text(logged ? "Series registradas" : "Sin series registradas · prescripción")', editor)
         self.assertIn("InlineWODMovementSets(", editor)
         self.assertIn("format.resultCapture != .perMovementSets", editor)

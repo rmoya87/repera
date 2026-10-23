@@ -29,7 +29,6 @@ class ProgressChartAccessContractTests(unittest.TestCase):
         previews = stats.split("private var freeHealthPreview", 1)[1].split("private func schedulePrepare", 1)[0]
         for name in (
             "ProgressSessionScoreChartCard(",
-            "ProgressHeartZonesCard(",
             "ProgressCardioChartCard(",
             "ProgressCaloriesChartCard(",
             "ProgressWeightChartCard(",
@@ -38,12 +37,17 @@ class ProgressChartAccessContractTests(unittest.TestCase):
         self.assertIn("isTeaserPreview: true", previews)
         self.assertIn("teaserSample(", previews)
         self.assertIn("teaserWeightPoints()", previews)
+        charts = read("ProgressTrendCards.swift")
+        cardio = charts.split("struct ProgressCardioChartCard:", 1)[1].split("struct ProgressCaloriesChartCard:", 1)[0]
+        self.assertIn("ProgressHeartZonesCard(", cardio)
+        self.assertNotIn("ProgressHeartZonesCard(", previews)
         self.assertIn("datos reales.", previews)
 
     def test_real_activity_uses_empty_charts_not_sample_points(self):
         stats = read("StatsView.swift")
         health = stats.split("private var healthSections", 1)[1].split("private var freeTilesGrid", 1)[0]
-        self.assertIn("ProgressCardioChartCard(prepared: snap.charts)", health)
+        self.assertIn("prepared: snap.charts,", health)
+        self.assertIn("workouts: snap.filteredWorkouts", health)
         self.assertIn("ProgressCaloriesChartCard(prepared: snap.charts)", health)
         self.assertIn("ProgressSessionScoreChartCard(", health)
         self.assertNotIn("teaserSample(", health)
@@ -57,7 +61,7 @@ class ProgressChartAccessContractTests(unittest.TestCase):
         self.assertIn("Sin ritmo cardíaco de Salud", charts)
         self.assertIn("Sin kcal de Salud", charts)
         self.assertIn("Sin pesajes en", charts)
-        self.assertIn("Sin zonas cardíacas registradas", charts)
+        self.assertIn("Sin zonas registradas en Apple Salud para el último entreno.", charts)
         stats = read("StatsView.swift")
         self.assertIn("Todavía no hay puntuaciones basadas en tu historial.", stats)
         exercise = read("ExerciseProgressView.swift")

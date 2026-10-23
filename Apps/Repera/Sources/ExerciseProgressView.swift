@@ -42,7 +42,7 @@ struct ExerciseProgressView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label2)
             }
-            OGCard {
+            OGCard(padding: 10, verticalPadding: 20) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Evolución de carga · datos ficticios")
                         .font(.footnote)
@@ -58,7 +58,9 @@ struct ExerciseProgressView: View {
                             .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
                         }
                     }
-                    .frame(height: 160)
+                    .chartXScale(domain: 0...8)
+                    .chartPlotStyle { $0.clipped() }
+                    .frame(height: 205)
                     .allowsHitTesting(false)
                 }
             }
@@ -125,7 +127,7 @@ struct ExerciseEvolutionPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Evolución")
-            OGCard {
+            OGCard(padding: 10, verticalPadding: 20) {
                 VStack(alignment: .leading, spacing: 14) {
                     summaryTiles
 
@@ -309,7 +311,7 @@ struct ExerciseEvolutionPanel: View {
                     message: points.isEmpty
                         ? "Entrena este ejercicio para ver la curva."
                         : "Haz al menos 2 sesiones para ver la tendencia.",
-                    height: 180,
+                    height: 220,
                     yRange: chartYDomain
                 )
             } else {
@@ -368,7 +370,7 @@ struct ExerciseEvolutionPanel: View {
                     }
                 }
                 .chartYScale(domain: chartYDomain)
-                .frame(height: 180)
+                .frame(height: 220)
 
 
             }

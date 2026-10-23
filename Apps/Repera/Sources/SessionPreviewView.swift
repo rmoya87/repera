@@ -61,8 +61,6 @@ struct SessionPreviewView: View {
                             onClose()
                         }
                     }
-                } footer: {
-                    Text("Toca para continuar · desliza para eliminar (no se guarda)")
                 }
             }
 

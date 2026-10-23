@@ -93,10 +93,51 @@ class PlayWODContractTests(unittest.TestCase):
         self.assertIn('numericField("Tiempo · m:ss"', source)
         self.assertIn("format == .amrap || format == .deathBy", source)
         self.assertIn("inlineWODScoreEditor(block, format: format, session: session)", play)
+        self.assertIn('Text("Resultado del bloque")', play)
+        self.assertIn("expandedScoreBlocks", play)
+        self.assertNotIn('Text("Resultado · \\(format.displayName)")', play)
+        self.assertNotIn(".background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))", play.split("private func inlineWODScoreEditor(", 1)[1].split("private func openBlockTimer(", 1)[0])
         self.assertIn("WODResultInlineEditor(", play)
         self.assertNotIn(".sheet(item: $pendingWODConfirm)", play)
         self.assertNotIn("WODResultConfirmSheet(", play)
         self.assertIn("setsBoard(entry)", play)
+
+    def test_full_width_technique_editor_and_cluster_seconds(self):
+        play = self.read("WorkoutView.swift")
+        log_form = play.split("private func logForm(", 1)[1].split("private func loggedList(", 1)[0]
+        self.assertIn(".padding(.vertical, 8)", log_form)
+        self.assertNotIn(".padding(OG.pad)", log_form)
+        self.assertNotIn(".background(OG.surface, in: RoundedRectangle", log_form)
+        self.assertNotIn("Stepper(", log_form)
+        self.assertIn('Text("DESCANSO")', log_form)
+        self.assertIn('Text("s")', log_form)
+        self.assertIn(".fixedSize(horizontal: true, vertical: false)", log_form)
+        self.assertIn('Label("Añadir cluster", systemImage: "plus")', log_form)
+        self.assertIn("(5...30).contains(seconds)", log_form)
+        self.assertIn("pendingClusters.append(RestPauseCluster(reps: reps, restSeconds: seconds))", log_form)
+
+    def test_no_divider_between_open_exercise_and_sets(self):
+        play = self.read("WorkoutView.swift")
+        section = play.split("private func content(_ session: WorkoutSession)", 1)[1]
+        section = section.split("private func workoutExerciseRow(", 1)[0]
+        self.assertIn("session.currentIndex == index ? .hidden : .visible", section)
+        self.assertIn("edges: .bottom", section)
+        self.assertIn("setsBoard(entry)", section)
+        editor = self.read("PlanView.swift")
+        self.assertIn(".listRowSeparator(.hidden, edges: .bottom)", editor)
+        self.assertIn(".listRowSeparator(.hidden, edges: .top)", editor)
+
+    def test_editor_back_is_neutral_and_confirmation_is_separate_green(self):
+        editor = self.read("PlanView.swift")
+        chrome = editor.split("private struct DayEditorChromeModifier", 1)[1]
+        chrome = chrome.split("enum DayEditorMode", 1)[0]
+        self.assertIn(".navigationBarBackButtonHidden(true)", chrome)
+        self.assertIn("ToolbarItem(placement: .topBarLeading)", chrome)
+        self.assertIn("ToolbarItem(placement: .topBarTrailing)", chrome)
+        self.assertIn('Image(systemName: "arrow.left")', chrome)
+        self.assertIn(".tint(OG.label)", chrome)
+        self.assertIn(".tint(OG.accent)", chrome)
+        self.assertIn(".buttonStyle(.borderedProminent)", chrome)
 
     def test_play_score_persists_without_advancing_to_next_block(self):
         source = self.read("ReperaStore.swift")

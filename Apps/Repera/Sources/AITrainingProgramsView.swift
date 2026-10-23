@@ -80,6 +80,7 @@ struct AITrainingProgramsView: View {
         }
         .navigationTitle("Programas IA")
         .navigationBarTitleDisplayMode(.large)
+        .ogTransparentNav()
         .toolbar {
             ToolbarItem(placement:.topBarTrailing) {
                 Button { Task { await reload() } } label: {

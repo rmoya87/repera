@@ -341,6 +341,7 @@ private struct LinkPassSheet: View {
             }
             .navigationTitle("Vincular")
             .navigationBarTitleDisplayMode(.inline)
+            .ogTransparentNav()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cerrar") { dismiss() }

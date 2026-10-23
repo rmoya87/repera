@@ -262,8 +262,10 @@ struct StatsView: View {
                 }
             }
         }
-        ProgressHeartZonesCard(workouts: snap.filteredWorkouts)
-        ProgressCardioChartCard(prepared: snap.charts)
+        ProgressCardioChartCard(
+            prepared: snap.charts,
+            workouts: snap.filteredWorkouts
+        )
         ProgressCaloriesChartCard(prepared: snap.charts)
 
         ProgressWeightChartCard(
@@ -343,7 +345,7 @@ struct StatsView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label2)
             }
-            OGCard {
+            OGCard(padding: 10, verticalPadding: 20) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Evolución de carga · datos ficticios")
                         .font(.footnote)
@@ -359,14 +361,16 @@ struct StatsView: View {
                             .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
                         }
                     }
+                    .chartXScale(domain: 0...8)
                     .chartYScale(domain: 35.0...65.0)
+                    .chartPlotStyle { $0.clipped() }
                     .chartXAxis {
                         AxisMarks(values: [1, 3, 5, 7]) { _ in
                             AxisGridLine()
                             AxisValueLabel()
                         }
                     }
-                    .frame(height: 150)
+                    .frame(height: 195)
                     .allowsHitTesting(false)
                 }
             }
@@ -385,12 +389,11 @@ struct StatsView: View {
                 weekStartsOnMonday: mondayFirst,
                 isTeaserPreview: true
             )
-            ProgressHeartZonesCard(workouts: [], isTeaserPreview: true)
             ProgressCardioChartCard(prepared: sample)
             ProgressCaloriesChartCard(prepared: sample)
             ProgressWeightChartCard(
                 entries: [],
-                goalKg: nil,
+                goalKg: 74.0, // Meta ficticia para mostrar los mismos tiles que Pro.
                 range: .week,
                 weekStartsOnMonday: mondayFirst,
                 preparedPoints: ProgressPreparedCharts.teaserWeightPoints(),
@@ -848,22 +851,22 @@ private struct ProgressSessionScoreChartCard: View {
                 OGCardSectionTitle(title: "Puntuación de entrenos")
                 Spacer(minLength: 8)
                 if isTeaserPreview {
-                    Text("Ejemplo")
-                        .font(.system(size: 12, weight: .semibold))
+                    Text("Ejemplo · \(Int((values.map(\.score).reduce(0, +) / Double(max(1, values.count))).rounded()))/10")
+                        .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(OG.label2)
-                        .accessibilityLabel("Ejemplo, datos ficticios")
+                        .accessibilityLabel("Ejemplo con puntuaciones ficticias")
                 } else if !values.isEmpty {
                     Text("\(Int((values.map(\.score).reduce(0, +) / Double(values.count)).rounded()))/10")
                         .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(OG.label)
                 }
             }
-            OGCard {
+            OGCard(padding: 10, verticalPadding: 20) {
                 VStack(alignment: .leading, spacing: 10) {
                     if values.isEmpty {
                         ProgressEmptyChart(
                             message: "Todavía no hay puntuaciones basadas en tu historial.",
-                            height: 164,
+                            height: 205,
                             yRange: 0.0...10.0
                         )
                     } else {
@@ -873,7 +876,7 @@ private struct ProgressSessionScoreChartCard: View {
                                     x: .value("Día", point.date),
                                     y: .value("Puntuación", point.score)
                                 )
-                                .interpolationMethod(.linear)
+                                .interpolationMethod(.catmullRom)
                                 .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
                                 .foregroundStyle(OG.accent)
                             }
@@ -897,9 +900,11 @@ private struct ProgressSessionScoreChartCard: View {
                         .chartXScale(domain: ProgressChartAxis.xDomain(
                             points: values.map(\.date),
                             range: range,
-                            weekStartsOnMonday: weekStartsOnMonday
+                            weekStartsOnMonday: weekStartsOnMonday,
+                            isTeaserPreview: isTeaserPreview
                         ))
                         .chartYScale(domain: 0.0...10.0)
+                        .chartPlotStyle { $0.clipped() }
                         .chartYAxis {
                             AxisMarks(position: .leading, values: [0.0, 5.0, 10.0])
                         }
@@ -909,7 +914,7 @@ private struct ProgressSessionScoreChartCard: View {
                                 AxisValueLabel(format: .dateTime.day().month(.abbreviated))
                             }
                         }
-                        .frame(height: 164)
+                        .frame(height: 205)
                         .allowsHitTesting(!isTeaserPreview)
                         if !isTeaserPreview {
                             Text("Media diaria de notas basadas en tu historial comparable.")
