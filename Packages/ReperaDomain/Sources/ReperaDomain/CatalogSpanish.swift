@@ -68,6 +68,14 @@ public enum CatalogSpanish {
 
 
     private static let spanishByName: [String: String] = [
+        "Tirón alto de arrancada": "Variante del snatch pull con agarre amplio que añade un tirón alto de codos después de la extensión completa de piernas y cadera. No incluye recepción de la barra.",
+        "Tirón alto de cargada": "Derivado de la cargada con tirón alto de codos tras la extensión de cadera y rodillas. Desarrolla la trayectoria y velocidad del tirón sin realizar la recepción en rack.",
+        "Peso muerto de cargada": "Peso muerto específico con salida, agarre y posiciones del primer tirón de cargada. La finalidad es reforzar la salida y el control postural, no realizar una cargada.",
+        "Envión en sentadilla": "Variante del jerk con impulso vertical y recepción de la barra en sentadilla overhead profunda. Exige buena movilidad y estabilidad; no es la misma recepción que push jerk.",
+        "Dip y drive de envión": "Drill de envión sin recepción final overhead: practicas una flexión vertical corta y una extensión explosiva manteniendo equilibrio y trayectoria de la barra.",
+        "Arrancada de potencia desde bloques": "Arrancada que comienza con la barra sobre bloques y se recibe arriba de la paralela. Se diferencia de la arrancada desde bloques con recepción profunda.",
+        "Cargada de potencia desde bloques": "Cargada desde bloques sólidos que termina en rack frontal por encima del paralelo. Se diferencia de la cargada desde bloques con recepción profunda.",
+        "Push press con agarre de arrancada": "Press con impulso de piernas, agarre ancho de arrancada y barra situada en la espalda alta. La estabilidad overhead y la movilidad de hombro condicionan la carga.",
         "Burpee Broad Jump": "Burpee seguido de un salto horizontal con los dos pies. En HYROX se avanza una distancia total, no un número de repeticiones; controla la longitud del salto y la recepción.",
         "Sandbag Lunges": "Zancadas caminando con un saco apoyado sobre los hombros. En HYROX se recorre una distancia acumulada, manteniendo alternancia de piernas, rodilla trasera al suelo y tronco estable.",
         "Dominadas lastradas": "Dominada estricta con lastre externo y control escapular: aumenta la dificultad del tirón vertical. Prioriza rango completo, agarre seguro y una carga que no comprometa hombros ni codos.",
@@ -272,6 +280,70 @@ public enum CatalogSpanish {
         // Si un ejercicio tiene arte `base_1…N`, los N primeros textos son captions de fase del carrusel;
     // a continuación van los pasos de coaching («Cómo hacerlo»).
     private static let spanishInstructions: [String: [String]] = [
+        "Tirón alto de arrancada": [
+            "Sitúa la barra sobre el mediopié con agarre amplio de arrancada, hombros ligeramente por delante y el tronco firme antes de iniciar el movimiento.",
+            "Realiza la primera tirada manteniendo la barra próxima a las piernas y sostén una trayectoria equilibrada durante la extensión progresiva de rodillas y cadera.",
+            "Extiende completamente piernas y cadera antes de permitir la subida de los codos; no conviertas el inicio en un remo de brazos desde el suelo.",
+            "Lleva los codos altos y hacia los lados con la barra cerca del cuerpo, sin intentar introducirte debajo ni estabilizarla overhead.",
+            "Desciende de forma controlada, recupera la posición de salida y utiliza una carga que te permita repetir el patrón sin acelerar a costa de perder técnica.",
+            "Error típico: flexionar los brazos demasiado pronto o alejar la barra del cuerpo. Progresión: domina primero el tirón de arrancada sin tirón alto.",
+        ],
+        "Tirón alto de cargada": [
+            "Adopta la salida de cargada con agarre algo más ancho que los hombros, barra sobre mediopié, espalda activa y presión uniforme de ambos pies.",
+            "Eleva la barra manteniéndola junto al cuerpo, con hombros y cadera coordinados durante la primera tirada hasta superar las rodillas.",
+            "Extiende con fuerza rodillas y cadera y termina la extensión antes de añadir un tirón de codos altos; evita encoger el tronco hacia atrás.",
+            "Eleva los codos manteniendo la barra cerca de la línea del cuerpo, sin girar las muñecas para recibirla en rack frontal.",
+            "Baja la barra de manera controlada y repite con una carga que permita conservar la altura y la velocidad prescritas en todas las repeticiones.",
+            "Error típico: intentar subir la barra a fuerza de bíceps desde el suelo. Progresión: tirón de cargada clásico antes de añadir el tirón alto.",
+        ],
+        "Peso muerto de cargada": [
+            "Coloca los pies bajo las caderas y la barra sobre el mediopié; utiliza agarre de cargada y prepara un tronco firme con la espalda neutra.",
+            "Antes de despegar, crea tensión sobre la barra y empuja el suelo con toda la planta para iniciar la subida sin que la cadera se dispare hacia arriba.",
+            "Supera las rodillas manteniendo hombros por delante de la barra y el recorrido cerca de las piernas, tal como harías en el primer tirón de cargada.",
+            "Finaliza de pie por extensión de cadera y rodillas sin encogimiento excesivo, salto ni giro de codos; no existe recepción en rack.",
+            "Desciende sin perder postura y restablece la posición de salida; trabaja con cargas acordes al objetivo técnico y nunca persigas un máximo sin control.",
+            "Error típico: convertirlo en un peso muerto convencional cambiando la posición inicial y el ángulo del tronco. Progresión: variantes desde bloques.",
+        ],
+        "Envión en sentadilla": [
+            "Parte con la barra estable en rack frontal y el abdomen activo; confirma que tienes la movilidad necesaria para una sentadilla profunda con brazos overhead.",
+            "Realiza una flexión corta y vertical de rodillas con talones apoyados, manteniendo el torso erguido antes de impulsar la barra con las piernas.",
+            "Empuja la barra hacia arriba y desciende activamente debajo de ella, llevando los codos al bloqueo y los hombros a una posición estable.",
+            "Recibe en una sentadilla overhead profunda con el peso equilibrado entre ambos pies, controlando la barra sobre el centro de apoyo.",
+            "Extiende las piernas hasta quedar erguido con los brazos bloqueados, estabiliza la barra y bájala únicamente cuando la recepción esté controlada.",
+            "Error típico: empujar la barra hacia delante o perder estabilidad al descender. Si falta movilidad, practica primero jerk convencional y overhead squat.",
+        ],
+        "Dip y drive de envión": [
+            "Coloca la barra en rack frontal con codos cómodos, pies bajo las caderas y tronco vertical; mira al frente antes de comenzar la secuencia.",
+            "Flexiona rodillas unos pocos centímetros sin mover el pecho hacia delante ni levantar los talones: es un dip vertical y equilibrado.",
+            "Desde el fondo del dip, empuja el suelo y extiende con intención explosiva tobillos, rodillas y cadera manteniendo la barra próxima a su línea vertical.",
+            "Permite que la barra se eleve por el impulso, pero no la recibas overhead: este ejercicio aísla el inicio del envión y su trayectoria.",
+            "Amortigua la barra en rack con control, restablece tu posición y practica varias repeticiones limpias antes de aumentar la carga.",
+            "Error típico: inclinar el tronco o adelantar las rodillas perdiendo equilibrio. Progresión: dip estático, dip y drive, y después jerk.",
+        ],
+        "Arrancada de potencia desde bloques": [
+            "Sitúa la barra en bloques estables a la altura prescrita; coloca agarre amplio de arrancada y verifica que el espacio de recepción está despejado.",
+            "Adopta la postura de inicio con hombros activos y barra cerca del cuerpo sin golpear los bloques durante el primer impulso.",
+            "Empuja fuerte contra el suelo y extiende cadera y piernas manteniendo el recorrido cercano, evitando tirar prematuramente de brazos.",
+            "Recibe la barra overhead con brazos bloqueados por encima del paralelo, amortiguando con rodillas flexionadas y hombros activos.",
+            "Termina erguido, estabiliza overhead y devuelve la barra de forma segura a bloques; adapta la altura de salida al propósito de la sesión.",
+            "Error típico: recibir en sentadilla profunda, lo que lo convertiría en otra variante. Progresión: domina primero la arrancada de potencia básica.",
+        ],
+        "Cargada de potencia desde bloques": [
+            "Coloca la barra sobre bloques sólidos a la altura indicada y adopta agarre de cargada con el tronco firme y los pies preparados para recibir.",
+            "Extiende rodillas y cadera sin separar la barra del cuerpo, manteniendo presión sobre el suelo antes del tramo explosivo.",
+            "Tras completar la extensión, gira los codos con rapidez y guía la barra al rack frontal en vez de levantarla solo con los brazos.",
+            "Recibe la cargada en una flexión de rodillas por encima del paralelo y estabiliza la barra cerca de la clavícula con el pecho erguido.",
+            "Recupera la posición erguida, baja o devuelve la barra a los bloques con control y repite respetando la altura de salida programada.",
+            "Error típico: recibir por debajo del paralelo o alejar la barra. Progresión: consolidar la cargada de potencia desde el suelo antes de usar bloques.",
+        ],
+        "Push press con agarre de arrancada": [
+            "Sitúa la barra en la espalda alta con agarre ancho de arrancada, muñecas cómodas y hombros capaces de alcanzar bloqueo overhead sin compensar la espalda.",
+            "Flexiona rodillas ligeramente con torso vertical y talones apoyados, sin convertir el dip en una sentadilla profunda.",
+            "Extiende piernas y cadera con fuerza y transmite el impulso a la barra, manteniendo el recorrido controlado desde la nuca.",
+            "Termina extendiendo los codos y estabiliza la barra sobre el centro del cuerpo, con abdomen firme y hombros activos.",
+            "Baja la barra de manera controlada a la parte alta de la espalda y repite sin forzar un rango que genere dolor o pérdida de estabilidad.",
+            "Error típico: arquear demasiado la zona lumbar o soltar el control al bajar. Progresión: usa una pica y confirma movilidad antes de añadir carga.",
+        ],
         "Burpee Broad Jump": [
             "Sitúate tras la línea marcada y comprueba que tienes espacio libre para avanzar. Mantén los pies firmes antes de iniciar el primer burpee.",
             "Apoya las manos en el suelo, lleva las piernas atrás y desciende el pecho hasta tocar el suelo con control, sin dejar caer la zona lumbar.",
