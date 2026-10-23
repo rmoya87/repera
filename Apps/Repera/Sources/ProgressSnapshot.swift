@@ -41,6 +41,9 @@ struct ProgressSnapshot: Equatable, Sendable {
     var heatmapVolume: HeatmapGrid
     var weightPoints: [ProgressWeightPoint]
     var chartExercises: [Exercise]
+    /// Movilidad realmente registrada, no la duración prescrita de una plantilla.
+    var mobilitySessions: Int
+    var mobilitySeconds: Int
     var topExerciseMaxWeights: [UUID: Double]
     var filteredWorkouts: [WorkoutSession]
     var filteredExternal: [ExternalDaySample]
@@ -80,6 +83,8 @@ struct ProgressSnapshot: Equatable, Sendable {
             heatmapVolume: .empty,
             weightPoints: [],
             chartExercises: [],
+            mobilitySessions: 0,
+            mobilitySeconds: 0,
             topExerciseMaxWeights: [:],
             filteredWorkouts: [],
             filteredExternal: [],
@@ -268,7 +273,7 @@ enum ProgressDataEngine {
         )
         let hasHardSets = filteredWorkouts.contains { session in
             session.exercises.contains { entry in
-                entry.loggedSets.contains { !$0.isWarmup && $0.reps > 0 && Effort.isHard(rir: $0.rir) }
+                !entry.exercise.isMobility && entry.loggedSets.contains { !$0.isWarmup && $0.reps > 0 && Effort.isHard(rir: $0.rir) }
             }
         }
         if Task.isCancelled { return nil }
@@ -307,6 +312,21 @@ enum ProgressDataEngine {
                 let right = lastExerciseDate[$1.id] ?? .distantPast
                 return left == right ? $0.name < $1.name : left > right
             }
+        var mobilitySessions = 0
+        var mobilitySeconds = 0
+        for workout in filteredWorkouts where workout.finishedAt != nil || workout.phase == .finished {
+            let duration = workout.exercises
+                .filter { $0.exercise.isMobility }
+                .flatMap(\.loggedSets)
+                .filter { !$0.isWarmup && $0.reps > 0 }
+                .compactMap(\.durationSeconds)
+                .filter { $0 > 0 }
+                .reduce(0, +)
+            if duration > 0 {
+                mobilitySessions += 1
+                mobilitySeconds += duration
+            }
+        }
         var tops: [UUID: Double] = [:]
         for workout in filteredWorkouts {
             for entry in workout.exercises {
@@ -338,6 +358,8 @@ enum ProgressDataEngine {
             heatmapVolume: heatmapVolume,
             weightPoints: weightPoints,
             chartExercises: chartExercises,
+            mobilitySessions: mobilitySessions,
+            mobilitySeconds: mobilitySeconds,
             topExerciseMaxWeights: tops,
             filteredWorkouts: filteredWorkouts,
             filteredExternal: filteredExternal,
