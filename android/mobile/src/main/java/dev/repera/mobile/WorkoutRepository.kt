@@ -671,7 +671,8 @@ class WorkoutRepository(context: Context, googleId: String) {
     }
 
     private fun inputMode(exercise: JSONObject): ExerciseInputMode =
-        ExerciseInput.mode(
+        if (exercise.optString("sportTag") == "Movilidad") ExerciseInputMode.REPS_ONLY
+        else ExerciseInput.mode(
             exercise.getString("name"),
             exercise.optString("equipment").takeIf { it.isNotBlank() },
             exercise.optString("targetMuscle").takeIf { it.isNotBlank() },
