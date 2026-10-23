@@ -155,8 +155,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onWodTimerAction = ::changeWodTimer,
                 onWodTimerTick = ::refreshWodTimer,
                 onStartRoutine = { id -> runWorkoutAction { startRoutine(id) } },
-                onCreateRoutine = { title, format, entries, minutes, rounds, schedule ->
-                    runWorkoutAction { createRoutine(title, format, entries, minutes, rounds, schedule) }
+                onCreateRoutine = { title, format, entries, minutes, rounds, schedule, interval, work, rest ->
+                    runWorkoutAction { createRoutine(title, format, entries, minutes, rounds,
+                        schedule, interval, work, rest) }
                 },
                 onWodScore = { rounds, reps, seconds ->
                     runWorkoutAction { recordWodScore(rounds, reps, seconds) }
@@ -521,6 +522,7 @@ data class StateOverview(
     val exerciseProgress: Map<String, ExerciseProgressSummary> = emptyMap(),
     val weeklyDayTotals: List<Int> = emptyList(),
     val weeklyMuscleGroups: List<MuscleWorkloadMetrics.GroupCount> = emptyList(),
+    val exerciseSessions: Map<String, List<ExerciseSessionHistory.Visit>> = emptyMap(),
     val mobilitySessions: Int = 0,
     val mobilitySeconds: Int = 0
 ) {
@@ -719,7 +721,8 @@ data class StateOverview(
                 mobilitySeconds = mobilitySeconds,
                 weeklyDayTotals = weeklyDayTotals.toList(),
                 weeklyMuscleGroups = MuscleWorkloadMetrics.weekly(
-                    json.getJSONArray("workouts"), today, ZoneId.systemDefault())
+                    json.getJSONArray("workouts"), today, ZoneId.systemDefault()),
+                exerciseSessions = ExerciseSessionHistory.fromArchive(json.getJSONArray("workouts"))
             )
         }
     }
