@@ -68,6 +68,8 @@ public enum CatalogSpanish {
 
 
     private static let spanishByName: [String: String] = [
+        "Burpee Broad Jump": "Burpee seguido de un salto horizontal con los dos pies. En HYROX se avanza una distancia total, no un número de repeticiones; controla la longitud del salto y la recepción.",
+        "Sandbag Lunges": "Zancadas caminando con un saco apoyado sobre los hombros. En HYROX se recorre una distancia acumulada, manteniendo alternancia de piernas, rodilla trasera al suelo y tronco estable.",
         "Dominadas lastradas": "Dominada estricta con lastre externo y control escapular: aumenta la dificultad del tirón vertical. Prioriza rango completo, agarre seguro y una carga que no comprometa hombros ni codos.",
         "Remo pliométrico en anillas pies elevados": "Remo horizontal explosivo con pies elevados y anillas: tracción rápida del pecho hacia las manos, recepción controlada y cuerpo en bloque. Requiere dominar primero el remo estricto en anillas.",
         "Fondos en anillas kipping": "Fondo en anillas con ayuda de impulso controlado de cadera. Es una variante avanzada que exige estabilidad de hombro, recepción segura y dominio previo de fondos estrictos.",
@@ -270,6 +272,22 @@ public enum CatalogSpanish {
         // Si un ejercicio tiene arte `base_1…N`, los N primeros textos son captions de fase del carrusel;
     // a continuación van los pasos de coaching («Cómo hacerlo»).
     private static let spanishInstructions: [String: [String]] = [
+        "Burpee Broad Jump": [
+            "Sitúate tras la línea marcada y comprueba que tienes espacio libre para avanzar. Mantén los pies firmes antes de iniciar el primer burpee.",
+            "Apoya las manos en el suelo, lleva las piernas atrás y desciende el pecho hasta tocar el suelo con control, sin dejar caer la zona lumbar.",
+            "Recoge los pies cerca de las manos y prepárate para impulsarte hacia delante. Evita dar pasos adicionales que alteren el estándar del movimiento.",
+            "Salta horizontalmente con ambos pies al mismo tiempo, aterrizando sobre ambos pies con rodillas flexionadas para amortiguar el impacto.",
+            "Repite la secuencia de burpee y salto hasta cubrir los metros prescritos. Comprueba que terminas la distancia señalada sin acortar el movimiento.",
+            "Error típico: saltar desde una posición inestable o redondear la espalda al levantarse. Si no dominas el impacto, progresa con burpees y saltos cortos.",
+        ],
+        "Sandbag Lunges": [
+            "Elige un saco apropiado y colócalo sobre los hombros con ambas manos sujetándolo de forma segura, evitando que se deslice durante el avance.",
+            "Colócate erguido, activa el abdomen e inicia una zancada hacia delante que te permita mantener el equilibrio y el talón delantero apoyado.",
+            "Desciende hasta que la rodilla trasera entre en contacto con el suelo de forma controlada. Mantén la rodilla delantera alineada con el pie.",
+            "Extiende la cadera y la rodilla para avanzar, alternando la pierna de cada zancada y manteniendo el saco estable sobre los hombros.",
+            "Continúa hasta completar la distancia prescrita, sin intercambiar pasos incompletos por zancadas válidas. Exhala cuando vuelvas a levantarte.",
+            "Error típico: inclinarse en exceso o golpear el suelo con la rodilla. Si no puedes mantener la técnica, reduce la carga y practica sin saco.",
+        ],
         "Dominadas lastradas": [
             "Asegura el cinturón o chaleco de lastre y comprueba que la carga no balancea; cuélgate de la barra con agarre firme y hombros activos.",
             "Inicia la tracción deprimiendo las escápulas y lleva el pecho hacia la barra sin usar impulso excesivo de piernas o cadera.",
