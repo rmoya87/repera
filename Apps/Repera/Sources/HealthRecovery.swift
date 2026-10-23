@@ -663,9 +663,24 @@ struct HealthRecoveryProgressView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             trainingRecoveryCard
-            if appliedRecoveryKey == trainingRecoveryRefreshKey,
-               recoveryPoints.count >= 2 {
-                trainingRecoveryTrendCard
+            if isPro {
+                if appliedRecoveryKey == trainingRecoveryRefreshKey {
+                    if recoveryPoints.count >= 2 {
+                        trainingRecoveryTrendCard
+                    } else {
+                        VStack(alignment: .leading, spacing: 8) {
+                            OGCardSectionTitle(title: "Evolución de recuperación")
+                            OGCard {
+                                ProgressEmptyChart(
+                                    message: "Aún no hay suficientes registros para ver la recuperación.",
+                                    height: 185
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                recoveryTrendPreview
             }
 
             if hasSleepData {
@@ -674,8 +689,10 @@ struct HealthRecoveryProgressView: View {
                 softSleepEmpty
             }
 
-            if !physiology.days.isEmpty {
+            if isPro {
                 physiologyContent
+            } else {
+                physiologyPreview
             }
 
             if hasCycleData {
@@ -702,16 +719,113 @@ struct HealthRecoveryProgressView: View {
         }
     }
 
+    /// Muestras Pro independientes de Apple Salud, siempre rotuladas como ficticias.
+    private var recoveryTrendPreview: some View {
+        let scores: [Double] = [5, 6, 7, 6, 8, 7, 9]
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                OGCardSectionTitle(title: "Evolución de recuperación")
+                Spacer()
+                Text("Ejemplo")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(OG.label2)
+            }
+            OGCard {
+                Chart {
+                    ForEach(0..<scores.count, id: \.self) { index in
+                        LineMark(
+                            x: .value("Día", index + 1),
+                            y: .value("Recuperación", scores[index])
+                        )
+                        .foregroundStyle(OG.accent)
+                        .interpolationMethod(.catmullRom)
+                        .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round))
+                    }
+                }
+                .chartYScale(domain: 0.0...10.0)
+                .chartYAxis {
+                    AxisMarks(position: .leading, values: [0.0, 5.0, 10.0])
+                }
+                .frame(height: 185)
+                .allowsHitTesting(false)
+            }
+        }
+        .accessibilityLabel("Ejemplo de evolución de recuperación, datos ficticios.")
+    }
+
+    private var physiologyPreview: some View {
+        let hrv: [Double] = [46, 51, 48, 55, 53, 62, 58]
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                OGCardSectionTitle(title: "Constantes fisiológicas")
+                Spacer()
+                Text("Ejemplo")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(OG.label2)
+            }
+            OGCard {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Variabilidad cardíaca (VFC) · datos ficticios")
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label2)
+                    Chart {
+                        ForEach(0..<hrv.count, id: \.self) { index in
+                            LineMark(
+                                x: .value("Día", index + 1),
+                                y: .value("VFC", hrv[index])
+                            )
+                            .interpolationMethod(.catmullRom)
+                            .foregroundStyle(OG.accent)
+                        }
+                    }
+                    .frame(height: 105)
+                    Divider().opacity(0.25)
+                    HStack(alignment: .top, spacing: 10) {
+                        physiologyPreviewBars("Pulso en reposo", values: [66, 63, 65, 61, 60, 62, 58])
+                        physiologyPreviewBars("Respiración", values: [16, 15, 15, 14, 16, 14, 13])
+                    }
+                }
+                .allowsHitTesting(false)
+            }
+        }
+        .accessibilityLabel("Ejemplo de constantes fisiológicas, datos ficticios.")
+    }
+
+    private func physiologyPreviewBars(_ title: String, values: [Double]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(OG.label2)
+            Chart {
+                ForEach(0..<values.count, id: \.self) { index in
+                    BarMark(
+                        x: .value("Día", index + 1),
+                        y: .value(title, values[index])
+                    )
+                    .foregroundStyle(OG.accent.opacity(0.8))
+                    .cornerRadius(3)
+                }
+            }
+            .chartXAxis(.hidden)
+            .chartYAxis(.hidden)
+            .frame(height: 82)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12))
+    }
+
     private var softSleepEmpty: some View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Sueño")
             OGCard {
-                Text(recovery.sleepEnabled
-                     ? "Sin registros de sueño en Apple Salud todavía."
-                     : "Activa el análisis de descanso en Ajustes → Salud conectada.")
-                    .font(.subheadline)
-                    .foregroundStyle(OG.label2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                ProgressEmptyChart(
+                    message: recovery.sleepEnabled
+                        ? "Sin registros de sueño en Apple Salud todavía."
+                        : "Activa el análisis de descanso en Ajustes → Salud conectada.",
+                    height: 150,
+                    yRange: 0.0...10.0
+                )
             }
         }
     }
@@ -785,8 +899,13 @@ struct HealthRecoveryProgressView: View {
                 .frame(height: 105)
                 .accessibilityLabel("Tendencia: \(title)")
             } else {
-                Text(values.isEmpty ? "Sin mediciones en este periodo." : "Una medición; aún no hay tendencia.")
-                    .font(.caption).foregroundStyle(OG.label3)
+                ProgressEmptyChart(
+                    message: values.isEmpty
+                        ? "Sin mediciones en este periodo."
+                        : "Una medición; aún no hay tendencia.",
+                    height: 105,
+                    yRange: 0.0...100.0
+                )
             }
         }
     }
@@ -838,8 +957,11 @@ struct HealthRecoveryProgressView: View {
                 .chartYAxis(.hidden)
                 .frame(height: 82)
             } else {
-                Text("Sin datos").font(.caption).foregroundStyle(OG.label3)
-                    .frame(height: 82, alignment: .center)
+                ProgressEmptyChart(
+                    message: "Sin datos",
+                    height: 82,
+                    yRange: 0.0...100.0
+                )
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1022,29 +1144,10 @@ struct HealthRecoveryProgressView: View {
                         }
                     }
                 } else {
-                    ZStack {
-                        Chart {
-                            RuleMark(y: .value("Base", 0.0))
-                                .foregroundStyle(Color.clear)
-                        }
-                        .chartYScale(domain: 0.0...10.0)
-                        .chartXAxis(.hidden)
-                        .chartYAxis {
-                            AxisMarks(position: .leading, values: [0.0, 5.0, 10.0]) { _ in
-                                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.6, dash: [3, 4]))
-                                    .foregroundStyle(OG.surface3)
-                                AxisValueLabel()
-                            }
-                        }
-                        .frame(height: 150)
-
-                        Text("Necesitamos datos de sueño y entrenamientos recientes")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(OG.label2)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 28)
-                    }
-                    .accessibilityElement(children: .combine)
+                    ProgressEmptyChart(
+                        message: "Necesitamos datos de sueño y entrenamientos recientes",
+                        height: 150
+                    )
                 }
             }
         }
