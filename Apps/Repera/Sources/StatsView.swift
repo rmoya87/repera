@@ -756,6 +756,7 @@ private struct ProgressAllRecordsView: View {
 /// Evolución de notas verificadas de entrenos. Nunca reintroduce puntuaciones
 /// heurísticas antiguas: solo `personalHistory` persistido en cada sesión.
 private struct ProgressSessionScoreChartCard: View {
+    @State private var selectedDate: Date?
     var workouts: [WorkoutSession]
     var range: ProgressTimeRange
     var weekStartsOnMonday: Bool
@@ -798,21 +799,33 @@ private struct ProgressSessionScoreChartCard: View {
                 }
                 OGCard {
                     VStack(alignment: .leading, spacing: 10) {
-                        Chart(values) { point in
-                            LineMark(
-                                x: .value("Día", point.date),
-                                y: .value("Puntuación", point.score)
-                            )
-                            .interpolationMethod(.linear)
-                            .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                            .foregroundStyle(OG.accent)
-                            PointMark(
-                                x: .value("Día", point.date),
-                                y: .value("Puntuación", point.score)
-                            )
-                            .symbolSize(42)
-                            .foregroundStyle(OG.accent)
+                        Chart {
+                            ForEach(values) { point in
+                                LineMark(
+                                    x: .value("Día", point.date),
+                                    y: .value("Puntuación", point.score)
+                                )
+                                .interpolationMethod(.linear)
+                                .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                                .foregroundStyle(OG.accent)
+                            }
+                            if let selectedDate,
+                               let selected = values.min(by: {
+                                   abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate))
+                               }) {
+                                RuleMark(x: .value("Día seleccionado", selected.date))
+                                    .foregroundStyle(OG.label2)
+                                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                                    .annotation(position: .top) {
+                                        Text("\(Int(selected.score.rounded()))/10")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(OG.label)
+                                            .padding(5)
+                                            .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
+                                    }
+                            }
                         }
+                        .chartXSelection(value: $selectedDate)
                         .chartXScale(domain: ProgressChartAxis.xDomain(
                             points: values.map(\.date),
                             range: range,
