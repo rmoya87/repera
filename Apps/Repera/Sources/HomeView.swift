@@ -554,6 +554,9 @@ struct HomeView: View {
             }
             .frame(height: weekCarouselHeight)
             .frame(maxWidth: calendarVisibleWidth)
+            // Recorta los días vecinos al viewport de siete columnas: en
+            // paisaje no deben asomar dos cuadrados blancos en los extremos.
+            .clipped()
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.horizontal, OG.pad)
         }

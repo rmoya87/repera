@@ -80,6 +80,8 @@ class LandscapeGroupedLayoutTests(unittest.TestCase):
         self.assertIn("weekCarouselHeight - 8", calendar)
         self.assertIn("(geo.size.width - spacing * 6) / 7", calendar)
         self.assertIn(".frame(maxWidth: calendarVisibleWidth)", calendar)
+        self.assertIn(".clipped()", calendar)
+        self.assertLess(calendar.index(".frame(maxWidth: calendarVisibleWidth)"), calendar.index(".clipped()"))
         self.assertIn(".frame(maxWidth: .infinity, alignment: .center)", calendar)
         self.assertIn(".padding(.horizontal, OG.pad)", calendar)
         self.assertIn("7 * max(1, weekCarouselHeight - 8) + 6 * 4", home)
