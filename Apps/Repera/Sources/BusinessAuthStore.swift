@@ -5,6 +5,7 @@ import Observation
 import ReperaDomain
 import Security
 import Supabase
+import UIKit
 
 /// Secondary, business-only Supabase identity; the existing Apple/iCloud personal workout
 /// identity and private local training history are never replaced by this service.
@@ -483,6 +484,8 @@ final class BusinessAuthStore {
             // exactamente el mismo UUID antes de afirmar que se vinculó.
             let confirmed = try await client.auth.session(from: callback)
             guard confirmed.user.id == currentID else {
+                try? await client.auth.signOut()
+                isConnected = false
                 lastErrorMessage = "Google no pertenece al usuario autenticado. No se han unido los perfiles."
                 return false
             }

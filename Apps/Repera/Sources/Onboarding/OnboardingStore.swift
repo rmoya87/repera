@@ -59,8 +59,8 @@ final class OnboardingStore {
     }
 
     func resetToSignIn() {
-        priceAlreadySeen = false
-        defaults.set(false, forKey: priceAlreadySeenKey)
+        // Cerrar sesión no es crear una cuenta nueva: recordar que el usuario
+        // ya pasó permisos y precios evita repetir el onboarding al usar Google.
         advance(to: .appleSignIn)
     }
 
