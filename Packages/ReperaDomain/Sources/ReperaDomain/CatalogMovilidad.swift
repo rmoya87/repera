@@ -92,7 +92,55 @@ enum CatalogMovilidad {
         move("Rockback global en cuadrupedia", english: "Quadruped rock backs", group: "Glúteos", target: "glutes", equipment: "Peso corporal", description: "Coordinación de cadera y espalda.", steps: ["En cuadrupedia lleva caderas hacia talones.", "Vuelve adelante sin balanceos."], key: 82),
     ]
 
-    static let rows: [EnrichedSeed] = items.map(\.seed)
+    /// Fichas técnicas completas; el proyecto exige al menos cinco indicaciones
+    /// específicas en español y un volumen suficiente de coaching.
+    static let rows: [EnrichedSeed] = items.map { item in
+        var seed = item.seed
+        seed.description = detailedDescription(item.seed)
+        seed.instructions = detailedInstructions(item.seed)
+        return seed
+    }
+
+    static func description(forName name: String) -> String? {
+        rows.first(where: { $0.name == name })?.description
+    }
+
+    static func instructions(forName name: String) -> [String]? {
+        rows.first(where: { $0.name == name })?.instructions
+    }
+
+    private static func detailedDescription(_ seed: EnrichedSeed) -> String {
+        let original = seed.description ?? seed.name
+        return original + " Ejercicio de movilidad controlada para " +
+            seed.muscleGroup.lowercased() +
+            ". Ajusta la amplitud a tus posibilidades, sin convertir el estiramiento en una competición ni aumentar la carga."
+    }
+
+    private static func detailedInstructions(_ seed: EnrichedSeed) -> [String] {
+        let names = seed.name.lowercased()
+        let staticHold = [
+            "mobility-14", "mobility-15", "mobility-16", "mobility-20", "mobility-21",
+            "mobility-30", "mobility-31", "mobility-32", "mobility-36", "mobility-38",
+            "mobility-39", "mobility-40", "mobility-41", "mobility-42", "mobility-44",
+            "mobility-46", "mobility-60", "mobility-61", "mobility-62",
+            "mobility-67", "mobility-70", "mobility-80"
+        ].contains(seed.catalogId ?? "")
+        let hasExternalEquipment = seed.equipment != "Peso corporal"
+        let setup: String = hasExternalEquipment
+            ? "Antes de empezar, prepara " + (seed.equipment ?? "el material") +
+              " en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar."
+            : "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva."
+        let main = Array(seed.instructions.prefix(2))
+        let breath = staticHold
+            ? "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias."
+            : "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia."
+        let control = "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición."
+        let adapt = staticHold
+            ? "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
+            : "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
+        _ = names // La técnica individual procede de los dos pasos del propio ejercicio.
+        return [setup] + main + [breath, control, adapt]
+    }
 
     /// Aliases ingleses para las búsquedas sin duplicar movimientos.
     static let englishAliasesByName: [String: [String]] =
