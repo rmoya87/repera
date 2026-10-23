@@ -127,6 +127,7 @@ fun ReperaMobileScreen(
         var exerciseSearch by rememberSaveable { mutableStateOf("") }
         var exerciseFilter by rememberSaveable { mutableStateOf("Todos") }
         var diaryDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+        var homeDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
         // LazyListScope is not @Composable: calculate the filtered list here,
         // where remember is legal, then hand the immutable result to LazyColumn.
         val filteredExerciseEntries = remember(exerciseSearch, exerciseFilter, overview?.exerciseEntries) {
@@ -192,6 +193,44 @@ fun ReperaMobileScreen(
                                     enabled = !busy,
                                     onClick = onHealthConnect
                                 ) { Text("Conectar o actualizar Salud") }
+                            }
+                        }
+                    }
+                    item {
+                        val day = LocalDate.parse(homeDateIso)
+                        val dayRoutines = overview?.routineEntries.orEmpty().filter {
+                            it.scheduledDate == day.toString() ||
+                                (it.scheduledDate == null && it.weekday == day.dayOfWeek.value)
+                        }
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("Calendario y entrenamientos",
+                                    style = MaterialTheme.typography.titleLarge)
+                                WeekCalendarStrip(day) { homeDateIso = it.toString() }
+                                Text("Entrenamientos · $day",
+                                    style = MaterialTheme.typography.titleMedium)
+                                if (dayRoutines.isEmpty()) {
+                                    Text("Sin entrenamiento programado",
+                                        style = MaterialTheme.typography.bodyMedium)
+                                } else dayRoutines.forEach { routine ->
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Text(routine.title, style = MaterialTheme.typography.bodyLarge)
+                                        TextButton(onClick = {
+                                            onStartRoutine(routine.id)
+                                            selected = "Inicio"
+                                        }, enabled = !busy && activeWorkout == null && routine.supported) {
+                                            Text(if (routine.supported) "Iniciar entrenamiento"
+                                                else "Formato no disponible")
+                                        }
+                                    }
+                                }
+                                Button(onClick = { selected = "Crear" },
+                                    enabled = !busy,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = brandGreen, contentColor = Color.Black
+                                    )) { Text("Añadir nuevo entrenamiento") }
                             }
                         }
                     }
