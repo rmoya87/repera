@@ -5,6 +5,14 @@ import Foundation
 public enum SportExerciseNames {
     private static let legacySpanishToEnglish: [String: String] = [
         "Arrancada": "Snatch",
+        "Tirón alto de arrancada": "Snatch High Pull",
+        "Tirón alto de cargada": "Clean High Pull",
+        "Peso muerto de cargada": "Clean Deadlift",
+        "Envión en sentadilla": "Squat Jerk",
+        "Dip y drive de envión": "Jerk Dip and Drive",
+        "Arrancada de potencia desde bloques": "Block Power Snatch",
+        "Cargada de potencia desde bloques": "Block Power Clean",
+        "Push press con agarre de arrancada": "Snatch-Grip Push Press",
         "Arrancada colgante": "Hang Snatch",
         "Arrancada colgante completa": "Hang Squat Snatch",
         "Arrancada con pausa": "Pause Snatch",
