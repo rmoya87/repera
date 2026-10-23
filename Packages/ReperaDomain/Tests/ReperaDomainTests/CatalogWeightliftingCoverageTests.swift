@@ -18,12 +18,13 @@ final class CatalogWeightliftingCoverageTests: XCTestCase {
         let lifts = all.filter { $0.sportTag == "Halterofilia" }
         XCTAssertEqual(lifts.count, 48)
         XCTAssertEqual(all.count, 288)
-        XCTAssertEqual(Set(all.map(\.catalogId)).count, all.count)
+        XCTAssertEqual(Set(all.map(\.id)).count, all.count)
         for name in added {
-            let matches = all.filter { $0.name == name }
+            let canonical = SportExerciseNames.canonicalName(name)
+            let matches = all.filter { $0.name == canonical }
             XCTAssertEqual(matches.count, 1, "Duplicado o ausente: \(name)")
             XCTAssertEqual(matches.first?.sportTag, "Halterofilia")
-            XCTAssertEqual(matches.first?.catalogId, "catalog:\(name)")
+            XCTAssertEqual(SportExerciseNames.spanishAlias(for: canonical), name)
         }
     }
 
@@ -32,8 +33,9 @@ final class CatalogWeightliftingCoverageTests: XCTestCase {
         for name in ["Arrancada", "Cargada", "Cargada y envión", "Split jerk",
                      "Tirón de arrancada", "Tirón de cargada",
                      "Arrancada desde bloques", "Cargada desde bloques"] {
-            XCTAssertNotNil(byName[name])
-            XCTAssertEqual(byName[name]?.sportTag, "Halterofilia")
+            let canonical = SportExerciseNames.canonicalName(name)
+            XCTAssertNotNil(byName[canonical])
+            XCTAssertEqual(byName[canonical]?.sportTag, "Halterofilia")
         }
     }
 
@@ -51,11 +53,11 @@ final class CatalogWeightliftingCoverageTests: XCTestCase {
         ]
         for (query, name) in samples {
             XCTAssertTrue(
-                ExerciseSearch.ranked(all, query: query).contains { $0.name == name },
+                ExerciseSearch.ranked(all, query: query).contains { $0.name == SportExerciseNames.canonicalName(name) },
                 "Búsqueda inglesa no encuentra \(name): \(query)"
             )
             XCTAssertTrue(
-                ExerciseSearch.ranked(all, query: name).contains { $0.name == name },
+                ExerciseSearch.ranked(all, query: name).contains { $0.name == SportExerciseNames.canonicalName(name) },
                 "Búsqueda española no encuentra \(name)"
             )
         }
