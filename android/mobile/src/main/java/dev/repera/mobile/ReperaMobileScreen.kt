@@ -249,6 +249,43 @@ fun ReperaMobileScreen(
                         }
                     }
                 }
+                if (selected == "Progreso") {
+                    // This is deliberately limited to the recent archive loaded by StateOverview.
+                    // It must never be presented as complete lifetime or billing-gated analytics.
+                    val recent = overview?.history.orEmpty()
+                    val today = LocalDate.now()
+                    val weekStart = today.minusDays((today.dayOfWeek.value - 1).toLong())
+                    val thisWeek = recent.filter { workout ->
+                        runCatching { LocalDate.parse(workout.startedAt) }.getOrNull()
+                            ?.let { !it.isBefore(weekStart) && !it.isAfter(today) } == true
+                    }
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(
+                                modifier = Modifier.padding(18.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text("Esta semana", style = MaterialTheme.typography.titleLarge)
+                                Text("${thisWeek.size} sesiones en el historial reciente",
+                                    style = MaterialTheme.typography.headlineSmall)
+                                Text("Del ${weekStart} al ${today}")
+                                Text("El cálculo utiliza hasta las 20 últimas sesiones guardadas; " +
+                                    "puede ser inferior al total real.",
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                    if (recent.isNotEmpty()) {
+                        item {
+                            Text("Resultados recientes", style = MaterialTheme.typography.titleMedium)
+                        }
+                        items(recent, key = { "progress:" + it.id }) { workout ->
+                            WorkoutHistoryCard(workout)
+                        }
+                    } else {
+                        item { Text("Todavía no hay entrenamientos para analizar") }
+                    }
+                }
                 if (selected == "Inicio") {
                     item { Text("Historial reciente", style = MaterialTheme.typography.titleMedium) }
                     val workouts = overview?.history.orEmpty()
