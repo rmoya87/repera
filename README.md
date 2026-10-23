@@ -10,6 +10,7 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 |-----------|-----------|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Capas, targets, paquetes, datos |
 | [docs/FEATURES.md](docs/FEATURES.md) | Funcionalidad por pestaña / flujo |
+| [docs/MOVILITY_CATALOG.md](docs/MOVILITY_CATALOG.md) | Los 82 ejercicios de movilidad, por región y alias inglés |
 | [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | Observation, caches, Home/HK, thumbs |
 | [docs/BOARD_SCAN.md](docs/BOARD_SCAN.md) | Escáner de pizarra (OCR + IA + parser) |
 | [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md) | Checklist manual por feature |
