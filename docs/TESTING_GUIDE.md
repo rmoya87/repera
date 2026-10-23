@@ -4,6 +4,15 @@
 
 Checklist manual por feature. Preferible dispositivo real para Live Activity y Watch.
 
+## MCP multidisciplina (23/10/2026)
+
+- [ ] Consultar `get_training_discipline_reference` para `crossfit`, `weightlifting`, `mobility`, `warmup`: comprobar claves **reales**, alias y metadatos; movilidad debe resolver **82** entradas.
+- [ ] Consultar `get_warmup_prescription_reference` con `mainDiscipline=weightlifting`, trabajo «Snatch», sin material declarado: verificar secuencia específica y aviso de equipamiento **sin darlo por disponible**.
+- [ ] Consultar `get_athlete_planning_context` con una cuenta real con consentimiento: métricas 7/28 días y semana anterior, programas y huecos de agenda, frescura del espejo, y máximos de kg/reps/m/cal separados. Confirmar que otra cuenta/token no puede acceder a este historial.
+- [ ] En ausencia de historial, devolver preguntas y sin e1RM ni falsa recuperación. Al registrar metros/Cal/sesiones por duración, nunca añadirlos al tonelaje o estimar 1RM.
+- [ ] Plan CrossFit AMRAP y Halterofilia fuerza + calentamiento: comprobar estructura aceptada por `create_training_plan` y que las duraciones especiales y fases warm-up aún no se presentan como métricas nativas inexistentes.
+- [ ] Tras actualizar Edge Function, confirmar autenticación PAT, read-only scopes, revocación y que `create_training_plan` solo aparece con `training:write`.
+
 ## HYROX y evolución cardio (2026-10-23)
 
 - [ ] En **Ejercicios → Filtro → HYROX** aparecen las nueve estaciones, con buscador ES/EN. En **Deporte** CrossFit/HYROX comparten Wall Ball y SkiErg sin duplicar UUID ni historial; nuevos ejercicios solo Burpee Broad Jump y Sandbag Lunges.
