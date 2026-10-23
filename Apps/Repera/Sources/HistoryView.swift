@@ -1037,8 +1037,9 @@ struct WorkoutDetailView: View {
                      : (exercise.prescriptionSummaryLine.isEmpty
                         ? "Sin resultado registrado"
                         : exercise.prescriptionSummaryLine))
-                    .font(.system(size: 13))
-                    .foregroundStyle(OG.label3)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(OG.label)
+                    .padding(.leading, 60) // miniatura 48 + separación 12: alineado con el título
             } else {
                 if isEditing {
                     editSetColumnHeaders(
