@@ -175,11 +175,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 },
                 onQuickLog = { id -> runWorkoutAction { startQuickLog(id) } },
                 onInitializeLocal = ::initializeLocalCatalog,
-                onLogSet = { quantity, weight, rir, warmup ->
-                    runWorkoutAction { logCurrentSet(quantity, weight, rir, warmup) }
+                onLogSet = { quantity, weight, rir, warmup, unit, duration ->
+                    runWorkoutAction { logCurrentSet(quantity, weight, rir, warmup,
+                        quantityUnit = unit, durationSeconds = duration) }
                 },
-                onReviseSet = { id, quantity, weight ->
-                    runWorkoutAction { reviseCurrentSet(id, quantity, weight) }
+                onReviseSet = { id, quantity, weight, unit, duration ->
+                    runWorkoutAction { reviseCurrentSet(id, quantity, weight, unit, duration) }
                 },
                 onDeleteSet = { id -> runWorkoutAction { deleteCurrentSet(id) } },
                 onNext = { runWorkoutAction { next() } },
