@@ -294,6 +294,16 @@ class WorkoutRepositoryInstrumentedTest {
         val reloaded = WorkoutRepository(ctx, user)
         assertEquals(1, reloaded.active()!!.wod!!.recorded.size)
         reloaded.recordWodMovement(1, 1, 8, null)
+        val recorded = reloaded.active()!!.wod!!.recorded
+        val originalId = recorded.last().id
+        reloaded.reviseWodMovementSet(originalId, 9, 20.0)
+        val revised = WorkoutRepository(ctx, user).active()!!.wod!!.recorded.last()
+        assertEquals(originalId, revised.id)
+        assertEquals(9, revised.quantity)
+        assertEquals(20.0, revised.weightKg!!, 0.001)
+        reloaded.deleteWodMovementSet(originalId)
+        assertEquals(1, reloaded.active()!!.wod!!.recorded.size)
+        reloaded.recordWodMovement(1, 1, 8, null)
         assertNull(reloaded.completeWodMovementBlock())
         val saved = JSONObject(String(local.read()!!))
             .getJSONArray("workouts").getJSONObject(0)
