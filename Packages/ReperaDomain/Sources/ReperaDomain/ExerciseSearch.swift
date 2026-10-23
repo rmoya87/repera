@@ -328,7 +328,7 @@ public enum ExerciseSearch {
             QueryVariant(tokens: original, phrase: original.joined(separator: " "), isAlias: false)
         ]
         let key = normalize(raw)
-        if let alias = bilingualPhrases[key] ?? CrossFitGlossary.aliases[key] {
+        if let alias = SportExerciseNames.englishAlias(forSpanish: raw) ?? bilingualPhrases[key] ?? CrossFitGlossary.aliases[key] {
             let synonym = tokens(from: alias)
             let full = normalize(alias)
             if !synonym.isEmpty {
@@ -421,11 +421,22 @@ public enum ExerciseSearch {
             let equipmentNorm = ExerciseSearch.normalize(exercise.equipment ?? "")
             let target = ExerciseSearch.normalize(exercise.targetMuscle ?? "")
             let body = ExerciseSearch.normalize(exercise.bodyPart ?? "")
-            let aliases = (ExerciseSearch.englishAliasesByCatalogName[name] ?? []).joined(separator: " ")
+            let spanishLabel = SportExerciseNames.spanishAlias(for: exercise.name) ?? ""
+            let spanishAlias = ExerciseSearch.normalize(spanishLabel)
+            // La búsqueda omite "de/con/del": indexar también el alias sin
+            // conectores para que esas frases sigan apareciendo completas.
+            let spanishSearchPhrase = ExerciseSearch.tokens(from: spanishLabel).joined(separator: " ")
+            // Conservar abreviaturas y variantes EN de los nombres ES antiguos
+            // (OCR/pizarra) incluso tras renombrar la entrada principal.
+            let aliases = (
+                ExerciseSearch.englishAliasesByCatalogName[name]
+                ?? ExerciseSearch.englishAliasesByCatalogName[spanishAlias]
+                ?? []
+            ).joined(separator: " ")
             self.name = name
             self.muscle = muscle
             // Aliases EN en meta: «back squat» encuentra Sentadilla aunque la frase no se traduzca.
-            self.meta = [muscle, sport, equipmentNorm, target, body, aliases]
+            self.meta = [muscle, sport, equipmentNorm, target, body, aliases, spanishAlias, spanishSearchPhrase]
                 .filter { !$0.isEmpty }
                 .joined(separator: " ")
             self.isFavorite = exercise.isFavorite

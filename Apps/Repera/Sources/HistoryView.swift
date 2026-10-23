@@ -278,9 +278,10 @@ struct WorkoutDetailView: View {
     private var weightStep: Double { store.state.settings.weightIncrementKg }
 
     private struct DetailExerciseRoute: Identifiable, Hashable {
-        var id: UUID { exerciseId }
+        let id = UUID()
         var exerciseId: UUID
         var sessionId: UUID
+        var exerciseInstanceId: UUID
     }
 
     private var subtitle: String {
@@ -590,7 +591,8 @@ struct WorkoutDetailView: View {
         .navigationDestination(item: $exerciseRoute) { route in
             ExerciseDetailView(
                 exerciseId: route.exerciseId,
-                highlightSessionId: route.sessionId
+                highlightSessionId: route.sessionId,
+                highlightExerciseInstanceId: route.exerciseInstanceId
             )
         }
         .ogPinnedTransparentNav(workoutNavTitle)
@@ -885,7 +887,7 @@ struct WorkoutDetailView: View {
                     Divider().overlay(OG.surface3).padding(.leading, 52)
                 }
                 Button {
-                    openExerciseDetail(exercise.exercise, sessionId: session.id)
+                    openExerciseDetail(exercise, sessionId: session.id)
                 } label: {
                     HStack(spacing: 12) {
                         ExerciseThumb(exercise: exercise.exercise, size: 40)
@@ -897,6 +899,18 @@ struct WorkoutDetailView: View {
                             Text(exercise.prescriptionSummaryLine)
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(OG.label2)
+                            if !exercise.loggedSets.isEmpty {
+                                Text("Registrado · " + exercise.loggedSets.map(\.displaySummaryLine).joined(separator: " · "))
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(OG.accent)
+                                    .lineLimit(2)
+                            } else if let result {
+                                // El AMRAP es global: mostrar su score sin inventar
+                                // series individuales ni adjudicar reps incompletas.
+                                Text("Resultado del bloque · \(result.summaryLabel)")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(OG.accent)
+                            }
                             if let adapted = exercise.adjustedSummaryLine {
                                 Text(adapted)
                                     .font(.system(size: 13, weight: .semibold))
@@ -958,10 +972,11 @@ struct WorkoutDetailView: View {
         .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
     }
 
-    private func openExerciseDetail(_ exercise: Exercise, sessionId: UUID) {
+    private func openExerciseDetail(_ exercise: SessionExercise, sessionId: UUID) {
         exerciseRoute = DetailExerciseRoute(
-            exerciseId: detailExerciseId(for: exercise),
-            sessionId: sessionId
+            exerciseId: detailExerciseId(for: exercise.exercise),
+            sessionId: sessionId,
+            exerciseInstanceId: exercise.id
         )
     }
 
@@ -994,9 +1009,9 @@ struct WorkoutDetailView: View {
         return VStack(alignment: .leading, spacing: 12) {
             Button {
                 if let highlightSessionId {
-                    openExerciseDetail(catalogExercise, sessionId: highlightSessionId)
+                    openExerciseDetail(exercise, sessionId: highlightSessionId)
                 } else if let session = draft {
-                    openExerciseDetail(catalogExercise, sessionId: session.id)
+                    openExerciseDetail(exercise, sessionId: session.id)
                 }
             } label: {
                 HStack(spacing: 12) {

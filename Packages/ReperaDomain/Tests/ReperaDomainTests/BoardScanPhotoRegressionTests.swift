@@ -106,6 +106,6 @@ struct BoardScanPhotoRegressionTests {
         #expect(block.timeCapMinutes == 25)
         #expect(block.restBetweenRoundsSeconds == 60)
         #expect(block.movements.count == 3)
-        #expect(block.movements.first?.name == "Step-up al cajón con kettlebell goblet")
+        #expect(block.movements.first?.name == "Kettlebell Goblet Box Step-Up")
     }
 }

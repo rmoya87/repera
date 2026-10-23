@@ -1,7 +1,7 @@
-"""Pruebas de contrato de Play: score global WOD + reloj por formato.
+"""Pruebas de contrato de Play: registro de movimientos y reloj por formato.
 
 Los tests de comportamiento del dominio viven en SessionControllerTests.swift.
-Estas comprobaciones evitan que la UI vuelva a mostrar series en un AMRAP.
+La UI de Play debe mantener los campos de registro en todos los formatos WOD.
 """
 import unittest
 from pathlib import Path
@@ -36,12 +36,19 @@ class PlayWODContractTests(unittest.TestCase):
                                for label in labels]
         self.assertEqual(component_positions, sorted(component_positions))
 
-    def test_block_score_is_separate_from_set_board(self):
+    def test_all_wod_formats_show_inline_movement_fields_without_score_card(self):
         source = self.read("WorkoutView.swift")
-        self.assertIn("blockScorePanel(block, format: format, session: session)", source)
-        self.assertIn("entry.wodFormat?.resultCapture == .perMovementSets", source)
+        screen = source.split("private func content(_ session: WorkoutSession)", 1)[1]
+        screen = screen.split("private func workoutExerciseRow(", 1)[0]
+        exercise_rows = screen.split("ForEach(block.indexes, id:", 1)[1]
+        exercise_rows = exercise_rows.split("if finishedTimedBlockID", 1)[0]
+        self.assertIn("if session.currentIndex == index {", exercise_rows)
+        self.assertIn("setsBoard(entry)", exercise_rows)
+        self.assertIn("logForm(current)", exercise_rows)
+        self.assertNotIn("resultCapture", exercise_rows)
+        self.assertNotIn("blockScorePanel", source)
         self.assertIn("presentScoreEditor(for:", source)
-        self.assertIn("entry.prescriptionSummaryLine", source)
+        self.assertIn("openBlockTimer(block, session: session)", screen)
 
     def test_interval_timer_does_not_finish_without_logging_sets(self):
         source = self.read("WorkoutView.swift")
@@ -77,12 +84,27 @@ class PlayWODContractTests(unittest.TestCase):
         self.assertIn("allowEarlyIntervalFinish: true", workout)
         self.assertIn("blockRestBetweenRoundsSeconds = try c.decodeIfPresent", models)
 
-    def test_amrap_and_for_time_have_different_result_fields(self):
-        source = self.read("WODResultConfirmSheet.swift")
-        self.assertIn('numberInput("Rondas completas"', source)
-        self.assertIn('numberInput("Reps adicionales"', source)
-        self.assertIn('numberInput("Tiempo · m:ss"', source)
+    def test_amrap_and_for_time_have_inline_score_fields_without_modal(self):
+        source = self.read("WODResultInlineEditor.swift")
+        play = self.read("WorkoutView.swift")
+        self.assertIn('numericField("Rondas completas"', source)
+        self.assertIn('numericField("Reps adicionales"', source)
+        self.assertIn('numericField("Tiempo · m:ss"', source)
         self.assertIn("format == .amrap || format == .deathBy", source)
+        self.assertIn("inlineWODScoreEditor(block, format: format, session: session)", play)
+        self.assertIn("WODResultInlineEditor(", play)
+        self.assertNotIn(".sheet(item: $pendingWODConfirm)", play)
+        self.assertNotIn("WODResultConfirmSheet(", play)
+        self.assertIn("setsBoard(entry)", play)
+
+    def test_play_score_persists_without_advancing_to_next_block(self):
+        source = self.read("ReperaStore.swift")
+        method = source.split("func applyWODResult(_ result: WODBlockResult)", 1)[1]
+        method = method.split("/// Calcula y opcionalmente", 1)[0]
+        self.assertIn("state.activeSession = session", method)
+        self.assertIn("persist()", method)
+        self.assertIn("pushActiveToWatch()", method)
+        self.assertIn("entry.loggedSets.map", self.read("WorkoutView.swift"))
 
 
 if __name__ == "__main__":

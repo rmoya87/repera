@@ -15,7 +15,10 @@ struct ExerciseProgressView: View {
                 if subscriptions.isPro {
                     ExerciseEvolutionPanel(exerciseId: exerciseId)
                 } else {
-                    FreeExerciseSummaryCard(exerciseId: exerciseId)
+                    VStack(alignment: .leading, spacing: 12) {
+                        FreeExerciseSummaryCard(exerciseId: exerciseId)
+                        freeExerciseEvolutionPreview
+                    }
                 }
             }
             .padding(.horizontal, OG.pad)
@@ -27,6 +30,41 @@ struct ExerciseProgressView: View {
             store.resolvedCatalogExercise(id: exerciseId)?.name ?? "Ejercicio"
         )
     }
+
+    /// El historial propio es gratuito; la evolución Pro se ilustra sin leer sus marcas.
+    private var freeExerciseEvolutionPreview: some View {
+        let values: [Double] = [40, 43, 42, 46, 48, 46, 52]
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                OGCardSectionTitle(title: "Evolución")
+                Spacer()
+                Text("Ejemplo")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(OG.label2)
+            }
+            OGCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Evolución de carga · datos ficticios")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label3)
+                    Chart {
+                        ForEach(0..<values.count, id: \.self) { index in
+                            LineMark(
+                                x: .value("Sesión", index + 1),
+                                y: .value("Peso", values[index])
+                            )
+                            .interpolationMethod(.catmullRom)
+                            .foregroundStyle(OG.accent)
+                            .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                        }
+                    }
+                    .frame(height: 160)
+                    .allowsHitTesting(false)
+                }
+            }
+        }
+        .accessibilityLabel("Ejemplo de evolución del ejercicio, datos ficticios.")
+    }
 }
 
 /// Historial + métricas + gráfica en un solo bloque («Evolución»).
@@ -37,7 +75,7 @@ struct ExerciseEvolutionPanel: View {
 
     @State private var metric: ExerciseProgressMetric = .topSet
     @State private var range: ProgressRange = .all
-    @State private var selectedPoint: ExerciseProgressPoint?
+    @State private var selectedChartDate: Date?
     @State private var editingTope = false
     @State private var topeDraft = ""
     @State private var didSeedMetric = false
@@ -112,11 +150,8 @@ struct ExerciseEvolutionPanel: View {
                 }
             }
         }
-        .onChange(of: metric) { _, _ in selectedPoint = points.last }
-        .onChange(of: range) { _, _ in selectedPoint = points.last }
         .onAppear {
             seedMetricIfNeeded()
-            selectedPoint = points.last
         }
     }
 
@@ -270,12 +305,13 @@ struct ExerciseEvolutionPanel: View {
     private var chartBlock: some View {
         VStack(alignment: .leading, spacing: 10) {
             if points.count < 2 {
-                Text(points.isEmpty
-                     ? "Entrena este ejercicio para ver la curva."
-                     : "Haz al menos 2 sesiones para ver la tendencia.")
-                    .font(.system(size: 14))
-                    .foregroundStyle(OG.label2)
-                    .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
+                ProgressEmptyChart(
+                    message: points.isEmpty
+                        ? "Entrena este ejercicio para ver la curva."
+                        : "Haz al menos 2 sesiones para ver la tendencia.",
+                    height: 180,
+                    yRange: chartYDomain
+                )
             } else {
                 Chart {
                     ForEach(points) { pt in
@@ -286,11 +322,22 @@ struct ExerciseEvolutionPanel: View {
                         .foregroundStyle(OG.blue)
                         .interpolationMethod(.catmullRom)
 
-                        PointMark(
-                            x: .value("Fecha", pt.date),
-                            y: .value("Valor", pt.value)
-                        )
-                        .foregroundStyle(OG.blue)
+                    }
+
+                    if let selectedChartDate,
+                       let selected = points.min(by: {
+                           abs($0.date.timeIntervalSince(selectedChartDate)) < abs($1.date.timeIntervalSince(selectedChartDate))
+                       }) {
+                        RuleMark(x: .value("Fecha seleccionada", selected.date))
+                            .foregroundStyle(OG.label2)
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                            .annotation(position: .top) {
+                                Text(tooltip(for: selected))
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(OG.label)
+                                    .padding(5)
+                                    .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
+                            }
                     }
 
                     if let tested = testedOneRMKg, showsOneRMCeiling {
@@ -305,6 +352,7 @@ struct ExerciseEvolutionPanel: View {
                             }
                     }
                 }
+                .chartXSelection(value: $selectedChartDate)
                 .chartXAxis {
                     AxisMarks(values: .automatic) { _ in
                         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
@@ -322,11 +370,7 @@ struct ExerciseEvolutionPanel: View {
                 .chartYScale(domain: chartYDomain)
                 .frame(height: 180)
 
-                if let tip = selectedPoint ?? points.last {
-                    Text(tooltip(for: tip))
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(OG.label)
-                }
+
             }
         }
         .padding(12)

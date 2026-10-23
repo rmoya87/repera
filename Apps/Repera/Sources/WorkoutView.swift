@@ -198,45 +198,6 @@ struct WorkoutView: View {
                 usesPageCloseHeader: true
             )
         }
-        .sheet(item: $pendingWODConfirm) { pending in
-            WODResultConfirmSheet(
-                title: pending.title,
-                capture: pending.capture,
-                format: pending.format,
-                totalReps: Binding(
-                    get: { pendingWODConfirm?.totalReps ?? pending.totalReps },
-                    set: { pendingWODConfirm?.totalReps = $0 }
-                ),
-                elapsedSeconds: Binding(
-                    get: { pendingWODConfirm?.elapsedSeconds ?? pending.elapsedSeconds },
-                    set: { pendingWODConfirm?.elapsedSeconds = $0 }
-                ),
-                roundsCompleted: Binding(
-                    get: { pendingWODConfirm?.roundsCompleted ?? pending.roundsCompleted },
-                    set: { pendingWODConfirm?.roundsCompleted = $0 }
-                ),
-                onSave: {
-                    guard let current = pendingWODConfirm else { return }
-                    store.applyWODResult(
-                        WODBlockResult(
-                            id: current.blockId,
-                            format: current.format,
-                            totalReps: current.capture == .totalReps ? current.totalReps : nil,
-                            elapsedSeconds: current.capture == .elapsedTime ? current.elapsedSeconds : nil,
-                            roundsCompleted: (current.format == .amrap || current.format == .deathBy)
-                                ? current.roundsCompleted : nil,
-                            wodTemplateId: current.wodTemplateId
-                        )
-                    )
-                    pendingWODConfirm = nil
-                    store.finishCurrentTimedBlock()
-                    if store.state.activeSession == nil {
-                        closeFlow()
-                    }
-                },
-                onCancel: { pendingWODConfirm = nil }
-            )
-        }
         .onAppear {
             notesDraft = store.state.activeSession?.notes ?? ""
             prefill()
@@ -428,10 +389,8 @@ struct WorkoutView: View {
                     }
                     .listRowBackground(OG.surface)
 
-                    // AMRAP/For Time tienen un resultado GLOBAL del bloque.
-                    // Los movimientos son la prescripción, no una tabla de series a registrar.
                     if let format = block.format, format.resultCapture != .perMovementSets {
-                        blockScorePanel(block, format: format, session: session)
+                        inlineWODScoreEditor(block, format: format, session: session)
                             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
                             .listRowBackground(OG.surface)
                             .listRowSeparator(.hidden)
@@ -448,23 +407,21 @@ struct WorkoutView: View {
                                         highlightSessionId: session.id
                                     )
                                 } label: {
-                                    workoutExerciseRow(entry, isOpen: true)
+                                    workoutExerciseRow(entry, isOpen: true, blockResult: session.wodResults.first(where: { $0.id == block.id }))
                                 }
                             } else {
                                 // Cerrado: un toque expande sus series (no navega).
                                 Button {
                                     store.selectExercise(at: index)
                                 } label: {
-                                    workoutExerciseRow(entry, isOpen: false)
+                                    workoutExerciseRow(entry, isOpen: false, blockResult: session.wodResults.first(where: { $0.id == block.id }))
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
                         .listRowBackground(OG.surface)
 
-                        if session.currentIndex == index,
-                           entry.wodFormat?.resultCapture == nil
-                               || entry.wodFormat?.resultCapture == .perMovementSets {
+                        if session.currentIndex == index {
                             setsBoard(entry)
                                 .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
                                 .listRowBackground(OG.surface)
@@ -473,9 +430,7 @@ struct WorkoutView: View {
                     }
 
                     if block.indexes.contains(session.currentIndex),
-                       let current = session.currentExercise,
-                       current.wodFormat?.resultCapture == nil
-                           || current.wodFormat?.resultCapture == .perMovementSets {
+                       let current = session.currentExercise {
                         DisclosureGroup("Técnicas de serie · dropset / rest-pause") {
                             logForm(current)
                                 .padding(.top, 8)
@@ -535,18 +490,30 @@ struct WorkoutView: View {
         }
     }
 
-    private func workoutExerciseRow(_ entry: SessionExercise, isOpen: Bool) -> some View {
+    private func workoutExerciseRow(
+        _ entry: SessionExercise,
+        isOpen: Bool,
+        blockResult: WODBlockResult?
+    ) -> some View {
         HStack(spacing: 12) {
             ExerciseThumb(exercise: entry.exercise, size: 48)
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(entry.exercise.name)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(OG.label)
-                Text(entry.usesBlockScoreResult
-                     ? entry.prescriptionSummaryLine
-                     : entry.plannedSets.compactSummary)
+                Text(entry.plannedSets.compactSummary)
                     .font(.caption)
                     .foregroundStyle(OG.label2)
+                if !entry.loggedSets.isEmpty {
+                    Text("Registrado · " + entry.loggedSets.map(\.displaySummaryLine).joined(separator: " · "))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(OG.accent)
+                        .lineLimit(2)
+                } else if let blockResult, entry.usesBlockScoreResult {
+                    Text("Resultado del bloque · \(blockResult.summaryLabel)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(OG.accent)
+                }
             }
             Spacer(minLength: 6)
             if entry.isCompleted {
@@ -557,19 +524,22 @@ struct WorkoutView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(OG.label3)
             }
-            // Sin chevron hacia abajo: la fila abierta lleva a la ficha.
         }
         .contentShape(Rectangle())
     }
 
-    /// Captura única por bloque (AMRAP, For Time, Chipper...), distinta
-    /// de las series individuales de EMOM, Tabata o fuerza.
-    private func blockScorePanel(
+    /// El score global se registra directamente en Play. Se mantiene
+    /// debajo el editor habitual de series de CADA ejercicio del bloque.
+    private func inlineWODScoreEditor(
         _ block: WorkoutBlockEntry,
         format: WODFormat,
         session: WorkoutSession
     ) -> some View {
         let existing = session.wodResults.first(where: { $0.id == block.id })
+        let suggested = pendingWODConfirm?.blockId == block.id
+            ? pendingWODConfirm?.elapsedSeconds : nil
+        let templateID = session.routineBlocks?
+            .first(where: { $0.id == block.id })?.wodTemplateId
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Resultado · \(format.displayName)")
@@ -586,39 +556,21 @@ struct WorkoutView: View {
                         .foregroundStyle(OG.label3)
                 }
             }
-            Text(format == .amrap
-                 ? "Rondas completas + repeticiones adicionales; no se apunta una serie por ejercicio."
-                 : (format.resultCapture == .elapsedTime
-                    ? "Tiempo real de finalización del bloque."
-                    : "Máximo de rondas y repeticiones obtenidas."))
-                .font(.footnote)
-                .foregroundStyle(OG.label2)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 10) {
-                Button {
-                    openBlockTimer(block, session: session)
-                } label: {
-                    Label("Iniciar temporizador", systemImage: "timer")
-                        .frame(maxWidth: .infinity, minHeight: 44)
+            WODResultInlineEditor(
+                blockId: block.id,
+                format: format,
+                existing: existing,
+                suggestedElapsedSeconds: suggested,
+                wodTemplateId: templateID
+            ) { result in
+                store.applyWODResult(result)
+                if pendingWODConfirm?.blockId == block.id {
+                    pendingWODConfirm = nil
+                    store.finishCurrentTimedBlock()
+                    if store.state.activeSession == nil { closeFlow() }
                 }
-                .buttonStyle(.bordered)
-                Button {
-                    guard let first = block.indexes.first,
-                          session.exercises.indices.contains(first) else { return }
-                    // La confirmación debe finalizar ESTE bloque, no otro que
-                    // estuviese seleccionado al abrir su resultado manualmente.
-                    if store.state.activeSession?.currentIndex != first {
-                        store.selectExercise(at: first)
-                    }
-                    presentScoreEditor(for: session.exercises[first])
-                } label: {
-                    Label(existing == nil ? "Registrar resultado" : "Editar resultado",
-                          systemImage: "square.and.pencil")
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(.borderedProminent)
             }
-            .font(.system(size: 12, weight: .semibold))
+            .id(block.id)
         }
         .padding(14)
         .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))

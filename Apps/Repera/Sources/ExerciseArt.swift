@@ -12,12 +12,14 @@ enum ExerciseArt {
     static func imageName(forExerciseName name: String, muscleGroup: String) -> String? {
         // Exacto → canónico (limpia OCR) → normalize → clave nameMap contenida (más larga gana).
         if let base = acceptedHero(nameMap[name]) { return base }
-        let canonical = CrossFitGlossary.canonicalName(for: name)
+        let legacyName = SportExerciseNames.spanishAlias(for: name) ?? name
+        if let base = acceptedHero(nameMap[legacyName]) { return base }
+        let canonical = CrossFitGlossary.canonicalName(for: legacyName)
         if let base = acceptedHero(nameMap[canonical]) { return base }
-        let cleaned = CrossFitGlossary.cleanMovementLabel(name)
+        let cleaned = CrossFitGlossary.cleanMovementLabel(legacyName)
         if cleaned != name, let base = acceptedHero(nameMap[cleaned]) { return base }
 
-        let needles = [name, canonical, cleaned]
+        let needles = [name, legacyName, canonical, cleaned]
             .map(CrossFitGlossary.normalize)
             .filter { !$0.isEmpty }
         var needleSet = Set(needles)
@@ -34,7 +36,7 @@ enum ExerciseArt {
         // "W.S. Dominadas @RIR…" → contiene "dominadas"; "DB ALT Arrancada colgante" → colgante.
         var best: (length: Int, base: String)?
         let haystack = CrossFitGlossary.normalize(
-            [cleaned, canonical, name].first { !$0.isEmpty } ?? name
+            [cleaned, canonical, legacyName, name].first { !$0.isEmpty } ?? name
         )
         guard haystack.count >= 3 else { return nil }
         for (key, base) in nameMap {
@@ -147,6 +149,7 @@ enum ExerciseArt {
     /// Solo para ficha / carrusel — no usar en filas de lista.
     static func imageNames(for exercise: Exercise) -> [String] {
         let cacheKey = exercise.name
+        let legacyName = SportExerciseNames.spanishAlias(for: exercise.name) ?? exercise.name
         if let cached = lookup.names(for: cacheKey) { return cached }
 
         guard let base = imageName(forExerciseName: exercise.name, muscleGroup: exercise.muscleGroup) else {
@@ -154,7 +157,7 @@ enum ExerciseArt {
             return []
         }
         var numbered: [String] = []
-        if !staticHoldExercises.contains(exercise.name),
+        if !staticHoldExercises.contains(exercise.name) && !staticHoldExercises.contains(legacyName),
            !quarantinedSequences.contains(base) {
             for i in 1...8 {
                 let step = "\(base)_\(i)"
@@ -167,8 +170,8 @@ enum ExerciseArt {
         if numbered.count >= 2 {
             resolved = numbered
         } else if !staticHoldExercises.contains(exercise.name),
-                  verifiedMovementFrameExercises.contains(exercise.name),
-                  let frames = movementFrames[exercise.name] {
+                  (verifiedMovementFrameExercises.contains(exercise.name) || verifiedMovementFrameExercises.contains(legacyName)),
+                  let frames = movementFrames[exercise.name] ?? movementFrames[legacyName] {
             var seen = Set<String>()
             let unique = frames.filter { name in
                 guard uiImage(named: name) != nil else { return false }
