@@ -47,9 +47,11 @@ struct ExerciseDetailView: View {
                                 )
                             }
 
-                            VStack(alignment: .leading, spacing: 8) {
-                                OGCardSectionTitle(title: "Carga sugerida")
-                                OGCard { suggestedLoadSection(exercise) }
+                            if exercise.sportTag != "Movilidad" {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    OGCardSectionTitle(title: "Carga sugerida")
+                                    OGCard { suggestedLoadSection(exercise) }
+                                }
                             }
 
                             if subscriptions.isPro {
