@@ -302,19 +302,37 @@ extension OGPageHeader where Leading == EmptyView {
     }
 }
 
-extension View {
-    /// Lista agrupada nativa (`insetGrouped`): fondo `OG.bg`, filas `OG.surface`.
-    /// Las cajas de sección las dibuja el sistema; no envolver filas en `OGCard`.
-    func ogListChrome() -> some View {
-        self
+/// Mantener el MISMO estilo agrupado en portrait y landscape.
+/// Los márgenes del scroll contenido deben ser horizontales: establecer
+/// top/bottom a cero via .all desactiva el espaciado nativo de secciones.
+/// iPhone horizontal tiene altura compacta y requiere un margen extra para
+/// preservar aire y esquinas redondeadas del insetGrouped.
+private struct OGListChromeModifier: ViewModifier {
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+
+    private var horizontalMargin: CGFloat {
+        verticalSizeClass == .compact ? OG.pad + 12 : OG.pad
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .background {
                 OG.bg.ignoresSafeArea()
             }
             .listRowBackground(OG.surface)
             .tint(OG.accent)
-            .contentMargins(.all, EdgeInsets(top: 0, leading: OG.pad, bottom: 0, trailing: OG.pad), for: .scrollContent)
+            .contentMargins(.horizontal, horizontalMargin, for: .scrollContent)
             .listSectionSpacing(12)
+    }
+}
+
+extension View {
+    /// Estilo nativo agrupado para Diario, Play, Editar y Ejercicios:
+    /// sin cajas anidadas; las esquinas las recorta la sección de SwiftUI.
+    func ogListChrome() -> some View {
+        modifier(OGListChromeModifier())
     }
 
     /// La barra del sistema es translúcida, como la navegación nativa iOS 27.

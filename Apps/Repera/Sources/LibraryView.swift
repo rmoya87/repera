@@ -81,7 +81,6 @@ struct LibraryView: View {
                     )
                 }
             }
-            .ogListChrome()
             .scrollDismissesKeyboard(.interactively)
             // Only mute list diff animations — do not disable keyboard / focus transitions.
             .animation(nil, value: cachedSections.map(\.id))
@@ -215,6 +214,7 @@ struct LibraryView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .ogListChrome()
     }
 
     private var filteredWODTemplates: [WODTemplate] {
@@ -556,6 +556,7 @@ private struct LibraryExerciseList: View {
             }
         }
         .listStyle(.insetGrouped)
+        .ogListChrome()
     }
 
     @ViewBuilder
