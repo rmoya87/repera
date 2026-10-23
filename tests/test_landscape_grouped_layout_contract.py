@@ -22,7 +22,8 @@ class LandscapeGroupedLayoutTests(unittest.TestCase):
         self.assertIn(".contentMargins(.horizontal, OG.pad, for: .scrollContent)", modifier)
         self.assertIn(".listSectionSpacing(12)", modifier)
         self.assertIn("OG.bg.ignoresSafeArea()", modifier)
-        self.assertNotIn("verticalSizeClass == .compact", modifier)
+        self.assertIn("@Environment(\\.verticalSizeClass) private var verticalSizeClass", modifier)
+        self.assertIn(".safeAreaPadding(.horizontal, verticalSizeClass == .compact ? OG.pad : 0)", modifier)
         self.assertNotIn("OG.pad + 12", modifier)
         self.assertNotIn(".contentMargins(.all", modifier)
         self.assertNotIn(".padding(.horizontal", modifier)
@@ -87,6 +88,9 @@ class LandscapeGroupedLayoutTests(unittest.TestCase):
         # en los laterales seguros del iPhone colocado en horizontal.
         self.assertIn(".background(OG.bg.ignoresSafeArea(edges: .horizontal))", home)
         self.assertIn(".background(OG.bg.ignoresSafeArea(edges: .bottom))", home)
+        self.assertIn(".background(OG.surface.ignoresSafeArea(edges: .top))", home)
+        self.assertIn("OG.bg.ignoresSafeArea()", home)
+        self.assertNotIn("OG.surface.ignoresSafeArea()\n            }\n            .onAppear", home)
 
     def test_home_and_exercise_hero_keep_intentional_edge_to_edge(self):
         home = read("HomeView.swift")

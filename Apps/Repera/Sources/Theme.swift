@@ -307,6 +307,8 @@ extension OGPageHeader where Leading == EmptyView {
 /// quedaban desalineados con las tarjetas de Progreso al girar el teléfono.
 /// Mantener la List insetGrouped nativa conserva las esquinas de secciones.
 private struct OGListChromeModifier: ViewModifier {
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+
     func body(content: Content) -> some View {
         content
             .listStyle(.insetGrouped)
@@ -317,6 +319,11 @@ private struct OGListChromeModifier: ViewModifier {
             .listRowBackground(OG.surface)
             .tint(OG.accent)
             .contentMargins(.horizontal, OG.pad, for: .scrollContent)
+            // El scrollContentMargin no contiene el List completo: en iPhone
+            // horizontal sus secciones invadían los laterales del viewport.
+            // Reservar 16 pt exteriores solo en paisaje, respetando la zona
+            // segura y conservando el recorte redondeado de insetGrouped.
+            .safeAreaPadding(.horizontal, verticalSizeClass == .compact ? OG.pad : 0)
             .listSectionSpacing(12)
     }
 }

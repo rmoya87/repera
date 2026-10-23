@@ -236,7 +236,7 @@ struct HomeView: View {
                     .padding(.top, 12)
                     .padding(.bottom, 16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(OG.surface)
+                    .background(OG.surface.ignoresSafeArea(edges: .top))
 
                     // Progreso/Actividad conservan el lienzo agrupado gris,
                     // que empieza justo donde termina la sección blanca.
@@ -302,8 +302,11 @@ struct HomeView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Ajustes y cuenta iCloud")
             }
+            // El lienzo base es gris, igual que Progreso. Solo la cabecera
+            // calendario + entreno es blanca: así nunca hay rectángulos
+            // blancos laterales en la zona inferior al girar el iPhone.
             .background {
-                OG.surface.ignoresSafeArea()
+                OG.bg.ignoresSafeArea()
             }
             .onAppear {
                 LaunchTiming.mark("HomeView.onAppear")
