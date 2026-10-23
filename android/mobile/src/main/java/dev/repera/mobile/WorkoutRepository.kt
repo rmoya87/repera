@@ -673,7 +673,8 @@ class WorkoutRepository(context: Context, googleId: String) {
                             WodRecordedMovement(s.getString("id"),
                                 item.getJSONObject("exercise").optString("name"),
                                 s.optInt("intervalIndex"), s.optInt("reps"),
-                                s.optDouble("weightKg").takeIf { s.has("weightKg") })
+                                s.optDouble("weightKg").takeIf { s.has("weightKg") },
+                                s.optString("quantityUnit").takeIf { it.isNotBlank() })
                         }
                     },
                 movements = (0 until moves.length()).map { j ->
@@ -760,7 +761,7 @@ data class WodExecution(
     val restBetweenRoundsSeconds: Int? = null
 )
 
-data class WodRecordedMovement(val id: String, val name: String, val intervalIndex: Int, val quantity: Int, val weightKg: Double?)
+data class WodRecordedMovement(val id: String, val name: String, val intervalIndex: Int, val quantity: Int, val weightKg: Double?, val quantityUnit: String?)
 
 data class WodMovementSummary(
     val id: String,
