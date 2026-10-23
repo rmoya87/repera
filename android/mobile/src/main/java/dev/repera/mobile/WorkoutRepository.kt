@@ -411,6 +411,20 @@ class WorkoutRepository(context: Context, googleId: String) {
             "Este formato registra un resultado global"
         }
         val blockId = current.getString("blockId")
+        // Interval numbers must belong to the actual programmed block, rather
+        // than permitting an accidental set outside the workout time window.
+        val sourceBlock = session.optJSONArray("routineBlocks")?.let { blocks ->
+            (0 until blocks.length()).map { blocks.getJSONObject(it) }
+                .firstOrNull { it.optString("id") == blockId }
+        }
+        val maximumInterval = when (format) {
+            WodFormat.EMOM, WodFormat.TABATA, WodFormat.CIRCUIT ->
+                sourceBlock?.optInt("rounds", if (format == WodFormat.TABATA) 8 else 0)
+                    ?.takeIf { it > 0 }
+            else -> null
+        }
+        if (maximumInterval != null && format != WodFormat.CIRCUIT)
+            require(intervalIndex < maximumInterval) { "Intervalo fuera de la programación" }
         val movements = (0 until exercises.length()).map { exercises.getJSONObject(it) }
             .filter { it.optString("blockId") == blockId }
         require(movementIndex < movements.size) { "Movimiento fuera del bloque" }
