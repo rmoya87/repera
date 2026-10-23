@@ -140,3 +140,19 @@ fase y RIR ya guardados. Quedan pendientes la revisión específica de fase/RIR,
 la presentación RPE alternativa, dropsets y rest-pause. Hay un test de
 persistencia con una serie de calentamiento y otra de trabajo, todavía sin
 ejecutar en dispositivo Android.
+
+## Histórico detallado (Inicio)
+
+La tarjeta de cada sesión archivada abre un resumen que incluye las
+puntuaciones globales WOD y el detalle por ejercicio, con navegación
+«Volver al resumen». Los valores se construyen exclusivamente desde
+`WorkoutSession.wodResults` y `SessionExercise.loggedSets` persistidos.
+Se muestran reps, unidades de máquina, kg, fase de calentamiento y RIR
+cuando figuran en el JSON. Los movimientos de un WOD con score global
+no se anuncian como series vacías: se indica que existe puntuación por
+bloque. Se añadió aserción instrumentada de For Time `6:27` y dos
+movimientos sin series ficticias.
+
+Pendiente: gráficos completos, filtrado diario/calendario, miniaturas,
+estadísticas avanzadas y pruebas de interacción instrumentadas en
+dispositivos reales.

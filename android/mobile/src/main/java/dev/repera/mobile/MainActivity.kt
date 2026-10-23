@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.IntentSenderRequest
 import android.net.Uri
 import dev.repera.domain.ExerciseInput
+import dev.repera.domain.WodFormat
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -354,6 +355,7 @@ data class StateOverview(
     val bodyWeights: Int,
     val activeSessionTitle: String?,
     val recentWorkoutTitles: List<String>,
+    val history: List<WorkoutHistoryEntry>,
     val routineEntries: List<RoutineEntry>,
     val exerciseEntries: List<ExerciseEntry>
 ) {
@@ -381,10 +383,11 @@ data class StateOverview(
                                 val total = score.getInt("elapsedSeconds")
                                 "%d:%02d".format(total / 60, total % 60)
                             }
-                            score.has("roundsCompleted") && score.has("totalReps") ->
+                            score.has("roundsCompleted") && !score.isNull("roundsCompleted") &&
+                                score.has("totalReps") && !score.isNull("totalReps") ->
                                 "${score.getInt("roundsCompleted")} rondas + " +
                                     "${score.getInt("totalReps")} reps"
-                            score.has("totalReps") -> "${score.getInt("totalReps")} reps"
+                            score.has("totalReps") && !score.isNull("totalReps") -> "${score.getInt("totalReps")} reps"
                             else -> null
                         }
                     }.toMutableList()
@@ -395,6 +398,66 @@ data class StateOverview(
                     if (recordedSets > 0) details += "$recordedSets series"
                     workout.optString("title") + if (details.isEmpty()) ""
                         else " · " + details.joinToString(" / ")
+                }
+            }
+            val history = json.getJSONArray("workouts").let { archive ->
+                (archive.length() - 1 downTo 0).take(20).map { index ->
+                    val session = archive.getJSONObject(index)
+                    val saved = session.optJSONArray("exercises") ?: org.json.JSONArray()
+                    val movements = (0 until saved.length()).map { i ->
+                        val exercise = saved.getJSONObject(i)
+                        val movement = exercise.optJSONObject("exercise")
+                        val recorded = exercise.optJSONArray("loggedSets") ?: org.json.JSONArray()
+                        WorkoutHistoryMovement(
+                            name = movement?.optString("name") ?: "Ejercicio",
+                            wod = exercise.optString("blockKind") == "wod",
+                            registered = (0 until recorded.length()).map { j ->
+                                val set = recorded.getJSONObject(j)
+                                val amount = set.optInt("reps")
+                                val unit = when (set.optString("quantityUnit", "reps")) {
+                                    "calories" -> "cal"
+                                    "meters" -> "m"
+                                    else -> "reps"
+                                }
+                                buildString {
+                                    if (set.optString("phase", "work") == "warmup") append("Calentamiento · ")
+                                    append("$amount $unit")
+                                    if (set.has("weightKg") && !set.isNull("weightKg"))
+                                        append(" · ${set.getDouble("weightKg")} kg")
+                                    if (set.has("rir") && !set.isNull("rir"))
+                                        append(" · RIR ${set.getDouble("rir")}")
+                                }
+                            }
+                        )
+                    }
+                    val wodScores = session.optJSONArray("wodResults") ?: org.json.JSONArray()
+                    val results = (0 until wodScores.length()).mapNotNull { i ->
+                        val score = wodScores.getJSONObject(i)
+                        val value = when {
+                            score.has("elapsedSeconds") && !score.isNull("elapsedSeconds") -> {
+                                val seconds = score.getInt("elapsedSeconds")
+                                "%d:%02d".format(seconds / 60, seconds % 60)
+                            }
+                            score.has("roundsCompleted") && score.has("totalReps") ->
+                                "${score.getInt("roundsCompleted")} rondas + " +
+                                    "${score.getInt("totalReps")} reps"
+                            score.has("totalReps") -> "${score.getInt("totalReps")} reps"
+                            score.has("roundsCompleted") && !score.isNull("roundsCompleted") ->
+                                "${score.getInt("roundsCompleted")} rondas"
+                            else -> null
+                        }
+                        value?.let {
+                            (WodFormat.fromWire(score.optString("format"))?.displayName
+                                ?: score.optString("format")) + " · " + it
+                        }
+                    }
+                    WorkoutHistoryEntry(
+                        id = session.optString("id"),
+                        title = session.optString("title"),
+                        startedAt = session.optString("startedAt").take(10),
+                        results = results,
+                        movements = movements
+                    )
                 }
             }
             val routineEntries = json.getJSONArray("routines").let { array ->
@@ -430,6 +493,7 @@ data class StateOverview(
                 bodyWeights = json.optJSONArray("bodyWeights")?.length() ?: 0,
                 activeSessionTitle = json.optJSONObject("activeSession")?.optString("title"),
                 recentWorkoutTitles = workoutTitles.asReversed().take(20),
+                history = history,
                 routineEntries = routineEntries,
                 exerciseEntries = exerciseEntries
             )
@@ -440,3 +504,16 @@ data class StateOverview(
 data class RoutineEntry(val id: String, val title: String, val supported: Boolean)
 
 data class ExerciseEntry(val id: String, val name: String, val supportsBasicInput: Boolean, val allowsWeight: Boolean)
+
+data class WorkoutHistoryEntry(
+    val id: String,
+    val title: String,
+    val startedAt: String,
+    val results: List<String>,
+    val movements: List<WorkoutHistoryMovement>
+)
+data class WorkoutHistoryMovement(
+    val name: String,
+    val wod: Boolean,
+    val registered: List<String>
+)

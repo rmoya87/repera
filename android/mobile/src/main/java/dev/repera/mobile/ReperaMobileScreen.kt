@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import dev.repera.domain.ExerciseAliasSearch
+import dev.repera.domain.WodFormat
 
 private val brandGreen = Color(0xFF30D158)
 private val tabs = listOf("Inicio", "Diario", "Crear", "Progreso", "Ejercicios")
@@ -217,12 +218,10 @@ fun ReperaMobileScreen(
                 }
                 if (selected == "Inicio") {
                     item { Text("Historial reciente", style = MaterialTheme.typography.titleMedium) }
-                    val workouts = overview?.recentWorkoutTitles.orEmpty()
+                    val workouts = overview?.history.orEmpty()
                     if (workouts.isEmpty()) item { Text("Todavía no hay sesiones registradas") }
-                    items(workouts) { title ->
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Text(title, modifier = Modifier.padding(16.dp))
-                        }
+                    items(workouts, key = { it.id }) { workout ->
+                        WorkoutHistoryCard(workout)
                     }
                 }
                 if (selected == "Diario") {
@@ -479,7 +478,8 @@ private fun WodScoreCard(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(active.title, style = MaterialTheme.typography.titleLarge)
-            Text(wod.title + " · " + wod.format.uppercase(),
+            Text(wod.title + " · " +
+                (WodFormat.fromWire(wod.format)?.displayName ?: wod.format),
                 style = MaterialTheme.typography.titleMedium)
             wod.movements.forEach { movement ->
                 val prefix = when {
@@ -689,6 +689,64 @@ private fun RoutineCreatorCard(
                         rounds.toIntOrNull() ?: 1)
                 }
             ) { Text("Guardar rutina") }
+        }
+    }
+}
+
+
+/** Drill-down stays inside the workout, preserving the back-to-summary behaviour. */
+@Composable
+private fun WorkoutHistoryCard(workout: WorkoutHistoryEntry) {
+    var expanded by remember(workout.id) { mutableStateOf(false) }
+    var selectedMovement by remember(workout.id) { mutableStateOf<Int?>(null) }
+    Card(modifier = Modifier.fillMaxWidth().animateContentSize()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Text(workout.title, style = MaterialTheme.typography.titleMedium)
+            if (workout.startedAt.isNotBlank()) {
+                Text(workout.startedAt, style = MaterialTheme.typography.labelMedium)
+            }
+            workout.results.forEach { result ->
+                Text(result, style = MaterialTheme.typography.titleSmall)
+            }
+            if (!expanded) {
+                TextButton(onClick = { expanded = true }) { Text("Ver ejercicios y resultados") }
+            } else if (selectedMovement != null) {
+                val index = selectedMovement!!
+                val exercise = workout.movements.getOrNull(index)
+                TextButton(onClick = { selectedMovement = null }) {
+                    Text("← Volver al resumen")
+                }
+                if (exercise != null) {
+                    Text(exercise.name, style = MaterialTheme.typography.titleMedium)
+                    if (exercise.registered.isEmpty()) {
+                        Text(if (exercise.wod && workout.results.isNotEmpty())
+                            "Resultado registrado para todo el bloque WOD"
+                            else "Este ejercicio no contiene series confirmadas")
+                    } else {
+                        exercise.registered.forEachIndexed { n, line ->
+                            Text("Serie ${n + 1} · $line")
+                        }
+                    }
+                }
+            } else {
+                workout.movements.forEachIndexed { index, movement ->
+                    TextButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { selectedMovement = index }
+                    ) {
+                        Text(movement.name + if (movement.registered.isNotEmpty())
+                            " · ${movement.registered.size} series" else
+                            if (movement.wod && workout.results.isNotEmpty())
+                                " · resultado por bloque" else "")
+                    }
+                }
+                TextButton(onClick = { expanded = false }) {
+                    Text("Ocultar detalle")
+                }
+            }
         }
     }
 }
