@@ -410,6 +410,7 @@ public enum ExerciseSearch {
         public let isFavorite: Bool
         public let muscleGroup: String
         public let sportTag: String?
+        public let disciplineTags: [String]
         public let equipment: String?
 
         public init(exercise: Exercise) {
@@ -417,7 +418,7 @@ public enum ExerciseSearch {
             self.displayName = exercise.name
             let name = ExerciseSearch.normalize(exercise.name)
             let muscle = ExerciseSearch.normalize(exercise.muscleGroup)
-            let sport = ExerciseSearch.normalize(exercise.sportTag ?? "")
+            let sport = ExerciseSearch.normalize(exercise.disciplineTags.joined(separator: " "))
             let equipmentNorm = ExerciseSearch.normalize(exercise.equipment ?? "")
             let target = ExerciseSearch.normalize(exercise.targetMuscle ?? "")
             let body = ExerciseSearch.normalize(exercise.bodyPart ?? "")
@@ -442,6 +443,7 @@ public enum ExerciseSearch {
             self.isFavorite = exercise.isFavorite
             self.muscleGroup = exercise.muscleGroup
             self.sportTag = exercise.sportTag
+            self.disciplineTags = exercise.disciplineTags
             self.equipment = exercise.equipment
         }
     }
