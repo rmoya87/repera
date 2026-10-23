@@ -85,8 +85,8 @@ fun ReperaMobileScreen(
     onDeleteWodMovement: (String) -> Unit,
     onQuickLog: (String) -> Unit,
     onInitializeLocal: () -> Unit,
-    onLogSet: (Int, Double?, Double?, Boolean) -> Unit,
-    onReviseSet: (String, Int, Double?) -> Unit,
+    onLogSet: (Int, Double?, Double?, Boolean, Int?) -> Unit,
+    onReviseSet: (String, Int, Double?, Int?) -> Unit,
     onDeleteSet: (String) -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit,
@@ -442,8 +442,8 @@ fun ReperaMobileScreen(
 private fun ActiveWorkoutCard(
     active: ActiveWorkout,
     busy: Boolean,
-    onLogSet: (Int, Double?, Double?, Boolean) -> Unit,
-    onReviseSet: (String, Int, Double?) -> Unit,
+    onLogSet: (Int, Double?, Double?, Boolean, Int?) -> Unit,
+    onReviseSet: (String, Int, Double?, Int?) -> Unit,
     onDeleteSet: (String) -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit
@@ -454,6 +454,10 @@ private fun ActiveWorkoutCard(
     var weight by remember(active.id, active.index, active.completedSets) {
         mutableStateOf(active.prescribedWeightKg?.toString() ?: "")
     }
+    var mobilitySeconds by remember(active.id, active.index, active.completedSets) {
+        mutableStateOf((active.prescribedDurationSeconds ?: if (active.isMobilityHold) 30 else 60).toString())
+    }
+    var editingSeconds by remember(active.id, active.index) { mutableStateOf("") }
     var warmup by remember(active.id, active.index, active.completedSets) {
         mutableStateOf(false)
     }
@@ -466,7 +470,9 @@ private fun ActiveWorkoutCard(
     val parsedRir = rirText.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
     val parsedQuantity = quantity.toIntOrNull()
     val parsedWeight = weight.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
-    val valid = parsedQuantity != null && parsedQuantity >= 0 &&
+    val parsedSeconds = mobilitySeconds.toIntOrNull()
+    val valid = (active.isMobilityHold || (parsedQuantity != null && parsedQuantity >= 0)) &&
+        (!active.isMobility || (parsedSeconds != null && parsedSeconds in 1..3600)) &&
         (!active.allowsWeight || weight.isBlank() ||
             (parsedWeight != null && parsedWeight.isFinite() && parsedWeight >= 0)) &&
         (rirText.isBlank() || (parsedRir != null && parsedRir.isFinite() && parsedRir >= 0))
@@ -480,7 +486,8 @@ private fun ActiveWorkoutCard(
                 Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween) {
                     Text((if (set.phase == "warmup") "Calentamiento" else "Serie") +
-                        " ${index + 1}: ${set.reps} reps" +
+                        " ${index + 1}: " + (if (active.isMobilityHold) "" else "${set.reps} reps") +
+                        (set.durationSeconds?.let { " · ${it}s" } ?: "") +
                         (set.weightKg?.let { " · $it kg" } ?: "") +
                         (set.rir?.let { " · RIR $it" } ?: ""))
                     Row {
@@ -488,6 +495,7 @@ private fun ActiveWorkoutCard(
                             editingId = set.id
                             editingQuantity = set.reps.toString()
                             editingWeight = set.weightKg?.toString() ?: ""
+                            editingSeconds = set.durationSeconds?.toString() ?: ""
                         }, enabled = !busy) { Text("Editar") }
                         TextButton(onClick = {
                             if (editingId == set.id) editingId = null
@@ -504,6 +512,12 @@ private fun ActiveWorkoutCard(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                if (active.isMobility) {
+                    OutlinedTextField(value = editingSeconds,
+                        onValueChange = { editingSeconds = it.filter(Char::isDigit) },
+                        label = { Text("Corregir duración (segundos)") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
                 if (active.allowsWeight) {
                     OutlinedTextField(
                         value = editingWeight,
@@ -516,7 +530,9 @@ private fun ActiveWorkoutCard(
                 val parsedEdit = editingQuantity.toIntOrNull()
                 val editWeight = editingWeight.trim().replace(',', '.')
                     .takeIf { it.isNotBlank() }?.toDoubleOrNull()
-                val editValid = parsedEdit != null &&
+                val editSeconds = editingSeconds.toIntOrNull()
+                val editValid = (active.isMobilityHold || parsedEdit != null) &&
+                    (!active.isMobility || (editSeconds != null && editSeconds in 1..3600)) &&
                     (!active.allowsWeight || editingWeight.isBlank() ||
                         (editWeight != null && editWeight.isFinite() && editWeight >= 0))
                 Row(modifier = Modifier.fillMaxWidth(),
@@ -526,20 +542,33 @@ private fun ActiveWorkoutCard(
                     }
                     Button(onClick = {
                         val id = editingId
-                        if (id != null && parsedEdit != null) {
-                            onReviseSet(id, parsedEdit, if (active.allowsWeight) editWeight else null)
+                        if (id != null && (active.isMobilityHold || parsedEdit != null)) {
+                            onReviseSet(id, if (active.isMobilityHold) 1 else parsedEdit!!,
+                                if (active.allowsWeight) editWeight else null,
+                                if (active.isMobility) editSeconds else null)
                             editingId = null
                         }
                     }, enabled = !busy && editValid) { Text("Guardar corrección") }
                 }
             }
-            OutlinedTextField(
-                value = quantity,
-                onValueChange = { quantity = it.filter { char -> char.isDigit() } },
-                label = { Text("Repeticiones o cantidad") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (!active.isMobilityHold) {
+                OutlinedTextField(
+                    value = quantity,
+                    onValueChange = { quantity = it.filter(Char::isDigit) },
+                    label = { Text(if (active.isMobility) "Repeticiones de movilidad" else "Repeticiones o cantidad") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            if (active.isMobility) {
+                OutlinedTextField(
+                    value = mobilitySeconds,
+                    onValueChange = { mobilitySeconds = it.filter(Char::isDigit) },
+                    label = { Text("Tiempo real (segundos)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
             if (active.allowsWeight) {
                 OutlinedTextField(
                     value = weight,
@@ -549,13 +578,15 @@ private fun ActiveWorkoutCard(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-            OutlinedTextField(
-                value = rirText,
-                onValueChange = { rirText = it },
-                label = { Text("RIR opcional (repeticiones en reserva)") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (!active.isMobility) {
+                OutlinedTextField(
+                    value = rirText,
+                    onValueChange = { rirText = it },
+                    label = { Text("RIR opcional (repeticiones en reserva)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Start
@@ -565,11 +596,12 @@ private fun ActiveWorkoutCard(
             }
             Button(
                 onClick = {
-                    if (parsedQuantity != null) onLogSet(
-                        parsedQuantity,
+                    if (active.isMobilityHold || parsedQuantity != null) onLogSet(
+                        if (active.isMobilityHold) 1 else parsedQuantity!!,
                         if (active.allowsWeight) parsedWeight else null,
-                        parsedRir,
-                        warmup
+                        if (active.isMobility) null else parsedRir,
+                        warmup,
+                        if (active.isMobility) parsedSeconds else null
                     )
                 },
                 enabled = !busy && valid,
