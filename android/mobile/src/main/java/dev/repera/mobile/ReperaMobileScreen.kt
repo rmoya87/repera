@@ -453,6 +453,8 @@ fun ReperaMobileScreen(
                                 Text(entry.name, style = MaterialTheme.typography.titleMedium)
                                 val progress = overview?.exerciseProgress?.get(entry.id)
                                 var showHistory by remember(entry.id) { mutableStateOf(false) }
+                                var showAllSessions by remember(entry.id) { mutableStateOf(false) }
+                                val sessions = overview?.exerciseSessions?.get(entry.id).orEmpty()
                                 if (progress != null) {
                                     TextButton(onClick = { showHistory = !showHistory }) {
                                         Text(if (showHistory) "Ocultar resumen" else "Última sesión y récords")
@@ -470,6 +472,19 @@ fun ReperaMobileScreen(
                                         progress.bestMeters?.let { Text("Máximo: $it m") }
                                         progress.bestDurationSeconds?.let { seconds ->
                                             Text("Duración máxima: ${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}")
+                                        }
+                                        if (sessions.isNotEmpty()) {
+                                            Text("Historial · ${sessions.size} sesiones",
+                                                style = MaterialTheme.typography.titleSmall)
+                                            (if (showAllSessions) sessions else sessions.take(5)).forEach { visit ->
+                                                Text(visit.date.take(10) + " · " + visit.title,
+                                                    style = MaterialTheme.typography.bodyMedium)
+                                                Text(visit.lines.joinToString("  "),
+                                                    style = MaterialTheme.typography.labelSmall)
+                                            }
+                                            if (sessions.size > 5) TextButton(
+                                                onClick = { showAllSessions = !showAllSessions }
+                                            ) { Text(if (showAllSessions) "Ver menos" else "Ver todas las sesiones") }
                                         }
                                     }
                                 }

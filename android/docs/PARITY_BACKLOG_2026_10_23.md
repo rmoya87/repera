@@ -119,3 +119,16 @@ calentamientos; no se inventan series de WOD con puntuación global.
 Los tests de `CardioRecordInstrumentedTest` cubren SkiErg, carrera, comba,
 revisiones, borrado de duración y contribución a Progreso. El último HEAD
 requiere validación de CI y de dispositivo real antes de marcarlo estable.
+
+
+## Historial completo por ejercicio (paridad de acceso gratuito)
+
+`ExerciseSessionHistory` construye una línea temporal por UUID de ejercicio
+con todas las visitas (no sólo las últimas 20), fusiona bloques repetidos
+en una misma sesión y muestra todas sus series reales o las prescripciones
+aceptadas en sesiones terminadas. Los WOD que sólo tienen score global no
+se convierten en series de movimiento. En Ejercicios el usuario puede expandir
+las primeras cinco visitas o desplegar todas, con fechas y cantidades.
+El histórico es gratuito, mientras que la futura gráfica avanzada deberá
+respetar la suscripción Pro como en iOS. No se afirma equivalencia del motor
+de equivalencias de ejercicios de Swift ni de la interfaz avanzada de Progreso.

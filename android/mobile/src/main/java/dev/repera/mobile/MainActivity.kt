@@ -516,7 +516,8 @@ data class StateOverview(
     val exerciseEntries: List<ExerciseEntry>,
     val exerciseProgress: Map<String, ExerciseProgressSummary> = emptyMap(),
     val weeklyDayTotals: List<Int> = emptyList(),
-    val weeklyMuscleGroups: List<MuscleWorkloadMetrics.GroupCount> = emptyList()
+    val weeklyMuscleGroups: List<MuscleWorkloadMetrics.GroupCount> = emptyList(),
+    val exerciseSessions: Map<String, List<ExerciseSessionHistory.Visit>> = emptyMap()
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?): StateOverview? {
@@ -683,7 +684,8 @@ data class StateOverview(
                 exerciseProgress = ExerciseProgressMetrics.fromWorkouts(json.getJSONArray("workouts")),
                 weeklyDayTotals = weeklyDayTotals.toList(),
                 weeklyMuscleGroups = MuscleWorkloadMetrics.weekly(
-                    json.getJSONArray("workouts"), today, ZoneId.systemDefault())
+                    json.getJSONArray("workouts"), today, ZoneId.systemDefault()),
+                exerciseSessions = ExerciseSessionHistory.fromArchive(json.getJSONArray("workouts"))
             )
         }
     }
