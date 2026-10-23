@@ -1115,14 +1115,11 @@ struct WorkoutDetailView: View {
         for exercise: SessionExercise,
         hideScoreArtifact: WODBlockResult?
     ) -> [LoggedSet] {
-        guard let result = hideScoreArtifact,
-              let total = result.totalReps,
-              exercise.loggedSets.count == 1,
-              let only = exercise.loggedSets.first,
-              only.weightKg == nil,
-              only.reps == total
-        else { return exercise.loggedSets }
-        return []
+        // Las series efectivamente guardadas siempre deben mostrarse en el
+        // detalle. Antes se ocultaba una serie si sus reps coincidían con el
+        // score del bloque; esa coincidencia también ocurre con series reales.
+        // El resultado agregado se presenta por separado en la cabecera.
+        return exercise.loggedSets
     }
 
     private func readOnlySetRow(setIndex: Int, set: LoggedSet) -> some View {
