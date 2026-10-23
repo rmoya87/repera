@@ -247,7 +247,7 @@ export function registerCoachTools(
       ) : normalized(e.exercise?.name||"")===key)
       .map(e=>({date:row.finished_at,exercise:e.exercise?.name,catalog_key:e.exercise?.catalogId||null,
         sets:(e.loggedSets??[]).filter(s=>s.phase!=="warmup").map(s=>({
-          quantity:s.reps??null,kg:s.weightKg??null,rir:s.rir??null,
+          reps:s.reps??null,quantity:s.reps??null,kg:s.weightKg??null,rir:s.rir??null,
           unit:s.quantityUnit??null,duration_seconds:s.durationSeconds??null,
           epley_1rm_kg:s.weightKg!=null&&(s.quantityUnit==null||s.quantityUnit==="reps")
             &&s.reps!=null&&s.reps>=1&&s.reps<=12
