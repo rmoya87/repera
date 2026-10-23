@@ -38,6 +38,21 @@ class ExerciseProgressMetricsInstrumentedTest {
         assertEquals(original, workouts.toString())
     }
 
+    @Test fun durationOnlyCardioUpdatesBestDurationWithoutMakingFakeRepPr() {
+        val zero = JSONObject().put("exercise", JSONObject().put("id", "machine"))
+            .put("quantityUnit", "calories")
+            .put("plannedSets", JSONArray())
+            .put("loggedSets", JSONArray().put(JSONObject().put("reps", 0)
+                .put("quantityUnit", "calories").put("phase", "work")
+                .put("durationSeconds", 120)))
+        val sessions = JSONArray().put(workout("finished", "2026-10-23T10:00:00Z", zero))
+        val metrics = ExerciseProgressMetrics.fromWorkouts(sessions)["machine"]!!
+        assertEquals(1, metrics.timesPerformed)
+        assertEquals(120, metrics.bestDurationSeconds)
+        assertNull(metrics.bestCalories)
+        assertNull(metrics.bestReps)
+    }
+
     @Test fun unfinishedPrescriptionsAndScoreOnlyWodsDoNotProduceFakeRecords() {
         val id = "e"
         val pending = exercise(id, JSONArray().put(planned(8, 40.0)))

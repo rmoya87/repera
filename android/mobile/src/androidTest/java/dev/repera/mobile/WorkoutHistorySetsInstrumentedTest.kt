@@ -76,6 +76,22 @@ class WorkoutHistorySetsInstrumentedTest {
         assertTrue(WorkoutHistorySets.effectiveWorkSets(workout, exercise).isEmpty())
     }
 
+    @Test fun durationOnlyCardioIsNotReplacedByPrescription() {
+        val exercise = JSONObject().put("blockKind", "strength")
+            .put("quantityUnit", "meters")
+            .put("plannedSets", JSONArray().put(JSONObject().put("targetReps", 1500)))
+            .put("loggedSets", JSONArray().put(JSONObject().put("reps", 0)
+                .put("quantityUnit", "meters").put("phase", "work")
+                .put("durationSeconds", 90)))
+        val session = JSONObject().put("phase", "finished")
+        val actual = WorkoutHistorySets.displayLines(session, exercise)
+        assertEquals(listOf("0 m · 1:30"), actual)
+        val effective = WorkoutHistorySets.effectiveWorkSets(session, exercise)
+        assertEquals(1, effective.size)
+        assertEquals(0, effective.single().reps)
+        assertEquals(90, effective.single().durationSeconds)
+    }
+
     @Test fun scoreOnlyWodDoesNotFabricateMovementSets() {
         val exercise = JSONObject().put("blockKind", "wod")
             .put("loggedSets", JSONArray()).put("plannedSets", JSONArray())

@@ -20,12 +20,16 @@ internal object WorkoutHistorySets {
         val logged = exercise.optJSONArray("loggedSets") ?: JSONArray()
         val actual = (0 until logged.length()).mapNotNull { n ->
             val set = logged.getJSONObject(n)
-            if (set.optString("phase", "work") == "warmup" || set.optInt("reps") <= 0)
+            val seconds = set.optInt("durationSeconds").takeIf {
+                set.has("durationSeconds") && it > 0
+            }
+            // A time-only cardio entry is real work even if its distance or reps
+            // are deliberately zero. Never replace it with planned strength sets.
+            if (set.optString("phase", "work") == "warmup" ||
+                (set.optInt("reps") <= 0 && seconds == null))
                 null else EffectiveSet(set.optInt("reps"),
                     valueOrNull(set, "weightKg"), resolvedUnit(set, exercise),
-                    set.optInt("durationSeconds").takeIf {
-                        set.has("durationSeconds") && it > 0
-                    })
+                    seconds)
         }
         if (actual.isNotEmpty()) return actual
         // A score-only WOD has no work-set history. Its prescribed movement targets
@@ -48,7 +52,8 @@ internal object WorkoutHistorySets {
         val recorded = exercise.optJSONArray("loggedSets") ?: JSONArray()
         val actual = (0 until recorded.length()).map { recorded.getJSONObject(it) }
         val validWork = actual.any { set ->
-            set.optString("phase", "work") != "warmup" && set.optInt("reps") > 0
+            set.optString("phase", "work") != "warmup" &&
+                (set.optInt("reps") > 0 || set.optInt("durationSeconds") > 0)
         }
         val actualLines = actual.map { set ->
             line(
