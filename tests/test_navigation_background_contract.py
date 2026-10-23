@@ -49,9 +49,7 @@ class NavigationBackgroundContractTests(unittest.TestCase):
         self.assertIn(".background(OG.surface)", home)
 
     def test_inline_navigation_and_manual_titles_do_not_turn_white(self):
-        for file in ("WorkoutView.swift", "LibraryView.swift",
-                     "StandaloneTimerView.swift", "QuickLogSheet.swift"):
-            self.assertIn(".ogTransparentNav()", read(file), file)
+        self.assertIn(".ogTransparentNav()", read("WorkoutView.swift"))
         for file in ("AIAccessView.swift", "AITrainingProgramsView.swift",
                      "BusinessCenterViews.swift", "MessagesInboxView.swift"):
             self.assertIn(".ogTransparentNav()", read(file), file)
@@ -60,6 +58,43 @@ class NavigationBackgroundContractTests(unittest.TestCase):
         self.assertIn('.navigationTitle("Nuevo token")', access)
         self.assertGreaterEqual(access.count(".ogTransparentNav()"), 2)
 
+
+
+    def test_diary_style_transparent_bars_are_scoped_to_requested_screens(self):
+        theme = read("Theme.swift")
+        style = theme.split("func ogDiaryTransparentNav() -> some View {", 1)[1].split("    }", 1)[0]
+        self.assertIn(".toolbarBackground(.hidden, for: .navigationBar)", style)
+        for file in (
+            "LibraryView.swift", "FavoritesHubView.swift", "QuickLogPickerView.swift",
+            "QuickLogSheet.swift", "StandaloneTimerView.swift",
+            "ExerciseDetailView.swift", "ExerciseProgressView.swift",
+        ):
+            self.assertIn(".ogDiaryTransparentNav()", read(file), file)
+        exercise_progress = read("ExerciseProgressView.swift")
+        self.assertLess(
+            exercise_progress.index(".ogPinnedTransparentNav("),
+            exercise_progress.index(".ogDiaryTransparentNav()")
+        )
+        for file in ("HistoryView.swift", "SettingsView.swift", "WorkoutView.swift"):
+            self.assertNotIn(".ogDiaryTransparentNav()", read(file), file)
+
+    def test_timer_numeric_inputs_replace_visible_plus_minus_controls(self):
+        timer = read("StandaloneTimerView.swift")
+        form = timer.split("private func compactIntRow(", 1)[1].split("private func persistFavorite()", 1)[0]
+        self.assertIn('TimerNumericInput(label: "RONDAS"', form)
+        self.assertIn('TimerNumericInput(label: "MIN"', form)
+        self.assertIn('TimerNumericInput(label: "SEG"', form)
+        self.assertIn("range: 0...59", form)
+        self.assertNotIn("minusPlus(", form)
+        self.assertNotIn("bumpTime(", form)
+        self.assertNotIn('Image(systemName: "plus")', form)
+        self.assertNotIn('Image(systemName: "minus")', form)
+        input_view = timer.split("private struct TimerNumericInput:", 1)[1].split("struct StandaloneTimerView:", 1)[0]
+        self.assertIn("OGNumericTextField(", input_view)
+        self.assertIn("_draft = State(initialValue: String(value.wrappedValue))", input_view)
+        self.assertIn("range.contains(parsed)", input_view)
+        self.assertIn("min(range.upperBound, max(range.lowerBound, parsed))", input_view)
+        self.assertIn(".background(OG.surface2, in: RoundedRectangle", input_view)
 
 if __name__ == "__main__":
     unittest.main()
