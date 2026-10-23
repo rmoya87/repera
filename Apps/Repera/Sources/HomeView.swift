@@ -256,6 +256,9 @@ struct HomeView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            // El gris agrupado debe ocupar el viewport entero y la zona
+            // inferior segura, incluso si no hay tarjetas más abajo.
+            .background(OG.bg.ignoresSafeArea(edges: .bottom))
             .refreshable { await businessData.refresh() }
             .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay)) {
                 if !businessData.athleteCenterIds.isEmpty {

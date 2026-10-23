@@ -228,8 +228,8 @@ struct PlanView: View {
         let datedPlans = store.state.routines
             .filter { $0.scheduledDate != nil }
             .sorted { ($0.scheduledDate ?? .distantFuture) < ($1.scheduledDate ?? .distantFuture) }
-        if !datedPlans.isEmpty {
-            Section {
+        Section {
+            if !datedPlans.isEmpty {
                 ForEach(datedPlans) { routine in
                     Button {
                         onOpenRoutine(routine)
@@ -259,14 +259,7 @@ struct PlanView: View {
                         .padding(.vertical, 5)
                     }
                 }
-            } header: {
-                Text("Entrenamientos con fecha")
-            } footer: {
-                Text("Incluye los entrenamientos planificados desde Inicio y por tus asistentes de IA.")
             }
-        }
-
-        Section {
             ForEach(1...7, id: \.self) { day in
                 let routine = store.routine(forWeekday: day)
                 Button {
