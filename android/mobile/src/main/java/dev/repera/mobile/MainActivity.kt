@@ -100,7 +100,9 @@ class MainActivity : ComponentActivity() {
                 status = status,
                 overview = snapshot,
                 activeWorkout = activeWorkout,
-                onStartRoutine = { runWorkoutAction { startStrengthRoutine(it) } },
+                onStartRoutine = { id -> runWorkoutAction { startStrengthRoutine(id) } },
+                onQuickLog = { id -> runWorkoutAction { startQuickLog(id) } },
+                onInitializeLocal = ::initializeLocalCatalog,
                 onLogSet = { quantity, weight -> runWorkoutAction { logCurrentSet(quantity, weight) } },
                 onNext = { runWorkoutAction { next() } },
                 onFinish = { runWorkoutAction { finish() } },
@@ -244,6 +246,25 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun initializeLocalCatalog() {
+        val signedIn = profile ?: return
+        if (busy) return
+        busy = true
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    CatalogBootstrap.initializeEmptyAccount(this@MainActivity, signedIn.uniqueId)
+                }
+                reloadFor(signedIn.uniqueId)
+                status = "Biblioteca Repera preparada desde el catálogo original."
+            } catch (error: Exception) {
+                status = error.localizedMessage ?: "No se pudo preparar el catálogo"
+            } finally {
+                busy = false
+            }
+        }
+    }
+
     private fun signOut() {
         if (busy) return
         busy = true
@@ -274,7 +295,7 @@ data class StateOverview(
     val activeSessionTitle: String?,
     val recentWorkoutTitles: List<String>,
     val routineEntries: List<RoutineEntry>,
-    val exerciseTitles: List<String>
+    val exerciseEntries: List<ExerciseEntry>
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?): StateOverview? {
@@ -296,19 +317,26 @@ data class StateOverview(
                     RoutineEntry(item.getString("id"), item.optString("title"))
                 }
             }
-            val exerciseTitles = titles("exercises")
+            val exerciseEntries = json.getJSONArray("exercises").let { array ->
+                (0 until array.length()).map { n ->
+                    val ex = array.getJSONObject(n)
+                    ExerciseEntry(ex.getString("id"), ex.getString("name"))
+                }.sortedBy { it.name }
+            }
             return StateOverview(
                 workouts = workoutTitles.size,
                 routines = routineEntries.size,
-                exercises = exerciseTitles.size,
+                exercises = exerciseEntries.size,
                 bodyWeights = json.optJSONArray("bodyWeights")?.length() ?: 0,
                 activeSessionTitle = json.optJSONObject("activeSession")?.optString("title"),
                 recentWorkoutTitles = workoutTitles.asReversed().take(20),
                 routineEntries = routineEntries,
-                exerciseTitles = exerciseTitles.sorted()
+                exerciseEntries = exerciseEntries
             )
         }
     }
 }
 
 data class RoutineEntry(val id: String, val title: String)
+
+data class ExerciseEntry(val id: String, val name: String)

@@ -90,6 +90,65 @@ class WorkoutRepository(context: Context, googleId: String) {
         return summarize(session)
     }
 
+    /**
+     * Swift ReperaStore.startQuickLog: one selected real exercise, three targets
+     * copied from the latest saved workout when available; never invent recorded sets.
+     */
+    @Synchronized fun startQuickLog(exerciseId: String): ActiveWorkout {
+        val state = requireState()
+        check(state.isNull("activeSession")) { "Ya existe una sesión activa" }
+        val catalog = state.getJSONArray("exercises")
+        val exercise = (0 until catalog.length()).map { catalog.getJSONObject(it) }
+            .firstOrNull { it.optString("id") == exerciseId }
+            ?: error("Ejercicio no encontrado")
+        val history = state.getJSONArray("workouts")
+        var lastReps: Int? = null
+        var lastWeight: Double? = null
+        historyLoop@ for (w in history.length() - 1 downTo 0) {
+            val work = history.getJSONObject(w).optJSONArray("exercises") ?: continue
+            for (j in 0 until work.length()) {
+                val previous = work.getJSONObject(j)
+                if (previous.optJSONObject("exercise")?.optString("id") != exerciseId) continue
+                val logged = previous.optJSONArray("loggedSets") ?: continue
+                for (k in logged.length() - 1 downTo 0) {
+                    val set = logged.getJSONObject(k)
+                    if (set.optString("phase", "work") != "work") continue
+                    lastReps = set.optInt("reps", 8)
+                    if (set.has("weightKg") && !set.isNull("weightKg")) lastWeight = set.getDouble("weightKg")
+                    break@historyLoop
+                }
+            }
+        }
+        val presets = JSONArray()
+        repeat(3) {
+            val target = JSONObject()
+                .put("id", UUID.randomUUID().toString())
+                .put("targetReps", lastReps ?: 8)
+                .put("targetPercent1RMIsMinimum", false)
+            if (lastWeight != null) target.put("targetWeightKg", lastWeight)
+            presets.put(target)
+        }
+        val entry = JSONObject()
+            .put("id", UUID.randomUUID().toString())
+            .put("exercise", JSONObject(exercise.toString()))
+            .put("plannedSets", presets)
+            .put("loggedSets", JSONArray())
+            .put("completedReps", 0)
+            .put("isCompleted", false)
+        val session = JSONObject()
+            .put("id", UUID.randomUUID().toString())
+            .put("title", "Apuntar · " + exercise.getString("name"))
+            .put("exercises", JSONArray().put(entry))
+            .put("currentIndex", 0)
+            .put("phase", "ready")
+            .put("startedAt", nowISO8601())
+            .put("wodResults", JSONArray())
+            .put("routePoints", JSONArray())
+        state.put("activeSession", session)
+        save(state)
+        return summarize(session)
+    }
+
     @Synchronized fun logCurrentSet(quantity: Int, weightKg: Double?): ActiveWorkout {
         require(quantity >= 0) { "Cantidad inválida" }
         require(weightKg == null || (weightKg.isFinite() && weightKg >= 0)) { "Peso inválido" }

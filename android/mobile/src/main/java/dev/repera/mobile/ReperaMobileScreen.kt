@@ -35,6 +35,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import dev.repera.domain.ExerciseAliasSearch
 
 private val brandGreen = Color(0xFF30D158)
 private val tabs = listOf("Inicio", "Diario", "Crear", "Progreso", "Ejercicios")
@@ -49,6 +51,8 @@ fun ReperaMobileScreen(
     overview: StateOverview?,
     activeWorkout: ActiveWorkout?,
     onStartRoutine: (String) -> Unit,
+    onQuickLog: (String) -> Unit,
+    onInitializeLocal: () -> Unit,
     onLogSet: (Int, Double?) -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit,
@@ -60,6 +64,8 @@ fun ReperaMobileScreen(
     val scheme = if (isSystemInDarkTheme()) {
         darkColorScheme(primary = brandGreen, onPrimary = Color.Black)
     } else lightColorScheme(primary = Color(0xFF16833B), onPrimary = Color.White)
+    val context = LocalContext.current
+    val englishAliases = remember(context) { ExerciseSearchAssets.load(context) }
     MaterialTheme(colorScheme = scheme) {
         if (!isAuthenticated) {
             Column(
@@ -197,29 +203,40 @@ fun ReperaMobileScreen(
                             label = { Text("Buscar ejercicio") }
                         )
                     }
-                    val exerciseTitles = overview?.exerciseTitles.orEmpty()
-                        .asSequence()
-                        .filter { it.contains(exerciseSearch.trim(), ignoreCase = true) }
-                        .take(100).toList()
-                    if (exerciseTitles.isEmpty()) item { Text("Sin ejercicios coincidentes") }
-                    items(exerciseTitles) { name ->
+                    val entries = remember(exerciseSearch, overview?.exerciseEntries) {
+                        overview?.exerciseEntries.orEmpty()
+                            .asSequence()
+                            .map { it to ExerciseAliasSearch.score(exerciseSearch, it.name, englishAliases) }
+                            .filter { it.second >= 0 }
+                            .sortedWith(compareByDescending<Pair<ExerciseEntry, Int>> { it.second }
+                                .thenBy { it.first.name })
+                            .take(100).map { it.first }.toList()
+                    }
+                    if (entries.isEmpty()) item { Text("Sin ejercicios coincidentes") }
+                    items(entries, key = { it.id }) { entry ->
                         Card(modifier = Modifier.fillMaxWidth()) {
-                            Text(name, modifier = Modifier.padding(16.dp))
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(entry.name, style = MaterialTheme.typography.titleMedium)
+                                TextButton(
+                                    onClick = { onQuickLog(entry.id); selected = "Inicio" },
+                                    enabled = !busy && activeWorkout == null
+                                ) { Text("Apuntar series") }
+                            }
                         }
                     }
                 }
                 if (selected == "Crear") {
                     item {
-                        Text("Para conservar el histórico de iOS y sus ejercicios, importa el JSON exportado por Repera. La edición de nuevos bloques WOD todavía no está disponible.")
-                        OutlinedButton(
-                            onClick = onImportJson,
-                            enabled = !busy && overview == null,
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("Importar datos de Repera") }
+                        Text("Puedes iniciar un registro desde Ejercicios o importar tu historial Apple antes de comenzar. El editor avanzado WOD sigue en desarrollo.")
                     }
                 }
-                if (selected == "Inicio" && overview == null) {
+                if (overview == null) {
                     item {
+                        Button(
+                            onClick = onInitializeLocal,
+                            enabled = !busy,
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Empezar con catálogo Repera") }
                         OutlinedButton(
                             onClick = onImportJson,
                             enabled = !busy,
