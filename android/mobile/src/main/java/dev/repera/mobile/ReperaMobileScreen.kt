@@ -79,7 +79,8 @@ fun ReperaMobileScreen(
     onWodTimerAction: (String) -> Unit,
     onWodTimerTick: () -> Unit,
     onStartRoutine: (String) -> Unit,
-    onCreateRoutine: (String, String, List<RoutineDraftEntry>, Int, Int, RoutineSchedule) -> Unit,
+    onCreateRoutine: (String, String, List<RoutineDraftEntry>, Int, Int,
+        RoutineSchedule, Int, Int, Int) -> Unit,
     onWodScore: (Int?, Int?, Int?) -> Unit,
     onWodMovement: (Int, Int, Int, Double?) -> Unit,
     onCompleteWodBlock: () -> Unit,
@@ -126,6 +127,7 @@ fun ReperaMobileScreen(
         var exerciseSearch by rememberSaveable { mutableStateOf("") }
         var exerciseFilter by rememberSaveable { mutableStateOf("Todos") }
         var diaryDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+        var homeDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
         // LazyListScope is not @Composable: calculate the filtered list here,
         // where remember is legal, then hand the immutable result to LazyColumn.
         val filteredExerciseEntries = remember(exerciseSearch, exerciseFilter, overview?.exerciseEntries) {
@@ -136,7 +138,7 @@ fun ReperaMobileScreen(
                 .filter { it.second >= 0 }
                 .sortedWith(compareByDescending<Pair<ExerciseEntry, Int>> { it.second }
                     .thenBy { it.first.name })
-                .take(100).map { it.first }.toList()
+                .map { it.first }.toList()
         }
         Scaffold(
             topBar = { TopAppBar(title = { Text("repera") }) },
@@ -191,6 +193,44 @@ fun ReperaMobileScreen(
                                     enabled = !busy,
                                     onClick = onHealthConnect
                                 ) { Text("Conectar o actualizar Salud") }
+                            }
+                        }
+                    }
+                    item {
+                        val day = LocalDate.parse(homeDateIso)
+                        val dayRoutines = overview?.routineEntries.orEmpty().filter {
+                            it.scheduledDate == day.toString() ||
+                                (it.scheduledDate == null && it.weekday == day.dayOfWeek.value)
+                        }
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("Calendario y entrenamientos",
+                                    style = MaterialTheme.typography.titleLarge)
+                                WeekCalendarStrip(day) { homeDateIso = it.toString() }
+                                Text("Entrenamientos · $day",
+                                    style = MaterialTheme.typography.titleMedium)
+                                if (dayRoutines.isEmpty()) {
+                                    Text("Sin entrenamiento programado",
+                                        style = MaterialTheme.typography.bodyMedium)
+                                } else dayRoutines.forEach { routine ->
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Text(routine.title, style = MaterialTheme.typography.bodyLarge)
+                                        TextButton(onClick = {
+                                            onStartRoutine(routine.id)
+                                            selected = "Inicio"
+                                        }, enabled = !busy && activeWorkout == null && routine.supported) {
+                                            Text(if (routine.supported) "Iniciar entrenamiento"
+                                                else "Formato no disponible")
+                                        }
+                                    }
+                                }
+                                Button(onClick = { selected = "Crear" },
+                                    enabled = !busy,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = brandGreen, contentColor = Color.Black
+                                    )) { Text("Añadir nuevo entrenamiento") }
                             }
                         }
                     }
@@ -424,6 +464,8 @@ fun ReperaMobileScreen(
                                 Text(entry.name, style = MaterialTheme.typography.titleMedium)
                                 val progress = overview?.exerciseProgress?.get(entry.id)
                                 var showHistory by remember(entry.id) { mutableStateOf(false) }
+                                var showAllSessions by remember(entry.id) { mutableStateOf(false) }
+                                val sessions = overview?.exerciseSessions?.get(entry.id).orEmpty()
                                 if (progress != null) {
                                     TextButton(onClick = { showHistory = !showHistory }) {
                                         Text(if (showHistory) "Ocultar resumen" else "Última sesión y récords")
@@ -448,6 +490,19 @@ fun ReperaMobileScreen(
                                         progress.bestMeters?.let { Text("Máximo: $it m") }
                                         progress.bestDurationSeconds?.let { seconds ->
                                             Text("Duración máxima: ${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}")
+                                        }
+                                        if (sessions.isNotEmpty()) {
+                                            Text("Historial · ${sessions.size} sesiones",
+                                                style = MaterialTheme.typography.titleSmall)
+                                            (if (showAllSessions) sessions else sessions.take(5)).forEach { visit ->
+                                                Text(visit.date.take(10) + " · " + visit.title,
+                                                    style = MaterialTheme.typography.bodyMedium)
+                                                Text(visit.lines.joinToString("  "),
+                                                    style = MaterialTheme.typography.labelSmall)
+                                            }
+                                            if (sessions.size > 5) TextButton(
+                                                onClick = { showAllSessions = !showAllSessions }
+                                            ) { Text(if (showAllSessions) "Ver menos" else "Ver todas las sesiones") }
                                         }
                                     }
                                 }
@@ -1020,7 +1075,8 @@ private fun RoutineCreatorCard(
     exercises: List<ExerciseEntry>,
     aliases: Map<String, String>,
     busy: Boolean,
-    onSave: (String, String, List<RoutineDraftEntry>, Int, Int, RoutineSchedule) -> Unit
+    onSave: (String, String, List<RoutineDraftEntry>, Int, Int,
+        RoutineSchedule, Int, Int, Int) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var kind by remember { mutableStateOf("strength") }
@@ -1031,6 +1087,9 @@ private fun RoutineCreatorCard(
     var mobilitySeconds by remember { mutableStateOf("30") }
     var cap by remember { mutableStateOf("12") }
     var rounds by remember { mutableStateOf("1") }
+    var interval by remember { mutableStateOf("60") }
+    var workSeconds by remember { mutableStateOf("20") }
+    var restSeconds by remember { mutableStateOf("10") }
     var planning by remember { mutableStateOf("library") }
     var specificDate by remember { mutableStateOf(LocalDate.now().toString()) }
     var weekday by remember { mutableStateOf(1) }
@@ -1064,9 +1123,11 @@ private fun RoutineCreatorCard(
                 label = { Text("Nombre de la rutina") },
                 singleLine = true, modifier = Modifier.fillMaxWidth()
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("strength" to "Fuerza", "amrap" to "AMRAP", "forTime" to "For Time")
-                    .forEach { option ->
+            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("strength" to "Fuerza", "amrap" to "AMRAP",
+                    "forTime" to "For Time", "emom" to "EMOM", "tabata" to "Tabata",
+                    "circuit" to "Circuito").forEach { option ->
                         FilterChip(
                             selected = kind == option.first,
                             onClick = {
@@ -1083,13 +1144,32 @@ private fun RoutineCreatorCard(
                     label = { Text("Límite (minutos)") },
                     modifier = Modifier.fillMaxWidth(), singleLine = true
                 )
-                if (kind == "forTime") {
+                if (kind in setOf("forTime", "emom", "tabata", "circuit")) {
                     OutlinedTextField(
                         value = rounds,
                         onValueChange = { rounds = it.filter(Char::isDigit) },
-                        label = { Text("Número de rondas") },
+                        label = { Text(if (kind == "emom") "Número de intervalos" else "Número de rondas") },
                         modifier = Modifier.fillMaxWidth(), singleLine = true
                     )
+                }
+                if (kind == "emom") {
+                    OutlinedTextField(value = interval,
+                        onValueChange = { interval = it.filter(Char::isDigit) },
+                        label = { Text("Duración del intervalo (segundos)") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+                if (kind == "tabata") {
+                    OutlinedTextField(value = workSeconds,
+                        onValueChange = { workSeconds = it.filter(Char::isDigit) },
+                        label = { Text("Trabajo (segundos)") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+                if (kind in setOf("tabata", "circuit")) {
+                    OutlinedTextField(value = restSeconds,
+                        onValueChange = { restSeconds = it.filter(Char::isDigit) },
+                        label = { Text(if (kind == "tabata") "Descanso por intervalo (segundos)"
+                            else "Descanso entre rondas (segundos)") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
             }
             OutlinedTextField(
@@ -1197,12 +1277,21 @@ private fun RoutineCreatorCard(
                 runCatching { LocalTime.parse(clockTime) }.getOrNull()
             val validClock = planning == "library" || clockTime.isBlank() || parsedClock != null
             val validCap = cap.toIntOrNull()?.let { it in 1..180 } == true
-            val validRounds = kind != "forTime" ||
+            val validRounds = kind !in setOf("forTime", "emom", "tabata", "circuit") ||
                 rounds.toIntOrNull()?.let { it in 1..100 } == true
+            val validIntervals = (kind != "emom" ||
+                interval.toIntOrNull()?.let { it in 15..600 } == true) &&
+                (kind != "tabata" ||
+                    (workSeconds.toIntOrNull()?.let { it in 5..600 } == true &&
+                    restSeconds.toIntOrNull()?.let { it in 0..600 } == true &&
+                    (workSeconds.toIntOrNull() ?: 601) + (restSeconds.toIntOrNull() ?: 601) <= 600)) &&
+                (kind != "circuit" ||
+                    restSeconds.toIntOrNull()?.let { it in 0..600 } == true)
             Button(
                 enabled = !busy && title.trim().isNotEmpty() &&
                     title.trim().length <= 100 && chosen.isNotEmpty() &&
-                    (kind == "strength" || (validCap && validRounds)) && validDate && validClock,
+                    (kind == "strength" || (validCap && validRounds && validIntervals)) &&
+                    validDate && validClock,
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
                     val entries = chosen.map {
@@ -1216,7 +1305,9 @@ private fun RoutineCreatorCard(
                             timeMinutes = if (planning == "library") null else parsedClock?.let {
                                 it.hour * 60 + it.minute
                             }
-                        ))
+                        ),
+                        interval.toIntOrNull() ?: 60, workSeconds.toIntOrNull() ?: 20,
+                        restSeconds.toIntOrNull() ?: 10)
                 }
             ) { Text("Guardar rutina") }
         }
