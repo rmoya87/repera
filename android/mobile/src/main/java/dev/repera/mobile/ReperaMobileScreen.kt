@@ -105,6 +105,17 @@ fun ReperaMobileScreen(
         }
         var selected by remember { mutableStateOf("Inicio") }
         var exerciseSearch by remember { mutableStateOf("") }
+        // LazyListScope is not @Composable: calculate the filtered list here,
+        // where remember is legal, then hand the immutable result to LazyColumn.
+        val filteredExerciseEntries = remember(exerciseSearch, overview?.exerciseEntries) {
+            overview?.exerciseEntries.orEmpty()
+                .asSequence()
+                .map { it to ExerciseAliasSearch.score(exerciseSearch, it.name, englishAliases) }
+                .filter { it.second >= 0 }
+                .sortedWith(compareByDescending<Pair<ExerciseEntry, Int>> { it.second }
+                    .thenBy { it.first.name })
+                .take(100).map { it.first }.toList()
+        }
         Scaffold(
             topBar = { TopAppBar(title = { Text("repera") }) },
             bottomBar = {
@@ -249,15 +260,7 @@ fun ReperaMobileScreen(
                             label = { Text("Buscar ejercicio") }
                         )
                     }
-                    val entries = remember(exerciseSearch, overview?.exerciseEntries) {
-                        overview?.exerciseEntries.orEmpty()
-                            .asSequence()
-                            .map { it to ExerciseAliasSearch.score(exerciseSearch, it.name, englishAliases) }
-                            .filter { it.second >= 0 }
-                            .sortedWith(compareByDescending<Pair<ExerciseEntry, Int>> { it.second }
-                                .thenBy { it.first.name })
-                            .take(100).map { it.first }.toList()
-                    }
+                    val entries = filteredExerciseEntries
                     if (entries.isEmpty()) item { Text("Sin ejercicios coincidentes") }
                     items(entries, key = { it.id }) { entry ->
                         Card(modifier = Modifier.fillMaxWidth()) {
