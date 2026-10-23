@@ -37,7 +37,7 @@ class ScaledWODContractTests(unittest.TestCase):
         self.assertIn('"REPS REALES"', view)
         self.assertIn('"KG REALES"', view)
         self.assertIn("private func completedPrescribedValue(", view)
-        self.assertIn("reps == Int(prescribed) ? nil : reps")
+        self.assertIn("reps == Int(prescribed) ? nil : reps", view)
         self.assertIn("adaptedReps = nil", view)
         self.assertIn("adaptedWeightKg = nil", view)
         self.assertIn("scaledInputDrafts[key] = input", view)
