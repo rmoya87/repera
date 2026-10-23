@@ -370,7 +370,7 @@ Deno.serve(async (request) => {
       const fold = (value: string) => value.normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "").toLowerCase();
       const results = (catalogResult.data ?? []).filter(item =>
-        (term === "hyrox" && hyroxCatalogKeys.includes(item.catalog_key))
+        (term === "hyrox" && new Set<string>(hyroxCatalogKeys).has(item.catalog_key))
         || fold(item.name).includes(term)
         || fold(item.display_name_en ?? "").includes(term)
         || (aliases.get(item.catalog_key) ?? []).some((name: string) => fold(name).includes(term))
