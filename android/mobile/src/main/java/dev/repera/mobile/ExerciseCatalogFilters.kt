@@ -6,8 +6,8 @@ import dev.repera.domain.ExerciseAliasSearch
 object ExerciseCatalogFilters {
     private val hyrox = setOf(
         "skierg", "remo maquina", "carrera", "cinta carrera",
-        "shuttle run", "sled push", "sled pull", "farmer carry", "farmer walk",
-        "walking lunge", "wall ball"
+        "sled push", "sled pull", "farmer carry", "farmer walk",
+        "burpee broad jump", "sandbag lunges", "wall ball"
     )
 
     fun isHyroxTrainingMovement(name: String): Boolean =

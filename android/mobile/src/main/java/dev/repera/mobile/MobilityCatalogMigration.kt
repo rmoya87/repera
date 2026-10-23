@@ -7,12 +7,13 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * Non-destructive Android catalog migration. Adds only the 82 canonical mobility
+ * Non-destructive Android catalog migration. Adds the 82 canonical mobility and two HYROX
  * seeds from the current iOS catalog without altering pre-existing exercises,
  * routines or logged sets. UUIDs remain deterministic between Android devices.
  */
 internal object MobilityCatalogMigration {
     private const val EXPECTED_MOBILITY = 82
+    private const val EXPECTED_HYROX = 2
 
     fun ensure(context: Context, accountId: String): Boolean {
         val store = LocalSnapshotStore(context, accountId)
@@ -20,9 +21,16 @@ internal object MobilityCatalogMigration {
         LocalSnapshotStore.validate(bytes)
         val state = JSONObject(String(bytes, Charsets.UTF_8))
         val catalog = state.getJSONArray("exercises")
-        val seeds = context.assets.open("mobility_seed.json").bufferedReader(Charsets.UTF_8)
-            .use { JSONArray(it.readText()) }
-        check(seeds.length() == EXPECTED_MOBILITY) { "Catálogo de movilidad incompleto" }
+        val mobility = context.assets.open("mobility_seed.json")
+            .bufferedReader(Charsets.UTF_8).use { JSONArray(it.readText()) }
+        val hyrox = context.assets.open("hyrox_seed.json")
+            .bufferedReader(Charsets.UTF_8).use { JSONArray(it.readText()) }
+        check(mobility.length() == EXPECTED_MOBILITY && hyrox.length() == EXPECTED_HYROX) {
+            "Catálogo deportivo incompleto"
+        }
+        val seeds = JSONArray()
+        for (i in 0 until mobility.length()) seeds.put(mobility.getJSONObject(i))
+        for (i in 0 until hyrox.length()) seeds.put(hyrox.getJSONObject(i))
         val originalCount = catalog.length()
         val existingCatalogIds = mutableSetOf<String>()
         val existingExerciseIds = mutableSetOf<String>()
@@ -35,7 +43,8 @@ internal object MobilityCatalogMigration {
         for (i in 0 until seeds.length()) {
             val seed = seeds.getJSONObject(i)
             val catalogId = seed.getString("catalogId")
-            require(catalogId.startsWith("mobility-") && usedSeedIds.add(catalogId))
+            require((catalogId.startsWith("mobility-") ||
+                catalogId.startsWith("hyrox-")) && usedSeedIds.add(catalogId))
             if (catalogId in existingCatalogIds) continue
             val id = UUID.nameUUIDFromBytes(
                 ("repera:catalog:" + catalogId).toByteArray(Charsets.UTF_8)
