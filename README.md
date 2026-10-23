@@ -4,7 +4,7 @@ App nativa de entrenamiento (**iPhone + Apple Watch**), **local-first + iCloud**
 
 Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (solo dominio/UX; no se copia código).
 
-## Android / Wear OS (en desarrollo)
+Android / Wear OS (en desarrollo)
 
 Proyecto nativo independiente en [android/](android/) con Kotlin, Material 3,
 login de Google y Google Drive appDataFolder. **No equivale aún a las apps Apple

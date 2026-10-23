@@ -85,8 +85,9 @@ class PlayWODContractTests(unittest.TestCase):
         self.assertIn("blockRestBetweenRoundsSeconds = try c.decodeIfPresent", models)
 
     def test_amrap_and_for_time_have_inline_score_fields_without_modal(self):
-        source = self.read("WODResultInlineEditor.swift")
         play = self.read("WorkoutView.swift")
+        source = play.split("struct WODResultInlineEditor: View {", 1)[1]
+        self.assertFalse((SOURCES / "WODResultInlineEditor.swift").exists())
         self.assertIn('numericField("Rondas completas"', source)
         self.assertIn('numericField("Reps adicionales"', source)
         self.assertIn('numericField("Tiempo · m:ss"', source)

@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-23 (registro de movimientos en Play y corrección del resultado WOD)
+Última actualización: 2026-10-23 (gráficas vacías, muestras Pro, equilibrio muscular Gratis y registro en Play)
 
 ## Tabs
 
@@ -61,9 +61,10 @@
 ### Progreso (`StatsView`)
 
 - Título «Progreso» y periodo como subtítulo, con calendario a la derecha (`OGFixedTopBar`) integrado en el scroll y sin fondo de topbar opaco.
-- **Gratis · Entreno:** periodo **Esta semana** (tiles entrenos/tiempo/racha + heatmap + banner Pro verde con mascota). Los tiles **no** se repiten en Actividad.
-- **Gratis · Actividad:** preview ondulada de cardio/kcal/peso con etiqueta **«Ejemplo» en cada gráfica**, sin medias, totales ni resúmenes numéricos de ficción; no se usa la meta de peso real como objetivo de la muestra. Sin texto global «Así se vería con Pro», con banner Pro verde y mascota, sin tiles duplicados.
-- **Recuperación:** primero **Preparación para entrenar** (nota entera /10 y consejo entrenar / moderar / descansar, solo con datos observados); después **Evolución de recuperación** 0–10, línea suavizada `catmullRom` con degradado vertical rojo (0–4), amarillo (5–7) y verde (8–10). Los puntos usan el mismo semáforo. La tarjeta de **Sueño** conserva un único gráfico de horas y fases; desaparecen la duplicada «Evolución del sueño» y los pies técnicos. Iconos SF Symbols outline. Sin sueño o carga suficientes, «Datos insuficientes», nunca una nota simulada.
+- **Gratis · Entreno:** periodo **Esta semana** (tiles entrenos/tiempo/racha + heatmap **real** + **Equilibrio muscular real** con mapa de fatiga, barras y filtro Todas/Duras + curva **Ejemplo** de evolución de carga, claramente identificada como ficticia + banner Pro). Equilibrio muscular ya **no** requiere suscripción; los tiles no se repiten en Actividad.
+- **Gratis · Actividad:** muestras de **puntuación de entrenos, zonas cardíacas, cardio, kcal y peso**, todas rotuladas **«Ejemplo»** y generadas con datos ficticios separados del historial y de Apple Salud. No se muestra ninguna media, objetivo personal o resultado de la muestra como si fuese auténtico; banner Pro visible sin duplicar los tiles.
+- **Recuperación:** **Preparación para entrenar** siempre se calcula solo con datos observados (nota entera /10 y consejo); no se fabrica puntuación por falta de sueño/carga. La tarjeta básica de **Sueño** conserva su gráfica de horas y fases real cuando las hay. Las gráficas avanzadas de **Evolución de recuperación** (0–10, `catmullRom` y degradado de fatiga) y **Constantes fisiológicas** muestran datos reales en Pro y muestras **«Ejemplo»** ficticias en Gratis, sin mezclar ambos. Si Pro carece de observaciones, se mantiene el espacio de la gráfica y los ejes, con mensaje de datos insuficientes.
+- **Gráficas vacías en Pro:** puntuación de entrenos, zonas cardíacas, frecuencia cardíaca, calorías, peso, evolución por ejercicio, recuperación, sueño y constantes mantienen una retícula/eje neutro y un mensaje cuando faltan datos, siguiendo el patrón de «Preparación para entrenar». Ningún dato ficticio se inyecta en puntuaciones, historial ni Salud.
 - **Pro:** todos los periodos y métricas avanzadas.
 - Los banners **Pro** de Progreso, Actividad, Recuperación y evolución por ejercicio comparten `ProTeaserCard` con fondo verde Repera y CTA contextual. Muestran únicamente los **assets 3D originales de la mascota** ampliados a ~190–200 pt, en escenas diferentes: Entreno levanta pesas (`MascotHero`); Actividad se inclina en movimiento con líneas de velocidad (`MascotWatch`); Recuperación descansa tumbada sobre una almohada con luna (`MascotWelcome`); evolución celebra sus avances junto a una gráfica (`MascotPermissions`). No se usa la figura distinta propuesta en el mockup. Se conserva el alfa transparente exterior y la opacidad interior corregida de Welcome, Watch y Permissions.
 - Selector visible: periodos largos marcados Pro → paywall.

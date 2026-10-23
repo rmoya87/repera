@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-21 (edición unificada de entrenos terminados, snapshot de bloques)
+Última actualización: 2026-10-23 (editor de resultados WOD integrado en fuente existente de Play)
 
 ## Unidad de cardio en rutinas y sesiones
 
@@ -46,6 +46,8 @@ Marketing web (`web/`): HTML/CSS/JS sin framework; SEO (canonical, OG, sitemap, 
 | **ReperaDomain** (SPM) | Modelos, catálogo, stats, progresión, parser, LoadSuggestion |
 
 Generación de proyecto: `xcodegen generate` → `Repera.xcodeproj`.
+
+El editor inline de resultados de AMRAP/For Time (`WODResultInlineEditor`) se declara en `Apps/Repera/Sources/WorkoutView.swift`, no en un archivo Swift separado. Esto evita el error de símbolo no encontrado con proyectos Xcode generados antes del cambio, sin alterar el registro de series ni la captura de score por bloque. No mantener otra definición duplicada al ejecutar XcodeGen.
 
 ### Versionado de todos los targets
 

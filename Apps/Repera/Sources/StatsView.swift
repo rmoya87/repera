@@ -195,24 +195,23 @@ struct StatsView: View {
         model.setRange(.week)
     }
 
+    /// El mapa y las barras musculares son gratuitos, sin filtros de suscripción.
     private var muscleBalanceCard: some View {
         MuscleBalanceCard(
-                workouts: snap.filteredWorkouts,
-                external: snap.filteredStimuli,
-                rangeLabel: model.range.title,
-                weekStartsOnMonday: mondayFirst,
-                preparedLoadAll: snap.muscleLoadAll,
-                preparedLoadHard: snap.muscleLoadHard,
-                preparedFatigueAll: snap.muscleFatigueAll,
-                preparedFatigueHard: snap.muscleFatigueHard,
-                preparedHasHardSets: snap.hasHardSets
-            )
+            workouts: snap.filteredWorkouts,
+            external: snap.filteredStimuli,
+            rangeLabel: model.range.title,
+            weekStartsOnMonday: mondayFirst,
+            preparedLoadAll: snap.muscleLoadAll,
+            preparedLoadHard: snap.muscleLoadHard,
+            preparedFatigueAll: snap.muscleFatigueAll,
+            preparedFatigueHard: snap.muscleFatigueHard,
+            preparedHasHardSets: snap.hasHardSets
+        )
     }
 
     @ViewBuilder
     private var proAdvancedSections: some View {
-
-
         if snap.chartExercises.isEmpty {
             progressEmptyCard(
                 title: "Sin ejercicios aún",
@@ -240,8 +239,8 @@ struct StatsView: View {
 
     @ViewBuilder
     private var healthSections: some View {
-        // Solo sesiones con nota real basada en historial personal comparable.
-        // Sin nota no aparece ni la tarjeta ni una gráfica simulada.
+        // La gráfica real solo incorpora notas verificadas. Si no existen,
+        // mantiene los ejes y explica la ausencia de datos.
         ProgressSessionScoreChartCard(
             workouts: snap.filteredWorkouts,
             range: model.range,
