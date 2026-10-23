@@ -1059,6 +1059,7 @@ struct WorkoutDetailView: View {
                         }
                     } else {
                         readOnlySetRow(setIndex: setIndex, set: set)
+                            .padding(.leading, 60) // Alinear S1/S2 y valores con el título, no con la miniatura
                     }
                 }
             }
