@@ -59,7 +59,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        pendingCount = pendingStore.count()
+        pendingCount = runCatching { pendingStore.count() }.getOrElse {
+            sendStatus = "Error leyendo las series pendientes; no se han eliminado"
+            0
+        }
         // Read-only recovery: no locally confirmed set is written to the phone.
         sessionCache.getString("snapshot", null)?.let { cached ->
             val restored = runCatching { WatchSessionSummary.fromJson(JSONObject(cached)) }.getOrNull()
@@ -174,10 +177,13 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                         textAlign = TextAlign.Center,
                                         style = MaterialTheme.typography.labelSmall)
                                     Button(onClick = {
-                                        pendingStore.clear()
-                                        pendingCount = 0
+                                        val dropped = runCatching {
+                                            pendingStore.clear()
+                                            pendingCount = 0
+                                        }.isSuccess
                                         confirmDiscardPending = false
-                                        sendStatus = "Series pendientes descartadas"
+                                        sendStatus = if (dropped) "Series pendientes descartadas"
+                                            else "No se pudieron descartar los registros"
                                     }) { Text("Sí, descartar") }
                                     Button(onClick = { confirmDiscardPending = false }) {
                                         Text("Cancelar")
@@ -249,10 +255,15 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             val id = ack.optString("id")
             when (ack.optString("status")) {
                 "saved" -> {
-                    pendingStore.remove(id)
-                    pendingCount = pendingStore.count()
-                    sendStatus = if (pendingCount == 0) "Series sincronizadas" else
-                        "$pendingCount series pendientes"
+                    val cleared = runCatching {
+                        pendingStore.remove(id)
+                        pendingCount = pendingStore.count()
+                    }.isSuccess
+                    sendStatus = when {
+                        !cleared -> "No se pudo confirmar la serie; permanece en el reloj"
+                        pendingCount == 0 -> "Series sincronizadas"
+                        else -> "$pendingCount series pendientes"
+                    }
                 }
                 "rejected" -> sendStatus =
                     "La sesión del teléfono cambió; revisa las series pendientes"
@@ -264,15 +275,25 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private fun queueSet(session: WatchSessionSummary) {
         if (!session.canLogOnWatch || session.wodFormatLabel != null ||
             repsInput !in 1..10000) return
-        pendingStore.append(session.sessionId, session.exerciseIndex - 1,
-            repsInput, weightInput)
-        pendingCount = pendingStore.count()
+        val queued = runCatching {
+            pendingStore.append(session.sessionId, session.exerciseIndex - 1,
+                repsInput, weightInput)
+            pendingCount = pendingStore.count()
+        }
+        if (queued.isFailure) {
+            sendStatus = "No se pudo guardar la serie en el reloj: " +
+                (queued.exceptionOrNull()?.localizedMessage ?: "revisa el almacenamiento")
+            return
+        }
         sendStatus = "Serie guardada en el reloj; esperando confirmación"
         resendPending()
     }
 
     private fun resendPending() {
-        val commands = pendingStore.all()
+        val commands = runCatching { pendingStore.all() }.getOrElse {
+            sendStatus = "No se puede leer la cola; los datos siguen guardados"
+            return
+        }
         if (commands.isEmpty()) return
         Wearable.getNodeClient(this).connectedNodes
             .addOnSuccessListener { nodes ->
@@ -324,8 +345,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private fun clearSession(erasePending: Boolean) {
         sessionCache.edit().remove("snapshot").apply()
         if (erasePending) {
-            pendingStore.clear()
-            pendingCount = 0
+            val erased = runCatching { pendingStore.clear() }.isSuccess
+            if (erased) pendingCount = 0
+            else sendStatus = "No se pudo borrar la cola privada; revisa el reloj"
         }
         repsInput = 0
         weightInput = null
