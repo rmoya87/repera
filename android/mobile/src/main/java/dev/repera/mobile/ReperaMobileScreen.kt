@@ -620,7 +620,7 @@ private fun WodScoreCard(
                 candidates.forEachIndexed { i, movement ->
                     OutlinedButton(onClick = {
                         selectedMovement = i
-                        quantityInput = movement.reps?.toString() ?: ""
+                        quantityInput = (movement.calories ?: movement.meters ?: movement.reps)?.toString() ?: ""
                     }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
                         Text((if (selectedMovement == i) "✓ " else "") + movement.name)
                     }
@@ -631,7 +631,7 @@ private fun WodScoreCard(
                     singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = quantityInput,
                     onValueChange = { quantityInput = it.filter(Char::isDigit) },
-                    label = { Text("Repeticiones o cantidad realizada") },
+                    label = { Text(when { candidates.getOrNull(selectedMovement)?.calories != null -> "Calorías realizadas"; candidates.getOrNull(selectedMovement)?.meters != null -> "Metros realizados"; else -> "Repeticiones realizadas" }) },
                     singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = weightInput,
                     onValueChange = { weightInput = it.filter { char -> char.isDigit() || char == '.' } },
