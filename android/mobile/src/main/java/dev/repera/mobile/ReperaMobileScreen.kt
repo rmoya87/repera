@@ -257,6 +257,17 @@ fun ReperaMobileScreen(
                         }
                     }
                 }
+                if (selected == "Progreso" && (overview?.mobilitySessions ?: 0) > 0) {
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(18.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Movilidad registrada", style = MaterialTheme.typography.titleMedium)
+                                Text("${overview?.mobilitySeconds ?: 0} segundos · ${overview?.mobilitySessions ?: 0} sesiones")
+                            }
+                        }
+                    }
+                }
                 if (selected == "Progreso") {
                     // This is deliberately limited to the recent archive loaded by StateOverview.
                     // It must never be presented as complete lifetime or billing-gated analytics.
@@ -425,7 +436,14 @@ fun ReperaMobileScreen(
                                             Text("Récord de carga: $weight kg" +
                                                 (progress.repsAtMaxWeight?.let { " · $it reps" } ?: ""))
                                         }
-                                        progress.bestReps?.let { Text("Máximo: $it reps") }
+                                        if (entry.isMobility) {
+                                            progress.bestDurationSeconds?.let { Text("Mejor serie: ${it}s") }
+                                            Text("Tiempo acumulado: ${progress.totalDurationSeconds}s")
+                                            Text("Sesiones: ${progress.timesPerformed}")
+                                            if (!entry.isMobilityHold) progress.bestReps?.let { Text("Máximo: $it reps") }
+                                        } else {
+                                            progress.bestReps?.let { Text("Máximo: $it reps") }
+                                        }
                                         progress.bestCalories?.let { Text("Máximo: $it cal") }
                                         progress.bestMeters?.let { Text("Máximo: $it m") }
                                         progress.bestDurationSeconds?.let { seconds ->
