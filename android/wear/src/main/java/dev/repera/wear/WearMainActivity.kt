@@ -33,6 +33,8 @@ import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.Wearable
 import org.json.JSONObject
 import org.json.JSONArray
+import dev.repera.domain.ExerciseInput
+import dev.repera.domain.ExerciseInputMode
 import dev.repera.domain.WodFormat
 import dev.repera.domain.ResultCapture
 
@@ -121,6 +123,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                     }
                                     Text("${session.recordedSets} series registradas",
                                         style = MaterialTheme.typography.labelSmall)
+                                    if (!session.canLogOnWatch) {
+                                        Text("Este ejercicio requiere registrar cal, metros o tiempo en el móvil",
+                                            textAlign = TextAlign.Center,
+                                            style = MaterialTheme.typography.labelSmall)
+                                    } else {
                                     Text("Registrar serie", style = MaterialTheme.typography.titleMedium)
                                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                                         verticalAlignment = Alignment.CenterVertically) {
@@ -132,7 +139,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                             Text("+")
                                         }
                                     }
-                                    if (session.prescribedWeightKg != null) {
+                                    if (session.allowsWeight) {
                                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                                             verticalAlignment = Alignment.CenterVertically) {
                                             Button(onClick = {
@@ -151,6 +158,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                         enabled = repsInput > 0,
                                         modifier = Modifier.fillMaxWidth()) {
                                         Text("Confirmar serie")
+                                    }
                                     }
                                 }
                             }
@@ -254,7 +262,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     private fun queueSet(session: WatchSessionSummary) {
-        if (session.wodFormatLabel != null || repsInput !in 1..10000) return
+        if (!session.canLogOnWatch || session.wodFormatLabel != null ||
+            repsInput !in 1..10000) return
         pendingStore.append(session.sessionId, session.exerciseIndex - 1,
             repsInput, weightInput)
         pendingCount = pendingStore.count()
@@ -331,6 +340,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 data class WatchSessionSummary(
     val sessionId: String,
     val title: String,
+    val canLogOnWatch: Boolean,
+    val allowsWeight: Boolean,
     val exerciseName: String,
     val exerciseIndex: Int,
     val exerciseCount: Int,
@@ -348,6 +359,10 @@ data class WatchSessionSummary(
             val index = session.getInt("currentIndex")
             require(index in 0 until exercises.length()) { "Invalid active exercise index" }
             val exercise = exercises.getJSONObject(index)
+            val sourceExercise = exercise.getJSONObject("exercise")
+            val mode = ExerciseInput.mode(sourceExercise.getString("name"),
+                sourceExercise.optString("equipment"), sourceExercise.optString("targetMuscle"),
+                sourceExercise.optString("muscleGroup"))
             val recorded = exercise.optJSONArray("loggedSets") ?: JSONArray()
             val done = (0 until recorded.length()).count {
                 recorded.getJSONObject(it).optString("phase", "work") == "work"
@@ -385,6 +400,10 @@ data class WatchSessionSummary(
             return WatchSessionSummary(
                 sessionId = session.getString("id"),
                 title = session.getString("title"),
+                canLogOnWatch = mode in setOf(
+                    ExerciseInputMode.LOAD_REPS, ExerciseInputMode.REPS_ONLY) &&
+                    exercise.optString("blockKind") != "wod",
+                allowsWeight = mode.showsWeight,
                 exerciseName = exercise.getJSONObject("exercise").getString("name"),
                 exerciseIndex = index + 1,
                 exerciseCount = exercises.length(),
