@@ -229,4 +229,33 @@ class WorkoutRepositoryInstrumentedTest {
         assertEquals(4, score.getInt("roundsCompleted"))
         assertEquals(6, score.getInt("totalReps"))
     }
+
+    @Test fun warmupDoesNotConsumePrescribedWorkAndRirIsSaved() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val user = UUID.randomUUID().toString()
+        CatalogBootstrap.initializeEmptyAccount(ctx, user)
+        val store = LocalSnapshotStore(ctx, user)
+        val firstId = JSONObject(String(store.read()!!)).getJSONArray("exercises")
+            .getJSONObject(0).getString("id")
+        val repo = WorkoutRepository(ctx, user)
+        val routineId = repo.createRoutine("Fuerza real", "strength",
+            listOf(RoutineDraftEntry(firstId, 8, sets = 2, weightKg = 60.0)))
+        repo.startRoutine(routineId)
+        repo.logCurrentSet(5, 30.0, rir = 4.0, warmup = true)
+        val afterWarmup = repo.active()!!
+        assertEquals(8, afterWarmup.prescribedQuantity)
+        assertEquals("warmup", afterWarmup.sets.single().phase)
+        assertEquals(4.0, afterWarmup.sets.single().rir!!, 0.001)
+        val stateAfterWarmup = JSONObject(String(store.read()!!))
+        assertEquals(0, stateAfterWarmup.getJSONObject("activeSession")
+            .getJSONArray("exercises").getJSONObject(0).getInt("completedReps"))
+        repo.logCurrentSet(8, 60.0, rir = 2.0, warmup = false)
+        val afterWork = WorkoutRepository(ctx, user).active()!!
+        assertEquals(2, afterWork.sets.size)
+        assertEquals("work", afterWork.sets[1].phase)
+        assertEquals(2.0, afterWork.sets[1].rir!!, 0.001)
+        val stateAfterWork = JSONObject(String(store.read()!!))
+        assertEquals(8, stateAfterWork.getJSONObject("activeSession")
+            .getJSONArray("exercises").getJSONObject(0).getInt("completedReps"))
+    }
 }

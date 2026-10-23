@@ -246,14 +246,21 @@ class WorkoutRepository(context: Context, googleId: String) {
         return summarize(session)
     }
 
-    @Synchronized fun logCurrentSet(quantity: Int, weightKg: Double?): ActiveWorkout {
+    @Synchronized fun logCurrentSet(
+        quantity: Int,
+        weightKg: Double?,
+        rir: Double? = null,
+        warmup: Boolean = false
+    ): ActiveWorkout {
         require(quantity >= 0) { "Cantidad inválida" }
         require(weightKg == null || (weightKg.isFinite() && weightKg >= 0)) { "Peso inválido" }
+        require(rir == null || (rir.isFinite() && rir >= 0)) { "RIR inválido" }
         val state = requireState()
         val session = requireActive(state)
         val array = session.getJSONArray("exercises")
         val index = session.getInt("currentIndex")
         val exercise = array.getJSONObject(index)
+        check(exercise.optString("blockKind") != "wod") { "Los scores WOD se registran por bloque" }
         val movement = exercise.getJSONObject("exercise")
         val inputMode = inputMode(movement)
         check(inputMode.basicRecorderAvailable)
@@ -266,16 +273,17 @@ class WorkoutRepository(context: Context, googleId: String) {
             .put("id", UUID.randomUUID().toString())
             .put("reps", quantity)
             .put("completedAt", nowISO8601())
-            .put("phase", "work")
+            .put("phase", if (warmup) "warmup" else "work")
             .put("kind", "straight")
             .put("toFailure", false)
             .put("drops", JSONArray())
             .put("clusters", JSONArray())
         if (weightKg != null) set.put("weightKg", weightKg)
+        if (rir != null) set.put("rir", rir)
         val unit = exercise.optString("quantityUnit")
         if (unit.isNotBlank()) set.put("quantityUnit", unit)
         logged.put(set)
-        exercise.put("completedReps", exercise.optInt("completedReps") + quantity)
+        if (!warmup) exercise.put("completedReps", exercise.optInt("completedReps") + quantity)
         session.put("phase", "counting")
         save(state)
         return summarize(session)
@@ -510,14 +518,26 @@ class WorkoutRepository(context: Context, googleId: String) {
             wod = wod,
             sets = (0 until logged.length()).map { n ->
                 val set = logged.getJSONObject(n)
-                WorkoutSetSummary(set.getString("id"), set.getInt("reps"),
-                    if (set.has("weightKg")) set.getDouble("weightKg") else null)
+                WorkoutSetSummary(
+                    id = set.getString("id"),
+                    reps = set.getInt("reps"),
+                    weightKg = if (set.has("weightKg") && !set.isNull("weightKg"))
+                        set.getDouble("weightKg") else null,
+                    phase = set.optString("phase", "work"),
+                    rir = if (set.has("rir") && !set.isNull("rir")) set.getDouble("rir") else null
+                )
             }
         )
     }
 }
 
-data class WorkoutSetSummary(val id: String, val reps: Int, val weightKg: Double?)
+data class WorkoutSetSummary(
+    val id: String,
+    val reps: Int,
+    val weightKg: Double?,
+    val phase: String = "work",
+    val rir: Double? = null
+)
 data class ActiveWorkout(
     val id: String,
     val title: String,

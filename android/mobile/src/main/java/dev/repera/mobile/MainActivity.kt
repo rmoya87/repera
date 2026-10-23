@@ -125,7 +125,9 @@ class MainActivity : ComponentActivity() {
                 },
                 onQuickLog = { id -> runWorkoutAction { startQuickLog(id) } },
                 onInitializeLocal = ::initializeLocalCatalog,
-                onLogSet = { quantity, weight -> runWorkoutAction { logCurrentSet(quantity, weight) } },
+                onLogSet = { quantity, weight, rir, warmup ->
+                    runWorkoutAction { logCurrentSet(quantity, weight, rir, warmup) }
+                },
                 onReviseSet = { id, quantity, weight ->
                     runWorkoutAction { reviseCurrentSet(id, quantity, weight) }
                 },

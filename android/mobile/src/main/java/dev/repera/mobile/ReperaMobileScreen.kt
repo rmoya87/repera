@@ -31,6 +31,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.TopAppBar
@@ -68,7 +69,7 @@ fun ReperaMobileScreen(
     onWodScore: (Int?, Int?, Int?) -> Unit,
     onQuickLog: (String) -> Unit,
     onInitializeLocal: () -> Unit,
-    onLogSet: (Int, Double?) -> Unit,
+    onLogSet: (Int, Double?, Double?, Boolean) -> Unit,
     onReviseSet: (String, Int, Double?) -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit,
@@ -315,7 +316,7 @@ fun ReperaMobileScreen(
 private fun ActiveWorkoutCard(
     active: ActiveWorkout,
     busy: Boolean,
-    onLogSet: (Int, Double?) -> Unit,
+    onLogSet: (Int, Double?, Double?, Boolean) -> Unit,
     onReviseSet: (String, Int, Double?) -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit
@@ -326,14 +327,22 @@ private fun ActiveWorkoutCard(
     var weight by remember(active.id, active.index, active.completedSets) {
         mutableStateOf(active.prescribedWeightKg?.toString() ?: "")
     }
+    var warmup by remember(active.id, active.index, active.completedSets) {
+        mutableStateOf(false)
+    }
+    var rirText by remember(active.id, active.index, active.completedSets) {
+        mutableStateOf("")
+    }
     var editingId by remember(active.id, active.index) { mutableStateOf<String?>(null) }
     var editingQuantity by remember(active.id, active.index) { mutableStateOf("") }
     var editingWeight by remember(active.id, active.index) { mutableStateOf("") }
+    val parsedRir = rirText.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
     val parsedQuantity = quantity.toIntOrNull()
     val parsedWeight = weight.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
     val valid = parsedQuantity != null && parsedQuantity >= 0 &&
         (!active.allowsWeight || weight.isBlank() ||
-            (parsedWeight != null && parsedWeight.isFinite() && parsedWeight >= 0))
+            (parsedWeight != null && parsedWeight.isFinite() && parsedWeight >= 0)) &&
+        (rirText.isBlank() || (parsedRir != null && parsedRir.isFinite() && parsedRir >= 0))
     Card(modifier = Modifier.fillMaxWidth().animateContentSize()) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(active.title, style = MaterialTheme.typography.titleLarge)
@@ -343,8 +352,10 @@ private fun ActiveWorkoutCard(
             active.sets.forEachIndexed { index, set ->
                 Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Serie ${index + 1}: ${set.reps} reps" +
-                        (set.weightKg?.let { " · $it kg" } ?: ""))
+                    Text((if (set.phase == "warmup") "Calentamiento" else "Serie") +
+                        " ${index + 1}: ${set.reps} reps" +
+                        (set.weightKg?.let { " · $it kg" } ?: "") +
+                        (set.rir?.let { " · RIR $it" } ?: ""))
                     TextButton(onClick = {
                         editingId = set.id
                         editingQuantity = set.reps.toString()
@@ -405,8 +416,29 @@ private fun ActiveWorkoutCard(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+            OutlinedTextField(
+                value = rirText,
+                onValueChange = { rirText = it },
+                label = { Text("RIR opcional (repeticiones en reserva)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start
+            ) {
+                Checkbox(checked = warmup, onCheckedChange = { warmup = it }, enabled = !busy)
+                Text("Serie de calentamiento", modifier = Modifier.padding(top = 12.dp))
+            }
             Button(
-                onClick = { if (parsedQuantity != null) onLogSet(parsedQuantity, if (active.allowsWeight) parsedWeight else null) },
+                onClick = {
+                    if (parsedQuantity != null) onLogSet(
+                        parsedQuantity,
+                        if (active.allowsWeight) parsedWeight else null,
+                        parsedRir,
+                        warmup
+                    )
+                },
                 enabled = !busy && valid,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Registrar serie") }

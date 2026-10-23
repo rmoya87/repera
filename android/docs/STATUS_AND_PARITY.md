@@ -126,3 +126,17 @@ Se han definido pruebas instrumentadas de creación y ejecución de rutinas
 de fuerza y AMRAP desde el catálogo nativo; no se han ejecutado en Android
 por la limitación de runner documentada. El editor completo por movimiento
 y la programación de sesiones siguen pendientes.
+
+## Campos fuerza: RIR y calentamientos
+
+Se añadió `rir` opcional a la serie confirmada y la fase `work/warmup`,
+siguiendo `LoggedSet` / `SetPhase` Swift. Las series de calentamiento se
+muestran en Play y se guardan, **pero no consumen objetivos de trabajo ni
+aumentan `completedReps`**. El prefill de la próxima serie depende solo
+del número de series de trabajo realmente confirmadas.
+
+La revisión inline permite ajustar reps/peso manteniendo identidad, fecha,
+fase y RIR ya guardados. Quedan pendientes la revisión específica de fase/RIR,
+la presentación RPE alternativa, dropsets y rest-pause. Hay un test de
+persistencia con una serie de calentamiento y otra de trabajo, todavía sin
+ejecutar en dispositivo Android.
