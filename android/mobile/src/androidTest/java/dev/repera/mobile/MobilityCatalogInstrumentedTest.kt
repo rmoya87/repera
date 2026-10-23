@@ -63,4 +63,34 @@ class MobilityCatalogInstrumentedTest {
             state.getJSONArray("workouts").getJSONObject(0).getString("id"))
         assertEquals(5, state.getInt("syncRevision"))
     }
+
+    @Test fun actualMobilitySecondsAppearInProgressWithoutInventingPrescriptionTime() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val catalog = JSONArray(context.assets.open("catalog_seed.json")
+            .bufferedReader(Charsets.UTF_8).use { it.readText() })
+        val posture = (0 until catalog.length()).map(catalog::getJSONObject)
+            .first { it.optString("catalogId") == "mobility-31" }
+        val sets = JSONArray()
+            .put(JSONObject().put("id", UUID.randomUUID().toString())
+                .put("reps", 1).put("phase", "work").put("durationSeconds", 25))
+            .put(JSONObject().put("id", UUID.randomUUID().toString())
+                .put("reps", 1).put("phase", "work").put("durationSeconds", 45))
+        val move = JSONObject()
+            .put("exercise", posture)
+            .put("plannedSets", JSONArray().put(JSONObject().put("targetReps", 1)
+                .put("targetDurationSeconds", 60)))
+            .put("loggedSets", sets)
+        val workout = JSONObject().put("phase", "finished")
+            .put("finishedAt", "2026-10-23T12:00:00Z")
+            .put("exercises", JSONArray().put(move))
+        val metrics = ExerciseProgressMetrics.fromWorkouts(JSONArray().put(workout))
+            .getValue(posture.getString("id"))
+        assertEquals(45, metrics.bestDurationSeconds)
+        assertEquals(70, metrics.totalDurationSeconds)
+        assertEquals(1, metrics.timesPerformed)
+
+        move.put("loggedSets", JSONArray())
+        val absent = ExerciseProgressMetrics.fromWorkouts(JSONArray().put(workout))
+        assertFalse(absent.containsKey(posture.getString("id")))
+    }
 }
