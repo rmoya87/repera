@@ -730,7 +730,7 @@ struct HealthRecoveryProgressView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label2)
             }
-            OGCard {
+            OGCard(padding: 10) {
                 Chart {
                     ForEach(0..<scores.count, id: \.self) { index in
                         LineMark(
@@ -767,9 +767,15 @@ struct HealthRecoveryProgressView: View {
             }
             OGCard {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("Variabilidad cardíaca (VFC) · datos ficticios")
-                        .font(.subheadline)
-                        .foregroundStyle(OG.label2)
+                    HStack {
+                        Text("Variabilidad cardíaca (VFC)")
+                            .font(.subheadline)
+                            .foregroundStyle(OG.label2)
+                        Spacer()
+                        Text("\(Int(hrv.last ?? 0)) ms")
+                            .font(.caption.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(OG.label2)
+                    }
                     Chart {
                         ForEach(0..<hrv.count, id: \.self) { index in
                             LineMark(
@@ -785,8 +791,8 @@ struct HealthRecoveryProgressView: View {
                     .frame(height: 105)
                     Divider().opacity(0.25)
                     HStack(alignment: .top, spacing: 10) {
-                        physiologyPreviewBars("Pulso en reposo", values: [66, 63, 65, 61, 60, 62, 58])
-                        physiologyPreviewBars("Respiración", values: [16, 15, 15, 14, 16, 14, 13])
+                        physiologyPreviewBars("Pulso en reposo", unit: "lpm", values: [66, 63, 65, 61, 60, 62, 58])
+                        physiologyPreviewBars("Respiración", unit: "rpm", values: [16, 15, 15, 14, 16, 14, 13])
                     }
                 }
                 .allowsHitTesting(false)
@@ -795,11 +801,14 @@ struct HealthRecoveryProgressView: View {
         .accessibilityLabel("Ejemplo de constantes fisiológicas, datos ficticios.")
     }
 
-    private func physiologyPreviewBars(_ title: String, values: [Double]) -> some View {
+    private func physiologyPreviewBars(_ title: String, unit: String, values: [Double]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(OG.label2)
+            Text("\(Int(values.last ?? 0)) \(unit)")
+                .font(.system(size: 17, weight: .semibold).monospacedDigit())
+                .foregroundStyle(OG.label)
             Chart {
                 ForEach(0..<values.count, id: \.self) { index in
                     BarMark(
@@ -1165,7 +1174,7 @@ struct HealthRecoveryProgressView: View {
     private var trainingRecoveryTrendCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Evolución de recuperación")
-            OGCard {
+            OGCard(padding: 10) {
                 Chart {
                     ForEach(recoveryPoints) { point in
                     LineMark(

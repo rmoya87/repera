@@ -392,7 +392,7 @@ struct StatsView: View {
             ProgressCaloriesChartCard(prepared: sample)
             ProgressWeightChartCard(
                 entries: [],
-                goalKg: nil,
+                goalKg: 74.0, // Meta ficticia para mostrar los mismos tiles que Pro.
                 range: .week,
                 weekStartsOnMonday: mondayFirst,
                 preparedPoints: ProgressPreparedCharts.teaserWeightPoints(),
@@ -850,17 +850,17 @@ private struct ProgressSessionScoreChartCard: View {
                 OGCardSectionTitle(title: "Puntuación de entrenos")
                 Spacer(minLength: 8)
                 if isTeaserPreview {
-                    Text("Ejemplo")
-                        .font(.system(size: 12, weight: .semibold))
+                    Text("Ejemplo · \(Int((values.map(\.score).reduce(0, +) / Double(max(1, values.count))).rounded()))/10")
+                        .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(OG.label2)
-                        .accessibilityLabel("Ejemplo, datos ficticios")
+                        .accessibilityLabel("Ejemplo con puntuaciones ficticias")
                 } else if !values.isEmpty {
                     Text("\(Int((values.map(\.score).reduce(0, +) / Double(values.count)).rounded()))/10")
                         .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(OG.label)
                 }
             }
-            OGCard {
+            OGCard(padding: 10) {
                 VStack(alignment: .leading, spacing: 10) {
                     if values.isEmpty {
                         ProgressEmptyChart(
@@ -875,7 +875,7 @@ private struct ProgressSessionScoreChartCard: View {
                                     x: .value("Día", point.date),
                                     y: .value("Puntuación", point.score)
                                 )
-                                .interpolationMethod(.linear)
+                                .interpolationMethod(.catmullRom)
                                 .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
                                 .foregroundStyle(OG.accent)
                             }

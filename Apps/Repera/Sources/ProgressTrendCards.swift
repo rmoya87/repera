@@ -54,6 +54,10 @@ struct ProgressHeartZonesCard: View {
     var body: some View {
         Group {
             if isTeaserPreview {
+                // Misma composición que la tarjeta real, pero con muestras
+                // inventadas y una etiqueta inequívoca de ejemplo.
+                let previewSeconds: [Double] = [120, 420, 720, 570, 270]
+                let total = previewSeconds.reduce(0, +)
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         OGCardSectionTitle(title: "Zonas cardíacas · último entreno")
@@ -61,29 +65,43 @@ struct ProgressHeartZonesCard: View {
                         Text("Ejemplo")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(OG.label2)
+                            .accessibilityLabel("Ejemplo, zonas ficticias")
                     }
-                    OGCard {
+                    OGCard(padding: 10) {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Distribución ilustrativa · datos ficticios")
-                                .font(.footnote)
+                            Text("Entrenamiento de ejemplo · 35 min")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(OG.label)
+                            GeometryReader { geometry in
+                                let usableWidth = max(1.0, geometry.size.width - CGFloat((previewSeconds.count - 1) * 2))
+                                HStack(spacing: 2) {
+                                    ForEach(previewSeconds.indices, id: \.self) { index in
+                                        RoundedRectangle(cornerRadius: 3)
+                                            .fill(colors[index % colors.count])
+                                            .frame(width: usableWidth * CGFloat(previewSeconds[index] / total))
+                                    }
+                                }
+                            }
+                            .frame(height: 16)
+                            HStack(spacing: 6) {
+                                ForEach(previewSeconds.indices, id: \.self) { index in
+                                    VStack(spacing: 4) {
+                                        Text("Z\(index + 1)")
+                                            .font(.caption2.weight(.semibold))
+                                            .foregroundStyle(colors[index % colors.count])
+                                        Text("\(Int((100 * previewSeconds[index] / total).rounded()))%")
+                                            .font(.caption2.monospacedDigit())
+                                            .foregroundStyle(OG.label2)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                }
+                            }
+                            Text("Carga cardiovascular: 7/10 · intensidad, no rendimiento")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(OG.label)
+                            Text("Ejemplo · 100% del tiempo cubierto")
+                                .font(.caption)
                                 .foregroundStyle(OG.label3)
-                            HStack(spacing: 2) {
-                                ForEach(0..<5, id: \.self) { index in
-                                    RoundedRectangle(cornerRadius: 3)
-                                        .fill(colors[index])
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 16)
-                                        .opacity([0.4, 0.8, 1.0, 0.8, 0.4][index])
-                                }
-                            }
-                            HStack {
-                                ForEach(1...5, id: \.self) { index in
-                                    Text("Z\(index)")
-                                        .font(.caption2.weight(.medium))
-                                        .foregroundStyle(OG.label2)
-                                        .frame(maxWidth: .infinity)
-                                }
-                            }
                         }
                     }
                 }
@@ -92,7 +110,7 @@ struct ProgressHeartZonesCard: View {
                 let total = max(1.0, zones.zones.reduce(0) { $0 + $1.seconds })
                 VStack(alignment: .leading, spacing: 8) {
                     OGCardSectionTitle(title: "Zonas cardíacas · último entreno")
-                    OGCard {
+                    OGCard(padding: 10) {
                         VStack(alignment: .leading, spacing: 12) {
                             Text(zones.title)
                                 .font(.subheadline.weight(.semibold))
@@ -220,7 +238,7 @@ struct ProgressCardioChartCard: View {
                         .minimumScaleFactor(0.85)
                 }
             }
-            OGCard {
+            OGCard(padding: 10) {
                 VStack(alignment: .leading, spacing: 10) {
                     if !points.isEmpty {
                         Chart {
@@ -304,7 +322,7 @@ struct ProgressCardioChartCard: View {
                         .frame(height: 140)
                         .frame(maxWidth: .infinity)
 
-                        if !prepared.isTeaserPreview, let stats = periodStats {
+                        if let stats = periodStats {
                             HStack(spacing: 8) {
                                 cardioStatPill(title: "Mín", value: stats.min, tint: Self.minTint)
                                 cardioStatPill(title: "Media", value: stats.avg, tint: Self.avgTint)
@@ -389,7 +407,7 @@ struct ProgressCaloriesChartCard: View {
                 OGCardSectionTitle(title: "Calorías")
                 Spacer(minLength: 8)
                 if prepared.isTeaserPreview {
-                    Text("Ejemplo")
+                    Text("Ejemplo · \(Int(total.rounded())) kcal")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(OG.label2)
                         .accessibilityLabel("Ejemplo, datos ficticios")
@@ -401,7 +419,7 @@ struct ProgressCaloriesChartCard: View {
                         .minimumScaleFactor(0.85)
                 }
             }
-            OGCard {
+            OGCard(padding: 10) {
                 VStack(alignment: .leading, spacing: 10) {
                     if hasData {
                         Chart {
@@ -578,7 +596,7 @@ struct ProgressWeightChartCard: View {
                 OGCardSectionTitle(title: "Peso")
                 Spacer(minLength: 8)
                 if isTeaserPreview {
-                    Text("Ejemplo")
+                    Text("Ejemplo · \(statusLine)")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(OG.label2)
                         .accessibilityLabel("Ejemplo, datos ficticios")
@@ -590,7 +608,7 @@ struct ProgressWeightChartCard: View {
                         .minimumScaleFactor(0.8)
                 }
             }
-            OGCard {
+            OGCard(padding: 10) {
                 VStack(alignment: .leading, spacing: 10) {
                     if points.isEmpty {
                         ProgressEmptyChart(
