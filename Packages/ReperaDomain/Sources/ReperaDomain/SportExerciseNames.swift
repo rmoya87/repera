@@ -214,7 +214,9 @@ public enum SportExerciseNames {
 
     public static func searchAliases(for name: String) -> [String] {
         let canonical = canonicalName(name)
-        let direct = supplementalAliases[canonical] ?? []
+        let direct = supplementalAliases[canonical]
+            ?? supplementalAliases.first(where: { key($0.key) == key(canonical) })?.value
+            ?? []
         let spanish = spanishAlias(for: canonical).map { [$0] } ?? []
         return Array(Set(direct + spanish)).sorted()
     }
