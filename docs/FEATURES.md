@@ -98,6 +98,9 @@
 - **HYROX**: filtro independiente en Ejercicios y opción en Disciplina dentro de los selectores. La agrupación «Deporte» muestra HYROX junto a CrossFit cuando un movimiento pertenece a ambas disciplinas. El mismo UUID, historial y estadísticas se conservan: el etiquetado HYROX es adicional, sin cambiar el deporte de origen.
 - **9 movimientos del formato oficial**: carrera (8 × 1 km), SkiErg 1 km, empuje de trineo 50 m, tracción de trineo 50 m, Burpee Broad Jump 80 m, remoergómetro 1 km, Farmer Carry 200 m, zancadas con saco 100 m y Wall Balls 100 reps. Son estaciones de carrera, no ejercicios duplicados por distancia ni por categoría de peso. El catálogo reutiliza Run, SkiErg, Sled Push, Sled Pull, Remo máquina, Farmer Carry, Wall ball (y alternativas existentes) y añade solo Burpee Broad Jump y Sandbag Lunges con descripción e instrucciones en español. Las cargas varían según la categoría oficial.
 
+- **Evolución cardio / HYROX:** máximos y totales de metros y calorías se calculan y grafican por separado (m y cal nunca se suman entre sí). El selector ofrece «m máx.», «cal máx.», «m total», «cal total» y «Tiempo», con selección inicial según datos reales disponibles. Sled Push/Pull y las estaciones de transporte/zancadas pueden prescribir y registrar metros; la carga externa en kg se conserva como dato de cada serie sin inventar 1RM de una distancia.
+- **Estados vacíos:** se retiran «Entrena este ejercicio para ver cal, metros o reps.» y «Cuando entrenes este ejercicio, verás aquí el historial.»; los datos reales siguen visibles y solo se enlaza al historial cuando existe.
+
 - Buscador **nativo** (`.searchable` + `navigationBarDrawer(displayMode: .always)`) bajo título / filtro / +.
 - Al foco: sin animaciones de List (`isSearching`), `NavigationLink(value:)` (sin destinos eager) y thumbs solo desde cache.
 - Búsqueda **semántica con pesos** (`ExerciseSearch.ranked` + índice); «press de banca» → Press banca y derivados.
