@@ -655,7 +655,7 @@ private fun WodScoreCard(
                     var editWeight by remember(record.id) {
                         mutableStateOf(record.weightKg?.toString() ?: "")
                     }
-                    Text("Intervalo ${record.intervalIndex + 1} · ${record.name}",
+                    Text("Intervalo ${record.intervalIndex + 1} · ${record.name} · ${record.quantity} ${when (record.quantityUnit) { "calories" -> "cal"; "meters" -> "m"; else -> "reps" }}",
                         style = MaterialTheme.typography.bodySmall)
                     OutlinedTextField(value = editQuantity,
                         onValueChange = { editQuantity = it.filter(Char::isDigit) },
