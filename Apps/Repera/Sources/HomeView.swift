@@ -302,11 +302,17 @@ struct HomeView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Ajustes y cuenta iCloud")
             }
-            // El lienzo base es gris, igual que Progreso. Solo la cabecera
-            // calendario + entreno es blanca: así nunca hay rectángulos
-            // blancos laterales en la zona inferior al girar el iPhone.
-            .background {
+            // Fondo independiente del topbar: el blanco continúa visualmente
+            // desde la zona segura superior hasta calendario + entreno.
+            // El componente de navegación y sus controles no se modifican.
+            .background(alignment: .top) {
                 OG.bg.ignoresSafeArea()
+                    .overlay(alignment: .top) {
+                        OG.surface
+                            .frame(height: 160)
+                            .frame(maxWidth: .infinity)
+                            .ignoresSafeArea(edges: .top)
+                    }
             }
             .onAppear {
                 LaunchTiming.mark("HomeView.onAppear")
