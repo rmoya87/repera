@@ -70,6 +70,7 @@ fun ReperaMobileScreen(
     isAuthenticated: Boolean,
     displayName: String?,
     busy: Boolean,
+    syncing: Boolean,
     status: String?,
     overview: StateOverview?,
     todayHealth: TodayHealth?,
@@ -526,8 +527,11 @@ fun ReperaMobileScreen(
                         onClick = onDriveSync, enabled = !busy,
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = brandGreen, contentColor = Color.Black)
-                    ) { Text(if (busy) "Sincronizando…" else "Sincronizar con Google Drive") }
-                    if (busy) CircularProgressIndicator(modifier = Modifier.padding(12.dp))
+                    ) {
+                        if (syncing) CircularProgressIndicator(
+                            modifier = Modifier.padding(end = 8.dp))
+                        Text(if (syncing) "Sincronizando…" else "Sincronizar con Google Drive")
+                    }
                     if (status != null) Text(status)
                     if (overview != null) {
                         OutlinedButton(onClick = onExportJson, enabled = !busy,

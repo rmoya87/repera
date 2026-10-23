@@ -47,6 +47,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
 
     private var profile by mutableStateOf<GoogleProfile?>(null)
     private var busy by mutableStateOf(false)
+    private var syncing by mutableStateOf(false)
     private var status by mutableStateOf<String?>(null)
     private var snapshot by mutableStateOf<StateOverview?>(null)
     private var activeWorkout by mutableStateOf<ActiveWorkout?>(null)
@@ -77,11 +78,16 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     .accessToken
             }.onSuccess { token ->
                 if (!token.isNullOrBlank()) syncWithDrive(token)
-                else { status = "No se recibió acceso a Drive"; busy = false }
-            }.onFailure { status = "No se pudo autorizar Drive: " + it.localizedMessage; busy = false }
+                else { status = "No se recibió acceso a Drive"; busy = false; syncing = false }
+            }.onFailure {
+                status = "No se pudo autorizar Drive: " + it.localizedMessage
+                busy = false
+                syncing = false
+            }
         } else {
             status = "Acceso a Drive cancelado"
             busy = false
+            syncing = false
         }
     }
 
@@ -146,6 +152,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 isAuthenticated = profile != null,
                 displayName = profile?.displayName,
                 busy = busy,
+                syncing = syncing,
                 status = status,
                 overview = snapshot,
                 todayHealth = todayHealth,
@@ -343,6 +350,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val signedIn = profile ?: return
         if (busy) return
         busy = true
+        syncing = true
         status = "Solicitando acceso a Drive…"
         val builder = AuthorizationRequest.builder()
             .setRequestedScopes(listOf(Scope("https://www.googleapis.com/auth/drive.appdata")))
@@ -356,6 +364,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     val pending = result.pendingIntent
                     if (pending == null) {
                         busy = false
+                        syncing = false
                         status = "Drive requiere consentimiento"
                     } else {
                         driveConsent.launch(IntentSenderRequest.Builder(pending.intentSender).build())
@@ -364,18 +373,21 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     val token = result.accessToken
                     if (token.isNullOrBlank()) {
                         busy = false
+                        syncing = false
                         status = "No se recibió acceso a Drive"
                     } else syncWithDrive(token)
                 }
             }
             .addOnFailureListener {
                 busy = false
+                syncing = false
                 status = "No se pudo conectar Drive: " + it.localizedMessage
             }
     }
 
     private fun syncWithDrive(oneTimeToken: String) {
-        val signedIn = profile ?: run { busy = false; return }
+        val signedIn = profile ?: run { busy = false; syncing = false; return }
+        syncing = true
         status = "Sincronizando…"
         lifecycleScope.launch {
             try {
@@ -397,6 +409,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 status = "Sincronización incompleta: " + error.localizedMessage
             } finally {
                 busy = false
+                syncing = false
             }
         }
     }
