@@ -5,6 +5,7 @@ private enum ExerciseBrowseMode: String, CaseIterable, Identifiable, Sendable {
     case alphabetical
     case muscle
     case sport
+    case hyrox
     case favorites
     case wods
 
@@ -15,6 +16,7 @@ private enum ExerciseBrowseMode: String, CaseIterable, Identifiable, Sendable {
         case .alphabetical: return "Alfabético"
         case .muscle: return "Músculo"
         case .sport: return "Deporte"
+        case .hyrox: return "HYROX"
         case .favorites: return "Favoritos"
         case .wods: return "WODs"
         }
@@ -25,6 +27,7 @@ private enum ExerciseBrowseMode: String, CaseIterable, Identifiable, Sendable {
         case .alphabetical: return "textformat.abc"
         case .muscle: return "figure.strengthtraining.traditional"
         case .sport: return "sportscourt"
+        case .hyrox: return "figure.run"
         case .favorites: return "star.fill"
         case .wods: return "timer"
         }
@@ -61,7 +64,7 @@ struct LibraryView: View {
         "Core", "Glúteos", "Gemelos", "Antebrazos", "Cardio",
     ]
 
-    private let sportTags: Set<String> = ["CrossFit", "Halterofilia", "Gimnasia", "Cardio"]
+    private let sportTags: Set<String> = ["CrossFit", "HYROX", "Halterofilia", "Gimnasia", "Cardio"]
 
     var body: some View {
         NavigationStack {
@@ -411,7 +414,7 @@ struct LibraryView: View {
                 index: index,
                 query: q,
                 browseMode: mode,
-                sportTags: ["CrossFit", "Halterofilia", "Gimnasia", "Cardio"],
+                sportTags: ["CrossFit", "HYROX", "Halterofilia", "Gimnasia", "Cardio"],
                 exercisesById: byId
             )
         }.value
@@ -443,6 +446,8 @@ struct LibraryView: View {
         let docs: [ExerciseSearch.Document]
         if browseMode == .favorites {
             docs = index.filter(\.isFavorite)
+        } else if browseMode == .hyrox {
+            docs = index.filter { $0.disciplineTags.contains("HYROX") }
         } else {
             docs = index
         }
@@ -465,11 +470,11 @@ struct LibraryView: View {
                 exercise: ex
             )
         }
-        if !q.isEmpty || browseMode == .alphabetical || browseMode == .favorites {
+        if !q.isEmpty || browseMode == .alphabetical || browseMode == .favorites || browseMode == .hyrox {
             return [LibrarySectionModel(key: "flat", title: nil, items: rows)]
         }
         switch browseMode {
-        case .alphabetical, .favorites, .wods:
+        case .alphabetical, .favorites, .hyrox, .wods:
             return [LibrarySectionModel(key: "flat", title: nil, items: rows)]
         case .muscle:
             return Dictionary(grouping: rows, by: { exercisesById[$0.id]?.muscleGroup ?? "" })
@@ -478,10 +483,18 @@ struct LibraryView: View {
                 }
                 .sorted { $0.key < $1.key }
         case .sport:
-            return Dictionary(grouping: rows) { row in
-                sportBucket(for: exercisesById[row.id], sportTags: sportTags)
+            // Un ejercicio puede aparecer en varias disciplinas sin duplicar el modelo/UUID.
+            var buckets: [String: [LibraryRowModel]] = [:]
+            for row in rows {
+                let tags = exercisesById[row.id]?.disciplineTags.filter { sportTags.contains($0) } ?? []
+                let groups = tags.isEmpty
+                    ? [sportBucket(for: exercisesById[row.id], sportTags: sportTags)]
+                    : tags
+                for group in groups {
+                    buckets[group, default: []].append(row)
+                }
             }
-            .map { key, value in
+            return buckets.map { key, value in
                 LibrarySectionModel(key: key, title: key, items: value)
             }
             .sorted { sportSort($0.key) < sportSort($1.key) }
@@ -490,9 +503,7 @@ struct LibraryView: View {
 
     nonisolated private static func librarySubtitle(_ doc: ExerciseSearch.Document) -> String {
         var parts: [String] = [doc.muscleGroup]
-        if let sport = doc.sportTag, !sport.isEmpty {
-            parts.append(sport)
-        }
+        parts.append(contentsOf: doc.disciplineTags.filter { !$0.isEmpty })
         if let eq = doc.equipment, !eq.isEmpty {
             parts.append(LocalizedMuscle.es(eq))
         }
@@ -511,9 +522,10 @@ struct LibraryView: View {
         switch key {
         case "Fuerza": return 0
         case "CrossFit": return 1
-        case "Halterofilia": return 2
-        case "Gimnasia": return 3
-        case "Cardio": return 4
+        case "HYROX": return 2
+        case "Halterofilia": return 3
+        case "Gimnasia": return 4
+        case "Cardio": return 5
         default: return 99
         }
     }
