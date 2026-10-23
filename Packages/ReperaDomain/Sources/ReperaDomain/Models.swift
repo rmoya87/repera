@@ -210,12 +210,14 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
 
     /// Métrica de log según equipo / nombre (comba → veces+tiempo; erg → cal/m; PC → solo reps).
     public var loggingStyle: ExerciseLoggingStyle {
-        Self.loggingStyle(name: name, equipment: equipment, targetMuscle: targetMuscle, muscleGroup: muscleGroup)
+        if sportTag == "Movilidad" { return .repsOnly }
+        return Self.loggingStyle(name: name, equipment: equipment, targetMuscle: targetMuscle, muscleGroup: muscleGroup)
     }
 
     /// Lastre (kg), déficit HSPU (cm) o ninguno.
     public var loadField: ExerciseLoadField {
-        Self.loadField(name: name, equipment: equipment, targetMuscle: targetMuscle, muscleGroup: muscleGroup)
+        if sportTag == "Movilidad" { return .none }
+        return Self.loadField(name: name, equipment: equipment, targetMuscle: targetMuscle, muscleGroup: muscleGroup)
     }
 
     /// Etiqueta de cantidad: «Veces» (comba), Cal/m (máquina) o Reps.
