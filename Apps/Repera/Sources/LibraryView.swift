@@ -571,7 +571,7 @@ struct LibraryView: View {
             case .muscle:
                 return exercisesById[row.id]?.muscleGroup ?? "Otros"
             case .equipment:
-                return equipmentSection(for: exercisesById[row.id]?.equipment)
+                return ExerciseEquipmentGroup.category(for: exercisesById[row.id])
             case .alphabetical:
                 return ""
             }
@@ -580,32 +580,6 @@ struct LibraryView: View {
             LibrarySectionModel(key: key, title: key, items: value)
         }
         .sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }
-    }
-
-    nonisolated private static func equipmentSection(for raw: String?) -> String {
-        guard let raw, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return "Sin material"
-        }
-        let value = raw.folding(options: [.diacriticInsensitive, .caseInsensitive],
-                                locale: Locale(identifier: "es_ES")).lowercased()
-        if value.contains("mancuern") || value.contains("dumbbell") { return "Mancuernas" }
-        if value.contains("kettlebell") || value.contains("pesa rusa") { return "Kettlebells" }
-        if value.contains("banda") || value.contains("goma") || value.contains("resistance band") {
-            return "Bandas y gomas"
-        }
-        if value.contains("barra") || value.contains("barbell") { return "Barra" }
-        if value.contains("anilla") || value.contains("rings") { return "Anillas" }
-        if value.contains("comba") || value.contains("cuerda") { return "Comba y cuerdas" }
-        if value.contains("trineo") || value.contains("sled") { return "Trineo" }
-        if value.contains("cajon") || value.contains("box") { return "Cajón" }
-        if value.contains("saco") || value.contains("sandbag") { return "Sacos" }
-        if value.contains("balon") || value.contains("medicine ball") { return "Balones" }
-        if value.contains("pica") || value.contains("pvc") { return "Picas" }
-        if value.contains("maquina") || value.contains("erg") || value.contains("bike") {
-            return "Máquinas y ergómetros"
-        }
-        if value.contains("peso corporal") || value.contains("bodyweight") { return "Peso corporal" }
-        return raw
     }
 
     nonisolated private static func librarySubtitle(_ doc: ExerciseSearch.Document) -> String {
