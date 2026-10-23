@@ -1,6 +1,9 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-23 (topbars de Diario y temporizador sin steppers)
+Última actualización: 2026-10-23 (reloj vertical/paisaje y acceso nativo AirPlay seguro)
+
+- **Reloj de bloque (vertical y horizontal):** retrato con dígitos LED ampliados por ancho disponible, movimiento (miniatura y nombre) debajo y botones fijos al pie. Paisaje con ejercicio y acceso a audio a la izquierda, reloj grande a la derecha y Pausar/Continuar + Terminar en una única fila. Durante el preinicio el botón Pausar funciona y Continuar preserva los segundos restantes. La acción Saltar no se presenta.
+- **Audio durante el reloj:** Apple no ofrece API pública para incrustar y controlar el Now Playing de cualquier otra app (Spotify, Podcasts, etc.) ni leer universalmente su carátula, canción y artista. Repera presenta un selector nativo de salida (AVRoutePickerView) para AirPlay y remite la reproducción de terceros al Centro de control, sin inventar metadatos ni usar APIs privadas.
 
 ## Tabs
 
