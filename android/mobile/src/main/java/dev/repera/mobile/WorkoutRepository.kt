@@ -38,17 +38,25 @@ class WorkoutRepository(context: Context, googleId: String) {
         entries: List<RoutineDraftEntry>,
         timeCapMinutes: Int = 12,
         rounds: Int = 1,
-        schedule: RoutineSchedule = RoutineSchedule()
+        schedule: RoutineSchedule = RoutineSchedule(),
+        emomIntervalSeconds: Int = 60,
+        workSeconds: Int = 20,
+        restSeconds: Int = 10
     ): String {
         val cleaned = title.trim()
         require(cleaned.isNotBlank() && cleaned.length <= 100) { "Escribe un título válido" }
-        require(format in setOf("strength", "amrap", "forTime")) { "Tipo de rutina no permitido" }
+        require(format in setOf("strength", "amrap", "forTime", "emom", "tabata", "circuit")) {
+            "Tipo de rutina no permitido"
+        }
         require(entries.isNotEmpty()) { "Añade al menos un ejercicio" }
         require(entries.map { it.exerciseId }.distinct().size == entries.size) {
             "No se puede repetir el mismo ejercicio en esta plantilla"
         }
         require(entries.size <= 60) { "Demasiados movimientos" }
         require(timeCapMinutes in 1..180 && rounds in 1..100)
+        require(emomIntervalSeconds in 15..600 && workSeconds in 5..600 &&
+            restSeconds in 0..600)
+        if (format == "tabata") require(workSeconds + restSeconds <= 600)
         require(schedule.scheduledDate == null || schedule.weekday == null) {
             "Un entreno no puede ser semanal y de fecha concreta a la vez"
         }
@@ -63,7 +71,14 @@ class WorkoutRepository(context: Context, googleId: String) {
         }
         val block = JSONObject()
             .put("id", UUID.randomUUID().toString())
-            .put("title", if (format == "strength") "Fuerza" else if (format == "amrap") "AMRAP" else "For Time")
+            .put("title", when (format) {
+                "strength" -> "Fuerza"
+                "amrap" -> "AMRAP"
+                "forTime" -> "For Time"
+                "emom" -> "EMOM"
+                "tabata" -> "Tabata"
+                else -> "Circuito"
+            })
             .put("kind", if (format == "strength") "strength" else "wod")
         if (format == "strength") {
             val exercises = JSONArray()
@@ -94,17 +109,32 @@ class WorkoutRepository(context: Context, googleId: String) {
             for (entry in entries) {
                 val movement = byId[entry.exerciseId] ?: error("Ejercicio no encontrado")
                 require(entry.quantity in 1..10000)
-                movements.put(JSONObject()
-                    .put("id", UUID.randomUUID().toString())
+                val quantityUnit = ExerciseInput.defaultQuantityUnit(
+                    movement.getString("name"), movement.optString("equipment"))
+                val item = JSONObject().put("id", UUID.randomUUID().toString())
                     .put("exerciseId", entry.exerciseId)
                     .put("name", movement.getString("name"))
-                    .put("reps", entry.quantity)
-                    .put("isRest", false))
+                    .put("isRest", false)
+                when (quantityUnit) {
+                    "calories" -> item.put("calories", entry.quantity)
+                    "meters" -> item.put("distanceMeters", entry.quantity)
+                    else -> item.put("reps", entry.quantity)
+                }
+                movements.put(item)
             }
             block.put("movements", movements)
                 .put("wodFormat", format)
-                .put("timeCapMinutes", timeCapMinutes)
-            if (format == "forTime") block.put("rounds", rounds)
+                .put("timeCapMinutes", when (format) {
+                    "emom" -> ((emomIntervalSeconds.toLong() * rounds + 59L) / 60L).toInt()
+                    "tabata" -> (((workSeconds + restSeconds).toLong() * rounds + 59L) / 60L).toInt()
+                    else -> timeCapMinutes
+                })
+            if (format in setOf("forTime", "emom", "tabata", "circuit"))
+                block.put("rounds", rounds)
+            if (format == "emom") block.put("emomIntervalSeconds", emomIntervalSeconds)
+            if (format == "tabata") block.put("workSeconds", workSeconds)
+                .put("restSeconds", restSeconds)
+            if (format == "circuit") block.put("restBetweenRoundsSeconds", restSeconds)
         }
         val id = UUID.randomUUID().toString()
         val nativeRoutine = JSONObject()

@@ -155,8 +155,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onWodTimerAction = ::changeWodTimer,
                 onWodTimerTick = ::refreshWodTimer,
                 onStartRoutine = { id -> runWorkoutAction { startRoutine(id) } },
-                onCreateRoutine = { title, format, entries, minutes, rounds, schedule ->
-                    runWorkoutAction { createRoutine(title, format, entries, minutes, rounds, schedule) }
+                onCreateRoutine = { title, format, entries, minutes, rounds, schedule, interval, work, rest ->
+                    runWorkoutAction { createRoutine(title, format, entries, minutes, rounds,
+                        schedule, interval, work, rest) }
                 },
                 onWodScore = { rounds, reps, seconds ->
                     runWorkoutAction { recordWodScore(rounds, reps, seconds) }

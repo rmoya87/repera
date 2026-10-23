@@ -79,7 +79,8 @@ fun ReperaMobileScreen(
     onWodTimerAction: (String) -> Unit,
     onWodTimerTick: () -> Unit,
     onStartRoutine: (String) -> Unit,
-    onCreateRoutine: (String, String, List<RoutineDraftEntry>, Int, Int, RoutineSchedule) -> Unit,
+    onCreateRoutine: (String, String, List<RoutineDraftEntry>, Int, Int,
+        RoutineSchedule, Int, Int, Int) -> Unit,
     onWodScore: (Int?, Int?, Int?) -> Unit,
     onWodMovement: (Int, Int, Int, Double?) -> Unit,
     onCompleteWodBlock: () -> Unit,
@@ -999,7 +1000,8 @@ private fun RoutineCreatorCard(
     exercises: List<ExerciseEntry>,
     aliases: Map<String, String>,
     busy: Boolean,
-    onSave: (String, String, List<RoutineDraftEntry>, Int, Int, RoutineSchedule) -> Unit
+    onSave: (String, String, List<RoutineDraftEntry>, Int, Int,
+        RoutineSchedule, Int, Int, Int) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var kind by remember { mutableStateOf("strength") }
@@ -1009,6 +1011,9 @@ private fun RoutineCreatorCard(
     var weight by remember { mutableStateOf("") }
     var cap by remember { mutableStateOf("12") }
     var rounds by remember { mutableStateOf("1") }
+    var interval by remember { mutableStateOf("60") }
+    var workSeconds by remember { mutableStateOf("20") }
+    var restSeconds by remember { mutableStateOf("10") }
     var planning by remember { mutableStateOf("library") }
     var specificDate by remember { mutableStateOf(LocalDate.now().toString()) }
     var weekday by remember { mutableStateOf(1) }
@@ -1042,9 +1047,11 @@ private fun RoutineCreatorCard(
                 label = { Text("Nombre de la rutina") },
                 singleLine = true, modifier = Modifier.fillMaxWidth()
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("strength" to "Fuerza", "amrap" to "AMRAP", "forTime" to "For Time")
-                    .forEach { option ->
+            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("strength" to "Fuerza", "amrap" to "AMRAP",
+                    "forTime" to "For Time", "emom" to "EMOM", "tabata" to "Tabata",
+                    "circuit" to "Circuito").forEach { option ->
                         FilterChip(
                             selected = kind == option.first,
                             onClick = {
@@ -1061,13 +1068,32 @@ private fun RoutineCreatorCard(
                     label = { Text("Límite (minutos)") },
                     modifier = Modifier.fillMaxWidth(), singleLine = true
                 )
-                if (kind == "forTime") {
+                if (kind in setOf("forTime", "emom", "tabata", "circuit")) {
                     OutlinedTextField(
                         value = rounds,
                         onValueChange = { rounds = it.filter(Char::isDigit) },
-                        label = { Text("Número de rondas") },
+                        label = { Text(if (kind == "emom") "Número de intervalos" else "Número de rondas") },
                         modifier = Modifier.fillMaxWidth(), singleLine = true
                     )
+                }
+                if (kind == "emom") {
+                    OutlinedTextField(value = interval,
+                        onValueChange = { interval = it.filter(Char::isDigit) },
+                        label = { Text("Duración del intervalo (segundos)") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+                if (kind == "tabata") {
+                    OutlinedTextField(value = workSeconds,
+                        onValueChange = { workSeconds = it.filter(Char::isDigit) },
+                        label = { Text("Trabajo (segundos)") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+                if (kind in setOf("tabata", "circuit")) {
+                    OutlinedTextField(value = restSeconds,
+                        onValueChange = { restSeconds = it.filter(Char::isDigit) },
+                        label = { Text(if (kind == "tabata") "Descanso por intervalo (segundos)"
+                            else "Descanso entre rondas (segundos)") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
             }
             OutlinedTextField(
@@ -1163,12 +1189,21 @@ private fun RoutineCreatorCard(
                 runCatching { LocalTime.parse(clockTime) }.getOrNull()
             val validClock = planning == "library" || clockTime.isBlank() || parsedClock != null
             val validCap = cap.toIntOrNull()?.let { it in 1..180 } == true
-            val validRounds = kind != "forTime" ||
+            val validRounds = kind !in setOf("forTime", "emom", "tabata", "circuit") ||
                 rounds.toIntOrNull()?.let { it in 1..100 } == true
+            val validIntervals = (kind != "emom" ||
+                interval.toIntOrNull()?.let { it in 15..600 } == true) &&
+                (kind != "tabata" ||
+                    (workSeconds.toIntOrNull()?.let { it in 5..600 } == true &&
+                    restSeconds.toIntOrNull()?.let { it in 0..600 } == true &&
+                    (workSeconds.toIntOrNull() ?: 601) + (restSeconds.toIntOrNull() ?: 601) <= 600)) &&
+                (kind != "circuit" ||
+                    restSeconds.toIntOrNull()?.let { it in 0..600 } == true)
             Button(
                 enabled = !busy && title.trim().isNotEmpty() &&
                     title.trim().length <= 100 && chosen.isNotEmpty() &&
-                    (kind == "strength" || (validCap && validRounds)) && validDate && validClock,
+                    (kind == "strength" || (validCap && validRounds && validIntervals)) &&
+                    validDate && validClock,
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
                     val entries = chosen.map {
@@ -1182,7 +1217,9 @@ private fun RoutineCreatorCard(
                             timeMinutes = if (planning == "library") null else parsedClock?.let {
                                 it.hour * 60 + it.minute
                             }
-                        ))
+                        ),
+                        interval.toIntOrNull() ?: 60, workSeconds.toIntOrNull() ?: 20,
+                        restSeconds.toIntOrNull() ?: 10)
                 }
             ) { Text("Guardar rutina") }
         }
