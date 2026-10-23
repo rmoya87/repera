@@ -7,6 +7,13 @@ import UIKit
 enum OG {
     /// Lienzo de pantalla. Día = gris agrupado (como Ajustes de Apple); noche = negro.
     /// Las secciones / cards usan `surface` encima para diferenciarse (mismo patrón que en noche).
+    /// Anchura máxima común de lectura para iPhone apaisado / iPad.
+    /// iPhone vertical continúa ocupando todo su ancho disponible.
+    /// 790 pt centra las listas dentro de la safe area horizontal y
+    /// mantiene los mismos bordes que Progreso (margen lateral ~75 pt
+    /// en un iPhone Pro apaisado de ~905 pt).
+    static let contentColumnMaxWidth: CGFloat = 790
+
     static let bg = adaptive(
         light: UIColor(red: 242 / 255, green: 245 / 255, blue: 243 / 255, alpha: 1),
         dark: UIColor.black
@@ -302,33 +309,42 @@ extension OGPageHeader where Leading == EmptyView {
     }
 }
 
-/// Margen único de 16 pt en retrato y paisaje, el mismo que Progreso.
-/// No sumar márgenes por size class: Diario, Crear, Play y Ejercicios
-/// quedaban desalineados con las tarjetas de Progreso al girar el teléfono.
-/// Mantener la List insetGrouped nativa conserva las esquinas de secciones.
-private struct OGListChromeModifier: ViewModifier {
-    @Environment(\.verticalSizeClass) private var verticalSizeClass
+/// Una única columna centrada para tarjetas y listas en paisaje.
+/// En retrato, 790 pt supera el ancho del iPhone y no restringe nada.
+private struct OGReadableColumnModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: OG.contentColumnMaxWidth)
+            .frame(maxWidth: .infinity, alignment: .center)
+    }
+}
 
+/// La List completa, no solo sus rows, debe quedar dentro de los mismos
+/// márgenes que los ScrollViews de Progreso. En iOS 27 los insetGrouped
+/// pueden ignorar contentMargins y alcanzar los bordes en landscape.
+private struct OGListChromeModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
-            .background {
-                OG.bg.ignoresSafeArea()
-            }
             .listRowBackground(OG.surface)
             .tint(OG.accent)
-            .contentMargins(.horizontal, OG.pad, for: .scrollContent)
-            // El scrollContentMargin no contiene el List completo: en iPhone
-            // horizontal sus secciones invadían los laterales del viewport.
-            // Reservar 16 pt exteriores solo en paisaje, respetando la zona
-            // segura y conservando el recorte redondeado de insetGrouped.
-            .safeAreaPadding(.horizontal, verticalSizeClass == .compact ? OG.pad : 0)
+            // No sumar paddings por orientación o por filas:
+            // la columna central y el insetGrouped ya aportan su margen.
+            .frame(maxWidth: OG.contentColumnMaxWidth)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .background(OG.bg.ignoresSafeArea())
             .listSectionSpacing(12)
     }
 }
 
 extension View {
+    /// Centro compartido para contenido ScrollView (Progreso, Inicio inferior,
+    /// Center, detalles). No se usa en el primer componente blanco de Inicio.
+    func ogReadableColumn() -> some View {
+        modifier(OGReadableColumnModifier())
+    }
+
     /// Estilo nativo agrupado para Diario, Play, Editar y Ejercicios:
     /// sin cajas anidadas; las esquinas las recorta la sección de SwiftUI.
     func ogListChrome() -> some View {

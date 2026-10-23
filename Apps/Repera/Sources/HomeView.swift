@@ -236,7 +236,7 @@ struct HomeView: View {
                     .padding(.top, 12)
                     .padding(.bottom, 16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(OG.surface.ignoresSafeArea(edges: .top))
+                    .background(OG.surface.ignoresSafeArea(edges: [.top, .horizontal]))
 
                     // Progreso/Actividad conservan el lienzo agrupado gris,
                     // que empieza justo donde termina la sección blanca.
@@ -256,7 +256,7 @@ struct HomeView: View {
                     }
                     .padding(.top, 12)
                     .padding(.bottom, 28)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .ogReadableColumn()
                     // En paisaje la safe area lateral pertenece al gris de
                     // Progreso/Actividad; el blanco solo es calendario + entreno.
                     .background(OG.bg.ignoresSafeArea(edges: .horizontal))

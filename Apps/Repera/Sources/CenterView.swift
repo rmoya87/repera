@@ -112,6 +112,7 @@ struct CenterView: View {
                 .padding(.horizontal, OG.pad)
                 .padding(.top, 12)
                 .padding(.bottom, 40)
+                .ogReadableColumn()
             }
             .background(OG.bg)
             .ogFixedTopBar("Center") {

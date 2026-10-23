@@ -199,6 +199,7 @@ struct QuickLogSheet: View {
             .background(OG.bg.ignoresSafeArea())
             .listRowBackground(Color.clear)
             .tint(OG.accent)
+            .ogReadableColumn()
             .navigationTitle("Apuntar series")
             .navigationBarTitleDisplayMode(.inline)
             .ogDiaryTransparentNav()

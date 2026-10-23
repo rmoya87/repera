@@ -68,6 +68,7 @@ struct ExerciseDetailView: View {
                     }
                     .padding(.top, 0)
                     .padding(.bottom, 28)
+                    .ogReadableColumn()
                 }
                 .background(OG.bg.ignoresSafeArea())
                 .ogPinnedTransparentNav(exercise.name)
