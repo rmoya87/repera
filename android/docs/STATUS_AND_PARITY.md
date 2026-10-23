@@ -32,7 +32,7 @@ La CI no sustituye una prueba OAuth/Drive real ni un Wear OS físico.
 
 ## Catálogo y primera cuenta
 
-El asset `mobile/src/main/assets/catalog_seed.json` contiene **196 ejercicios**
+El asset `mobile/src/main/assets/catalog_seed.json` contiene **196 ejercicios base**
 extraídos directamente de `CatalogEnrichment`, `CatalogHalterofilia`,
 `CatalogGimnasia` y `CatalogCrossFit` de Swift en `main`, sin ejercicios
 ficticios añadidos. Se aplican 189 descripciones y 189 instrucciones
@@ -258,3 +258,26 @@ real continúan pendientes; lo implementado **no** constituye paridad completa.
 Últimos tests instrumentados de cardio: `CardioRecordInstrumentedTest`.
 El CI debe comprobarse en el HEAD actual; sus ejecuciones anteriores no
 certifican commits más recientes.
+
+
+## Revisión después de los merges de movilidad y HYROX (23/10/2026)
+
+- El branch incorpora mediante `d8961ad` los 39 commits de movilidad de `main`,
+  y mediante `d0b998f` las correcciones posteriores de HYROX y planificación MCP.
+- `mobility_seed.json` añade 82 movimientos documentados y
+  `hyrox_seed.json` añade 2 estaciones, totalizando **280** con los 196 base.
+- La migración local no sustituye entrenamientos/historial de clientes, es
+  idempotente y conserva el UUID de estaciones HYROX importadas de iOS aun
+  cuando no tienen `catalogId`.
+- Las posturas sostenidas usan tiempo real y el campo
+  `targetDurationSeconds` (30 segundos por defecto en el registro rápido);
+  los sets sin registros reales de movilidad no se infieren de la prescripción.
+- Los transportes HYROX por metros con carga guardan kg y distancia
+  separadamente; la distancia no se utiliza para estimar 1RM.
+- El último CI y el emulador deben quedar verdes antes de declarar la versión
+  validada. En una ejecución anterior falló la instalación de Android Emulator
+  en el runner y no llegó a probar la aplicación; no confundir con una
+  regresión funcional del código.
+- **Abierto:** cobertura real de imágenes, evolución avanzada por período,
+  gestión de la suscripción, Health Services y registro WOD completo en el
+  reloj, integración MCP/UI profesional y E2E con Google Auth y Drive.

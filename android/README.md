@@ -78,3 +78,21 @@ No existen claves privadas ni OAuth Client Secret en el APK o en el repositorio.
 Es posible sobrescribir los valores públicos mediante propiedades Gradle.
 La sesión verificada no se persiste: al reiniciar el proceso se solicita
 una nueva autenticación.
+
+
+## Catálogo actualizado — iOS / Android
+
+La biblioteca Android conserva los 196 movimientos originales e incorpora, mediante
+migraciones locales idempotentes, los **82 movimientos de movilidad** y las
+**2 estaciones HYROX adicionales**, hasta **280 ejercicios**. Los importados desde
+Apple se identifican por nombre canónico cuando Swift no asigna catalogId;
+no se reescriben UUID, sesiones, series, plantillas ni ejercicios personalizados.
+Las posturas de movilidad permiten registrar duración sostenida sin RIR ni cargas;
+el trabajo por movimiento no genera volumen de fuerza ni récords inventados.
+
+HYROX es una etiqueta adicional para movimientos compartidos con CrossFit.
+Burpee Broad Jump y Sandbag Lunges se registran por metros; el segundo admite
+peso del saco. La distancia nunca se introduce como repeticiones en Epley/e1RM.
+Las imágenes de los nuevos movimientos no tienen aún cobertura visual verificada
+en Android y el planificador MCP, Play Billing y Health Services mantienen
+tareas específicas de integración/E2E.

@@ -132,3 +132,27 @@ las primeras cinco visitas o desplegar todas, con fechas y cantidades.
 El histórico es gratuito, mientras que la futura gráfica avanzada deberá
 respetar la suscripción Pro como en iOS. No se afirma equivalencia del motor
 de equivalencias de ejercicios de Swift ni de la interfaz avanzada de Progreso.
+
+
+## Seguimiento del catálogo iOS del 23 de octubre: 280 movimientos
+
+Nuevos commits de iOS incorporados a la rama: 39 de movilidad y un segundo
+bloque de cambios sobre HYROX y MCP multidisciplina. El catálogo Android se
+alimenta de los 196 ejercicios base + 82 movimientos de movilidad + 2 estaciones
+HYROX adicionales, con técnicas españolas, alias bilingües, UUIDs estables y
+migración idempotente que respeta las identidades existentes de Apple.
+`catalogId` de los dos ejercicios HYROX es un identificador de migración
+Android; el catálogo Swift usa `catalogId=nil` en `sportRow`, por lo que el
+importador evita duplicados por nombre canónico.
+
+Los registros de movilidad miden tiempo y/o repeticiones; los holds tienen
+30 segundos prescritos por defecto pero jamás suman tiempo sin ser confirmados.
+HYROX integra distancia y carga sin e1RM ficticio. La clasificación muscular
+de movilidad se excluye del reparto de series de fuerza: esto **no** es una
+medición de fatiga clínica.
+
+Pendientes para completar paridad real: motor de recuperación y gráficos,
+miniaturas revisadas visualmente, flujo de planificación profesional/MCP,
+Pro en Play Billing, registro en reloj de cardio y WOD por movimiento,
+Health Services, autorización durable y reconciliación en segundo plano,
+permisos y pruebas E2E físicas.
