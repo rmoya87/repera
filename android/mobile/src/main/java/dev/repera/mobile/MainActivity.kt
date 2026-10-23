@@ -385,8 +385,10 @@ class MainActivity : ComponentActivity() {
                 // UI still returns to login; existing account files stay isolated.
             } finally {
                 verifiedSupabase = null
+                // Data Layer is best effort: a disconnected watch must never prevent
+                // clearing the authenticated phone UI and its in-memory state.
                 withContext(Dispatchers.IO) {
-                    WearActiveSessionBridge.publish(this@MainActivity, null)
+                    runCatching { WearActiveSessionBridge.publish(this@MainActivity, null) }
                 }
                 profile = null
                 snapshot = null
