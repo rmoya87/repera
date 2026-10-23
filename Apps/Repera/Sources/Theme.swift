@@ -162,11 +162,14 @@ struct OGCardSectionTitle: View {
 
 struct OGCard<Content: View>: View {
     var padding: CGFloat = OG.pad
+    /// Mayor separación vertical en las gráficas, sin ampliar el margen lateral.
+    var verticalPadding: CGFloat? = nil
     @ViewBuilder var content: () -> Content
 
     var body: some View {
         content()
-            .padding(padding)
+            .padding(.horizontal, padding)
+            .padding(.vertical, verticalPadding ?? padding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous).stroke(OG.surface3.opacity(0.75), lineWidth: 0.7))

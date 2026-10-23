@@ -730,7 +730,7 @@ struct HealthRecoveryProgressView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label2)
             }
-            OGCard(padding: 10) {
+            OGCard(padding: 10, verticalPadding: 20) {
                 Chart {
                     ForEach(0..<scores.count, id: \.self) { index in
                         LineMark(
@@ -748,7 +748,7 @@ struct HealthRecoveryProgressView: View {
                 .chartYAxis {
                     AxisMarks(position: .leading, values: [0.0, 5.0, 10.0])
                 }
-                .frame(height: 185)
+                .frame(height: 220)
                 .allowsHitTesting(false)
             }
         }
@@ -765,7 +765,7 @@ struct HealthRecoveryProgressView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label2)
             }
-            OGCard(padding: 10) {
+            OGCard(padding: 10, verticalPadding: 20) {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack {
                         Text("Variabilidad cardíaca (VFC)")
@@ -788,7 +788,7 @@ struct HealthRecoveryProgressView: View {
                     }
                     .chartXScale(domain: 0...8)
                     .chartPlotStyle { $0.clipped() }
-                    .frame(height: 105)
+                    .frame(height: 128)
                     Divider().opacity(0.25)
                     HStack(alignment: .top, spacing: 10) {
                         physiologyPreviewBars("Pulso en reposo", unit: "lpm", values: [66, 63, 65, 61, 60, 62, 58])
@@ -823,7 +823,7 @@ struct HealthRecoveryProgressView: View {
             .chartPlotStyle { $0.clipped() }
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
-            .frame(height: 82)
+            .frame(height: 98)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
@@ -911,14 +911,14 @@ struct HealthRecoveryProgressView: View {
                         AxisValueLabel(format: .dateTime.day().month(.abbreviated))
                     }
                 }
-                .frame(height: 105)
+                .frame(height: 128)
                 .accessibilityLabel("Tendencia: \(title)")
             } else {
                 ProgressEmptyChart(
                     message: values.isEmpty
                         ? "Sin mediciones en este periodo."
                         : "Una medición; aún no hay tendencia.",
-                    height: 105,
+                    height: 128,
                     yRange: 0.0...100.0
                 )
             }
@@ -970,11 +970,11 @@ struct HealthRecoveryProgressView: View {
                 .chartXSelection(value: $selectedPhysiologyDate)
                 .chartXAxis(.hidden)
                 .chartYAxis(.hidden)
-                .frame(height: 82)
+                .frame(height: 98)
             } else {
                 ProgressEmptyChart(
                     message: "Sin datos",
-                    height: 82,
+                    height: 98,
                     yRange: 0.0...100.0
                 )
             }
@@ -1001,7 +1001,7 @@ struct HealthRecoveryProgressView: View {
     private var physiologyContent: some View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Constantes fisiológicas")
-            OGCard(padding: 10) {
+            OGCard(padding: 10, verticalPadding: 20) {
                 VStack(alignment: .leading, spacing: 14) {
                     vitalChart("Variabilidad cardíaca (VFC)", unit: "ms", keyPath: \.hrvMilliseconds)
                     Divider().opacity(0.25)
@@ -1174,7 +1174,7 @@ struct HealthRecoveryProgressView: View {
     private var trainingRecoveryTrendCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Evolución de recuperación")
-            OGCard(padding: 10) {
+            OGCard(padding: 10, verticalPadding: 20) {
                 Chart {
                     ForEach(recoveryPoints) { point in
                     LineMark(
@@ -1228,7 +1228,7 @@ struct HealthRecoveryProgressView: View {
                     }
                 }
                 .chartPlotStyle { $0.clipped() }
-                .frame(height: 185)
+                .frame(height: 220)
                 .accessibilityLabel("Evolución de preparación para entrenar")
             }
         }
@@ -1395,7 +1395,7 @@ struct HealthRecoveryProgressView: View {
                 }
                 .chartYScale(domain: 0...2)
                 .chartYAxis(.hidden)
-                .frame(height: 105)
+                .frame(height: 128)
                 Text("Registros de menstruación de los últimos 90 días")
                     .font(.caption).foregroundStyle(OG.label2)
                 Divider().opacity(0.3)

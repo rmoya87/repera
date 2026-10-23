@@ -273,7 +273,7 @@ struct ProgressCardioChartCard: View {
                         .minimumScaleFactor(0.85)
                 }
             }
-            OGCard(padding: 10) {
+            OGCard(padding: 10, verticalPadding: 20) {
                 VStack(alignment: .leading, spacing: 10) {
                     if !points.isEmpty {
                         Chart {
@@ -354,7 +354,7 @@ struct ProgressCardioChartCard: View {
                             }
                         }
                         .chartLegend(.hidden)
-                        .frame(height: 140)
+                        .frame(height: 190)
                         .frame(maxWidth: .infinity)
 
                         if let stats = periodStats {
@@ -367,7 +367,7 @@ struct ProgressCardioChartCard: View {
                     } else {
                         ProgressEmptyChart(
                             message: "Sin ritmo cardíaco de Salud en \(range.title.lowercased()).",
-                            height: 140,
+                            height: 190,
                             yRange: 60.0...160.0
                         )
                     }
@@ -460,7 +460,7 @@ struct ProgressCaloriesChartCard: View {
                         .minimumScaleFactor(0.85)
                 }
             }
-            OGCard(padding: 10) {
+            OGCard(padding: 10, verticalPadding: 20) {
                 VStack(alignment: .leading, spacing: 10) {
                     if hasData {
                         Chart {
@@ -530,12 +530,12 @@ struct ProgressCaloriesChartCard: View {
                             }
                         }
                         .chartLegend(.hidden)
-                        .frame(height: 140)
+                        .frame(height: 190)
                         .frame(maxWidth: .infinity)
                     } else {
                         ProgressEmptyChart(
                             message: "Sin kcal de Salud en \(range.title.lowercased()).",
-                            height: 140,
+                            height: 190,
                             yRange: 0.0...600.0
                         )
                     }
@@ -649,12 +649,12 @@ struct ProgressWeightChartCard: View {
                         .minimumScaleFactor(0.8)
                 }
             }
-            OGCard(padding: 10) {
+            OGCard(padding: 10, verticalPadding: 20) {
                 VStack(alignment: .leading, spacing: 10) {
                     if points.isEmpty {
                         ProgressEmptyChart(
                             message: "Sin pesajes en \(range.title.lowercased()). Registra peso en Ajustes.",
-                            height: 168,
+                            height: 210,
                             yRange: yDomain
                         )
                     } else {
@@ -727,7 +727,7 @@ struct ProgressWeightChartCard: View {
                                 }
                             }
                         }
-                        .frame(height: 168)
+                        .frame(height: 210)
 
                         if let latest, let goal = goalKg, let delta = deltaVsGoal {
                             HStack(spacing: 12) {

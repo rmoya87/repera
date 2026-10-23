@@ -345,7 +345,7 @@ struct StatsView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label2)
             }
-            OGCard(padding: 10) {
+            OGCard(padding: 10, verticalPadding: 20) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Evolución de carga · datos ficticios")
                         .font(.footnote)
@@ -370,7 +370,7 @@ struct StatsView: View {
                             AxisValueLabel()
                         }
                     }
-                    .frame(height: 150)
+                    .frame(height: 195)
                     .allowsHitTesting(false)
                 }
             }
@@ -861,12 +861,12 @@ private struct ProgressSessionScoreChartCard: View {
                         .foregroundStyle(OG.label)
                 }
             }
-            OGCard(padding: 10) {
+            OGCard(padding: 10, verticalPadding: 20) {
                 VStack(alignment: .leading, spacing: 10) {
                     if values.isEmpty {
                         ProgressEmptyChart(
                             message: "Todavía no hay puntuaciones basadas en tu historial.",
-                            height: 164,
+                            height: 205,
                             yRange: 0.0...10.0
                         )
                     } else {
@@ -914,7 +914,7 @@ private struct ProgressSessionScoreChartCard: View {
                                 AxisValueLabel(format: .dateTime.day().month(.abbreviated))
                             }
                         }
-                        .frame(height: 164)
+                        .frame(height: 205)
                         .allowsHitTesting(!isTeaserPreview)
                         if !isTeaserPreview {
                             Text("Media diaria de notas basadas en tu historial comparable.")
