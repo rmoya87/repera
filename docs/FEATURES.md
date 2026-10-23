@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-23 (calendario apaisado y márgenes de Progreso uniformes)
+Última actualización: 2026-10-23 (filtro HYROX y estaciones del catálogo)
 
 - **Reloj de bloque (vertical y horizontal):** los dígitos LED escalan de forma exacta según ancho y ronda (HH:MM/ MM:SS sin rondas = 2,76×alto, con dos dígitos verdes de ronda = 4,22×alto), para no desbordarse a la derecha en intervalos. En retrato, miniatura de 100 pt y nombre centrados debajo del tiempo con 38 pt de separación; botones abajo. En paisaje miniatura de 112 pt y nombre en columna izquierda centrada en altura; reloj a la derecha con botones alineados en una fila. El icono del temporizador del bloque dentro de Play usa círculo Liquid Glass nativo de 44 pt.
 - **Now Playing externo:** Repera no dispone de API pública para leer el Now Playing global (Spotify, Podcasts y demás apps) ni detectar de forma fiable su estado. Se elimina la tarjeta genérica «Audio del iPhone» en ambas orientaciones en vez de mostrar un falso reproductor o iconos cuando no hay reproducción verificable. El Centro de control mantiene los controles nativos de esos servicios. Solo sería posible mostrar metadatos mediante una integración específica del proveedor o reproducción propia con permiso y datos accesibles.
@@ -95,6 +95,8 @@
 - Equilibrio: mapa coloreado por **fatiga retenida** (`MuscleMapEngine`, vida media por músculo) — gris → verde → amarillo → naranja → rojo (Recuperado→Fatigado). Incluye entrenos Repera **y** Apple Salud (`HealthMuscleMapper`: correr, tenis/raqueta, bici, natación, HIIT, deportes de equipo, etc.). Barras = series del periodo; color de barra = fatiga. Selector Fatiga / Esfuerzo dentro de la tarjeta (todas las series / series duras); siempre visible, como en Actividad.
 
 ### Ejercicios (`LibraryView`)
+- **HYROX**: filtro independiente en Ejercicios y opción en Disciplina dentro de los selectores. La agrupación «Deporte» muestra HYROX junto a CrossFit cuando un movimiento pertenece a ambas disciplinas. El mismo UUID, historial y estadísticas se conservan: el etiquetado HYROX es adicional, sin cambiar el deporte de origen.
+- **9 movimientos del formato oficial**: carrera (8 × 1 km), SkiErg 1 km, empuje de trineo 50 m, tracción de trineo 50 m, Burpee Broad Jump 80 m, remoergómetro 1 km, Farmer Carry 200 m, zancadas con saco 100 m y Wall Balls 100 reps. Son estaciones de carrera, no ejercicios duplicados por distancia ni por categoría de peso. El catálogo reutiliza Run, SkiErg, Sled Push, Sled Pull, Remo máquina, Farmer Carry, Wall ball (y alternativas existentes) y añade solo Burpee Broad Jump y Sandbag Lunges con descripción e instrucciones en español. Las cargas varían según la categoría oficial.
 
 - Buscador **nativo** (`.searchable` + `navigationBarDrawer(displayMode: .always)`) bajo título / filtro / +.
 - Al foco: sin animaciones de List (`isSearching`), `NavigationLink(value:)` (sin destinos eager) y thumbs solo desde cache.
