@@ -5,6 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +24,9 @@ import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
+import androidx.wear.compose.material3.Button
+import com.google.android.gms.wearable.MessageClient
+import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.DataClient
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
@@ -35,8 +40,14 @@ import dev.repera.domain.ResultCapture
  * This first native screen renders only genuine phone-delivered data.
  * Do not simulate workout tracking or recorded sets until SessionController is ported.
  */
-class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
+class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
+    MessageClient.OnMessageReceivedListener {
     private val dataClient by lazy { Wearable.getDataClient(this) }
+    private val messageClient by lazy { Wearable.getMessageClient(this) }
+    private val pendingStore by lazy { WearPendingSetStore(this) }
+    private var repsInput by mutableStateOf(0)
+    private var pendingCount by mutableStateOf(0)
+    private var sendStatus by mutableStateOf<String?>(null)
     private var visibleSession by mutableStateOf<WatchSessionSummary?>(null)
     private var syncProblem by mutableStateOf(false)
     private var showingCachedSession by mutableStateOf(false)
@@ -44,6 +55,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingCount = pendingStore.count()
         // Read-only recovery: no locally confirmed set is written to the phone.
         sessionCache.getString("snapshot", null)?.let { cached ->
             val restored = runCatching { WatchSessionSummary.fromJson(JSONObject(cached)) }.getOrNull()
@@ -107,6 +119,34 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
                                     }
                                     Text("${session.recordedSets} series registradas",
                                         style = MaterialTheme.typography.labelSmall)
+                                    Text("Registrar serie", style = MaterialTheme.typography.titleMedium)
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        Button(onClick = { repsInput = (repsInput - 1).coerceAtLeast(0) }) {
+                                            Text("−")
+                                        }
+                                        Text("$repsInput reps", style = MaterialTheme.typography.titleMedium)
+                                        Button(onClick = { repsInput = (repsInput + 1).coerceAtMost(10000) }) {
+                                            Text("+")
+                                        }
+                                    }
+                                    Button(onClick = { queueSet(session) },
+                                        enabled = repsInput > 0,
+                                        modifier = Modifier.fillMaxWidth()) {
+                                        Text("Confirmar serie")
+                                    }
+                                }
+                                if (pendingCount > 0) {
+                                    Text("$pendingCount pendientes de confirmar",
+                                        style = MaterialTheme.typography.labelSmall)
+                                    Button(onClick = { resendPending() },
+                                        modifier = Modifier.fillMaxWidth()) {
+                                        Text("Reenviar pendientes")
+                                    }
+                                }
+                                sendStatus?.let {
+                                    Text(it, style = MaterialTheme.typography.labelSmall,
+                                        textAlign = TextAlign.Center)
                                 }
                             }
                         }
@@ -119,6 +159,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
     override fun onStart() {
         super.onStart()
         dataClient.addListener(this)
+        messageClient.addListener(this)
+        resendPending()
         dataClient.dataItems.addOnSuccessListener { items ->
             try {
                 for (item in items) {
@@ -134,6 +176,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
     }
 
     override fun onStop() {
+        messageClient.removeListener(this)
         dataClient.removeListener(this)
         super.onStop()
     }
@@ -151,6 +194,53 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
         }
     }
 
+    override fun onMessageReceived(event: MessageEvent) {
+        if (event.path != "/repera/log-set-ack") return
+        val ack = runCatching { JSONObject(String(event.data, Charsets.UTF_8)) }.getOrNull()
+            ?: return
+        runOnUiThread {
+            val id = ack.optString("id")
+            when (ack.optString("status")) {
+                "saved" -> {
+                    pendingStore.remove(id)
+                    pendingCount = pendingStore.count()
+                    sendStatus = if (pendingCount == 0) "Series sincronizadas" else
+                        "$pendingCount series pendientes"
+                }
+                "rejected" -> sendStatus =
+                    "La sesión del teléfono cambió; revisa las series pendientes"
+                else -> sendStatus = "Sin conexión confirmada; las series siguen guardadas"
+            }
+        }
+    }
+
+    private fun queueSet(session: WatchSessionSummary) {
+        if (session.wodFormatLabel != null || repsInput !in 1..10000) return
+        pendingStore.append(session.sessionId, session.exerciseIndex - 1,
+            repsInput, session.prescribedWeightKg)
+        pendingCount = pendingStore.count()
+        sendStatus = "Serie guardada en el reloj; esperando confirmación"
+        resendPending()
+    }
+
+    private fun resendPending() {
+        val commands = pendingStore.all()
+        if (commands.isEmpty()) return
+        Wearable.getNodeClient(this).connectedNodes
+            .addOnSuccessListener { nodes ->
+                if (nodes.isEmpty()) {
+                    runOnUiThread { sendStatus = "Sin teléfono conectado · serie conservada" }
+                } else {
+                    for (node in nodes) for (command in commands) {
+                        messageClient.sendMessage(node.id, "/repera/log-set",
+                            command.toString().toByteArray(Charsets.UTF_8))
+                    }
+                }
+            }.addOnFailureListener {
+                runOnUiThread { sendStatus = "Pendiente de conexión con el teléfono" }
+            }
+    }
+
     private fun showSession(bytes: ByteArray?) {
         if (bytes == null || bytes.isEmpty()) {
             clearSession()
@@ -162,7 +252,12 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
         if (summary != null) {
             // Persist only a validated session; a malformed update cannot corrupt recovery.
             sessionCache.edit().putString("snapshot", raw).apply()
+            if (visibleSession?.sessionId != summary.sessionId ||
+                visibleSession?.exerciseIndex != summary.exerciseIndex) {
+                repsInput = summary.prescribedReps ?: 0
+            }
             visibleSession = summary
+            resendPending()
             showingCachedSession = false
             syncProblem = false
         } else {
@@ -173,6 +268,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
 
     private fun clearSession() {
         sessionCache.edit().remove("snapshot").apply()
+        pendingStore.clear()
+        pendingCount = 0
+        repsInput = 0
+        sendStatus = null
         visibleSession = null
         syncProblem = false
         showingCachedSession = false
@@ -180,6 +279,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
 }
 
 data class WatchSessionSummary(
+    val sessionId: String,
     val title: String,
     val exerciseName: String,
     val exerciseIndex: Int,
@@ -233,6 +333,7 @@ data class WatchSessionSummary(
                 (prefix + " " + item.optString("name")).trim()
             }
             return WatchSessionSummary(
+                sessionId = session.getString("id"),
                 title = session.getString("title"),
                 exerciseName = exercise.getJSONObject("exercise").getString("name"),
                 exerciseIndex = index + 1,
