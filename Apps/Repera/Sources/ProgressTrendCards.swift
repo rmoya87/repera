@@ -595,6 +595,9 @@ struct ProgressWeightChartCard: View {
                 .foregroundStyle(valueColor)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 8)
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
