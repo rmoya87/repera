@@ -428,15 +428,6 @@ struct WorkoutView: View {
                     }
                     .listRowBackground(OG.surface)
 
-                    // AMRAP/For Time tienen un resultado GLOBAL del bloque.
-                    // Los movimientos son la prescripción, no una tabla de series a registrar.
-                    if let format = block.format, format.resultCapture != .perMovementSets {
-                        blockScorePanel(block, format: format, session: session)
-                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
-                            .listRowBackground(OG.surface)
-                            .listRowSeparator(.hidden)
-                    }
-
                     ForEach(block.indexes, id: \.self) { index in
                         let entry = session.exercises[index]
                         Group {
@@ -462,9 +453,7 @@ struct WorkoutView: View {
                         }
                         .listRowBackground(OG.surface)
 
-                        if session.currentIndex == index,
-                           entry.wodFormat?.resultCapture == nil
-                               || entry.wodFormat?.resultCapture == .perMovementSets {
+                        if session.currentIndex == index {
                             setsBoard(entry)
                                 .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
                                 .listRowBackground(OG.surface)
@@ -473,9 +462,7 @@ struct WorkoutView: View {
                     }
 
                     if block.indexes.contains(session.currentIndex),
-                       let current = session.currentExercise,
-                       current.wodFormat?.resultCapture == nil
-                           || current.wodFormat?.resultCapture == .perMovementSets {
+                       let current = session.currentExercise {
                         DisclosureGroup("Técnicas de serie · dropset / rest-pause") {
                             logForm(current)
                                 .padding(.top, 8)
@@ -542,9 +529,7 @@ struct WorkoutView: View {
                 Text(entry.exercise.name)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(OG.label)
-                Text(entry.usesBlockScoreResult
-                     ? entry.prescriptionSummaryLine
-                     : entry.plannedSets.compactSummary)
+                Text(entry.plannedSets.compactSummary)
                     .font(.caption)
                     .foregroundStyle(OG.label2)
             }
@@ -560,68 +545,6 @@ struct WorkoutView: View {
             // Sin chevron hacia abajo: la fila abierta lleva a la ficha.
         }
         .contentShape(Rectangle())
-    }
-
-    /// Captura única por bloque (AMRAP, For Time, Chipper...), distinta
-    /// de las series individuales de EMOM, Tabata o fuerza.
-    private func blockScorePanel(
-        _ block: WorkoutBlockEntry,
-        format: WODFormat,
-        session: WorkoutSession
-    ) -> some View {
-        let existing = session.wodResults.first(where: { $0.id == block.id })
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Resultado · \(format.displayName)")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(OG.label)
-                Spacer()
-                if let existing {
-                    Text(existing.summaryLabel)
-                        .font(.system(size: 15, weight: .bold).monospacedDigit())
-                        .foregroundStyle(OG.accent)
-                } else {
-                    Text("Pendiente")
-                        .font(.subheadline)
-                        .foregroundStyle(OG.label3)
-                }
-            }
-            Text(format == .amrap
-                 ? "Rondas completas + repeticiones adicionales; no se apunta una serie por ejercicio."
-                 : (format.resultCapture == .elapsedTime
-                    ? "Tiempo real de finalización del bloque."
-                    : "Máximo de rondas y repeticiones obtenidas."))
-                .font(.footnote)
-                .foregroundStyle(OG.label2)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 10) {
-                Button {
-                    openBlockTimer(block, session: session)
-                } label: {
-                    Label("Iniciar temporizador", systemImage: "timer")
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(.bordered)
-                Button {
-                    guard let first = block.indexes.first,
-                          session.exercises.indices.contains(first) else { return }
-                    // La confirmación debe finalizar ESTE bloque, no otro que
-                    // estuviese seleccionado al abrir su resultado manualmente.
-                    if store.state.activeSession?.currentIndex != first {
-                        store.selectExercise(at: first)
-                    }
-                    presentScoreEditor(for: session.exercises[first])
-                } label: {
-                    Label(existing == nil ? "Registrar resultado" : "Editar resultado",
-                          systemImage: "square.and.pencil")
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(.borderedProminent)
-            }
-            .font(.system(size: 12, weight: .semibold))
-        }
-        .padding(14)
-        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func openBlockTimer(_ block: WorkoutBlockEntry, session: WorkoutSession) {

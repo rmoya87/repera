@@ -1,7 +1,7 @@
-"""Pruebas de contrato de Play: score global WOD + reloj por formato.
+"""Pruebas de contrato de Play: registro de movimientos y reloj por formato.
 
 Los tests de comportamiento del dominio viven en SessionControllerTests.swift.
-Estas comprobaciones evitan que la UI vuelva a mostrar series en un AMRAP.
+La UI de Play debe mantener los campos de registro en todos los formatos WOD.
 """
 import unittest
 from pathlib import Path
@@ -34,14 +34,22 @@ class PlayWODContractTests(unittest.TestCase):
                                "var " + label + ":" in declaration else
                                declaration.index("var " + label + " ")
                                for label in labels]
-        self.assertEqual(component_positions, sorted(component_positions))
-
-    def test_block_score_is_separate_from_set_board(self):
+        self.assertEqual(component_positions, sorted(component_pos    def test_all_wod_formats_show_inline_movement_fields_without_score_card(self):
         source = self.read("WorkoutView.swift")
-        self.assertIn("blockScorePanel(block, format: format, session: session)", source)
-        self.assertIn("entry.wodFormat?.resultCapture == .perMovementSets", source)
+        screen = source.split("private func content(_ session: WorkoutSession)", 1)[1]
+        screen = screen.split("private func workoutExerciseRow(", 1)[0]
+        exercise_rows = screen.split("ForEach(block.indexes, id:", 1)[1]
+        exercise_rows = exercise_rows.split("if finishedTimedBlockID", 1)[0]
+        self.assertIn("if session.currentIndex == index {", exercise_rows)
+        self.assertIn("setsBoard(entry)", exercise_rows)
+        self.assertIn("logForm(current)", exercise_rows)
+        self.assertNotIn("resultCapture", exercise_rows)
+        self.assertNotIn("blockScorePanel", source)
+        self.assertNotIn('Text("Resultado · \\(format.displayName)")', screen)
         self.assertIn("presentScoreEditor(for:", source)
-        self.assertIn("entry.prescriptionSummaryLine", source)
+        self.assertIn("openBlockTimer(block, session: session)", screen)
+
+ source)
 
     def test_interval_timer_does_not_finish_without_logging_sets(self):
         source = self.read("WorkoutView.swift")
