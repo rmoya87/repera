@@ -5,6 +5,7 @@ private enum ExerciseBrowseMode: String, CaseIterable, Identifiable, Sendable {
     case alphabetical
     case muscle
     case sport
+    case mobility
     case favorites
     case wods
 
@@ -15,6 +16,7 @@ private enum ExerciseBrowseMode: String, CaseIterable, Identifiable, Sendable {
         case .alphabetical: return "Alfabético"
         case .muscle: return "Músculo"
         case .sport: return "Deporte"
+        case .mobility: return "Movilidad"
         case .favorites: return "Favoritos"
         case .wods: return "WODs"
         }
@@ -25,6 +27,7 @@ private enum ExerciseBrowseMode: String, CaseIterable, Identifiable, Sendable {
         case .alphabetical: return "textformat.abc"
         case .muscle: return "figure.strengthtraining.traditional"
         case .sport: return "sportscourt"
+        case .mobility: return "figure.flexibility"
         case .favorites: return "star.fill"
         case .wods: return "timer"
         }
@@ -443,6 +446,8 @@ struct LibraryView: View {
         let docs: [ExerciseSearch.Document]
         if browseMode == .favorites {
             docs = index.filter(\.isFavorite)
+        } else if browseMode == .mobility {
+            docs = index.filter { $0.sportTag == "Movilidad" }
         } else {
             docs = index
         }
@@ -469,7 +474,7 @@ struct LibraryView: View {
             return [LibrarySectionModel(key: "flat", title: nil, items: rows)]
         }
         switch browseMode {
-        case .alphabetical, .favorites, .wods:
+        case .alphabetical, .favorites, .mobility, .wods:
             return [LibrarySectionModel(key: "flat", title: nil, items: rows)]
         case .muscle:
             return Dictionary(grouping: rows, by: { exercisesById[$0.id]?.muscleGroup ?? "" })
