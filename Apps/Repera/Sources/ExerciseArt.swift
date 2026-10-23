@@ -10,6 +10,15 @@ enum ExerciseArt {
     }
 
     static func imageName(forExerciseName name: String, muscleGroup: String) -> String? {
+        // Algunas pizarras escriben burpee box jump over(s), BBJO o
+        // burpee over box: comparten una ilustración existente y validada.
+        let normalizedName = CrossFitGlossary.normalize(name)
+        if normalizedName == "bbjo"
+            || (normalizedName.contains("burpee")
+                && normalizedName.contains("box")
+                && (normalizedName.contains("over") || normalizedName.contains("jump"))) {
+            return acceptedHero("art_cf_burpee_box")
+        }
         // Exacto → canónico (limpia OCR) → normalize → clave nameMap contenida (más larga gana).
         if let base = acceptedHero(nameMap[name]) { return base }
         let legacyName = SportExerciseNames.spanishAlias(for: name) ?? name
@@ -562,6 +571,9 @@ enum ExerciseArt {
         "Burpee": "art_cf_burpee",
         "Burpee al cajón": "art_cf_burpee_box",
         "Burpee box jump over": "art_cf_burpee_box",
+        "Burpee box jump overs": "art_cf_burpee_box",
+        "Burpee over box": "art_cf_burpee_box",
+        "BBJO": "art_cf_burpee_box",
         "Salto al cajón": "art_cf_box_jump",
         "Step-up al cajón": "art_cf_step_up",
         "Muscle-up barra": "art_cf_mu_bar",

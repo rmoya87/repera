@@ -158,7 +158,7 @@ struct WorkoutView: View {
                     Button {
                         store.selectExercise(at: index - 1)
                     } label: {
-                        Image(systemName: "arrow.left")
+                        Image(systemName: "chevron.left")
                             .font(.system(size: 16, weight: .semibold))
                     }
                     .accessibilityLabel("Ejercicio anterior")
@@ -171,7 +171,7 @@ struct WorkoutView: View {
                         // Navegar no finaliza ni inventa resultados del ejercicio.
                         store.selectExercise(at: index + 1)
                     } label: {
-                        Image(systemName: "arrow.right")
+                        Image(systemName: "chevron.right")
                             .font(.system(size: 16, weight: .semibold))
                     }
                     .accessibilityLabel("Ejercicio siguiente")
