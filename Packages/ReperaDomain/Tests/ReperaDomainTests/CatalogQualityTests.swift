@@ -33,7 +33,7 @@ final class CatalogQualityTests: XCTestCase {
 
     func testEverySeedHasSpanishDescriptionAndInstructions() {
         let seed = Catalog.seed()
-        XCTAssertEqual(seed.count, 198)
+        XCTAssertEqual(seed.count, 280)
         for exercise in seed {
             let desc = CatalogSpanish.description(forName: exercise.name)
             XCTAssertNotNil(desc, "Falta descripción ES: \(exercise.name)")

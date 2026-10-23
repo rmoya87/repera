@@ -6,7 +6,10 @@ import UIKit
 enum ExerciseArt {
     /// Nombre del hero para listas (sin sondear pasos `_1`…`_8`).
     static func imageName(for exercise: Exercise) -> String? {
-        heroImageName(for: exercise)
+        // No reutilizar por similitud arte de fuerza en movimientos de movilidad.
+        // Solo se habilitan cuando tienen imágenes verificadas para cada técnica.
+        if exercise.isMobility { return nil }
+        return heroImageName(for: exercise)
     }
 
     static func imageName(forExerciseName name: String, muscleGroup: String) -> String? {
@@ -157,6 +160,8 @@ enum ExerciseArt {
     /// Pasos numerados si existen (`base_1`…); si no, secuencia de movimientos distintos; si no, hero.
     /// Solo para ficha / carrusel — no usar en filas de lista.
     static func imageNames(for exercise: Exercise) -> [String] {
+        // Evita héroes anatómicamente incorrectos mientras no exista arte propio validado.
+        if exercise.isMobility { return [] }
         let cacheKey = exercise.name
         let legacyName = SportExerciseNames.spanishAlias(for: exercise.name) ?? exercise.name
         if let cached = lookup.names(for: cacheKey) { return cached }
@@ -214,6 +219,7 @@ enum ExerciseArt {
 
     /// Hero: solo mapa de nombres (sin FileManager / decode). Si el JPG falta, el thumb muestra SF Symbol.
     private static func heroImageName(for exercise: Exercise) -> String? {
+        if exercise.isMobility { return nil }
         let key = exercise.name
         if let cached = lookup.heroName(for: key) {
             return cached.isEmpty ? nil : cached
@@ -548,6 +554,7 @@ enum ExerciseArt {
         "Elevación de piernas": "art_elev_piernas",
         "Hip thrust": "art_hip_thrust",
         "Cinta / carrera": "art_cardio",
+        "Carrera": "art_cardio",
         "Bici estática": "art_bici",
         "Remo máquina": "art_remo_erg",
         "Farmer walk": "art_farmer",
@@ -718,7 +725,7 @@ struct ExerciseThumb: View {
             } else {
                 ZStack {
                     OG.surface2
-                    Image(systemName: "figure.strengthtraining.traditional")
+                    Image(systemName: exercise.isMobility ? "figure.flexibility" : "figure.strengthtraining.traditional")
                         .font(.system(size: size * 0.35))
                         .foregroundStyle(OG.label3)
                 }
@@ -855,6 +862,14 @@ struct ExerciseArtView: View {
                 secondaries: exercise.secondaryRegions.isEmpty ? exercise.secondaryMuscles : exercise.secondaryRegions
             )
             .padding(24)
+            if exercise.isMobility {
+                Image(systemName: "figure.flexibility")
+                    .font(.system(size: 58, weight: .light))
+                    .foregroundStyle(OG.accent)
+                    .padding(18)
+                    .background(OG.surface.opacity(0.92), in: Circle())
+                    .accessibilityLabel("Ilustración pendiente de validar")
+            }
         }
     }
 

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "source": "Packages/ReperaDomain/Sources/ReperaDomain/Catalog.swift",
-  "count": 198,
+  "count": 280,
   "exercises": [
     {
       "catalogKey": "catalog:Press banca",
@@ -992,6 +992,416 @@
       "catalogKey": "catalog:Sandbag Lunges",
       "name": "Sandbag Lunges",
       "category": "HYROX"
+    },
+    {
+      "catalogKey": "catalog:Flexión cervical suave",
+      "name": "Flexión cervical suave",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Extensión cervical suave",
+      "name": "Extensión cervical suave",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Rotación cervical",
+      "name": "Rotación cervical",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Inclinación lateral cervical",
+      "name": "Inclinación lateral cervical",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Retracción cervical",
+      "name": "Retracción cervical",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:CARs de cuello",
+      "name": "CARs de cuello",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Círculos de hombros",
+      "name": "Círculos de hombros",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:CARs de hombro",
+      "name": "CARs de hombro",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Pasadas de hombros con pica",
+      "name": "Pasadas de hombros con pica",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Deslizamientos en pared",
+      "name": "Deslizamientos en pared",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Ángeles en pared",
+      "name": "Ángeles en pared",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Rotación externa de hombro con banda",
+      "name": "Rotación externa de hombro con banda",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Rotación interna de hombro",
+      "name": "Rotación interna de hombro",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Estiramiento de dorsal en banco",
+      "name": "Estiramiento de dorsal en banco",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Estiramiento pectoral en puerta",
+      "name": "Estiramiento pectoral en puerta",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Estiramiento de hombro cruzado",
+      "name": "Estiramiento de hombro cruzado",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Elevaciones escapulares",
+      "name": "Elevaciones escapulares",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Protracción y retracción escapular",
+      "name": "Protracción y retracción escapular",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Flexiones escapulares",
+      "name": "Flexiones escapulares",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Colgado pasivo",
+      "name": "Colgado pasivo",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Colgado activo",
+      "name": "Colgado activo",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Gato-vaca",
+      "name": "Gato-vaca",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Rotación torácica en cuadrupedia",
+      "name": "Rotación torácica en cuadrupedia",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Enhebrar la aguja",
+      "name": "Enhebrar la aguja",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Libro abierto",
+      "name": "Libro abierto",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Extensión torácica con rodillo",
+      "name": "Extensión torácica con rodillo",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Rotación torácica sentado",
+      "name": "Rotación torácica sentado",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Rotación torácica en pared",
+      "name": "Rotación torácica en pared",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Flexión segmentaria de columna",
+      "name": "Flexión segmentaria de columna",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Postura de la esfinge",
+      "name": "Postura de la esfinge",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Postura del niño",
+      "name": "Postura del niño",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Postura del niño lateral",
+      "name": "Postura del niño lateral",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Inclinación lateral de tronco",
+      "name": "Inclinación lateral de tronco",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:CARs de cadera",
+      "name": "CARs de cadera",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:90/90 de cadera",
+      "name": "90/90 de cadera",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:90/90 con inclinación frontal",
+      "name": "90/90 con inclinación frontal",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:90/90 con elevación de rodilla",
+      "name": "90/90 con elevación de rodilla",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Estiramiento del flexor de cadera",
+      "name": "Estiramiento del flexor de cadera",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Couch stretch",
+      "name": "Couch stretch",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Figura cuatro tumbado",
+      "name": "Figura cuatro tumbado",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Postura de la paloma",
+      "name": "Postura de la paloma",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Frog stretch",
+      "name": "Frog stretch",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Rockback de aductores",
+      "name": "Rockback de aductores",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Mariposa sentada",
+      "name": "Mariposa sentada",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Sentadilla Cossack de movilidad",
+      "name": "Sentadilla Cossack de movilidad",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Sentadilla profunda sostenida",
+      "name": "Sentadilla profunda sostenida",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Sentadilla profunda con balanceo",
+      "name": "Sentadilla profunda con balanceo",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Flexión activa de cadera de pie",
+      "name": "Flexión activa de cadera de pie",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Extensión activa de cadera de pie",
+      "name": "Extensión activa de cadera de pie",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Rotación interna de cadera sentado",
+      "name": "Rotación interna de cadera sentado",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Rodilla a pared para tobillo",
+      "name": "Rodilla a pared para tobillo",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Dorsiflexión de tobillo con banda",
+      "name": "Dorsiflexión de tobillo con banda",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Círculos de tobillo",
+      "name": "Círculos de tobillo",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:CARs de tobillo",
+      "name": "CARs de tobillo",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Flexión plantar de tobillo",
+      "name": "Flexión plantar de tobillo",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Inversión y eversión de tobillo",
+      "name": "Inversión y eversión de tobillo",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Elevación de tibial anterior",
+      "name": "Elevación de tibial anterior",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Rodilla sobre dedos controlada",
+      "name": "Rodilla sobre dedos controlada",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Flexión de rodilla en apoyo",
+      "name": "Flexión de rodilla en apoyo",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Estiramiento de cuádriceps de pie",
+      "name": "Estiramiento de cuádriceps de pie",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Estiramiento de gemelo en pared",
+      "name": "Estiramiento de gemelo en pared",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Estiramiento de sóleo en pared",
+      "name": "Estiramiento de sóleo en pared",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Bisagra de cadera sin carga",
+      "name": "Bisagra de cadera sin carga",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Estiramiento dinámico de isquios",
+      "name": "Estiramiento dinámico de isquios",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Deslizamiento neural suave",
+      "name": "Deslizamiento neural suave",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Buenos días con pica",
+      "name": "Buenos días con pica",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Estiramiento de isquios con banda",
+      "name": "Estiramiento de isquios con banda",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Perro boca abajo dinámico",
+      "name": "Perro boca abajo dinámico",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Movilidad de muñeca en extensión",
+      "name": "Movilidad de muñeca en extensión",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Movilidad de muñeca en flexión",
+      "name": "Movilidad de muñeca en flexión",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Círculos de muñecas",
+      "name": "Círculos de muñecas",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Pronación y supinación de antebrazo",
+      "name": "Pronación y supinación de antebrazo",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Extensión controlada de codo",
+      "name": "Extensión controlada de codo",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Flexión controlada de codo",
+      "name": "Flexión controlada de codo",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:World's Greatest Stretch",
+      "name": "World's Greatest Stretch",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Zancada Spiderman con rotación",
+      "name": "Zancada Spiderman con rotación",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Inchworm",
+      "name": "Inchworm",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Bear sit con rotación",
+      "name": "Bear sit con rotación",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Puente de glúteo articulado",
+      "name": "Puente de glúteo articulado",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Respiración diafragmática 90/90",
+      "name": "Respiración diafragmática 90/90",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Rotación de tronco tumbado",
+      "name": "Rotación de tronco tumbado",
+      "category": "Movilidad"
+    },
+    {
+      "catalogKey": "catalog:Rockback global en cuadrupedia",
+      "name": "Rockback global en cuadrupedia",
+      "category": "Movilidad"
     }
   ]
 }

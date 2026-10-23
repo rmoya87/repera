@@ -92,17 +92,20 @@ struct ExerciseEvolutionPanel: View {
         exercise?.loggingStyle ?? .loadAndReps
     }
 
+    private var isMobility: Bool { exercise?.isMobility ?? false }
+    private var isMobilityHold: Bool { exercise?.isMobilityHold ?? false }
+
     private var progressStyle: ExerciseLoggingStyle {
-        // Carries y zancadas con carga mantienen su estilo de apunte (kg + cantidad),
-        // pero evolucionan por la unidad real de distancia, no por un 1RM ficticio.
-        if exercise?.defaultQuantityUnit == .meters && loggingStyle != .machineWork {
+        if !isMobility, exercise?.defaultQuantityUnit == .meters, loggingStyle != .machineWork {
             return .machineWork
         }
         return loggingStyle
     }
 
     private var availableMetrics: [ExerciseProgressMetric] {
-        ExerciseProgressMetric.available(for: progressStyle)
+        isMobility
+            ? (isMobilityHold ? [.bestHold, .duration] : [.bestQuantity, .totalQuantity, .duration])
+            : ExerciseProgressMetric.available(for: progressStyle)
     }
 
     private var history: ExerciseHistorySummary {
@@ -118,7 +121,7 @@ struct ExerciseEvolutionPanel: View {
     }
 
     private var isStrengthProgress: Bool {
-        progressStyle == .loadAndReps
+        !isMobility && progressStyle == .loadAndReps
     }
 
     private var points: [ExerciseProgressPoint] {
@@ -212,7 +215,22 @@ struct ExerciseEvolutionPanel: View {
     private var summaryTiles: some View {
         let h = history
         return VStack(alignment: .leading, spacing: 10) {
-            if isStrengthProgress {
+            if isMobility {
+                HStack(spacing: 10) {
+                    evoTile(isMobilityHold ? "Mejor sostén" : "Duración máx.",
+                        h.bestDurationSeconds.map(formatDuration) ?? "—")
+                    if !isMobilityHold {
+                        evoTile("Reps máx.", h.bestReps.map(String.init) ?? "—")
+                    }
+                    evoTile("Sesiones", h.hasData ? "\(h.timesPerformed)" : "—")
+                }
+                HStack(spacing: 10) {
+                    evoTile("Último tiempo", h.lastDurationSeconds.map(formatDuration) ?? "—")
+                    if !isMobilityHold {
+                        evoTile("Últimas reps", h.lastReps.map(String.init) ?? "—")
+                    }
+                }
+            } else if isStrengthProgress {
                 HStack(spacing: 10) {
                     topeOneRMTile
                     evoTile(
@@ -256,7 +274,8 @@ struct ExerciseEvolutionPanel: View {
                         evoTile("Última", h.lastQuantityLabel ?? "—")
                     }
                 }
-             }
+
+            }
         }
     }
 
@@ -346,7 +365,7 @@ struct ExerciseEvolutionPanel: View {
             if points.count < 2 {
                 ProgressEmptyChart(
                     message: points.isEmpty
-                        ? "Aún no hay datos para este periodo."
+                        ? "Aún no hay valores registrados."
                         : "Haz al menos 2 sesiones para ver la tendencia.",
                     height: 220,
                     yRange: chartYDomain
@@ -450,7 +469,7 @@ struct ExerciseEvolutionPanel: View {
             if let sec = point.durationSeconds, sec > 0 {
                 parts.append(formatDuration(sec))
             }
-        case .duration:
+        case .bestHold, .duration:
             parts.append(formatDuration(Int(point.value.rounded())))
         }
         if let rir = point.rir, metric != .effort {
@@ -477,10 +496,10 @@ struct ExerciseEvolutionPanel: View {
                     if isStrengthProgress, let w = h.maxWeightKg, let r = h.repsAtMaxWeight {
                         sessionMetaRow("Mejor serie", "\(r) × \(w.formatted(.number.precision(.fractionLength(0...1)))) kg")
                     }
-                    if !isStrengthProgress, let cal = h.bestCalories {
+                    if !isStrengthProgress && !isMobility, let cal = h.bestCalories {
                         sessionMetaRow("Mejor cal", "\(cal)")
                     }
-                    if !isStrengthProgress, let meters = h.bestMeters {
+                    if !isStrengthProgress && !isMobility, let meters = h.bestMeters {
                         sessionMetaRow("Mejor distancia", "\(meters) m")
                     }
                     if isStrengthProgress, let tested, let e1 = h.estimatedOneRM, e1 > 0 {
@@ -590,7 +609,8 @@ struct ExerciseHistoryView: View {
                                     .fill(OG.accent.opacity(0.2))
                                     .frame(width: 40, height: 40)
                                     .overlay {
-                                        Image(systemName: "figure.strengthtraining.traditional")
+                                        Image(systemName: store.resolvedCatalogExercise(id: exerciseId)?.isMobility == true
+                                            ? "figure.flexibility" : "figure.strengthtraining.traditional")
                                             .foregroundStyle(OG.accent)
                                     }
 

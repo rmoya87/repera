@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-23 (filtro HYROX y estaciones del catálogo)
+Última actualización: 2026-10-23 (HYROX, movilidad y MCP multidisciplina)
 
 - **Reloj de bloque (vertical y horizontal):** los dígitos LED escalan de forma exacta según ancho y ronda (HH:MM/ MM:SS sin rondas = 2,76×alto, con dos dígitos verdes de ronda = 4,22×alto), para no desbordarse a la derecha en intervalos. En retrato, miniatura de 100 pt y nombre centrados debajo del tiempo con 38 pt de separación; botones abajo. En paisaje miniatura de 112 pt y nombre en columna izquierda centrada en altura; reloj a la derecha con botones alineados en una fila. El icono del temporizador del bloque dentro de Play usa círculo Liquid Glass nativo de 44 pt.
 - **Now Playing externo:** Repera no dispone de API pública para leer el Now Playing global (Spotify, Podcasts y demás apps) ni detectar de forma fiable su estado. Se elimina la tarjeta genérica «Audio del iPhone» en ambas orientaciones en vez de mostrar un falso reproductor o iconos cuando no hay reproducción verificable. El Centro de control mantiene los controles nativos de esos servicios. Solo sería posible mostrar metadatos mediante una integración específica del proveedor o reproducción propia con permiso y datos accesibles.
@@ -113,9 +113,10 @@
 - Cada frame debe mantener persona, proporciones, vestimenta, orientación, equipo y cámara. En suspensión (cuelgue, barra/anillas, salto) **no debe existir sombra/óvalo de suelo**. En apoyo sí puede aparecer uno suave.
 - Captions de fase (carrusel): una acción por frase, preferiblemente 8–16 palabras, alineada al frame. Debajo, guía **Cómo hacerlo** con tono de entrenador (setup, ejecución, respiración, error típico, estándar/progresión). Sin notas editoriales (`imagen:`).
 - QA: inventario por stem en `docs/EXERCISE_ART_AUDIT.csv`; auditoría reproducible con `.venv-art/bin/python scripts/audit_exercise_art.py`. Estados: `FAIL` (defecto confirmado), `WARN` (revisar), `PENDING_VISUAL_QA` (sin aprobar visualmente). No confundir existencia en disco con veredicto OK.
-- Filtro / orden: alfabético, músculo, deporte, favoritos, **WODs** (modal).
+- Filtro / orden: alfabético, músculo, deporte, **movilidad**, favoritos y **WODs** (modal). El filtro Movilidad muestra solo los 82 movimientos etiquetados con `sportTag = "Movilidad"`; búsqueda bilingüe ES/EN.
+- **Movilidad en iOS:** fichas sin 1RM ni lastre; posturas sostenidas se registran por segundos, movimientos dinámicos por reps y segundos. Rutinas guardan `PlannedSet.targetDurationSeconds`, la configuración edita «Tiempo (s)» y Play precarga los segundos prescritos. Evolución añade mejor sostén, duración total y/o reps; Progreso global muestra sesiones y tiempo registrado, sin sumar fatiga muscular. Mientras las 82 imágenes propias no estén validadas, se utiliza un placeholder de movilidad en lugar de reutilizar por nombre una imagen incorrecta de fuerza.
 - Modo **WODs**: lista de benchmarks (`CatalogWODs`; favoritos arriba) con detalle: movimientos con **miniatura**, músculo, tiempo típico, progresión (`wodResults` por `wodTemplateId`). Topbar: **play** (empezar ya) y **★** (`AppSettings.favoriteWODTemplateIds`); se elimina «Apuntar resultado».
-- **Músculo** = grupo anatómico (Pecho, Piernas…). CrossFit / Halterofilia / Gimnasia no son grupos musculares: van en **Deporte** (`sportTag`) y el ejercicio se asigna al músculo principal para métricas.
+- **Músculo** = grupo anatómico (Pecho, Piernas…). Movilidad es un tipo de movimiento y sus ejercicios conservan grupo anatómico principal; no suman series al mapa de fatiga. CrossFit / Halterofilia / Gimnasia no son grupos musculares: van en **Deporte** (`sportTag`) y el ejercicio se asigna al músculo principal para métricas.
 - Ficha: descripción + guía **Cómo hacerlo** (tono entrenador: setup, ejecución, error típico, estándar) para los **188**. Con carrusel, N captions de fase + coaching debajo.
 - Alta de ejercicio custom: página push (`navigationDestination`, `ogPinnedTransparentNav`), no sheet.
 - **Sin** botón «+ Plan» en filas.

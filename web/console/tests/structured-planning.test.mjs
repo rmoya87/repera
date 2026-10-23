@@ -9,15 +9,16 @@ const catalog=JSON.parse(read('../src/data/exercise-catalog.json')).exercises;
 const id='fed7ae7c-b43e-4251-af81-5bf00f8234dc';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 test('full native catalog is mirrored with stable unique keys',()=>{
- assert.equal(catalog.length,198);
- assert.equal(new Set(catalog.map(x=>x.catalogKey)).size,198);
+ assert.equal(catalog.length,280);
+ assert.equal(new Set(catalog.map(x=>x.catalogKey)).size,280);
  assert.ok(catalog.every(x=>x.catalogKey==='catalog:'+x.name));
  for(const [file,regex] of [
   ['CatalogEnrichment',/\bEnrichedSeed\(\s*name:\s*"([^"]+)"/g],
   ['CatalogHalterofilia',/\bh\(\s*"([^"]+)"/g],
   ['CatalogGimnasia',/\bgy\(\s*"([^"]+)"/g],
   ['CatalogCrossFit',/\bcf\(\s*"([^"]+)"/g],
-  ['Catalog',/CatalogSeedBuilder\.sportRow\(\s*"([^"]+)"\s*,\s*sport:\s*"HYROX"/g]
+  ['Catalog',/CatalogSeedBuilder\.sportRow\(\s*"([^"]+)"\s*,\s*sport:\s*"HYROX"/g],
+  ['CatalogMovilidad',/\bmove\("([^"]+)", english:/g]
  ]){
   const native=read('../../../Packages/ReperaDomain/Sources/ReperaDomain/'+file+'.swift');
   for(const match of native.matchAll(regex))assert.ok(catalog.some(c=>c.name===match[1]),'Missing native exercise: '+match[1]);

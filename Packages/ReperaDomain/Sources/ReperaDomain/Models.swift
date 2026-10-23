@@ -205,8 +205,23 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
     public var primaryRegions: [String]
     public var secondaryRegions: [String]
     public var isFavorite: Bool
-    /// Origen deportivo (CrossFit, Halterofilia, Gimnasia). Independiente del grupo muscular.
+    /// Origen deportivo o disciplina (incluye Movilidad); no sustituye el grupo muscular.
     public var sportTag: String?
+
+    public var isMobility: Bool { sportTag == "Movilidad" }
+
+    /// Las posturas se miden por tiempo sostenido; los movimientos dinámicos, por repeticiones y tiempo.
+    public var isMobilityHold: Bool {
+        guard isMobility else { return false }
+        let identifier = catalogId ?? ""
+        let holdIds: Set<String> = [
+            "mobility-14", "mobility-15", "mobility-16", "mobility-20", "mobility-21",
+            "mobility-30", "mobility-31", "mobility-32", "mobility-36", "mobility-38",
+            "mobility-39", "mobility-40", "mobility-41", "mobility-42", "mobility-44",
+            "mobility-46", "mobility-60", "mobility-61", "mobility-62",             "mobility-67", "mobility-70", "mobility-80"
+        ]
+        return holdIds.contains(identifier)
+    }
 
     /// Disciplinas compatibles, sin sustituir el origen del ejercicio.
     /// HYROX es una etiqueta transversal: p. ej. Wall ball sigue siendo CrossFit.
@@ -220,17 +235,20 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
 
     /// Métrica de log según equipo / nombre (comba → veces+tiempo; erg → cal/m; PC → solo reps).
     public var loggingStyle: ExerciseLoggingStyle {
-        Self.loggingStyle(name: name, equipment: equipment, targetMuscle: targetMuscle, muscleGroup: muscleGroup)
+        if isMobility { return .repsAndTime }
+        return Self.loggingStyle(name: name, equipment: equipment, targetMuscle: targetMuscle, muscleGroup: muscleGroup)
     }
 
     /// Lastre (kg), déficit HSPU (cm) o ninguno.
     public var loadField: ExerciseLoadField {
-        Self.loadField(name: name, equipment: equipment, targetMuscle: targetMuscle, muscleGroup: muscleGroup)
+        if isMobility { return .none }
+        return Self.loadField(name: name, equipment: equipment, targetMuscle: targetMuscle, muscleGroup: muscleGroup)
     }
 
     /// Etiqueta de cantidad: «Veces» (comba), Cal/m (máquina) o Reps.
     public var quantityFieldLabel: String {
-        Self.quantityFieldLabel(name: name, equipment: equipment, style: loggingStyle, unit: defaultQuantityUnit)
+        if isMobility { return isMobilityHold ? "Postura" : "Reps" }
+        return Self.quantityFieldLabel(name: name, equipment: equipment, style: loggingStyle, unit: defaultQuantityUnit)
     }
 
     /// Unidad por defecto al apuntar (bike/Ski → cal; remoerg/carrera → m).
@@ -502,6 +520,8 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
 public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var targetReps: Int
+    /// Duración prescrita para movilidad, comba o intervalos (segundos por serie).
+    public var targetDurationSeconds: Int?
     public var targetWeightKg: Double?
     /// Porcentaje de 1RM prescrito; nunca convertirlo en kg sin un 1RM real.
     public var targetPercent1RM: Double?
@@ -514,12 +534,14 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
         id: UUID = UUID(),
         targetReps: Int,
         targetWeightKg: Double? = nil,
+        targetDurationSeconds: Int? = nil,
         targetRir: Double? = nil,
         targetPercent1RM: Double? = nil,
         targetPercent1RMIsMinimum: Bool = false
     ) {
         self.id = id
         self.targetReps = targetReps
+        self.targetDurationSeconds = targetDurationSeconds
         self.targetWeightKg = targetWeightKg
         self.targetRir = targetRir
         self.targetPercent1RM = targetPercent1RM
@@ -527,13 +549,14 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, targetReps, targetWeightKg, targetRir, targetPercent1RM, targetPercent1RMIsMinimum
+        case id, targetReps, targetDurationSeconds, targetWeightKg, targetRir, targetPercent1RM, targetPercent1RMIsMinimum
     }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
         targetReps = try c.decode(Int.self, forKey: .targetReps)
+        targetDurationSeconds = try c.decodeIfPresent(Int.self, forKey: .targetDurationSeconds)
         targetWeightKg = try c.decodeIfPresent(Double.self, forKey: .targetWeightKg)
         targetRir = try c.decodeIfPresent(Double.self, forKey: .targetRir)
         targetPercent1RM = try c.decodeIfPresent(Double.self, forKey: .targetPercent1RM)
@@ -542,13 +565,14 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
 
     /// Copia con nuevo `id` (para insertar en otra rutina).
     public func duplicatingContent() -> PlannedSet {
-        PlannedSet(targetReps: targetReps, targetWeightKg: targetWeightKg, targetRir: targetRir, targetPercent1RM: targetPercent1RM, targetPercent1RMIsMinimum: targetPercent1RMIsMinimum)
+        PlannedSet(targetReps: targetReps, targetWeightKg: targetWeightKg, targetDurationSeconds: targetDurationSeconds, targetRir: targetRir, targetPercent1RM: targetPercent1RM, targetPercent1RMIsMinimum: targetPercent1RMIsMinimum)
     }
 
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(id, forKey: .id)
         try c.encode(targetReps, forKey: .targetReps)
+        try c.encodeIfPresent(targetDurationSeconds, forKey: .targetDurationSeconds)
         try c.encodeIfPresent(targetWeightKg, forKey: .targetWeightKg)
         try c.encodeIfPresent(targetRir, forKey: .targetRir)
         try c.encodeIfPresent(targetPercent1RM, forKey: .targetPercent1RM)
@@ -560,6 +584,12 @@ extension [PlannedSet] {
     /// Resumen compacto para listas: `3×8 · 60 kg`, `2×3, 2×1 · 150 kg`, `3 @ 100, 2 @ 110`.
     public var compactSummary: String {
         guard !isEmpty else { return "—" }
+        if contains(where: { $0.targetDurationSeconds != nil }) {
+            return map { set in
+                let seconds = set.targetDurationSeconds.map { "\($0)s" } ?? "—"
+                return set.targetReps == 1 ? seconds : "\(set.targetReps) reps · \(seconds)"
+            }.joined(separator: ", ")
+        }
         if contains(where: { $0.targetPercent1RM != nil }) {
             var groups: [(reps:Int,percent:Double?,isMinimum:Bool,count:Int)] = []
             for set in self {

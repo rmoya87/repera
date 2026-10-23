@@ -6,6 +6,7 @@ private enum ExerciseBrowseMode: String, CaseIterable, Identifiable, Sendable {
     case muscle
     case sport
     case hyrox
+    case mobility
     case favorites
     case wods
 
@@ -17,6 +18,7 @@ private enum ExerciseBrowseMode: String, CaseIterable, Identifiable, Sendable {
         case .muscle: return "Músculo"
         case .sport: return "Deporte"
         case .hyrox: return "HYROX"
+        case .mobility: return "Movilidad"
         case .favorites: return "Favoritos"
         case .wods: return "WODs"
         }
@@ -28,6 +30,7 @@ private enum ExerciseBrowseMode: String, CaseIterable, Identifiable, Sendable {
         case .muscle: return "figure.strengthtraining.traditional"
         case .sport: return "sportscourt"
         case .hyrox: return "figure.run"
+        case .mobility: return "figure.flexibility"
         case .favorites: return "star.fill"
         case .wods: return "timer"
         }
@@ -64,7 +67,7 @@ struct LibraryView: View {
         "Core", "Glúteos", "Gemelos", "Antebrazos", "Cardio",
     ]
 
-    private let sportTags: Set<String> = ["CrossFit", "HYROX", "Halterofilia", "Gimnasia", "Cardio"]
+    private let sportTags: Set<String> = ["CrossFit", "HYROX", "Halterofilia", "Gimnasia", "Cardio", "Movilidad"]
 
     var body: some View {
         NavigationStack {
@@ -448,6 +451,8 @@ struct LibraryView: View {
             docs = index.filter(\.isFavorite)
         } else if browseMode == .hyrox {
             docs = index.filter { $0.disciplineTags.contains("HYROX") }
+        } else if browseMode == .mobility {
+            docs = index.filter { $0.sportTag == "Movilidad" }
         } else {
             docs = index
         }
@@ -474,7 +479,7 @@ struct LibraryView: View {
             return [LibrarySectionModel(key: "flat", title: nil, items: rows)]
         }
         switch browseMode {
-        case .alphabetical, .favorites, .hyrox, .wods:
+        case .alphabetical, .favorites, .mobility, .hyrox, .wods:
             return [LibrarySectionModel(key: "flat", title: nil, items: rows)]
         case .muscle:
             return Dictionary(grouping: rows, by: { exercisesById[$0.id]?.muscleGroup ?? "" })
@@ -526,6 +531,7 @@ struct LibraryView: View {
         case "Halterofilia": return 3
         case "Gimnasia": return 4
         case "Cardio": return 5
+        case "Movilidad": return 5
         default: return 99
         }
     }

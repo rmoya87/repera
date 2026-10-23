@@ -47,9 +47,11 @@ struct ExerciseDetailView: View {
                                 )
                             }
 
-                            VStack(alignment: .leading, spacing: 8) {
-                                OGCardSectionTitle(title: "Carga sugerida")
-                                OGCard { suggestedLoadSection(exercise) }
+                            if exercise.sportTag != "Movilidad" {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    OGCardSectionTitle(title: "Carga sugerida")
+                                    OGCard { suggestedLoadSection(exercise) }
+                                }
                             }
 
                             if subscriptions.isPro {
@@ -181,7 +183,7 @@ struct ExerciseDetailView: View {
                         }
 
                         if !meta.sports.isEmpty {
-                            metaRow(title: "Deporte", icon: "sportscourt") {
+                            metaRow(title: exercise.sportTag == "Movilidad" ? "Tipo" : "Deporte", icon: exercise.sportTag == "Movilidad" ? "figure.flexibility" : "sportscourt") {
                                 chipFlow {
                                     ForEach(meta.sports, id: \.self) { sport in
                                         metaChip(sport, icon: "sportscourt")

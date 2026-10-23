@@ -29,6 +29,7 @@ public enum Catalog {
                 + CatalogHalterofilia.rows
                 + CatalogGimnasia.rows
                 + CatalogCrossFit.rows
+                + CatalogMovilidad.rows
                 + CatalogHyrox.rows).map { row in
                 let localized = CatalogSpanish.localize(
                     name: row.name,
@@ -83,7 +84,6 @@ public enum Catalog {
     }
 }
 
- 
 /// Estaciones de HYROX y etiquetas secundarias del catálogo.
 ///
 /// No se generan copias de ejercicios existentes: el movimiento mantiene UUID,
