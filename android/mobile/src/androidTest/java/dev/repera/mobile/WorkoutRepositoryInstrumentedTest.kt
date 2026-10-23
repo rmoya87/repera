@@ -319,4 +319,33 @@ class WorkoutRepositoryInstrumentedTest {
         assertEquals(1, exercises.getJSONObject(1).getJSONArray("loggedSets")
             .getJSONObject(0).getInt("intervalIndex"))
     }
+
+    @Test fun perMovementCaloriesRemainCaloriesAfterPersistingAndReloading() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val user = UUID.randomUUID().toString()
+        val routineId = UUID.randomUUID().toString()
+        val block = JSONObject().put("id", UUID.randomUUID().toString())
+            .put("kind", "wod").put("wodFormat", "emom")
+            .put("title", "Calories EMOM").put("rounds", 3)
+            .put("movements", JSONArray().put(JSONObject()
+                .put("id", UUID.randomUUID().toString())
+                .put("name", "Row").put("calories", 14).put("isRest", false)))
+        val state = JSONObject().put("exercises", JSONArray())
+            .put("routines", JSONArray().put(JSONObject().put("id", routineId)
+                .put("title", "Erg").put("blocks", JSONArray().put(block))))
+            .put("workouts", JSONArray()).put("syncRevision", 0)
+        val local = LocalSnapshotStore(ctx, user)
+        local.write(state.toString().toByteArray())
+        val repo = WorkoutRepository(ctx, user)
+        repo.startRoutine(routineId)
+        repo.recordWodMovement(0, 0, 14, null)
+        val confirmed = WorkoutRepository(ctx, user).active()!!.wod!!.recorded.single()
+        assertEquals(14, confirmed.quantity)
+        assertEquals("calories", confirmed.quantityUnit)
+        assertNull(repo.completeWodMovementBlock())
+        val logged = JSONObject(String(local.read()!!)).getJSONArray("workouts")
+            .getJSONObject(0).getJSONArray("exercises").getJSONObject(0)
+            .getJSONArray("loggedSets").getJSONObject(0)
+        assertEquals("calories", logged.getString("quantityUnit"))
+    }
 }
