@@ -9,7 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -26,6 +27,9 @@ import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.Wearable
 import org.json.JSONObject
+import org.json.JSONArray
+import dev.repera.domain.WodFormat
+import dev.repera.domain.ResultCapture
 
 /**
  * This first native screen renders only genuine phone-delivered data.
@@ -43,6 +47,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
                     ScreenScaffold { insets ->
                         Column(
                             modifier = Modifier.fillMaxSize().padding(insets)
+                                .verticalScroll(rememberScrollState())
                                 .padding(horizontal = 16.dp),
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
@@ -57,17 +62,34 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
                                 Text(session.title, textAlign = TextAlign.Center,
                                     style = MaterialTheme.typography.labelMedium)
                                 Spacer(Modifier.height(6.dp))
-                                Text(session.exerciseName,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    textAlign = TextAlign.Center)
-                                Text("Ejercicio ${session.exerciseIndex}/${session.exerciseCount}")
-                                if (session.prescribedReps != null) {
-                                    Text("${session.prescribedReps} reps" +
-                                        (session.prescribedWeightKg?.let { " · $it kg" } ?: ""),
-                                        style = MaterialTheme.typography.titleLarge)
+                                if (session.wodFormatLabel != null) {
+                                    Text(session.wodFormatLabel,
+                                        style = MaterialTheme.typography.titleMedium)
+                                    session.wodMovements.forEach { movement ->
+                                        Text(movement, textAlign = TextAlign.Center,
+                                            style = MaterialTheme.typography.labelSmall)
+                                    }
+                                    if (session.globalScore) {
+                                        Text("Resultado por bloque en el teléfono",
+                                            textAlign = TextAlign.Center,
+                                            style = MaterialTheme.typography.labelSmall)
+                                    } else {
+                                        Text("${session.recordedSets} series registradas",
+                                            style = MaterialTheme.typography.labelSmall)
+                                    }
+                                } else {
+                                    Text(session.exerciseName,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        textAlign = TextAlign.Center)
+                                    Text("Ejercicio ${session.exerciseIndex}/${session.exerciseCount}")
+                                    if (session.prescribedReps != null) {
+                                        Text("${session.prescribedReps} reps" +
+                                            (session.prescribedWeightKg?.let { " · $it kg" } ?: ""),
+                                            style = MaterialTheme.typography.titleLarge)
+                                    }
+                                    Text("${session.recordedSets} series registradas",
+                                        style = MaterialTheme.typography.labelSmall)
                                 }
-                                Text("${session.recordedSets} series registradas",
-                                    style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }
@@ -125,7 +147,10 @@ data class WatchSessionSummary(
     val exerciseCount: Int,
     val recordedSets: Int,
     val prescribedReps: Int?,
-    val prescribedWeightKg: Double?
+    val prescribedWeightKg: Double?,
+    val wodFormatLabel: String?,
+    val globalScore: Boolean,
+    val wodMovements: List<String>
 ) {
     companion object {
         fun fromJson(session: JSONObject): WatchSessionSummary {
@@ -141,11 +166,32 @@ data class WatchSessionSummary(
             val target = plan?.takeIf { it.length() > 0 }?.getJSONObject(
                 minOf(done, plan.length() - 1)
             )
-            // For global-score WODs, show no fake per-movement prescription.
-            val globalScore = exercise.optString("wodFormat") in listOf(
-                "amrap", "forTime", "chipper", "afap", "ladder",
-                "buyInCashOut", "deathBy", "maxEffort"
-            )
+            val wodFormat = WodFormat.fromWire(exercise.optString("wodFormat"))
+            val globalScore = wodFormat?.capture?.let {
+                it != ResultCapture.PER_MOVEMENT_SETS
+            } ?: false
+            val blockId = exercise.optString("blockId")
+            val sourceBlocks = session.optJSONArray("routineBlocks") ?: JSONArray()
+            val original = (0 until sourceBlocks.length())
+                .map { sourceBlocks.getJSONObject(it) }
+                .firstOrNull { it.optString("id") == blockId }
+            val sourceMoves = original?.optJSONArray("movements") ?: JSONArray()
+            val movementLines = (0 until sourceMoves.length()).map { n ->
+                val item = sourceMoves.getJSONObject(n)
+                val prefix = when {
+                    item.optBoolean("isRest") ->
+                        "${item.optInt("restSeconds", 60)}s descanso"
+                    (item.optJSONArray("repScheme")?.length() ?: 0) > 0 -> {
+                        val scheme = item.getJSONArray("repScheme")
+                        (0 until scheme.length()).joinToString("-") { scheme.getInt(it).toString() }
+                    }
+                    item.has("calories") -> "${item.optInt("calories")} cal"
+                    item.has("distanceMeters") -> "${item.optInt("distanceMeters")} m"
+                    item.has("reps") -> "${item.optInt("reps")} reps"
+                    else -> ""
+                }
+                (prefix + " " + item.optString("name")).trim()
+            }
             return WatchSessionSummary(
                 title = session.getString("title"),
                 exerciseName = exercise.getJSONObject("exercise").getString("name"),
@@ -155,7 +201,10 @@ data class WatchSessionSummary(
                 prescribedReps = if (globalScore) null else target?.optInt("targetReps"),
                 prescribedWeightKg = if (globalScore) null else target?.takeIf {
                     it.has("targetWeightKg") && !it.isNull("targetWeightKg")
-                }?.getDouble("targetWeightKg")
+                }?.getDouble("targetWeightKg"),
+                wodFormatLabel = wodFormat?.displayName,
+                globalScore = globalScore,
+                wodMovements = movementLines
             )
         }
     }

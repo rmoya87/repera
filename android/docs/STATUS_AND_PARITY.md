@@ -156,3 +156,19 @@ movimientos sin series ficticias.
 Pendiente: gráficos completos, filtrado diario/calendario, miniaturas,
 estadísticas avanzadas y pruebas de interacción instrumentadas en
 dispositivos reales.
+
+## Actualización frente al main iOS (23/10/2026)
+
+Se integró `main` en la rama Android en el commit de merge `ff55c09d`
+sin reescribir archivos Swift: nueva base Apple
+`10841411bfb8c9bf2e4aff2ae53e9927f3e584ea`.
+Se revisaron `ExerciseSearch.bilingualPhrases` (186 equivalencias)
+y `CatalogSpanish` (190 descripciones y 190 conjuntos de instrucciones);
+las entradas del asset Android coinciden con las definiciones correspondientes
+tras la actualización de iOS. Las modificaciones más recientes del escáner
+Swift siguen pendientes de port completo a Android.
+
+En Wear OS, la sesión recibida muestra los movimientos y objetivos reales
+del bloque WOD, junto con su modalidad, en vez de poner «0 series» para un
+resultado global. Se mantiene como vista de **solo lectura**: no implica
+registro autónomo ni sustitución de WatchSessionHub.
