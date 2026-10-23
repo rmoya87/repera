@@ -904,12 +904,6 @@ struct WorkoutDetailView: View {
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundStyle(OG.accent)
                                     .lineLimit(2)
-                            } else if let result {
-                                // El AMRAP es global: mostrar su score sin inventar
-                                // series individuales ni adjudicar reps incompletas.
-                                Text("Resultado del bloque · \(result.summaryLabel)")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(OG.accent)
                             }
                             if let adapted = exercise.adjustedSummaryLine {
                                 Text(adapted)
