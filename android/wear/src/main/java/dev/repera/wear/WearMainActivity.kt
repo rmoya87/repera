@@ -39,9 +39,21 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
     private val dataClient by lazy { Wearable.getDataClient(this) }
     private var visibleSession by mutableStateOf<WatchSessionSummary?>(null)
     private var syncProblem by mutableStateOf(false)
+    private var showingCachedSession by mutableStateOf(false)
+    private val sessionCache by lazy { getSharedPreferences("repera.wear.session", MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Read-only recovery: no locally confirmed set is written to the phone.
+        sessionCache.getString("snapshot", null)?.let { cached ->
+            val restored = runCatching { WatchSessionSummary.fromJson(JSONObject(cached)) }.getOrNull()
+            if (restored != null) {
+                visibleSession = restored
+                showingCachedSession = true
+            } else {
+                sessionCache.edit().remove("snapshot").apply()
+            }
+        }
         setContent {
             MaterialTheme {
                 AppScaffold {
@@ -60,6 +72,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
                                 Text(if (syncProblem) "No se pudo leer la sesión del teléfono" else "Sin entrenamiento recibido",
                                     textAlign = TextAlign.Center)
                             } else {
+                                if (showingCachedSession) {
+                                    Text("Última sesión recibida · sin conexión confirmada",
+                                        textAlign = TextAlign.Center,
+                                        style = MaterialTheme.typography.labelSmall)
+                                }
                                 Text(session.title, textAlign = TextAlign.Center,
                                     style = MaterialTheme.typography.labelMedium)
                                 Spacer(Modifier.height(6.dp))
@@ -125,7 +142,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
         for (event in events) {
             if (event.dataItem.uri.path == "/repera/active-session") {
                 if (event.type == com.google.android.gms.wearable.DataEvent.TYPE_DELETED) {
-                    runOnUiThread { visibleSession = null; syncProblem = false }
+                    runOnUiThread { clearSession() }
                 } else {
                     val bytes = DataMapItem.fromDataItem(event.dataItem).dataMap.getByteArray("session")
                     runOnUiThread { showSession(bytes) }
@@ -136,15 +153,29 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
 
     private fun showSession(bytes: ByteArray?) {
         if (bytes == null || bytes.isEmpty()) {
-            visibleSession = null
-            syncProblem = false
+            clearSession()
             return
         }
-        val parsed = runCatching {
-            WatchSessionSummary.fromJson(JSONObject(String(bytes, Charsets.UTF_8)))
+        val raw = String(bytes, Charsets.UTF_8)
+        val parsed = runCatching { WatchSessionSummary.fromJson(JSONObject(raw)) }
+        val summary = parsed.getOrNull()
+        if (summary != null) {
+            // Persist only a validated session; a malformed update cannot corrupt recovery.
+            sessionCache.edit().putString("snapshot", raw).apply()
+            visibleSession = summary
+            showingCachedSession = false
+            syncProblem = false
+        } else {
+            syncProblem = true
+            // Keep the last valid summary but never claim the corrupted update succeeded.
         }
-        visibleSession = parsed.getOrNull()
-        syncProblem = parsed.isFailure
+    }
+
+    private fun clearSession() {
+        sessionCache.edit().remove("snapshot").apply()
+        visibleSession = null
+        syncProblem = false
+        showingCachedSession = false
     }
 }
 
