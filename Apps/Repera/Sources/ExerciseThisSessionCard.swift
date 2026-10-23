@@ -20,6 +20,12 @@ struct ExerciseThisSessionCard: View {
             guard let selected = session.exercises.first(where: { $0.id == highlightExerciseInstanceId })
             else { return nil }
             scopedSession.exercises = [selected]
+            // Evitar que el score de otro bloque WOD se cuele por el
+            // fallback global del motor de estadísticas.
+            scopedSession.wodResults = session.wodResults.filter {
+                guard let blockId = selected.blockId else { return false }
+                return $0.id == blockId
+            }
         }
         return StatsEngine.appearance(
             of: exerciseId,
