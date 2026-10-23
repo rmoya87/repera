@@ -98,9 +98,10 @@ struct StatsView: View {
                             }
                             }
 
-                            NavigationLink {
-                                HistoryView()
-                            } label: {
+                            if topic == .training {
+                                NavigationLink {
+                                    HistoryView()
+                                } label: {
                                 OGCard {
                                     HStack {
                                         Label("Historial", systemImage: "clock")
@@ -111,7 +112,8 @@ struct StatsView: View {
                                     }
                                 }
                             }
-                            .buttonStyle(.plain)
+                                .buttonStyle(.plain)
+                            }
                         }
                         .padding(.horizontal, OG.pad)
                         .padding(.top, 0)
