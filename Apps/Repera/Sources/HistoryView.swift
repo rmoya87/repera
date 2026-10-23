@@ -1029,7 +1029,14 @@ struct WorkoutDetailView: View {
             .accessibilityHint("Ver ficha del ejercicio")
 
             if visibleSets.isEmpty {
-                Text(isEditing ? "Sin series" : (exercise.usesBlockScoreResult ? exercise.prescriptionSummaryLine : "Sin series"))
+                // La edición de un entrenamiento completado también conserva
+                // la prescripción. No ocultar las repeticiones, kcal, metros o
+                // tiempos prescritos aunque todavía falte un LoggedSet real.
+                Text(isEditing
+                     ? "Sin series registradas"
+                     : (exercise.prescriptionSummaryLine.isEmpty
+                        ? "Sin resultado registrado"
+                        : "Prescrito · " + exercise.prescriptionSummaryLine))
                     .font(.system(size: 13))
                     .foregroundStyle(OG.label3)
             } else {
