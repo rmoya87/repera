@@ -645,7 +645,8 @@ data class StateOverview(
                     ExerciseEntry(ex.getString("id"), ex.getString("name"),
                         mode.basicRecorderAvailable || ex.optString("sportTag") == "Movilidad",
                         mode.showsWeight && ex.optString("sportTag") != "Movilidad",
-                        ex.optString("sportTag") == "Movilidad")
+                        ex.optString("sportTag") == "Movilidad",
+                        MobilityCatalog.isHold(ex.optString("catalogId")))
                 }.sortedBy { it.name }
             }
             return StateOverview(
@@ -674,7 +675,7 @@ data class RoutineEntry(
     val timeMinutes: Int? = null
 )
 
-data class ExerciseEntry(val id: String, val name: String, val supportsBasicInput: Boolean, val allowsWeight: Boolean, val isMobility: Boolean = false)
+data class ExerciseEntry(val id: String, val name: String, val supportsBasicInput: Boolean, val allowsWeight: Boolean, val isMobility: Boolean = false, val isMobilityHold: Boolean = false)
 
 data class WorkoutHistoryEntry(
     val id: String,
