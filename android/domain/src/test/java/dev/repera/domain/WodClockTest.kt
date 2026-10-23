@@ -45,5 +45,7 @@ class WodClockTest {
         assertEquals(720, WodClock.face(spec, 0).primarySeconds)
         assertEquals(0, WodClock.face(spec, 720).primarySeconds)
         assertFalse(WodClock.face(spec, 720).countsUp)
+        assertEquals("Finalizado", WodClock.face(spec, 720).label)
+        assertTrue(WodClock.face(spec, 720).finishedIntervals)
     }
 }

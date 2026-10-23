@@ -71,9 +71,9 @@ object WodClock {
             WodFormat.DEATH_BY, WodFormat.CIRCUIT, WodFormat.MAX_EFFORT -> false
             else -> cap <= 0
         }
-        val interval = spec.format == WodFormat.EMOM || spec.format == WodFormat.DEATH_BY ||
-            spec.format == WodFormat.CIRCUIT || spec.format == WodFormat.TABATA
-        val finished = interval && cap > 0 && elapsed >= cap
+        // AMRAP/Max Effort must also show Finalizado at the programmed cap.
+        // For Time and other stopwatch formats continue counting up.
+        val finished = !countsUp && cap > 0 && elapsed >= cap
         val intervalRemaining: Int?
         val label: String?
         if (finished) {
