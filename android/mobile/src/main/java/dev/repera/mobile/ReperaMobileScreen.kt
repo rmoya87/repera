@@ -121,11 +121,13 @@ fun ReperaMobileScreen(
         }
         var selected by remember { mutableStateOf("Inicio") }
         var exerciseSearch by remember { mutableStateOf("") }
+        var mobilityOnly by remember { mutableStateOf(false) }
         // LazyListScope is not @Composable: calculate the filtered list here,
         // where remember is legal, then hand the immutable result to LazyColumn.
-        val filteredExerciseEntries = remember(exerciseSearch, overview?.exerciseEntries) {
+        val filteredExerciseEntries = remember(exerciseSearch, mobilityOnly, overview?.exerciseEntries) {
             overview?.exerciseEntries.orEmpty()
                 .asSequence()
+                .filter { !mobilityOnly || it.isMobility }
                 .map { it to ExerciseAliasSearch.score(exerciseSearch, it.name, englishAliases) }
                 .filter { it.second >= 0 }
                 .sortedWith(compareByDescending<Pair<ExerciseEntry, Int>> { it.second }
@@ -341,6 +343,12 @@ fun ReperaMobileScreen(
                     }
                 }
                 if (selected == "Ejercicios") {
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(selected = !mobilityOnly, onClick = { mobilityOnly = false }, label = { Text("Todos") })
+                            FilterChip(selected = mobilityOnly, onClick = { mobilityOnly = true }, label = { Text("Movilidad") })
+                        }
+                    }
                     item {
                         OutlinedTextField(
                             value = exerciseSearch,
