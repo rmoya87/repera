@@ -5,6 +5,7 @@ import Observation
 import ReperaDomain
 import Security
 import Supabase
+import UIKit
 
 /// Secondary, business-only Supabase identity; the existing Apple/iCloud personal workout
 /// identity and private local training history are never replaced by this service.
@@ -25,7 +26,18 @@ final class BusinessAuthStore {
     private let localOwnerUserIDKey = "repera.business.localOwnerSupabaseUserID.v1"
     /// Solo indica una sesión Google activa; se borra al cerrar sesión.
     private let googleSignedInKey = "repera.business.googleSignedIn.v1"
+    private let explicitSignOutKey = "repera.business.explicitSignOut.v1"
+    private(set) var didExplicitlySignOut = UserDefaults.standard.bool(
+        forKey: "repera.business.explicitSignOut.v1"
+    )
+
+    private func clearExplicitSignOutAfterVerifiedLogin() {
+        didExplicitlySignOut = false
+        UserDefaults.standard.set(false, forKey: explicitSignOutKey)
+    }
     private static let googleRedirectURL = URL(string: "repera://auth/callback")!
+    @ObservationIgnored private var googleLinkSession: ASWebAuthenticationSession?
+    @ObservationIgnored private var googleLinkPresenter: GoogleOAuthPresentationAnchor?
 
     var isGoogleSignedIn: Bool {
         UserDefaults.standard.bool(forKey: googleSignedInKey)
@@ -67,14 +79,16 @@ final class BusinessAuthStore {
 
     /// Hay refresh/access token en Keychain del SDK (sobrevive updates). No hace falta SIWA.
     var hasCachedSupabaseSession: Bool {
-        client?.auth.currentSession != nil
+        !didExplicitlySignOut && client?.auth.currentSession != nil
     }
 
     /// Login Supabase exitoso previo (UserDefaults). Sobrevive si el SDK borra el refresh
     /// tras un refresh fallido (`sessionCleanupErrorCodes`).
     var hasPriorSupabaseBinding: Bool {
-        UserDefaults.standard.string(forKey: appleIdentityBindingKey) != nil
-            || isGoogleSignedIn
+        !didExplicitlySignOut && (
+            UserDefaults.standard.string(forKey: appleIdentityBindingKey) != nil
+                || isGoogleSignedIn
+        )
     }
 
     private init() {
@@ -107,6 +121,11 @@ final class BusinessAuthStore {
     func restoreSession() async {
         hasRestoredSession = false
         defer { hasRestoredSession = true }
+        guard !didExplicitlySignOut else {
+            isConnected = false
+            isMigrationRequired = false
+            return
+        }
         AuthSessionTrace.event(
             "restoreSession start apple=\(AppleAuthStore.shared.isSignedIn) cache=\(hasCachedSupabaseSession) binding=\(hasPriorSupabaseBinding) connected=\(isConnected)"
         )
@@ -160,6 +179,11 @@ final class BusinessAuthStore {
         // y NO llamar auth.session si hay cache: ese path hace refresh y el SDK
         // puede borrar Keychain ante ciertos errores de sesión.
         if let cached = client.auth.currentSession {
+            guard isSameLocalOwner(cached.user.id) else {
+                lastErrorMessage = "La sesión no coincide con el usuario propietario del historial local."
+                isConnected = false
+                return
+            }
             AuthSessionTrace.event(
                 "restoreSession HIT cache expired=\(cached.isExpired) user=\(cached.user.id)"
             )
@@ -179,6 +203,11 @@ final class BusinessAuthStore {
                 AuthSessionTrace.event("restoreSession empty accessToken binding=\(hasPriorSupabaseBinding)")
                 return
             }
+            guard isSameLocalOwner(session.user.id) else {
+                lastErrorMessage = "Sesión distinta de la identidad local."
+                isConnected = false
+                return
+            }
             AuthSessionTrace.event("restoreSession via auth.session expired=\(session.isExpired)")
             acceptCachedSession(expectedBinding: expectedBinding)
             if session.isExpired {
@@ -186,7 +215,12 @@ final class BusinessAuthStore {
             }
             AuthSessionTrace.event("restoreSession done via session connected=\(isConnected)")
         } catch {
-            if client.auth.currentSession != nil {
+            if let cached = client.auth.currentSession {
+                guard isSameLocalOwner(cached.user.id) else {
+                    isConnected = false
+                    lastErrorMessage = "La sesión no coincide con el historial de este usuario."
+                    return
+                }
                 acceptCachedSession(expectedBinding: expectedBinding)
                 AuthSessionTrace.event("restoreSession recover cache after error: \(error.localizedDescription)")
                 return
@@ -205,9 +239,11 @@ final class BusinessAuthStore {
     /// Acepta la sesión ya en Keychain sin UI (p. ej. tras timeout de red).
     @discardableResult
     func connectFromCachedSessionIfPossible() -> Bool {
-        guard let appleUserID = AppleAuthStore.shared.userID,
+        guard !didExplicitlySignOut,
+              let appleUserID = AppleAuthStore.shared.userID,
               AppleAuthStore.shared.isSignedIn,
-              client?.auth.currentSession != nil
+              let cached = client?.auth.currentSession,
+              isSameLocalOwner(cached.user.id)
         else {
             AuthSessionTrace.event("connectFromCache failed apple/cache missing")
             return false
@@ -218,10 +254,16 @@ final class BusinessAuthStore {
     }
 
     private func acceptCachedSession(expectedBinding: String) {
-        UserDefaults.standard.set(expectedBinding, forKey: appleIdentityBindingKey)
-        if let session = client?.auth.currentSession {
-            rememberOwner(session.user.id)
+        // Defensa en profundidad: ni siquiera la restauración de caché puede
+        // reemplazar silenciosamente el dueño del historial local.
+        guard let session = client?.auth.currentSession,
+              isSameLocalOwner(session.user.id) else {
+            isConnected = false
+            lastErrorMessage = "La sesión restaurada pertenece a otra cuenta."
+            return
         }
+        UserDefaults.standard.set(expectedBinding, forKey: appleIdentityBindingKey)
+        rememberOwner(session.user.id)
         UserDefaults.standard.set(false, forKey: googleSignedInKey)
         isConnected = true
         isMigrationRequired = false
@@ -232,6 +274,13 @@ final class BusinessAuthStore {
 
     /// Restaura `isConnected` sin reescribir binding (Apple local ausente).
     private func acceptCachedSessionKeepingExistingBinding() {
+        if let uid = client?.auth.currentSession?.user.id {
+            guard isSameLocalOwner(uid) else {
+                isConnected = false
+                return
+            }
+            rememberOwner(uid)
+        }
         isConnected = true
         isMigrationRequired = false
         setPrefersLocalOnly(false)
@@ -347,6 +396,7 @@ final class BusinessAuthStore {
                 throw AccountMigrationError.identityChanged
             }
             rememberOwner(session.user.id)
+            clearExplicitSignOutAfterVerifiedLogin()
             UserDefaults.standard.set(false, forKey: googleSignedInKey)
             UserDefaults.standard.set(expectedBinding, forKey: appleIdentityBindingKey)
             isConnected = true
@@ -402,6 +452,7 @@ final class BusinessAuthStore {
                 return false
             }
             rememberOwner(session.user.id)
+            clearExplicitSignOutAfterVerifiedLogin()
             UserDefaults.standard.set(true, forKey: googleSignedInKey)
             UserDefaults.standard.removeObject(forKey: appleIdentityBindingKey)
             isConnected = true
@@ -433,18 +484,48 @@ final class BusinessAuthStore {
         defer { isConnecting = false }
         lastErrorMessage = nil
         do {
-            try await client.auth.linkIdentity(
+            // ASWebAuthenticationSession mantiene toda la autorización en el
+            // diálogo web nativo del sistema (sin Safari/Chrome externo).
+            let oauth = try await client.auth.getLinkIdentityURL(
                 provider: .google,
                 redirectTo: Self.googleRedirectURL
             )
-            guard client.auth.currentSession?.user.id == currentID else {
-                lastErrorMessage = "No se ha podido comprobar la misma cuenta. No se han combinado datos."
+            let callback = try await withCheckedThrowingContinuation { (cont: CheckedContinuation<URL, Error>) in
+                let webSession = ASWebAuthenticationSession(
+                    url: oauth.url,
+                    callbackURLScheme: "repera"
+                ) { url, error in
+                    if let url {
+                        cont.resume(returning: url)
+                    } else {
+                        cont.resume(throwing: error ?? GoogleOAuthLinkError.cancelled)
+                    }
+                }
+                let presenter = GoogleOAuthPresentationAnchor()
+                webSession.presentationContextProvider = presenter
+                googleLinkSession = webSession
+                googleLinkPresenter = presenter
+                if !webSession.start() {
+                    cont.resume(throwing: GoogleOAuthLinkError.unavailable)
+                }
+            }
+            googleLinkSession = nil
+            googleLinkPresenter = nil
+            // El retorno de OAuth debe validarse por el SDK y conservar
+            // exactamente el mismo UUID antes de afirmar que se vinculó.
+            let confirmed = try await client.auth.session(from: callback)
+            guard confirmed.user.id == currentID else {
+                try? await client.auth.signOut()
+                isConnected = false
+                lastErrorMessage = "Google no pertenece al usuario autenticado. No se han unido los perfiles."
                 return false
             }
             rememberOwner(currentID)
             return true
         } catch {
-            lastErrorMessage = "No se pudo vincular Google. Comprueba que esté habilitada la vinculación manual en Supabase."
+            googleLinkSession = nil
+            googleLinkPresenter = nil
+            lastErrorMessage = "No se pudo vincular Google. Activa Manual Linking y permite repera://auth/callback en Supabase Auth."
             return false
         }
     }
@@ -473,8 +554,10 @@ final class BusinessAuthStore {
                   !session.accessToken.isEmpty,
                   isSameLocalOwner(session.user.id),
                   (isGoogleSignedIn || (
-                    AppleAuthStore.shared.userID.map { Self.hashedNonce($0) }
-                        == UserDefaults.standard.string(forKey: appleIdentityBindingKey)
+                    AppleAuthStore.shared.userID.map { appleID in
+                        Self.hashedNonce(appleID)
+                            == UserDefaults.standard.string(forKey: appleIdentityBindingKey)
+                    } == true
                   ))
             else {
                 AuthSessionTrace.event("syncPublicProfile skip: no usable session")
@@ -524,8 +607,11 @@ final class BusinessAuthStore {
                 .eq("id", value: userID)
                 .execute()
 
+            // Apple y Google comparten el UUID Supabase, no necesariamente
+            // el identificador Apple ni su dirección de correo (relay privado).
+            // El login ya comprobó la identidad y el dueño de datos locales.
             guard isConnected,
-                  AppleAuthStore.shared.userID == appleUserID,
+                  isSameLocalOwner(session.user.id),
                   client.auth.currentSession?.user.id == session.user.id else { return }
             profileMigrationErrorMessage = nil
             AuthSessionTrace.event("syncPublicProfile OK")
@@ -574,6 +660,10 @@ final class BusinessAuthStore {
 
     /// Sign out from business platform independently of the Apple/iCloud personal store.
     func signOut() async {
+        // Cierre explícito incluso si el SDK tarda en revocar su caché.
+        // Se persiste para impedir restaurar una sesión tras reiniciar.
+        didExplicitlySignOut = true
+        UserDefaults.standard.set(true, forKey: explicitSignOutKey)
         // Conservar SOLO el UUID propietario para evitar mezcla al cambiar de
         // Apple a Google. La sesión/tokens sí se revocan.
         if let uid = client?.auth.currentSession?.user.id {
@@ -589,5 +679,31 @@ final class BusinessAuthStore {
         if let client { try? await client.auth.signOut() }
         isConnected = false
         lastErrorMessage = nil
+    }
+}
+
+/// Presentador para el diálogo OAuth del sistema, sin ventanas inventadas.
+private final class GoogleOAuthPresentationAnchor: NSObject, ASWebAuthenticationPresentationContextProviding {
+    nonisolated func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        MainActor.assumeIsolated {
+            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            if let window = scenes.flatMap(\.windows).first(where: \.isKeyWindow)
+                ?? scenes.flatMap(\.windows).first {
+                return window
+            }
+            preconditionFailure("Google OAuth needs a visible UIWindowScene")
+        }
+    }
+}
+
+private enum GoogleOAuthLinkError: LocalizedError {
+    case cancelled
+    case unavailable
+
+    var errorDescription: String? {
+        switch self {
+        case .cancelled: return "Se canceló la vinculación de Google."
+        case .unavailable: return "No se pudo abrir el acceso seguro de Google."
+        }
     }
 }

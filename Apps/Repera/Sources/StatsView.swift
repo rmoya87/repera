@@ -122,6 +122,7 @@ struct StatsView: View {
                         .padding(.horizontal, OG.pad)
                         .padding(.top, 0)
                         .padding(.bottom, 28)
+                        .ogReadableColumn()
                     } header: {
                         // El control nativo mantiene la animación Liquid Glass
                         // de la selección al pulsar y arrastrar entre pestañas.
@@ -136,12 +137,13 @@ struct StatsView: View {
                         .padding(.horizontal, OG.pad)
                         .padding(.top, 4)
                         .padding(.bottom, 10)
+                        .ogReadableColumn()
                     }
                 }
             }
-            // Una categoría puede tener mucha más altura que otra. Recrear
-            // su ScrollView evita mantener el offset anterior (pantalla negra).
-            .id(topic)
+            // Mantener estable el ScrollView al cambiar de categoría evita un desmontaje
+            // y remontaje con saltos visibles durante la carga de Recuperación.
+            .defaultScrollAnchor(.top, for: .sizeChanges)
             .background(OG.bg)
             .ogContentTitleNav()
             .sheet(isPresented: $showRangePicker) {

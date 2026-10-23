@@ -32,13 +32,19 @@ class ScaledWODContractTests(unittest.TestCase):
         self.assertIn("completedWODScalingFields(movementID: move.id", view)
         self.assertIn("completedWODScalingFields(movementID: item.id", view)
         self.assertIn("private func completedWODScaledValue(", view)
-        self.assertIn('Text("Realizado (opcional)")', view)
-        self.assertIn('Text("Prescrito (editable)")', view)
+        self.assertNotIn('Text("Realizado (opcional)")', view)
+        self.assertNotIn('Text("Prescrito (editable)")', view)
+        self.assertIn('"REPS REALES"', view)
+        self.assertIn('"KG REALES"', view)
+        self.assertIn("private func completedPrescribedValue(", view)
+        self.assertIn("reps == Int(prescribed) ? nil : reps", view)
         self.assertIn("adaptedReps = nil", view)
         self.assertIn("adaptedWeightKg = nil", view)
         self.assertIn("scaledInputDrafts[key] = input", view)
         self.assertIn("ensureCompletedWorkoutDraft()", view)
-        self.assertIn("completedWODRxFields(blockIndex: index, movementIndex: mIndex", view)
+        # No mostrar un segundo formulario de Rx: sólo los resultados reales.
+        self.assertNotIn("completedWODRxFields(blockIndex: index, movementIndex: mIndex", view)
+        self.assertIn("completedWODScalingFields(movementID: move.id", view)
         self.assertIn("onApplyCompleted(edited, completedDetails)", view)
 
     def test_mcp_projects_scaled_values_without_fabricating_logged_sets(self):

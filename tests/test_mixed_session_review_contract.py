@@ -29,7 +29,7 @@ class MixedSessionReviewContractTests(unittest.TestCase):
         store = read("Apps/Repera/Sources/ReperaStore.swift")
         self.assertIn("review.scoreBasis == .personalHistory", ui)
         self.assertIn("review.indicators.count == ReviewDimension.allCases.count", ui)
-        self.assertIn("if let dayScore {", home)
+        self.assertIn("if let score {", home)
         self.assertIn("review.scoreBasis == .personalHistory", home)
         self.assertIn("sessionReviewFormulaVersion = 11", store)
         self.assertIn("refreshSessionReviewsIfNeeded()", store)

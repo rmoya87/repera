@@ -35,7 +35,12 @@ class AppleSyncAndAIChatContracts(unittest.TestCase):
         self.assertIn('@AppStorage("repera.settings.lastFullSyncAt") private var lastFullSyncAt: Double = 0',settings)
         self.assertIn('lastFullSyncAt = Date().timeIntervalSince1970',settings)
         self.assertIn('Text("Última actualización:',settings)
-        self.assertIn('.formatted(date: .abbreviated, time: .shortened)',settings)
+        # Fecha/hora en formato español: no asumir la sobrecarga .formatted
+        # cuando la UI usa DateFormatter con locale es_ES.
+        self.assertIn('formatter.locale = Locale(identifier: "es_ES")',settings)
+        self.assertIn('formatter.dateStyle = .medium',settings)
+        self.assertIn('formatter.timeStyle = .short',settings)
+        self.assertIn('formatter.string(from: Date(timeIntervalSince1970: lastFullSyncAt))',settings)
         self.assertIn('.foregroundStyle(OG.label2)',settings)
         self.assertIn('Text(syncFeedback)',settings)
         self.assertIn('.foregroundStyle(OG.red)',settings)

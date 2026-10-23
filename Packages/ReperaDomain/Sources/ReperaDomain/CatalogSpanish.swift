@@ -68,6 +68,13 @@ public enum CatalogSpanish {
 
 
     private static let spanishByName: [String: String] = [
+        "Dominadas lastradas": "Dominada estricta con lastre externo y control escapular: aumenta la dificultad del tirón vertical. Prioriza rango completo, agarre seguro y una carga que no comprometa hombros ni codos.",
+        "Remo pliométrico en anillas pies elevados": "Remo horizontal explosivo con pies elevados y anillas: tracción rápida del pecho hacia las manos, recepción controlada y cuerpo en bloque. Requiere dominar primero el remo estricto en anillas.",
+        "Fondos en anillas kipping": "Fondo en anillas con ayuda de impulso controlado de cadera. Es una variante avanzada que exige estabilidad de hombro, recepción segura y dominio previo de fondos estrictos.",
+        "Kettlebell Goblet Box Step-Up": "Subida unilateral a un cajón con kettlebell sostenida delante del pecho en posición goblet. Entrena piernas, glúteos y estabilidad del tronco, sin impulsarse con la pierna que queda en el suelo.",
+        "Run": "Carrera continua, por distancia o intervalos, con zancada cómoda, postura erguida y respiración controlada. La intensidad depende del entrenamiento; ajusta ritmo y terreno a tu nivel.",
+        "Dumbbell Clean and Jerk": "Cargada de mancuerna hasta el hombro seguida de envío overhead con impulso de piernas. Controla el recorrido de la carga, cambia de lado según la prescripción y estabiliza el bloqueo antes de repetir.",
+        "Burpee box jump over": "Burpee seguido de salto al cajón y paso al otro lado. Exige controlar la recepción y la bajada, mantener la trayectoria libre de obstáculos y adaptar la altura al dominio de cada atleta.",
         "Press banca": "Press de banca en banco plano: bajas la barra al pecho y la empujas a bloqueo. Pecho, hombros y tríceps.",
         "Press banca inclinada": "Press en banco inclinado (30–45°): más énfasis en pecho alto y deltoides anterior.",
         "Press mancuernas": "Press con mancuernas en banco plano: mayor rango y estabilización que con barra.",
@@ -263,6 +270,62 @@ public enum CatalogSpanish {
         // Si un ejercicio tiene arte `base_1…N`, los N primeros textos son captions de fase del carrusel;
     // a continuación van los pasos de coaching («Cómo hacerlo»).
     private static let spanishInstructions: [String: [String]] = [
+        "Dominadas lastradas": [
+            "Asegura el cinturón o chaleco de lastre y comprueba que la carga no balancea; cuélgate de la barra con agarre firme y hombros activos.",
+            "Inicia la tracción deprimiendo las escápulas y lleva el pecho hacia la barra sin usar impulso excesivo de piernas o cadera.",
+            "Sube con control hasta superar la referencia acordada con la barbilla, sin proyectar el cuello hacia delante ni perder la tensión abdominal.",
+            "Desciende de forma deliberada hasta el rango completo permitido, manteniendo los codos y hombros estables y evitando una caída brusca.",
+            "Error típico: elegir demasiado lastre, acortar el recorrido o balancearse; baja la carga si no mantienes técnica estricta.",
+            "Progresión: domina primero las dominadas sin carga y añade el lastre gradualmente. Exhala al subir; detente ante dolor articular.",
+        ],
+        "Remo pliométrico en anillas pies elevados": [
+            "Ajusta las anillas a una altura estable, apoya los talones elevados y coloca el cuerpo recto desde los hombros hasta los tobillos.",
+            "Activa abdomen y glúteos para evitar que la cadera se hunda; mantén los hombros organizados antes de cada tracción explosiva.",
+            "Tira de las anillas hacia el costado del pecho con intención rápida, acercando los codos al tronco sin perder la alineación corporal.",
+            "Permite una liberación o transferencia mínima de tensión solo si dominas el gesto y recupera las anillas con agarre seguro y controlado.",
+            "Error típico: lanzar la cabeza, flexionar la cadera o perder las anillas; vuelve al remo estricto con pies en el suelo si ocurre.",
+            "Estándar: cada repetición comienza y termina con control. Usa progresión de remo en anillas, luego pies elevados y solo al final velocidad.",
+        ],
+        "Fondos en anillas kipping": [
+            "Antes de comenzar, comprueba que las anillas estén estables y domina el soporte con codos extendidos y hombros activos.",
+            "Baja a una profundidad que puedas controlar manteniendo las anillas próximas al cuerpo, sin colapsar el hombro hacia delante.",
+            "Coordina un impulso pequeño y controlado de cadera con la extensión de brazos para regresar arriba sin balanceo desordenado.",
+            "Estabiliza el bloqueo superior antes de la siguiente repetición; evita que las anillas se separen y que los hombros rueden hacia delante.",
+            "Error típico: intentar compensar una falta de fuerza con un kip grande; reduce amplitud o vuelve a fondos estrictos asistidos.",
+            "Progresión: soporte en anillas, fondos estrictos, control de balanceo y por último kipping. Interrumpe el ejercicio ante molestias de hombro.",
+        ],
+        "Kettlebell Goblet Box Step-Up": [
+            "Elige un cajón estable y de altura adecuada; sujeta la kettlebell en posición goblet frente al pecho, con codos cercanos al tronco.",
+            "Coloca un pie entero encima del cajón y mantén el tronco alto mientras generas fuerza principalmente con la pierna adelantada.",
+            "Extiende cadera y rodilla hasta quedar erguido sobre el cajón, manteniendo la carga cerca del pecho y las rodillas alineadas.",
+            "Desciende de manera controlada, sin dejarte caer ni empujarte con la pierna de atrás para completar la repetición.",
+            "Error típico: apoyar solo la punta del pie, impulsarse desde abajo o encorvar la espalda por exceso de peso o altura.",
+            "Alterna piernas según la prescripción; empieza sin carga y aumenta primero el control, después la altura o la kettlebell.",
+        ],
+        "Run": [
+            "Comienza con calentamiento de marcha y trote suave; adopta una postura erguida, mirada al frente y brazos relajados cerca del tronco.",
+            "Corre con pasos cómodos debajo del centro de masas y evita alargar en exceso la zancada para ganar velocidad artificialmente.",
+            "Mantén el ritmo que permita completar la distancia o el intervalo prescrito; ajusta respiración y cadencia según la intensidad.",
+            "En cambios de dirección y terreno irregular, reduce la velocidad y controla el apoyo antes de acelerar de nuevo.",
+            "Error típico: salir demasiado rápido, endurecer hombros o ignorar la fatiga; usa un ritmo sostenible y progresivo.",
+            "Progresión: alterna marcha y carrera si hace falta, incrementa volumen gradualmente e hidrátate según las condiciones ambientales.",
+        ],
+        "Dumbbell Clean and Jerk": [
+            "Coloca la mancuerna junto al pie, prepara una bisagra de cadera estable y mantén la espalda neutra antes de agarrar la carga.",
+            "Extiende piernas y cadera para elevar la mancuerna cerca del cuerpo hasta el hombro, recibiéndola con rodillas suaves.",
+            "Desde la posición de rack, realiza una pequeña flexión vertical de piernas y empuja el suelo para impulsar la mancuerna overhead.",
+            "Bloquea el brazo sobre el hombro con abdomen activo y pies estabilizados; controla la carga antes de bajarla a la siguiente repetición.",
+            "Error típico: tirar solo de brazo, arquear la zona lumbar o perder el control al recibir. Baja el peso si se altera el recorrido.",
+            "Progresión: practica primero clean y push press por separado; exhala al estabilizar el bloqueo y alterna brazos según el WOD.",
+        ],
+        "Burpee box jump over": [
+            "Comprueba que el cajón no se mueva y deja espacio libre a ambos lados; adapta la altura a tu capacidad de salto y recepción.",
+            "Realiza el burpee bajando al suelo con control y vuelve a ponerte de pie con los pies suficientemente cerca del cajón.",
+            "Salta con ambos pies al cajón y aterriza con rodillas flexionadas y apoyo estable; confirma el equilibrio antes de cruzar.",
+            "Pasa al lado opuesto del cajón siguiendo el estándar del WOD; baja con un paso seguro si está permitido, evitando saltos descontrolados.",
+            "Error típico: acercarse demasiado al borde, aterrizar rígido o girar en el aire sin control; prioriza un salto y descenso seguros.",
+            "Progresión: separa burpee y subida al cajón, domina primero el step-over y aumenta la velocidad solo cuando la técnica sea consistente.",
+        ],
         "Press banca": [
             "Túmbate, pies firmes: baja la barra al pecho medio con codos ~45°.",
             "Empuja a bloqueo sin arquear la lumbar: barra sobre el pecho, brazos extendidos.",

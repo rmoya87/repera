@@ -12,6 +12,13 @@ struct DigitalClockDisplay: View {
     private var minutes: Int { max(0, totalSeconds) / 60 }
     private var seconds: Int { max(0, totalSeconds) % 60 }
 
+    /// Ancho matemático del conjunto de dígitos LED: cada par mide 1,24h;
+    /// HH:MM son 2,76h y la ronda añade 1,24h + 0,22h. Este factor
+    /// sustituye a 3,05 (solo tiempo), que desbordaba al dibujar intervalos.
+    static func widthFactor(hasRound: Bool) -> CGFloat {
+        hasRound ? 4.22 : 2.76
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: digitHeight * 0.22) {
             if let roundNumber {
@@ -135,7 +142,11 @@ private struct SevenSegmentDigit: View {
     }
 }
 
-/// Pantalla completa del reloj: imagen del ejercicio, display LED y botón Comenzar / controles.
+/// Repera no reproduce audio propio. La API pública de iOS no expone el
+/// Now Playing global de Spotify o Podcasts a otras apps; por eso no se
+/// muestra una tarjeta falsa ni un placeholder cuando nada es accesible.
+/// Reloj del bloque para orientación vertical u horizontal.
+/// Botones siempre visibles; solo se muestra «Terminar» si el formato lo permite.
 struct BlockTimerScreen: View {
     var title: String
     var subtitle: String
@@ -148,41 +159,46 @@ struct BlockTimerScreen: View {
     var primaryTitle: String
     var onPrimary: () -> Void
     var onClose: () -> Void
-    var onSkip: (() -> Void)?
-    /// For Time count-up: botón Terminar.
     var onFinish: (() -> Void)? = nil
     var showFinish: Bool = false
 
     @Environment(\.verticalSizeClass) private var verticalSizeClass
-
     private var isLandscape: Bool { verticalSizeClass == .compact }
 
-    /// Arriba/abajo sin ejercicio: reloj y Comenzar/Parar centrados (sobre todo en horizontal).
-    private var centersChrome: Bool { exercise == nil }
-
     var body: some View {
-        GeometryReader { geo in
-            let digitH: CGFloat = isLandscape
-                ? min(centersChrome ? 140 : 120, geo.size.height * (centersChrome ? 0.38 : 0.42))
-                : min(centersChrome ? 100 : 88, geo.size.width * 0.2)
+        GeometryReader { geometry in
+            let landscape = isLandscape || geometry.size.width > geometry.size.height
+            let sideWidth: CGFloat = landscape && exercise != nil
+                ? min(260, geometry.size.width * 0.31)
+                : 0
+            // Espacio ocupado por safe area interna, margen de columna, HStack
+            // y márgenes del cronómetro. En vertical se reserva aire al glow.
+            let horizontalInset: CGFloat = landscape
+                ? (exercise == nil ? 40 : 94)
+                : 44
+            let availableClockWidth = max(
+                1, geometry.size.width - sideWidth - horizontalInset
+            )
+            let widthFactor = DigitalClockDisplay.widthFactor(hasRound: roundNumber != nil)
+            // Sin un mínimo artificial de 55 pt: con ronda + MM:SS causaba
+            // clipping en iPhone estrecho. Cada cifra usa su ancho real.
+            let digitHeight = min(
+                landscape ? 165 : 138,
+                availableClockWidth / widthFactor,
+                geometry.size.height * (landscape ? 0.36 : 0.235)
+            )
 
             ZStack {
                 Color.black.ignoresSafeArea()
-
-                if isLandscape {
-                    if centersChrome {
-                        centeredLandscapeLayout(digitHeight: digitH)
-                    } else {
-                        landscapeWithExercise(digitHeight: digitH, size: geo.size)
-                    }
+                if landscape {
+                    landscapeLayout(digitHeight: digitHeight, availableWidth: geometry.size.width)
                 } else {
-                    portraitLayout(digitHeight: digitH)
+                    portraitLayout(digitHeight: digitHeight)
                 }
             }
         }
     }
 
-    /// Top bar: X liquid glass alineada con el título grande.
     private var topBar: some View {
         HStack(alignment: .center, spacing: 12) {
             OGToolbarGlassButton(
@@ -194,7 +210,7 @@ struct BlockTimerScreen: View {
             )
             if !title.isEmpty {
                 Text(title)
-                    .font(.system(size: isLandscape ? 26 : 28, weight: .bold))
+                    .font(.system(size: isLandscape ? 25 : 28, weight: .bold))
                     .foregroundStyle(.white)
                     .tracking(-0.4)
                     .lineLimit(1)
@@ -206,141 +222,140 @@ struct BlockTimerScreen: View {
         .padding(.top, 8)
     }
 
+    /// El ejercicio acompaña al reloj sin pegarse a los dígitos.
+    /// En ambas orientaciones el contenido queda centrado en su espacio.
+    private func exerciseDetails(landscape: Bool) -> some View {
+        Group {
+            if let exercise {
+                VStack(alignment: .center, spacing: landscape ? 15 : 12) {
+                    ExerciseThumb(exercise: exercise, size: landscape ? 112 : 100)
+                    Text(exercise.name)
+                        .font(.system(size: landscape ? 20 : 21, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.8)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .accessibilityElement(children: .combine)
+            }
+        }
+    }
+
     private func portraitLayout(digitHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
             topBar
-
-            if let exercise {
-                VStack(spacing: 10) {
-                    ExerciseThumb(exercise: exercise, size: 72)
-                    Text(exercise.name)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-                }
-                .padding(.top, 16)
-            }
-
             Spacer(minLength: 8)
-
-            clockBlock(digitHeight: digitHeight)
-
-            if centersChrome {
-                controls
-                    .frame(maxWidth: 360)
-                    .padding(.top, 28)
-                    .padding(.horizontal, 24)
-                Spacer(minLength: 8)
-            } else {
-                Spacer(minLength: 8)
-                controls
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 28)
+            VStack(spacing: 38) {
+                clockBlock(digitHeight: digitHeight)
+                // Más aire y centrado real para nombre y miniatura.
+                if exercise != nil {
+                    exerciseDetails(landscape: false)
+                }
             }
-        }
-        .padding(.bottom, centersChrome ? 28 : 0)
-    }
-
-    private func centeredLandscapeLayout(digitHeight: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            topBar
-            Spacer(minLength: 4)
-            clockBlock(digitHeight: digitHeight)
-            controls
-                .frame(maxWidth: 320)
-                .padding(.top, 20)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 12)
+            Spacer(minLength: 16)
+            controls(horizontal: false)
                 .padding(.horizontal, 24)
-            Spacer(minLength: 4)
+                .padding(.bottom, 18)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.bottom, 12)
     }
 
-    private func landscapeWithExercise(digitHeight: CGFloat, size: CGSize) -> some View {
+    private func landscapeLayout(digitHeight: CGFloat, availableWidth: CGFloat) -> some View {
         VStack(spacing: 0) {
             topBar
-            HStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 12) {
-                    if let exercise {
-                        ExerciseThumb(exercise: exercise, size: 64)
-                        Text(exercise.name)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .lineLimit(3)
-                    }
+            HStack(alignment: .center, spacing: 22) {
+                if exercise != nil {
+                    exerciseDetails(landscape: true)
+                        .frame(width: min(260, availableWidth * 0.31))
+                        .frame(maxHeight: .infinity, alignment: .center)
+                        .padding(.leading, 20)
+                }
+                VStack(spacing: 14) {
                     Spacer(minLength: 0)
-                    controls
-                }
-                .frame(width: min(220, size.width * 0.28), alignment: .leading)
-                .padding(.leading, 20)
-                .padding(.vertical, 12)
-
-                VStack(spacing: 10) {
-                    Spacer()
                     clockBlock(digitHeight: digitHeight)
-                    Spacer()
+                    // Pausar/Continuar + Terminar en UNA fila bajo el reloj.
+                    controls(horizontal: true)
+                        .frame(maxWidth: 500)
+                    Spacer(minLength: 0)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.trailing, 16)
+                .padding(.horizontal, 12)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .frame(maxHeight: .infinity)
         }
     }
 
     private func clockBlock(digitHeight: CGFloat) -> some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             DigitalClockDisplay(
                 roundNumber: roundNumber,
                 totalSeconds: displaySeconds,
                 digitHeight: digitHeight
             )
-            .padding(.horizontal, 12)
-
+            .frame(maxWidth: .infinity)
             if !subtitle.isEmpty || (totalRounds != nil && roundNumber != nil) {
                 HStack(spacing: 8) {
                     if let totalRounds, let roundNumber {
                         Text("\(roundNumber)/\(totalRounds)")
-                            .font(.system(size: isLandscape ? 14 : 15, weight: .semibold).monospacedDigit())
-                            .foregroundStyle(OG.label2)
+                            .font(.system(size: 14, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(.white.opacity(0.6))
                     }
                     if !subtitle.isEmpty {
                         Text(subtitle)
-                            .font(.system(size: isLandscape ? 14 : 15, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(OG.accent)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
                     }
                 }
             }
         }
+        .accessibilityElement(children: .contain)
     }
 
-    private var controls: some View {
-        VStack(spacing: 12) {
-            Button(action: onPrimary) {
-                Text(primaryTitle)
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 54)
-                    .background(.white, in: Capsule())
-            }
-            .buttonStyle(.plain)
+    private var pauseOrResumeButton: some View {
+        Button(action: onPrimary) {
+            Text(primaryTitle)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(maxWidth: .infinity, minHeight: 54)
+                .background(.white, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(primaryTitle + " temporizador")
+    }
 
+    private var finishButton: some View {
+        Group {
             if showFinish, let onFinish {
                 Button(action: onFinish) {
                     Text("Terminar")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 48)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity, minHeight: 54)
                         .background(OG.accent, in: Capsule())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Terminar bloque")
             }
+        }
+    }
 
-            if let onSkip, isRunning {
-                Button("Saltar", action: onSkip)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(OG.label2)
+    private func controls(horizontal: Bool) -> some View {
+        Group {
+            if horizontal {
+                HStack(spacing: 12) {
+                    pauseOrResumeButton
+                    finishButton
+                }
+            } else {
+                VStack(spacing: 12) {
+                    pauseOrResumeButton
+                    finishButton
+                }
             }
         }
     }

@@ -1,6 +1,24 @@
 import Foundation
 
 public enum StatsEngine {
+    /// Resultados efectivos para estadísticas: una sesión terminada sin sets
+    /// registrados conserva las cantidades originales aceptadas por el atleta.
+    /// Nunca se proyectan series de entrenamientos pendientes.
+    public static func effectiveWorkSets(_ exercise: SessionExercise, in workout: WorkoutSession) -> [LoggedSet] {
+        let recorded = exercise.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
+        if !recorded.isEmpty { return recorded }
+        guard workout.finishedAt != nil || workout.phase == .finished else { return [] }
+        return exercise.plannedSets.filter { $0.targetReps > 0 }.map { planned in
+            LoggedSet(
+                id: planned.id,
+                reps: planned.targetReps,
+                weightKg: planned.targetWeightKg,
+                quantityUnit: exercise.quantityUnit ?? exercise.exercise.defaultQuantityUnit,
+                completedAt: workout.finishedAt ?? workout.startedAt ?? Date(),
+                rir: planned.targetRir
+            )
+        }
+    }
     public static func personalRecords(from workouts: [WorkoutSession]) -> [PersonalRecord] {
         var best: [UUID: PersonalRecord] = [:]
 
@@ -165,7 +183,7 @@ public enum StatsEngine {
 
         for workout in sorted {
             guard let ex = matchingSessionExercise(in: workout, exerciseId: exerciseId, anchor: anchor) else { continue }
-            let work = ex.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
+            let work = effectiveWorkSets(ex, in: workout)
             guard !work.isEmpty else { continue }
             times += 1
             let date = workout.finishedAt ?? workout.startedAt
@@ -462,7 +480,7 @@ extension StatsEngine {
             guard let date = workout.finishedAt ?? workout.startedAt else { continue }
             if let start, date < start { continue }
             guard let ex = matchingSessionExercise(in: workout, exerciseId: exerciseId, anchor: anchor) else { continue }
-            let work = ex.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
+            let work = effectiveWorkSets(ex, in: workout)
             guard !work.isEmpty else { continue }
 
             switch metric {
@@ -554,7 +572,7 @@ extension StatsEngine {
             guard workout.finishedAt != nil || workout.phase == .finished else { continue }
             guard let date = workout.finishedAt ?? workout.startedAt else { continue }
             guard let ex = matchingSessionExercise(in: workout, exerciseId: exerciseId, anchor: anchor) else { continue }
-            let work = ex.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
+            let work = effectiveWorkSets(ex, in: workout)
             guard !work.isEmpty else { continue }
             return ExerciseLastSession(
                 sessionId: workout.id,
@@ -593,7 +611,7 @@ extension StatsEngine {
             guard let date = workout.finishedAt ?? workout.startedAt else { continue }
             if let start, date < start { continue }
             guard let ex = matchingSessionExercise(in: workout, exerciseId: exerciseId, anchor: anchor) else { continue }
-            let work = ex.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
+            let work = effectiveWorkSets(ex, in: workout)
             guard !work.isEmpty else { continue }
 
             let lines = work.map(\.displaySummaryLine)

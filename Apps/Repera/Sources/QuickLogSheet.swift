@@ -196,11 +196,13 @@ struct QuickLogSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
+            .background(OG.bg.ignoresSafeArea())
             .listRowBackground(Color.clear)
             .tint(OG.accent)
+            .ogReadableColumn()
             .navigationTitle("Apuntar series")
             .navigationBarTitleDisplayMode(.inline)
-            .ogTransparentNav()
+            .ogDiaryTransparentNav()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     CloseToolbarButton(action: { dismiss() }, large: false)

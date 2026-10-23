@@ -7,6 +7,13 @@ import UIKit
 enum OG {
     /// Lienzo de pantalla. Día = gris agrupado (como Ajustes de Apple); noche = negro.
     /// Las secciones / cards usan `surface` encima para diferenciarse (mismo patrón que en noche).
+    /// Anchura máxima común de lectura para iPhone apaisado / iPad.
+    /// iPhone vertical continúa ocupando todo su ancho disponible.
+    /// 790 pt centra las listas dentro de la safe area horizontal y
+    /// mantiene los mismos bordes que Progreso (margen lateral ~75 pt
+    /// en un iPhone Pro apaisado de ~905 pt).
+    static let contentColumnMaxWidth: CGFloat = 790
+
     static let bg = adaptive(
         light: UIColor(red: 242 / 255, green: 245 / 255, blue: 243 / 255, alpha: 1),
         dark: UIColor.black
@@ -302,34 +309,67 @@ extension OGPageHeader where Leading == EmptyView {
     }
 }
 
-extension View {
-    /// Lista agrupada nativa (`insetGrouped`): fondo `OG.bg`, filas `OG.surface`.
-    /// Las cajas de sección las dibuja el sistema; no envolver filas en `OGCard`.
-    func ogListChrome() -> some View {
-        self
+/// Una única columna centrada para tarjetas y listas en paisaje.
+/// En retrato, 790 pt supera el ancho del iPhone y no restringe nada.
+private struct OGReadableColumnModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: OG.contentColumnMaxWidth)
+            .frame(maxWidth: .infinity, alignment: .center)
+    }
+}
+
+/// La List completa, no solo sus rows, debe quedar dentro de los mismos
+/// márgenes que los ScrollViews de Progreso. En iOS 27 los insetGrouped
+/// pueden ignorar contentMargins y alcanzar los bordes en landscape.
+private struct OGListChromeModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
-            .background {
-                OG.bg.ignoresSafeArea()
-            }
             .listRowBackground(OG.surface)
             .tint(OG.accent)
-            .contentMargins(.all, EdgeInsets(top: 0, leading: OG.pad, bottom: 0, trailing: OG.pad), for: .scrollContent)
+            // No sumar paddings por orientación o por filas:
+            // la columna central y el insetGrouped ya aportan su margen.
+            .frame(maxWidth: OG.contentColumnMaxWidth)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .background(OG.bg.ignoresSafeArea())
             .listSectionSpacing(12)
     }
+}
 
-    /// Compatibilidad con vistas existentes: la barra de navegación visible
-    /// usa SIEMPRE el lienzo gris agrupado, también al compactarse en scroll.
-    /// No cambiar a blanco/surface ni esconder el background del sistema.
-    /// Inicio utiliza ogContentTitleNav (barra del sistema oculta) y mantiene
-    /// su propio topbar transparente sobre el componente blanco.
-    func ogTransparentNav() -> some View {
-        self
-            .toolbarBackground(OG.bg, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
+extension View {
+    /// Centro compartido para contenido ScrollView (Progreso, Inicio inferior,
+    /// Center, detalles). No se usa en el primer componente blanco de Inicio.
+    func ogReadableColumn() -> some View {
+        modifier(OGReadableColumnModifier())
     }
 
-    /// Topbar de páginas secundarias: título large que colapsa, barra gris
-    /// OG.bg durante scroll y botones nativos que permanecen visibles.
+    /// Estilo nativo agrupado para Diario, Play, Editar y Ejercicios:
+    /// sin cajas anidadas; las esquinas las recorta la sección de SwiftUI.
+    func ogListChrome() -> some View {
+        modifier(OGListChromeModifier())
+    }
+
+    /// La barra del sistema es translúcida, como la navegación nativa iOS 27.
+    /// El material deja ver y desenfoca el contenido que pasa por debajo;
+    /// sobre nuestras List el lienzo subyacente sigue siendo OG.bg (gris).
+    /// No aplicar un color sólido aquí: hacía la barra opaca al hacer scroll.
+    /// Inicio mantiene su excepción de cabecera propia sobre fondo blanco.
+    func ogTransparentNav() -> some View {
+        self
+            .toolbarBackground(.thinMaterial, for: .navigationBar)
+            .toolbarBackground(.automatic, for: .navigationBar)
+    }
+
+    /// Variante de Diario: navegación nativa con acciones visibles y fondo
+    /// transparente incluso cuando se compacta la cabecera al hacer scroll.
+    func ogDiaryTransparentNav() -> some View {
+        self.toolbarBackground(.hidden, for: .navigationBar)
+    }
+
+    /// Topbar secundario: título large colapsable y barra translúcida
+    /// sobre OG.bg durante scroll; botones nativos permanecen visibles.
     /// Usar cuando hay volver / acciones en la barra (título debajo).
     /// Fuerza la barra visible: Inicio/Progreso ocultan el toolbar del sistema (`ogContentTitleNav`);
     /// sin esto, al pushear Ajustes/Historial queda el hueco del large title sin el texto «Ajustes».

@@ -904,12 +904,6 @@ struct WorkoutDetailView: View {
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundStyle(OG.accent)
                                     .lineLimit(2)
-                            } else if let result {
-                                // El AMRAP es global: mostrar su score sin inventar
-                                // series individuales ni adjudicar reps incompletas.
-                                Text("Resultado del bloque · \(result.summaryLabel)")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(OG.accent)
                             }
                             if let adapted = exercise.adjustedSummaryLine {
                                 Text(adapted)
@@ -1029,9 +1023,27 @@ struct WorkoutDetailView: View {
             .accessibilityHint("Ver ficha del ejercicio")
 
             if visibleSets.isEmpty {
-                Text(isEditing ? "Sin series" : (exercise.usesBlockScoreResult ? exercise.prescriptionSummaryLine : "Sin series"))
-                    .font(.system(size: 13))
-                    .foregroundStyle(OG.label3)
+                if !isEditing && !exercise.plannedSets.isEmpty {
+                    // Sesión finalizada sin registros individuales: mostrar TODAS
+                    // las series programadas como ejecutadas, no solo la primera.
+                    ForEach(Array(exercise.plannedSets.enumerated()), id: \.element.id) { index, planned in
+                        HStack(spacing: 14) {
+                            Text("S\(index + 1)")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(OG.label2)
+                                .frame(width: 34, alignment: .leading)
+                            Text(plannedSetSummary(planned, exercise: exercise))
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(OG.label)
+                        }
+                        .padding(.leading, 60)
+                    }
+                } else {
+                    Text(isEditing ? "Sin series registradas" : "Sin resultado registrado")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(OG.label)
+                        .padding(.leading, 60)
+                }
             } else {
                 if isEditing {
                     editSetColumnHeaders(
@@ -1051,11 +1063,23 @@ struct WorkoutDetailView: View {
                         }
                     } else {
                         readOnlySetRow(setIndex: setIndex, set: set)
+                            .padding(.leading, 60) // Alinear S1/S2 y valores con el título, no con la miniatura
                     }
                 }
             }
         }
         .padding(showsOuterPadding ? OG.pad : 0)
+    }
+
+    private func plannedSetSummary(_ planned: PlannedSet, exercise: SessionExercise) -> String {
+        let unit = exercise.quantityUnit ?? exercise.exercise.defaultQuantityUnit
+        if unit != .reps {
+            return "\(planned.targetReps) \(unit.shortLabel)"
+        }
+        if let kg = planned.targetWeightKg, kg > 0 {
+            return "\(planned.targetReps) @ \(String(format: "%g", kg)) kg"
+        }
+        return "\(planned.targetReps) reps"
     }
 
     private func editSetColumnHeaders(exercise: Exercise, showsRemove: Bool) -> some View {
@@ -1115,14 +1139,11 @@ struct WorkoutDetailView: View {
         for exercise: SessionExercise,
         hideScoreArtifact: WODBlockResult?
     ) -> [LoggedSet] {
-        guard let result = hideScoreArtifact,
-              let total = result.totalReps,
-              exercise.loggedSets.count == 1,
-              let only = exercise.loggedSets.first,
-              only.weightKg == nil,
-              only.reps == total
-        else { return exercise.loggedSets }
-        return []
+        // Las series efectivamente guardadas siempre deben mostrarse en el
+        // detalle. Antes se ocultaba una serie si sus reps coincidían con el
+        // score del bloque; esa coincidencia también ocurre con series reales.
+        // El resultado agregado se presenta por separado en la cabecera.
+        return exercise.loggedSets
     }
 
     private func readOnlySetRow(setIndex: Int, set: LoggedSet) -> some View {

@@ -94,7 +94,7 @@ extension StatsEngine {
             )
         }
 
-        let work = entry.loggedSets.filter { !$0.isWarmup && ($0.reps > 0 || ($0.durationSeconds ?? 0) > 0) }
+        let work = effectiveWorkSets(entry, in: session)
         let setLines = work.map(\.displaySummaryLine)
 
         var scoreLabel: String?

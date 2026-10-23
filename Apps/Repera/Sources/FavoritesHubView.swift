@@ -116,6 +116,7 @@ struct FavoritesHubView: View {
         }
         .ogListChrome()
         .ogPinnedTransparentNav("Favoritos")
+        .ogDiaryTransparentNav()
         .sheet(item: $editing) { routine in
             DayEditorView(
                 routine: routine,

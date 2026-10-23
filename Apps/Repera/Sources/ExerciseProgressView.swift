@@ -24,11 +24,13 @@ struct ExerciseProgressView: View {
             .padding(.horizontal, OG.pad)
             .padding(.top, 0)
             .padding(.bottom, 28)
+            .ogReadableColumn()
         }
-        .background(OG.bg)
+        .background(OG.bg.ignoresSafeArea())
         .ogPinnedTransparentNav(
             store.resolvedCatalogExercise(id: exerciseId)?.name ?? "Ejercicio"
         )
+        .ogDiaryTransparentNav()
     }
 
     /// El historial propio es gratuito; la evolución Pro se ilustra sin leer sus marcas.
@@ -588,5 +590,6 @@ struct ExerciseHistoryView: View {
         }
         .background(OG.bg)
         .ogPinnedTransparentNav(exerciseName)
+        .ogDiaryTransparentNav()
     }
 }

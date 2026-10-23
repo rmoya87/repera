@@ -68,6 +68,11 @@ struct HomeView: View {
     private static let weekCarouselRadius = 52
     @State private var calendarScrollID: String?
     @ScaledMetric(relativeTo: .body) private var weekCarouselHeight: CGFloat = 72
+    /// Máximo ancho del calendario: 7 días completos con sus huecos.
+    /// En paisaje evita cuadros desproporcionados o fragmentos laterales.
+    private var calendarVisibleWidth: CGFloat {
+        7 * max(1, weekCarouselHeight - 8) + 6 * 4
+    }
     /// Shared baseline for a single exercise card and the no-workout state.
     /// Keeps the activity/progress cards below steady while changing days.
     @ScaledMetric(relativeTo: .body) private var singleWorkoutMinHeight: CGFloat = 100
@@ -231,7 +236,7 @@ struct HomeView: View {
                     .padding(.top, 12)
                     .padding(.bottom, 16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(OG.surface)
+                    .background(OG.surface.ignoresSafeArea(edges: [.top, .horizontal]))
 
                     // Progreso/Actividad conservan el lienzo agrupado gris,
                     // que empieza justo donde termina la sección blanca.
@@ -251,8 +256,10 @@ struct HomeView: View {
                     }
                     .padding(.top, 12)
                     .padding(.bottom, 28)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(OG.bg)
+                    .ogReadableColumn()
+                    // En paisaje la safe area lateral pertenece al gris de
+                    // Progreso/Actividad; el blanco solo es calendario + entreno.
+                    .background(OG.bg.ignoresSafeArea(edges: .horizontal))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -295,8 +302,17 @@ struct HomeView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Ajustes y cuenta iCloud")
             }
-            .background {
-                OG.surface.ignoresSafeArea()
+            // Fondo independiente del topbar: el blanco continúa visualmente
+            // desde la zona segura superior hasta calendario + entreno.
+            // El componente de navegación y sus controles no se modifican.
+            .background(alignment: .top) {
+                OG.bg.ignoresSafeArea()
+                    .overlay(alignment: .top) {
+                        OG.surface
+                            .frame(height: 160)
+                            .frame(maxWidth: .infinity)
+                            .ignoresSafeArea(edges: .top)
+                    }
             }
             .onAppear {
                 LaunchTiming.mark("HomeView.onAppear")
@@ -518,7 +534,12 @@ struct HomeView: View {
 
             GeometryReader { geo in
                 let spacing: CGFloat = 4
-                let side = max(1, (geo.size.width - spacing * 6) / 7)
+                // Sin crecer más que la altura visible: antes en paisaje
+                // se calculaban cuadros de más de 100 pt en 72 pt de alto.
+                let side = min(
+                    max(1, weekCarouselHeight - 8),
+                    max(1, (geo.size.width - spacing * 6) / 7)
+                )
                 ScrollView(.horizontal) {
                     LazyHStack(spacing: spacing) {
                         ForEach(cachedCalendarDays, id: \.iso) { day in
@@ -538,6 +559,12 @@ struct HomeView: View {
                 .scrollPosition(id: $calendarScrollID, anchor: .leading)
             }
             .frame(height: weekCarouselHeight)
+            .frame(maxWidth: calendarVisibleWidth)
+            // Recorta los días vecinos al viewport de siete columnas: en
+            // paisaje no deben asomar dos cuadrados blancos en los extremos.
+            .clipped()
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.horizontal, OG.pad)
         }
     }
 

@@ -1,6 +1,6 @@
 # Repera
 
-App nativa de entrenamiento (**iPhone + Apple Watch**), **local-first + iCloud**, Sign in with Apple, UI **SwiftUI Liquid Glass** (iOS 27+).
+App nativa de entrenamiento (**iPhone + Apple Watch**), **local-first + iCloud**, acceso con Apple o Google (Supabase OAuth), UI **SwiftUI Liquid Glass** (iOS 27+).
 
 Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (solo dominio/UX; no se copia código).
 
@@ -44,8 +44,8 @@ ni está autorizado para producción**. Véanse
 | **Ejercicios** | Biblioteca + ficha; evolución completa = Pro (Gratis: última sesión + PR) |
 | **Sesión** | Series, WU/drop/rest-pause, RIR/RPE, discos, menú ⋯, Live Activity descanso |
 | **Pizarra** | OCR lite; Gratis 4 escaneos/mes; Pro ilimitados |
-| **Onboarding** | Sign in with Apple obligatorio → Gratis/Pro → permisos (notif, Salud, ubicación) |
-| **Ajustes** | Cuenta Apple, Pro / restaurar, iCloud, permisos/Salud, historial, peso, export/import |
+| **Onboarding** | Apple o Google con identidad Supabase verificada → permisos → Gratis/Pro |
+| **Ajustes** | Cuenta Apple/Google vinculada, Pro / restaurar, iCloud, permisos/Salud, historial, peso, export/import |
 | **Datos** | JSON local + iCloud Documents; CSV Strong/Hevy (sin entitlement en el JSON) |
 | **Watch** | Confirmar → conteo → **+1 serie** / log rápido (sin límites Pro en v1) |
 | **Monetización** | StoreKit + RevenueCat; ver [docs/MONETIZATION.md](docs/MONETIZATION.md) |

@@ -285,9 +285,9 @@ final class SessionControllerTests: XCTestCase {
                        .roundsForQuality, .strength] {
             XCTAssertEqual(format.resultCapture, .perMovementSets)
         }
-        let amrap = WODBlockResult(format: .amrap, totalReps: 7, roundsCompleted: 5)
+        let amrap = WODBlockResult(id: UUID(), format: .amrap, totalReps: 7, roundsCompleted: 5)
         XCTAssertEqual(amrap.summaryLabel, "5 rondas + 7 reps")
-        let forTime = WODBlockResult(format: .forTime, elapsedSeconds: 731)
+        let forTime = WODBlockResult(id: UUID(), format: .forTime, elapsedSeconds: 731)
         XCTAssertEqual(forTime.summaryLabel, "12:11")
     }
 

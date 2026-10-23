@@ -81,7 +81,6 @@ struct LibraryView: View {
                     )
                 }
             }
-            .ogListChrome()
             .scrollDismissesKeyboard(.interactively)
             // Only mute list diff animations — do not disable keyboard / focus transitions.
             .animation(nil, value: cachedSections.map(\.id))
@@ -106,7 +105,7 @@ struct LibraryView: View {
             }
             .navigationTitle(browseMode == .wods ? "WODs" : "Ejercicios")
             .navigationBarTitleDisplayMode(.inline)
-            .ogTransparentNav()
+            .ogDiaryTransparentNav()
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     OGToolbarGlassButton(
@@ -215,6 +214,9 @@ struct LibraryView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .contentMargins(.top, 0, for: .scrollContent)
+        .listSectionSpacing(.compact)
+        .ogListChrome()
     }
 
     private var filteredWODTemplates: [WODTemplate] {
@@ -556,6 +558,7 @@ private struct LibraryExerciseList: View {
             }
         }
         .listStyle(.insetGrouped)
+        .ogListChrome()
     }
 
     @ViewBuilder

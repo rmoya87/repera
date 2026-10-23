@@ -710,9 +710,11 @@ struct HealthRecoveryProgressView: View {
                 }
             }
         }
+        // Las lecturas de Salud ya se han cargado: no reiniciar todas las
+        // tarjetas al entrar y salir de la pestaña Recuperación.
         .task {
-            await recovery.refresh()
-            await physiology.refresh()
+            if recovery.lastRefreshed == nil { await recovery.refresh() }
+            if physiology.lastRefreshed == nil { await physiology.refresh() }
         }
         .task(id: trainingRecoveryRefreshKey) {
             await prepareTrainingRecovery()
@@ -1015,7 +1017,7 @@ struct HealthRecoveryProgressView: View {
                                 vitalValueTile("Oxígeno en sangre", value: String(format: "%.0f%%", oxygen), icon: "lungs")
                             }
                             if let wrist = latest.wristTemperatureCelsius {
-                                vitalValueTile("Temperatura nocturna", value: String(format: "%.1f °C", wrist), icon: "thermometer.medium")
+                                vitalValueTile("T nocturna", value: String(format: "%.1f °C", wrist), icon: "thermometer.medium")
                             }
                         }
                         if let recovery = latest.heartRateRecoveryBpm {

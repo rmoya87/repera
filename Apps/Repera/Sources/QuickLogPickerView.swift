@@ -23,5 +23,6 @@ struct QuickLogPickerView: View {
             }
         )
         .ogPinnedTransparentNav("Apuntar series")
+        .ogDiaryTransparentNav()
     }
 }
