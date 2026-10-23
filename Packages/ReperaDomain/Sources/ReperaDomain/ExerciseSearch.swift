@@ -268,6 +268,9 @@ public enum ExerciseSearch {
         for (en, es) in bilingualPhrases {
             add(es, en)
         }
+        for (es, aliases) in CatalogMovilidad.englishAliasesByName {
+            for english in aliases { add(es, english) }
+        }
         for (en, canonical) in CrossFitGlossary.aliases {
             add(canonical, en)
         }
@@ -328,7 +331,7 @@ public enum ExerciseSearch {
             QueryVariant(tokens: original, phrase: original.joined(separator: " "), isAlias: false)
         ]
         let key = normalize(raw)
-        if let alias = SportExerciseNames.englishAlias(forSpanish: raw) ?? bilingualPhrases[key] ?? CrossFitGlossary.aliases[key] {
+        if let alias = SportExerciseNames.englishAlias(forSpanish: raw) ?? CatalogMovilidad.spanishName(forEnglish: raw) ?? bilingualPhrases[key] ?? CrossFitGlossary.aliases[key] {
             let synonym = tokens(from: alias)
             let full = normalize(alias)
             if !synonym.isEmpty {
