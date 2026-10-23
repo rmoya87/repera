@@ -402,6 +402,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private suspend fun reloadFor(id: String) {
         val (overview, active, bytes) = withContext(Dispatchers.IO) {
             val store = LocalSnapshotStore(this@MainActivity, id)
+            CatalogBootstrap.appendMissingMobility(this@MainActivity, id)
             val bytes = store.read()
             Triple(StateOverview.fromBytes(bytes), WorkoutRepository(this@MainActivity, id).active(), bytes)
         }
@@ -642,7 +643,9 @@ data class StateOverview(
                         ex.optString("muscleGroup")
                     )
                     ExerciseEntry(ex.getString("id"), ex.getString("name"),
-                        mode.basicRecorderAvailable, mode.showsWeight)
+                        mode.basicRecorderAvailable || ex.optString("sportTag") == "Movilidad",
+                        mode.showsWeight && ex.optString("sportTag") != "Movilidad",
+                        ex.optString("sportTag") == "Movilidad")
                 }.sortedBy { it.name }
             }
             return StateOverview(
@@ -671,7 +674,7 @@ data class RoutineEntry(
     val timeMinutes: Int? = null
 )
 
-data class ExerciseEntry(val id: String, val name: String, val supportsBasicInput: Boolean, val allowsWeight: Boolean)
+data class ExerciseEntry(val id: String, val name: String, val supportsBasicInput: Boolean, val allowsWeight: Boolean, val isMobility: Boolean = false)
 
 data class WorkoutHistoryEntry(
     val id: String,
