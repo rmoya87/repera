@@ -26,6 +26,8 @@ final class BusinessAuthStore {
     /// Solo indica una sesión Google activa; se borra al cerrar sesión.
     private let googleSignedInKey = "repera.business.googleSignedIn.v1"
     private static let googleRedirectURL = URL(string: "repera://auth/callback")!
+    @ObservationIgnored private var googleLinkSession: ASWebAuthenticationSession?
+    @ObservationIgnored private var googleLinkPresenter: GoogleOAuthPresentationAnchor?
 
     var isGoogleSignedIn: Bool {
         UserDefaults.standard.bool(forKey: googleSignedInKey)
@@ -160,6 +162,11 @@ final class BusinessAuthStore {
         // y NO llamar auth.session si hay cache: ese path hace refresh y el SDK
         // puede borrar Keychain ante ciertos errores de sesión.
         if let cached = client.auth.currentSession {
+            guard isSameLocalOwner(cached.user.id) else {
+                lastErrorMessage = "La sesión no coincide con el usuario propietario del historial local."
+                isConnected = false
+                return
+            }
             AuthSessionTrace.event(
                 "restoreSession HIT cache expired=\(cached.isExpired) user=\(cached.user.id)"
             )
@@ -177,6 +184,11 @@ final class BusinessAuthStore {
             guard !session.accessToken.isEmpty else {
                 markNeedsSoftReconnect(keepBinding: hasPriorSupabaseBinding)
                 AuthSessionTrace.event("restoreSession empty accessToken binding=\(hasPriorSupabaseBinding)")
+                return
+            }
+            guard isSameLocalOwner(session.user.id) else {
+                lastErrorMessage = "Sesión distinta de la identidad local."
+                isConnected = false
                 return
             }
             AuthSessionTrace.event("restoreSession via auth.session expired=\(session.isExpired)")
@@ -232,6 +244,13 @@ final class BusinessAuthStore {
 
     /// Restaura `isConnected` sin reescribir binding (Apple local ausente).
     private func acceptCachedSessionKeepingExistingBinding() {
+        if let uid = client?.auth.currentSession?.user.id {
+            guard isSameLocalOwner(uid) else {
+                isConnected = false
+                return
+            }
+            rememberOwner(uid)
+        }
         isConnected = true
         isMigrationRequired = false
         setPrefersLocalOnly(false)
@@ -433,18 +452,46 @@ final class BusinessAuthStore {
         defer { isConnecting = false }
         lastErrorMessage = nil
         do {
-            try await client.auth.linkIdentity(
+            // ASWebAuthenticationSession mantiene toda la autorización en el
+            // diálogo web nativo del sistema (sin Safari/Chrome externo).
+            let oauth = try await client.auth.linkIdentityURL(
                 provider: .google,
                 redirectTo: Self.googleRedirectURL
             )
-            guard client.auth.currentSession?.user.id == currentID else {
-                lastErrorMessage = "No se ha podido comprobar la misma cuenta. No se han combinado datos."
+            let callback = try await withCheckedThrowingContinuation { (cont: CheckedContinuation<URL, Error>) in
+                let webSession = ASWebAuthenticationSession(
+                    url: oauth.url,
+                    callbackURLScheme: "repera"
+                ) { url, error in
+                    if let url {
+                        cont.resume(returning: url)
+                    } else {
+                        cont.resume(throwing: error ?? GoogleOAuthLinkError.cancelled)
+                    }
+                }
+                let presenter = GoogleOAuthPresentationAnchor()
+                webSession.presentationContextProvider = presenter
+                googleLinkSession = webSession
+                googleLinkPresenter = presenter
+                if !webSession.start() {
+                    cont.resume(throwing: GoogleOAuthLinkError.unavailable)
+                }
+            }
+            googleLinkSession = nil
+            googleLinkPresenter = nil
+            // El retorno de OAuth debe validarse por el SDK y conservar
+            // exactamente el mismo UUID antes de afirmar que se vinculó.
+            let confirmed = try await client.auth.session(from: callback)
+            guard confirmed.user.id == currentID else {
+                lastErrorMessage = "Google no pertenece al usuario autenticado. No se han unido los perfiles."
                 return false
             }
             rememberOwner(currentID)
             return true
         } catch {
-            lastErrorMessage = "No se pudo vincular Google. Comprueba que esté habilitada la vinculación manual en Supabase."
+            googleLinkSession = nil
+            googleLinkPresenter = nil
+            lastErrorMessage = "No se pudo vincular Google. Activa Manual Linking y permite repera://auth/callback en Supabase Auth."
             return false
         }
     }
@@ -589,5 +636,31 @@ final class BusinessAuthStore {
         if let client { try? await client.auth.signOut() }
         isConnected = false
         lastErrorMessage = nil
+    }
+}
+
+/// Presentador para el diálogo OAuth del sistema, sin ventanas inventadas.
+private final class GoogleOAuthPresentationAnchor: NSObject, ASWebAuthenticationPresentationContextProviding {
+    nonisolated func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        MainActor.assumeIsolated {
+            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            if let window = scenes.flatMap(\.windows).first(where: \.isKeyWindow)
+                ?? scenes.flatMap(\.windows).first {
+                return window
+            }
+            preconditionFailure("Google OAuth needs a visible UIWindowScene")
+        }
+    }
+}
+
+private enum GoogleOAuthLinkError: LocalizedError {
+    case cancelled
+    case unavailable
+
+    var errorDescription: String? {
+        switch self {
+        case .cancelled: return "Se canceló la vinculación de Google."
+        case .unavailable: return "No se pudo abrir el acceso seguro de Google."
+        }
     }
 }
