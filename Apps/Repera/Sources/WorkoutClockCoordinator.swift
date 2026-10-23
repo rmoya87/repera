@@ -63,6 +63,8 @@ final class WorkoutClockCoordinator {
 
     /// Absolute end of pre-countdown (nil when not in pre).
     private var preCountdownEnd: Date?
+    /// Restante del preinicio al pausar, independiente del tiempo de trabajo.
+    private var pausedPreCountdownRemaining: TimeInterval?
     /// Absolute end of current countdown / interval phase.
     private var phaseEndDate: Date?
     /// Start of count-up (adjusted for pause).
@@ -90,6 +92,9 @@ final class WorkoutClockCoordinator {
 
     /// Read-only tick for `TimelineView` — no Observation mutations (catch-up lives in `feedbackTask`).
     func displaySeconds(at now: Date) -> Int {
+        if let pausedPreCountdownRemaining {
+            return Int(ceil(pausedPreCountdownRemaining))
+        }
         if let preCountdownEnd, preCountdownEnd > now {
             return WallClockTimer.remainingSeconds(until: preCountdownEnd, now: now)
         }
@@ -111,7 +116,7 @@ final class WorkoutClockCoordinator {
     /// True cuando el usuario puede marcar fin en count-up (For Time).
     var canFinishByUser: Bool {
         (isCountingUp || (isIntervalMode && allowsEarlyIntervalFinish))
-            && hasStarted && !isPreCountdown
+            && hasStarted && !isPreCountdown && pausedPreCountdownRemaining == nil
     }
 
     func configure(
@@ -322,9 +327,9 @@ final class WorkoutClockCoordinator {
         isRunning = false
         cancelFeedback()
         if let preCountdownEnd {
-            pausedRemaining = max(0, preCountdownEnd.timeIntervalSinceNow)
+            pausedPreCountdownRemaining = max(0.01, preCountdownEnd.timeIntervalSinceNow)
             self.preCountdownEnd = nil
-            // Treat remaining pre as pause into work arm later via resume → pre again if needed.
+            // No mezclar los segundos de preinicio con la fase del WOD.
             return
         }
         if isCountingUp, let countUpAnchor {
@@ -338,6 +343,11 @@ final class WorkoutClockCoordinator {
 
     func resume() {
         guard !isRunning else { return }
+        if let seconds = pausedPreCountdownRemaining {
+            pausedPreCountdownRemaining = nil
+            startPreCountdown(seconds: max(1, Int(ceil(seconds))))
+            return
+        }
         isRunning = true
         let now = Date()
         if isCountingUp {
@@ -358,6 +368,7 @@ final class WorkoutClockCoordinator {
         cancelFeedback()
         isRunning = false
         preCountdownEnd = nil
+        pausedPreCountdownRemaining = nil
         phaseEndDate = nil
         countUpAnchor = nil
         pausedRemaining = 0
@@ -388,6 +399,7 @@ final class WorkoutClockCoordinator {
 
     private func startPreCountdown(seconds: Int) {
         isRunning = true
+        pausedPreCountdownRemaining = nil
         preCountdownEnd = Date().addingTimeInterval(TimeInterval(seconds))
         scheduleFeedback()
     }

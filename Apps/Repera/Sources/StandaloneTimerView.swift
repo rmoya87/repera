@@ -428,6 +428,9 @@ struct StandaloneTimerView: View {
     private func toggleRun() {
         if isRunning {
             pausedDisplaySeconds = liveDisplaySeconds(at: Date())
+            if preCountdownEnd != nil {
+                preCountdown = max(1, pausedDisplaySeconds ?? preCountdown)
+            }
             displaySeconds = pausedDisplaySeconds ?? displaySeconds
             stopTimer(keepState: true)
             isRunning = false
