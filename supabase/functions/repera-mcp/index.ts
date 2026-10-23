@@ -341,6 +341,7 @@ Deno.serve(async (request) => {
           return {date:row.finished_at,exercise:e.exercise?.name,
             sets:working.length,meters:summary(meters),calories:summary(calories),
             repetitions:summary(reps),
+            reps:reps.reduce((total,value)=>total+value,0), // Backwards-compatible; units other than reps excluded.
             max_weight_kg:working.some(s=>(s.weightKg??0)>0)
               ?Math.max(...working.map(s=>s.weightKg??0)):null,
             unknown_unit_sets:working.filter(s=>s.quantityUnit==null).length,
