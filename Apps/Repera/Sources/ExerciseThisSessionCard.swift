@@ -7,14 +7,23 @@ struct ExerciseThisSessionCard: View {
     @Environment(ReperaStore.self) private var store
     let exerciseId: UUID
     let highlightSessionId: UUID
+    var highlightExerciseInstanceId: UUID? = nil
 
     private var thisAppearance: ExerciseSessionAppearance? {
         guard let session = store.state.workouts.first(where: { $0.id == highlightSessionId }) else {
             return nil
         }
+        // No mezclar las series de dos bloques diferentes que prescriben
+        // el mismo ejercicio: la ficha abierta corresponde a la fila pulsada.
+        var scopedSession = session
+        if let highlightExerciseInstanceId {
+            guard let selected = session.exercises.first(where: { $0.id == highlightExerciseInstanceId })
+            else { return nil }
+            scopedSession.exercises = [selected]
+        }
         return StatsEngine.appearance(
             of: exerciseId,
-            in: session,
+            in: scopedSession,
             catalog: store.state.exercises
         )
     }
