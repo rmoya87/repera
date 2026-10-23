@@ -94,7 +94,7 @@ class LandscapeGroupedLayoutTests(unittest.TestCase):
 
     def test_home_and_exercise_hero_keep_intentional_edge_to_edge(self):
         home = read("HomeView.swift")
-        self.assertIn(".background(OG.surface)", home)
+        self.assertIn(".background(OG.surface.ignoresSafeArea(edges: .top))", home)
         detail = read("ExerciseDetailView.swift")
         self.assertIn("Imagen edge-to-edge", detail)
         self.assertIn(".padding(.horizontal, OG.pad)", detail)
