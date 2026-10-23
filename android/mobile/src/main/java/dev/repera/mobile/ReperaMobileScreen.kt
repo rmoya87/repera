@@ -79,6 +79,8 @@ fun ReperaMobileScreen(
     onStartRoutine: (String) -> Unit,
     onCreateRoutine: (String, String, List<RoutineDraftEntry>, Int, Int, RoutineSchedule) -> Unit,
     onWodScore: (Int?, Int?, Int?) -> Unit,
+    onWodMovement: (Int, Int, Int, Double?) -> Unit,
+    onCompleteWodBlock: () -> Unit,
     onQuickLog: (String) -> Unit,
     onInitializeLocal: () -> Unit,
     onLogSet: (Int, Double?, Double?, Boolean) -> Unit,
@@ -194,6 +196,8 @@ fun ReperaMobileScreen(
                                         onTimerAction = onWodTimerAction,
                                         onTimerTick = onWodTimerTick,
                                         onSave = onWodScore,
+                                        onMovement = onWodMovement,
+                                        onCompleteBlock = onCompleteWodBlock,
                                         onFinish = onFinish
                                     )
                                 } else {
@@ -509,6 +513,8 @@ private fun WodScoreCard(
     onTimerAction: (String) -> Unit,
     onTimerTick: () -> Unit,
     onSave: (Int?, Int?, Int?) -> Unit,
+    onMovement: (Int, Int, Int, Double?) -> Unit,
+    onCompleteBlock: () -> Unit,
     onFinish: () -> Unit
 ) {
     val wod = active.wod ?: return
@@ -542,6 +548,11 @@ private fun WodScoreCard(
     val elapsed = if (m != null && sec != null && sec in 0..59) {
         if (m <= (Int.MAX_VALUE - sec) / 60) m * 60 + sec else null
     } else null
+    val perMovement = wod.capture == "PER_MOVEMENT_SETS"
+    var selectedMovement by remember(active.id, active.index) { mutableStateOf(0) }
+    var intervalInput by remember(active.id, active.index) { mutableStateOf("1") }
+    var quantityInput by remember(active.id, active.index, selectedMovement) { mutableStateOf("") }
+    var weightInput by remember(active.id, active.index, selectedMovement) { mutableStateOf("") }
     val scoreIsTime = wod.capture == "ELAPSED_TIME"
     val valid = if (scoreIsTime) elapsed != null else
         extraReps.toIntOrNull() != null && (rounds.toIntOrNull() != null || !wod.expectsRounds)
@@ -583,7 +594,49 @@ private fun WodScoreCard(
                 Text((prefix + "  " + movement.name).trim(),
                     style = MaterialTheme.typography.bodyMedium)
             }
-            if (scoreIsTime) {
+            if (perMovement) {
+                val candidates = wod.movements.filter { !it.isRest }
+                Text("Registrar movimientos realizados", style = MaterialTheme.typography.titleMedium)
+                candidates.forEachIndexed { i, movement ->
+                    OutlinedButton(onClick = {
+                        selectedMovement = i
+                        quantityInput = movement.reps?.toString() ?: ""
+                    }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                        Text((if (selectedMovement == i) "✓ " else "") + movement.name)
+                    }
+                }
+                OutlinedTextField(value = intervalInput,
+                    onValueChange = { intervalInput = it.filter(Char::isDigit) },
+                    label = { Text("Intervalo o ronda (desde 1)") },
+                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = quantityInput,
+                    onValueChange = { quantityInput = it.filter(Char::isDigit) },
+                    label = { Text("Repeticiones o cantidad realizada") },
+                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = weightInput,
+                    onValueChange = { weightInput = it.filter { char -> char.isDigit() || char == '.' } },
+                    label = { Text("Peso en kg (opcional)") },
+                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                val validMovement = candidates.isNotEmpty() &&
+                    intervalInput.toIntOrNull()?.let { it in 1..100000 } == true &&
+                    quantityInput.toIntOrNull()?.let { it >= 0 } == true &&
+                    (weightInput.isBlank() || weightInput.toDoubleOrNull()?.let {
+                        it.isFinite() && it >= 0
+                    } == true)
+                Button(
+                    onClick = {
+                        onMovement(selectedMovement, intervalInput.toInt() - 1,
+                            quantityInput.toInt(), weightInput.toDoubleOrNull())
+                    }, enabled = !busy && validMovement,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Confirmar movimiento") }
+                wod.recorded.forEach { record ->
+                    Text("Intervalo ${record.intervalIndex + 1} · ${record.name}: ${record.quantity}",
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                Button(onClick = onCompleteBlock, enabled = !busy && wod.recorded.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth()) { Text("Terminar bloque y continuar") }
+            } else if (scoreIsTime) {
                 Text("Tiempo total realizado", style = MaterialTheme.typography.titleSmall)
                 if (elapsedClock > 0) {
                     TextButton(onClick = {
@@ -624,7 +677,7 @@ private fun WodScoreCard(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-            Button(
+            if (!perMovement) Button(
                 enabled = !busy && valid,
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
