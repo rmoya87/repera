@@ -688,11 +688,11 @@ struct WorkoutView: View {
         let qtyLabel = style == .machineWork ? liveQuantityUnit.shortLabel : current.exercise.quantityFieldLabel
         let loadLabel = current.exercise.loadField == .deficitCm
             ? "Déficit cm"
-            : (style == .loadAndReps ? "KG" : "Tiempo")
+            : (style == .loadAndReps ? "KG" : (current.exercise.isMobility ? "Tiempo" : "Tiempo"))
         return VStack(alignment: .leading, spacing: 12) {
             OGSetEntryHeader(
                 firstTitle: style == .repsOnly ? qtyLabel : loadLabel,
-                secondTitle: style == .repsOnly ? nil : qtyLabel,
+                secondTitle: style == .repsOnly || current.exercise.isMobilityHold ? nil : qtyLabel,
                 showsConfirmation: store.state.activeSession?.phase != .ready,
                 showsRIR: style.usesRIR
             )
@@ -747,7 +747,7 @@ struct WorkoutView: View {
                 index: index + 1,
                 previous: OGSetEntryRow.previousText(previousSet),
                 firstValue: firstValue,
-                secondValue: style == .repsOnly ? nil : "\(row.reps)",
+                secondValue: style == .repsOnly || current.exercise.isMobilityHold ? nil : "\(row.reps)",
                 nextEditableRowID: liveSets.dropFirst(index + 1).first(where: { !$0.completed })?.id,
                 firstAllowsDecimal: style != .repsOnly && current.exercise.loadField == .weightKg,
                 showsConfirmation: store.state.activeSession?.phase != .ready,
@@ -820,7 +820,7 @@ struct WorkoutView: View {
         let defaultQty: Int = {
             switch style {
             case .machineWork: return liveQuantityUnit == .meters ? 500 : 15
-            case .repsAndTime: return 50
+            case .repsAndTime: return current.exercise.isMobility ? (current.exercise.isMobilityHold ? 1 : 8) : 50
             default: return 8
             }
         }()
@@ -858,8 +858,9 @@ struct WorkoutView: View {
                     weightKg: loadField == .weightKg ? plannedSet.targetWeightKg : nil,
                     deficitCm: loadField == .deficitCm
                         ? plannedSet.targetWeightKg.map { Int($0.rounded()) } ?? 0 : nil,
-                    durationSeconds: style.usesDuration ? 60 : nil,
-                    reps: max(1, plannedSet.targetReps),
+                    durationSeconds: style.usesDuration
+                        ? (plannedSet.targetDurationSeconds ?? (current.exercise.isMobilityHold ? 30 : 60)) : nil,
+                    reps: current.exercise.isMobilityHold ? 1 : max(1, plannedSet.targetReps),
                     rir: plannedSet.targetRir,
                     completed: false
                 ))
@@ -868,7 +869,7 @@ struct WorkoutView: View {
                     id: UUID(),
                     weightKg: nil,
                     deficitCm: loadField == .deficitCm ? 0 : nil,
-                    durationSeconds: style.usesDuration ? 60 : nil,
+                    durationSeconds: style.usesDuration ? (current.exercise.isMobilityHold ? 30 : 60) : nil,
                     reps: defaultQty,
                     rir: nil,
                     completed: false
@@ -909,9 +910,9 @@ struct WorkoutView: View {
                     ? (last?.deficitCm ?? current.plannedSets.last?.targetWeightKg.map { Int($0.rounded()) } ?? 0)
                     : nil,
                 durationSeconds: style.usesDuration
-                    ? (last?.durationSeconds ?? 60)
+                    ? (last?.durationSeconds ?? current.plannedSets.last?.targetDurationSeconds ?? (current.exercise.isMobilityHold ? 30 : 60))
                     : nil,
-                reps: last?.reps ?? current.plannedSets.last?.targetReps ?? defaultQty,
+                reps: current.exercise.isMobilityHold ? 1 : (last?.reps ?? current.plannedSets.last?.targetReps ?? defaultQty),
                 rir: style.usesRIR ? (last?.rir ?? current.plannedSets.last?.targetRir) : nil,
                 completed: false
             )
