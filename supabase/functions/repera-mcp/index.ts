@@ -259,7 +259,7 @@ Deno.serve(async (request) => {
     },async()=>reply({
       event:"HYROX solo",source:"https://hyrox.com/the-fitness-race/",
       race_structure:"8 × 1 km runs alternating with 8 functional stations; 8 km total running",
-      ordered_stations:hyroxStations.map((station,i)=>({station:i,runBeforeMeters:1000,...station})),
+      ordered_stations:hyroxStations.slice(1).map((station,i)=>({station:i+1,runBeforeMeters:1000,...station})),
       prescribed_format:{kind:"wod",wodFormat:"forTime",rounds:1,
         note:"Represent 16 alternating movements: 1 km run BEFORE each station. Preserve distanceMeters vs reps, and capture total elapsed time. Station load is division-specific."},
       planning_checklist:[
