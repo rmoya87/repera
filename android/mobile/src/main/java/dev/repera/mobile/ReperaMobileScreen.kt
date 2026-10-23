@@ -557,6 +557,20 @@ private fun WodScoreCard(
     val perMovement = wod.capture == "PER_MOVEMENT_SETS"
     var selectedMovement by remember(active.id, active.index) { mutableStateOf(0) }
     var intervalInput by remember(active.id, active.index) { mutableStateOf("1") }
+    var intervalEdited by remember(active.id, active.index) { mutableStateOf(false) }
+    // Follow the actual monotonic WOD clock until the athlete explicitly edits the interval.
+    // A clock transition never confirms reps or saves a movement.
+    val suggestedInterval = when (WodFormat.fromWire(wod.format)) {
+        WodFormat.EMOM, WodFormat.DEATH_BY ->
+            elapsedClock / (wod.intervalSeconds ?: 60).coerceAtLeast(1) + 1
+        WodFormat.TABATA ->
+            elapsedClock / ((wod.workSeconds ?: 20).coerceAtLeast(1) +
+                (wod.restSeconds ?: 10).coerceAtLeast(0)).coerceAtLeast(1) + 1
+        else -> 1
+    }
+    LaunchedEffect(active.id, active.index, suggestedInterval) {
+        if (!intervalEdited) intervalInput = suggestedInterval.toString()
+    }
     var quantityInput by remember(active.id, active.index, selectedMovement) { mutableStateOf("") }
     var weightInput by remember(active.id, active.index, selectedMovement) { mutableStateOf("") }
     val scoreIsTime = wod.capture == "ELAPSED_TIME"
@@ -612,7 +626,7 @@ private fun WodScoreCard(
                     }
                 }
                 OutlinedTextField(value = intervalInput,
-                    onValueChange = { intervalInput = it.filter(Char::isDigit) },
+                    onValueChange = { intervalEdited = true; intervalInput = it.filter(Char::isDigit) },
                     label = { Text("Intervalo o ronda (desde 1)") },
                     singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = quantityInput,
