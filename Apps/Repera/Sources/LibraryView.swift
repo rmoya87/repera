@@ -252,7 +252,11 @@ struct LibraryView: View {
             let fa = store.isWODTemplateFavorite(a.id)
             let fb = store.isWODTemplateFavorite(b.id)
             if fa != fb { return fa && !fb }
-            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+            if sortMode == .muscle {
+                let muscleOrder = a.musclesLabel.localizedStandardCompare(b.musclesLabel)
+                if muscleOrder != .orderedSame { return muscleOrder == .orderedAscending }
+            }
+            return a.name.localizedStandardCompare(b.name) == .orderedAscending
         }
     }
 
