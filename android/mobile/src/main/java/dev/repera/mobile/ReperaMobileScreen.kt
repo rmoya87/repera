@@ -379,7 +379,14 @@ fun ReperaMobileScreen(
                                             Text("Récord de carga: $weight kg" +
                                                 (progress.repsAtMaxWeight?.let { " · $it reps" } ?: ""))
                                         }
-                                        progress.bestReps?.let { Text("Máximo: $it reps") }
+                                        if (entry.isMobility) {
+                                            progress.bestDurationSeconds?.let { Text("Mejor mantenimiento: ${it}s") }
+                                            Text("Tiempo acumulado: ${progress.totalDurationSeconds}s")
+                                            Text("Sesiones: ${progress.timesPerformed}")
+                                            if (!entry.isMobilityHold) progress.bestReps?.let { Text("Máximo: $it reps") }
+                                        } else {
+                                            progress.bestReps?.let { Text("Máximo: $it reps") }
+                                        }
                                         progress.bestCalories?.let { Text("Máximo: $it cal") }
                                         progress.bestMeters?.let { Text("Máximo: $it m") }
                                     }
@@ -874,7 +881,8 @@ private fun ScheduledRoutineCard(
 }
 
 private data class RoutineDraftRow(
-    val id: String, val name: String, val sets: Int, val quantity: Int, val weightKg: Double?
+    val id: String, val name: String, val sets: Int, val quantity: Int, val weightKg: Double?,
+    val durationSeconds: Int? = null, val isMobility: Boolean = false, val isMobilityHold: Boolean = false
 )
 
 /** Material editor for the Swift Routine/RoutineBlock subset actually supported on Android. */
@@ -891,6 +899,7 @@ private fun RoutineCreatorCard(
     var reps by remember { mutableStateOf("10") }
     var sets by remember { mutableStateOf("3") }
     var weight by remember { mutableStateOf("") }
+    var mobilitySeconds by remember { mutableStateOf("30") }
     var cap by remember { mutableStateOf("12") }
     var rounds by remember { mutableStateOf("1") }
     var planning by remember { mutableStateOf("library") }
@@ -967,7 +976,12 @@ private fun RoutineCreatorCard(
                 )
                 OutlinedTextField(
                     value = weight, onValueChange = { weight = it },
-                    label = { Text("Peso prescrito opcional (kg)") },
+                    label = { Text("Peso prescrito opcional (kg), solo fuerza") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                )
+                OutlinedTextField(
+                    value = mobilitySeconds, onValueChange = { mobilitySeconds = it.filter(Char::isDigit) },
+                    label = { Text("Duración por serie para movilidad (segundos)") },
                     modifier = Modifier.fillMaxWidth(), singleLine = true
                 )
             }
@@ -1012,7 +1026,9 @@ private fun RoutineCreatorCard(
                 ) {
                     Text(draft.name + " · " +
                         (if (kind == "strength") "${draft.sets}×" else "") +
-                        "${draft.quantity} reps")
+                        (if (draft.isMobilityHold) "${draft.durationSeconds ?: 30}s"
+                         else "${draft.quantity} reps" +
+                            (draft.durationSeconds?.let { " · ${it}s" } ?: "")))
                     TextButton(onClick = { chosen.remove(draft) }, enabled = !busy) {
                         Text("Quitar")
                     }
@@ -1025,7 +1041,9 @@ private fun RoutineCreatorCard(
             )
             candidates.forEach { candidate ->
                 TextButton(
-                    enabled = !busy && validNumeric,
+                    enabled = !busy && validNumeric &&
+                        (!candidate.isMobility || kind != "strength" ||
+                            (mobilitySeconds.toIntOrNull() in 1..3600)),
                     modifier = Modifier.fillMaxWidth(),
                     onClick = {
                         if (quantity != null) {
@@ -1033,8 +1051,11 @@ private fun RoutineCreatorCard(
                                 candidate.id,
                                 candidate.name,
                                 if (kind == "strength") setCount ?: 3 else 1,
-                                quantity,
-                                if (kind == "strength" && candidate.allowsWeight) weightValue else null
+                                if (candidate.isMobilityHold) 1 else quantity,
+                                if (kind == "strength" && candidate.allowsWeight) weightValue else null,
+                                if (candidate.isMobility && kind == "strength") mobilitySeconds.toIntOrNull() else null,
+                                candidate.isMobility,
+                                candidate.isMobilityHold
                             ))
                         }
                     }
@@ -1056,7 +1077,7 @@ private fun RoutineCreatorCard(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
                     val entries = chosen.map {
-                        RoutineDraftEntry(it.id, it.quantity, it.sets, it.weightKg)
+                        RoutineDraftEntry(it.id, it.quantity, it.sets, it.weightKg, it.durationSeconds)
                     }
                     onSave(title, kind, entries, cap.toIntOrNull() ?: 12,
                         rounds.toIntOrNull() ?: 1,
