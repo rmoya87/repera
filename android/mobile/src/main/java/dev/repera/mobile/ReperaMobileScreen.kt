@@ -61,6 +61,7 @@ fun ReperaMobileScreen(
     onHealthConnect: () -> Unit,
     activeWorkout: ActiveWorkout?,
     onStartRoutine: (String) -> Unit,
+    onWodScore: (Int?, Int?, Int?) -> Unit,
     onQuickLog: (String) -> Unit,
     onInitializeLocal: () -> Unit,
     onLogSet: (Int, Double?) -> Unit,
@@ -156,13 +157,22 @@ fun ReperaMobileScreen(
                     item {
                         if (activeWorkout != null) {
                             key(activeWorkout.id, activeWorkout.index, activeWorkout.completedSets) {
-                                ActiveWorkoutCard(
-                                    active = activeWorkout,
-                                    busy = busy,
-                                    onLogSet = onLogSet,
-                                    onNext = onNext,
-                                    onFinish = onFinish
-                                )
+                                if (activeWorkout.wod != null) {
+                                    WodScoreCard(
+                                        active = activeWorkout,
+                                        busy = busy,
+                                        onSave = onWodScore,
+                                        onFinish = onFinish
+                                    )
+                                } else {
+                                    ActiveWorkoutCard(
+                                        active = activeWorkout,
+                                        busy = busy,
+                                        onLogSet = onLogSet,
+                                        onNext = onNext,
+                                        onFinish = onFinish
+                                    )
+                                }
                             }
                         } else {
                             Card(modifier = Modifier.fillMaxWidth()) {
@@ -217,8 +227,8 @@ fun ReperaMobileScreen(
                                 Text(routine.title, style = MaterialTheme.typography.titleMedium)
                                 TextButton(
                                     onClick = { onStartRoutine(routine.id); selected = "Inicio" },
-                                    enabled = !busy && activeWorkout == null && routine.strengthOnly
-                                ) { Text(if (routine.strengthOnly) "Empezar entrenamiento" else "Bloque WOD pendiente") }
+                                    enabled = !busy && activeWorkout == null && routine.supported
+                                ) { Text(if (routine.supported) "Empezar entrenamiento" else "Formato pendiente") }
                             }
                         }
                     }
@@ -344,6 +354,99 @@ private fun ActiveWorkoutCard(
                 Text(if (active.index + 1 == active.total) "Terminar último ejercicio" else "Siguiente ejercicio")
             }
             TextButton(onClick = onFinish, enabled = !busy) { Text("Finalizar entrenamiento") }
+        }
+    }
+}
+
+
+/** Inline score editor like the iPhone Play review, no modal or imaginary movement sets. */
+@Composable
+private fun WodScoreCard(
+    active: ActiveWorkout,
+    busy: Boolean,
+    onSave: (Int?, Int?, Int?) -> Unit,
+    onFinish: () -> Unit
+) {
+    val wod = active.wod ?: return
+    var rounds by remember(active.id, active.index) { mutableStateOf("") }
+    var extraReps by remember(active.id, active.index) { mutableStateOf("") }
+    var minutes by remember(active.id, active.index) { mutableStateOf("") }
+    var seconds by remember(active.id, active.index) { mutableStateOf("") }
+    val m = minutes.toIntOrNull()
+    val sec = seconds.toIntOrNull()
+    val elapsed = if (m != null && sec != null && sec in 0..59) {
+        if (m <= (Int.MAX_VALUE - sec) / 60) m * 60 + sec else null
+    } else null
+    val scoreIsTime = wod.capture == "ELAPSED_TIME"
+    val valid = if (scoreIsTime) elapsed != null else
+        extraReps.toIntOrNull() != null && (rounds.toIntOrNull() != null || !wod.expectsRounds)
+
+    Card(modifier = Modifier.fillMaxWidth().animateContentSize()) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(active.title, style = MaterialTheme.typography.titleLarge)
+            Text(wod.title + " · " + wod.format.uppercase(),
+                style = MaterialTheme.typography.titleMedium)
+            wod.movements.forEach { movement ->
+                val prefix = when {
+                    movement.isRest -> movement.restSeconds?.let { "${it}s descanso" } ?: "Descanso"
+                    movement.repScheme.isNotEmpty() ->
+                        movement.repScheme.joinToString("-") + " reps"
+                    movement.calories != null -> "${movement.calories} cal"
+                    movement.meters != null -> "${movement.meters} m"
+                    movement.reps != null -> "${movement.reps} reps"
+                    else -> ""
+                }
+                Text((prefix + "  " + movement.name).trim(),
+                    style = MaterialTheme.typography.bodyMedium)
+            }
+            if (scoreIsTime) {
+                Text("Tiempo total realizado", style = MaterialTheme.typography.titleSmall)
+                OutlinedTextField(
+                    value = minutes,
+                    onValueChange = { minutes = it.filter(Char::isDigit) },
+                    label = { Text("Minutos") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = seconds,
+                    onValueChange = { seconds = it.filter(Char::isDigit) },
+                    label = { Text("Segundos (0–59)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                if (wod.expectsRounds) {
+                    OutlinedTextField(
+                        value = rounds,
+                        onValueChange = { rounds = it.filter(Char::isDigit) },
+                        label = { Text("Rondas completadas") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                OutlinedTextField(
+                    value = extraReps,
+                    onValueChange = { extraReps = it.filter(Char::isDigit) },
+                    label = { Text(if (wod.expectsRounds) "Repeticiones adicionales" else "Repeticiones totales") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            Button(
+                enabled = !busy && valid,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = {
+                    if (scoreIsTime) onSave(null, null, elapsed)
+                    else onSave(rounds.toIntOrNull(), extraReps.toIntOrNull(), null)
+                }
+            ) { Text("Guardar resultado y continuar") }
+            TextButton(onClick = onFinish, enabled = !busy) {
+                Text("Finalizar sin añadir otro resultado")
+            }
         }
     }
 }

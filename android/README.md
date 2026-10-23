@@ -36,3 +36,11 @@ gradle :mobile:connectedDebugAndroidTest
 con cuentas reales. Falta la paridad completa con iOS/watchOS.
 Véanse `docs/STATUS_AND_PARITY.md`, `docs/GOOGLE_IDENTITY_DRIVE.md`
 y `docs/AUDIT_2026_10_23.md`.
+
+## WOD (primera integración real)
+
+Ya hay inicio de rutinas mixtas fuerza + WOD **con resultado global**,
+registro por bloque (reps/rondas o tiempo) y guardado sin series inventadas.
+Los formatos por movimiento (EMOM, Tabata, Circuito, etc.) permanecen
+bloqueados. Tampoco se afirma que el reloj en Play funcione aún como iOS.
+Ver `docs/STATUS_AND_PARITY.md`.

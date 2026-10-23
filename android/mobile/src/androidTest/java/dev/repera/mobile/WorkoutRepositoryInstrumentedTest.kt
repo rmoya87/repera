@@ -84,4 +84,97 @@ class WorkoutRepositoryInstrumentedTest {
         }
         assertNull(WorkoutRepository(ctx, user).active())
     }
+
+    @Test fun forTimeRecordsOnlyOneBlockScoreAndNoFakeSets() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val user = UUID.randomUUID().toString()
+        val blockId = UUID.randomUUID().toString()
+        val routineId = UUID.randomUUID().toString()
+        val movements = JSONArray()
+            .put(JSONObject().put("id", UUID.randomUUID().toString())
+                .put("name", "Squat clean").put("reps", 21))
+            .put(JSONObject().put("id", UUID.randomUUID().toString())
+                .put("name", "Box jump").put("reps", 21))
+        val block = JSONObject().put("id", blockId).put("kind", "wod")
+            .put("title", "21-15-9").put("wodFormat", "forTime")
+            .put("timeCapMinutes", 12).put("movements", movements)
+        val state = JSONObject().put("exercises", JSONArray())
+            .put("routines", JSONArray().put(
+                JSONObject().put("id", routineId).put("title", "Metcon")
+                    .put("blocks", JSONArray().put(block))
+            )).put("workouts", JSONArray()).put("syncRevision", 0)
+        val local = LocalSnapshotStore(ctx, user)
+        local.write(state.toString().toByteArray())
+        val repo = WorkoutRepository(ctx, user)
+        val active = repo.startRoutine(routineId)
+        assertEquals("ELAPSED_TIME", active.wod!!.capture)
+        assertEquals(2, active.wod!!.movements.size)
+        assertThrows(IllegalStateException::class.java) { repo.next() }
+        assertNull(repo.recordWodScore(null, null, 387))
+        val after = JSONObject(String(local.read()!!))
+        assertFalse(after.has("activeSession"))
+        val recorded = after.getJSONArray("workouts").getJSONObject(0)
+        assertEquals("finished", recorded.getString("phase"))
+        val score = recorded.getJSONArray("wodResults").getJSONObject(0)
+        assertEquals(blockId, score.getString("id"))
+        assertEquals("forTime", score.getString("format"))
+        assertEquals(387, score.getInt("elapsedSeconds"))
+        assertFalse(score.has("roundsCompleted"))
+        for (i in 0 until recorded.getJSONArray("exercises").length()) {
+            val ex = recorded.getJSONArray("exercises").getJSONObject(i)
+            assertEquals(0, ex.getJSONArray("loggedSets").length())
+            assertTrue(ex.getBoolean("isCompleted"))
+        }
+    }
+
+    @Test fun mixedStrengthThenAmrapKeepsBothKindsWithoutFabricatedSets() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val user = UUID.randomUUID().toString()
+        val exerciseId = UUID.randomUUID().toString()
+        val routineId = UUID.randomUUID().toString()
+        val wodId = UUID.randomUUID().toString()
+        val catalogExercise = JSONObject().put("id", exerciseId)
+            .put("name", "Sentadilla").put("muscleGroup", "Piernas")
+            .put("equipment", "Barra").put("isCustom", false)
+        val strength = JSONObject().put("id", UUID.randomUUID().toString())
+            .put("kind", "strength").put("title", "Fuerza")
+            .put("exercises", JSONArray().put(
+                JSONObject().put("exerciseId", exerciseId)
+                    .put("plannedSets", JSONArray().put(JSONObject()
+                        .put("id", UUID.randomUUID().toString())
+                        .put("targetReps", 4)))
+            ))
+        val wod = JSONObject().put("id", wodId).put("kind", "wod")
+            .put("title", "AMRAP 12'").put("wodFormat", "amrap")
+            .put("movements", JSONArray().put(
+                JSONObject().put("id", UUID.randomUUID().toString())
+                    .put("name", "Burpee").put("reps", 10)
+            ))
+        val state = JSONObject().put("exercises", JSONArray().put(catalogExercise))
+            .put("routines", JSONArray().put(JSONObject().put("id", routineId)
+                .put("title", "Fuerza + Metcon").put("blocks", JSONArray()
+                    .put(strength).put(wod))))
+            .put("workouts", JSONArray()).put("syncRevision", 0)
+        val local = LocalSnapshotStore(ctx, user)
+        local.write(state.toString().toByteArray())
+        val repo = WorkoutRepository(ctx, user)
+        repo.startRoutine(routineId)
+        repo.logCurrentSet(4, 60.0)
+        val next = repo.next()!!
+        assertEquals("amrap", next.wod?.format)
+        assertThrows(IllegalArgumentException::class.java) {
+            repo.recordWodScore(null, 3, null)
+        }
+        assertNull(repo.recordWodScore(3, 7, null))
+        val archive = JSONObject(String(local.read()!!)).getJSONArray("workouts").getJSONObject(0)
+        assertEquals(1, archive.getJSONArray("wodResults").length())
+        assertEquals(3, archive.getJSONArray("wodResults").getJSONObject(0)
+            .getInt("roundsCompleted"))
+        assertEquals(7, archive.getJSONArray("wodResults").getJSONObject(0)
+            .getInt("totalReps"))
+        assertEquals(1, archive.getJSONArray("exercises").getJSONObject(0)
+            .getJSONArray("loggedSets").length())
+        assertEquals(0, archive.getJSONArray("exercises").getJSONObject(1)
+            .getJSONArray("loggedSets").length())
+    }
 }

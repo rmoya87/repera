@@ -84,3 +84,26 @@ JSON de Repera ni a Drive/Supabase; no se generan kcal por inferencia.
 El permiso se solicita sólo cuando el usuario pulsa conectar; se ofrece
 explicación en la pantalla de gestión de permisos. Quedan pendientes
 Health Services del reloj, operaciones de escritura y pruebas E2E.
+
+## Captura real de bloques WOD
+
+El port de `SessionController.from` comienza a incorporar bloques combinados
+fuerza + WOD, preservando `RoutineBlock.movements` y las prescripciones
+por movimiento. El motor habilita los formatos con resultado **global**
+compatibles con la misma estructura `WODBlockResult` que Swift:
+
+- AMRAP y Death By: `roundsCompleted` y `totalReps` (reps adicionales).
+- Max Effort: `totalReps`, sin inventar rondas.
+- For Time, Chipper, AFAP, Ladder, Buy-in/Cash-out:
+  `elapsedSeconds` real que introduce el usuario.
+- Tras confirmar el resultado se marcan completados todos los movimientos del
+  bloque y se pasa al bloque siguiente o se archiva la sesión, exactamente
+  **sin generar `loggedSets` falsos**.
+
+El editor es inline en Inicio/Play, sin modal de resultado. El resumen
+reciente incluye los resultados reales guardados. EMOM, Tabata, Circuito,
+Partner, RFQ y Strength-WOD quedan bloqueados por requerir el registro
+por movimiento que aún no está implementado. El cronómetro WOD del módulo
+dominio **no está conectado aún al Play real**.
+Se han incluido pruebas instrumentadas para For Time y fuerza + AMRAP,
+pendientes de ejecución en emulador/dispositivo.

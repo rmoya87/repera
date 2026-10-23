@@ -143,7 +143,7 @@ class MainActivity : ComponentActivity() {
                 val nonceBytes = ByteArray(32).also { SecureRandom().nextBytes(it) }
                 val nonce = nonceBytes.joinToString("") { "%02x".format(it) }
                 val option = GetSignInWithGoogleOption.Builder(
-                    serverClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID
+                    BuildConfig.GOOGLE_WEB_CLIENT_ID
                 ).setNonce(nonce).build()
                 val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
                 val result = credentialManager.getCredential(context = this@MainActivity, request = request)
@@ -364,11 +364,13 @@ data class StateOverview(
                 (0 until array.length()).map { n ->
                     val item = array.getJSONObject(n)
                     val blocks = item.optJSONArray("blocks")
-                    val strengthOnly = blocks != null && blocks.length() > 0 &&
+                    val supported = blocks != null && blocks.length() > 0 &&
                         (0 until blocks.length()).all { index ->
-                            blocks.getJSONObject(index).optString("kind") == "strength"
+                            val block = blocks.getJSONObject(index)
+                            block.optString("kind") == "strength" ||
+                                WodSessionAssembler.supports(block)
                         }
-                    RoutineEntry(item.getString("id"), item.optString("title"), strengthOnly)
+                    RoutineEntry(item.getString("id"), item.optString("title"), supported)
                 }
             }
             val exerciseEntries = json.getJSONArray("exercises").let { array ->
@@ -398,6 +400,6 @@ data class StateOverview(
     }
 }
 
-data class RoutineEntry(val id: String, val title: String, val strengthOnly: Boolean)
+data class RoutineEntry(val id: String, val title: String, val supported: Boolean)
 
 data class ExerciseEntry(val id: String, val name: String, val supportsBasicInput: Boolean)

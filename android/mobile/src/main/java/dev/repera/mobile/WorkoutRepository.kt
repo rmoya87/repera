@@ -3,6 +3,8 @@ package dev.repera.mobile
 import android.content.Context
 import dev.repera.domain.ExerciseInput
 import dev.repera.domain.ExerciseInputMode
+import dev.repera.domain.WodFormat
+import dev.repera.domain.ResultCapture
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
@@ -29,7 +31,9 @@ class WorkoutRepository(context: Context, googleId: String) {
         return state.optJSONObject("activeSession")?.let { summarize(it) }
     }
 
-    @Synchronized fun startStrengthRoutine(id: String): ActiveWorkout {
+    @Synchronized fun startStrengthRoutine(id: String): ActiveWorkout = startRoutine(id)
+
+    @Synchronized fun startRoutine(id: String): ActiveWorkout {
         val state = loadOrNull() ?: error("Importa primero un historial o crea tus datos locales")
         check(state.isNull("activeSession")) { "Ya existe una sesión activa" }
         val routines = state.getJSONArray("routines")
@@ -37,10 +41,11 @@ class WorkoutRepository(context: Context, googleId: String) {
             .firstOrNull { it.optString("id") == id } ?: error("Rutina no encontrada")
         val blocks = routine.optJSONArray("blocks") ?: JSONArray()
         require(blocks.length() > 0) { "Esta rutina no tiene bloques" }
-        // Never silently reinterpret a WOD as strength or discard its movements.
-        check((0 until blocks.length()).all { blocks.getJSONObject(it).optString("kind") == "strength" }) {
-            "Los bloques WOD aún no admiten ejecución en Android"
-        }
+        // Refuse unsupported formats atomically before touching the local document.
+        check((0 until blocks.length()).all { i ->
+            val block = blocks.getJSONObject(i)
+            block.optString("kind") == "strength" || WodSessionAssembler.supports(block)
+        }) { "Hay bloques que requieren un editor WOD aún no disponible" }
         val catalog = state.getJSONArray("exercises")
         val byId = (0 until catalog.length()).associate {
             val exercise = catalog.getJSONObject(it)
@@ -49,6 +54,10 @@ class WorkoutRepository(context: Context, googleId: String) {
         val planned = JSONArray()
         for (blockIndex in 0 until blocks.length()) {
             val block = blocks.getJSONObject(blockIndex)
+            if (block.optString("kind") == "wod") {
+                WodSessionAssembler.append(block, catalog, planned)
+                continue
+            }
             val entries = block.optJSONArray("exercises") ?: JSONArray()
             for (j in 0 until entries.length()) {
                 val entry = entries.getJSONObject(j)
@@ -197,12 +206,84 @@ class WorkoutRepository(context: Context, googleId: String) {
         val session = requireActive(state)
         val exercises = session.getJSONArray("exercises")
         val index = session.getInt("currentIndex")
+        check(exercises.getJSONObject(index).optString("blockKind") != "wod") {
+            "Registra el resultado global del bloque WOD para continuar"
+        }
         exercises.getJSONObject(index).put("isCompleted", true)
         if (index + 1 == exercises.length()) {
             finishInPlace(state, session)
             return null
         }
         session.put("currentIndex", index + 1).put("phase", "ready")
+        save(state)
+        return summarize(session)
+    }
+
+    /**
+     * Swift SessionController.recordWODResult + finishCurrentBlock.
+     * 'totalReps' is additional reps after full rounds, NOT an invented sum.
+     */
+    @Synchronized fun recordWodScore(
+        roundsCompleted: Int?, additionalReps: Int?, elapsedSeconds: Int?
+    ): ActiveWorkout? {
+        val state = requireState()
+        val session = requireActive(state)
+        val exercises = session.getJSONArray("exercises")
+        val index = session.getInt("currentIndex")
+        val current = exercises.getJSONObject(index)
+        require(current.optString("blockKind") == "wod") { "El ejercicio actual no es un bloque WOD" }
+        val format = WodFormat.fromWire(current.getString("wodFormat"))
+            ?: error("Formato WOD no reconocido")
+        when (format.capture) {
+            ResultCapture.TOTAL_REPS -> {
+                require(additionalReps != null && additionalReps >= 0)
+                require(elapsedSeconds == null)
+                if (format == WodFormat.AMRAP || format == WodFormat.DEATH_BY) {
+                    require(roundsCompleted != null && roundsCompleted >= 0)
+                } else require(roundsCompleted == null)
+            }
+            ResultCapture.ELAPSED_TIME -> {
+                require(elapsedSeconds != null && elapsedSeconds >= 0)
+                require(roundsCompleted == null && additionalReps == null)
+            }
+            ResultCapture.PER_MOVEMENT_SETS ->
+                error("Este formato requiere el editor de series por movimiento")
+        }
+        val blockId = current.getString("blockId")
+        val original = session.optJSONArray("routineBlocks")
+        val block = original?.let { blocks ->
+            (0 until blocks.length()).map { blocks.getJSONObject(it) }
+                .firstOrNull { it.optString("id") == blockId }
+        }
+        val score = JSONObject().put("id", blockId).put("format", format.wireName)
+        if (roundsCompleted != null) score.put("roundsCompleted", roundsCompleted)
+        if (additionalReps != null) score.put("totalReps", additionalReps)
+        if (elapsedSeconds != null) score.put("elapsedSeconds", elapsedSeconds)
+        if (block?.has("wodTemplateId") == true && !block.isNull("wodTemplateId"))
+            score.put("wodTemplateId", block.getString("wodTemplateId"))
+        val previous = session.optJSONArray("wodResults") ?: JSONArray()
+        val revised = JSONArray()
+        for (i in 0 until previous.length()) {
+            if (previous.getJSONObject(i).optString("id") != blockId)
+                revised.put(previous.getJSONObject(i))
+        }
+        revised.put(score)
+        session.put("wodResults", revised)
+        var nextIndex = index + 1
+        // Finish all movements in the same block (including a user-selected movement).
+        for (i in 0 until exercises.length()) {
+            if (exercises.getJSONObject(i).optString("blockId") == blockId)
+                exercises.getJSONObject(i).put("isCompleted", true)
+        }
+        while (nextIndex < exercises.length() &&
+            exercises.getJSONObject(nextIndex).optString("blockId") == blockId) {
+            nextIndex++
+        }
+        if (nextIndex == exercises.length()) {
+            finishInPlace(state, session)
+            return null
+        }
+        session.put("currentIndex", nextIndex).put("phase", "ready")
         save(state)
         return summarize(session)
     }
@@ -299,6 +380,39 @@ class WorkoutRepository(context: Context, googleId: String) {
         }
         val next = if (plan.length() == 0) null
             else plan.getJSONObject(minOf(finishedWork, plan.length() - 1))
+        val blockId = current.optString("blockId")
+        val block = session.optJSONArray("routineBlocks")?.let { blocks ->
+            (0 until blocks.length()).map { blocks.getJSONObject(it) }
+                .firstOrNull { it.optString("id") == blockId }
+        }
+        val format = WodFormat.fromWire(current.optString("wodFormat"))
+        val wod = if (current.optString("blockKind") == "wod" && format != null) {
+            val moves = block?.optJSONArray("movements") ?: JSONArray()
+            WodExecution(
+                format = format.wireName,
+                capture = format.capture.name,
+                expectsRounds = format == WodFormat.AMRAP || format == WodFormat.DEATH_BY,
+                title = block?.optString("title") ?: format.wireName,
+                movements = (0 until moves.length()).map { j ->
+                    val m = moves.getJSONObject(j)
+                    WodMovementSummary(
+                        name = m.optString("name"),
+                        isRest = m.optBoolean("isRest"),
+                        reps = m.optInt("reps").takeIf { m.has("reps") && !m.isNull("reps") },
+                        repScheme = m.optJSONArray("repScheme")?.let { a ->
+                            (0 until a.length()).map { a.getInt(it) }
+                        }.orEmpty(),
+                        calories = m.optInt("calories").takeIf { m.has("calories") && !m.isNull("calories") },
+                        meters = m.optInt("distanceMeters").takeIf {
+                            m.has("distanceMeters") && !m.isNull("distanceMeters")
+                        },
+                        restSeconds = m.optInt("restSeconds").takeIf {
+                            m.has("restSeconds") && !m.isNull("restSeconds")
+                        }
+                    )
+                }
+            )
+        } else null
         return ActiveWorkout(
             id = session.getString("id"),
             title = session.getString("title"),
@@ -310,6 +424,7 @@ class WorkoutRepository(context: Context, googleId: String) {
             prescribedWeightKg = next?.takeIf { it.has("targetWeightKg") && !it.isNull("targetWeightKg") }
                 ?.getDouble("targetWeightKg"),
             allowsWeight = inputMode(current.getJSONObject("exercise")).showsWeight,
+            wod = wod,
             sets = (0 until logged.length()).map { n ->
                 val set = logged.getJSONObject(n)
                 WorkoutSetSummary(set.getString("id"), set.getInt("reps"),
@@ -330,5 +445,24 @@ data class ActiveWorkout(
     val prescribedQuantity: Int?,
     val prescribedWeightKg: Double?,
     val allowsWeight: Boolean,
-    val sets: List<WorkoutSetSummary>
+    val sets: List<WorkoutSetSummary>,
+    val wod: WodExecution? = null
+)
+
+data class WodExecution(
+    val format: String,
+    val capture: String,
+    val expectsRounds: Boolean,
+    val title: String,
+    val movements: List<WodMovementSummary>
+)
+
+data class WodMovementSummary(
+    val name: String,
+    val isRest: Boolean,
+    val reps: Int?,
+    val repScheme: List<Int>,
+    val calories: Int?,
+    val meters: Int?,
+    val restSeconds: Int?
 )
