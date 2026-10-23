@@ -100,7 +100,7 @@ public enum HyroxExercises {
         "SkiErg", "Esquí ergómetro",
         "Sled push", "Empuje de trineo",
         "Sled pull", "Arrastre de trineo",
-        "Burpee Broad Jump", "Burpee Broad Jumps", "Burpees con salto de longitud",
+        "Burpee Broad Jump", "Burpee Broad Jumps", "Burpee con salto de longitud", "Burpees con salto de longitud",
         "Remo máquina", "Remoergómetro", "RowErg", "Rowing",
         "Farmer carry", "Farmer walk", "Farmers carry", "Paseo del granjero",
         "Sandbag Lunges", "Sandbag Lunge", "Zancadas con saco",
