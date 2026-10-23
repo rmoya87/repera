@@ -13,21 +13,26 @@ def read(name: str) -> str:
 
 
 class LandscapeGroupedLayoutTests(unittest.TestCase):
-    def test_shared_list_matches_progress_margins_in_both_orientations(self):
+    def test_shared_list_constrains_its_entire_width_not_just_scroll_rows(self):
         theme = read("Theme.swift")
+        self.assertIn("static let contentColumnMaxWidth: CGFloat = 790", theme)
         modifier = theme.split("private struct OGListChromeModifier:", 1)[1].split(
             "extension View {", 1
         )[0]
         self.assertIn(".listStyle(.insetGrouped)", modifier)
-        self.assertIn(".contentMargins(.horizontal, OG.pad, for: .scrollContent)", modifier)
         self.assertIn(".listSectionSpacing(12)", modifier)
         self.assertIn("OG.bg.ignoresSafeArea()", modifier)
-        self.assertIn("@Environment(\\.verticalSizeClass) private var verticalSizeClass", modifier)
-        self.assertIn(".safeAreaPadding(.horizontal, verticalSizeClass == .compact ? OG.pad : 0)", modifier)
-        self.assertNotIn("OG.pad + 12", modifier)
-        self.assertNotIn(".contentMargins(.all", modifier)
+        self.assertIn(".frame(maxWidth: OG.contentColumnMaxWidth)", modifier)
+        self.assertIn(".frame(maxWidth: .infinity, alignment: .center)", modifier)
+        self.assertNotIn(".contentMargins(.horizontal", modifier)
+        self.assertNotIn(".safeAreaPadding(.horizontal", modifier)
         self.assertNotIn(".padding(.horizontal", modifier)
         self.assertNotIn(".clipShape(", modifier)
+        # En el tamaño de la captura (~905 pt), la columna deja aprox.
+        # 57,5 pt por lado ANTES del insetGroup nativo (~16-20 pt).
+        viewport = 905
+        max_width = 790
+        self.assertAlmostEqual((viewport - max_width) / 2, 57.5)
 
     def test_editor_and_play_share_native_grouped_sections(self):
         editor = read("PlanView.swift")
@@ -90,17 +95,40 @@ class LandscapeGroupedLayoutTests(unittest.TestCase):
         # en los laterales seguros del iPhone colocado en horizontal.
         self.assertIn(".background(OG.bg.ignoresSafeArea(edges: .horizontal))", home)
         self.assertIn(".background(OG.bg.ignoresSafeArea(edges: .bottom))", home)
-        self.assertIn(".background(OG.surface.ignoresSafeArea(edges: .top))", home)
+        self.assertIn(".background(OG.surface.ignoresSafeArea(edges: [.top, .horizontal]))", home)
         self.assertIn("OG.bg.ignoresSafeArea()", home)
         self.assertNotIn("OG.surface.ignoresSafeArea()\n            }\n            .onAppear", home)
 
-    def test_home_and_exercise_hero_keep_intentional_edge_to_edge(self):
+    def test_only_first_home_section_is_edge_to_edge(self):
         home = read("HomeView.swift")
-        self.assertIn(".background(OG.surface.ignoresSafeArea(edges: .top))", home)
+        top = home.split("var body: some View {", 1)[1].split(
+            "// Progreso/Actividad conservan", 1
+        )[0]
+        self.assertIn(".background(OG.surface.ignoresSafeArea(edges: [.top, .horizontal]))", top)
+        self.assertNotIn(".ogReadableColumn()", top)
+        bottom = home.split("// Progreso/Actividad conservan", 1)[1].split(
+            ".refreshable", 1
+        )[0]
+        self.assertIn(".ogReadableColumn()", bottom)
+        self.assertIn(".background(OG.bg.ignoresSafeArea(edges: .horizontal))", bottom)
         detail = read("ExerciseDetailView.swift")
-        self.assertIn("Imagen edge-to-edge", detail)
+        self.assertIn(".ogReadableColumn()", detail)
         self.assertIn(".padding(.horizontal, OG.pad)", detail)
-        self.assertNotIn("ogListChrome()", detail)
+
+    def test_scroll_views_share_same_center_column_as_list(self):
+        theme = read("Theme.swift")
+        readable = theme.split("private struct OGReadableColumnModifier:", 1)[1].split(
+            "private struct OGListChromeModifier:", 1
+        )[0]
+        self.assertIn(".frame(maxWidth: OG.contentColumnMaxWidth)", readable)
+        self.assertIn(".frame(maxWidth: .infinity, alignment: .center)", readable)
+        for file in (
+            "StatsView.swift", "ExerciseDetailView.swift",
+            "ExerciseProgressView.swift", "CenterView.swift", "HomeView.swift",
+        ):
+            self.assertIn(".ogReadableColumn()", read(file), file)
+        quick = read("QuickLogSheet.swift")
+        self.assertIn(".ogReadableColumn()", quick)
 
 
 if __name__ == "__main__":
