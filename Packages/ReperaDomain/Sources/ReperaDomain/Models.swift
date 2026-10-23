@@ -352,9 +352,9 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
             || (n.contains("doble") && n.contains("comba"))
             || (n.contains("simple") && n.contains("comba"))
             || (n.contains("triple") && n.contains("comba"))
-            || n.contains("double under")
-            || n.contains("single under")
-            || n.contains("triple under")
+            || n.contains("double under") || n.contains("double-under")
+            || n.contains("single under") || n.contains("single-under")
+            || n.contains("triple under") || n.contains("triple-under")
             || n.hasPrefix("du ") || n == "du" || n.hasPrefix("su ")
     }
 
