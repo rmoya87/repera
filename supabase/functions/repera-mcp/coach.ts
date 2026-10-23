@@ -247,11 +247,20 @@ export function registerCoachTools(
       ) : normalized(e.exercise?.name||"")===key)
       .map(e=>({date:row.finished_at,exercise:e.exercise?.name,catalog_key:e.exercise?.catalogId||null,
         sets:(e.loggedSets??[]).filter(s=>s.phase!=="warmup").map(s=>({
-          reps:s.reps??null,kg:s.weightKg??null,rir:s.rir??null,unit:s.quantityUnit??"reps",
-          epley_1rm_kg:s.weightKg!=null&&s.reps!=null&&s.reps>=1&&s.reps<=12
+          quantity:s.reps??null,kg:s.weightKg??null,rir:s.rir??null,
+          unit:s.quantityUnit??null,duration_seconds:s.durationSeconds??null,
+          epley_1rm_kg:s.weightKg!=null&&(s.quantityUnit==null||s.quantityUnit==="reps")
+            &&s.reps!=null&&s.reps>=1&&s.reps<=12
             ? Math.round(s.weightKg*(1+s.reps/30)*10)/10:null,
         }))})));
-    return result({exercise_matches:out.length,history:out,warning:"Estimate, not a tested 1RM. Match using catalogKey when available."});
+    const logged=out.flatMap(e=>e.sets);
+    const best=(unit:string)=>{const values=logged.filter(s=>s.unit===unit)
+      .map(s=>s.quantity).filter((n):n is number=>typeof n==="number"&&n>0);
+      return values.length?Math.max(...values):null;};
+    return result({exercise_matches:out.length,history:out,
+      cardio_records:{max_meters:best("meters"),max_calories:best("calories")},
+      unit_notes:"Meters, calories and repetitions are distinct. Missing quantityUnit is unknown rather than assumed repetitions.",
+      warning:"1RM is a weight-only estimate, not a tested 1RM. Match using catalogKey when available."});
   });
   server.registerTool("get_exercise_alternatives", {
     description:"Look up VERIFIED substitutions, metadata and ES/EN aliases. Return an empty list when metadata is not known; never hallucinate substitutions.",
@@ -322,7 +331,11 @@ export function registerCoachTools(
       .select("catalog_key,native_catalog_id,metadata_source,aliases,primary_muscles,secondary_muscles,equipment,required_equipment,joint_demands,movement_pattern,skill_level,alternatives").limit(1500);
     if(metaError) throw new Error("Metadatos de catálogo no disponibles");
     const index=new Map((metadata??[]).map(m=>[m.catalog_key,m]));
-    const matches=(all??[]).filter(e=>normalized(e.name).includes(term)
+    const hyroxKeys = new Set(["catalog:Carrera","catalog:SkiErg","catalog:Sled push",
+      "catalog:Sled pull","catalog:Burpee Broad Jump","catalog:Remo máquina",
+      "catalog:Farmer carry","catalog:Sandbag Lunges","catalog:Wall ball"]);
+    const matches=(all??[]).filter(e=>(term==="hyrox" && hyroxKeys.has(e.catalog_key))
+      || normalized(e.name).includes(term)
       || (index.get(e.catalog_key)?.aliases??[]).some(a=>normalized(a).includes(term)));
     return result({results:matches.slice(0,limit).map(e=>({...e,metadata:index.get(e.catalog_key)??null})),
       total_matches:matches.length,note:"Missing metadata is explicit; no inferred muscle assignment."});
