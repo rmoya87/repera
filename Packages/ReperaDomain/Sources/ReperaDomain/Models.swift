@@ -314,7 +314,7 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         case .machineWork:
             return (unit ?? defaultQuantityUnit(name: name, equipment: equipment)).shortLabel
         case .loadAndReps, .repsOnly:
-            return "Reps"
+            return (unit ?? defaultQuantityUnit(name: name, equipment: equipment)).shortLabel
         }
     }
 
@@ -336,9 +336,9 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
     public static func defaultQuantityUnit(name: String, equipment: String? = nil) -> ExerciseQuantityUnit {
         let n = normalizeExerciseToken(name)
         let eq = normalizeExerciseToken(equipment ?? "")
-        guard isMachineCardio(name: n, equipment: eq) else { return .reps }
-        // Carrera / shuttle → metros. Bike / Ski → calorías. Remoerg → metros (también admite cal).
-        if isRunLike(name: n) { return .meters }
+        guard isMachineCardio(name: n, equipment: eq) || isHyroxDistance(name: n) else { return .reps }
+        // Carrera / shuttle, trineo y transportes HYROX se miden en metros.
+        if isRunLike(name: n) || isHyroxDistance(name: n) || isSled(name: n, equipment: eq) { return .meters }
         if isErgRow(name: n) { return .meters }
         if isBikeOrSki(name: n) { return .calories }
         return .calories
@@ -382,14 +382,22 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
     }
 
     /// Air bike, Echo, SkiErg, remoergómetro, cinta — no remos de fuerza (barra/DB/polea…).
+    private static func isHyroxDistance(name n: String) -> Bool {
+        n.contains("burpee broad jump") || n.contains("sandbag lunge")
+            || n.contains("zancadas con saco") || n == "farmer carry"
+            || n == "farmer walk" || n.contains("paseo del granjero")
+    }
+
+    private static func isSled(name n: String, equipment eq: String) -> Bool {
+        eq.contains("trineo") && (n.contains("sled") || n.contains("trineo"))
+    }
+
     private static func isMachineCardio(name n: String, equipment eq: String) -> Bool {
         if isBikeOrSki(name: n) { return true }
         if isErgRow(name: n) { return true }
         if isRunLike(name: n) { return true }
         // Equipo genérico «Máquina» + cardio en nombre corto poco fiable; no marcar remo de fuerza.
-        if eq.contains("trineo") && (n.contains("sled") || n.contains("trineo")) {
-            return true
-        }
+        if isSled(name: n, equipment: eq) { return true }
         return false
     }
 
