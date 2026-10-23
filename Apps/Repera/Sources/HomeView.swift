@@ -257,7 +257,9 @@ struct HomeView: View {
                     .padding(.top, 12)
                     .padding(.bottom, 28)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(OG.bg)
+                    // En paisaje la safe area lateral pertenece al gris de
+                    // Progreso/Actividad; el blanco solo es calendario + entreno.
+                    .background(OG.bg.ignoresSafeArea(edges: .horizontal))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
