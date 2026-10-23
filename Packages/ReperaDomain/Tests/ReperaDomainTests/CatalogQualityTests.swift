@@ -26,6 +26,9 @@ final class CatalogQualityTests: XCTestCase {
         XCTAssertEqual(docs.filter { $0.disciplineTags.contains("HYROX") }.count, 11)
         XCTAssertTrue(docs.contains { $0.displayName == "Remo máquina" && $0.disciplineTags.contains("HYROX") })
         XCTAssertTrue(ExerciseSearch.rankedDocuments(docs, query: "HYROX").contains { $0.displayName == "SkiErg" })
+        XCTAssertEqual(ExerciseSearch.ranked(seed, query: "zancadas con saco").first?.name, "Sandbag Lunges")
+        XCTAssertEqual(ExerciseSearch.ranked(seed, query: "burpee con salto de longitud").first?.name, "Burpee Broad Jump")
+        XCTAssertEqual(ExerciseSearch.ranked(seed, query: "rowing").first?.name, "Remo máquina")
     }
 
     func testEverySeedHasSpanishDescriptionAndInstructions() {
