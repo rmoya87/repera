@@ -1260,7 +1260,6 @@ struct WorkoutView: View {
                 primaryTitle: clock.primaryTitle,
                 onPrimary: { clock.handlePrimary() },
                 onClose: { clock.minimize() },
-                onSkip: clock.isIntervalMode ? { clock.skipInterval() } : nil,
                 onFinish: clock.canFinishByUser ? { clock.finishByUser() } : nil,
                 showFinish: clock.canFinishByUser
             )

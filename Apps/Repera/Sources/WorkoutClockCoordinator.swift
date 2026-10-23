@@ -104,9 +104,8 @@ final class WorkoutClockCoordinator {
     }
 
     var primaryTitle: String {
-        if isPreCountdown { return "…" }
-        if !isRunning { return "Comenzar" }
-        return "Pausar"
+        // El preinicio es una fase real y se puede pausar/reanudar.
+        return isRunning ? "Pausar" : "Continuar"
     }
 
     /// True cuando el usuario puede marcar fin en count-up (For Time).
@@ -225,7 +224,10 @@ final class WorkoutClockCoordinator {
     }
 
     func handlePrimary() {
-        if isPreCountdown { return }
+        if isPreCountdown {
+            pause()
+            return
+        }
         if isRunning {
             pause()
         } else {

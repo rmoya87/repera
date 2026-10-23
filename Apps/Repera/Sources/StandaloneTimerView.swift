@@ -352,9 +352,6 @@ struct StandaloneTimerView: View {
     }
 
     private var clockScreen: some View {
-        let skip: (() -> Void)? = config.mode == .intervals
-            ? { skipInterval() }
-            : nil
         return TimelineView(.periodic(from: .now, by: 1)) { context in
             let shown = liveDisplaySeconds(at: context.date)
             BlockTimerScreen(
@@ -371,8 +368,7 @@ struct StandaloneTimerView: View {
                 onClose: {
                     stopTimer()
                     showClock = false
-                },
-                onSkip: skip
+                }
             )
         }
     }
@@ -408,9 +404,8 @@ struct StandaloneTimerView: View {
     }
 
     private var primaryButtonTitle: String {
-        if !isRunning { return "Comenzar" }
-        if preCountdown > 0 { return "…" }
-        return "Parar"
+        // Durante la cuenta previa ya se puede pausar; nunca mostrar «…».
+        return isRunning ? "Pausar" : "Continuar"
     }
 
     private func prepareAndShowClock() {
