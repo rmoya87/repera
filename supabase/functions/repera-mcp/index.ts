@@ -355,14 +355,32 @@ Deno.serve(async (request) => {
       inputSchema: z.strictObject({ query: z.string().trim().min(2).max(100), limit: z.number().int().min(1).max(50).default(20) }),
       annotations: { readOnlyHint: true },
     }, async ({ query, limit }) => {
-      const pattern = query.replace(/[%_\\]/g, " ").trim();
-      let request = db.from("training_exercise_catalog").select("catalog_key,name,category");
-      request = pattern.toLowerCase() === "hyrox"
-        ? request.in("catalog_key",[...hyroxCatalogKeys])
-        : request.ilike("name","%" + pattern + "%");
-      const { data, error } = await request.order("name").limit(limit);
-      if (error) throw new Error("Error al buscar el catálogo");
-      return reply(data ?? []);
+      // 288 public rows: search display names and all known ES/EN + box abbreviations.
+      // Do not rewrite catalog_key: it references historical workouts.
+      const term = query.replace(/[%_\\]/g, " ").trim()
+        .normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
+      const [catalogResult,metaResult] = await Promise.all([
+        db.from("training_exercise_catalog")
+          .select("catalog_key,name,category,display_name_en").order("name").limit(1500),
+        db.from("training_exercise_metadata")
+          .select("catalog_key,aliases").limit(1500),
+      ]);
+      if (catalogResult.error || metaResult.error) throw new Error("Error al buscar el catálogo");
+      const aliases = new Map((metaResult.data ?? []).map(m => [m.catalog_key,m.aliases ?? []]));
+      const fold = (value: string) => value.normalize("NFD")
+        .replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
+      const results = (catalogResult.data ?? []).filter(item =>
+        (term === "hyrox" && hyroxCatalogKeys.includes(item.catalog_key))
+        || fold(item.name).includes(term)
+        || fold(item.display_name_en ?? "").includes(term)
+        || (aliases.get(item.catalog_key) ?? []).some((name: string) => fold(name).includes(term))
+      ).slice(0,limit).map(item => ({
+        catalog_key:item.catalog_key,
+        name:item.display_name_en ?? item.name,
+        legacy_name:item.name,
+        category:item.category,
+      }));
+      return reply(results);
     });
     server.registerTool("get_ai_training_plans", {
       description: "List future plans submitted to this user's Repera calendar and their sync status.",
