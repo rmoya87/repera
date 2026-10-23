@@ -26,6 +26,15 @@ final class BusinessAuthStore {
     private let localOwnerUserIDKey = "repera.business.localOwnerSupabaseUserID.v1"
     /// Solo indica una sesión Google activa; se borra al cerrar sesión.
     private let googleSignedInKey = "repera.business.googleSignedIn.v1"
+    private let explicitSignOutKey = "repera.business.explicitSignOut.v1"
+    private(set) var didExplicitlySignOut = UserDefaults.standard.bool(
+        forKey: "repera.business.explicitSignOut.v1"
+    )
+
+    private func clearExplicitSignOutAfterVerifiedLogin() {
+        didExplicitlySignOut = false
+        UserDefaults.standard.set(false, forKey: explicitSignOutKey)
+    }
     private static let googleRedirectURL = URL(string: "repera://auth/callback")!
     @ObservationIgnored private var googleLinkSession: ASWebAuthenticationSession?
     @ObservationIgnored private var googleLinkPresenter: GoogleOAuthPresentationAnchor?
@@ -70,14 +79,16 @@ final class BusinessAuthStore {
 
     /// Hay refresh/access token en Keychain del SDK (sobrevive updates). No hace falta SIWA.
     var hasCachedSupabaseSession: Bool {
-        client?.auth.currentSession != nil
+        !didExplicitlySignOut && client?.auth.currentSession != nil
     }
 
     /// Login Supabase exitoso previo (UserDefaults). Sobrevive si el SDK borra el refresh
     /// tras un refresh fallido (`sessionCleanupErrorCodes`).
     var hasPriorSupabaseBinding: Bool {
-        UserDefaults.standard.string(forKey: appleIdentityBindingKey) != nil
-            || isGoogleSignedIn
+        !didExplicitlySignOut && (
+            UserDefaults.standard.string(forKey: appleIdentityBindingKey) != nil
+                || isGoogleSignedIn
+        )
     }
 
     private init() {
@@ -110,6 +121,11 @@ final class BusinessAuthStore {
     func restoreSession() async {
         hasRestoredSession = false
         defer { hasRestoredSession = true }
+        guard !didExplicitlySignOut else {
+            isConnected = false
+            isMigrationRequired = false
+            return
+        }
         AuthSessionTrace.event(
             "restoreSession start apple=\(AppleAuthStore.shared.isSignedIn) cache=\(hasCachedSupabaseSession) binding=\(hasPriorSupabaseBinding) connected=\(isConnected)"
         )
@@ -223,7 +239,8 @@ final class BusinessAuthStore {
     /// Acepta la sesión ya en Keychain sin UI (p. ej. tras timeout de red).
     @discardableResult
     func connectFromCachedSessionIfPossible() -> Bool {
-        guard let appleUserID = AppleAuthStore.shared.userID,
+        guard !didExplicitlySignOut,
+              let appleUserID = AppleAuthStore.shared.userID,
               AppleAuthStore.shared.isSignedIn,
               let cached = client?.auth.currentSession,
               isSameLocalOwner(cached.user.id)
@@ -379,6 +396,7 @@ final class BusinessAuthStore {
                 throw AccountMigrationError.identityChanged
             }
             rememberOwner(session.user.id)
+            clearExplicitSignOutAfterVerifiedLogin()
             UserDefaults.standard.set(false, forKey: googleSignedInKey)
             UserDefaults.standard.set(expectedBinding, forKey: appleIdentityBindingKey)
             isConnected = true
@@ -434,6 +452,7 @@ final class BusinessAuthStore {
                 return false
             }
             rememberOwner(session.user.id)
+            clearExplicitSignOutAfterVerifiedLogin()
             UserDefaults.standard.set(true, forKey: googleSignedInKey)
             UserDefaults.standard.removeObject(forKey: appleIdentityBindingKey)
             isConnected = true
@@ -636,6 +655,10 @@ final class BusinessAuthStore {
 
     /// Sign out from business platform independently of the Apple/iCloud personal store.
     func signOut() async {
+        // Cierre explícito incluso si el SDK tarda en revocar su caché.
+        // Se persiste para impedir restaurar una sesión tras reiniciar.
+        didExplicitlySignOut = true
+        UserDefaults.standard.set(true, forKey: explicitSignOutKey)
         // Conservar SOLO el UUID propietario para evitar mezcla al cambiar de
         // Apple a Google. La sesión/tokens sí se revocan.
         if let uid = client?.auth.currentSession?.user.id {
