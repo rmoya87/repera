@@ -86,3 +86,23 @@ El lector `WorkoutHistorySets` aplica fallback de sets prescritos terminados **s
   WOD leída como serie). Corregido con `e8e4f3d`, CI `39959971235` verde.
 - El último head requiere siempre verificación independiente del CI y de
   dispositivos Google reales; ningún feature sin E2E debe marcarse production-ready.
+
+## Incremento cardio / protección de datos del reloj
+
+- `ExerciseInput` porta las unidades por defecto iOS para máquina/carrera/comba:
+  Bike/Ski → calorías; Remoerg/Carrera → metros; Comba → reps + duración.
+  El selector de unidades sólo se ofrece para máquinas compatibles.
+- El registro persistido guarda `LoggedSet.quantityUnit` y `durationSeconds`
+  conservando JSON compatible con ReperaDomain; admite corrección explícita de
+  cantidad/unidad/segundos y alimenta mejores cal/meters en Progreso.
+- Android Wear no permite registrar estos ejercicios con un campo de reps erróneo:
+  informa que requieren edición en el teléfono; únicamente confirma ejercicios
+  `loadAndReps` y `repsOnly` conocidos.
+- Sesión terminada ≠ logout: la primera limpia la pantalla de sesión activa
+  conservando la cola de series pendientes; un logout explícito solicita borrado
+  de cola y caché mediante bandera `signedOut` en Data Layer.
+- Limitación: un logout realizado sin conectividad puede no llegar al reloj
+  hasta que se restablezca la conexión; pendiente de endurecimiento de identidad
+  en datos del wearable y servicio de fondo.
+- El registro de calorías/metros/duración y la corrección se protegen con tests
+  instrumentados. Paridad no implica E2E aprobado hasta CI verde en el último head.
