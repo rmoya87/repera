@@ -23,6 +23,9 @@ class ProgressLayoutPolishContractTests(unittest.TestCase):
         self.assertIn("logForm(current)", body)
         self.assertIn("leading: 16, bottom: 12, trailing: 16", body)
         self.assertIn(".frame(maxWidth: .infinity, alignment: .leading)", body)
+        log_form = play.split("private func logForm(", 1)[1].split("private func loggedList(", 1)[0]
+        self.assertNotIn(".padding(OG.pad)", log_form)
+        self.assertNotIn(".background(OG.surface, in: RoundedRectangle", log_form)
 
     def test_create_workout_hides_obsolete_helper_footers(self):
         plan = read("PlanView.swift")
