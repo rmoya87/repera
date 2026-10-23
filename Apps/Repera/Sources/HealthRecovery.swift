@@ -1015,7 +1015,7 @@ struct HealthRecoveryProgressView: View {
                                 vitalValueTile("Oxígeno en sangre", value: String(format: "%.0f%%", oxygen), icon: "lungs")
                             }
                             if let wrist = latest.wristTemperatureCelsius {
-                                vitalValueTile("Temperatura nocturna", value: String(format: "%.1f °C", wrist), icon: "thermometer.medium")
+                                vitalValueTile("T nocturna", value: String(format: "%.1f °C", wrist), icon: "thermometer.medium")
                             }
                         }
                         if let recovery = latest.heartRateRecoveryBpm {
