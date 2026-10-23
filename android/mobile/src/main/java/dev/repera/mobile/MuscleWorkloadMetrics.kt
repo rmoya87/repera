@@ -8,7 +8,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /** Observed count of effective working sets by catalog group, not a fatigue diagnosis. */
-internal object MuscleWorkloadMetrics {
+object MuscleWorkloadMetrics {
     data class GroupCount(val group: String, val sets: Int)
 
     fun weekly(archive: JSONArray, today: LocalDate, zone: ZoneId): List<GroupCount> {
