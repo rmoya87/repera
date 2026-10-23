@@ -1023,17 +1023,27 @@ struct WorkoutDetailView: View {
             .accessibilityHint("Ver ficha del ejercicio")
 
             if visibleSets.isEmpty {
-                // En una sesión ya completada, si no se editaron las cantidades,
-                // la configuración prevista cuenta como realizada. Conservar
-                // las unidades de cada ejercicio (reps, tiempo, kcal o metros).
-                Text(isEditing
-                     ? "Sin series registradas"
-                     : (exercise.prescriptionSummaryLine.isEmpty
-                        ? "Sin resultado registrado"
-                        : exercise.prescriptionSummaryLine))
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(OG.label)
-                    .padding(.leading, 60) // miniatura 48 + separación 12: alineado con el título
+                if !isEditing && !exercise.plannedSets.isEmpty {
+                    // Sesión finalizada sin registros individuales: mostrar TODAS
+                    // las series programadas como ejecutadas, no solo la primera.
+                    ForEach(Array(exercise.plannedSets.enumerated()), id: \.element.id) { index, planned in
+                        HStack(spacing: 14) {
+                            Text("S\\(index + 1)")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(OG.label2)
+                                .frame(width: 34, alignment: .leading)
+                            Text(plannedSetSummary(planned, exercise: exercise))
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(OG.label)
+                        }
+                        .padding(.leading, 60)
+                    }
+                } else {
+                    Text(isEditing ? "Sin series registradas" : "Sin resultado registrado")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(OG.label)
+                        .padding(.leading, 60)
+                }
             } else {
                 if isEditing {
                     editSetColumnHeaders(
@@ -1059,6 +1069,17 @@ struct WorkoutDetailView: View {
             }
         }
         .padding(showsOuterPadding ? OG.pad : 0)
+    }
+
+    private func plannedSetSummary(_ planned: PlannedSet, exercise: SessionExercise) -> String {
+        let unit = exercise.quantityUnit ?? exercise.exercise.defaultQuantityUnit
+        if unit != .reps {
+            return "\\(planned.targetReps) \\(unit.shortLabel)"
+        }
+        if let kg = planned.targetWeightKg, kg > 0 {
+            return "\\(planned.targetReps) @ \\(String(format: "%g", kg)) kg"
+        }
+        return "\\(planned.targetReps) reps"
     }
 
     private func editSetColumnHeaders(exercise: Exercise, showsRemove: Bool) -> some View {
