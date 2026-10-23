@@ -78,12 +78,27 @@ class DriveSnapshotService(private val token: String, private val local: LocalSn
         }
     }
 
+    /**
+     * Only CatalogBootstrap's exact untouched sentinel is disposable.
+     * A legacy iOS backup can have revision 0 and no workouts while still holding
+     * a body-weight log, preferences or custom exercises: never discard it.
+     */
     private fun isVirgin(bytes: ByteArray): Boolean {
         val state = JSONObject(String(bytes, Charsets.UTF_8))
-        return state.optInt("syncRevision", 0) == 0 &&
-            (state.optJSONArray("workouts")?.length() ?: 0) == 0 &&
-            (state.optJSONArray("routines")?.length() ?: 0) == 0 &&
-            state.optJSONObject("activeSession") == null
+        fun emptyArray(key: String) = state.optJSONArray(key)?.length() == 0
+        fun emptyObject(key: String) = state.optJSONObject(key)?.length() == 0
+        val exercises = state.optJSONArray("exercises") ?: return false
+        return state.optInt("syncRevision", -1) == 0 &&
+            state.optString("updatedAt") == "1970-01-01T00:00:00Z" &&
+            state.optString("lastWriterDeviceId") == "" &&
+            emptyArray("workouts") && emptyArray("routines") &&
+            emptyArray("bodyWeights") && emptyArray("favoriteTimers") &&
+            emptyObject("settings") && emptyObject("exerciseLoadPrefs") &&
+            state.optJSONObject("activeSession") == null &&
+            exercises.length() == 196 &&
+            (0 until exercises.length()).none { index ->
+                exercises.getJSONObject(index).optBoolean("isCustom")
+            }
     }
 
     /** Two independent edits must never silently overwrite each other. */
