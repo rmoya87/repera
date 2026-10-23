@@ -15,6 +15,10 @@ Checklist manual por feature. Preferible dispositivo real para Live Activity y W
 
 ## Biblioteca de ejercicios: ordenar y filtrar (23/10/2026)
 
+- [ ] Elegir **Ordenar → Material**: comprobar que Wall Ball aparece en «Wall Balls», Ball Slam en «Slam Balls», SkiErg en «SkiErg / esquí de aire», Remo máquina en «Remoergómetros», GHD sit-up en «GHD», Sled Push/Pull en «Trineos», saltos al cajón en «Cajones», Double-Under en «Combas», Sandbag Lunges en «Sacos de arena» y Yoke Carry en «Yugos».
+- [ ] Verificar que Remo con barra va a «Barras» y Remo sentado a «Poleas», que las variantes en anillas no quedan en barra de dominadas, y que se ordenan por material también los ejercicios etiquetados genéricamente «Máquina» o «Peso corporal».
+- [ ] Verificar todas las categorías adicionales: gomas, mancuernas, kettlebells, discos, barras, cuerdas de trepa, pegboards, picas, rodillos, bancos, paredes, marcos de puerta y material desconocido sin pérdida de entradas.
+
 - [ ] Abrir la misma hoja de filtros: confirmar dos secciones **Ordenar** y **Filtrar**, selección única independiente y botón **Hecho** sin cierre al cambiar una elección.
 - [ ] Elegir **Halterofilia** y después **Músculo**: solo ejercicios olímpicos, distribuidos por grupo anatómico; cambiar a **Alfabético** no altera el filtro.
 - [ ] Con **Todos**, **CrossFit**, **Gimnasia**, **Cardio**, **HYROX**, **Movilidad**, **Favoritos** y **WODs**, comprobar que cada filtro conserva el sort y funciona con búsqueda ES/EN. En WODs, título y botón de alta respetan la pantalla WOD.
