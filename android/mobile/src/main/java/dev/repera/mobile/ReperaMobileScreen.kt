@@ -91,6 +91,7 @@ fun ReperaMobileScreen(
     onNext: () -> Unit,
     onFinish: () -> Unit,
     onImportJson: () -> Unit,
+    onExportJson: () -> Unit,
     onGoogleSignIn: () -> Unit,
     onDriveSync: () -> Unit,
     onSignOut: () -> Unit
@@ -416,6 +417,12 @@ fun ReperaMobileScreen(
                     ) { Text(if (busy) "Sincronizando…" else "Sincronizar con Google Drive") }
                     if (busy) CircularProgressIndicator(modifier = Modifier.padding(12.dp))
                     if (status != null) Text(status)
+                    if (overview != null) {
+                        OutlinedButton(onClick = onExportJson, enabled = !busy,
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text("Exportar copia JSON")
+                        }
+                    }
                     TextButton(onClick = onSignOut, enabled = !busy) { Text("Cerrar sesión") }
                 }
             }

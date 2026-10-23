@@ -113,6 +113,32 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
     }
 
+    private val exportJson = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        if (uri == null) return@registerForActivityResult
+        val signedIn = profile ?: return@registerForActivityResult
+        busy = true
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val bytes = LocalSnapshotStore(this@MainActivity, signedIn.uniqueId).read()
+                        ?: error("No hay entrenamientos para exportar")
+                    LocalSnapshotStore.validate(bytes)
+                    contentResolver.openOutputStream(uri, "w")?.use { out ->
+                        out.write(bytes)
+                        out.flush()
+                    } ?: error("No se pudo abrir el documento")
+                }
+                status = "Copia de Repera exportada correctamente"
+            } catch (error: Exception) {
+                status = "No se pudo exportar: " + (error.localizedMessage ?: "error de archivo")
+            } finally {
+                busy = false
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -159,6 +185,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onNext = { runWorkoutAction { next() } },
                 onFinish = { runWorkoutAction { finish() } },
                 onImportJson = { importJson.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                onExportJson = { exportJson.launch("repera-entrenamientos.json") },
                 onGoogleSignIn = ::signInWithGoogle,
                 onDriveSync = ::authorizeDrive,
                 onSignOut = ::signOut
