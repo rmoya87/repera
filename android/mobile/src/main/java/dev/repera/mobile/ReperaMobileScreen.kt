@@ -42,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -120,8 +121,9 @@ fun ReperaMobileScreen(
             }
             return@MaterialTheme
         }
-        var selected by remember { mutableStateOf("Inicio") }
-        var exerciseSearch by remember { mutableStateOf("") }
+        var selected by rememberSaveable { mutableStateOf("Inicio") }
+        var exerciseSearch by rememberSaveable { mutableStateOf("") }
+        var diaryDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
         // LazyListScope is not @Composable: calculate the filtered list here,
         // where remember is legal, then hand the immutable result to LazyColumn.
         val filteredExerciseEntries = remember(exerciseSearch, overview?.exerciseEntries) {
@@ -295,21 +297,27 @@ fun ReperaMobileScreen(
                 }
                 if (selected == "Diario") {
                     val routines = overview?.routineEntries.orEmpty()
-                    val today = LocalDate.now()
+                    val day = LocalDate.parse(diaryDateIso)
                     val todays = routines.filter {
-                        it.scheduledDate == today.toString() ||
-                            (it.scheduledDate == null && it.weekday == today.dayOfWeek.value)
+                        it.scheduledDate == day.toString() ||
+                            (it.scheduledDate == null && it.weekday == day.dayOfWeek.value)
                     }
                     val dated = routines.filter {
-                        it.scheduledDate != null && it.scheduledDate != today.toString()
+                        it.scheduledDate != null && it.scheduledDate != day.toString()
                     }.sortedBy { it.scheduledDate }
                     val weekly = routines.filter { it.weekday != null }
                     val library = routines.filter {
                         it.scheduledDate == null && it.weekday == null
                     }
+                    item {
+                        WeekCalendarStrip(day) { chosen -> diaryDateIso = chosen.toString() }
+                    }
                     if (routines.isEmpty()) item { Text("No hay rutinas creadas") }
                     if (todays.isNotEmpty()) item {
-                        Text("Entrenamientos de hoy · $today", style = MaterialTheme.typography.titleLarge)
+                        Text("Entrenamientos · $day", style = MaterialTheme.typography.titleLarge)
+                    } else item {
+                        Text("Sin entrenamientos programados para $day",
+                            style = MaterialTheme.typography.bodyMedium)
                     }
                     items(todays, key = { "today:" + it.id }) { routine ->
                         ScheduledRoutineCard(routine, busy, activeWorkout == null) {
@@ -1035,6 +1043,42 @@ private fun RoutineCreatorCard(
 
 
 /** Drill-down stays inside the workout, preserving the back-to-summary behaviour. */
+/** Seven-day Material 3 date picker, saved across configuration changes. */
+@Composable
+private fun WeekCalendarStrip(selected: LocalDate, onSelect: (LocalDate) -> Unit) {
+    val weekStart = selected.minusDays((selected.dayOfWeek.value - 1).toLong())
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                TextButton(onClick = { onSelect(selected.minusWeeks(1)) }) {
+                    Text("‹ Semana")
+                }
+                Text("${weekStart.dayOfMonth}/${weekStart.monthValue} – " +
+                    "${weekStart.plusDays(6).dayOfMonth}/${weekStart.plusDays(6).monthValue}",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(top = 12.dp))
+                TextButton(onClick = { onSelect(selected.plusWeeks(1)) }) {
+                    Text("Semana ›")
+                }
+            }
+            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                val days = listOf("L", "M", "X", "J", "V", "S", "D")
+                repeat(7) { index ->
+                    val day = weekStart.plusDays(index.toLong())
+                    FilterChip(
+                        selected = day == selected,
+                        onClick = { onSelect(day) },
+                        label = { Text("${days[index]} ${day.dayOfMonth}") }
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun WorkoutHistoryCard(workout: WorkoutHistoryEntry) {
     var expanded by remember(workout.id) { mutableStateOf(false) }
