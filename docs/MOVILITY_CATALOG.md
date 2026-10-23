@@ -128,7 +128,9 @@
 
 ## Comportamiento y límites
 
-- El registro de movilidad no ofrece carga sugerida ni controles de lastre, y las series de movilidad no se suman al mapa de fatiga muscular.
+- **Registro iOS:** posturas mantenidas → segundos por serie (una unidad de postura); movilidad dinámica → repeticiones y segundos. Las fichas muestran mejor tiempo, repeticiones (cuando aplica), últimas marcas y sesiones. No hay carga sugerida, lastre ni RIR.
+- **Configuración y Play iOS:** `PlannedSet.targetDurationSeconds` guarda los segundos por serie (opcional, compatible con versiones antiguas); el editor los muestra como «Tiempo (s)», Play usa esos segundos como valor inicial y guarda los segundos realmente anotados en `LoggedSet.durationSeconds`.
+- **Progreso global iOS:** tiempo total de movilidad realmente registrado y número de sesiones con movilidad; aparece en Progreso junto a las fichas por ejercicio. Las sesiones no registradas no generan segundos ficticios ni afectan a fatiga o e1RM.
 - Las fichas contienen descripción e instrucciones de ejecución; el volumen/tiempo se puede ajustar manualmente según el ejercicio y los límites personales.
-- El material de ejercicios no implica que exista una imagen propia para cada nuevo movimiento. Debe completarse el QA visual de las miniaturas y los pasos antes de afirmar que todas tienen arte validado.
-- La categoría actual se integra en el catálogo iOS local. El catálogo Android/Wear y la exposición en MCP deben validarse por separado durante la paridad multiplataforma.
+- **Arte:** ninguno de los 82 movimientos nuevos tiene todavía una imagen técnica individual validada. Se muestra un placeholder anatómico y el icono de movilidad, nunca una ilustración de fuerza asignada por similitud. Queda pendiente generar, exportar y aprobar 82 imágenes propias (y secuencias dinámicas cuando sean pertinentes).
+- **Paridad:** Android tiene una rama de catálogo y filtro `feat/android-mobility-aligned-20261023`, todavía sin medición específica de duración en Play y sin QA en dispositivo. Wear y MCP requieren revisar su contrato de duración antes de considerarlos alineados.
