@@ -16,12 +16,11 @@ object WodSessionAssembler {
         if (block.optString("kind") != "wod") return false
         val format = WodFormat.fromWire(block.optString("wodFormat")) ?: return false
         val moves = block.optJSONArray("movements") ?: return false
-        return format.capture != ResultCapture.PER_MOVEMENT_SETS &&
-            (0 until moves.length()).any { !moves.getJSONObject(it).optBoolean("isRest") }
+        return (0 until moves.length()).any { !moves.getJSONObject(it).optBoolean("isRest") }
     }
 
     fun append(block: JSONObject, catalog: JSONArray, result: JSONArray) {
-        require(supports(block)) { "Este WOD requiere todavía su editor de series" }
+        require(supports(block)) { "Bloque WOD no válido" }
         val format = WodFormat.fromWire(block.getString("wodFormat"))!!
         val movements = block.getJSONArray("movements")
         for (n in 0 until movements.length()) {
