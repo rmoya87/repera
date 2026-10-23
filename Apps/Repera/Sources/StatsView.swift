@@ -65,11 +65,13 @@ struct StatsView: View {
                                     tilesGrid
                                     activityCard
                                     muscleBalanceCard
+                                    mobilityProgressCard
                                     proAdvancedSections
                                 } else {
                                     freeTilesGrid
                                     freeActivityCard
                                     muscleBalanceCard
+                                    mobilityProgressCard
                                     freeExerciseTrendPreview
                                     ProTeaserCard(
                                         title: "Descubre todo tu progreso",
@@ -195,6 +197,53 @@ struct StatsView: View {
     private func enforceFreeRangeIfNeeded() {
         guard !isPro, model.range != .week else { return }
         model.setRange(.week)
+    }
+
+    /// Solo tiempo confirmado mediante series reales: los objetivos sin completar no suman.
+    @ViewBuilder
+    private var mobilityProgressCard: some View {
+        if snap.mobilitySessions > 0 {
+            VStack(alignment: .leading, spacing: 8) {
+                OGCardSectionTitle(title: "Movilidad")
+                OGCard {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Label("Tiempo registrado", systemImage: "figure.flexibility")
+                                .foregroundStyle(OG.label2)
+                            Spacer()
+                            Text(snap.mobilitySeconds < 60
+                                ? "\(snap.mobilitySeconds) s"
+                                : "\(snap.mobilitySeconds / 60) min \(snap.mobilitySeconds % 60) s")
+                                .font(.system(size: 18, weight: .semibold).monospacedDigit())
+                                .foregroundStyle(OG.label)
+                        }
+                        HStack {
+                            Label("Sesiones con movilidad", systemImage: "calendar")
+                                .foregroundStyle(OG.label2)
+                            Spacer()
+                            Text("\(snap.mobilitySessions)")
+                                .font(.system(size: 18, weight: .semibold).monospacedDigit())
+                                .foregroundStyle(OG.label)
+                        }
+                        if isPro {
+                            ForEach(snap.chartExercises.filter(\.isMobility).prefix(3)) { exercise in
+                                NavigationLink {
+                                    ExerciseProgressView(exerciseId: exercise.id)
+                                } label: {
+                                    HStack {
+                                        Text(exercise.name)
+                                            .foregroundStyle(OG.label)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .foregroundStyle(OG.label3)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /// El mapa y las barras musculares son gratuitos, sin filtros de suscripción.

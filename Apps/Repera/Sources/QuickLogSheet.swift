@@ -23,6 +23,8 @@ struct QuickLogSheet: View {
 
     private var style: ExerciseLoggingStyle { exercise.loggingStyle }
     private var loadField: ExerciseLoadField { exercise.loadField }
+    private var isMobility: Bool { exercise.isMobility }
+    private var isHold: Bool { exercise.isMobilityHold }
 
     init(exercise: Exercise) {
         self.exercise = exercise
@@ -88,7 +90,7 @@ struct QuickLogSheet: View {
                                     }
                                 }
                             case .repsAndTime:
-                                metricColumn(title: "Tiempo") {
+                                metricColumn(title: isMobility ? "Duración" : "Tiempo") {
                                     HStack(spacing: 8) {
                                         Button {
                                             row.durationSeconds = max(0, row.durationSeconds - 5)
@@ -131,6 +133,7 @@ struct QuickLogSheet: View {
 
                             Spacer(minLength: 0)
 
+                            if !isHold {
                             metricColumn(title: quantityLabel, trailing: true) {
                                 HStack(spacing: 8) {
                                     Button {
@@ -148,6 +151,7 @@ struct QuickLogSheet: View {
                                     }
                                 }
                                 .foregroundStyle(OG.accent)
+                            }
                             }
                         }
                         .buttonStyle(.plain)
@@ -170,7 +174,13 @@ struct QuickLogSheet: View {
                 } footer: {
                     switch style {
                     case .repsAndTime:
-                        Text("Comba: cuántas veces (dobles/simples) en cuánto tiempo. Ej. 50 veces en 1:00.")
+                        if isMobility {
+                            Text(isHold
+                                ? "Registra los segundos reales de cada mantenimiento. No se usan kg ni RIR."
+                                : "Registra repeticiones y duración de cada secuencia; sin kg ni RIR.")
+                        } else {
+                            Text("Comba: cuántas veces (dobles/simples) en cuánto tiempo. Ej. 50 veces en 1:00.")
+                        }
                     case .machineWork:
                         Text("Máquina / carrera: tiempo y \(quantityLabel.lowercased()) (sin kilos).")
                     case .repsOnly:
@@ -263,6 +273,8 @@ struct QuickLogSheet: View {
         if style == .machineWork {
             return quantityUnit == .meters ? 500 : 15
         }
+        if isHold { return 1 }
+        if isMobility { return store.cachedHistory(for: exercise.id).lastReps ?? 8 }
         if style == .repsAndTime {
             return store.cachedHistory(for: exercise.id).lastReps ?? 50
         }
@@ -276,7 +288,9 @@ struct QuickLogSheet: View {
                 reps: defaultReps,
                 weightKg: style == .loadAndReps && loadField == .weightKg ? defaultWeight : 0,
                 deficitCm: 0,
-                durationSeconds: style.usesDuration ? 60 : 0
+                durationSeconds: style.usesDuration
+                    ? (store.cachedHistory(for: exercise.id).lastDurationSeconds ?? (isHold ? 30 : 60))
+                    : 0
             )
         }
     }

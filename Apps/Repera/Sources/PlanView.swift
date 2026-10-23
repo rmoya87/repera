@@ -775,10 +775,11 @@ struct DayEditorView: View {
                     let style = exercise.loggingStyle
                     let amount = style == .machineWork
                         ? (exercise.defaultQuantityUnit == .meters ? 500 : 15)
-                        : (style == .repsAndTime ? 50 : 8)
+                        : (exercise.isMobility ? (exercise.isMobilityHold ? 1 : 8) : (style == .repsAndTime ? 50 : 8))
                     let count = style.usesDuration ? 1 : 3
                     let sets = (0..<count).map { _ in
-                        PlannedSet(targetReps: amount, targetWeightKg: nil)
+                        PlannedSet(targetReps: amount, targetWeightKg: nil,
+                            targetDurationSeconds: exercise.isMobility ? (exercise.isMobilityHold ? 30 : 60) : nil)
                     }
                     routine.blocks[idx].exercises.append(
                         RoutineExercise(
@@ -1675,12 +1676,13 @@ struct DayEditorView: View {
                 }
 
                 OGSetEntryHeader(
-                    firstTitle: ex.loggingStyle == .loadAndReps
+                    firstTitle: ex.isMobility ? "Tiempo (s)" : (ex.loggingStyle == .loadAndReps
                         ? (ex.loadField == .deficitCm ? "Déficit" : "KG")
                         : (ex.loggingStyle == .machineWork
                             ? (item.quantityUnit ?? ex.defaultQuantityUnit).shortLabel
-                            : ex.quantityFieldLabel),
-                    secondTitle: ex.loggingStyle == .loadAndReps ? "Reps" : nil,
+                            : ex.quantityFieldLabel)),
+                    secondTitle: ex.isMobility ? (ex.isMobilityHold ? nil : "Reps")
+                        : (ex.loggingStyle == .loadAndReps ? "Reps" : nil),
                     showsRIR: ex.loggingStyle.usesRIR
                 )
                 .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 4, trailing: 16))
@@ -1692,6 +1694,8 @@ struct DayEditorView: View {
                         set: plannedSetBinding(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex),
                         weightStep: weightStep,
                         exerciseStyle: ex.loggingStyle,
+                        isMobility: ex.isMobility,
+                        isMobilityHold: ex.isMobilityHold,
                         previous: {
                             let sets = store.cachedLastWorkingSession(for: ex.id)?.sets
                             return (sets?.indices.contains(setIndex) == true) ? sets?[setIndex] : nil
@@ -1764,6 +1768,7 @@ struct DayEditorView: View {
             PlannedSet(
                 targetReps: last?.targetReps ?? 8,
                 targetWeightKg: last?.targetWeightKg,
+                targetDurationSeconds: last?.targetDurationSeconds,
                 targetRir: last?.targetRir
             )
         )
@@ -2717,12 +2722,14 @@ struct RoutineExerciseEditor: View {
                     .pickerStyle(.segmented)
                 }
                 OGSetEntryHeader(
-                    firstTitle: exercise?.loggingStyle == .loadAndReps
+                    firstTitle: exercise?.isMobility == true ? "Tiempo (s)" : (exercise?.loggingStyle == .loadAndReps
                         ? (exercise?.loadField == .deficitCm ? "Déficit" : "KG")
                         : (exercise?.loggingStyle == .machineWork
                             ? (item.quantityUnit ?? exercise?.defaultQuantityUnit ?? .calories).shortLabel
-                            : (exercise?.quantityFieldLabel ?? "Reps")),
-                    secondTitle: exercise?.loggingStyle == .loadAndReps ? "Reps" : nil,
+                            : (exercise?.quantityFieldLabel ?? "Reps"))),
+                    secondTitle: exercise?.isMobility == true
+                        ? (exercise?.isMobilityHold == true ? nil : "Reps")
+                        : (exercise?.loggingStyle == .loadAndReps ? "Reps" : nil),
                     showsRIR: exercise?.loggingStyle.usesRIR ?? false
                 )
                 .listRowBackground(Color.clear)
@@ -2734,6 +2741,8 @@ struct RoutineExerciseEditor: View {
                         set: binding(for: index),
                         weightStep: weightStep,
                         exerciseStyle: exercise?.loggingStyle ?? .loadAndReps,
+                        isMobility: exercise?.isMobility ?? false,
+                        isMobilityHold: exercise?.isMobilityHold ?? false,
                         previous: {
                             let sets = store.cachedLastWorkingSession(for: exerciseId)?.sets
                             return (sets?.indices.contains(index) == true) ? sets?[index] : nil
@@ -2757,9 +2766,11 @@ struct RoutineExerciseEditor: View {
             } header: {
                 Text("Objetivo por serie")
             } footer: {
-                Text(exercise?.loggingStyle == .machineWork
+                Text(exercise?.isMobility == true
+                     ? "Objetivo de duración por serie en segundos. Las posturas se registran por tiempo y la movilidad dinámica por repeticiones y tiempo; sin kg ni RIR."
+                     : (exercise?.loggingStyle == .machineWork
                      ? "Introduce calorías o metros por serie; el cardio no utiliza kilogramos."
-                     : "Cada serie puede tener cantidad, peso y RIR distintos según el movimiento.")
+                     : "Cada serie puede tener cantidad, peso y RIR distintos según el movimiento."))
             }
 
             Section {
@@ -2776,8 +2787,9 @@ struct RoutineExerciseEditor: View {
                 let style = exercise?.loggingStyle ?? .loadAndReps
                 let qty = style == .machineWork
                     ? (exercise?.defaultQuantityUnit == .meters ? 500 : 15)
-                    : (style == .repsAndTime ? 50 : 8)
-                item.plannedSets = [PlannedSet(targetReps: qty, targetWeightKg: nil)]
+                    : (exercise?.isMobility == true ? (exercise?.isMobilityHold == true ? 1 : 8) : (style == .repsAndTime ? 50 : 8))
+                item.plannedSets = [PlannedSet(targetReps: qty, targetWeightKg: nil,
+                    targetDurationSeconds: exercise?.isMobility == true ? (exercise?.isMobilityHold == true ? 30 : 60) : nil)]
             }
         }
     }
@@ -2860,6 +2872,7 @@ struct RoutineExerciseEditor: View {
             PlannedSet(
                 targetReps: last?.targetReps ?? 8,
                 targetWeightKg: last?.targetWeightKg,
+                targetDurationSeconds: last?.targetDurationSeconds,
                 targetRir: last?.targetRir
             )
         )
@@ -2877,6 +2890,8 @@ private struct PlannedSetConfigRow: View {
     @Binding var set: PlannedSet
     var weightStep: Double
     var exerciseStyle: ExerciseLoggingStyle = .loadAndReps
+    var isMobility: Bool = false
+    var isMobilityHold: Bool = false
     var previous: ExerciseLastSession.WorkSet? = nil
     var canDelete: Bool
     var onDelete: () -> Void
@@ -2887,17 +2902,22 @@ private struct PlannedSetConfigRow: View {
             rowID: set.id,
             index: index,
             previous: OGSetEntryRow.previousText(previous),
-            firstValue: exerciseStyle == .loadAndReps
+            firstValue: isMobility ? "\(set.targetDurationSeconds ?? (isMobilityHold ? 30 : 60))"
+                : (exerciseStyle == .loadAndReps
                 ? (set.targetWeightKg.map { String(format: "%g", $0) } ?? "0")
-                : "\(set.targetReps)",
-            secondValue: exerciseStyle == .loadAndReps ? "\(set.targetReps)" : nil,
+                : "\(set.targetReps)"),
+            secondValue: isMobility
+                ? (isMobilityHold ? nil : "\(set.targetReps)")
+                : (exerciseStyle == .loadAndReps ? "\(set.targetReps)" : nil),
             firstAllowsDecimal: exerciseStyle == .loadAndReps,
             rir: set.targetRir,
             showsRIR: exerciseStyle.usesRIR,
             onRIRChange: { set.targetRir = $0 },
             focus: $focusedSetField,
             onFirstCommit: { text in
-                if exerciseStyle == .loadAndReps {
+                if isMobility {
+                    if let seconds = Int(text), seconds > 0 { set.targetDurationSeconds = min(3600, seconds) }
+                } else if exerciseStyle == .loadAndReps {
                     let normalized = text.replacingOccurrences(of: ",", with: ".")
                     if normalized.isEmpty {
                         set.targetWeightKg = nil

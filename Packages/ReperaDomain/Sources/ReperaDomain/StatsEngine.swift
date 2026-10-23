@@ -7,6 +7,8 @@ public enum StatsEngine {
     public static func effectiveWorkSets(_ exercise: SessionExercise, in workout: WorkoutSession) -> [LoggedSet] {
         let recorded = exercise.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
         if !recorded.isEmpty { return recorded }
+        // Una postura prescrita nunca equivale a segundos o repeticiones reales.
+        if exercise.exercise.isMobility { return [] }
         guard workout.finishedAt != nil || workout.phase == .finished else { return [] }
         return exercise.plannedSets.filter { $0.targetReps > 0 }.map { planned in
             LoggedSet(
@@ -25,6 +27,7 @@ public enum StatsEngine {
         for workout in workouts where workout.phase == .finished || workout.finishedAt != nil {
             let date = workout.finishedAt ?? workout.startedAt ?? Date()
             for exercise in workout.exercises {
+                guard !exercise.exercise.isMobility else { continue }
                 for set in exercise.loggedSets {
                     guard let weight = set.weightKg, weight > 0, set.reps > 0 else { continue }
                     let candidate = PersonalRecord(
@@ -306,6 +309,8 @@ public enum ExerciseProgressMetric: String, CaseIterable, Sendable, Identifiable
     case bestQuantity
     /// Suma de cal / m / reps de la sesión.
     case totalQuantity
+    /// Mayor tiempo mantenido en una sola serie de movilidad.
+    case bestHold
     /// Segundos totales de series con duración.
     case duration
 
@@ -318,6 +323,7 @@ public enum ExerciseProgressMetric: String, CaseIterable, Sendable, Identifiable
         case .effort: return "Esfuerzo"
         case .bestQuantity: return "Mejor"
         case .totalQuantity: return "Total"
+        case .bestHold: return "Mejor sostén"
         case .duration: return "Tiempo"
         }
     }
@@ -544,6 +550,9 @@ extension StatsEngine {
                         quantityUnit: unit
                     )
                 )
+            case .bestHold:
+                guard ex.exercise.isMobilityHold, let seconds = work.compactMap(\.durationSeconds).max(), seconds > 0 else { continue }
+                points.append(ExerciseProgressPoint(date: date, value: Double(seconds), durationSeconds: seconds))
             case .duration:
                 let totalSec = work.compactMap(\.durationSeconds).reduce(0, +)
                 guard totalSec > 0 else { continue }

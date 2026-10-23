@@ -92,8 +92,13 @@ struct ExerciseEvolutionPanel: View {
         exercise?.loggingStyle ?? .loadAndReps
     }
 
+    private var isMobility: Bool { exercise?.isMobility ?? false }
+    private var isMobilityHold: Bool { exercise?.isMobilityHold ?? false }
+
     private var availableMetrics: [ExerciseProgressMetric] {
-        ExerciseProgressMetric.available(for: loggingStyle)
+        isMobility
+            ? (isMobilityHold ? [.bestHold, .duration] : [.bestQuantity, .totalQuantity, .duration])
+            : ExerciseProgressMetric.available(for: loggingStyle)
     }
 
     private var history: ExerciseHistorySummary {
@@ -172,7 +177,22 @@ struct ExerciseEvolutionPanel: View {
     private var summaryTiles: some View {
         let h = history
         return VStack(alignment: .leading, spacing: 10) {
-            if isStrengthProgress {
+            if isMobility {
+                HStack(spacing: 10) {
+                    evoTile(isMobilityHold ? "Mejor sostén" : "Duración máx.",
+                        h.bestDurationSeconds.map(formatDuration) ?? "—")
+                    if !isMobilityHold {
+                        evoTile("Reps máx.", h.bestReps.map(String.init) ?? "—")
+                    }
+                    evoTile("Sesiones", h.hasData ? "\(h.timesPerformed)" : "—")
+                }
+                HStack(spacing: 10) {
+                    evoTile("Último tiempo", h.lastDurationSeconds.map(formatDuration) ?? "—")
+                    if !isMobilityHold {
+                        evoTile("Últimas reps", h.lastReps.map(String.init) ?? "—")
+                    }
+                }
+            } else if isStrengthProgress {
                 HStack(spacing: 10) {
                     topeOneRMTile
                     evoTile(
@@ -216,11 +236,7 @@ struct ExerciseEvolutionPanel: View {
                         evoTile("Última", h.lastQuantityLabel ?? "—")
                     }
                 }
-                if !h.hasData {
-                    Text("Entrena este ejercicio para ver cal, metros o reps.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(OG.label3)
-                }
+
             }
         }
     }
@@ -311,7 +327,7 @@ struct ExerciseEvolutionPanel: View {
             if points.count < 2 {
                 ProgressEmptyChart(
                     message: points.isEmpty
-                        ? "Entrena este ejercicio para ver la curva."
+                        ? "Aún no hay valores registrados."
                         : "Haz al menos 2 sesiones para ver la tendencia.",
                     height: 220,
                     yRange: chartYDomain
@@ -415,7 +431,7 @@ struct ExerciseEvolutionPanel: View {
             if let sec = point.durationSeconds, sec > 0 {
                 parts.append(formatDuration(sec))
             }
-        case .duration:
+        case .bestHold, .duration:
             parts.append(formatDuration(Int(point.value.rounded())))
         }
         if let rir = point.rir, metric != .effort {
@@ -442,10 +458,10 @@ struct ExerciseEvolutionPanel: View {
                     if isStrengthProgress, let w = h.maxWeightKg, let r = h.repsAtMaxWeight {
                         sessionMetaRow("Mejor serie", "\(r) × \(w.formatted(.number.precision(.fractionLength(0...1)))) kg")
                     }
-                    if !isStrengthProgress, let cal = h.bestCalories {
+                    if !isStrengthProgress && !isMobility, let cal = h.bestCalories {
                         sessionMetaRow("Mejor cal", "\(cal)")
                     }
-                    if !isStrengthProgress, let meters = h.bestMeters {
+                    if !isStrengthProgress && !isMobility, let meters = h.bestMeters {
                         sessionMetaRow("Mejor distancia", "\(meters) m")
                     }
                     if isStrengthProgress, let tested, let e1 = h.estimatedOneRM, e1 > 0 {
@@ -467,11 +483,7 @@ struct ExerciseEvolutionPanel: View {
                 .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
 
-            if allSessions.isEmpty {
-                Text("Cuando entrenes este ejercicio, verás aquí el historial.")
-                    .font(.system(size: 13))
-                    .foregroundStyle(OG.label3)
-            } else {
+            if !allSessions.isEmpty {
                 NavigationLink {
                     ExerciseHistoryView(exerciseId: exerciseId)
                 } label: {
@@ -559,7 +571,8 @@ struct ExerciseHistoryView: View {
                                     .fill(OG.accent.opacity(0.2))
                                     .frame(width: 40, height: 40)
                                     .overlay {
-                                        Image(systemName: "figure.strengthtraining.traditional")
+                                        Image(systemName: store.resolvedCatalogExercise(id: exerciseId)?.isMobility == true
+                                            ? "figure.flexibility" : "figure.strengthtraining.traditional")
                                             .foregroundStyle(OG.accent)
                                     }
 
