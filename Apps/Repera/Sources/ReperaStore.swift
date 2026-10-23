@@ -241,8 +241,9 @@ final class ReperaStore: NSObject {
         var changed = false
         for i in exercises.indices {
             guard !exercises[i].isCustom,
-                  let fresh = seedByName[exercises[i].name]
+                  let fresh = seedByName[SportExerciseNames.canonicalName(exercises[i].name)]
             else { continue }
+            let staleName = exercises[i].name != fresh.name
             let staleMeta = exercises[i].instructions.isEmpty
                 || exercises[i].catalogId == nil
                 || exercises[i].detailDescription != fresh.detailDescription
@@ -250,7 +251,7 @@ final class ReperaStore: NSObject {
             let staleGroup = exercises[i].muscleGroup != fresh.muscleGroup
                 || exercises[i].equipment != fresh.equipment
                 || exercises[i].sportTag != fresh.sportTag
-            guard staleMeta || staleGroup else { continue }
+            guard staleName || staleMeta || staleGroup else { continue }
             let fav = exercises[i].isFavorite
             let id = exercises[i].id
             exercises[i] = Exercise(
@@ -272,7 +273,7 @@ final class ReperaStore: NSObject {
             )
             changed = true
         }
-        let existing = Set(exercises.map(\.name))
+        let existing = Set(exercises.map { SportExerciseNames.canonicalName($0.name) })
         let missing = seed.filter { !existing.contains($0.name) }
         if !missing.isEmpty {
             exercises.append(contentsOf: missing)
