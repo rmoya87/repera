@@ -512,7 +512,8 @@ data class StateOverview(
     val history: List<WorkoutHistoryEntry>,
     val routineEntries: List<RoutineEntry>,
     val exerciseEntries: List<ExerciseEntry>,
-    val exerciseProgress: Map<String, ExerciseProgressSummary> = emptyMap()
+    val exerciseProgress: Map<String, ExerciseProgressSummary> = emptyMap(),
+    val weeklyDayTotals: List<Int> = emptyList()
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?): StateOverview? {
@@ -557,14 +558,27 @@ data class StateOverview(
             }
             val today = java.time.LocalDate.now()
             val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+            val weeklyDayTotals = IntArray(7)
             val workoutsThisWeek = json.getJSONArray("workouts").let { archive ->
-                (0 until archive.length()).count { index ->
-                    val session = archive.optJSONObject(index) ?: return@count false
+                var total = 0
+                for (index in 0 until archive.length()) {
+                    val session = archive.optJSONObject(index) ?: continue
+                    // A UTC training started just before midnight may belong to the
+                    // next day in the athlete's device-local calendar.
                     val date = runCatching {
-                        java.time.LocalDate.parse(session.optString("startedAt").take(10))
-                    }.getOrNull()
-                    date != null && !date.isBefore(monday) && !date.isAfter(today)
+                        java.time.Instant.parse(session.optString("startedAt"))
+                            .atZone(ZoneId.systemDefault()).toLocalDate()
+                    }.getOrElse {
+                        runCatching {
+                            java.time.LocalDate.parse(session.optString("startedAt").take(10))
+                        }.getOrNull()
+                    }
+                    if (date != null && !date.isBefore(monday) && !date.isAfter(today)) {
+                        total += 1
+                        weeklyDayTotals[date.dayOfWeek.value - 1] += 1
+                    }
                 }
+                total
             }
             val history = json.getJSONArray("workouts").let { archive ->
                 (archive.length() - 1 downTo 0).take(20).map { index ->
@@ -656,7 +670,8 @@ data class StateOverview(
                 history = history,
                 routineEntries = routineEntries,
                 exerciseEntries = exerciseEntries,
-                exerciseProgress = ExerciseProgressMetrics.fromWorkouts(json.getJSONArray("workouts"))
+                exerciseProgress = ExerciseProgressMetrics.fromWorkouts(json.getJSONArray("workouts")),
+                weeklyDayTotals = weeklyDayTotals.toList()
             )
         }
     }

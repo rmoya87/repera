@@ -25,6 +25,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -270,6 +271,7 @@ fun ReperaMobileScreen(
                                 Text("${overview?.workoutsThisWeek ?: 0} sesiones esta semana",
                                     style = MaterialTheme.typography.headlineSmall)
                                 Text("Del ${weekStart} al ${today}")
+                                WeekTrainingBars(overview?.weeklyDayTotals.orEmpty())
                                 Text("El total semanal usa todo el historial local. " +
                                     "Los detalles de abajo muestran las últimas 20 sesiones.",
                                     style = MaterialTheme.typography.bodySmall)
@@ -1043,6 +1045,28 @@ private fun RoutineCreatorCard(
 
 
 /** Drill-down stays inside the workout, preserving the back-to-summary behaviour. */
+/** Accessible Material 3 bars; absent sessions remain zero, not fabricated activity. */
+@Composable
+private fun WeekTrainingBars(totals: List<Int>) {
+    if (totals.size != 7) return
+    val labels = listOf("L", "M", "X", "J", "V", "S", "D")
+    val scale = (totals.maxOrNull() ?: 0).coerceAtLeast(1).toFloat()
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        totals.forEachIndexed { index, count ->
+            Row(modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(labels[index], style = MaterialTheme.typography.labelMedium)
+                LinearProgressIndicator(
+                    progress = { count.toFloat() / scale },
+                    modifier = Modifier.weight(1f),
+                    color = brandGreen
+                )
+                Text(count.toString(), style = MaterialTheme.typography.labelMedium)
+            }
+        }
+    }
+}
+
 /** Seven-day Material 3 date picker, saved across configuration changes. */
 @Composable
 private fun WeekCalendarStrip(selected: LocalDate, onSelect: (LocalDate) -> Unit) {
