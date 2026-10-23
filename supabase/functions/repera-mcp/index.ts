@@ -358,7 +358,7 @@ Deno.serve(async (request) => {
       // 288 public rows: search display names and all known ES/EN + box abbreviations.
       // Do not rewrite catalog_key: it references historical workouts.
       const term = query.replace(/[%_\\]/g, " ").trim()
-        .normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
       const [catalogResult,metaResult] = await Promise.all([
         db.from("training_exercise_catalog")
           .select("catalog_key,name,category,display_name_en").order("name").limit(1500),
@@ -368,7 +368,7 @@ Deno.serve(async (request) => {
       if (catalogResult.error || metaResult.error) throw new Error("Error al buscar el catálogo");
       const aliases = new Map((metaResult.data ?? []).map(m => [m.catalog_key,m.aliases ?? []]));
       const fold = (value: string) => value.normalize("NFD")
-        .replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
+        .replace(/[\u0300-\u036f]/g, "").toLowerCase();
       const results = (catalogResult.data ?? []).filter(item =>
         (term === "hyrox" && hyroxCatalogKeys.includes(item.catalog_key))
         || fold(item.name).includes(term)
