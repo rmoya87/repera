@@ -254,6 +254,17 @@ fun ReperaMobileScreen(
                         }
                     }
                 }
+                if (selected == "Progreso" && (overview?.mobilitySessions ?: 0) > 0) {
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(18.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Movilidad registrada", style = MaterialTheme.typography.titleMedium)
+                                Text("${overview?.mobilitySeconds ?: 0} segundos · ${overview?.mobilitySessions ?: 0} sesiones")
+                            }
+                        }
+                    }
+                }
                 if (selected == "Progreso") {
                     // This is deliberately limited to the recent archive loaded by StateOverview.
                     // It must never be presented as complete lifetime or billing-gated analytics.
@@ -1043,7 +1054,7 @@ private fun RoutineCreatorCard(
                 TextButton(
                     enabled = !busy && validNumeric &&
                         (!candidate.isMobility || kind != "strength" ||
-                            (mobilitySeconds.toIntOrNull() in 1..3600)),
+                            (mobilitySeconds.toIntOrNull()?.let { it in 1..3600 } == true)),
                     modifier = Modifier.fillMaxWidth(),
                     onClick = {
                         if (quantity != null) {
