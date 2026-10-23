@@ -206,7 +206,7 @@ public enum StatsEngine {
                     bestCalories = max(bestCalories, set.reps)
                 case .meters:
                     bestMeters = max(bestMeters, set.reps)
-                case .reps, .none:
+                case .reps:
                     bestReps = max(bestReps, set.reps)
                 }
                 if let sec = set.durationSeconds {
