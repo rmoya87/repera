@@ -183,7 +183,7 @@ struct ExerciseDetailView: View {
                         }
 
                         if let sport = meta.sport {
-                            metaRow(title: "Deporte", icon: "sportscourt") {
+                            metaRow(title: exercise.sportTag == "Movilidad" ? "Tipo" : "Deporte", icon: exercise.sportTag == "Movilidad" ? "figure.flexibility" : "sportscourt") {
                                 chipFlow {
                                     metaChip(sport, icon: "sportscourt")
                                 }
