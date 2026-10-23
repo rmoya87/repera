@@ -81,6 +81,8 @@ fun ReperaMobileScreen(
     onWodScore: (Int?, Int?, Int?) -> Unit,
     onWodMovement: (Int, Int, Int, Double?) -> Unit,
     onCompleteWodBlock: () -> Unit,
+    onReviseWodMovement: (String, Int, Double?) -> Unit,
+    onDeleteWodMovement: (String) -> Unit,
     onQuickLog: (String) -> Unit,
     onInitializeLocal: () -> Unit,
     onLogSet: (Int, Double?, Double?, Boolean) -> Unit,
@@ -198,6 +200,8 @@ fun ReperaMobileScreen(
                                         onSave = onWodScore,
                                         onMovement = onWodMovement,
                                         onCompleteBlock = onCompleteWodBlock,
+                                        onReviseMovement = onReviseWodMovement,
+                                        onDeleteMovement = onDeleteWodMovement,
                                         onFinish = onFinish
                                     )
                                 } else {
@@ -515,6 +519,8 @@ private fun WodScoreCard(
     onSave: (Int?, Int?, Int?) -> Unit,
     onMovement: (Int, Int, Int, Double?) -> Unit,
     onCompleteBlock: () -> Unit,
+    onReviseMovement: (String, Int, Double?) -> Unit,
+    onDeleteMovement: (String) -> Unit,
     onFinish: () -> Unit
 ) {
     val wod = active.wod ?: return
@@ -631,8 +637,31 @@ private fun WodScoreCard(
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Confirmar movimiento") }
                 wod.recorded.forEach { record ->
-                    Text("Intervalo ${record.intervalIndex + 1} · ${record.name}: ${record.quantity}",
+                    var editQuantity by remember(record.id) { mutableStateOf(record.quantity.toString()) }
+                    var editWeight by remember(record.id) {
+                        mutableStateOf(record.weightKg?.toString() ?: "")
+                    }
+                    Text("Intervalo ${record.intervalIndex + 1} · ${record.name}",
                         style = MaterialTheme.typography.bodySmall)
+                    OutlinedTextField(value = editQuantity,
+                        onValueChange = { editQuantity = it.filter(Char::isDigit) },
+                        label = { Text("Cantidad registrada") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = editWeight,
+                        onValueChange = { editWeight = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                        label = { Text("Peso registrado (opcional)") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = {
+                            onReviseMovement(record.id, editQuantity.toInt(), editWeight.toDoubleOrNull())
+                        }, enabled = !busy && editQuantity.toIntOrNull() != null &&
+                            (editWeight.isBlank() || editWeight.toDoubleOrNull()?.let {
+                                it.isFinite() && it >= 0
+                            } == true)) { Text("Corregir") }
+                        TextButton(onClick = { onDeleteMovement(record.id) }, enabled = !busy) {
+                            Text("Eliminar")
+                        }
+                    }
                 }
                 Button(onClick = onCompleteBlock, enabled = !busy && wod.recorded.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth()) { Text("Terminar bloque y continuar") }
