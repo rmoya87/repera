@@ -30,9 +30,13 @@ class LibrarySortFilterContractTests(unittest.TestCase):
         self.assertIn('if !q.isEmpty || sortMode == .alphabetical', SRC)
         self.assertIn('Dictionary(grouping: rows)', SRC)
         self.assertIn('case .equipment:', SRC)
-        self.assertIn('return equipmentSection(for:', SRC)
-        self.assertIn('Bandas y gomas', SRC)
-        self.assertIn('Mancuernas', SRC)
+        self.assertIn('ExerciseEquipmentGroup.category(for: exercisesById[row.id])', SRC)
+        self.assertIn('case .equipment:', SRC)
+        equipment=(ROOT/"Packages/ReperaDomain/Sources/ReperaDomain/ExerciseEquipmentGroup.swift").read_text(encoding="utf8")
+        for group in ("Wall Balls","Slam Balls","Cajones","Combas","Remoergómetros","SkiErg / esquí de aire",
+                      "GHD","Sacos de arena","Trineos","Bandas y gomas","Mancuernas","Kettlebells",
+                      "Yugos","Anillas","Cuerdas de trepa","Poleas"):
+            self.assertIn(f'return "{group}"', equipment)
         self.assertIn('case .gymnastics: return "Gimnásticos"', SRC)
         self.assertNotIn('ExerciseBrowseMode', SRC)
         self.assertNotIn('case .sport:', SRC)
