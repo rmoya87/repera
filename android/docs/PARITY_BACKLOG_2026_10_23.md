@@ -106,3 +106,16 @@ El lector `WorkoutHistorySets` aplica fallback de sets prescritos terminados **s
   en datos del wearable y servicio de fondo.
 - El registro de calorías/metros/duración y la corrección se protegen con tests
   instrumentados. Paridad no implica E2E aprobado hasta CI verde en el último head.
+
+
+## Registro cardio completo en este incremento
+
+Se ha habilitado el registro básico nativo de máquinas y comba, con unidad
+elegible cuando corresponde y duración opcional en segundos. El JSON mantiene
+`LoggedSet.reps`, `quantityUnit` y `durationSeconds` como campos separados,
+y permite corregir o borrar un tiempo sin cambiar las demás series. La métrica
+de mejor duración usa el mismo histórico completo que cal/meters, excluyendo
+calentamientos; no se inventan series de WOD con puntuación global.
+Los tests de `CardioRecordInstrumentedTest` cubren SkiErg, carrera, comba,
+revisiones, borrado de duración y contribución a Progreso. El último HEAD
+requiere validación de CI y de dispositivo real antes de marcarlo estable.

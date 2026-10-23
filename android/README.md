@@ -4,7 +4,8 @@ Implementación nativa independiente en `android/`:
 
 - `mobile`: Kotlin + Jetpack Compose / Material 3, Credential Manager Google,
   Google Drive appDataFolder, historial local, importación/exportación JSON y ejecución de
-  rutinas de fuerza y WOD con resultado global, cronómetro local persistente,\n  programación por fecha/semana y persistencia compatible con `AppState` Swift.
+  rutinas de fuerza y WOD global o por movimiento, cronómetro local persistente,
+  programación por fecha/semana y persistencia compatible con `AppState` Swift.
 - `domain`: reloj, captura de resultado WOD, prescripción y resolución de conflictos.
 - `wear`: Compose for Wear OS Material 3, sesión desde Data Layer y registro de series de fuerza
   con cola offline y confirmaciones; faltan reconciliación automática sin abrir el móvil,
@@ -50,6 +51,22 @@ Los movimientos por intervalo (EMOM, Tabata, Circuito) disponen de registro
 manual, corrección y borrado. No hay paridad completa de los editores y
 cronómetros iOS: revisar los casos todavía no cubiertos en `docs/PARITY_BACKLOG_2026_10_23.md`.
 Ver `docs/STATUS_AND_PARITY.md`.
+
+## Registro de cardio y métricas
+
+Play ya admite registro nativo local de carrera, SkiErg, remoergómetro, bicicleta
+y comba. Las cantidades se guardan con `quantityUnit` (`calories`, `meters` o
+`reps`) y duración real opcional `durationSeconds`. El usuario puede corregir
+las cantidades, la unidad cuando el ejercicio lo admite y el tiempo. La
+evolución calcula mejores calorías, metros, duración y cargas desde las
+series efectivas sin fabricar registros de WOD globales. Estas capacidades
+no implican todavía paridad de la experiencia completa de Progreso con iOS.
+
+En Wear OS, las series de fuerza con peso y reps se confirman con una cola
+persistente y un identificador estable; terminar el entreno no borra las
+pendientes. El cierre de sesión solicita limpiar la caché y las series del
+reloj. Las mediciones de cardio y técnicas especiales aún deben registrarse
+desde el móvil: el reloj no las transforma artificialmente en reps.
 
 ## Autenticación Google y Supabase
 

@@ -1,6 +1,6 @@
 # Repera Android / Wear OS — matriz de paridad verificada en código
 
-Base: commit Apple `135c4a65c8e9061ac4f3f6bdc29f0cde3b53302a` (23/10/2026).
+Referencia Apple: `b8f45fa50feb44e06bd09d73f37e0e257bc97a09` (23/10/2026); merge de paridad Android `e43e52b`.
 
 La implementación Android **todavía no es completa**. La rama no altera Swift, iCloud, Xcode ni Supabase.
 
@@ -8,14 +8,14 @@ La implementación Android **todavía no es completa**. La rama no altera Swift,
 | --- | --- | --- |
 | Cuenta Google | Inicio Credential Manager, cierre de sesión | Se necesita client ID OAuth y pruebas reales |
 | Google Drive personal | Carpeta appDataFolder, permiso separado, control de conflictos y backups | Pendientes E2E y revisión multi-dispositivo |
-| Importación | Selector SAF JSON, solo cuenta sin datos | No fusiona ni sustituye documentos existentes |
+| Importar/exportar | Selector nativo SAF JSON y exportación segura del estado local | La importación no fusiona un estado existente |
 | Historial de ejercicio/rutinas | Listas reales y búsqueda bilingüe basada en 186 aliases Swift | Faltan filtros avanzados y fichas |
 | Ejecutar fuerza existente | Crea sesiones reales de bloques fuerza y aumenta syncRevision | No inicia automáticamente bloques WOD |
-| Registro de series | Cantidad/peso preprescrito; Apuntar series con últimas reps/peso si existe historial | Técnicas avanzadas no expuestas en UI |
+| Registro de series | Fuerza y cardio local con calorías, metros, reps y duración, corrección y borrado | Técnicas avanzadas y flujo completo de timers pendientes |
 | Reanudar sesión | Desde JSON `activeSession`, incluso tras recreación de Activity | La sesión se gestiona actualmente en el teléfono |
 | Finalizar | Archiva la sesión sin duplicarla y limpia estado activo | Falta reconciliación con Health Connect |
 | WOD | 14 formatos, resultados y matemáticas de reloj AMRAP/EMOM/For Time/Tabata/Circuito | Falta motor de ejecución y editor de bloques |
-| Watch | Wear Material 3 y lectura Data Layer de sesión activa | Falta registro offline + Health Services + reconciliación |
+| Watch | Wear Material 3, lectura Data Layer, cola offline de sets de fuerza con ACK idempotente | Faltan Wear WOD, Health Services, E2E físico y sincronización de fondo |
 | Actividad/Salud | Lectura explícita de pasos y energía activa reales vía Health Connect, con permisos opt-in | Resto de mediciones y E2E pendientes |
 | Business | No habilitado | OAuth Google verificado por servidor, RLS y planes |
 | Compras Pro | No habilitado | Play Billing/RevenueCat e id de productos |
@@ -52,9 +52,9 @@ Las comprobaciones de OAuth y sincronización entre dispositivos reales siguen p
 
 ## Refuerzo de seguridad y comportamiento (segunda revisión)
 
-- Catálogo nativo original **196 movimientos** y alias bilingües **186**; los
-  ejercicios que requieren registro de tiempo, Cal, metros o déficit tienen
-  su clasificación, pero el editor avanzado no está habilitado hasta su port.
+- Catálogo nativo original **196 movimientos** y alias bilingües **186**; el
+  registro de cardio ya permite tiempo/Cal/metros y el de comba reps+tiempo.
+  El editor específico de déficit HSPU y técnicas especiales continúa pendiente.
 - Las rutinas con bloques WOD no se ejecutan mediante el motor de fuerza. No
   se convierten resultados de bloque en series ficticias.
 - La nube conserva copias anteriores y bloquea historiales independientes
@@ -241,3 +241,20 @@ Quedan E2E OAuth/Drive, pruebas de hardware Wear, medidas Health Services,
 Pro/billing, OCR, MCP/planificación profesional, UI completa de progreso y
 paridad visual. El documento actualizado `PARITY_BACKLOG_2026_10_23.md`
 detalla los criterios de aceptación.
+
+
+## Actualización de registro y validación (23/10/2026)
+
+El dominio Kotlin ahora soporta unidades de cardio equivalentes a Swift:
+`calories`, `meters` y `reps`, además de `durationSeconds` opcional.
+Play permite corregir o borrar los registros locales; el historial muestra
+los tiempos y Progreso calcula los mejores resultados de cada unidad.
+
+El protocolo Wear diferencia finalizar la sesión de cerrar sesión: sólo
+este último solicita borrar la cola de sets pendientes y la caché del reloj.
+Sincronización en segundo plano, WOD por movimiento y prueba con dispositivo
+real continúan pendientes; lo implementado **no** constituye paridad completa.
+
+Últimos tests instrumentados de cardio: `CardioRecordInstrumentedTest`.
+El CI debe comprobarse en el HEAD actual; sus ejecuciones anteriores no
+certifican commits más recientes.
