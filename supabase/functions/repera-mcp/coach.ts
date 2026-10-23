@@ -236,7 +236,7 @@ export function registerCoachTools(
         .select("native_catalog_id").eq("catalog_key",catalogKey).maybeSingle();
       nativeId=byKey?.native_catalog_id??null;
       const {data:label}=await db.from("business_exercise_catalog")
-        .select("name").eq("catalog_key",catalogKey).maybeSingle();
+        .select("name,display_name_en").eq("catalog_key",catalogKey).maybeSingle();
       officialName=normalized(label?.name??"");
     }
     const out=(await history(days)).flatMap(row=>(row.exercises??[])
@@ -292,7 +292,7 @@ export function registerCoachTools(
       .select("catalog_key,primary_muscles,secondary_muscles,required_equipment,joint_demands,metadata_source,movement_pattern")
       .limit(1500);
     const {data:names,error:namesError}=await db.from("business_exercise_catalog")
-      .select("catalog_key,name,category").limit(1500);
+      .select("catalog_key,name,category,display_name_en").limit(1500);
     if(metaError||namesError)throw new Error("No se pudieron consultar alternativas");
     const gear=new Set(availableEquipment.map(canonicalGear));
     const labels=new Map((names??[]).map(x=>[x.catalog_key,x]));
@@ -308,7 +308,7 @@ export function registerCoachTools(
       return x.primary_muscles.some((m:string)=>origin.primary_muscles.includes(m));
     }).map(x=>({
       catalog_key:x.catalog_key,
-      name:labels.get(x.catalog_key)?.name??x.catalog_key,
+      name:labels.get(x.catalog_key)?.display_name_en??labels.get(x.catalog_key)?.name??x.catalog_key,
       required_equipment:x.required_equipment,
       joint_demands:x.joint_demands,
       metadata_source:x.metadata_source,
@@ -325,7 +325,7 @@ export function registerCoachTools(
   },async({query,limit})=>{
     const raw=query.replace(/[%_\\]/g," ").trim(); const term=normalized(raw);
     const {data:all,error}=await db.from("business_exercise_catalog")
-      .select("catalog_key,name,category").limit(1500);
+      .select("catalog_key,name,category,display_name_en").limit(1500);
     if(error) throw new Error("Catálogo no disponible");
     const {data:metadata,error:metaError}=await db.from("training_exercise_metadata")
       .select("catalog_key,native_catalog_id,metadata_source,aliases,primary_muscles,secondary_muscles,equipment,required_equipment,joint_demands,movement_pattern,skill_level,alternatives").limit(1500);
@@ -336,8 +336,11 @@ export function registerCoachTools(
       "catalog:Farmer carry","catalog:Sandbag Lunges","catalog:Wall ball"]);
     const matches=(all??[]).filter(e=>(term==="hyrox" && hyroxKeys.has(e.catalog_key))
       || normalized(e.name).includes(term)
+      || normalized(e.display_name_en??"").includes(term)
       || (index.get(e.catalog_key)?.aliases??[]).some(a=>normalized(a).includes(term)));
-    return result({results:matches.slice(0,limit).map(e=>({...e,metadata:index.get(e.catalog_key)??null})),
+    return result({results:matches.slice(0,limit).map(e=>({...e,
+        name:e.display_name_en??e.name,legacy_name:e.name,
+        metadata:index.get(e.catalog_key)??null})),
       total_matches:matches.length,note:"Missing metadata is explicit; no inferred muscle assignment."});
   });
   server.registerTool("get_training_programs",{

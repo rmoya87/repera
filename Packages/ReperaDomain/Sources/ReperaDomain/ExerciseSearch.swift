@@ -35,6 +35,7 @@ public enum ExerciseSearch {
     /// Resolución EN/abreviatura → etiqueta de catálogo para el escáner de pizarra.
     /// Comparte la misma tabla que la búsqueda (`bilingualPhrases`).
     public static func scannerCatalogName(forNormalizedQuery key: String) -> String? {
+        if let named = SportExerciseNames.canonicalName(forSearchAlias: key) { return named }
         guard let hit = bilingualPhrases[key], !hit.isEmpty else { return nil }
         if let glossary = CrossFitGlossary.aliases.first(where: { CrossFitGlossary.normalize($0.value) == CrossFitGlossary.normalize(hit) })?.value {
             return glossary
@@ -352,7 +353,11 @@ public enum ExerciseSearch {
             QueryVariant(tokens: original, phrase: original.joined(separator: " "), isAlias: false)
         ]
         let key = normalize(raw)
-        if let alias = SportExerciseNames.englishAlias(forSpanish: raw) ?? CatalogMovilidad.spanishName(forEnglish: raw) ?? bilingualPhrases[key] ?? CrossFitGlossary.aliases[key] {
+        if let alias = SportExerciseNames.canonicalName(forSearchAlias: raw)
+            ?? SportExerciseNames.englishAlias(forSpanish: raw)
+            ?? CatalogMovilidad.spanishName(forEnglish: raw)
+            ?? bilingualPhrases[key]
+            ?? CrossFitGlossary.aliases[key] {
             let synonym = tokens(from: alias)
             let full = normalize(alias)
             if !synonym.isEmpty {
@@ -453,11 +458,15 @@ public enum ExerciseSearch {
             let spanishSearchPhrase = ExerciseSearch.tokens(from: spanishLabel).joined(separator: " ")
             // Conservar abreviaturas y variantes EN de los nombres ES antiguos
             // (OCR/pizarra) incluso tras renombrar la entrada principal.
-            let aliases = (
+            let legacyAliases = (
                 ExerciseSearch.englishAliasesByCatalogName[name]
                 ?? ExerciseSearch.englishAliasesByCatalogName[spanishAlias]
                 ?? []
-            ).joined(separator: " ")
+            )
+            let aliases = (legacyAliases + SportExerciseNames.searchAliases(for: exercise.name))
+                .map(ExerciseSearch.normalize)
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
             self.name = name
             self.muscle = muscle
             // Aliases EN en meta: «back squat» encuentra Sentadilla aunque la frase no se traduzca.

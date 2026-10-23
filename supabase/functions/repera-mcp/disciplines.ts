@@ -257,7 +257,7 @@ export function registerDisciplinePlanningTools(server:McpServer,db:SupabaseClie
       const categories=catalogCategories[kind];
       if(categories){
         const {data,error}=await db.from("business_exercise_catalog")
-          .select("catalog_key,name,category").in("category",categories)
+          .select("catalog_key,name,category,display_name_en").in("category",categories)
           .order("category").order("name").limit(limit);
         errorIf(error,"No se pudo leer el catálogo de disciplina");
         const keys=(data??[]).map(x=>x.catalog_key);
@@ -266,7 +266,8 @@ export function registerDisciplinePlanningTools(server:McpServer,db:SupabaseClie
           .in("catalog_key",keys):{data:[],error:null};
         errorIf(metaError,"No se pudieron leer los metadatos de disciplina");
         const map=new Map((metadata??[]).map(x=>[x.catalog_key,x]));
-        exercises=(data??[]).map(x=>({...x,metadata:map.get(x.catalog_key)??null}));
+        exercises=(data??[]).map(x=>({...x,name:x.display_name_en??x.name,
+          legacy_name:x.name,metadata:map.get(x.catalog_key)??null}));
       }else {
         // El calentamiento es una fase, no una categoría que duplique ejercicios.
         const wanted=[...new Set(Object.values(warmupIdeas).flat())];
@@ -284,7 +285,7 @@ export function registerDisciplinePlanningTools(server:McpServer,db:SupabaseClie
       catalog_categories_included:catalogCategories[kind]??[],
       how_to_use:["Read get_athlete_planning_context for observed loads, record quality, and explicit profile",
         "Check get_training_calendar for conflicts", "Read get_wod_format_contract before choosing an interval or score",
-        "Use catalog_key/name exactly as returned; adapt exercise difficulty only with confirmed skills/equipment",
+        "Use catalog_key unchanged (legacy stable identity); name is the English display label, legacy_name is the original label. Adapt difficulty only with confirmed skills/equipment",
         "Create a saved program only when explicitly requested, then date workouts without overwriting existing plans"],
     });
   });

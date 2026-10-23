@@ -40,6 +40,45 @@ final class SportExerciseNamesTests: XCTestCase {
         }
     }
 
+    func testAcronymsAndExtraBilingualAliasesFindCorrectMovements() {
+        let indexed = ExerciseSearch.makeIndex(Catalog.seed())
+        let samples: [(String, String)] = [
+            ("C&J", "Clean and Jerk"),
+            ("dos tiempos", "Clean and Jerk"),
+            ("SHP", "Snatch High Pull"),
+            ("CHP", "Clean High Pull"),
+            ("SGDL", "Snatch-Grip Deadlift"),
+            ("HPC", "Hang power clean"),
+            ("HPSn", "Hang power snatch"),
+            ("OHS", "Overhead squat"),
+            ("BPSn", "Block Power Snatch"),
+            ("BPC", "Block Power Clean"),
+            ("SJ", "Split jerk"),
+            ("BBJ", "Burpee Broad Jump"),
+            ("BBJO", "Burpee box jump over"),
+            ("DU", "Double-Under"),
+            ("T2B", "Toes to bar"),
+            ("C2B", "Chest to bar"),
+            ("BMU", "Muscle-up barra"),
+            ("RMU", "Muscle-up anillas"),
+            ("K2E", "Knees to elbows"),
+            ("WB", "Wall ball"),
+            ("SDHP", "Sumo high pull"),
+        ]
+        for (alias, exercise) in samples {
+            XCTAssertTrue(
+                ExerciseSearch.rankedDocuments(indexed, query: alias)
+                    .contains { $0.displayName == exercise },
+                "\(alias) debería encontrar \(exercise)"
+            )
+        }
+        XCTAssertEqual(
+            ExerciseSearch.scannerCatalogName(forNormalizedQuery: ExerciseSearch.normalize("C&J")),
+            "Clean and Jerk"
+        )
+        XCTAssertNil(SportExerciseNames.canonicalName(forSearchAlias: "PS"))
+    }
+
     func testExerciseLoggingRemainsCompatibleAfterRenaming() {
         let english = Exercise(
             name: "Double-Under",

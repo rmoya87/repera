@@ -1,0 +1,169 @@
+-- Identificador histórico 'catalog:' || name protegido por check constraint catalog_key_valid.
+-- Nombre visible EN separado de la identidad; no se alteran ni name ni catalog_key.
+-- Los alias bilingües/abreviaturas se incorporan de manera aditiva al catálogo MCP.
+ALTER TABLE public.business_exercise_catalog ADD COLUMN IF NOT EXISTS display_name_en text;
+-- training_exercise_catalog es una vista sobre business_exercise_catalog.
+WITH source(catalog_key, display_name, aliases) AS (VALUES
+ ('catalog:Remo máquina','Remo máquina',ARRAY['Remo máquina','rowerg','row erg','rowing erg','ergometro remo']::text[]),
+ ('catalog:Arrancada','Snatch',ARRAY['Arrancada','Snatch','full snatch','squat snatch','arrancada completa','sn']::text[]),
+ ('catalog:Zancadas inversas con barra','Back rack reverse lunge',ARRAY['Zancadas inversas con barra','Back rack reverse lunge']::text[]),
+ ('catalog:Arrancada de potencia','Power Snatch',ARRAY['Arrancada de potencia','Power Snatch','p snatch','psn','arrancada alta']::text[]),
+ ('catalog:Arrancada colgante','Hang Snatch',ARRAY['Arrancada colgante','Hang Snatch','hang sn','arrancada desde colgado','hsn']::text[]),
+ ('catalog:Arrancada colgante completa','Hang Squat Snatch',ARRAY['Arrancada colgante completa','Hang Squat Snatch','hang full snatch','hs snatch','hssn','arrancada colgante profunda']::text[]),
+ ('catalog:Hang power snatch','Hang power snatch',ARRAY['Hang power snatch','hpsn','hang p snatch','power snatch from hang','arrancada potencia colgante']::text[]),
+ ('catalog:Arrancada muscular','Muscle Snatch',ARRAY['Arrancada muscular','Muscle Snatch','m snatch','muscle sn','arrancada sin recepción profunda']::text[]),
+ ('catalog:Arrancada desde bloques','Block Snatch',ARRAY['Arrancada desde bloques','Block Snatch','snatch from blocks','block squat snatch','arrancada desde tacos']::text[]),
+ ('catalog:Arrancada con pausa','Pause Snatch',ARRAY['Arrancada con pausa','Pause Snatch','paused snatch','snatch with pause','arrancada pausada']::text[]),
+ ('catalog:Balance de arrancada','Snatch Balance',ARRAY['Balance de arrancada','Snatch Balance','sb snatch','snatch balance behind neck','recepcion arrancada con impulso']::text[]),
+ ('catalog:Drop snatch','Drop snatch',ARRAY['Drop snatch','snatch drop','drop into snatch','caida de arrancada']::text[]),
+ ('catalog:Tall snatch','Tall snatch',ARRAY['Tall snatch','tall sn','arrancada de extensión','tall squat snatch']::text[]),
+ ('catalog:Arrancada en split','Split Snatch',ARRAY['Arrancada en split','Split Snatch','split sn','arrancada en tijera']::text[]),
+ ('catalog:Tirón de arrancada','Snatch Pull',ARRAY['Tirón de arrancada','Snatch Pull','sn pull','tiron de arrancada completo']::text[]),
+ ('catalog:Peso muerto agarre arrancada','Snatch-Grip Deadlift',ARRAY['Peso muerto agarre arrancada','Snatch-Grip Deadlift','snatch grip dl','sgdl','deadlift snatch grip','peso muerto agarre ancho']::text[]),
+ ('catalog:Cargada','Clean',ARRAY['Cargada','Clean','full clean','squat clean','cargada completa']::text[]),
+ ('catalog:Cargada de potencia','Power Clean',ARRAY['Cargada de potencia','Power Clean','pc','p clean','cargada alta']::text[]),
+ ('catalog:Cargada colgante','Hang Clean',ARRAY['Cargada colgante','Hang Clean','hang squat clean','cargada desde colgado','hc']::text[]),
+ ('catalog:Cargada colgante completa','Hang Squat Clean',ARRAY['Cargada colgante completa','Hang Squat Clean','hsc','hang full clean','cargada colgante profunda']::text[]),
+ ('catalog:Hang power clean','Hang power clean',ARRAY['Hang power clean','hpc','hang p clean','power clean from hang','cargada potencia colgante']::text[]),
+ ('catalog:Cargada muscular','Muscle Clean',ARRAY['Cargada muscular','Muscle Clean','m clean','cargada sin sentadilla']::text[]),
+ ('catalog:Cargada desde bloques','Block Clean',ARRAY['Cargada desde bloques','Block Clean','clean from blocks','block squat clean','cargada desde tacos']::text[]),
+ ('catalog:Cargada con pausa','Pause Clean',ARRAY['Cargada con pausa','Pause Clean','paused clean','clean with pause','cargada pausada']::text[]),
+ ('catalog:Tall clean','Tall clean',ARRAY['Tall clean','tall c','cargada desde extension']::text[]),
+ ('catalog:Tirón de cargada','Clean Pull',ARRAY['Tirón de cargada','Clean Pull','clean pull from floor','tiron de cargada completo']::text[]),
+ ('catalog:Cargada y press','Clean and Press',ARRAY['Cargada y press','Clean and Press','c&p','clean & press','cargada y press estricto']::text[]),
+ ('catalog:Cargada y envión','Clean and Jerk',ARRAY['Cargada y envión','Clean and Jerk','c&j','cj','c+j','clean & jerk','dos tiempos','dos tiempos olimpicos','cargada y envion olimpico']::text[]),
+ ('catalog:Push press','Push press',ARRAY['Push press','pp','press de impulso','press con piernas']::text[]),
+ ('catalog:Push jerk','Push jerk',ARRAY['Push jerk','pj','jerk en paralelo','envion con pies paralelos']::text[]),
+ ('catalog:Split jerk','Split jerk',ARRAY['Split jerk','sj','jerk en split','jerk en tijera','envion split']::text[]),
+ ('catalog:Power jerk','Power jerk',ARRAY['Power jerk','power j','jerk de potencia','envion potencia']::text[]),
+ ('catalog:Balance de envión','Jerk Balance',ARRAY['Balance de envión','Jerk Balance','jerk balance drill','balance de jerk']::text[]),
+ ('catalog:Strict press','Strict press',ARRAY['Strict press','sp','strict overhead press','press estricto de pie']::text[]),
+ ('catalog:Press detrás de nuca','Behind-the-Neck Press',ARRAY['Press detrás de nuca','Behind-the-Neck Press','btn press','press tras nuca']::text[]),
+ ('catalog:Envión detrás de nuca','Behind-the-Neck Jerk',ARRAY['Envión detrás de nuca','Behind-the-Neck Jerk','btn jerk','jerk btn','jerk desde nuca']::text[]),
+ ('catalog:Sots press','Sots press',ARRAY['Sots press','sots','sots overhead press']::text[]),
+ ('catalog:Overhead squat','Overhead squat',ARRAY['Overhead squat','ohs','ohsq','sentadilla overhead','sentadilla sobre cabeza']::text[]),
+ ('catalog:Front rack lunge','Front rack lunge',ARRAY['Front rack lunge','fr lunge','fr lunges','zancada rack frontal']::text[]),
+ ('catalog:Sentadilla frontal con pausa','Pause Front Squat',ARRAY['Sentadilla frontal con pausa','Pause Front Squat','paused fs','pause fs','pfs','sentadilla frontal pausada']::text[]),
+ ('catalog:Sumo high pull','Sumo high pull',ARRAY['Sumo high pull','sdhp','sumo deadlift high pull','tiron alto sumo deadlift']::text[]),
+ ('catalog:Chest to bar','Chest to bar',ARRAY['Chest to bar','c2b','ctb','chest-to-bar','dominadas al pecho']::text[]),
+ ('catalog:Muscle-up barra','Muscle-up barra',ARRAY['Muscle-up barra','bmu','bar mu','bar muscle up','muscle up de barra']::text[]),
+ ('catalog:Muscle-up anillas','Muscle-up anillas',ARRAY['Muscle-up anillas','rmu','ring mu','ring muscle up','muscle up de anillas']::text[]),
+ ('catalog:Toes to bar','Toes to bar',ARRAY['Toes to bar','t2b','ttb','toes-to-bar','pies a barra']::text[]),
+ ('catalog:Knees to elbows','Knees to elbows',ARRAY['Knees to elbows','k2e','knees-to-elbows','rodillas a codos']::text[]),
+ ('catalog:HSPU','HSPU',ARRAY['HSPU','handstand push up','handstand push-up','flexiones en pino']::text[]),
+ ('catalog:HSPU deficit','HSPU deficit',ARRAY['HSPU deficit','deficit hspu','def hspu','pino con deficit']::text[]),
+ ('catalog:GHD sit-up','GHD sit-up',ARRAY['GHD sit-up','ghd su','ghdsu','situp ghd']::text[]),
+ ('catalog:Ground to overhead','Ground to overhead',ARRAY['Ground to overhead','gtoh','ground 2 overhead','suelo a overhead']::text[]),
+ ('catalog:Bar facing burpee','Bar facing burpee',ARRAY['Bar facing burpee','bfb','bar-facing burpees','burpee facing bar']::text[]),
+ ('catalog:Wall ball','Wall ball',ARRAY['Wall ball','wb','wbs','wall balls','wallball','lanzamientos a diana']::text[]),
+ ('catalog:Air bike','Air bike',ARRAY['Air bike','assault bike','abike','bicicleta de aire']::text[]),
+ ('catalog:Echo bike','Echo bike',ARRAY['Echo bike','echo','echo erg','bicicleta echo']::text[]),
+ ('catalog:SkiErg','SkiErg',ARRAY['SkiErg','ski erg','ski ergometer','esqui nordico ergometro']::text[]),
+ ('catalog:Sled push','Sled push',ARRAY['Sled push','sledpush','empujar trineo']::text[]),
+ ('catalog:Sled pull','Sled pull',ARRAY['Sled pull','sledpull','tirar de trineo']::text[]),
+ ('catalog:Farmer carry','Farmer carry',ARRAY['Farmer carry','farmers carry','farmer walk','paseo granjero']::text[]),
+ ('catalog:Burpee box jump over','Burpee box jump over',ARRAY['Burpee box jump over','bbjo','burpee box jumps over','burpee sobre cajon']::text[]),
+ ('catalog:Burpee Broad Jump','Burpee Broad Jump',ARRAY['Burpee Broad Jump','bbj','burpee broad jumps','burpee long jump','burpee salto longitud']::text[]),
+ ('catalog:Sandbag Lunges','Sandbag Lunges',ARRAY['Sandbag Lunges','sandbag walking lunges','sb lunges','zancadas con saco']::text[]),
+ ('catalog:Tirón alto de arrancada','Snatch High Pull',ARRAY['Tirón alto de arrancada','Snatch High Pull','shp','snatch highpull','high pull de arrancada']::text[]),
+ ('catalog:Tirón alto de cargada','Clean High Pull',ARRAY['Tirón alto de cargada','Clean High Pull','chp','clean highpull','high pull de cargada']::text[]),
+ ('catalog:Peso muerto de cargada','Clean Deadlift',ARRAY['Peso muerto de cargada','Clean Deadlift','clean grip deadlift','cgdl','peso muerto agarre cargada']::text[]),
+ ('catalog:Envión en sentadilla','Squat Jerk',ARRAY['Envión en sentadilla','Squat Jerk','squat j','sj squat','jerk en sentadilla']::text[]),
+ ('catalog:Dip y drive de envión','Jerk Dip and Drive',ARRAY['Dip y drive de envión','Jerk Dip and Drive','jerk dip drive','dip & drive','dip drive','jerk dip + drive','impulso de envion']::text[]),
+ ('catalog:Arrancada de potencia desde bloques','Block Power Snatch',ARRAY['Arrancada de potencia desde bloques','Block Power Snatch','bpsn','power snatch off blocks','arrancada potencia desde tacos']::text[]),
+ ('catalog:Cargada de potencia desde bloques','Block Power Clean',ARRAY['Cargada de potencia desde bloques','Block Power Clean','bpc','power clean off blocks','cargada potencia desde tacos']::text[]),
+ ('catalog:Push press con agarre de arrancada','Snatch-Grip Push Press',ARRAY['Push press con agarre de arrancada','Snatch-Grip Push Press','sgpp','snatch grip pp','push press ancho']::text[])
+)
+UPDATE public.business_exercise_catalog c
+SET display_name_en=s.display_name
+FROM source s WHERE c.catalog_key=s.catalog_key AND c.category='Halterofilia'
+  AND c.display_name_en IS DISTINCT FROM s.display_name;
+
+-- Se amplía la vista manteniendo las tres columnas históricas en su orden original.
+CREATE OR REPLACE VIEW public.training_exercise_catalog AS
+SELECT catalog_key,name,category,display_name_en
+FROM public.business_exercise_catalog;
+
+WITH source(catalog_key, display_name, aliases) AS (VALUES
+ ('catalog:Remo máquina','Remo máquina',ARRAY['Remo máquina','rowerg','row erg','rowing erg','ergometro remo']::text[]),
+ ('catalog:Arrancada','Snatch',ARRAY['Arrancada','Snatch','full snatch','squat snatch','arrancada completa','sn']::text[]),
+ ('catalog:Zancadas inversas con barra','Back rack reverse lunge',ARRAY['Zancadas inversas con barra','Back rack reverse lunge']::text[]),
+ ('catalog:Arrancada de potencia','Power Snatch',ARRAY['Arrancada de potencia','Power Snatch','p snatch','psn','arrancada alta']::text[]),
+ ('catalog:Arrancada colgante','Hang Snatch',ARRAY['Arrancada colgante','Hang Snatch','hang sn','arrancada desde colgado','hsn']::text[]),
+ ('catalog:Arrancada colgante completa','Hang Squat Snatch',ARRAY['Arrancada colgante completa','Hang Squat Snatch','hang full snatch','hs snatch','hssn','arrancada colgante profunda']::text[]),
+ ('catalog:Hang power snatch','Hang power snatch',ARRAY['Hang power snatch','hpsn','hang p snatch','power snatch from hang','arrancada potencia colgante']::text[]),
+ ('catalog:Arrancada muscular','Muscle Snatch',ARRAY['Arrancada muscular','Muscle Snatch','m snatch','muscle sn','arrancada sin recepción profunda']::text[]),
+ ('catalog:Arrancada desde bloques','Block Snatch',ARRAY['Arrancada desde bloques','Block Snatch','snatch from blocks','block squat snatch','arrancada desde tacos']::text[]),
+ ('catalog:Arrancada con pausa','Pause Snatch',ARRAY['Arrancada con pausa','Pause Snatch','paused snatch','snatch with pause','arrancada pausada']::text[]),
+ ('catalog:Balance de arrancada','Snatch Balance',ARRAY['Balance de arrancada','Snatch Balance','sb snatch','snatch balance behind neck','recepcion arrancada con impulso']::text[]),
+ ('catalog:Drop snatch','Drop snatch',ARRAY['Drop snatch','snatch drop','drop into snatch','caida de arrancada']::text[]),
+ ('catalog:Tall snatch','Tall snatch',ARRAY['Tall snatch','tall sn','arrancada de extensión','tall squat snatch']::text[]),
+ ('catalog:Arrancada en split','Split Snatch',ARRAY['Arrancada en split','Split Snatch','split sn','arrancada en tijera']::text[]),
+ ('catalog:Tirón de arrancada','Snatch Pull',ARRAY['Tirón de arrancada','Snatch Pull','sn pull','tiron de arrancada completo']::text[]),
+ ('catalog:Peso muerto agarre arrancada','Snatch-Grip Deadlift',ARRAY['Peso muerto agarre arrancada','Snatch-Grip Deadlift','snatch grip dl','sgdl','deadlift snatch grip','peso muerto agarre ancho']::text[]),
+ ('catalog:Cargada','Clean',ARRAY['Cargada','Clean','full clean','squat clean','cargada completa']::text[]),
+ ('catalog:Cargada de potencia','Power Clean',ARRAY['Cargada de potencia','Power Clean','pc','p clean','cargada alta']::text[]),
+ ('catalog:Cargada colgante','Hang Clean',ARRAY['Cargada colgante','Hang Clean','hang squat clean','cargada desde colgado','hc']::text[]),
+ ('catalog:Cargada colgante completa','Hang Squat Clean',ARRAY['Cargada colgante completa','Hang Squat Clean','hsc','hang full clean','cargada colgante profunda']::text[]),
+ ('catalog:Hang power clean','Hang power clean',ARRAY['Hang power clean','hpc','hang p clean','power clean from hang','cargada potencia colgante']::text[]),
+ ('catalog:Cargada muscular','Muscle Clean',ARRAY['Cargada muscular','Muscle Clean','m clean','cargada sin sentadilla']::text[]),
+ ('catalog:Cargada desde bloques','Block Clean',ARRAY['Cargada desde bloques','Block Clean','clean from blocks','block squat clean','cargada desde tacos']::text[]),
+ ('catalog:Cargada con pausa','Pause Clean',ARRAY['Cargada con pausa','Pause Clean','paused clean','clean with pause','cargada pausada']::text[]),
+ ('catalog:Tall clean','Tall clean',ARRAY['Tall clean','tall c','cargada desde extension']::text[]),
+ ('catalog:Tirón de cargada','Clean Pull',ARRAY['Tirón de cargada','Clean Pull','clean pull from floor','tiron de cargada completo']::text[]),
+ ('catalog:Cargada y press','Clean and Press',ARRAY['Cargada y press','Clean and Press','c&p','clean & press','cargada y press estricto']::text[]),
+ ('catalog:Cargada y envión','Clean and Jerk',ARRAY['Cargada y envión','Clean and Jerk','c&j','cj','c+j','clean & jerk','dos tiempos','dos tiempos olimpicos','cargada y envion olimpico']::text[]),
+ ('catalog:Push press','Push press',ARRAY['Push press','pp','press de impulso','press con piernas']::text[]),
+ ('catalog:Push jerk','Push jerk',ARRAY['Push jerk','pj','jerk en paralelo','envion con pies paralelos']::text[]),
+ ('catalog:Split jerk','Split jerk',ARRAY['Split jerk','sj','jerk en split','jerk en tijera','envion split']::text[]),
+ ('catalog:Power jerk','Power jerk',ARRAY['Power jerk','power j','jerk de potencia','envion potencia']::text[]),
+ ('catalog:Balance de envión','Jerk Balance',ARRAY['Balance de envión','Jerk Balance','jerk balance drill','balance de jerk']::text[]),
+ ('catalog:Strict press','Strict press',ARRAY['Strict press','sp','strict overhead press','press estricto de pie']::text[]),
+ ('catalog:Press detrás de nuca','Behind-the-Neck Press',ARRAY['Press detrás de nuca','Behind-the-Neck Press','btn press','press tras nuca']::text[]),
+ ('catalog:Envión detrás de nuca','Behind-the-Neck Jerk',ARRAY['Envión detrás de nuca','Behind-the-Neck Jerk','btn jerk','jerk btn','jerk desde nuca']::text[]),
+ ('catalog:Sots press','Sots press',ARRAY['Sots press','sots','sots overhead press']::text[]),
+ ('catalog:Overhead squat','Overhead squat',ARRAY['Overhead squat','ohs','ohsq','sentadilla overhead','sentadilla sobre cabeza']::text[]),
+ ('catalog:Front rack lunge','Front rack lunge',ARRAY['Front rack lunge','fr lunge','fr lunges','zancada rack frontal']::text[]),
+ ('catalog:Sentadilla frontal con pausa','Pause Front Squat',ARRAY['Sentadilla frontal con pausa','Pause Front Squat','paused fs','pause fs','pfs','sentadilla frontal pausada']::text[]),
+ ('catalog:Sumo high pull','Sumo high pull',ARRAY['Sumo high pull','sdhp','sumo deadlift high pull','tiron alto sumo deadlift']::text[]),
+ ('catalog:Chest to bar','Chest to bar',ARRAY['Chest to bar','c2b','ctb','chest-to-bar','dominadas al pecho']::text[]),
+ ('catalog:Muscle-up barra','Muscle-up barra',ARRAY['Muscle-up barra','bmu','bar mu','bar muscle up','muscle up de barra']::text[]),
+ ('catalog:Muscle-up anillas','Muscle-up anillas',ARRAY['Muscle-up anillas','rmu','ring mu','ring muscle up','muscle up de anillas']::text[]),
+ ('catalog:Toes to bar','Toes to bar',ARRAY['Toes to bar','t2b','ttb','toes-to-bar','pies a barra']::text[]),
+ ('catalog:Knees to elbows','Knees to elbows',ARRAY['Knees to elbows','k2e','knees-to-elbows','rodillas a codos']::text[]),
+ ('catalog:HSPU','HSPU',ARRAY['HSPU','handstand push up','handstand push-up','flexiones en pino']::text[]),
+ ('catalog:HSPU deficit','HSPU deficit',ARRAY['HSPU deficit','deficit hspu','def hspu','pino con deficit']::text[]),
+ ('catalog:GHD sit-up','GHD sit-up',ARRAY['GHD sit-up','ghd su','ghdsu','situp ghd']::text[]),
+ ('catalog:Ground to overhead','Ground to overhead',ARRAY['Ground to overhead','gtoh','ground 2 overhead','suelo a overhead']::text[]),
+ ('catalog:Bar facing burpee','Bar facing burpee',ARRAY['Bar facing burpee','bfb','bar-facing burpees','burpee facing bar']::text[]),
+ ('catalog:Wall ball','Wall ball',ARRAY['Wall ball','wb','wbs','wall balls','wallball','lanzamientos a diana']::text[]),
+ ('catalog:Air bike','Air bike',ARRAY['Air bike','assault bike','abike','bicicleta de aire']::text[]),
+ ('catalog:Echo bike','Echo bike',ARRAY['Echo bike','echo','echo erg','bicicleta echo']::text[]),
+ ('catalog:SkiErg','SkiErg',ARRAY['SkiErg','ski erg','ski ergometer','esqui nordico ergometro']::text[]),
+ ('catalog:Sled push','Sled push',ARRAY['Sled push','sledpush','empujar trineo']::text[]),
+ ('catalog:Sled pull','Sled pull',ARRAY['Sled pull','sledpull','tirar de trineo']::text[]),
+ ('catalog:Farmer carry','Farmer carry',ARRAY['Farmer carry','farmers carry','farmer walk','paseo granjero']::text[]),
+ ('catalog:Burpee box jump over','Burpee box jump over',ARRAY['Burpee box jump over','bbjo','burpee box jumps over','burpee sobre cajon']::text[]),
+ ('catalog:Burpee Broad Jump','Burpee Broad Jump',ARRAY['Burpee Broad Jump','bbj','burpee broad jumps','burpee long jump','burpee salto longitud']::text[]),
+ ('catalog:Sandbag Lunges','Sandbag Lunges',ARRAY['Sandbag Lunges','sandbag walking lunges','sb lunges','zancadas con saco']::text[]),
+ ('catalog:Tirón alto de arrancada','Snatch High Pull',ARRAY['Tirón alto de arrancada','Snatch High Pull','shp','snatch highpull','high pull de arrancada']::text[]),
+ ('catalog:Tirón alto de cargada','Clean High Pull',ARRAY['Tirón alto de cargada','Clean High Pull','chp','clean highpull','high pull de cargada']::text[]),
+ ('catalog:Peso muerto de cargada','Clean Deadlift',ARRAY['Peso muerto de cargada','Clean Deadlift','clean grip deadlift','cgdl','peso muerto agarre cargada']::text[]),
+ ('catalog:Envión en sentadilla','Squat Jerk',ARRAY['Envión en sentadilla','Squat Jerk','squat j','sj squat','jerk en sentadilla']::text[]),
+ ('catalog:Dip y drive de envión','Jerk Dip and Drive',ARRAY['Dip y drive de envión','Jerk Dip and Drive','jerk dip drive','dip & drive','dip drive','jerk dip + drive','impulso de envion']::text[]),
+ ('catalog:Arrancada de potencia desde bloques','Block Power Snatch',ARRAY['Arrancada de potencia desde bloques','Block Power Snatch','bpsn','power snatch off blocks','arrancada potencia desde tacos']::text[]),
+ ('catalog:Cargada de potencia desde bloques','Block Power Clean',ARRAY['Cargada de potencia desde bloques','Block Power Clean','bpc','power clean off blocks','cargada potencia desde tacos']::text[]),
+ ('catalog:Push press con agarre de arrancada','Snatch-Grip Push Press',ARRAY['Push press con agarre de arrancada','Snatch-Grip Push Press','sgpp','snatch grip pp','push press ancho']::text[])
+)
+INSERT INTO public.training_exercise_metadata
+    (catalog_key,aliases,metadata_source)
+SELECT s.catalog_key,s.aliases,'native:SportExerciseNames'
+FROM source s
+WHERE EXISTS (SELECT 1 FROM public.training_exercise_catalog c WHERE c.catalog_key=s.catalog_key)
+ON CONFLICT(catalog_key) DO UPDATE
+SET aliases=ARRAY(
+ SELECT DISTINCT alias FROM unnest(
+     coalesce(training_exercise_metadata.aliases,ARRAY[]::text[])
+     || excluded.aliases
+ ) alias
+),updated_at=now();
