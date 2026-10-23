@@ -281,7 +281,7 @@ struct StandaloneTimerView: View {
             .padding(.top, 8)
             .padding(.bottom, 28)
         }
-        .background(OG.bg)
+        .background(OG.bg.ignoresSafeArea())
         .navigationTitle("Temporizador")
         .navigationBarTitleDisplayMode(.large)
         .ogDiaryTransparentNav()

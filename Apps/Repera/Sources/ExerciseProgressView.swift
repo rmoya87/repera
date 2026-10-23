@@ -25,7 +25,7 @@ struct ExerciseProgressView: View {
             .padding(.top, 0)
             .padding(.bottom, 28)
         }
-        .background(OG.bg)
+        .background(OG.bg.ignoresSafeArea())
         .ogPinnedTransparentNav(
             store.resolvedCatalogExercise(id: exerciseId)?.name ?? "Ejercicio"
         )

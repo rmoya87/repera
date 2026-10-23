@@ -196,6 +196,7 @@ struct QuickLogSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
+            .background(OG.bg.ignoresSafeArea())
             .listRowBackground(Color.clear)
             .tint(OG.accent)
             .navigationTitle("Apuntar series")
