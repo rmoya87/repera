@@ -1028,7 +1028,7 @@ struct WorkoutDetailView: View {
                     // las series programadas como ejecutadas, no solo la primera.
                     ForEach(Array(exercise.plannedSets.enumerated()), id: \.element.id) { index, planned in
                         HStack(spacing: 14) {
-                            Text("S\\(index + 1)")
+                            Text("S\(index + 1)")
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(OG.label2)
                                 .frame(width: 34, alignment: .leading)
@@ -1074,12 +1074,12 @@ struct WorkoutDetailView: View {
     private func plannedSetSummary(_ planned: PlannedSet, exercise: SessionExercise) -> String {
         let unit = exercise.quantityUnit ?? exercise.exercise.defaultQuantityUnit
         if unit != .reps {
-            return "\\(planned.targetReps) \\(unit.shortLabel)"
+            return "\(planned.targetReps) \(unit.shortLabel)"
         }
         if let kg = planned.targetWeightKg, kg > 0 {
-            return "\\(planned.targetReps) @ \\(String(format: "%g", kg)) kg"
+            return "\(planned.targetReps) @ \(String(format: "%g", kg)) kg"
         }
-        return "\\(planned.targetReps) reps"
+        return "\(planned.targetReps) reps"
     }
 
     private func editSetColumnHeaders(exercise: Exercise, showsRemove: Bool) -> some View {
