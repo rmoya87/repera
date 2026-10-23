@@ -193,7 +193,8 @@ struct ProgressCardioChartCard: View {
         ProgressChartAxis.xDomain(
             points: points.map(\.date),
             range: range,
-            weekStartsOnMonday: weekStartsOnMonday
+            weekStartsOnMonday: weekStartsOnMonday,
+            isTeaserPreview: prepared.isTeaserPreview
         )
     }
 
@@ -302,7 +303,6 @@ struct ProgressCardioChartCard: View {
                         .chartLegend(.hidden)
                         .frame(height: 140)
                         .frame(maxWidth: .infinity)
-                        .clipped()
 
                         if !prepared.isTeaserPreview, let stats = periodStats {
                             HStack(spacing: 8) {
@@ -374,7 +374,8 @@ struct ProgressCaloriesChartCard: View {
         ProgressChartAxis.xDomain(
             points: points.map(\.date),
             range: range,
-            weekStartsOnMonday: weekStartsOnMonday
+            weekStartsOnMonday: weekStartsOnMonday,
+            isTeaserPreview: prepared.isTeaserPreview
         )
     }
 
@@ -472,7 +473,6 @@ struct ProgressCaloriesChartCard: View {
                         .chartLegend(.hidden)
                         .frame(height: 140)
                         .frame(maxWidth: .infinity)
-                        .clipped()
                     } else {
                         ProgressEmptyChart(
                             message: "Sin kcal de Salud en \(range.title.lowercased()).",
@@ -565,7 +565,8 @@ struct ProgressWeightChartCard: View {
         ProgressChartAxis.xDomain(
             points: points.map(\.date),
             range: range,
-            weekStartsOnMonday: weekStartsOnMonday
+            weekStartsOnMonday: weekStartsOnMonday,
+            isTeaserPreview: isTeaserPreview
         )
     }
 
@@ -730,10 +731,17 @@ enum ProgressChartAxis {
         points: [Date],
         range: ProgressTimeRange,
         weekStartsOnMonday: Bool,
-        now: Date = Date()
+        now: Date = Date(),
+        isTeaserPreview: Bool = false
     ) -> ClosedRange<Date> {
         let cal = Calendar.current
         let today = cal.startOfDay(for: now)
+        if isTeaserPreview, let first = points.min(), let last = points.max() {
+            // Ejemplos = últimos 7 días. Pueden cruzar el inicio de
+            // la semana real; añadir espacio a ambos lados del trazado.
+            let halfDay: TimeInterval = 12 * 60 * 60
+            return first.addingTimeInterval(-halfDay)...last.addingTimeInterval(halfDay)
+        }
         let start = range.startDate(now: now, weekStartsOnMonday: weekStartsOnMonday)
             ?? points.min()
             ?? today

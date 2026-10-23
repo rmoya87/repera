@@ -359,7 +359,9 @@ struct StatsView: View {
                             .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
                         }
                     }
+                    .chartXScale(domain: 0.5...7.5)
                     .chartYScale(domain: 35.0...65.0)
+                    .chartPlotStyle { $0.clipped() }
                     .chartXAxis {
                         AxisMarks(values: [1, 3, 5, 7]) { _ in
                             AxisGridLine()
@@ -897,9 +899,11 @@ private struct ProgressSessionScoreChartCard: View {
                         .chartXScale(domain: ProgressChartAxis.xDomain(
                             points: values.map(\.date),
                             range: range,
-                            weekStartsOnMonday: weekStartsOnMonday
+                            weekStartsOnMonday: weekStartsOnMonday,
+                            isTeaserPreview: isTeaserPreview
                         ))
                         .chartYScale(domain: 0.0...10.0)
+                        .chartPlotStyle { $0.clipped() }
                         .chartYAxis {
                             AxisMarks(position: .leading, values: [0.0, 5.0, 10.0])
                         }
