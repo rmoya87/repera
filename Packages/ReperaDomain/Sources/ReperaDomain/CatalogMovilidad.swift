@@ -139,7 +139,7 @@ enum CatalogMovilidad {
             ? "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
             : "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
         _ = names // La técnica individual procede de los dos pasos del propio ejercicio.
-        return [setup] + main + [breath, control, adapt]
+        return main + [setup, breath, control, adapt]
     }
 
     /// Aliases ingleses para las búsquedas sin duplicar movimientos.

@@ -6,9 +6,10 @@ import UIKit
 enum ExerciseArt {
     /// Nombre del hero para listas (sin sondear pasos `_1`…`_8`).
     static func imageName(for exercise: Exercise) -> String? {
-        // No reutilizar por similitud arte de fuerza en movimientos de movilidad.
-        // Solo se habilitan cuando tienen imágenes verificadas para cada técnica.
-        if exercise.isMobility { return nil }
+        // No reutilizar por similitud arte de fuerza en movimientos de movilidad:
+        // solo arte propio con coincidencia exacta de nombre (nameMap), nunca el
+        // fallback difuso. Verificado visualmente antes de dar de alta cada stem.
+        if exercise.isMobility { return mobilityArtBase(forExerciseName: exercise.name) }
         return heroImageName(for: exercise)
     }
 
@@ -60,6 +61,14 @@ enum ExerciseArt {
             }
         }
         return best?.base
+    }
+
+    /// Movilidad: héroe propio solo por nombre exacto (o alias ES), nunca por similitud.
+    private static func mobilityArtBase(forExerciseName name: String) -> String? {
+        if let base = acceptedHero(nameMap[name]) { return base }
+        let legacyName = SportExerciseNames.spanishAlias(for: name) ?? name
+        if legacyName != name, let base = acceptedHero(nameMap[legacyName]) { return base }
+        return nil
     }
 
     private static func acceptedHero(_ base: String?) -> String? {
@@ -160,9 +169,34 @@ enum ExerciseArt {
     /// Pasos numerados si existen (`base_1`…); si no, secuencia de movimientos distintos; si no, hero.
     /// Solo para ficha / carrusel — no usar en filas de lista.
     static func imageNames(for exercise: Exercise) -> [String] {
-        // Evita héroes anatómicamente incorrectos mientras no exista arte propio validado.
-        if exercise.isMobility { return [] }
         let cacheKey = exercise.name
+        // Movilidad: solo arte propio con nombre exacto; sin mezclar arte de fuerza.
+        if exercise.isMobility {
+            guard let base = mobilityArtBase(forExerciseName: exercise.name) else {
+                lookup.setNames([], for: cacheKey)
+                return []
+            }
+            var numbered: [String] = []
+            if !staticHoldExercises.contains(exercise.name),
+               !quarantinedSequences.contains(base) {
+                for i in 1...8 {
+                    let step = "\(base)_\(i)"
+                    if let known = lookup.manifestHas(step), !known { break }
+                    guard uiImage(named: step) != nil else { break }
+                    numbered.append(step)
+                }
+            }
+            let captions = CatalogSpanish.instructions(forName: exercise.name) ?? exercise.instructions
+            let captionCount = captions.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count
+            let resolved: [String]
+            if numbered.count >= 2 && captionCount >= numbered.count {
+                resolved = numbered
+            } else {
+                resolved = uiImage(named: base) == nil ? [] : [base]
+            }
+            lookup.setNames(resolved, for: cacheKey)
+            return resolved
+        }
         let legacyName = SportExerciseNames.spanishAlias(for: exercise.name) ?? exercise.name
         if let cached = lookup.names(for: cacheKey) { return cached }
 
@@ -219,7 +253,7 @@ enum ExerciseArt {
 
     /// Hero: solo mapa de nombres (sin FileManager / decode). Si el JPG falta, el thumb muestra SF Symbol.
     private static func heroImageName(for exercise: Exercise) -> String? {
-        if exercise.isMobility { return nil }
+        if exercise.isMobility { return mobilityArtBase(forExerciseName: exercise.name) }
         let key = exercise.name
         if let cached = lookup.heroName(for: key) {
             return cached.isEmpty ? nil : cached
@@ -254,6 +288,29 @@ enum ExerciseArt {
         "Hollow hold", "Arch hold", "Handstand hold", "L-sit", "V-sit",
         "Front lever tuck", "Back lever tuck", "Planche tuck",
         "False grip hang", "German hang", "Soporte en anillas",
+        // MARK: Holds de movilidad (una sola ilustración)
+        "Estiramiento de dorsal en banco",
+        "Estiramiento pectoral en puerta",
+        "Estiramiento de hombro cruzado",
+        "Colgado pasivo",
+        "Colgado activo",
+        "Postura de la esfinge",
+        "Postura del niño",
+        "Postura del niño lateral",
+        "90/90 con inclinación frontal",
+        "Estiramiento del flexor de cadera",
+        "Couch stretch",
+        "Figura cuatro tumbado",
+        "Postura de la paloma",
+        "Frog stretch",
+        "Mariposa sentada",
+        "Sentadilla profunda sostenida",
+        "Estiramiento de cuádriceps de pie",
+        "Estiramiento de gemelo en pared",
+        "Estiramiento de sóleo en pared",
+        "Estiramiento de isquios con banda",
+        "Movilidad de muñeca en flexión",
+        "Respiración diafragmática 90/90",
     ]
 
     /// Secuencias que se han revisado visualmente y fallan el criterio de producto.
@@ -704,6 +761,97 @@ enum ExerciseArt {
         "Echo bike": "art_cf_echo",
         "Shuttle run": "art_cf_shuttle",
         "Farmer carry": "art_cf_farmer_carry",
+
+        // MARK: Movilidad + HYROX (arte propio verificado 2026-10)
+        "Flexión cervical suave": "art_mv_neck_flex",
+        "Extensión cervical suave": "art_mv_neck_ext",
+        "Rotación cervical": "art_mv_neck_rot",
+        "Inclinación lateral cervical": "art_mv_neck_lat",
+        "Retracción cervical": "art_mv_chin_tuck",
+        "CARs de cuello": "art_mv_neck_cars",
+        "Círculos de hombros": "art_mv_shoulder_circles",
+        "CARs de hombro": "art_mv_shoulder_cars",
+        "Pasadas de hombros con pica": "art_mv_pvc_pass",
+        "Deslizamientos en pared": "art_mv_wall_slide",
+        "Ángeles en pared": "art_mv_wall_angel",
+        "Rotación externa de hombro con banda": "art_mv_band_er",
+        "Rotación interna de hombro": "art_mv_shoulder_ir",
+        "Estiramiento de dorsal en banco": "art_mv_bench_lat",
+        "Estiramiento pectoral en puerta": "art_mv_door_pec",
+        "Estiramiento de hombro cruzado": "art_mv_cross_shoulder",
+        "Elevaciones escapulares": "art_mv_scap_elev",
+        "Protracción y retracción escapular": "art_mv_scap_proret",
+        "Flexiones escapulares": "art_mv_scap_pu",
+        "Colgado pasivo": "art_mv_dead_hang",
+        "Colgado activo": "art_mv_active_hang",
+        "Gato-vaca": "art_mv_cat_cow",
+        "Rotación torácica en cuadrupedia": "art_mv_quad_trot",
+        "Enhebrar la aguja": "art_mv_thread_needle",
+        "Libro abierto": "art_mv_open_book",
+        "Extensión torácica con rodillo": "art_mv_foam_text",
+        "Rotación torácica sentado": "art_mv_seated_trot",
+        "Rotación torácica en pared": "art_mv_wall_trot",
+        "Flexión segmentaria de columna": "art_mv_seg_flex",
+        "Postura de la esfinge": "art_mv_sphinx",
+        "Postura del niño": "art_mv_child",
+        "Postura del niño lateral": "art_mv_child_side",
+        "Inclinación lateral de tronco": "art_mv_side_bend",
+        "CARs de cadera": "art_mv_hip_cars",
+        "90/90 de cadera": "art_mv_9090",
+        "90/90 con inclinación frontal": "art_mv_9090_fold",
+        "90/90 con elevación de rodilla": "art_mv_9090_lift",
+        "Estiramiento del flexor de cadera": "art_mv_hip_flexor",
+        "Couch stretch": "art_mv_couch",
+        "Figura cuatro tumbado": "art_mv_figure4",
+        "Postura de la paloma": "art_mv_pigeon",
+        "Frog stretch": "art_mv_frog",
+        "Rockback de aductores": "art_mv_add_rockback",
+        "Mariposa sentada": "art_mv_butterfly",
+        "Sentadilla Cossack de movilidad": "art_mv_cossack",
+        "Sentadilla profunda sostenida": "art_mv_deep_squat",
+        "Sentadilla profunda con balanceo": "art_mv_squat_pry",
+        "Flexión activa de cadera de pie": "art_mv_hip_flex_stand",
+        "Extensión activa de cadera de pie": "art_mv_hip_ext_stand",
+        "Rotación interna de cadera sentado": "art_mv_hip_ir_seated",
+        "Rodilla a pared para tobillo": "art_mv_knee_wall",
+        "Dorsiflexión de tobillo con banda": "art_mv_band_dorsi",
+        "Círculos de tobillo": "art_mv_ankle_circles",
+        "CARs de tobillo": "art_mv_ankle_cars",
+        "Flexión plantar de tobillo": "art_mv_plantar",
+        "Inversión y eversión de tobillo": "art_mv_inv_ev",
+        "Elevación de tibial anterior": "art_mv_tib_raise",
+        "Rodilla sobre dedos controlada": "art_mv_knee_over_toes",
+        "Flexión de rodilla en apoyo": "art_mv_knee_flex_sup",
+        "Estiramiento de cuádriceps de pie": "art_mv_quad_stretch",
+        "Estiramiento de gemelo en pared": "art_mv_calf_wall",
+        "Estiramiento de sóleo en pared": "art_mv_soleus_wall",
+        "Bisagra de cadera sin carga": "art_mv_hinge",
+        "Estiramiento dinámico de isquios": "art_mv_ham_dynamic",
+        "Deslizamiento neural suave": "art_mv_nerve_glide",
+        "Buenos días con pica": "art_mv_pvc_gm",
+        "Estiramiento de isquios con banda": "art_mv_band_ham",
+        "Perro boca abajo dinámico": "art_mv_down_dog",
+        "Movilidad de muñeca en extensión": "art_mv_wrist_ext",
+        "Movilidad de muñeca en flexión": "art_mv_wrist_flex",
+        "Círculos de muñecas": "art_mv_wrist_circles",
+        "Pronación y supinación de antebrazo": "art_mv_pron_sup",
+        "Extensión controlada de codo": "art_mv_elbow_ext",
+        "Flexión controlada de codo": "art_mv_elbow_flex",
+        "World's Greatest Stretch": "art_mv_wgs",
+        "Zancada Spiderman con rotación": "art_mv_spiderman",
+        "Inchworm": "art_mv_inchworm",
+        "Bear sit con rotación": "art_mv_bear_sit",
+        "Puente de glúteo articulado": "art_mv_glute_bridge",
+        "Respiración diafragmática 90/90": "art_mv_breath_9090",
+        "Rotación de tronco tumbado": "art_mv_supine_twist",
+        "Rockback global en cuadrupedia": "art_mv_rockback",
+        "Burpee Broad Jump": "art_hx_bbj",
+        "Sandbag Lunges": "art_hx_sb_lunge",
+        "Burpee con salto de longitud": "art_hx_bbj",
+        "Burpees con salto de longitud": "art_hx_bbj",
+        "Zancadas con saco": "art_hx_sb_lunge",
+        "Zancadas caminando con saco": "art_hx_sb_lunge",
+
     ]
 
 }
