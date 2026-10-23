@@ -185,11 +185,24 @@ public enum SportExerciseNames {
         "Sled pull": ["sledpull", "tirar de trineo"],
     ]
 
+    private static func aliasKey(_ raw: String) -> String {
+        let folded = key(raw)
+        var result = ""
+        for scalar in folded.unicodeScalars {
+            if CharacterSet.alphanumerics.contains(scalar) {
+                result.unicodeScalars.append(scalar)
+            } else if !result.hasSuffix(" ") {
+                result.append(" ")
+            }
+        }
+        return result.trimmingCharacters(in: .whitespaces)
+    }
+
     private static let normalizedSupplementalAliases: [String: String] = {
         var values: [String: String] = [:]
         for (canonical, aliases) in supplementalAliases {
             for alias in aliases {
-                let normalized = key(alias)
+                let normalized = aliasKey(alias)
                 guard !normalized.isEmpty else { continue }
                 if values[normalized] == nil {
                     values[normalized] = canonical
@@ -208,7 +221,7 @@ public enum SportExerciseNames {
 
     /// Permite al buscador y al lector de pizarra resolver siglas sin modificar IDs.
     public static func canonicalName(forSearchAlias raw: String) -> String? {
-        normalizedSupplementalAliases[key(raw)]
+        normalizedSupplementalAliases[aliasKey(raw)]
     }
 
     private static let englishToSpanish: [String: String] = {
