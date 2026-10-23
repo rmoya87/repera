@@ -414,7 +414,8 @@ data class StateOverview(
     val recentWorkoutTitles: List<String>,
     val history: List<WorkoutHistoryEntry>,
     val routineEntries: List<RoutineEntry>,
-    val exerciseEntries: List<ExerciseEntry>
+    val exerciseEntries: List<ExerciseEntry>,
+    val exerciseProgress: Map<String, ExerciseProgressSummary> = emptyMap()
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?): StateOverview? {
@@ -557,7 +558,8 @@ data class StateOverview(
                 recentWorkoutTitles = workoutTitles.asReversed().take(20),
                 history = history,
                 routineEntries = routineEntries,
-                exerciseEntries = exerciseEntries
+                exerciseEntries = exerciseEntries,
+                exerciseProgress = ExerciseProgressMetrics.fromWorkouts(json.getJSONArray("workouts"))
             )
         }
     }

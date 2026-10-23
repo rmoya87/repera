@@ -48,6 +48,10 @@
 
 La paridad no es un porcentaje inventado: requiere matriz por comportamiento y resultado entre iOS 27 y Android 17, pruebas contractuales para cada WOD/unidad/estadística, E2E Google/Supabase/Drive, pruebas con reloj físico y CI verde después de integrar. En la revisión actual **no se afirma equivalencia funcional ni ausencia de bugs**.
 
+### Incremento de métricas base
+
+`ExerciseProgressMetrics` recorre **todo** `workouts` (no las últimas 20) y calcula apariciones, récord de carga, reps, Cal, metros y e1RM Epley con sets efectivos, excluyendo calentamientos y WODs de score global sin registros. La ficha de catálogo permite consultar el resumen gratuito de última sesión y récords. La visualización de e1RM, series temporales y frecuencia avanzada queda pendiente de control real de entitlement Pro y gráficos nativos. Se añaden tres pruebas instrumentadas.
+
 ### Incremento de esta auditoría
 
 El lector `WorkoutHistorySets` aplica fallback de sets prescritos terminados **solo en memoria**, conserva warmups reales, unidades Cal/metros, RIR y WOD globales sin series falsas. La prueba instrumentada protege estos invariantes. Para estadísticas agregadas faltan portar `StatsEngine.effectiveWorkSets` a un motor transversal Android, no reimplementar reglas diferentes por pantalla.

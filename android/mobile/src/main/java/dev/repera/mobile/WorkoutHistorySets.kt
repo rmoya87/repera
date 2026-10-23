@@ -11,6 +11,31 @@ import org.json.JSONObject
  * never do. Actual recorded sets (including warmups) take precedence.
  */
 internal object WorkoutHistorySets {
+    /** Effective positive working sets for statistics; never writes inferred sets to disk. */
+    data class EffectiveSet(val reps: Int, val weightKg: Double?, val unit: String)
+
+    fun effectiveWorkSets(workout: JSONObject, exercise: JSONObject): List<EffectiveSet> {
+        val logged = exercise.optJSONArray("loggedSets") ?: JSONArray()
+        val actual = (0 until logged.length()).mapNotNull { n ->
+            val set = logged.getJSONObject(n)
+            if (set.optString("phase", "work") == "warmup" || set.optInt("reps") <= 0)
+                null else EffectiveSet(set.optInt("reps"),
+                    valueOrNull(set, "weightKg"), resolvedUnit(set, exercise))
+        }
+        if (actual.isNotEmpty()) return actual
+        val finished = workout.optString("phase") == "finished" ||
+            (workout.has("finishedAt") && !workout.isNull("finishedAt") &&
+                workout.optString("finishedAt").isNotBlank())
+        if (!finished) return emptyList()
+        val planned = exercise.optJSONArray("plannedSets") ?: return emptyList()
+        return (0 until planned.length()).mapNotNull { n ->
+            val set = planned.getJSONObject(n)
+            if (set.optInt("targetReps") <= 0) null else EffectiveSet(
+                set.optInt("targetReps"), valueOrNull(set, "targetWeightKg"),
+                resolvedUnit(set, exercise))
+        }
+    }
+
     fun displayLines(workout: JSONObject, exercise: JSONObject): List<String> {
         val recorded = exercise.optJSONArray("loggedSets") ?: JSONArray()
         val actual = (0 until recorded.length()).map { recorded.getJSONObject(it) }

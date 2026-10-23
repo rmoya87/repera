@@ -354,6 +354,25 @@ fun ReperaMobileScreen(
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(entry.name, style = MaterialTheme.typography.titleMedium)
+                                val progress = overview?.exerciseProgress?.get(entry.id)
+                                var showHistory by remember(entry.id) { mutableStateOf(false) }
+                                if (progress != null) {
+                                    TextButton(onClick = { showHistory = !showHistory }) {
+                                        Text(if (showHistory) "Ocultar resumen" else "Última sesión y récords")
+                                    }
+                                    if (showHistory) {
+                                        progress.lastDate?.take(10)?.let {
+                                            Text("Última sesión: $it", style = MaterialTheme.typography.bodyMedium)
+                                        }
+                                        progress.maxWeightKg?.let { weight ->
+                                            Text("Récord de carga: $weight kg" +
+                                                (progress.repsAtMaxWeight?.let { " · $it reps" } ?: ""))
+                                        }
+                                        progress.bestReps?.let { Text("Máximo: $it reps") }
+                                        progress.bestCalories?.let { Text("Máximo: $it cal") }
+                                        progress.bestMeters?.let { Text("Máximo: $it m") }
+                                    }
+                                }
                                 TextButton(
                                     onClick = { onQuickLog(entry.id); selected = "Inicio" },
                                     enabled = !busy && activeWorkout == null && entry.supportsBasicInput
