@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.wear.compose.material3.AppScaffold
@@ -74,7 +75,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }
         }
         setContent {
-            MaterialTheme {
+            MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(
+                primary = Color(0xFF30D158), onPrimary = Color.Black
+            )) {
                 AppScaffold {
                     ScreenScaffold { insets ->
                         Column(
