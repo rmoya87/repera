@@ -510,10 +510,10 @@ private fun ActiveWorkoutCard(
         mutableStateOf(active.quantityUnit)
     }
     var durationMin by remember(active.id, active.index, active.completedSets) {
-        mutableStateOf("")
+        mutableStateOf(active.prescribedDurationSeconds?.let { (it / 60).toString() } ?: "")
     }
     var durationSec by remember(active.id, active.index, active.completedSets) {
-        mutableStateOf("")
+        mutableStateOf(active.prescribedDurationSeconds?.let { (it % 60).toString() } ?: "")
     }
     val parsedDuration = if (!active.durationInput ||
         (durationMin.isBlank() && durationSec.isBlank())) null else {
@@ -523,7 +523,7 @@ private fun ActiveWorkoutCard(
             mm * 60 + ss else null
     }
     val validDuration = !active.durationInput ||
-        (durationMin.isBlank() && durationSec.isBlank()) || parsedDuration != null
+        (!active.isMobility && durationMin.isBlank() && durationSec.isBlank()) || parsedDuration != null
     var warmup by remember(active.id, active.index, active.completedSets) {
         mutableStateOf(false)
     }
@@ -539,7 +539,7 @@ private fun ActiveWorkoutCard(
     val parsedRir = rirText.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
     val parsedQuantity = quantity.toIntOrNull()
     val parsedWeight = weight.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
-    val valid = parsedQuantity != null && parsedQuantity >= 0 &&
+    val valid = (active.isMobilityHold || (parsedQuantity != null && parsedQuantity >= 0)) &&
         (!active.allowsWeight || weight.isBlank() ||
             (parsedWeight != null && parsedWeight.isFinite() && parsedWeight >= 0)) &&
         (!active.allowsDeficit || deficit.isBlank() ||
@@ -583,7 +583,7 @@ private fun ActiveWorkoutCard(
                 }
             }
             if (editingId != null) {
-                OutlinedTextField(
+                if (!active.isMobilityHold) OutlinedTextField(
                     value = editingQuantity,
                     onValueChange = { editingQuantity = it.filter(Char::isDigit) },
                     label = { Text("Corregir repeticiones") },
@@ -616,13 +616,14 @@ private fun ActiveWorkoutCard(
                 if (active.durationInput) {
                     OutlinedTextField(value = editingDuration,
                         onValueChange = { editingDuration = it.filter(Char::isDigit) },
-                        label = { Text("Duración en segundos (opcional)") }, singleLine = true,
+                        label = { Text(if (active.isMobility) "Duración real (segundos)" else "Duración en segundos (opcional)") }, singleLine = true,
                         modifier = Modifier.fillMaxWidth())
                 }
                 val parsedEdit = editingQuantity.toIntOrNull()
                 val editWeight = editingWeight.trim().replace(',', '.')
                     .takeIf { it.isNotBlank() }?.toDoubleOrNull()
-                val editValid = parsedEdit != null &&
+                val editValid = (active.isMobilityHold || parsedEdit != null) &&
+                    (!active.isMobility || editingDuration.toIntOrNull()?.let { it in 1..3600 } == true) &&
                     (!active.allowsDeficit || editingDeficit.isBlank() ||
                         editingDeficit.toIntOrNull()?.let { it in 0..100 } == true) &&
                     (!active.durationInput || editingDuration.isBlank() ||
@@ -636,8 +637,8 @@ private fun ActiveWorkoutCard(
                     }
                     Button(onClick = {
                         val id = editingId
-                        if (id != null && parsedEdit != null) {
-                            onReviseSet(id, parsedEdit, if (active.allowsWeight) editWeight else null,
+                        if (id != null && (active.isMobilityHold || parsedEdit != null)) {
+                            onReviseSet(id, if (active.isMobilityHold) 1 else parsedEdit!!, if (active.allowsWeight) editWeight else null,
                                 editingUnit, editingDuration.toIntOrNull(),
                                 if (active.allowsDeficit) editingDeficit.toIntOrNull() else null)
                             editingId = null
@@ -645,13 +646,13 @@ private fun ActiveWorkoutCard(
                     }, enabled = !busy && editValid) { Text("Guardar corrección") }
                 }
             }
-            OutlinedTextField(
+            if (!active.isMobilityHold) OutlinedTextField(
                 value = quantity,
                 onValueChange = { quantity = it.filter { char -> char.isDigit() } },
                 label = { Text(when (unit) {
                     "calories" -> "Calorías"
                     "meters" -> "Metros"
-                    else -> if (active.durationInput) "Veces" else "Repeticiones"
+                    else -> if (active.isMobility) "Repeticiones de movilidad" else if (active.durationInput) "Veces" else "Repeticiones"
                 }) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
@@ -710,8 +711,8 @@ private fun ActiveWorkoutCard(
             }
             Button(
                 onClick = {
-                    if (parsedQuantity != null) onLogSet(
-                        parsedQuantity,
+                    if (active.isMobilityHold || parsedQuantity != null) onLogSet(
+                        if (active.isMobilityHold) 1 else parsedQuantity!!,
                         if (active.allowsWeight) parsedWeight else null,
                         if (active.durationInput) null else parsedRir,
                         if (active.durationInput) false else warmup,
