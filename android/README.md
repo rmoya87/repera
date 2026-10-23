@@ -1,35 +1,37 @@
-# Repera nativo Android / Wear OS
+# Repera Android y Wear OS (trabajo en curso)
 
-Proyecto Android Studio/Gradle en `android/`. **En desarrollo, no versión de producción**.
+Implementación nativa independiente en `android/`:
 
-- Teléfono: Kotlin y Jetpack Compose Material 3.
-- Reloj: Kotlin y Compose for Wear OS Material 3.
-- Dominio: fuentes Swift portadas por contrato, pruebas en `domain/src/test`.
-- Identidad: Credential Manager + Google.
-- Archivos personales: `appDataFolder` privada de Google Drive. Scope mínimo separado.
-- Integración reloj: Google Play Services Wearable Data Layer.
+- `mobile`: Kotlin + Jetpack Compose / Material 3, Credential Manager Google,
+  Google Drive appDataFolder, historial local, importación JSON y ejecución de
+  rutinas **de fuerza** con persistencia compatible con `AppState` Swift.
+- `domain`: reloj, captura de resultado WOD, prescripción y resolución de conflictos.
+- `wear`: Compose for Wear OS Material 3 y recepción de sesión activa mediante Data Layer.
 
-## Configuración OAuth necesaria
+Google reemplaza a Apple en Android; Google Drive reemplaza a iCloud para
+el almacenamiento privado. Para dar acceso profesional a Supabase se requiere
+un proveedor Google y autenticación verificada en backend; nunca basta con el
+identificador de cuenta obtenido en el teléfono.
 
-Habilita Google Auth Platform y Drive API en el proyecto Google Cloud de Repera;
-configura consent screen, SHA-256 debug/release y clientes Android + Web.
-No pongas secrets en el repositorio. En `~/.gradle/gradle.properties`:
+## Configuración externa
 
+Google Cloud debe tener habilitados Credential Manager/Google Auth Platform, Drive API,
+clientes OAuth Android/Web con huellas SHA correctas y pantalla de consentimiento.
+En `~/.gradle/gradle.properties`:
+
+```properties
+REPERA_GOOGLE_WEB_CLIENT_ID=el_id_del_cliente_web
 ```
-REPERA_GOOGLE_WEB_CLIENT_ID=<OAuth Web client ID>
-```
 
-La ID token que entrega Credential Manager necesita **verificación del servidor**
-antes de autorizar datos de Supabase. El ID Token no es un access token de Drive.
-
-## Compilar y comprobar
-
-Con JDK 17, Android SDK 37 y Gradle 9.6:
+No subir secretos ni keys de servidor a Git. Ejecutar:
 
 ```shell
 cd android
 gradle :domain:testDebugUnitTest :mobile:assembleDebug :wear:assembleDebug
+gradle :mobile:connectedDebugAndroidTest
 ```
 
-No se ha ejecutado esa compilación en este entorno. Véase
-`docs/STATUS_AND_PARITY.md` para matriz de paridad y limitaciones.
+**Estado:** no verificadas estas compilaciones con SDK/Gradle, ni OAuth/Drive
+con cuentas reales. Falta la paridad completa con iOS/watchOS.
+Véanse `docs/STATUS_AND_PARITY.md`, `docs/GOOGLE_IDENTITY_DRIVE.md`
+y `docs/AUDIT_2026_10_23.md`.

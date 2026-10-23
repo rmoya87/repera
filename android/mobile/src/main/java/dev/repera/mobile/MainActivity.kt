@@ -1,11 +1,11 @@
 package dev.repera.mobile
 
 import android.accounts.Account
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.IntentSenderRequest
+import android.net.Uri
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +40,7 @@ class MainActivity : ComponentActivity() {
     private var busy by mutableStateOf(false)
     private var status by mutableStateOf<String?>(null)
     private var snapshot by mutableStateOf<StateOverview?>(null)
+    private var activeWorkout by mutableStateOf<ActiveWorkout?>(null)
     private val credentialManager by lazy { CredentialManager.create(this) }
 
     private val driveConsent = registerForActivityResult(
@@ -61,6 +62,34 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val importJson = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri == null) return@registerForActivityResult
+        val signedIn = profile ?: return@registerForActivityResult
+        busy = true
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val store = LocalSnapshotStore(this@MainActivity, signedIn.uniqueId)
+                    check(store.read() == null) {
+                        "Importación bloqueada: ya hay datos locales. Exporta una copia antes de reemplazarlos."
+                    }
+                    val bytes = contentResolver.openInputStream(uri)?.use { input ->
+                        input.readBytes()
+                    } ?: error("No se pudo abrir el archivo")
+                    store.write(bytes)
+                }
+                reloadFor(signedIn.uniqueId)
+                status = "Datos de Repera importados. Ya puedes sincronizarlos con Drive."
+            } catch (error: Exception) {
+                status = "Importación no realizada: " + error.localizedMessage
+            } finally {
+                busy = false
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -70,6 +99,12 @@ class MainActivity : ComponentActivity() {
                 busy = busy,
                 status = status,
                 overview = snapshot,
+                activeWorkout = activeWorkout,
+                onStartRoutine = { runWorkoutAction { startStrengthRoutine(it) } },
+                onLogSet = { quantity, weight -> runWorkoutAction { logCurrentSet(quantity, weight) } },
+                onNext = { runWorkoutAction { next() } },
+                onFinish = { runWorkoutAction { finish() } },
+                onImportJson = { importJson.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                 onGoogleSignIn = ::signInWithGoogle,
                 onDriveSync = ::authorizeDrive,
                 onSignOut = ::signOut
@@ -105,15 +140,7 @@ class MainActivity : ComponentActivity() {
                     email = google.email ?: "",
                     displayName = google.displayName ?: "Deportista"
                 )
-                val store = LocalSnapshotStore(this@MainActivity, id)
-                val local = withContext(Dispatchers.IO) {
-                    val bytes = store.read()
-                    StateOverview.fromBytes(bytes) to bytes
-                }
-                snapshot = local.first
-                withContext(Dispatchers.IO) {
-                    WearActiveSessionBridge.publish(this@MainActivity, local.second)
-                }
+                reloadFor(id)
                 status = if (snapshot == null) "No hay datos locales. Sincroniza Google Drive." else null
             } catch (error: Exception) {
                 status = "No se pudo iniciar sesión con Google: " + error.localizedMessage
@@ -168,13 +195,7 @@ class MainActivity : ComponentActivity() {
                     val outcome = DriveSnapshotService(oneTimeToken, store).synchronize()
                     outcome to StateOverview.fromBytes(store.read())
                 }
-                snapshot = result.second
-                withContext(Dispatchers.IO) {
-                    WearActiveSessionBridge.publish(
-                        this@MainActivity,
-                        LocalSnapshotStore(this@MainActivity, signedIn.uniqueId).read()
-                    )
-                }
+                reloadFor(signedIn.uniqueId)
                 status = when (result.first) {
                     DriveSnapshotService.Outcome.Empty -> "Drive no tiene aún datos de Repera"
                     DriveSnapshotService.Outcome.Unchanged -> "Datos actualizados"
@@ -185,6 +206,38 @@ class MainActivity : ComponentActivity() {
                 }
             } catch (error: Exception) {
                 status = "Sincronización incompleta: " + error.localizedMessage
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    private suspend fun reloadFor(id: String) {
+        val (overview, active, bytes) = withContext(Dispatchers.IO) {
+            val store = LocalSnapshotStore(this@MainActivity, id)
+            val bytes = store.read()
+            Triple(StateOverview.fromBytes(bytes), WorkoutRepository(this@MainActivity, id).active(), bytes)
+        }
+        snapshot = overview
+        activeWorkout = active
+        withContext(Dispatchers.IO) {
+            WearActiveSessionBridge.publish(this@MainActivity, bytes)
+        }
+    }
+
+    private fun runWorkoutAction(action: WorkoutRepository.() -> Unit) {
+        val signedIn = profile ?: return
+        if (busy) return
+        busy = true
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    WorkoutRepository(this@MainActivity, signedIn.uniqueId).action()
+                }
+                reloadFor(signedIn.uniqueId)
+                status = null
+            } catch (error: Exception) {
+                status = error.localizedMessage ?: "No se pudo guardar el entrenamiento"
             } finally {
                 busy = false
             }
@@ -205,6 +258,7 @@ class MainActivity : ComponentActivity() {
                 }
                 profile = null
                 snapshot = null
+                activeWorkout = null
                 status = null
                 busy = false
             }
@@ -219,7 +273,7 @@ data class StateOverview(
     val bodyWeights: Int,
     val activeSessionTitle: String?,
     val recentWorkoutTitles: List<String>,
-    val routineTitles: List<String>,
+    val routineEntries: List<RoutineEntry>,
     val exerciseTitles: List<String>
 ) {
     companion object {
@@ -236,18 +290,25 @@ data class StateOverview(
                 }
             }
             val workoutTitles = titles("workouts")
-            val routineTitles = titles("routines")
+            val routineEntries = json.getJSONArray("routines").let { array ->
+                (0 until array.length()).map { n ->
+                    val item = array.getJSONObject(n)
+                    RoutineEntry(item.getString("id"), item.optString("title"))
+                }
+            }
             val exerciseTitles = titles("exercises")
             return StateOverview(
                 workouts = workoutTitles.size,
-                routines = routineTitles.size,
+                routines = routineEntries.size,
                 exercises = exerciseTitles.size,
                 bodyWeights = json.optJSONArray("bodyWeights")?.length() ?: 0,
                 activeSessionTitle = json.optJSONObject("activeSession")?.optString("title"),
                 recentWorkoutTitles = workoutTitles.asReversed().take(20),
-                routineTitles = routineTitles,
+                routineEntries = routineEntries,
                 exerciseTitles = exerciseTitles.sorted()
             )
         }
     }
 }
+
+data class RoutineEntry(val id: String, val title: String)

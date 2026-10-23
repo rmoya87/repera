@@ -11,6 +11,7 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         val webClientId = providers.gradleProperty("REPERA_GOOGLE_WEB_CLIENT_ID").orElse("").get()
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$webClientId\"")
     }
@@ -33,4 +34,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.11.0")
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
     implementation("com.squareup.okhttp3:okhttp:5.5.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
 }

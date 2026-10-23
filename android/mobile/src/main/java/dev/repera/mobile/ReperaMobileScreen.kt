@@ -22,6 +22,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.darkColorScheme
@@ -29,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,6 +47,12 @@ fun ReperaMobileScreen(
     busy: Boolean,
     status: String?,
     overview: StateOverview?,
+    activeWorkout: ActiveWorkout?,
+    onStartRoutine: (String) -> Unit,
+    onLogSet: (Int, Double?) -> Unit,
+    onNext: () -> Unit,
+    onFinish: () -> Unit,
+    onImportJson: () -> Unit,
     onGoogleSignIn: () -> Unit,
     onDriveSync: () -> Unit,
     onSignOut: () -> Unit
@@ -110,11 +118,22 @@ fun ReperaMobileScreen(
                 }
                 if (selected == "Inicio") {
                     item {
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(18.dp)) {
-                                Text("Sesión activa", style = MaterialTheme.typography.titleMedium)
-                                Text(overview?.activeSessionTitle?.takeIf { it.isNotEmpty() }
-                                    ?: "Sin entrenamiento iniciado")
+                        if (activeWorkout != null) {
+                            key(activeWorkout.id, activeWorkout.index, activeWorkout.completedSets) {
+                                ActiveWorkoutCard(
+                                    active = activeWorkout,
+                                    busy = busy,
+                                    onLogSet = onLogSet,
+                                    onNext = onNext,
+                                    onFinish = onFinish
+                                )
+                            }
+                        } else {
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Column(modifier = Modifier.padding(18.dp)) {
+                                    Text("Sesión activa", style = MaterialTheme.typography.titleMedium)
+                                    Text("Sin entrenamiento iniciado")
+                                }
                             }
                         }
                     }
@@ -154,11 +173,17 @@ fun ReperaMobileScreen(
                     }
                 }
                 if (selected == "Diario") {
-                    val routines = overview?.routineTitles.orEmpty()
+                    val routines = overview?.routineEntries.orEmpty()
                     if (routines.isEmpty()) item { Text("Sin rutinas locales disponibles") }
-                    items(routines) { title ->
+                    items(routines, key = { it.id }) { routine ->
                         Card(modifier = Modifier.fillMaxWidth()) {
-                            Text(title, modifier = Modifier.padding(16.dp))
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(routine.title, style = MaterialTheme.typography.titleMedium)
+                                TextButton(
+                                    onClick = { onStartRoutine(routine.id); selected = "Inicio" },
+                                    enabled = !busy && activeWorkout == null
+                                ) { Text("Empezar entrenamiento") }
+                            }
                         }
                     }
                 }
@@ -184,7 +209,23 @@ fun ReperaMobileScreen(
                     }
                 }
                 if (selected == "Crear") {
-                    item { Text("La creación estructurada se habilitará al completar la paridad con el editor iOS. No se guardan registros simulados.") }
+                    item {
+                        Text("Para conservar el histórico de iOS y sus ejercicios, importa el JSON exportado por Repera. La edición de nuevos bloques WOD todavía no está disponible.")
+                        OutlinedButton(
+                            onClick = onImportJson,
+                            enabled = !busy && overview == null,
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Importar datos de Repera") }
+                    }
+                }
+                if (selected == "Inicio" && overview == null) {
+                    item {
+                        OutlinedButton(
+                            onClick = onImportJson,
+                            enabled = !busy,
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Importar historial JSON") }
+                    }
                 }
                 item {
                     Text("Cuenta y sincronización", style = MaterialTheme.typography.titleMedium)
@@ -198,6 +239,61 @@ fun ReperaMobileScreen(
                     TextButton(onClick = onSignOut, enabled = !busy) { Text("Cerrar sesión") }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ActiveWorkoutCard(
+    active: ActiveWorkout,
+    busy: Boolean,
+    onLogSet: (Int, Double?) -> Unit,
+    onNext: () -> Unit,
+    onFinish: () -> Unit
+) {
+    var quantity by remember(active.id, active.index, active.completedSets) {
+        mutableStateOf(active.prescribedQuantity?.toString() ?: "")
+    }
+    var weight by remember(active.id, active.index, active.completedSets) {
+        mutableStateOf(active.prescribedWeightKg?.toString() ?: "")
+    }
+    val parsedQuantity = quantity.toIntOrNull()
+    val parsedWeight = weight.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
+    val valid = parsedQuantity != null && parsedQuantity >= 0 &&
+        (weight.isBlank() || (parsedWeight != null && parsedWeight.isFinite() && parsedWeight >= 0))
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(active.title, style = MaterialTheme.typography.titleLarge)
+            Text("Ejercicio ${active.index + 1}/${active.total}: ${active.exerciseName}",
+                style = MaterialTheme.typography.titleMedium)
+            Text("${active.completedSets} series registradas")
+            active.sets.forEachIndexed { index, set ->
+                Text("Serie ${index + 1}: ${set.reps} reps" +
+                    (set.weightKg?.let { " · $it kg" } ?: ""))
+            }
+            OutlinedTextField(
+                value = quantity,
+                onValueChange = { quantity = it.filter { char -> char.isDigit() } },
+                label = { Text("Repeticiones o cantidad") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = weight,
+                onValueChange = { weight = it },
+                label = { Text("Peso (kg), si procede") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Button(
+                onClick = { if (parsedQuantity != null) onLogSet(parsedQuantity, parsedWeight) },
+                enabled = !busy && valid,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Registrar serie") }
+            OutlinedButton(onClick = onNext, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                Text(if (active.index + 1 == active.total) "Terminar último ejercicio" else "Siguiente ejercicio")
+            }
+            TextButton(onClick = onFinish, enabled = !busy) { Text("Finalizar entrenamiento") }
         }
     }
 }

@@ -19,8 +19,9 @@
 - Las copias se verifican antes de escribir. `AtomicFile` preserva la escritura local
   y guarda la versión local previa; antes de sobrescribir Drive se preserva una copia
   de la versión remota.
-- Si coinciden revisión y escritor pero no el contenido, o las revisiones coinciden con
-  escritor diferente, la sincronización se bloquea y no sobrescribe información.
+- Si coinciden revisión, fecha y escritor pero difieren los bytes, se bloquea la sincronización.
+  En otro caso se utiliza exactamente la prioridad de Swift: revisión, fecha y escritor;
+  se guarda copia antes de reemplazar una versión.
 - Comparación de revisiones distinta: `SyncConflictResolver` de Swift (revision,
   `updatedAt`, `lastWriterDeviceId`). Es necesario probar serialización de fechas.
 - Un mismo usuario en Google Drive no recibe automáticamente sus datos de iCloud;

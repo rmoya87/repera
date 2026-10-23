@@ -52,8 +52,6 @@ class DriveSnapshotService(private val token: String, private val local: LocalSn
         val localVersion = version(localBytes)
         val remoteVersion = version(remoteBytes)
         // Preserve conflicting histories instead of overwriting distinct concurrent edits.
-        if (localVersion.revision == remoteVersion.revision &&
-            localVersion.writer != remoteVersion.writer) return Outcome.Conflict
         if (localVersion == remoteVersion) return Outcome.Conflict
 
         val localWins = compareValues(localVersion, remoteVersion) > 0
