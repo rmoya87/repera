@@ -848,11 +848,11 @@ data class ActiveWorkout(
     val prescribedQuantity: Int?,
     val prescribedWeightKg: Double?,
     val allowsWeight: Boolean,
+    val sets: List<WorkoutSetSummary>,
+    val wod: WodExecution? = null,
     val prescribedDurationSeconds: Int? = null,
     val isMobility: Boolean = false,
-    val isMobilityHold: Boolean = false,
-    val sets: List<WorkoutSetSummary>,
-    val wod: WodExecution? = null
+    val isMobilityHold: Boolean = false
 )
 
 data class WodExecution(
