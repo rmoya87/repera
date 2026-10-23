@@ -211,7 +211,9 @@ struct StatsView: View {
                             Label("Tiempo registrado", systemImage: "figure.flexibility")
                                 .foregroundStyle(OG.label2)
                             Spacer()
-                            Text("\(snap.mobilitySeconds / 60) min")
+                            Text(snap.mobilitySeconds < 60
+                                ? "\(snap.mobilitySeconds) s"
+                                : "\(snap.mobilitySeconds / 60) min \(snap.mobilitySeconds % 60) s")
                                 .font(.system(size: 18, weight: .semibold).monospacedDigit())
                                 .foregroundStyle(OG.label)
                         }
