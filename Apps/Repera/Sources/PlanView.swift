@@ -467,6 +467,7 @@ struct PlanView: View {
 
 /// Chrome del editor: página push → volver + check; modal → solo check (swipe para cerrar).
 private struct DayEditorChromeModifier: ViewModifier {
+    @Environment(\.dismiss) private var dismiss
     let title: String
     let usesPageCloseHeader: Bool
     let embedsNavigationStack: Bool
@@ -478,8 +479,20 @@ private struct DayEditorChromeModifier: ViewModifier {
         if usesPageCloseHeader {
             content
                 .ogPinnedTransparentNav(title)
+                // Los botones no comparten cápsula ni color: volver neutro,
+                // confirmar verde al otro lado del topbar.
+                .navigationBarBackButtonHidden(true)
                 .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { dismiss() } label: {
+                            Image(systemName: "arrow.left")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(OG.label)
+                        }
+                        .tint(OG.label)
+                        .accessibilityLabel("Volver")
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
                         confirmButton
                     }
                 }
@@ -497,6 +510,7 @@ private struct DayEditorChromeModifier: ViewModifier {
             Button(action: onConfirm) {
                 Image(systemName: "checkmark")
                     .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(OG.onAccent)
             }
             .buttonStyle(.borderedProminent)
             .tint(OG.accent)
@@ -1642,6 +1656,7 @@ struct DayEditorView: View {
                     }
                 }
                 .accessibilityHint("Ver ficha del ejercicio. Arrastra para cambiar el orden.")
+                .listRowSeparator(.hidden, edges: .bottom)
                 .swipeActions {
                     OGSwipeDeleteButton(accessibilityLabel: "Quitar") {
                         routine.blocks[index].exercises.remove(at: exIndex)
@@ -1669,6 +1684,7 @@ struct DayEditorView: View {
                     showsRIR: ex.loggingStyle.usesRIR
                 )
                 .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 4, trailing: 16))
+                .listRowSeparator(.hidden, edges: .top)
 
                 ForEach(Array(routine.blocks[index].exercises[exIndex].plannedSets.enumerated()), id: \.element.id) { setIndex, _ in
                     PlannedSetConfigRow(
@@ -2003,6 +2019,7 @@ struct DayEditorView: View {
                         routine.blocks[index].movements.remove(at: mIndex)
                     }
                 }
+                .listRowSeparator(.hidden, edges: .bottom)
             }
 
             if move.isRest {
