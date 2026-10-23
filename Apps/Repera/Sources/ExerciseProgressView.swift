@@ -135,12 +135,7 @@ struct ExerciseEvolutionPanel: View {
 
                     Divider().opacity(0.35)
 
-                    Picker("Métrica", selection: $metric) {
-                        ForEach(availableMetrics) { m in
-                            Text(m.title).tag(m)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                    metricPicker
 
                     Picker("Rango", selection: $range) {
                         ForEach(ProgressRange.allCases) { r in
@@ -159,10 +154,38 @@ struct ExerciseEvolutionPanel: View {
         }
     }
 
+    @ViewBuilder
+    private var metricPicker: some View {
+        if loggingStyle == .machineWork {
+            Picker("Métrica", selection: $metric) {
+                ForEach(availableMetrics) { m in
+                    Text(m.title).tag(m)
+                }
+            }
+            .pickerStyle(.menu)
+        } else {
+            Picker("Métrica", selection: $metric) {
+                ForEach(availableMetrics) { m in
+                    Text(m.title).tag(m)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+    }
+
     private func seedMetricIfNeeded() {
         guard !didSeedMetric else { return }
         didSeedMetric = true
-        if !availableMetrics.contains(metric), let first = availableMetrics.first {
+        if loggingStyle == .machineWork {
+            let h = history
+            if h.bestMeters != nil {
+                metric = .bestMeters
+            } else if h.bestCalories != nil {
+                metric = .bestCalories
+            } else {
+                metric = exercise?.defaultQuantityUnit == .meters ? .bestMeters : .bestCalories
+            }
+        } else if !availableMetrics.contains(metric), let first = availableMetrics.first {
             metric = first
         }
     }
@@ -216,12 +239,7 @@ struct ExerciseEvolutionPanel: View {
                         evoTile("Última", h.lastQuantityLabel ?? "—")
                     }
                 }
-                if !h.hasData {
-                    Text("Entrena este ejercicio para ver cal, metros o reps.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(OG.label3)
-                }
-            }
+             }
         }
     }
 
@@ -311,7 +329,7 @@ struct ExerciseEvolutionPanel: View {
             if points.count < 2 {
                 ProgressEmptyChart(
                     message: points.isEmpty
-                        ? "Entrena este ejercicio para ver la curva."
+                        ? "Aún no hay datos para este periodo."
                         : "Haz al menos 2 sesiones para ver la tendencia.",
                     height: 220,
                     yRange: chartYDomain
@@ -405,7 +423,7 @@ struct ExerciseEvolutionPanel: View {
             parts.append("~\(point.value.formatted(.number.precision(.fractionLength(0...1)))) kg")
         case .effort:
             parts.append("RIR \(point.value.formatted(.number.precision(.fractionLength(0...1))))")
-        case .bestQuantity, .totalQuantity:
+        case .bestQuantity, .totalQuantity, .bestMeters, .bestCalories, .totalMeters, .totalCalories:
             let qty = Int(point.value.rounded())
             switch point.quantityUnit {
             case .calories: parts.append("\(qty) cal")
@@ -467,11 +485,7 @@ struct ExerciseEvolutionPanel: View {
                 .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
 
-            if allSessions.isEmpty {
-                Text("Cuando entrenes este ejercicio, verás aquí el historial.")
-                    .font(.system(size: 13))
-                    .foregroundStyle(OG.label3)
-            } else {
+            if !allSessions.isEmpty {
                 NavigationLink {
                     ExerciseHistoryView(exerciseId: exerciseId)
                 } label: {
