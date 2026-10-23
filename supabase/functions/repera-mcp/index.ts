@@ -3,6 +3,7 @@ import { createMcpHandler, McpServer } from "npm:@modelcontextprotocol/server@2.
 import { createClient } from "npm:@supabase/supabase-js@2.58.0";
 import { z } from "npm:zod@4.3.6";
 import { registerCoachTools } from "./coach.ts";
+import { registerDisciplinePlanningTools } from "./disciplines.ts";
 import { registerMutationTools } from "./mutations.ts";
 import { workout, wodFormat, wodFormatContract } from "./schema.ts";
 import { scheduledInstant } from "./time.ts";
@@ -238,6 +239,7 @@ Deno.serve(async (request) => {
   const handler = createMcpHandler(() => {
     const server = new McpServer({ name: "repera-training", version: "0.4.0" });
     registerCoachTools(server, db, ownerId, token.id, canWrite);
+    registerDisciplinePlanningTools(server, db, ownerId);
     registerAthleteChangeTools(server,db,ownerId,token.id,canWrite);
     if (canWrite) registerMutationTools(server, db, ownerId);
     server.registerTool("get_mcp_access_info", {
