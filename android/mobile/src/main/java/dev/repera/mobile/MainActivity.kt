@@ -131,6 +131,12 @@ class MainActivity : ComponentActivity() {
                 onWodScore = { rounds, reps, seconds ->
                     runWorkoutAction { recordWodScore(rounds, reps, seconds) }
                 },
+                onWodMovement = { movementIndex, interval, quantity, weight ->
+                    runWorkoutAction { recordWodMovement(movementIndex, interval, quantity, weight) }
+                },
+                onCompleteWodBlock = {
+                    runWorkoutAction { completeWodMovementBlock() }
+                },
                 onQuickLog = { id -> runWorkoutAction { startQuickLog(id) } },
                 onInitializeLocal = ::initializeLocalCatalog,
                 onLogSet = { quantity, weight, rir, warmup ->
