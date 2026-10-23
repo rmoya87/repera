@@ -255,10 +255,6 @@ fun ReperaMobileScreen(
                     val recent = overview?.history.orEmpty()
                     val today = LocalDate.now()
                     val weekStart = today.minusDays((today.dayOfWeek.value - 1).toLong())
-                    val thisWeek = recent.filter { workout ->
-                        runCatching { LocalDate.parse(workout.startedAt) }.getOrNull()
-                            ?.let { !it.isBefore(weekStart) && !it.isAfter(today) } == true
-                    }
                     item {
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(
@@ -266,11 +262,11 @@ fun ReperaMobileScreen(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text("Esta semana", style = MaterialTheme.typography.titleLarge)
-                                Text("${thisWeek.size} sesiones en el historial reciente",
+                                Text("${overview?.workoutsThisWeek ?: 0} sesiones esta semana",
                                     style = MaterialTheme.typography.headlineSmall)
                                 Text("Del ${weekStart} al ${today}")
-                                Text("El cálculo utiliza hasta las 20 últimas sesiones guardadas; " +
-                                    "puede ser inferior al total real.",
+                                Text("El total semanal usa todo el historial local. " +
+                                    "Los detalles de abajo muestran las últimas 20 sesiones.",
                                     style = MaterialTheme.typography.bodySmall)
                             }
                         }
