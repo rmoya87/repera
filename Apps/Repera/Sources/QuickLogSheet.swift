@@ -200,7 +200,7 @@ struct QuickLogSheet: View {
             .tint(OG.accent)
             .navigationTitle("Apuntar series")
             .navigationBarTitleDisplayMode(.inline)
-            .ogTransparentNav()
+            .ogDiaryTransparentNav()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     CloseToolbarButton(action: { dismiss() }, large: false)

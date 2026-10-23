@@ -106,7 +106,7 @@ struct LibraryView: View {
             }
             .navigationTitle(browseMode == .wods ? "WODs" : "Ejercicios")
             .navigationBarTitleDisplayMode(.inline)
-            .ogTransparentNav()
+            .ogDiaryTransparentNav()
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     OGToolbarGlassButton(

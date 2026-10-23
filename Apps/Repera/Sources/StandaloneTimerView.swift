@@ -98,6 +98,55 @@ struct StandaloneTimerConfig: Equatable, Codable, Hashable {
     }
 }
 
+/// Entrada con el mismo teclado numérico de Repera que la tabla de series.
+private struct TimerNumericInput: View {
+    @Binding private var value: Int
+    let range: ClosedRange<Int>
+    let label: String
+    @State private var draft: String
+
+    init(label: String, value: Binding<Int>, range: ClosedRange<Int>) {
+        self.label = label
+        self.range = range
+        _value = value
+        _draft = State(initialValue: String(value.wrappedValue))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(label)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(OG.label3)
+            OGNumericTextField(
+                text: Binding(
+                    get: { draft },
+                    set: { input in
+                        draft = input
+                        if let parsed = Int(input), range.contains(parsed) {
+                            value = parsed
+                        }
+                    }
+                ),
+                allowsDecimal: false,
+                autoFocus: false,
+                onFocusLost: { commit() },
+                onCommit: { commit() }
+            )
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12))
+            .accessibilityLabel(label)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func commit() {
+        if let parsed = Int(draft) {
+            value = min(range.upperBound, max(range.lowerBound, parsed))
+        }
+        draft = String(value)
+    }
+}
+
 /// Temporizador libre (Crear): configuración + reloj LED.
 struct StandaloneTimerView: View {
     @Environment(ReperaStore.self) private var store
@@ -235,7 +284,7 @@ struct StandaloneTimerView: View {
         .background(OG.bg)
         .navigationTitle("Temporizador")
         .navigationBarTitleDisplayMode(.large)
-        .ogTransparentNav()
+        .ogDiaryTransparentNav()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 OGToolbarGlassButton(
@@ -260,23 +309,16 @@ struct StandaloneTimerView: View {
         }
     }
 
+    /// Campos numéricos compartidos con ejercicios: sin stepper +/-.
     private func compactIntRow(title: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {
         HStack(spacing: 12) {
             Text(title)
                 .foregroundStyle(OG.label)
             Spacer(minLength: 8)
-            Text("\(value.wrappedValue)")
-                .font(.system(size: 17, weight: .semibold).monospacedDigit())
-                .foregroundStyle(OG.blue)
-                .frame(minWidth: 36, alignment: .trailing)
-            minusPlus(
-                minusEnabled: value.wrappedValue > range.lowerBound,
-                plusEnabled: value.wrappedValue < range.upperBound,
-                onMinus: { value.wrappedValue = max(range.lowerBound, value.wrappedValue - 1) },
-                onPlus: { value.wrappedValue = min(range.upperBound, value.wrappedValue + 1) }
-            )
+            TimerNumericInput(label: "RONDAS", value: value, range: range)
+                .frame(width: 110)
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, 9)
     }
 
     private func compactTimeRow(
@@ -285,59 +327,17 @@ struct StandaloneTimerView: View {
         seconds: Binding<Int>,
         maxMinutes: Int
     ) -> some View {
-        let total = minutes.wrappedValue * 60 + seconds.wrappedValue
-        return HStack(spacing: 12) {
+        HStack(spacing: 12) {
             Text(title)
                 .foregroundStyle(OG.label)
-            Spacer(minLength: 8)
-            Text(String(format: "%d:%02d", minutes.wrappedValue, seconds.wrappedValue))
-                .font(.system(size: 17, weight: .semibold).monospacedDigit())
-                .foregroundStyle(OG.blue)
-                .frame(minWidth: 56, alignment: .trailing)
-            minusPlus(
-                minusEnabled: total > 0,
-                plusEnabled: minutes.wrappedValue < maxMinutes || seconds.wrappedValue < 55,
-                onMinus: { bumpTime(minutes: minutes, seconds: seconds, maxMinutes: maxMinutes, delta: -5) },
-                onPlus: { bumpTime(minutes: minutes, seconds: seconds, maxMinutes: maxMinutes, delta: 5) }
-            )
-        }
-        .padding(.vertical, 12)
-    }
-
-    private func minusPlus(
-        minusEnabled: Bool,
-        plusEnabled: Bool,
-        onMinus: @escaping () -> Void,
-        onPlus: @escaping () -> Void
-    ) -> some View {
-        HStack(spacing: 8) {
-            Button(action: onMinus) {
-                Image(systemName: "minus")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(minusEnabled ? OG.label : OG.label3)
-                    .frame(width: 36, height: 36)
-                    .background(OG.surface2, in: Circle())
+            Spacer(minLength: 4)
+            HStack(spacing: 8) {
+                TimerNumericInput(label: "MIN", value: minutes, range: 0...maxMinutes)
+                TimerNumericInput(label: "SEG", value: seconds, range: 0...59)
             }
-            .buttonStyle(.plain)
-            .disabled(!minusEnabled)
-
-            Button(action: onPlus) {
-                Image(systemName: "plus")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(plusEnabled ? OG.label : OG.label3)
-                    .frame(width: 36, height: 36)
-                    .background(OG.surface2, in: Circle())
-            }
-            .buttonStyle(.plain)
-            .disabled(!plusEnabled)
+            .frame(maxWidth: 210)
         }
-    }
-
-    private func bumpTime(minutes: Binding<Int>, seconds: Binding<Int>, maxMinutes: Int, delta: Int) {
-        var total = minutes.wrappedValue * 60 + seconds.wrappedValue + delta
-        total = max(0, min(maxMinutes * 60 + 59, total))
-        minutes.wrappedValue = total / 60
-        seconds.wrappedValue = total % 60
+        .padding(.vertical, 9)
     }
 
     private func persistFavorite() {

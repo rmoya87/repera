@@ -71,6 +71,7 @@ struct ExerciseDetailView: View {
                 }
                 .background(OG.bg)
                 .ogPinnedTransparentNav(exercise.name)
+                .ogDiaryTransparentNav()
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         OGToolbarGlassButton(

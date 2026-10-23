@@ -328,6 +328,12 @@ extension View {
             .toolbarBackground(.automatic, for: .navigationBar)
     }
 
+    /// Variante de Diario: navegación nativa con acciones visibles y fondo
+    /// transparente incluso cuando se compacta la cabecera al hacer scroll.
+    func ogDiaryTransparentNav() -> some View {
+        self.toolbarBackground(.hidden, for: .navigationBar)
+    }
+
     /// Topbar secundario: título large colapsable y barra translúcida
     /// sobre OG.bg durante scroll; botones nativos permanecen visibles.
     /// Usar cuando hay volver / acciones en la barra (título debajo).

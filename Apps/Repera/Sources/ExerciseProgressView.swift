@@ -26,6 +26,7 @@ struct ExerciseProgressView: View {
             .padding(.bottom, 28)
         }
         .background(OG.bg)
+        .ogDiaryTransparentNav()
         .ogPinnedTransparentNav(
             store.resolvedCatalogExercise(id: exerciseId)?.name ?? "Ejercicio"
         )
@@ -588,5 +589,6 @@ struct ExerciseHistoryView: View {
         }
         .background(OG.bg)
         .ogPinnedTransparentNav(exerciseName)
+        .ogDiaryTransparentNav()
     }
 }
