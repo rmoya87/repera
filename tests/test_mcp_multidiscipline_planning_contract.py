@@ -16,6 +16,10 @@ class MCPDisciplinePlanningTests(unittest.TestCase):
         self.assertIn('get_training_discipline_reference', MODULE)
         self.assertIn('get_warmup_prescription_reference', MODULE)
         self.assertIn('get_athlete_planning_context', MODULE)
+        self.assertIn('warmupMovementFocus', MODULE)
+        self.assertIn('detected_movement_focus', MODULE)
+        self.assertIn('equipment_status:equipmentStatus', MODULE)
+        self.assertIn('recent_wod_result_samples', MODULE)
         self.assertIn('registerDisciplinePlanningTools(server, db, ownerId);', INDEX)
         self.assertIn('get_wod_format_contract', MODULE)
 
