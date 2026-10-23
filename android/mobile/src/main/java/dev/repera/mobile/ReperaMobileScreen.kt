@@ -1,6 +1,14 @@
 package dev.repera.mobile
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.animation.animateContentSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.AddCircleOutline
+import androidx.compose.material.icons.outlined.TrendingUp
+import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -95,13 +103,15 @@ fun ReperaMobileScreen(
                         NavigationBarItem(
                             selected = selected == tab,
                             onClick = { selected = tab },
-                            icon = { Text(when (tab) {
-                                "Inicio" -> "⌂"
-                                "Diario" -> "▦"
-                                "Crear" -> "+"
-                                "Progreso" -> "↗"
-                                else -> "◉"
-                            }) },
+                            icon = {
+                                Icon(imageVector = when (tab) {
+                                    "Inicio" -> Icons.Outlined.Home
+                                    "Diario" -> Icons.Outlined.CalendarMonth
+                                    "Crear" -> Icons.Outlined.AddCircleOutline
+                                    "Progreso" -> Icons.Outlined.TrendingUp
+                                    else -> Icons.Outlined.FitnessCenter
+                                }, contentDescription = null)
+                            },
                             label = { Text(tab) }
                         )
                     }
@@ -187,8 +197,8 @@ fun ReperaMobileScreen(
                                 Text(routine.title, style = MaterialTheme.typography.titleMedium)
                                 TextButton(
                                     onClick = { onStartRoutine(routine.id); selected = "Inicio" },
-                                    enabled = !busy && activeWorkout == null
-                                ) { Text("Empezar entrenamiento") }
+                                    enabled = !busy && activeWorkout == null && routine.strengthOnly
+                                ) { Text(if (routine.strengthOnly) "Empezar entrenamiento" else "Bloque WOD pendiente") }
                             }
                         }
                     }
@@ -219,8 +229,8 @@ fun ReperaMobileScreen(
                                 Text(entry.name, style = MaterialTheme.typography.titleMedium)
                                 TextButton(
                                     onClick = { onQuickLog(entry.id); selected = "Inicio" },
-                                    enabled = !busy && activeWorkout == null
-                                ) { Text("Apuntar series") }
+                                    enabled = !busy && activeWorkout == null && entry.supportsBasicInput
+                                ) { Text(if (entry.supportsBasicInput) "Apuntar series" else "Registro avanzado pendiente") }
                             }
                         }
                     }
@@ -277,8 +287,9 @@ private fun ActiveWorkoutCard(
     val parsedQuantity = quantity.toIntOrNull()
     val parsedWeight = weight.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
     val valid = parsedQuantity != null && parsedQuantity >= 0 &&
-        (weight.isBlank() || (parsedWeight != null && parsedWeight.isFinite() && parsedWeight >= 0))
-    Card(modifier = Modifier.fillMaxWidth()) {
+        (!active.allowsWeight || weight.isBlank() ||
+            (parsedWeight != null && parsedWeight.isFinite() && parsedWeight >= 0))
+    Card(modifier = Modifier.fillMaxWidth().animateContentSize()) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(active.title, style = MaterialTheme.typography.titleLarge)
             Text("Ejercicio ${active.index + 1}/${active.total}: ${active.exerciseName}",
@@ -295,15 +306,17 @@ private fun ActiveWorkoutCard(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
-            OutlinedTextField(
-                value = weight,
-                onValueChange = { weight = it },
-                label = { Text("Peso (kg), si procede") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (active.allowsWeight) {
+                OutlinedTextField(
+                    value = weight,
+                    onValueChange = { weight = it },
+                    label = { Text("Peso (kg)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
             Button(
-                onClick = { if (parsedQuantity != null) onLogSet(parsedQuantity, parsedWeight) },
+                onClick = { if (parsedQuantity != null) onLogSet(parsedQuantity, if (active.allowsWeight) parsedWeight else null) },
                 enabled = !busy && valid,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Registrar serie") }

@@ -49,3 +49,27 @@ inicia Apuntar series; un bloque WOD no puede transformarse de manera tácita.
 No se han ejecutado tests ni compilaciones completas: el CI depende de
 la disponibilidad de runners de GitHub, que en las anteriores ejecuciones
 figuraban sin runner y sin pasos.
+
+## Refuerzo de seguridad y comportamiento (segunda revisión)
+
+- Catálogo nativo original **196 movimientos** y alias bilingües **186**; los
+  ejercicios que requieren registro de tiempo, Cal, metros o déficit tienen
+  su clasificación, pero el editor avanzado no está habilitado hasta su port.
+- Las rutinas con bloques WOD no se ejecutan mediante el motor de fuerza. No
+  se convierten resultados de bloque en series ficticias.
+- La nube conserva copias anteriores y bloquea historiales independientes
+  (entrenamientos y rutinas con IDs exclusivos en ambas versiones, o sesiones
+  activas incompatibles).
+- Una cuenta recién inicializada con el catálogo se identifica como estado
+  vacío de revisión 0 y fecha antigua. La primera sincronización prioriza el
+  historial remoto real aunque el backup remoto sea legacy.
+- Navegación Android usa iconografía Material y animación al actualizar
+  la sesión activa. Wear muestra ejercicio y próxima serie prescrita con
+  datos reales recibidos del teléfono.
+- WodClock dispone de pruebas de AMRAP, For Time, EMOM, Tabata y Circuito
+  basadas en `WatchSessionHub.swift`. Todavía no gobierna la ejecución
+  de WOD en la interfaz.
+
+**Advertencia:** pruebas escritas != pruebas ejecutadas. Requiere SDK 37,
+Gradle 9.6, JDK 17, credenciales OAuth reales, emulador y reloj. Los workflows
+de GitHub disponibles no están asignando runners.

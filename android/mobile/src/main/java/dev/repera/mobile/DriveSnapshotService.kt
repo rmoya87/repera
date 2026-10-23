@@ -2,6 +2,7 @@ package dev.repera.mobile
 
 import org.json.JSONArray
 import org.json.JSONObject
+import dev.repera.domain.CloudHistoryConflict
 import java.io.ByteArrayOutputStream
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -48,6 +49,18 @@ class DriveSnapshotService(private val token: String, private val local: LocalSn
         LocalSnapshotStore.validate(localBytes)
         LocalSnapshotStore.validate(remoteBytes)
         if (localBytes.contentEquals(remoteBytes)) return Outcome.Unchanged
+        // A freshly created catalog cannot supersede an existing athlete history,
+        // even if that history uses the legacy revision=0 or distant-past date.
+        if (isVirgin(localBytes) && !isVirgin(remoteBytes)) {
+            local.write(remoteBytes)
+            return Outcome.Downloaded
+        }
+        if (!isVirgin(localBytes) && isVirgin(remoteBytes)) {
+            local.preserveRemoteBackup(remoteBytes)
+            update(remoteId, localBytes)
+            return Outcome.Uploaded
+        }
+        if (divergentTraining(localBytes, remoteBytes)) return Outcome.Conflict
 
         val localVersion = version(localBytes)
         val remoteVersion = version(remoteBytes)
@@ -63,6 +76,31 @@ class DriveSnapshotService(private val token: String, private val local: LocalSn
             local.write(remoteBytes) // preserves prior local document as recovery backup
             Outcome.Downloaded
         }
+    }
+
+    private fun isVirgin(bytes: ByteArray): Boolean {
+        val state = JSONObject(String(bytes, Charsets.UTF_8))
+        return state.optInt("syncRevision", 0) == 0 &&
+            (state.optJSONArray("workouts")?.length() ?: 0) == 0 &&
+            (state.optJSONArray("routines")?.length() ?: 0) == 0 &&
+            state.optJSONObject("activeSession") == null
+    }
+
+    /** Two independent edits must never silently overwrite each other. */
+    private fun divergentTraining(local: ByteArray, remote: ByteArray): Boolean {
+        val a = JSONObject(String(local, Charsets.UTF_8))
+        val b = JSONObject(String(remote, Charsets.UTF_8))
+        fun ids(json: JSONObject): Set<String> {
+            return listOf("workouts", "routines").flatMap { field ->
+                val array = json.optJSONArray(field) ?: JSONArray()
+                (0 until array.length()).map { field + ":" + array.getJSONObject(it).getString("id") }
+            }.toSet()
+        }
+        return CloudHistoryConflict.requiresManualResolution(
+            ids(a), ids(b),
+            a.optJSONObject("activeSession")?.toString(),
+            b.optJSONObject("activeSession")?.toString()
+        )
     }
 
     private data class Version(val revision: Int, val instant: Instant, val writer: String)

@@ -1,6 +1,8 @@
 package dev.repera.mobile
 
 import android.content.Context
+import dev.repera.domain.ExerciseInput
+import dev.repera.domain.ExerciseInputMode
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
@@ -52,6 +54,9 @@ class WorkoutRepository(context: Context, googleId: String) {
                 val entry = entries.getJSONObject(j)
                 val exercise = byId[entry.getString("exerciseId")]
                     ?: error("La rutina contiene un ejercicio ausente del catálogo")
+                check(supportsSimpleInput(exercise)) {
+                    "La rutina requiere un tipo de entrada que todavía no está disponible en Android"
+                }
                 val item = JSONObject()
                     .put("id", UUID.randomUUID().toString())
                     .put("exercise", JSONObject(exercise.toString()))
@@ -119,6 +124,9 @@ class WorkoutRepository(context: Context, googleId: String) {
                 }
             }
         }
+        check(supportsSimpleInput(exercise)) {
+            "Este ejercicio requiere un tipo de entrada aún no disponible"
+        }
         val presets = JSONArray()
         repeat(3) {
             val target = JSONObject()
@@ -157,6 +165,12 @@ class WorkoutRepository(context: Context, googleId: String) {
         val array = session.getJSONArray("exercises")
         val index = session.getInt("currentIndex")
         val exercise = array.getJSONObject(index)
+        val movement = exercise.getJSONObject("exercise")
+        val inputMode = inputMode(movement)
+        check(inputMode.basicRecorderAvailable)
+        check(inputMode.showsWeight || weightKg == null) {
+            "Este ejercicio no registra peso"
+        }
         check(!exercise.optBoolean("isCompleted")) { "Ejercicio ya completado" }
         val logged = exercise.getJSONArray("loggedSets")
         val set = JSONObject()
@@ -238,6 +252,17 @@ class WorkoutRepository(context: Context, googleId: String) {
         save(state)
     }
 
+    private fun inputMode(exercise: JSONObject): ExerciseInputMode =
+        ExerciseInput.mode(
+            exercise.getString("name"),
+            exercise.optString("equipment").takeIf { it.isNotBlank() },
+            exercise.optString("targetMuscle").takeIf { it.isNotBlank() },
+            exercise.optString("muscleGroup")
+        )
+
+    private fun supportsSimpleInput(exercise: JSONObject) =
+        inputMode(exercise).basicRecorderAvailable
+
     private fun nowISO8601(): String = DateTimeFormatter
         .ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
         .withZone(ZoneOffset.UTC)
@@ -284,6 +309,7 @@ class WorkoutRepository(context: Context, googleId: String) {
             prescribedQuantity = next?.optInt("targetReps"),
             prescribedWeightKg = next?.takeIf { it.has("targetWeightKg") && !it.isNull("targetWeightKg") }
                 ?.getDouble("targetWeightKg"),
+            allowsWeight = inputMode(current.getJSONObject("exercise")).showsWeight,
             sets = (0 until logged.length()).map { n ->
                 val set = logged.getJSONObject(n)
                 WorkoutSetSummary(set.getString("id"), set.getInt("reps"),
@@ -303,5 +329,6 @@ data class ActiveWorkout(
     val completedSets: Int,
     val prescribedQuantity: Int?,
     val prescribedWeightKg: Double?,
+    val allowsWeight: Boolean,
     val sets: List<WorkoutSetSummary>
 )

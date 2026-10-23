@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.IntentSenderRequest
 import android.net.Uri
+import dev.repera.domain.ExerciseInput
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -314,13 +315,25 @@ data class StateOverview(
             val routineEntries = json.getJSONArray("routines").let { array ->
                 (0 until array.length()).map { n ->
                     val item = array.getJSONObject(n)
-                    RoutineEntry(item.getString("id"), item.optString("title"))
+                    val blocks = item.optJSONArray("blocks")
+                    val strengthOnly = blocks != null && blocks.length() > 0 &&
+                        (0 until blocks.length()).all { index ->
+                            blocks.getJSONObject(index).optString("kind") == "strength"
+                        }
+                    RoutineEntry(item.getString("id"), item.optString("title"), strengthOnly)
                 }
             }
             val exerciseEntries = json.getJSONArray("exercises").let { array ->
                 (0 until array.length()).map { n ->
                     val ex = array.getJSONObject(n)
-                    ExerciseEntry(ex.getString("id"), ex.getString("name"))
+                    val mode = ExerciseInput.mode(
+                        ex.getString("name"),
+                        ex.optString("equipment"),
+                        ex.optString("targetMuscle"),
+                        ex.optString("muscleGroup")
+                    )
+                    ExerciseEntry(ex.getString("id"), ex.getString("name"),
+                        mode.basicRecorderAvailable)
                 }.sortedBy { it.name }
             }
             return StateOverview(
@@ -337,6 +350,6 @@ data class StateOverview(
     }
 }
 
-data class RoutineEntry(val id: String, val title: String)
+data class RoutineEntry(val id: String, val title: String, val strengthOnly: Boolean)
 
-data class ExerciseEntry(val id: String, val name: String)
+data class ExerciseEntry(val id: String, val name: String, val supportsBasicInput: Boolean)
