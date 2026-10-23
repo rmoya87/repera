@@ -177,4 +177,56 @@ class WorkoutRepositoryInstrumentedTest {
         assertEquals(0, archive.getJSONArray("exercises").getJSONObject(1)
             .getJSONArray("loggedSets").length())
     }
+
+    @Test fun createsAndRunsRealStrengthRoutineFromNativeCatalog() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val user = UUID.randomUUID().toString()
+        CatalogBootstrap.initializeEmptyAccount(ctx, user)
+        val store = LocalSnapshotStore(ctx, user)
+        val initial = JSONObject(String(store.read()!!))
+        assertEquals(196, initial.getJSONArray("exercises").length())
+        val movementId = initial.getJSONArray("exercises").getJSONObject(0).getString("id")
+        val repo = WorkoutRepository(ctx, user)
+        val createdId = repo.createRoutine(
+            title = "Fuerza prueba", format = "strength",
+            entries = listOf(RoutineDraftEntry(movementId, 8, sets = 3, weightKg = 50.0))
+        )
+        assertTrue(createdId.isNotBlank())
+        val afterCreate = JSONObject(String(store.read()!!))
+        val routine = afterCreate.getJSONArray("routines").getJSONObject(0)
+        assertEquals("off", routine.getString("progression"))
+        assertEquals(3, routine.getJSONArray("blocks").getJSONObject(0)
+            .getJSONArray("exercises").getJSONObject(0)
+            .getJSONArray("plannedSets").length())
+        repo.startRoutine(createdId)
+        repo.logCurrentSet(8, 50.0)
+        val fresh = WorkoutRepository(ctx, user).active()!!
+        assertEquals(8, fresh.sets.single().reps)
+    }
+
+    @Test fun createsWodWithCatalogMovementsAndStoresRealAmrapScore() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val user = UUID.randomUUID().toString()
+        CatalogBootstrap.initializeEmptyAccount(ctx, user)
+        val store = LocalSnapshotStore(ctx, user)
+        val catalog = JSONObject(String(store.read()!!)).getJSONArray("exercises")
+        val burpee = (0 until catalog.length()).map { catalog.getJSONObject(it) }
+            .first { it.getString("name") == "Burpee" }
+        val repo = WorkoutRepository(ctx, user)
+        val createdId = repo.createRoutine(
+            "AMRAP prueba", "amrap",
+            listOf(RoutineDraftEntry(burpee.getString("id"), 10)),
+            timeCapMinutes = 12
+        )
+        val current = repo.startRoutine(createdId)
+        assertEquals("amrap", current.wod?.format)
+        assertEquals("Burpee", current.wod?.movements?.single()?.name)
+        assertNull(repo.recordWodScore(4, 6, null))
+        val state = JSONObject(String(store.read()!!))
+        val score = state.getJSONArray("workouts").getJSONObject(0)
+            .getJSONArray("wodResults").getJSONObject(0)
+        assertEquals("amrap", score.getString("format"))
+        assertEquals(4, score.getInt("roundsCompleted"))
+        assertEquals(6, score.getInt("totalReps"))
+    }
 }

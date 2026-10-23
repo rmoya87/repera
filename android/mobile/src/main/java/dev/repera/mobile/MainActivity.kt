@@ -116,10 +116,19 @@ class MainActivity : ComponentActivity() {
                 todayHealth = todayHealth,
                 onHealthConnect = ::connectHealth,
                 activeWorkout = activeWorkout,
-                onStartRoutine = { id -> runWorkoutAction { startStrengthRoutine(id) } },
+                onStartRoutine = { id -> runWorkoutAction { startRoutine(id) } },
+                onCreateRoutine = { title, format, entries, minutes, rounds ->
+                    runWorkoutAction { createRoutine(title, format, entries, minutes, rounds) }
+                },
+                onWodScore = { rounds, reps, seconds ->
+                    runWorkoutAction { recordWodScore(rounds, reps, seconds) }
+                },
                 onQuickLog = { id -> runWorkoutAction { startQuickLog(id) } },
                 onInitializeLocal = ::initializeLocalCatalog,
                 onLogSet = { quantity, weight -> runWorkoutAction { logCurrentSet(quantity, weight) } },
+                onReviseSet = { id, quantity, weight ->
+                    runWorkoutAction { reviseCurrentSet(id, quantity, weight) }
+                },
                 onNext = { runWorkoutAction { next() } },
                 onFinish = { runWorkoutAction { finish() } },
                 onImportJson = { importJson.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
@@ -359,7 +368,33 @@ data class StateOverview(
                     )?.takeIf { it.isNotBlank() }
                 }
             }
-            val workoutTitles = titles("workouts")
+            val workoutTitles = json.getJSONArray("workouts").let { array ->
+                (0 until array.length()).map { i ->
+                    val workout = array.getJSONObject(i)
+                    val scores = workout.optJSONArray("wodResults") ?: org.json.JSONArray()
+                    val details = (0 until scores.length()).mapNotNull { n ->
+                        val score = scores.getJSONObject(n)
+                        when {
+                            score.has("elapsedSeconds") && !score.isNull("elapsedSeconds") -> {
+                                val total = score.getInt("elapsedSeconds")
+                                "%d:%02d".format(total / 60, total % 60)
+                            }
+                            score.has("roundsCompleted") && score.has("totalReps") ->
+                                "${score.getInt("roundsCompleted")} rondas + " +
+                                    "${score.getInt("totalReps")} reps"
+                            score.has("totalReps") -> "${score.getInt("totalReps")} reps"
+                            else -> null
+                        }
+                    }.toMutableList()
+                    val exercises = workout.optJSONArray("exercises") ?: org.json.JSONArray()
+                    val recordedSets = (0 until exercises.length()).sumOf { n ->
+                        exercises.getJSONObject(n).optJSONArray("loggedSets")?.length() ?: 0
+                    }
+                    if (recordedSets > 0) details += "$recordedSets series"
+                    workout.optString("title") + if (details.isEmpty()) ""
+                        else " · " + details.joinToString(" / ")
+                }
+            }
             val routineEntries = json.getJSONArray("routines").let { array ->
                 (0 until array.length()).map { n ->
                     val item = array.getJSONObject(n)
@@ -383,7 +418,7 @@ data class StateOverview(
                         ex.optString("muscleGroup")
                     )
                     ExerciseEntry(ex.getString("id"), ex.getString("name"),
-                        mode.basicRecorderAvailable)
+                        mode.basicRecorderAvailable, mode.showsWeight)
                 }.sortedBy { it.name }
             }
             return StateOverview(
@@ -402,4 +437,4 @@ data class StateOverview(
 
 data class RoutineEntry(val id: String, val title: String, val supported: Boolean)
 
-data class ExerciseEntry(val id: String, val name: String, val supportsBasicInput: Boolean)
+data class ExerciseEntry(val id: String, val name: String, val supportsBasicInput: Boolean, val allowsWeight: Boolean)

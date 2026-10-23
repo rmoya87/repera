@@ -26,6 +26,86 @@ class WorkoutRepository(context: Context, googleId: String) {
         }
     }
 
+    /**
+     * Creates a real native routine using the existing Swift Routine/RoutineBlock wire format.
+     * Never creates completed work or a synthetic athlete result.
+     */
+    @Synchronized fun createRoutine(
+        title: String,
+        format: String,
+        entries: List<RoutineDraftEntry>,
+        timeCapMinutes: Int = 12,
+        rounds: Int = 1
+    ): String {
+        val cleaned = title.trim()
+        require(cleaned.isNotBlank() && cleaned.length <= 100) { "Escribe un título válido" }
+        require(format in setOf("strength", "amrap", "forTime")) { "Tipo de rutina no permitido" }
+        require(entries.isNotEmpty()) { "Añade al menos un ejercicio" }
+        require(entries.map { it.exerciseId }.distinct().size == entries.size) {
+            "No se puede repetir el mismo ejercicio en esta plantilla"
+        }
+        require(entries.size <= 60) { "Demasiados movimientos" }
+        require(timeCapMinutes in 1..180 && rounds in 1..100)
+        val state = requireState()
+        val catalog = state.getJSONArray("exercises")
+        val byId = (0 until catalog.length()).associate {
+            val exercise = catalog.getJSONObject(it)
+            exercise.getString("id") to exercise
+        }
+        val block = JSONObject()
+            .put("id", UUID.randomUUID().toString())
+            .put("title", if (format == "strength") "Fuerza" else if (format == "amrap") "AMRAP" else "For Time")
+            .put("kind", if (format == "strength") "strength" else "wod")
+        if (format == "strength") {
+            val exercises = JSONArray()
+            for (entry in entries) {
+                val movement = byId[entry.exerciseId] ?: error("Ejercicio no encontrado")
+                check(supportsSimpleInput(movement)) {
+                    "La rutina contiene una entrada que requiere un editor avanzado"
+                }
+                require(entry.sets in 1..30 && entry.quantity in 1..10000)
+                require(entry.weightKg == null ||
+                    (inputMode(movement).showsWeight && entry.weightKg.isFinite() &&
+                        entry.weightKg >= 0))
+                val planned = JSONArray()
+                repeat(entry.sets) {
+                    val set = JSONObject().put("id", UUID.randomUUID().toString())
+                        .put("targetReps", entry.quantity)
+                    if (entry.weightKg != null) set.put("targetWeightKg", entry.weightKg)
+                    planned.put(set)
+                }
+                exercises.put(JSONObject().put("id", UUID.randomUUID().toString())
+                    .put("exerciseId", entry.exerciseId).put("plannedSets", planned))
+            }
+            block.put("exercises", exercises)
+        } else {
+            val movements = JSONArray()
+            for (entry in entries) {
+                val movement = byId[entry.exerciseId] ?: error("Ejercicio no encontrado")
+                require(entry.quantity in 1..10000)
+                movements.put(JSONObject()
+                    .put("id", UUID.randomUUID().toString())
+                    .put("exerciseId", entry.exerciseId)
+                    .put("name", movement.getString("name"))
+                    .put("reps", entry.quantity)
+                    .put("isRest", false))
+            }
+            block.put("movements", movements)
+                .put("wodFormat", format)
+                .put("timeCapMinutes", timeCapMinutes)
+            if (format == "forTime") block.put("rounds", rounds)
+        }
+        val id = UUID.randomUUID().toString()
+        state.getJSONArray("routines").put(JSONObject()
+            .put("id", id)
+            .put("title", cleaned)
+            .put("blocks", JSONArray().put(block))
+            .put("progression", "off")
+            .put("isFavorite", false))
+        save(state)
+        return id
+    }
+
     @Synchronized fun active(): ActiveWorkout? {
         val state = loadOrNull() ?: return null
         return state.optJSONObject("activeSession")?.let { summarize(it) }
@@ -302,6 +382,9 @@ class WorkoutRepository(context: Context, googleId: String) {
         val index = (0 until logged.length()).firstOrNull {
             logged.getJSONObject(it).optString("id") == setId
         } ?: error("Serie no encontrada")
+        val movement = exercise.getJSONObject("exercise")
+        check(supportsSimpleInput(movement)) { "Este editor no admite el tipo de movimiento" }
+        check(inputMode(movement).showsWeight || weightKg == null) { "Este ejercicio no registra peso" }
         val original = logged.getJSONObject(index)
         original.put("reps", quantity)
         if (weightKg == null) original.remove("weightKg") else original.put("weightKg", weightKg)
@@ -465,4 +548,11 @@ data class WodMovementSummary(
     val calories: Int?,
     val meters: Int?,
     val restSeconds: Int?
+)
+
+data class RoutineDraftEntry(
+    val exerciseId: String,
+    val quantity: Int,
+    val sets: Int = 3,
+    val weightKg: Double? = null
 )

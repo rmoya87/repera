@@ -11,6 +11,7 @@ import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,12 +32,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
@@ -61,10 +64,12 @@ fun ReperaMobileScreen(
     onHealthConnect: () -> Unit,
     activeWorkout: ActiveWorkout?,
     onStartRoutine: (String) -> Unit,
+    onCreateRoutine: (String, String, List<RoutineDraftEntry>, Int, Int) -> Unit,
     onWodScore: (Int?, Int?, Int?) -> Unit,
     onQuickLog: (String) -> Unit,
     onInitializeLocal: () -> Unit,
     onLogSet: (Int, Double?) -> Unit,
+    onReviseSet: (String, Int, Double?) -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit,
     onImportJson: () -> Unit,
@@ -169,6 +174,7 @@ fun ReperaMobileScreen(
                                         active = activeWorkout,
                                         busy = busy,
                                         onLogSet = onLogSet,
+                                        onReviseSet = onReviseSet,
                                         onNext = onNext,
                                         onFinish = onFinish
                                     )
@@ -265,9 +271,14 @@ fun ReperaMobileScreen(
                         }
                     }
                 }
-                if (selected == "Crear") {
+                if (selected == "Crear" && overview != null) {
                     item {
-                        Text("Puedes iniciar un registro desde Ejercicios o importar tu historial Apple antes de comenzar. El editor avanzado WOD sigue en desarrollo.")
+                        RoutineCreatorCard(
+                            exercises = overview.exerciseEntries,
+                            aliases = englishAliases,
+                            busy = busy,
+                            onSave = onCreateRoutine
+                        )
                     }
                 }
                 if (overview == null) {
@@ -305,6 +316,7 @@ private fun ActiveWorkoutCard(
     active: ActiveWorkout,
     busy: Boolean,
     onLogSet: (Int, Double?) -> Unit,
+    onReviseSet: (String, Int, Double?) -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit
 ) {
@@ -314,6 +326,9 @@ private fun ActiveWorkoutCard(
     var weight by remember(active.id, active.index, active.completedSets) {
         mutableStateOf(active.prescribedWeightKg?.toString() ?: "")
     }
+    var editingId by remember(active.id, active.index) { mutableStateOf<String?>(null) }
+    var editingQuantity by remember(active.id, active.index) { mutableStateOf("") }
+    var editingWeight by remember(active.id, active.index) { mutableStateOf("") }
     val parsedQuantity = quantity.toIntOrNull()
     val parsedWeight = weight.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
     val valid = parsedQuantity != null && parsedQuantity >= 0 &&
@@ -326,8 +341,53 @@ private fun ActiveWorkoutCard(
                 style = MaterialTheme.typography.titleMedium)
             Text("${active.completedSets} series registradas")
             active.sets.forEachIndexed { index, set ->
-                Text("Serie ${index + 1}: ${set.reps} reps" +
-                    (set.weightKg?.let { " · $it kg" } ?: ""))
+                Row(modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Serie ${index + 1}: ${set.reps} reps" +
+                        (set.weightKg?.let { " · $it kg" } ?: ""))
+                    TextButton(onClick = {
+                        editingId = set.id
+                        editingQuantity = set.reps.toString()
+                        editingWeight = set.weightKg?.toString() ?: ""
+                    }, enabled = !busy) { Text("Editar") }
+                }
+            }
+            if (editingId != null) {
+                OutlinedTextField(
+                    value = editingQuantity,
+                    onValueChange = { editingQuantity = it.filter(Char::isDigit) },
+                    label = { Text("Corregir repeticiones") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (active.allowsWeight) {
+                    OutlinedTextField(
+                        value = editingWeight,
+                        onValueChange = { editingWeight = it },
+                        label = { Text("Corregir peso (kg)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                val parsedEdit = editingQuantity.toIntOrNull()
+                val editWeight = editingWeight.trim().replace(',', '.')
+                    .takeIf { it.isNotBlank() }?.toDoubleOrNull()
+                val editValid = parsedEdit != null &&
+                    (!active.allowsWeight || editingWeight.isBlank() ||
+                        (editWeight != null && editWeight.isFinite() && editWeight >= 0))
+                Row(modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween) {
+                    TextButton(onClick = { editingId = null }, enabled = !busy) {
+                        Text("Cancelar")
+                    }
+                    Button(onClick = {
+                        val id = editingId
+                        if (id != null && parsedEdit != null) {
+                            onReviseSet(id, parsedEdit, if (active.allowsWeight) editWeight else null)
+                            editingId = null
+                        }
+                    }, enabled = !busy && editValid) { Text("Guardar corrección") }
+                }
             }
             OutlinedTextField(
                 value = quantity,
@@ -447,6 +507,156 @@ private fun WodScoreCard(
             TextButton(onClick = onFinish, enabled = !busy) {
                 Text("Finalizar sin añadir otro resultado")
             }
+        }
+    }
+}
+
+private data class RoutineDraftRow(
+    val id: String, val name: String, val sets: Int, val quantity: Int, val weightKg: Double?
+)
+
+/** Material editor for the Swift Routine/RoutineBlock subset actually supported on Android. */
+@Composable
+private fun RoutineCreatorCard(
+    exercises: List<ExerciseEntry>,
+    aliases: Map<String, String>,
+    busy: Boolean,
+    onSave: (String, String, List<RoutineDraftEntry>, Int, Int) -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+    var kind by remember { mutableStateOf("strength") }
+    var search by remember { mutableStateOf("") }
+    var reps by remember { mutableStateOf("10") }
+    var sets by remember { mutableStateOf("3") }
+    var weight by remember { mutableStateOf("") }
+    var cap by remember { mutableStateOf("12") }
+    var rounds by remember { mutableStateOf("1") }
+    val chosen = remember { mutableStateListOf<RoutineDraftRow>() }
+    val weightValue = weight.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
+    val quantity = reps.toIntOrNull()
+    val setCount = sets.toIntOrNull()
+    val validNumeric = quantity != null && quantity in 1..10000 &&
+        (kind != "strength" || (setCount != null && setCount in 1..30 &&
+            (weight.isBlank() || (weightValue != null &&
+                weightValue.isFinite() && weightValue >= 0))))
+    val candidates = remember(exercises, search, kind, chosen.size) {
+        exercises.asSequence()
+            .filter { kind != "strength" || it.supportsBasicInput }
+            .filter { candidate -> chosen.none { it.id == candidate.id } }
+            .map { entry -> entry to ExerciseAliasSearch.score(search, entry.name, aliases) }
+            .filter { it.second >= 0 }
+            .sortedWith(compareByDescending<Pair<ExerciseEntry, Int>> { it.second }
+                .thenBy { it.first.name })
+            .take(8).map { it.first }.toList()
+    }
+    Card(modifier = Modifier.fillMaxWidth().animateContentSize()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("Nueva rutina", style = MaterialTheme.typography.titleLarge)
+            OutlinedTextField(
+                value = title, onValueChange = { title = it },
+                label = { Text("Nombre de la rutina") },
+                singleLine = true, modifier = Modifier.fillMaxWidth()
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("strength" to "Fuerza", "amrap" to "AMRAP", "forTime" to "For Time")
+                    .forEach { option ->
+                        FilterChip(
+                            selected = kind == option.first,
+                            onClick = {
+                                kind = option.first
+                                chosen.clear()
+                            },
+                            label = { Text(option.second) }
+                        )
+                    }
+            }
+            if (kind != "strength") {
+                OutlinedTextField(
+                    value = cap, onValueChange = { cap = it.filter(Char::isDigit) },
+                    label = { Text("Límite (minutos)") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                )
+                if (kind == "forTime") {
+                    OutlinedTextField(
+                        value = rounds,
+                        onValueChange = { rounds = it.filter(Char::isDigit) },
+                        label = { Text("Número de rondas") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                }
+            }
+            OutlinedTextField(
+                value = reps, onValueChange = { reps = it.filter(Char::isDigit) },
+                label = { Text("Repeticiones por ejercicio") },
+                modifier = Modifier.fillMaxWidth(), singleLine = true
+            )
+            if (kind == "strength") {
+                OutlinedTextField(
+                    value = sets, onValueChange = { sets = it.filter(Char::isDigit) },
+                    label = { Text("Series por ejercicio") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                )
+                OutlinedTextField(
+                    value = weight, onValueChange = { weight = it },
+                    label = { Text("Peso prescrito opcional (kg)") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                )
+            }
+            Text("Ejercicios de la rutina", style = MaterialTheme.typography.titleMedium)
+            chosen.forEach { draft ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(draft.name + " · " +
+                        (if (kind == "strength") "${draft.sets}×" else "") +
+                        "${draft.quantity} reps")
+                    TextButton(onClick = { chosen.remove(draft) }, enabled = !busy) {
+                        Text("Quitar")
+                    }
+                }
+            }
+            OutlinedTextField(
+                value = search, onValueChange = { search = it },
+                label = { Text("Buscar para añadir") },
+                modifier = Modifier.fillMaxWidth(), singleLine = true
+            )
+            candidates.forEach { candidate ->
+                TextButton(
+                    enabled = !busy && validNumeric,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        if (quantity != null) {
+                            chosen.add(RoutineDraftRow(
+                                candidate.id,
+                                candidate.name,
+                                if (kind == "strength") setCount ?: 3 else 1,
+                                quantity,
+                                if (kind == "strength" && candidate.allowsWeight) weightValue else null
+                            ))
+                        }
+                    }
+                ) { Text("+ " + candidate.name) }
+            }
+            val validCap = cap.toIntOrNull()?.let { it in 1..180 } == true
+            val validRounds = kind != "forTime" ||
+                rounds.toIntOrNull()?.let { it in 1..100 } == true
+            Button(
+                enabled = !busy && title.trim().isNotEmpty() &&
+                    title.trim().length <= 100 && chosen.isNotEmpty() &&
+                    (kind == "strength" || (validCap && validRounds)),
+                modifier = Modifier.fillMaxWidth(),
+                onClick = {
+                    val entries = chosen.map {
+                        RoutineDraftEntry(it.id, it.quantity, it.sets, it.weightKg)
+                    }
+                    onSave(title, kind, entries, cap.toIntOrNull() ?: 12,
+                        rounds.toIntOrNull() ?: 1)
+                }
+            ) { Text("Guardar rutina") }
         }
     }
 }

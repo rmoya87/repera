@@ -107,3 +107,22 @@ por movimiento que aún no está implementado. El cronómetro WOD del módulo
 dominio **no está conectado aún al Play real**.
 Se han incluido pruebas instrumentadas para For Time y fuerza + AMRAP,
 pendientes de ejecución en emulador/dispositivo.
+
+## Editor Android de rutinas y corrección de series
+
+Desde **Crear**, Android puede guardar una rutina nativa compatible con Swift
+`Routine` y `RoutineBlock`, formada por ejercicios reales del catálogo.
+Tipos iniciales: Fuerza (series/reps y peso opcional), AMRAP (tiempo y
+movimientos) y For Time (rondas, time cap informativo y movimientos).
+El usuario selecciona ejercicios reales y los incorpora a la plantilla; no
+se añaden sesiones terminadas ni objetivos de salud supuestos.
+
+Durante Play fuerza, el usuario puede **editar una serie ya registrada**
+sin duplicarla: `id`, `completedAt` y orden se mantienen y `completedReps`
+se recalcula con las series confirmadas. El resumen Inicio muestra resultados
+WOD registrados o el número real de series de cada entrenamiento.
+
+Se han definido pruebas instrumentadas de creación y ejecución de rutinas
+de fuerza y AMRAP desde el catálogo nativo; no se han ejecutado en Android
+por la limitación de runner documentada. El editor completo por movimiento
+y la programación de sesiones siguen pendientes.
