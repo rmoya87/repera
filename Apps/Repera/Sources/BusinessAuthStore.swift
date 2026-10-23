@@ -199,7 +199,12 @@ final class BusinessAuthStore {
             }
             AuthSessionTrace.event("restoreSession done via session connected=\(isConnected)")
         } catch {
-            if client.auth.currentSession != nil {
+            if let cached = client.auth.currentSession {
+                guard isSameLocalOwner(cached.user.id) else {
+                    isConnected = false
+                    lastErrorMessage = "La sesión no coincide con el historial de este usuario."
+                    return
+                }
                 acceptCachedSession(expectedBinding: expectedBinding)
                 AuthSessionTrace.event("restoreSession recover cache after error: \(error.localizedDescription)")
                 return
@@ -220,7 +225,8 @@ final class BusinessAuthStore {
     func connectFromCachedSessionIfPossible() -> Bool {
         guard let appleUserID = AppleAuthStore.shared.userID,
               AppleAuthStore.shared.isSignedIn,
-              client?.auth.currentSession != nil
+              let cached = client?.auth.currentSession,
+              isSameLocalOwner(cached.user.id)
         else {
             AuthSessionTrace.event("connectFromCache failed apple/cache missing")
             return false
@@ -231,10 +237,16 @@ final class BusinessAuthStore {
     }
 
     private func acceptCachedSession(expectedBinding: String) {
-        UserDefaults.standard.set(expectedBinding, forKey: appleIdentityBindingKey)
-        if let session = client?.auth.currentSession {
-            rememberOwner(session.user.id)
+        // Defensa en profundidad: ni siquiera la restauración de caché puede
+        // reemplazar silenciosamente el dueño del historial local.
+        guard let session = client?.auth.currentSession,
+              isSameLocalOwner(session.user.id) else {
+            isConnected = false
+            lastErrorMessage = "La sesión restaurada pertenece a otra cuenta."
+            return
         }
+        UserDefaults.standard.set(expectedBinding, forKey: appleIdentityBindingKey)
+        rememberOwner(session.user.id)
         UserDefaults.standard.set(false, forKey: googleSignedInKey)
         isConnected = true
         isMigrationRequired = false
