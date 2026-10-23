@@ -64,7 +64,7 @@ class HealthCaloriesOriginContractTests(unittest.TestCase):
         value = tile.split("Text(value)", 1)[1].split(".foregroundStyle(OG.label)", 1)[0]
         self.assertIn(".font(.system(size: 28, weight: .semibold))", value)
         self.assertIn(".minimumScaleFactor(0.7)", tile)
-        for label in ("Kcal", "Tiempo", "Nota"):
+        for label in ("Calorías", "Tiempo", "Pasos"):
             self.assertIn(f'title: "{label}"', home)
 
     def test_home_daily_energy_has_no_local_fallback(self):
