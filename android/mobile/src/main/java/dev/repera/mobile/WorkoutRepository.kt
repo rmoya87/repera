@@ -395,6 +395,77 @@ class WorkoutRepository(context: Context, googleId: String) {
         return summarize(session)
     }
 
+    /** Explicit per-movement confirmation. Timer intervals never create logged work. */
+    @Synchronized fun recordWodMovement(
+        movementIndex: Int, intervalIndex: Int, quantity: Int, weightKg: Double?
+    ): ActiveWorkout {
+        require(movementIndex >= 0 && intervalIndex >= 0 && quantity >= 0)
+        require(weightKg == null || (weightKg.isFinite() && weightKg >= 0))
+        val state = requireState()
+        val session = requireActive(state)
+        val exercises = session.getJSONArray("exercises")
+        val current = exercises.getJSONObject(session.getInt("currentIndex"))
+        check(current.optString("blockKind") == "wod")
+        val format = WodFormat.fromWire(current.getString("wodFormat"))
+        check(format?.capture == ResultCapture.PER_MOVEMENT_SETS) {
+            "Este formato registra un resultado global"
+        }
+        val blockId = current.getString("blockId")
+        val movements = (0 until exercises.length()).map { exercises.getJSONObject(it) }
+            .filter { it.optString("blockId") == blockId }
+        require(movementIndex < movements.size) { "Movimiento fuera del bloque" }
+        val exercise = movements[movementIndex]
+        val set = JSONObject()
+            .put("id", UUID.randomUUID().toString())
+            .put("reps", quantity)
+            .put("completedAt", nowISO8601())
+            .put("phase", "work")
+            .put("kind", "straight")
+            .put("intervalIndex", intervalIndex)
+            .put("toFailure", false)
+            .put("drops", JSONArray())
+            .put("clusters", JSONArray())
+        if (weightKg != null) set.put("weightKg", weightKg)
+        exercise.getJSONArray("loggedSets").put(set)
+        exercise.put("completedReps", exercise.optInt("completedReps") + quantity)
+        session.put("phase", "counting")
+        save(state)
+        return summarize(session)
+    }
+
+    /** Finish a per-movement block without turning unrecorded movements into sets. */
+    @Synchronized fun completeWodMovementBlock(): ActiveWorkout? {
+        val state = requireState()
+        val session = requireActive(state)
+        val exercises = session.getJSONArray("exercises")
+        val index = session.getInt("currentIndex")
+        val current = exercises.getJSONObject(index)
+        check(current.optString("blockKind") == "wod")
+        val format = WodFormat.fromWire(current.getString("wodFormat"))
+        check(format?.capture == ResultCapture.PER_MOVEMENT_SETS)
+        val blockId = current.getString("blockId")
+        val hasWork = (0 until exercises.length()).any { i ->
+            val item = exercises.getJSONObject(i)
+            item.optString("blockId") == blockId &&
+                item.getJSONArray("loggedSets").length() > 0
+        }
+        check(hasWork) { "Registra al menos un movimiento antes de cerrar el bloque" }
+        var nextIndex = index
+        while (nextIndex < exercises.length() &&
+            exercises.getJSONObject(nextIndex).optString("blockId") == blockId) {
+            val item = exercises.getJSONObject(nextIndex)
+            item.put("isCompleted", item.getJSONArray("loggedSets").length() > 0)
+            nextIndex++
+        }
+        if (nextIndex == exercises.length()) {
+            finishInPlace(state, session)
+            return null
+        }
+        session.put("currentIndex", nextIndex).put("phase", "ready")
+        save(state)
+        return summarize(session)
+    }
+
     @Synchronized fun finish(): Unit {
         val state = requireState()
         finishInPlace(state, requireActive(state))
@@ -511,9 +582,20 @@ class WorkoutRepository(context: Context, googleId: String) {
                 restBetweenRoundsSeconds = block?.optInt("restBetweenRoundsSeconds")?.takeIf {
                     block.has("restBetweenRoundsSeconds")
                 },
+                recorded = (0 until exercises.length()).map { exercises.getJSONObject(it) }
+                    .filter { it.optString("blockId") == blockId }
+                    .flatMap { item ->
+                        val logs = item.optJSONArray("loggedSets") ?: JSONArray()
+                        (0 until logs.length()).map { n ->
+                            val s = logs.getJSONObject(n)
+                            WodRecordedMovement(item.getJSONObject("exercise").optString("name"),
+                                s.optInt("intervalIndex"), s.optInt("reps"))
+                        }
+                    },
                 movements = (0 until moves.length()).map { j ->
                     val m = moves.getJSONObject(j)
                     WodMovementSummary(
+                        id = m.optString("id", m.optString("name")),
                         name = m.optString("name"),
                         isRest = m.optBoolean("isRest"),
                         reps = m.optInt("reps").takeIf { m.has("reps") && !m.isNull("reps") },
@@ -585,6 +667,7 @@ data class WodExecution(
     val expectsRounds: Boolean,
     val title: String,
     val movements: List<WodMovementSummary>,
+    val recorded: List<WodRecordedMovement> = emptyList(),
     val timeCapMinutes: Int? = null,
     val intervalSeconds: Int? = null,
     val rounds: Int? = null,
@@ -593,7 +676,10 @@ data class WodExecution(
     val restBetweenRoundsSeconds: Int? = null
 )
 
+data class WodRecordedMovement(val name: String, val intervalIndex: Int, val quantity: Int)
+
 data class WodMovementSummary(
+    val id: String,
     val name: String,
     val isRest: Boolean,
     val reps: Int?,
