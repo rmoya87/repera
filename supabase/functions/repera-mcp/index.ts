@@ -237,7 +237,7 @@ Deno.serve(async (request) => {
   }
 
   const handler = createMcpHandler(() => {
-    const server = new McpServer({ name: "repera-training", version: "0.4.0" });
+    const server = new McpServer({ name: "repera-training", version: "0.5.0" });
     registerCoachTools(server, db, ownerId, token.id, canWrite);
     registerDisciplinePlanningTools(server, db, ownerId);
     registerAthleteChangeTools(server,db,ownerId,token.id,canWrite);
