@@ -45,6 +45,13 @@ public enum ExerciseSearch {
     /// Traducciones de frases completas: se prueban además del texto original.
     /// No sustituyen los nombres reales; una búsqueda exacta sigue siendo prioritaria.
     private static let bilingualPhrases: [String: String] = [
+        "rowing": "remo maquina",
+        "rowerg": "remo maquina",
+        "ski erg": "skierg",
+        "ski ergometer": "skierg",
+        "farmers carry": "farmer carry",
+        "burpee broad jumps": "burpee broad jump",
+        "sandbag lunge": "sandbag lunges",
         // Gimnasio: el catálogo es mayoritariamente español, pero usuarios
         // y pizarras suelen introducir su denominación técnica en inglés.
         "incline bench press": "press banca inclinada",
