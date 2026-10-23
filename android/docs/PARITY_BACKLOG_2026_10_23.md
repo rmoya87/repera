@@ -58,3 +58,12 @@ La paridad no es un porcentaje inventado: requiere matriz por comportamiento y r
 ### Incremento de esta auditoría
 
 El lector `WorkoutHistorySets` aplica fallback de sets prescritos terminados **solo en memoria**, conserva warmups reales, unidades Cal/metros, RIR y WOD globales sin series falsas. La prueba instrumentada protege estos invariantes. Para estadísticas agregadas faltan portar `StatsEngine.effectiveWorkSets` a un motor transversal Android, no reimplementar reglas diferentes por pantalla.
+
+
+## Incremento Wear: registro de fuerza con cola offline
+
+- `WearPendingSetStore` conserva el UUID de cada acción y su prescripción local mientras no hay confirmación del teléfono; no muestra la serie como sincronizada antes de recibir ACK `saved`.
+- `MainActivity` acepta mensajes **solo con login Google/Supabase validado y Activity activa**, y `WorkoutRepository.logWearSet` protege UUID, sesión, índice y ausencia de duplicados, incluso tras archivar.
+- El reloj reintenta al abrir la actividad, recibir una sesión y al pulsar Reenviar. Al cerrar sesión recibida limpia la cola por privacidad.
+- **Limitación explícita:** aún no hay reconciliación automática en segundo plano sin abrir el teléfono, Health Services ni captura Wear de WOD por movimiento. No considerar Watch al nivel de Apple hasta completar E2E físico.
+- CI: nuevas pruebas de idempotencia tras reinicio, duplicados y rechazo de sesiones ajenas. No extrapolar tests Android Emulator a un Wear físico.
