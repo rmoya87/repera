@@ -612,7 +612,8 @@ class WorkoutRepository(context: Context, googleId: String) {
      * Called only after the phone has a verified signed-in account.
      */
     @Synchronized fun logWearSet(
-        sessionId: String, exerciseIndex: Int, setId: String, quantity: Int, weightKg: Double?
+        sessionId: String, exerciseIndex: Int, setId: String, quantity: Int, weightKg: Double?,
+        durationSeconds: Int? = null
     ): Boolean {
         require(sessionId.isNotBlank() && setId.isNotBlank() && exerciseIndex >= 0)
         require(quantity > 0 && quantity <= 10000)
@@ -644,7 +645,8 @@ class WorkoutRepository(context: Context, googleId: String) {
         check(inputMode(exercise.getJSONObject("exercise")) != ExerciseInputMode.HSPU_DEFICIT) {
             "El déficit de HSPU requiere confirmación con cm en el móvil"
         }
-        logCurrentSet(quantity, weightKg, rir = null, warmup = false, setId = setId)
+        logCurrentSet(quantity, weightKg, rir = null, warmup = false, setId = setId,
+            durationSeconds = durationSeconds)
         return true
     }
 
