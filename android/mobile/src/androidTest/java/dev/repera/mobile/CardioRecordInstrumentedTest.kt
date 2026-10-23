@@ -78,6 +78,21 @@ class CardioRecordInstrumentedTest {
         assertEquals(0, JSONObject(String(local.read()!!)).getJSONArray("workouts").length())
     }
 
+    @Test fun emptyDurationEditRemovesOldCardioDuration() {
+        val (repo, local) = prepare("SkiErg")
+        val id = JSONObject(String(local.read()!!)).getJSONArray("exercises")
+            .getJSONObject(0).getString("id")
+        repo.startQuickLog(id)
+        val recorded = repo.logCurrentSet(50, null, quantityUnit = "calories", durationSeconds = 180)
+        val setId = recorded.sets.single().id
+        repo.reviseCurrentSet(setId, 50, null, "calories", durationSeconds = null)
+        assertNull(repo.active()!!.sets.single().durationSeconds)
+        val saved = JSONObject(String(local.read()!!)).getJSONObject("activeSession")
+            .getJSONArray("exercises").getJSONObject(0)
+            .getJSONArray("loggedSets").getJSONObject(0)
+        assertFalse(saved.has("durationSeconds"))
+    }
+
     @Test fun jumpRopeStoresCountAndDurationAsRepsAndTime() {
         val (repo, local) = prepare("Double under")
         val id = JSONObject(String(local.read()!!)).getJSONArray("exercises")

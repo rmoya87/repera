@@ -693,6 +693,9 @@ class WorkoutRepository(context: Context, googleId: String) {
             original.put("quantityUnit", quantityUnit)
         }
         if (durationSeconds != null) original.put("durationSeconds", durationSeconds)
+        else if (inputMode(movement) in setOf(
+                ExerciseInputMode.MACHINE_WORK, ExerciseInputMode.REPS_AND_TIME
+            )) original.remove("durationSeconds")
         // Recompute only work sets, preserving each existing identity and completedAt.
         val total = (0 until logged.length()).sumOf { i ->
             val set = logged.getJSONObject(i)
