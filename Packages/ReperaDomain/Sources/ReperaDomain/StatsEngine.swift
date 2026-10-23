@@ -7,6 +7,8 @@ public enum StatsEngine {
     public static func effectiveWorkSets(_ exercise: SessionExercise, in workout: WorkoutSession) -> [LoggedSet] {
         let recorded = exercise.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
         if !recorded.isEmpty { return recorded }
+        // Una postura prescrita nunca equivale a segundos o repeticiones reales.
+        if exercise.exercise.isMobility { return [] }
         guard workout.finishedAt != nil || workout.phase == .finished else { return [] }
         return exercise.plannedSets.filter { $0.targetReps > 0 }.map { planned in
             LoggedSet(
@@ -25,6 +27,7 @@ public enum StatsEngine {
         for workout in workouts where workout.phase == .finished || workout.finishedAt != nil {
             let date = workout.finishedAt ?? workout.startedAt ?? Date()
             for exercise in workout.exercises {
+                guard !exercise.exercise.isMobility else { continue }
                 for set in exercise.loggedSets {
                     guard let weight = set.weightKg, weight > 0, set.reps > 0 else { continue }
                     let candidate = PersonalRecord(
