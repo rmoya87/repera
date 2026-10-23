@@ -16,7 +16,7 @@ La implementación Android **todavía no es completa**. La rama no altera Swift,
 | Finalizar | Archiva la sesión sin duplicarla y limpia estado activo | Falta reconciliación con Health Connect |
 | WOD | 14 formatos, resultados y matemáticas de reloj AMRAP/EMOM/For Time/Tabata/Circuito | Falta motor de ejecución y editor de bloques |
 | Watch | Wear Material 3 y lectura Data Layer de sesión activa | Falta registro offline + Health Services + reconciliación |
-| Progreso/Salud | Sólo datos locales reales, sin inventar kcal | Health Connect y métricas pendientes |
+| Actividad/Salud | Lectura explícita de pasos y energía activa reales vía Health Connect, con permisos opt-in | Resto de mediciones y E2E pendientes |
 | Business | No habilitado | OAuth Google verificado por servidor, RLS y planes |
 | Compras Pro | No habilitado | Play Billing/RevenueCat e id de productos |
 | OCR pizarra | No habilitado | ML Kit on-device + compatibilidad del parser |
@@ -73,3 +73,14 @@ figuraban sin runner y sin pasos.
 **Advertencia:** pruebas escritas != pruebas ejecutadas. Requiere SDK 37,
 Gradle 9.6, JDK 17, credenciales OAuth reales, emulador y reloj. Los workflows
 de GitHub disponibles no están asignando runners.
+
+## Salud Android (lectura observada)
+
+Se utiliza `androidx.health.connect:connect-client:1.1.0` (estable), únicamente
+con permisos de lectura `READ_STEPS` y `READ_ACTIVE_CALORIES_BURNED`.
+La vista Inicio muestra las lecturas agregadas del día si existen y «—»
+en ausencia de datos o permiso. Los datos de Salud **no** se vuelcan al
+JSON de Repera ni a Drive/Supabase; no se generan kcal por inferencia.
+El permiso se solicita sólo cuando el usuario pulsa conectar; se ofrece
+explicación en la pantalla de gestión de permisos. Quedan pendientes
+Health Services del reloj, operaciones de escritura y pruebas E2E.

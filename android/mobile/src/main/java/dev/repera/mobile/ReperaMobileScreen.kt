@@ -57,6 +57,8 @@ fun ReperaMobileScreen(
     busy: Boolean,
     status: String?,
     overview: StateOverview?,
+    todayHealth: TodayHealth?,
+    onHealthConnect: () -> Unit,
     activeWorkout: ActiveWorkout?,
     onStartRoutine: (String) -> Unit,
     onQuickLog: (String) -> Unit,
@@ -133,6 +135,24 @@ fun ReperaMobileScreen(
                     )
                 }
                 if (selected == "Inicio") {
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(
+                                modifier = Modifier.padding(18.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text("Actividad del día", style = MaterialTheme.typography.titleMedium)
+                                Text("Pasos: " + (todayHealth?.steps?.toString() ?: "—"))
+                                Text("Energía activa: " + (todayHealth?.activeKcal?.let {
+                                    "${it.toInt()} kcal"
+                                } ?: "—"))
+                                TextButton(
+                                    enabled = !busy,
+                                    onClick = onHealthConnect
+                                ) { Text("Conectar o actualizar Salud") }
+                            }
+                        }
+                    }
                     item {
                         if (activeWorkout != null) {
                             key(activeWorkout.id, activeWorkout.index, activeWorkout.completedSets) {

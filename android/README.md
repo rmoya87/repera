@@ -7,6 +7,7 @@ Implementación nativa independiente en `android/`:
   rutinas **de fuerza** con persistencia compatible con `AppState` Swift.
 - `domain`: reloj, captura de resultado WOD, prescripción y resolución de conflictos.
 - `wear`: Compose for Wear OS Material 3 y recepción de sesión activa mediante Data Layer.
+- `Health Connect`: lectura voluntaria de pasos y calorías activas reales, sin datos inventados ni escrituras.
 
 Google reemplaza a Apple en Android; Google Drive reemplaza a iCloud para
 el almacenamiento privado. Para dar acceso profesional a Supabase se requiere

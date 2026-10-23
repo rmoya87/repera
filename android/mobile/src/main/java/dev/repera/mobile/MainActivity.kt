@@ -16,6 +16,7 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.lifecycle.lifecycleScope
+import androidx.health.connect.client.permission.PermissionController
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
@@ -42,7 +43,19 @@ class MainActivity : ComponentActivity() {
     private var status by mutableStateOf<String?>(null)
     private var snapshot by mutableStateOf<StateOverview?>(null)
     private var activeWorkout by mutableStateOf<ActiveWorkout?>(null)
+    private var todayHealth by mutableStateOf<TodayHealth?>(null)
     private val credentialManager by lazy { CredentialManager.create(this) }
+
+    private val requestHealthPermissions = registerForActivityResult(
+        PermissionController.createRequestPermissionResultContract()
+    ) { granted ->
+        if (granted.containsAll(HealthConnectReader.permissions)) {
+            loadHealthToday()
+        } else {
+            todayHealth = null
+            status = "No se ha autorizado la lectura de Salud"
+        }
+    }
 
     private val driveConsent = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
@@ -100,6 +113,8 @@ class MainActivity : ComponentActivity() {
                 busy = busy,
                 status = status,
                 overview = snapshot,
+                todayHealth = todayHealth,
+                onHealthConnect = ::connectHealth,
                 activeWorkout = activeWorkout,
                 onStartRoutine = { id -> runWorkoutAction { startStrengthRoutine(id) } },
                 onQuickLog = { id -> runWorkoutAction { startQuickLog(id) } },
@@ -149,6 +164,38 @@ class MainActivity : ComponentActivity() {
                 status = "No se pudo iniciar sesión con Google: " + error.localizedMessage
             } finally {
                 busy = false
+            }
+        }
+    }
+
+    private fun connectHealth() {
+        if (profile == null || busy) return
+        val reader = HealthConnectReader(this)
+        if (!reader.available()) {
+            status = "Health Connect no está disponible"
+            return
+        }
+        lifecycleScope.launch {
+            try {
+                if (reader.hasPermissions()) loadHealthToday()
+                else requestHealthPermissions.launch(HealthConnectReader.permissions)
+            } catch (error: Exception) {
+                todayHealth = null
+                status = "No se pudo conectar Salud: " + error.localizedMessage
+            }
+        }
+    }
+
+    private fun loadHealthToday() {
+        lifecycleScope.launch {
+            try {
+                todayHealth = withContext(Dispatchers.IO) {
+                    HealthConnectReader(this@MainActivity).readToday()
+                }
+                status = null
+            } catch (error: Exception) {
+                todayHealth = null
+                status = "No se pudo leer Salud: " + error.localizedMessage
             }
         }
     }
@@ -281,6 +328,7 @@ class MainActivity : ComponentActivity() {
                 profile = null
                 snapshot = null
                 activeWorkout = null
+                todayHealth = null
                 status = null
                 busy = false
             }
