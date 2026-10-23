@@ -214,6 +214,8 @@ struct LibraryView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .contentMargins(.top, 0, for: .scrollContent)
+        .listSectionSpacing(.compact)
         .ogListChrome()
     }
 
