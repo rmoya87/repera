@@ -38,6 +38,7 @@ import dev.repera.domain.ResultCapture
 class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
     private val dataClient by lazy { Wearable.getDataClient(this) }
     private var visibleSession by mutableStateOf<WatchSessionSummary?>(null)
+    private var syncProblem by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,7 +57,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
                             Spacer(Modifier.height(6.dp))
                             val session = visibleSession
                             if (session == null) {
-                                Text("Sin entrenamiento recibido",
+                                Text(if (syncProblem) "No se pudo leer la sesión del teléfono" else "Sin entrenamiento recibido",
                                     textAlign = TextAlign.Center)
                             } else {
                                 Text(session.title, textAlign = TextAlign.Center,
@@ -106,7 +107,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
                 for (item in items) {
                     if (item.uri.path == "/repera/active-session") {
                         val bytes = DataMapItem.fromDataItem(item).dataMap.getByteArray("session")
-                        showSession(bytes)
+                        runOnUiThread { showSession(bytes) }
                     }
                 }
             } finally {
@@ -124,7 +125,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
         for (event in events) {
             if (event.dataItem.uri.path == "/repera/active-session") {
                 if (event.type == com.google.android.gms.wearable.DataEvent.TYPE_DELETED) {
-                    runOnUiThread { visibleSession = null }
+                    runOnUiThread { visibleSession = null; syncProblem = false }
                 } else {
                     val bytes = DataMapItem.fromDataItem(event.dataItem).dataMap.getByteArray("session")
                     runOnUiThread { showSession(bytes) }
@@ -134,9 +135,16 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener {
     }
 
     private fun showSession(bytes: ByteArray?) {
-        visibleSession = if (bytes == null || bytes.isEmpty()) null
-        else runCatching { WatchSessionSummary.fromJson(JSONObject(String(bytes, Charsets.UTF_8))) }
-            .getOrNull()
+        if (bytes == null || bytes.isEmpty()) {
+            visibleSession = null
+            syncProblem = false
+            return
+        }
+        val parsed = runCatching {
+            WatchSessionSummary.fromJson(JSONObject(String(bytes, Charsets.UTF_8)))
+        }
+        visibleSession = parsed.getOrNull()
+        syncProblem = parsed.isFailure
     }
 }
 
