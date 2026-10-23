@@ -108,9 +108,9 @@
 - Cada frame debe mantener persona, proporciones, vestimenta, orientación, equipo y cámara. En suspensión (cuelgue, barra/anillas, salto) **no debe existir sombra/óvalo de suelo**. En apoyo sí puede aparecer uno suave.
 - Captions de fase (carrusel): una acción por frase, preferiblemente 8–16 palabras, alineada al frame. Debajo, guía **Cómo hacerlo** con tono de entrenador (setup, ejecución, respiración, error típico, estándar/progresión). Sin notas editoriales (`imagen:`).
 - QA: inventario por stem en `docs/EXERCISE_ART_AUDIT.csv`; auditoría reproducible con `.venv-art/bin/python scripts/audit_exercise_art.py`. Estados: `FAIL` (defecto confirmado), `WARN` (revisar), `PENDING_VISUAL_QA` (sin aprobar visualmente). No confundir existencia en disco con veredicto OK.
-- Filtro / orden: alfabético, músculo, deporte, favoritos, **WODs** (modal).
+- Filtro / orden: alfabético, músculo, deporte, **movilidad**, favoritos y **WODs** (modal). El filtro Movilidad muestra solo los 82 movimientos etiquetados con `sportTag = "Movilidad"`; el buscador en este modo no incorpora ejercicios de fuerza. Búsqueda bilingüe ES/EN y técnica de ejecución específica por ficha.
 - Modo **WODs**: lista de benchmarks (`CatalogWODs`; favoritos arriba) con detalle: movimientos con **miniatura**, músculo, tiempo típico, progresión (`wodResults` por `wodTemplateId`). Topbar: **play** (empezar ya) y **★** (`AppSettings.favoriteWODTemplateIds`); se elimina «Apuntar resultado».
-- **Músculo** = grupo anatómico (Pecho, Piernas…). CrossFit / Halterofilia / Gimnasia no son grupos musculares: van en **Deporte** (`sportTag`) y el ejercicio se asigna al músculo principal para métricas.
+- **Músculo** = grupo anatómico (Pecho, Piernas…). Movilidad es un tipo de movimiento y sus ejercicios conservan grupo anatómico principal; no suman series al mapa de fatiga. CrossFit / Halterofilia / Gimnasia no son grupos musculares: van en **Deporte** (`sportTag`) y el ejercicio se asigna al músculo principal para métricas.
 - Ficha: descripción + guía **Cómo hacerlo** (tono entrenador: setup, ejecución, error típico, estándar) para los **188**. Con carrusel, N captions de fase + coaching debajo.
 - Alta de ejercicio custom: página push (`navigationDestination`, `ogPinnedTransparentNav`), no sheet.
 - **Sin** botón «+ Plan» en filas.
