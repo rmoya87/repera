@@ -36,7 +36,7 @@ class ProgressFidelityLayoutTests(unittest.TestCase):
         score = stats.split("private struct ProgressSessionScoreChartCard", 1)[1]
         self.assertIn(".interpolationMethod(.catmullRom)", score)
         self.assertNotIn(".interpolationMethod(.linear)", score)
-        self.assertIn("OGCard(padding: 10)", score)
+        self.assertIn("OGCard(padding: 10, verticalPadding: 20)", score)
         self.assertIn("Ejemplo ·", score)
         self.assertIn("isTeaserPreview: isTeaserPreview", score)
 
@@ -67,7 +67,7 @@ class ProgressFidelityLayoutTests(unittest.TestCase):
         self.assertNotIn("if !prepared.isTeaserPreview, let stats", cardio)
         for name in ("Mín", "Media", "Máx"):
             self.assertIn(f'cardioStatPill(title: "{name}"', cardio)
-        self.assertIn("OGCard(padding: 10)", cardio)
+        self.assertIn("OGCard(padding: 10, verticalPadding: 20)", cardio)
 
     def test_other_previews_display_the_same_summary_values_as_pro(self):
         stats = swift("StatsView.swift")
@@ -84,11 +84,17 @@ class ProgressFidelityLayoutTests(unittest.TestCase):
         self.assertIn('unit: "rpm"', physiology)
         self.assertIn('Text("\\(Int(values.last ?? 0)) \\(unit)")', physiology)
 
-    def test_chart_cards_are_wider_without_changing_global_card_padding(self):
+    def test_chart_cards_are_larger_with_vertical_breathing_room(self):
         theme = swift("Theme.swift")
         self.assertIn("var padding: CGFloat = OG.pad", theme)
+        self.assertIn("var verticalPadding: CGFloat? = nil", theme)
+        self.assertIn(".padding(.vertical, verticalPadding ?? padding)", theme)
         for name in ("StatsView.swift", "ProgressTrendCards.swift", "HealthRecovery.swift", "ExerciseProgressView.swift"):
-            self.assertIn("OGCard(padding: 10)", swift(name))
+            self.assertIn("OGCard(padding: 10, verticalPadding: 20)", swift(name))
+        self.assertIn(".frame(height: 190)", swift("ProgressTrendCards.swift"))
+        self.assertIn(".frame(height: 205)", swift("StatsView.swift"))
+        self.assertIn(".frame(height: 220)", swift("HealthRecovery.swift"))
+        self.assertIn(".frame(height: 220)", swift("ExerciseProgressView.swift"))
 
 
 if __name__ == "__main__":
