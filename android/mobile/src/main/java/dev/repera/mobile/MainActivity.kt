@@ -568,11 +568,9 @@ data class StateOverview(
                     val date = runCatching {
                         java.time.Instant.parse(session.optString("startedAt"))
                             .atZone(ZoneId.systemDefault()).toLocalDate()
-                    }.getOrElse {
-                        runCatching {
-                            java.time.LocalDate.parse(session.optString("startedAt").take(10))
-                        }.getOrNull()
-                    }
+                    }.getOrNull() ?: runCatching {
+                        java.time.LocalDate.parse(session.optString("startedAt").take(10))
+                    }.getOrNull()
                     if (date != null && !date.isBefore(monday) && !date.isAfter(today)) {
                         total += 1
                         weeklyDayTotals[date.dayOfWeek.value - 1] += 1
