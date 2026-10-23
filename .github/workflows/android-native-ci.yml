@@ -10,6 +10,11 @@ on:
       - 'android/**'
       - '.github/workflows/android-native-ci.yml'
 
+# Validate the newest tree instead of spending runner capacity on superseded pushes.
+concurrency:
+  group: android-native-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   android-native:
     runs-on: ubuntu-latest
