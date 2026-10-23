@@ -208,6 +208,16 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
     /// Origen deportivo (CrossFit, Halterofilia, Gimnasia). Independiente del grupo muscular.
     public var sportTag: String?
 
+    /// Disciplinas compatibles, sin sustituir el origen del ejercicio.
+    /// HYROX es una etiqueta transversal: p. ej. Wall ball sigue siendo CrossFit.
+    public var disciplineTags: [String] {
+        var tags = sportTag.map { [$0] } ?? []
+        if HyroxExercises.isMovement(named: name) && !tags.contains("HYROX") {
+            tags.append("HYROX")
+        }
+        return tags
+    }
+
     /// Métrica de log según equipo / nombre (comba → veces+tiempo; erg → cal/m; PC → solo reps).
     public var loggingStyle: ExerciseLoggingStyle {
         Self.loggingStyle(name: name, equipment: equipment, targetMuscle: targetMuscle, muscleGroup: muscleGroup)
