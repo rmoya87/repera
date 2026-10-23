@@ -2126,21 +2126,57 @@ struct DayEditorView: View {
         ForEach(Array(routine.blocks[index].movements.enumerated()), id: \.element.id) { mIndex, move in
             let resolved = resolvedExercise(for: move)
             let hasCatalog = !move.isRest && store.state.exercises.contains(where: { $0.id == resolved.id })
-            Group {
-                if hasCatalog {
-                    NavigationLink {
-                        ExerciseDetailView(exerciseId: resolved.id)
-                    } label: {
+            if !move.isRest, isEditingCompletedWorkout,
+               let format = routine.blocks[index].wodFormat,
+               format.resultCapture != .perMovementSets {
+                HStack(alignment: .top, spacing: 12) {
+                    ExerciseThumb(exercise: resolved, size: 48)
+                        .padding(.top, 2)
+                    VStack(alignment: .leading, spacing: 8) {
+                        if hasCatalog {
+                            NavigationLink {
+                                ExerciseDetailView(exerciseId: resolved.id)
+                            } label: {
+                                Text(resolved.name)
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(OG.label)
+                            }
+                        } else {
+                            Text(resolved.name)
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(OG.label)
+                        }
+                        Text(move.summaryLine)
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                        completedWODScalingFields(movementID: move.id, exercise: resolved)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .padding(.vertical, 5)
+                .swipeActions {
+                    OGSwipeDeleteButton(accessibilityLabel: "Quitar") {
+                        routine.blocks[index].movements.remove(at: mIndex)
+                    }
+                }
+            } else {
+                Group {
+                    if hasCatalog {
+                        NavigationLink {
+                            ExerciseDetailView(exerciseId: resolved.id)
+                        } label: {
+                            movementRowLabel(move: move, resolved: resolved, showSummary: false)
+                        }
+                        .accessibilityHint("Ver ficha del ejercicio")
+                    } else {
                         movementRowLabel(move: move, resolved: resolved, showSummary: false)
                     }
-                    .accessibilityHint("Ver ficha del ejercicio")
-                } else {
-                    movementRowLabel(move: move, resolved: resolved, showSummary: false)
                 }
-            }
-            .swipeActions {
-                OGSwipeDeleteButton(accessibilityLabel: "Quitar") {
-                    routine.blocks[index].movements.remove(at: mIndex)
+                .swipeActions {
+                    OGSwipeDeleteButton(accessibilityLabel: "Quitar") {
+                        routine.blocks[index].movements.remove(at: mIndex)
+                    }
                 }
             }
 
@@ -2157,23 +2193,8 @@ struct DayEditorView: View {
             } else if isEditingCompletedWorkout,
                       let format = routine.blocks[index].wodFormat,
                       format.resultCapture != .perMovementSets {
-                // Mismo editor de series que Crear/Editar/Play. Corrige la
-                // prescripción original sin fabricar series realizadas.
-                InlineWODMovementSets(
-                    movement: Binding(
-                        get: { routine.blocks[index].movements[mIndex] },
-                        set: { routine.blocks[index].movements[mIndex] = $0 }
-                    ),
-                    block: routine.blocks[index],
-                    preservePrescriptionOnAppear: true
-                )
-
-                DisclosureGroup("Adaptación del movimiento (opcional)") {
-                    completedWODScalingFields(movementID: move.id, exercise: resolved)
-                        .padding(.top, 6)
-                }
-                .font(.system(size: 13, weight: .medium))
-                .tint(OG.label2)
+                // Ya se registran los datos reales junto al título y miniatura.
+                EmptyView()
             } else {
                 if isEditingCompletedWorkout {
                     let logged = completedWorkoutDraft?.exercises.first(where: { $0.id == move.id
