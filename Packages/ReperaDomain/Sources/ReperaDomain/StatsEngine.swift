@@ -212,7 +212,7 @@ public enum StatsEngine {
                 if let sec = set.durationSeconds {
                     bestDurationSeconds = max(bestDurationSeconds, sec)
                 }
-                if let w = set.weightKg, w > 0 {
+                if resolvedQuantityUnit(set, in: ex) == .reps, let w = set.weightKg, w > 0 {
                     let e1 = w * (1 + Double(set.reps) / 30.0)
                     if e1 > best1RM {
                         best1RM = e1
