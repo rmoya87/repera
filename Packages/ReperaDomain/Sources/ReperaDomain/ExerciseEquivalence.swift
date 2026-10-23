@@ -160,7 +160,7 @@ public enum ExerciseEquivalence {
     }
 
     public static func sameName(_ a: String, _ b: String) -> Bool {
-        normalize(a) == normalize(b)
+        normalize(SportExerciseNames.canonicalName(a)) == normalize(SportExerciseNames.canonicalName(b))
     }
 
     /// Historial comparable: id → nombre → familia+estilo+loadField.
