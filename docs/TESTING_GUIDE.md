@@ -307,3 +307,14 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - “Cannot find HealthGoalsView in scope”: desde este cambio HealthGoalsView reside en Apps/Repera/Sources/SettingsView.swift, un archivo ya incluido en el proyecto Xcode antiguo. Actualizar main y comprobar que el archivo local está actualizado; no debe quedar una definición duplicada de la vista. Si se regenera con XcodeGen, usar project.yml desde la raíz y reabrir el proyecto.
 - “Assets.xcassets: Could not get trait set for device Watch8,3 with version 27.0”: este mensaje procede del procesado del catálogo por Xcode/CoreSimulator; no confirma que falte el icono ni explica por sí solo el fallo SwiftCompile. Verificar que Xcode y los componentes de watchOS 27 están completos, instalar actualizaciones disponibles (Xcode → Ajustes → Componentes), cambiar al destino iPhone real para aislarlo, limpiar Build Folder y volver a compilar. Conservar el catálogo original si el JSON y los iconos son correctos; investigar el resto del log si la compilación falla.
 - Registrar por separado los errores reales de Swift y los avisos de actool y ejecutar el build completo con Xcode 27 antes de publicar TestFlight.
+
+## Movilidad (82 movimientos)
+
+- [ ] Ejercicios → Filtro → **Movilidad** muestra solo movimientos de movilidad, también tras buscar en español o inglés.
+- [ ] «cat cow» encuentra Gato-vaca; «knee to wall ankle mobility» encuentra Rodilla a pared para tobillo; acentos y 90/90 no bloquean la búsqueda.
+- [ ] En Alfabético y Músculo siguen apareciendo ejercicios de movilidad con sus fichas; en Deporte no se agrupan erróneamente bajo Fuerza.
+- [ ] La ficha de movilidad conserva explicación y pasos sin mostrar «Carga sugerida» ni campo de kg; se puede marcar favorita.
+- [ ] Registrar movilidad y volver a Progreso no añade series artificiales al mapa de fatiga.
+- [ ] Los movimientos nuevos se añaden una sola vez tras migrar el catálogo existente y conservan el historial al reiniciar.
+- [ ] Comprobar miniaturas de ejercicios nuevos: fallback válido mientras se generan/validan imágenes reales.
+
