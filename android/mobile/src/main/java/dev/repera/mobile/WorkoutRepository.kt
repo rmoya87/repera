@@ -484,6 +484,14 @@ class WorkoutRepository(context: Context, googleId: String) {
                 capture = format.capture.name,
                 expectsRounds = format == WodFormat.AMRAP || format == WodFormat.DEATH_BY,
                 title = block?.optString("title") ?: format.wireName,
+                timeCapMinutes = block?.optInt("timeCapMinutes")?.takeIf { block.has("timeCapMinutes") },
+                intervalSeconds = block?.optInt("emomIntervalSeconds")?.takeIf { block.has("emomIntervalSeconds") },
+                rounds = block?.optInt("rounds")?.takeIf { block.has("rounds") },
+                workSeconds = block?.optInt("workSeconds")?.takeIf { block.has("workSeconds") },
+                restSeconds = block?.optInt("restSeconds")?.takeIf { block.has("restSeconds") },
+                restBetweenRoundsSeconds = block?.optInt("restBetweenRoundsSeconds")?.takeIf {
+                    block.has("restBetweenRoundsSeconds")
+                },
                 movements = (0 until moves.length()).map { j ->
                     val m = moves.getJSONObject(j)
                     WodMovementSummary(
@@ -557,7 +565,13 @@ data class WodExecution(
     val capture: String,
     val expectsRounds: Boolean,
     val title: String,
-    val movements: List<WodMovementSummary>
+    val movements: List<WodMovementSummary>,
+    val timeCapMinutes: Int? = null,
+    val intervalSeconds: Int? = null,
+    val rounds: Int? = null,
+    val workSeconds: Int? = null,
+    val restSeconds: Int? = null,
+    val restBetweenRoundsSeconds: Int? = null
 )
 
 data class WodMovementSummary(

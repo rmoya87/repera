@@ -44,6 +44,7 @@ class MainActivity : ComponentActivity() {
     private var status by mutableStateOf<String?>(null)
     private var snapshot by mutableStateOf<StateOverview?>(null)
     private var activeWorkout by mutableStateOf<ActiveWorkout?>(null)
+    private var wodTimer by mutableStateOf<WodTimerState?>(null)
     private var todayHealth by mutableStateOf<TodayHealth?>(null)
     private val credentialManager by lazy { CredentialManager.create(this) }
     private var verifiedSupabase: SupabaseIdentity.Session? = null
@@ -117,7 +118,11 @@ class MainActivity : ComponentActivity() {
                 overview = snapshot,
                 todayHealth = todayHealth,
                 onHealthConnect = ::connectHealth,
-                activeWorkout = activeWorkout,
+                activeWorkout = active
+        refreshWodTimer()Workout,
+                wodTimer = wodTimer,
+                onWodTimerAction = ::changeWodTimer,
+                onWodTimerTick = ::refreshWodTimer,
                 onStartRoutine = { id -> runWorkoutAction { startRoutine(id) } },
                 onCreateRoutine = { title, format, entries, minutes, rounds ->
                     runWorkoutAction { createRoutine(title, format, entries, minutes, rounds) }
@@ -297,6 +302,23 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun refreshWodTimer() {
+        val user = profile?.uniqueId
+        val active = activeWorkout
+        wodTimer = if (user != null && active?.wod != null)
+            WodTimerStore(this, user).read(active.id, active.index)
+        else null
+    }
+
+    private fun changeWodTimer(action: String) {
+        val user = profile?.uniqueId ?: return
+        val active = activeWorkout ?: return
+        if (active.wod == null || busy) return
+        runCatching {
+            wodTimer = WodTimerStore(this, user).update(active.id, active.index, action)
+        }.onFailure { status = "Cronómetro: " + (it.localizedMessage ?: "error al guardar") }
+    }
+
     private fun runWorkoutAction(action: WorkoutRepository.() -> Unit) {
         val signedIn = profile ?: return
         if (busy) return
@@ -355,6 +377,7 @@ class MainActivity : ComponentActivity() {
                 profile = null
                 snapshot = null
                 activeWorkout = null
+                wodTimer = null
                 todayHealth = null
                 status = null
                 busy = false

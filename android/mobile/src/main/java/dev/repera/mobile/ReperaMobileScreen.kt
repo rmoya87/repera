@@ -50,6 +50,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import dev.repera.domain.ExerciseAliasSearch
 import dev.repera.domain.WodFormat
+import dev.repera.domain.WodClock
+import dev.repera.domain.WodClockSpec
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 
 private val brandGreen = Color(0xFF30D158)
 private val tabs = listOf("Inicio", "Diario", "Crear", "Progreso", "Ejercicios")
@@ -65,6 +69,9 @@ fun ReperaMobileScreen(
     todayHealth: TodayHealth?,
     onHealthConnect: () -> Unit,
     activeWorkout: ActiveWorkout?,
+    wodTimer: WodTimerState?,
+    onWodTimerAction: (String) -> Unit,
+    onWodTimerTick: () -> Unit,
     onStartRoutine: (String) -> Unit,
     onCreateRoutine: (String, String, List<RoutineDraftEntry>, Int, Int) -> Unit,
     onWodScore: (Int?, Int?, Int?) -> Unit,
@@ -179,6 +186,9 @@ fun ReperaMobileScreen(
                                     WodScoreCard(
                                         active = activeWorkout,
                                         busy = busy,
+                                        timer = wodTimer,
+                                        onTimerAction = onWodTimerAction,
+                                        onTimerTick = onWodTimerTick,
                                         onSave = onWodScore,
                                         onFinish = onFinish
                                     )
@@ -458,10 +468,34 @@ private fun ActiveWorkoutCard(
 private fun WodScoreCard(
     active: ActiveWorkout,
     busy: Boolean,
+    timer: WodTimerState?,
+    onTimerAction: (String) -> Unit,
+    onTimerTick: () -> Unit,
     onSave: (Int?, Int?, Int?) -> Unit,
     onFinish: () -> Unit
 ) {
     val wod = active.wod ?: return
+    val spec = WodClockSpec(
+        format = WodFormat.fromWire(wod.format),
+        blockTimeCapMinutes = wod.timeCapMinutes,
+        intervalSeconds = wod.intervalSeconds,
+        rounds = wod.rounds,
+        workSeconds = wod.workSeconds,
+        restSeconds = wod.restSeconds,
+        restBetweenRoundsSeconds = wod.restBetweenRoundsSeconds,
+        stations = wod.movements.count { !it.isRest }.coerceAtLeast(1)
+    )
+    val elapsedClock = timer?.elapsedSeconds ?: 0
+    val face = WodClock.face(spec, elapsedClock)
+    // The clock is anchored to elapsedRealtime in WodTimerStore, not to UI ticks.
+    LaunchedEffect(active.id, active.index, timer?.running) {
+        if (timer?.running == true) {
+            while (true) {
+                delay(250)
+                onTimerTick()
+            }
+        }
+    }
     var rounds by remember(active.id, active.index) { mutableStateOf("") }
     var extraReps by remember(active.id, active.index) { mutableStateOf("") }
     var minutes by remember(active.id, active.index) { mutableStateOf("") }
@@ -481,6 +515,21 @@ private fun WodScoreCard(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(active.title, style = MaterialTheme.typography.titleLarge)
+            Text("%d:%02d".format(face.primarySeconds / 60, face.primarySeconds % 60),
+                style = MaterialTheme.typography.displayMedium)
+            if (face.label != null) {
+                Text(face.label, style = MaterialTheme.typography.titleMedium)
+            }
+            Row(modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { onTimerAction(if (timer?.running == true) "pause" else "start") },
+                    enabled = !busy && !face.finishedIntervals) {
+                    Text(if (timer?.running == true) "Pausar" else if (elapsedClock > 0) "Reanudar" else "Iniciar")
+                }
+                OutlinedButton(onClick = { onTimerAction("reset") }, enabled = !busy) {
+                    Text("Reiniciar")
+                }
+            }
             Text(wod.title + " · " +
                 (WodFormat.fromWire(wod.format)?.displayName ?: wod.format),
                 style = MaterialTheme.typography.titleMedium)
@@ -499,6 +548,13 @@ private fun WodScoreCard(
             }
             if (scoreIsTime) {
                 Text("Tiempo total realizado", style = MaterialTheme.typography.titleSmall)
+                if (elapsedClock > 0) {
+                    TextButton(onClick = {
+                        minutes = (elapsedClock / 60).toString()
+                        seconds = (elapsedClock % 60).toString().padStart(2, '0')
+                        onTimerAction("pause")
+                    }, enabled = !busy) { Text("Usar tiempo del cronómetro") }
+                }
                 OutlinedTextField(
                     value = minutes,
                     onValueChange = { minutes = it.filter(Char::isDigit) },

@@ -172,3 +172,20 @@ En Wear OS, la sesión recibida muestra los movimientos y objetivos reales
 del bloque WOD, junto con su modalidad, en vez de poner «0 series» para un
 resultado global. Se mantiene como vista de **solo lectura**: no implica
 registro autónomo ni sustitución de WatchSessionHub.
+
+## Temporizador WOD visible en Play Android
+
+El Play de WOD global muestra el tiempo activo como cronómetro de cuenta ascendente
+(For Time y similares) o cuenta atrás por formato/intervalo según el motor
+`domain/WodClock`. Los botones nativos Iniciar/Pausar/Reanudar/Reiniciar
+guardan el tiempo usando `SystemClock.elapsedRealtime` y preferencias
+aisladas por cuenta y sesión. Al reiniciar el dispositivo se pausa el
+cronómetro en vez de inventar tiempo de entrenamiento. En For Time,
+«Usar tiempo del cronómetro» copia el tiempo medido al editor de resultado
+y exige confirmación explícita: ningún tiempo medido se guarda como un
+resultado de sesión sin confirmación.
+
+Limitaciones restantes: la misma lógica de cronómetro todavía no se transmite
+como control bidireccional a Wear OS; los formatos WOD de registro por movimiento
+siguen bloqueados. El CI incluye tests instrumentados de pausas, reanudación
+y aislamiento entre cuentas.
