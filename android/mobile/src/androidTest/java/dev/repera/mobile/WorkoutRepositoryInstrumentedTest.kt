@@ -262,4 +262,46 @@ class WorkoutRepositoryInstrumentedTest {
         assertEquals(8, stateAfterWork.getJSONObject("activeSession")
             .getJSONArray("exercises").getJSONObject(0).getInt("completedReps"))
     }
+
+    @Test fun emomMovementsPersistByIntervalWithoutFabricatedSets() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val user = UUID.randomUUID().toString()
+        val routineId = UUID.randomUUID().toString()
+        val blockId = UUID.randomUUID().toString()
+        val moves = JSONArray().put(JSONObject()
+            .put("id", UUID.randomUUID().toString()).put("name", "Air Squat")
+            .put("reps", 12)).put(JSONObject()
+            .put("id", UUID.randomUUID().toString()).put("name", "Push-up")
+            .put("reps", 8))
+        val block = JSONObject().put("id", blockId).put("title", "EMOM")
+            .put("kind", "wod").put("wodFormat", "emom")
+            .put("emomIntervalSeconds", 60).put("rounds", 5)
+            .put("movements", moves)
+        val state = JSONObject().put("exercises", JSONArray())
+            .put("routines", JSONArray().put(JSONObject().put("id", routineId)
+                .put("title", "Intervalos").put("blocks", JSONArray().put(block))))
+            .put("workouts", JSONArray()).put("syncRevision", 0)
+        val local = LocalSnapshotStore(ctx, user)
+        local.write(state.toString().toByteArray())
+        val repository = WorkoutRepository(ctx, user)
+        val started = repository.startRoutine(routineId)
+        assertEquals("PER_MOVEMENT_SETS", started.wod?.capture)
+        assertTrue(started.wod!!.recorded.isEmpty())
+        assertThrows(IllegalStateException::class.java) {
+            repository.completeWodMovementBlock()
+        }
+        repository.recordWodMovement(0, 0, 12, null)
+        val reloaded = WorkoutRepository(ctx, user)
+        assertEquals(1, reloaded.active()!!.wod!!.recorded.size)
+        reloaded.recordWodMovement(1, 1, 8, null)
+        assertNull(reloaded.completeWodMovementBlock())
+        val saved = JSONObject(String(local.read()!!))
+            .getJSONArray("workouts").getJSONObject(0)
+        assertEquals(0, saved.getJSONArray("wodResults").length())
+        val exercises = saved.getJSONArray("exercises")
+        assertEquals(1, exercises.getJSONObject(0).getJSONArray("loggedSets").length())
+        assertEquals(1, exercises.getJSONObject(1).getJSONArray("loggedSets").length())
+        assertEquals(1, exercises.getJSONObject(1).getJSONArray("loggedSets")
+            .getJSONObject(0).getInt("intervalIndex"))
+    }
 }
