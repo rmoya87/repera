@@ -2,9 +2,38 @@ import XCTest
 @testable import ReperaDomain
 
 final class CatalogQualityTests: XCTestCase {
+    func testHyroxCompetitionStationsAndSecondaryTags() {
+        let seed = Catalog.seed()
+        let byName = Dictionary(uniqueKeysWithValues: seed.map { ($0.name, $0) })
+        XCTAssertEqual(HyroxExercises.competitionStations.count, 9)
+
+        for station in HyroxExercises.competitionStations {
+            let exercise = byName[station]
+            XCTAssertNotNil(exercise, "Falta estación de HYROX: \(station)")
+            XCTAssertTrue(exercise?.disciplineTags.contains("HYROX") == true, station)
+        }
+
+        let wallBall = try? XCTUnwrap(byName["Wall ball"])
+        XCTAssertEqual(wallBall?.sportTag, "CrossFit")
+        XCTAssertEqual(wallBall?.disciplineTags, ["CrossFit", "HYROX"])
+        XCTAssertEqual(byName["Sled push"]?.sportTag, "CrossFit")
+        XCTAssertEqual(byName["Burpee Broad Jump"]?.sportTag, "HYROX")
+        XCTAssertEqual(byName["Sandbag Lunges"]?.sportTag, "HYROX")
+        XCTAssertFalse(HyroxExercises.isMovement(named: "Burpee box jump over"))
+        XCTAssertFalse(HyroxExercises.isMovement(named: "Remo con barra"))
+
+        let docs = ExerciseSearch.makeIndex(seed)
+        XCTAssertEqual(docs.filter { $0.disciplineTags.contains("HYROX") }.count, 11)
+        XCTAssertTrue(docs.contains { $0.displayName == "Remo máquina" && $0.disciplineTags.contains("HYROX") })
+        XCTAssertTrue(ExerciseSearch.rankedDocuments(docs, query: "HYROX").contains { $0.displayName == "SkiErg" })
+        XCTAssertEqual(ExerciseSearch.ranked(seed, query: "zancadas con saco").first?.name, "Sandbag Lunges")
+        XCTAssertEqual(ExerciseSearch.ranked(seed, query: "burpee con salto de longitud").first?.name, "Burpee Broad Jump")
+        XCTAssertEqual(ExerciseSearch.ranked(seed, query: "rowing").first?.name, "Remo máquina")
+    }
+
     func testEverySeedHasSpanishDescriptionAndInstructions() {
         let seed = Catalog.seed()
-        XCTAssertEqual(seed.count, 278)
+        XCTAssertEqual(seed.count, 280)
         for exercise in seed {
             let desc = CatalogSpanish.description(forName: exercise.name)
             XCTAssertNotNil(desc, "Falta descripción ES: \(exercise.name)")

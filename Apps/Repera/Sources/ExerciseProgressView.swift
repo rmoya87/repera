@@ -95,10 +95,17 @@ struct ExerciseEvolutionPanel: View {
     private var isMobility: Bool { exercise?.isMobility ?? false }
     private var isMobilityHold: Bool { exercise?.isMobilityHold ?? false }
 
+    private var progressStyle: ExerciseLoggingStyle {
+        if !isMobility, exercise?.defaultQuantityUnit == .meters, loggingStyle != .machineWork {
+            return .machineWork
+        }
+        return loggingStyle
+    }
+
     private var availableMetrics: [ExerciseProgressMetric] {
         isMobility
             ? (isMobilityHold ? [.bestHold, .duration] : [.bestQuantity, .totalQuantity, .duration])
-            : ExerciseProgressMetric.available(for: loggingStyle)
+            : ExerciseProgressMetric.available(for: progressStyle)
     }
 
     private var history: ExerciseHistorySummary {
@@ -114,7 +121,7 @@ struct ExerciseEvolutionPanel: View {
     }
 
     private var isStrengthProgress: Bool {
-        loggingStyle == .loadAndReps
+        !isMobility && progressStyle == .loadAndReps
     }
 
     private var points: [ExerciseProgressPoint] {
@@ -140,12 +147,7 @@ struct ExerciseEvolutionPanel: View {
 
                     Divider().opacity(0.35)
 
-                    Picker("Métrica", selection: $metric) {
-                        ForEach(availableMetrics) { m in
-                            Text(m.title).tag(m)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                    metricPicker
 
                     Picker("Rango", selection: $range) {
                         ForEach(ProgressRange.allCases) { r in
@@ -162,12 +164,48 @@ struct ExerciseEvolutionPanel: View {
         .onAppear {
             seedMetricIfNeeded()
         }
+        .onChange(of: exerciseId) { _, _ in
+            didSeedMetric = false
+            seedMetricIfNeeded()
+        }
+        .onChange(of: progressStyle) { _, _ in
+            didSeedMetric = false
+            seedMetricIfNeeded()
+        }
+    }
+
+    @ViewBuilder
+    private var metricPicker: some View {
+        if progressStyle == .machineWork {
+            Picker("Métrica", selection: $metric) {
+                ForEach(availableMetrics) { m in
+                    Text(m.title).tag(m)
+                }
+            }
+            .pickerStyle(.menu)
+        } else {
+            Picker("Métrica", selection: $metric) {
+                ForEach(availableMetrics) { m in
+                    Text(m.title).tag(m)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
     }
 
     private func seedMetricIfNeeded() {
         guard !didSeedMetric else { return }
         didSeedMetric = true
-        if !availableMetrics.contains(metric), let first = availableMetrics.first {
+        if progressStyle == .machineWork {
+            let h = history
+            if h.bestMeters != nil {
+                metric = .bestMeters
+            } else if h.bestCalories != nil {
+                metric = .bestCalories
+            } else {
+                metric = exercise?.defaultQuantityUnit == .meters ? .bestMeters : .bestCalories
+            }
+        } else if !availableMetrics.contains(metric), let first = availableMetrics.first {
             metric = first
         }
     }
@@ -215,7 +253,7 @@ struct ExerciseEvolutionPanel: View {
                 }
             } else {
                 HStack(spacing: 10) {
-                    if loggingStyle == .machineWork {
+                    if progressStyle == .machineWork {
                         evoTile("Cal máx.", h.bestCalories.map { "\($0)" } ?? "—")
                         evoTile("m máx.", h.bestMeters.map { "\($0)" } ?? "—")
                     } else {
@@ -227,7 +265,7 @@ struct ExerciseEvolutionPanel: View {
                     }
                     evoTile("Veces", h.hasData ? "\(h.timesPerformed)" : "—")
                 }
-                if loggingStyle == .machineWork || loggingStyle == .repsAndTime {
+                if progressStyle == .machineWork || loggingStyle == .repsAndTime {
                     HStack(spacing: 10) {
                         evoTile(
                             "Mejor tiempo",
@@ -421,7 +459,7 @@ struct ExerciseEvolutionPanel: View {
             parts.append("~\(point.value.formatted(.number.precision(.fractionLength(0...1)))) kg")
         case .effort:
             parts.append("RIR \(point.value.formatted(.number.precision(.fractionLength(0...1))))")
-        case .bestQuantity, .totalQuantity:
+        case .bestQuantity, .totalQuantity, .bestMeters, .bestCalories, .totalMeters, .totalCalories:
             let qty = Int(point.value.rounded())
             switch point.quantityUnit {
             case .calories: parts.append("\(qty) cal")

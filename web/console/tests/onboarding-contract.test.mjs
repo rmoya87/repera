@@ -5,11 +5,12 @@ import {fileURLToPath} from 'node:url';
 
 const source=path=>readFileSync(fileURLToPath(new URL('../../../'+path,import.meta.url)),'utf8');
 
-test('welcome is intentionally dark, while permissions and prices are light',()=>{
+test('onboarding honours native light/dark theme and Apple button contrast',()=>{
  const flow=source('Apps/Repera/Sources/Onboarding/OnboardingFlowView.swift');
- assert.match(flow,/onboarding\.step == \.appleSignIn \? Color\.black : OG\.bg/);
- assert.match(flow,/onboarding\.step == \.appleSignIn \? \.dark : \.light/);
- assert.match(flow,/Text\("Bienvenido a Repera"\)[\s\S]{0,140}\.foregroundStyle\(\.white\)/);
+ assert.match(flow,/\.background\(OG\.bg\.ignoresSafeArea\(\)\)/);
+ assert.match(flow,/Text\("Bienvenido a Repera"\)[\s\S]{0,140}\.foregroundStyle\(OG\.label\)/);
+ assert.match(flow,/colorScheme == \.dark \? \.white : \.black/);
+ assert.match(flow,/colorScheme == \.dark \? \.black : \.white/);
 });
 
 test('first-login onboarding presents permission controls BEFORE prices',()=>{

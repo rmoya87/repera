@@ -4,6 +4,25 @@
 
 Checklist manual por feature. Preferible dispositivo real para Live Activity y Watch.
 
+## MCP multidisciplina (23/10/2026)
+
+- [ ] Consultar `get_training_discipline_reference` para `crossfit`, `weightlifting`, `mobility`, `warmup`: comprobar claves **reales**, alias y metadatos; movilidad debe resolver **82** entradas.
+- [ ] Consultar `get_warmup_prescription_reference` con `mainDiscipline=weightlifting`, trabajo «Snatch», sin material declarado: verificar secuencia específica y aviso de equipamiento **sin darlo por disponible**.
+- [ ] Consultar `get_athlete_planning_context` con una cuenta real con consentimiento: métricas 7/28 días y semana anterior, programas y huecos de agenda, frescura del espejo, y máximos de kg/reps/m/cal separados. Confirmar que otra cuenta/token no puede acceder a este historial.
+- [ ] En ausencia de historial, devolver preguntas y sin e1RM ni falsa recuperación. Al registrar metros/Cal/sesiones por duración, nunca añadirlos al tonelaje o estimar 1RM.
+- [ ] Plan CrossFit AMRAP y Halterofilia fuerza + calentamiento: comprobar estructura aceptada por `create_training_plan` y que las duraciones especiales y fases warm-up aún no se presentan como métricas nativas inexistentes.
+- [ ] Tras actualizar Edge Function, confirmar autenticación PAT, read-only scopes, revocación y que `create_training_plan` solo aparece con `training:write`.
+
+## HYROX y evolución cardio (2026-10-23)
+
+- [ ] En **Ejercicios → Filtro → HYROX** aparecen las nueve estaciones, con buscador ES/EN. En **Deporte** CrossFit/HYROX comparten Wall Ball y SkiErg sin duplicar UUID ni historial; nuevos ejercicios solo Burpee Broad Jump y Sandbag Lunges.
+- [ ] En **Apuntar series / Play** registrar 1000 m en Remo máquina, 500 m SkiErg, 20 cal SkiErg y 50 m Sled Push; asegurar que se guarda la unidad y peso por movimiento cuando corresponda.
+- [ ] En Evolución, verificar que **m máx.** y **cal máx.** muestran marcas independientes; el gráfico no mezcla 1000 m con 20 cal ni genera e1RM por metros; los totales tampoco mezclan unidades.
+- [ ] Cuando no exista historial ni marca, no deben aparecer «Entrena este ejercicio para ver cal, metros o reps.» ni «Cuando entrenes este ejercicio, verás aquí el historial.».
+- [ ] MCP: consultar `get_hyrox_training_reference` y `search_training_exercises_enriched(query="HYROX")`; verificar nueve claves, y que `get_exercise_progress` separa metros y calorías. Programar una sesión `forTime` alternando carrera 1000 m con cada una de las ocho estaciones y comprobar la prescripción recibida en iOS.
+- [ ] Antes de publicar TestFlight: validar integración en dispositivo, sincronización Supabase y estado de despliegue de Edge Function; los tests de dominio no sustituyen estas comprobaciones.
+
+
 ## Navegación deportista (2026-10-19)
 
 - [ ] La barra muestra **Inicio · Diario · Crear · Progreso · Ejercicios** sin vínculo a centro; con gimnasio/entrenador, **Center** en lugar de Crear.

@@ -45,6 +45,13 @@ public enum ExerciseSearch {
     /// Traducciones de frases completas: se prueban además del texto original.
     /// No sustituyen los nombres reales; una búsqueda exacta sigue siendo prioritaria.
     private static let bilingualPhrases: [String: String] = [
+        "rowing": "remo maquina",
+        "rowerg": "remo maquina",
+        "ski erg": "skierg",
+        "ski ergometer": "skierg",
+        "farmers carry": "farmer carry",
+        "burpee broad jumps": "burpee broad jump",
+        "sandbag lunge": "sandbag lunges",
         // Gimnasio: el catálogo es mayoritariamente español, pero usuarios
         // y pizarras suelen introducir su denominación técnica en inglés.
         "incline bench press": "press banca inclinada",
@@ -413,6 +420,7 @@ public enum ExerciseSearch {
         public let isFavorite: Bool
         public let muscleGroup: String
         public let sportTag: String?
+        public let disciplineTags: [String]
         public let equipment: String?
 
         public init(exercise: Exercise) {
@@ -420,7 +428,7 @@ public enum ExerciseSearch {
             self.displayName = exercise.name
             let name = ExerciseSearch.normalize(exercise.name)
             let muscle = ExerciseSearch.normalize(exercise.muscleGroup)
-            let sport = ExerciseSearch.normalize(exercise.sportTag ?? "")
+            let sport = ExerciseSearch.normalize(exercise.disciplineTags.joined(separator: " "))
             let equipmentNorm = ExerciseSearch.normalize(exercise.equipment ?? "")
             let target = ExerciseSearch.normalize(exercise.targetMuscle ?? "")
             let body = ExerciseSearch.normalize(exercise.bodyPart ?? "")
@@ -445,6 +453,7 @@ public enum ExerciseSearch {
             self.isFavorite = exercise.isFavorite
             self.muscleGroup = exercise.muscleGroup
             self.sportTag = exercise.sportTag
+            self.disciplineTags = exercise.disciplineTags
             self.equipment = exercise.equipment
         }
     }

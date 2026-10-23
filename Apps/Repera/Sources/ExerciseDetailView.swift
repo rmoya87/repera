@@ -182,10 +182,12 @@ struct ExerciseDetailView: View {
                             }
                         }
 
-                        if let sport = meta.sport {
+                        if !meta.sports.isEmpty {
                             metaRow(title: exercise.sportTag == "Movilidad" ? "Tipo" : "Deporte", icon: exercise.sportTag == "Movilidad" ? "figure.flexibility" : "sportscourt") {
                                 chipFlow {
-                                    metaChip(sport, icon: "sportscourt")
+                                    ForEach(meta.sports, id: \.self) { sport in
+                                        metaChip(sport, icon: "sportscourt")
+                                    }
                                 }
                             }
                         }
@@ -246,7 +248,7 @@ struct ExerciseDetailView: View {
         var primary: String
         var secondaries: [String]
         var equipment: String?
-        var sport: String?
+        var sports: [String]
         var hasContent: Bool { !primary.isEmpty }
     }
 
@@ -273,15 +275,14 @@ struct ExerciseDetailView: View {
             let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             return t.isEmpty ? nil : LocalizedMuscle.es(t)
         }
-        let sport = exercise.sportTag.flatMap { raw -> String? in
-            let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            return t.isEmpty ? nil : t
+        let sports = exercise.disciplineTags.filter {
+            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
         return DetailMeta(
             primary: primary,
             secondaries: secondaries,
             equipment: equipment,
-            sport: sport
+            sports: sports
         )
     }
 
