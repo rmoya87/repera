@@ -157,10 +157,11 @@ data class WatchSessionSummary(
             val exercises = session.getJSONArray("exercises")
             require(exercises.length() > 0)
             val index = session.getInt("currentIndex")
+            require(index in 0 until exercises.length()) { "Invalid active exercise index" }
             val exercise = exercises.getJSONObject(index)
-            val recorded = exercise.getJSONArray("loggedSets")
+            val recorded = exercise.optJSONArray("loggedSets") ?: JSONArray()
             val done = (0 until recorded.length()).count {
-                recorded.getJSONObject(it).optString("phase") == "work"
+                recorded.getJSONObject(it).optString("phase", "work") == "work"
             }
             val plan = exercise.optJSONArray("plannedSets")
             val target = plan?.takeIf { it.length() > 0 }?.getJSONObject(
@@ -197,7 +198,7 @@ data class WatchSessionSummary(
                 exerciseName = exercise.getJSONObject("exercise").getString("name"),
                 exerciseIndex = index + 1,
                 exerciseCount = exercises.length(),
-                recordedSets = recorded.length(),
+                recordedSets = done,
                 prescribedReps = if (globalScore) null else target?.optInt("targetReps"),
                 prescribedWeightKg = if (globalScore) null else target?.takeIf {
                     it.has("targetWeightKg") && !it.isNull("targetWeightKg")
