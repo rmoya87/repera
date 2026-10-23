@@ -21,6 +21,9 @@ import androidx.health.connect.client.PermissionController
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
+import com.google.android.gms.wearable.MessageClient
+import com.google.android.gms.wearable.MessageEvent
+import com.google.android.gms.wearable.Wearable
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +39,8 @@ import java.security.SecureRandom
  * The Google ID token is never accepted as Supabase authorization: backend token
  * verification and Google provider setup must be completed before business login.
  */
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListener {
+    private val wearMessages by lazy { Wearable.getMessageClient(this) }
     private data class GoogleProfile(
         val uniqueId: String, val email: String, val displayName: String
     )
@@ -160,6 +164,71 @@ class MainActivity : ComponentActivity() {
                 onSignOut = ::signOut
             )
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        wearMessages.addListener(this)
+    }
+
+    override fun onStop() {
+        wearMessages.removeListener(this)
+        super.onStop()
+    }
+
+    override fun onMessageReceived(event: MessageEvent) {
+        if (event.path != "/repera/log-set") return
+        val payload = runCatching { JSONObject(String(event.data, Charsets.UTF_8)) }.getOrNull()
+            ?: return
+        val id = payload.optString("id")
+        if (id.isBlank()) return
+        runOnUiThread {
+            val signedIn = profile
+            if (signedIn == null || verifiedSupabase == null) {
+                sendWearAck(event.sourceNodeId, id, "retry")
+                return@runOnUiThread
+            }
+            if (busy) {
+                sendWearAck(event.sourceNodeId, id, "retry")
+                return@runOnUiThread
+            }
+            val sessionId = payload.optString("sessionId")
+            val exerciseIndex = payload.optInt("exerciseIndex", -1)
+            val quantity = payload.optInt("quantity", -1)
+            val weight = if (payload.has("weightKg") && !payload.isNull("weightKg"))
+                payload.optDouble("weightKg", Double.NaN) else null
+            if (sessionId.isBlank() || exerciseIndex < 0 || quantity !in 1..10000 ||
+                (weight != null && (!weight.isFinite() || weight < 0))) {
+                sendWearAck(event.sourceNodeId, id, "rejected")
+                return@runOnUiThread
+            }
+            busy = true
+            lifecycleScope.launch {
+                val result = runCatching {
+                    withContext(Dispatchers.IO) {
+                        WorkoutRepository(this@MainActivity, signedIn.uniqueId).logWearSet(
+                            sessionId, exerciseIndex, id, quantity, weight
+                        )
+                    }
+                    reloadFor(signedIn.uniqueId)
+                }
+                if (result.isSuccess) {
+                    sendWearAck(event.sourceNodeId, id, "saved")
+                    status = null
+                } else {
+                    sendWearAck(event.sourceNodeId, id, "rejected")
+                    status = "Registro Wear: " + (result.exceptionOrNull()?.localizedMessage
+                        ?: "no se pudo confirmar")
+                }
+                busy = false
+            }
+        }
+    }
+
+    private fun sendWearAck(node: String, id: String, result: String) {
+        val body = JSONObject().put("id", id).put("status", result)
+            .toString().toByteArray(Charsets.UTF_8)
+        wearMessages.sendMessage(node, "/repera/log-set-ack", body)
     }
 
     private fun signInWithGoogle() {

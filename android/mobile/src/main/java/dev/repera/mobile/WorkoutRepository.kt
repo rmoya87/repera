@@ -269,8 +269,10 @@ class WorkoutRepository(context: Context, googleId: String) {
         quantity: Int,
         weightKg: Double?,
         rir: Double? = null,
-        warmup: Boolean = false
+        warmup: Boolean = false,
+        setId: String? = null
     ): ActiveWorkout {
+        require(setId == null || setId.isNotBlank())
         require(quantity >= 0) { "Cantidad inválida" }
         require(weightKg == null || (weightKg.isFinite() && weightKg >= 0)) { "Peso inválido" }
         require(rir == null || (rir.isFinite() && rir >= 0)) { "RIR inválido" }
@@ -289,7 +291,7 @@ class WorkoutRepository(context: Context, googleId: String) {
         check(!exercise.optBoolean("isCompleted")) { "Ejercicio ya completado" }
         val logged = exercise.getJSONArray("loggedSets")
         val set = JSONObject()
-            .put("id", UUID.randomUUID().toString())
+            .put("id", setId ?: UUID.randomUUID().toString())
             .put("reps", quantity)
             .put("completedAt", nowISO8601())
             .put("phase", if (warmup) "warmup" else "work")
@@ -551,6 +553,45 @@ class WorkoutRepository(context: Context, googleId: String) {
     @Synchronized fun finish(): Unit {
         val state = requireState()
         finishInPlace(state, requireActive(state))
+    }
+
+    /**
+     * Apply a wearable action idempotently. Reject mismatched sessions/indices and
+     * preserve original set ID so a lost acknowledgement cannot duplicate the set.
+     * Called only after the phone has a verified signed-in account.
+     */
+    @Synchronized fun logWearSet(
+        sessionId: String, exerciseIndex: Int, setId: String, quantity: Int, weightKg: Double?
+    ): Boolean {
+        require(sessionId.isNotBlank() && setId.isNotBlank() && exerciseIndex >= 0)
+        require(quantity > 0 && quantity <= 10000)
+        val state = requireState()
+        fun containsId(session: JSONObject): Boolean {
+            if (session.optString("id") != sessionId) return false
+            val exercises = session.optJSONArray("exercises") ?: return false
+            return (0 until exercises.length()).any { i ->
+                val logged = exercises.getJSONObject(i).optJSONArray("loggedSets") ?: JSONArray()
+                (0 until logged.length()).any { n ->
+                    logged.getJSONObject(n).optString("id") == setId
+                }
+            }
+        }
+        state.optJSONObject("activeSession")?.let {
+            if (containsId(it)) return true
+        }
+        val history = state.optJSONArray("workouts") ?: JSONArray()
+        if ((0 until history.length()).any { containsId(history.getJSONObject(it)) }) return true
+        val active = requireActive(state)
+        check(active.optString("id") == sessionId) { "La sesión del reloj ya no es la activa" }
+        check(active.optInt("currentIndex") == exerciseIndex) {
+            "El ejercicio activo ha cambiado"
+        }
+        val exercise = active.getJSONArray("exercises").getJSONObject(exerciseIndex)
+        check(exercise.optString("blockKind") != "wod" && !exercise.optBoolean("isCompleted")) {
+            "El reloj solo puede registrar series de fuerza abiertas"
+        }
+        logCurrentSet(quantity, weightKg, rir = null, warmup = false, setId = setId)
+        return true
     }
 
     /** Undo a saved strength set without changing the identity or timestamp of any other set. */
