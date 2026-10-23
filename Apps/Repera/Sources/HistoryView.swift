@@ -1029,14 +1029,14 @@ struct WorkoutDetailView: View {
             .accessibilityHint("Ver ficha del ejercicio")
 
             if visibleSets.isEmpty {
-                // La edición de un entrenamiento completado también conserva
-                // la prescripción. No ocultar las repeticiones, kcal, metros o
-                // tiempos prescritos aunque todavía falte un LoggedSet real.
+                // En una sesión ya completada, si no se editaron las cantidades,
+                // la configuración prevista cuenta como realizada. Conservar
+                // las unidades de cada ejercicio (reps, tiempo, kcal o metros).
                 Text(isEditing
                      ? "Sin series registradas"
                      : (exercise.prescriptionSummaryLine.isEmpty
                         ? "Sin resultado registrado"
-                        : "Prescrito · " + exercise.prescriptionSummaryLine))
+                        : exercise.prescriptionSummaryLine))
                     .font(.system(size: 13))
                     .foregroundStyle(OG.label3)
             } else {
