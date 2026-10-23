@@ -66,7 +66,8 @@ class ProgressChartAccessContractTests(unittest.TestCase):
 
     def test_recovery_uses_real_readiness_and_paid_charts_preview(self):
         source = read("HealthRecovery.swift")
-        body = source.split("var body: some View {", 1)[1].split("private var softSleepEmpty", 1)[0]
+        body = source.split("struct HealthRecoveryProgressView: View {", 1)[1]
+        body = body.split("var body: some View {", 1)[1].split("private var softSleepEmpty", 1)[0]
         self.assertIn("trainingRecoveryCard", body)
         self.assertIn("if isPro {", body)
         self.assertIn("recoveryTrendPreview", body)
