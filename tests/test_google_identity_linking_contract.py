@@ -69,6 +69,15 @@ class GoogleIdentityContractTests(unittest.TestCase):
         self.assertIn("CFBundleURLSchemes:", project)
         self.assertIn("- repera", project)
 
+    def test_profile_sync_accepts_apple_or_google_without_unbound_apple_id(self):
+        auth = source("BusinessAuthStore.swift")
+        profile = auth.split("func syncPublicProfile(", 1)[1].split("private enum ProfileSyncError", 1)[0]
+        self.assertIn("isSameLocalOwner(session.user.id)", profile)
+        self.assertIn("client.auth.currentSession?.user.id == session.user.id", profile)
+        self.assertNotIn("AppleAuthStore.shared.userID == appleUserID", profile)
+        self.assertNotIn("== UserDefaults.standard.string(forKey: appleIdentityBindingKey)\n                  ))", profile)
+        self.assertIn("} == true", profile)
+
     def test_logout_does_not_reset_paid_onboarding(self):
         wizard = source("Onboarding/OnboardingStore.swift")
         snippet = wizard.split("func resetToSignIn() {", 1)[1].split("    }", 1)[0]

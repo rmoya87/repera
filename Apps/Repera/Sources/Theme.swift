@@ -317,19 +317,19 @@ extension View {
             .listSectionSpacing(12)
     }
 
-    /// Compatibilidad con vistas existentes: la barra de navegación visible
-    /// usa SIEMPRE el lienzo gris agrupado, también al compactarse en scroll.
-    /// No cambiar a blanco/surface ni esconder el background del sistema.
-    /// Inicio utiliza ogContentTitleNav (barra del sistema oculta) y mantiene
-    /// su propio topbar transparente sobre el componente blanco.
+    /// La barra del sistema es translúcida, como la navegación nativa iOS 27.
+    /// El material deja ver y desenfoca el contenido que pasa por debajo;
+    /// sobre nuestras List el lienzo subyacente sigue siendo OG.bg (gris).
+    /// No aplicar un color sólido aquí: hacía la barra opaca al hacer scroll.
+    /// Inicio mantiene su excepción de cabecera propia sobre fondo blanco.
     func ogTransparentNav() -> some View {
         self
-            .toolbarBackground(OG.bg, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(.thinMaterial, for: .navigationBar)
+            .toolbarBackground(.automatic, for: .navigationBar)
     }
 
-    /// Topbar de páginas secundarias: título large que colapsa, barra gris
-    /// OG.bg durante scroll y botones nativos que permanecen visibles.
+    /// Topbar secundario: título large colapsable y barra translúcida
+    /// sobre OG.bg durante scroll; botones nativos permanecen visibles.
     /// Usar cuando hay volver / acciones en la barra (título debajo).
     /// Fuerza la barra visible: Inicio/Progreso ocultan el toolbar del sistema (`ogContentTitleNav`);
     /// sin esto, al pushear Ajustes/Historial queda el hueco del large title sin el texto «Ajustes».

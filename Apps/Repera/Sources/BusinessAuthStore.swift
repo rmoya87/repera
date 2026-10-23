@@ -554,8 +554,10 @@ final class BusinessAuthStore {
                   !session.accessToken.isEmpty,
                   isSameLocalOwner(session.user.id),
                   (isGoogleSignedIn || (
-                    AppleAuthStore.shared.userID.map { Self.hashedNonce($0) }
-                        == UserDefaults.standard.string(forKey: appleIdentityBindingKey)
+                    AppleAuthStore.shared.userID.map { appleID in
+                        Self.hashedNonce(appleID)
+                            == UserDefaults.standard.string(forKey: appleIdentityBindingKey)
+                    } == true
                   ))
             else {
                 AuthSessionTrace.event("syncPublicProfile skip: no usable session")
@@ -605,8 +607,11 @@ final class BusinessAuthStore {
                 .eq("id", value: userID)
                 .execute()
 
+            // Apple y Google comparten el UUID Supabase, no necesariamente
+            // el identificador Apple ni su dirección de correo (relay privado).
+            // El login ya comprobó la identidad y el dueño de datos locales.
             guard isConnected,
-                  AppleAuthStore.shared.userID == appleUserID,
+                  isSameLocalOwner(session.user.id),
                   client.auth.currentSession?.user.id == session.user.id else { return }
             profileMigrationErrorMessage = nil
             AuthSessionTrace.event("syncPublicProfile OK")

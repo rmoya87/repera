@@ -14,11 +14,13 @@ def read(name: str) -> str:
 
 
 class NavigationBackgroundContractTests(unittest.TestCase):
-    def test_native_secondary_navigation_uses_adaptive_grouped_gray(self):
+    def test_native_secondary_navigation_is_translucent_not_opaque(self):
         theme = read("Theme.swift")
         method = theme.split("func ogTransparentNav() -> some View {", 1)[1].split("    }", 1)[0]
-        self.assertIn(".toolbarBackground(OG.bg, for: .navigationBar)", method)
-        self.assertIn(".toolbarBackground(.visible, for: .navigationBar)", method)
+        self.assertIn(".toolbarBackground(.thinMaterial, for: .navigationBar)", method)
+        self.assertIn(".toolbarBackground(.automatic, for: .navigationBar)", method)
+        self.assertNotIn(".toolbarBackground(OG.bg, for: .navigationBar)", method)
+        self.assertNotIn(".toolbarBackground(.visible, for: .navigationBar)", method)
         self.assertNotIn(".toolbarBackground(.hidden", method)
         self.assertIn("static let bg = adaptive(", theme)
 
