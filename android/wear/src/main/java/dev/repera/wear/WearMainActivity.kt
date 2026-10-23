@@ -387,7 +387,8 @@ data class WatchSessionSummary(
             val sourceExercise = exercise.getJSONObject("exercise")
             val mode = ExerciseInput.mode(sourceExercise.getString("name"),
                 sourceExercise.optString("equipment"), sourceExercise.optString("targetMuscle"),
-                sourceExercise.optString("muscleGroup"))
+                sourceExercise.optString("muscleGroup"),
+                sourceExercise.optString("sportTag"))
             val recorded = exercise.optJSONArray("loggedSets") ?: JSONArray()
             val done = (0 until recorded.length()).count {
                 recorded.getJSONObject(it).optString("phase", "work") == "work"

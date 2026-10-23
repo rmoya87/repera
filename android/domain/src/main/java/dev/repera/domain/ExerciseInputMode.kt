@@ -30,7 +30,11 @@ object ExerciseInput {
             .none { n.contains(it) }
     }
 
-    fun mode(name: String, equipment: String?, target: String?, group: String?): ExerciseInputMode {
+    fun mode(
+        name: String, equipment: String?, target: String?, group: String?,
+        sportTag: String? = null
+    ): ExerciseInputMode {
+        if (sportTag == "Movilidad") return ExerciseInputMode.REPS_AND_TIME
         val n = ExerciseAliasSearch.normalize(name)
         val eq = ExerciseAliasSearch.normalize(equipment ?: "")
         if (eq.contains("comba") || n.contains("double under") ||

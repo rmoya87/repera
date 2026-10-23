@@ -28,9 +28,10 @@ object MuscleWorkloadMetrics {
                 val entry = exercises.optJSONObject(n) ?: continue
                 val exercise = entry.optJSONObject("exercise") ?: continue
                 val name = exercise.optString("name")
-                if (name.isBlank()) continue
+                if (name.isBlank() || exercise.optString("sportTag") == "Movilidad") continue
                 val mode = ExerciseInput.mode(name, exercise.optString("equipment"),
-                    exercise.optString("targetMuscle"), exercise.optString("muscleGroup"))
+                    exercise.optString("targetMuscle"), exercise.optString("muscleGroup"),
+                    exercise.optString("sportTag"))
                 if (mode == ExerciseInputMode.MACHINE_WORK ||
                     mode == ExerciseInputMode.REPS_AND_TIME) continue
                 val group = exercise.optString("muscleGroup").trim()

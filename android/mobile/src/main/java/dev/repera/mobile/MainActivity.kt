@@ -669,7 +669,8 @@ data class StateOverview(
                         ex.getString("name"),
                         ex.optString("equipment"),
                         ex.optString("targetMuscle"),
-                        ex.optString("muscleGroup")
+                        ex.optString("muscleGroup"),
+                        ex.optString("sportTag")
                     )
                     ExerciseEntry(ex.getString("id"), ex.getString("name"),
                         mode.basicRecorderAvailable, mode.showsWeight,

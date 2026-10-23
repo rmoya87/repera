@@ -96,7 +96,8 @@ class WorkoutRepository(context: Context, googleId: String) {
                 val planned = JSONArray()
                 repeat(entry.sets) {
                     val set = JSONObject().put("id", UUID.randomUUID().toString())
-                        .put("targetReps", entry.quantity)
+                        .put("targetReps", if (isMobilityHold(movement)) 1 else entry.quantity)
+                    if (isMobilityHold(movement)) set.put("targetDurationSeconds", 30)
                     if (entry.weightKg != null) set.put("targetWeightKg", entry.weightKg)
                     planned.put(set)
                 }
@@ -251,6 +252,7 @@ class WorkoutRepository(context: Context, googleId: String) {
             ?: error("Ejercicio no encontrado")
         val history = state.getJSONArray("workouts")
         val inputMode = inputMode(exercise)
+        val mobilityHold = isMobilityHold(exercise)
         val defaultUnit = ExerciseInput.defaultQuantityUnit(
             exercise.getString("name"), exercise.optString("equipment"))
         var lastUnit = defaultUnit
@@ -284,7 +286,12 @@ class WorkoutRepository(context: Context, googleId: String) {
             inputMode == ExerciseInputMode.REPS_AND_TIME) 1 else 3) {
             val target = JSONObject()
                 .put("id", UUID.randomUUID().toString())
-                .put("targetReps", lastReps ?: if (inputMode == ExerciseInputMode.MACHINE_WORK) 0 else 8)
+                .put("targetReps", lastReps ?: when {
+                    mobilityHold -> 1
+                    inputMode == ExerciseInputMode.MACHINE_WORK -> 0
+                    else -> 8
+                })
+            if (mobilityHold) target.put("targetDurationSeconds", 30)
                 .put("targetPercent1RMIsMinimum", false)
             if (lastWeight != null) target.put("targetWeightKg", lastWeight)
             presets.put(target)
@@ -778,12 +785,24 @@ class WorkoutRepository(context: Context, googleId: String) {
         save(state)
     }
 
+    private fun isMobilityHold(exercise: JSONObject): Boolean =
+        exercise.optString("sportTag") == "Movilidad" &&
+            exercise.optString("catalogId") in setOf(
+                "mobility-14","mobility-15","mobility-16","mobility-20",
+                "mobility-21","mobility-30","mobility-31","mobility-32",
+                "mobility-36","mobility-38","mobility-39","mobility-40",
+                "mobility-41","mobility-42","mobility-44","mobility-46",
+                "mobility-60","mobility-61","mobility-62","mobility-67",
+                "mobility-70","mobility-80"
+            )
+
     private fun inputMode(exercise: JSONObject): ExerciseInputMode =
         ExerciseInput.mode(
             exercise.getString("name"),
             exercise.optString("equipment").takeIf { it.isNotBlank() },
             exercise.optString("targetMuscle").takeIf { it.isNotBlank() },
-            exercise.optString("muscleGroup")
+            exercise.optString("muscleGroup"),
+            exercise.optString("sportTag")
         )
 
     private fun supportsSimpleInput(exercise: JSONObject) =
@@ -888,6 +907,10 @@ class WorkoutRepository(context: Context, googleId: String) {
             exerciseName = current.getJSONObject("exercise").getString("name"),
             completedSets = logged.length(),
             prescribedQuantity = next?.optInt("targetReps"),
+            prescribedDurationSeconds = next?.optInt("targetDurationSeconds")
+                ?.takeIf { next.has("targetDurationSeconds") && it > 0 },
+            mobilityHold = isMobilityHold(current.getJSONObject("exercise")),
+            mobility = current.getJSONObject("exercise").optString("sportTag") == "Movilidad",
             prescribedWeightKg = next?.takeIf { it.has("targetWeightKg") && !it.isNull("targetWeightKg") }
                 ?.getDouble("targetWeightKg"),
             allowsWeight = inputMode(current.getJSONObject("exercise")).showsWeight,
@@ -945,6 +968,9 @@ data class ActiveWorkout(
     val completedSets: Int,
     val prescribedQuantity: Int?,
     val prescribedWeightKg: Double?,
+    val prescribedDurationSeconds: Int? = null,
+    val mobilityHold: Boolean = false,
+    val mobility: Boolean = false,
     val allowsWeight: Boolean,
     val sets: List<WorkoutSetSummary>,
     val allowsDeficit: Boolean = false,
