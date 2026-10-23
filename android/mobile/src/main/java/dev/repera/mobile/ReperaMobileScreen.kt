@@ -297,6 +297,17 @@ fun ReperaMobileScreen(
                         }
                     }
                 }
+                if (selected == "Progreso" && (overview?.mobilitySessions ?: 0) > 0) {
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(18.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Movilidad registrada", style = MaterialTheme.typography.titleMedium)
+                                Text("${overview?.mobilitySeconds ?: 0} segundos · ${overview?.mobilitySessions ?: 0} sesiones")
+                            }
+                        }
+                    }
+                }
                 if (selected == "Progreso") {
                     // This is deliberately limited to the recent archive loaded by StateOverview.
                     // It must never be presented as complete lifetime or billing-gated analytics.
@@ -467,7 +478,14 @@ fun ReperaMobileScreen(
                                             Text("Récord de carga: $weight kg" +
                                                 (progress.repsAtMaxWeight?.let { " · $it reps" } ?: ""))
                                         }
-                                        progress.bestReps?.let { Text("Máximo: $it reps") }
+                                        if (entry.isMobility) {
+                                            progress.bestDurationSeconds?.let { Text("Mejor serie: ${it}s") }
+                                            Text("Tiempo acumulado: ${progress.totalDurationSeconds}s")
+                                            Text("Sesiones: ${progress.timesPerformed}")
+                                            if (!entry.isMobilityHold) progress.bestReps?.let { Text("Máximo: $it reps") }
+                                        } else {
+                                            progress.bestReps?.let { Text("Máximo: $it reps") }
+                                        }
                                         progress.bestCalories?.let { Text("Máximo: $it cal") }
                                         progress.bestMeters?.let { Text("Máximo: $it m") }
                                         progress.bestDurationSeconds?.let { seconds ->
@@ -565,10 +583,10 @@ private fun ActiveWorkoutCard(
         mutableStateOf(active.quantityUnit)
     }
     var durationMin by remember(active.id, active.index, active.completedSets) {
-        mutableStateOf("")
+        mutableStateOf(active.prescribedDurationSeconds?.let { (it / 60).toString() } ?: "")
     }
     var durationSec by remember(active.id, active.index, active.completedSets) {
-        mutableStateOf("")
+        mutableStateOf(active.prescribedDurationSeconds?.let { (it % 60).toString() } ?: "")
     }
     val parsedDuration = if (!active.durationInput ||
         (durationMin.isBlank() && durationSec.isBlank())) null else {
@@ -578,7 +596,7 @@ private fun ActiveWorkoutCard(
             mm * 60 + ss else null
     }
     val validDuration = !active.durationInput ||
-        (durationMin.isBlank() && durationSec.isBlank()) || parsedDuration != null
+        (!active.isMobility && durationMin.isBlank() && durationSec.isBlank()) || parsedDuration != null
     var warmup by remember(active.id, active.index, active.completedSets) {
         mutableStateOf(false)
     }
@@ -594,7 +612,7 @@ private fun ActiveWorkoutCard(
     val parsedRir = rirText.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
     val parsedQuantity = quantity.toIntOrNull()
     val parsedWeight = weight.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
-    val valid = parsedQuantity != null && parsedQuantity >= 0 &&
+    val valid = (active.isMobilityHold || (parsedQuantity != null && parsedQuantity >= 0)) &&
         (!active.allowsWeight || weight.isBlank() ||
             (parsedWeight != null && parsedWeight.isFinite() && parsedWeight >= 0)) &&
         (!active.allowsDeficit || deficit.isBlank() ||
@@ -638,7 +656,7 @@ private fun ActiveWorkoutCard(
                 }
             }
             if (editingId != null) {
-                OutlinedTextField(
+                if (!active.isMobilityHold) OutlinedTextField(
                     value = editingQuantity,
                     onValueChange = { editingQuantity = it.filter(Char::isDigit) },
                     label = { Text("Corregir repeticiones") },
@@ -671,13 +689,14 @@ private fun ActiveWorkoutCard(
                 if (active.durationInput) {
                     OutlinedTextField(value = editingDuration,
                         onValueChange = { editingDuration = it.filter(Char::isDigit) },
-                        label = { Text("Duración en segundos (opcional)") }, singleLine = true,
+                        label = { Text(if (active.isMobility) "Duración real (segundos)" else "Duración en segundos (opcional)") }, singleLine = true,
                         modifier = Modifier.fillMaxWidth())
                 }
                 val parsedEdit = editingQuantity.toIntOrNull()
                 val editWeight = editingWeight.trim().replace(',', '.')
                     .takeIf { it.isNotBlank() }?.toDoubleOrNull()
-                val editValid = parsedEdit != null &&
+                val editValid = (active.isMobilityHold || parsedEdit != null) &&
+                    (!active.isMobility || editingDuration.toIntOrNull()?.let { it in 1..3600 } == true) &&
                     (!active.allowsDeficit || editingDeficit.isBlank() ||
                         editingDeficit.toIntOrNull()?.let { it in 0..100 } == true) &&
                     (!active.durationInput || editingDuration.isBlank() ||
@@ -691,8 +710,8 @@ private fun ActiveWorkoutCard(
                     }
                     Button(onClick = {
                         val id = editingId
-                        if (id != null && parsedEdit != null) {
-                            onReviseSet(id, parsedEdit, if (active.allowsWeight) editWeight else null,
+                        if (id != null && (active.isMobilityHold || parsedEdit != null)) {
+                            onReviseSet(id, if (active.isMobilityHold) 1 else parsedEdit!!, if (active.allowsWeight) editWeight else null,
                                 editingUnit, editingDuration.toIntOrNull(),
                                 if (active.allowsDeficit) editingDeficit.toIntOrNull() else null)
                             editingId = null
@@ -700,13 +719,13 @@ private fun ActiveWorkoutCard(
                     }, enabled = !busy && editValid) { Text("Guardar corrección") }
                 }
             }
-            OutlinedTextField(
+            if (!active.isMobilityHold) OutlinedTextField(
                 value = quantity,
                 onValueChange = { quantity = it.filter { char -> char.isDigit() } },
                 label = { Text(when (unit) {
                     "calories" -> "Calorías"
                     "meters" -> "Metros"
-                    else -> if (active.durationInput) "Veces" else "Repeticiones"
+                    else -> if (active.isMobility) "Repeticiones de movilidad" else if (active.durationInput) "Veces" else "Repeticiones"
                 }) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
@@ -765,8 +784,8 @@ private fun ActiveWorkoutCard(
             }
             Button(
                 onClick = {
-                    if (parsedQuantity != null) onLogSet(
-                        parsedQuantity,
+                    if (active.isMobilityHold || parsedQuantity != null) onLogSet(
+                        if (active.isMobilityHold) 1 else parsedQuantity!!,
                         if (active.allowsWeight) parsedWeight else null,
                         if (active.durationInput) null else parsedRir,
                         if (active.durationInput) false else warmup,
@@ -1045,7 +1064,9 @@ private fun ScheduledRoutineCard(
 }
 
 private data class RoutineDraftRow(
-    val id: String, val name: String, val sets: Int, val quantity: Int, val weightKg: Double?
+    val id: String, val name: String, val sets: Int, val quantity: Int,
+    val weightKg: Double?, val durationSeconds: Int? = null,
+    val isMobility: Boolean = false, val isMobilityHold: Boolean = false
 )
 
 /** Material editor for the Swift Routine/RoutineBlock subset actually supported on Android. */
@@ -1063,6 +1084,7 @@ private fun RoutineCreatorCard(
     var reps by remember { mutableStateOf("10") }
     var sets by remember { mutableStateOf("3") }
     var weight by remember { mutableStateOf("") }
+    var mobilitySeconds by remember { mutableStateOf("30") }
     var cap by remember { mutableStateOf("12") }
     var rounds by remember { mutableStateOf("1") }
     var interval by remember { mutableStateOf("60") }
@@ -1163,7 +1185,13 @@ private fun RoutineCreatorCard(
                 )
                 OutlinedTextField(
                     value = weight, onValueChange = { weight = it },
-                    label = { Text("Peso prescrito opcional (kg)") },
+                    label = { Text("Peso prescrito opcional (kg), solo fuerza") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                )
+                OutlinedTextField(
+                    value = mobilitySeconds,
+                    onValueChange = { mobilitySeconds = it.filter(Char::isDigit) },
+                    label = { Text("Duración por serie de movilidad (segundos)") },
                     modifier = Modifier.fillMaxWidth(), singleLine = true
                 )
             }
@@ -1208,7 +1236,8 @@ private fun RoutineCreatorCard(
                 ) {
                     Text(draft.name + " · " +
                         (if (kind == "strength") "${draft.sets}×" else "") +
-                        "${draft.quantity} reps")
+                        (if (draft.isMobilityHold) "${draft.durationSeconds ?: 30}s"
+                        else "${draft.quantity} reps" + (draft.durationSeconds?.let { " · ${it}s" } ?: "")))
                     TextButton(onClick = { chosen.remove(draft) }, enabled = !busy) {
                         Text("Quitar")
                     }
@@ -1221,7 +1250,9 @@ private fun RoutineCreatorCard(
             )
             candidates.forEach { candidate ->
                 TextButton(
-                    enabled = !busy && validNumeric,
+                    enabled = !busy && validNumeric &&
+                        (!candidate.isMobility || kind != "strength" ||
+                            mobilitySeconds.toIntOrNull()?.let { it in 1..3600 } == true),
                     modifier = Modifier.fillMaxWidth(),
                     onClick = {
                         if (quantity != null) {
@@ -1229,8 +1260,11 @@ private fun RoutineCreatorCard(
                                 candidate.id,
                                 candidate.name,
                                 if (kind == "strength") setCount ?: 3 else 1,
-                                quantity,
-                                if (kind == "strength" && candidate.allowsWeight) weightValue else null
+                                if (candidate.isMobilityHold) 1 else quantity,
+                                if (kind == "strength" && candidate.allowsWeight) weightValue else null,
+                                if (candidate.isMobility && kind == "strength") mobilitySeconds.toIntOrNull() else null,
+                                candidate.isMobility,
+                                candidate.isMobilityHold
                             ))
                         }
                     }
@@ -1261,7 +1295,7 @@ private fun RoutineCreatorCard(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
                     val entries = chosen.map {
-                        RoutineDraftEntry(it.id, it.quantity, it.sets, it.weightKg)
+                        RoutineDraftEntry(it.id, it.quantity, it.sets, it.weightKg, it.durationSeconds)
                     }
                     onSave(title, kind, entries, cap.toIntOrNull() ?: 12,
                         rounds.toIntOrNull() ?: 1,

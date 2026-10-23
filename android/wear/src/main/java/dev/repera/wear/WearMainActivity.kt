@@ -49,6 +49,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private val messageClient by lazy { Wearable.getMessageClient(this) }
     private val pendingStore by lazy { WearPendingSetStore(this) }
     private var repsInput by mutableStateOf(0)
+    private var mobilitySecondsInput by mutableStateOf(30)
     private var weightInput by mutableStateOf<Double?>(null)
     private var confirmDiscardPending by mutableStateOf(false)
     private var pendingCount by mutableStateOf(0)
@@ -123,7 +124,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                         textAlign = TextAlign.Center)
                                     Text("Ejercicio ${session.exerciseIndex}/${session.exerciseCount}")
                                     if (session.prescribedReps != null) {
-                                        Text("${session.prescribedReps} reps" +
+                                        Text((if (session.isMobilityHold) "${session.prescribedDurationSeconds ?: 30}s"
+                                            else "${session.prescribedReps} reps" +
+                                                (session.prescribedDurationSeconds?.let { " · ${it}s" } ?: "")) +
                                             (session.prescribedWeightKg?.let { " · $it kg" } ?: ""),
                                             style = MaterialTheme.typography.titleLarge)
                                     }
@@ -135,7 +138,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                             style = MaterialTheme.typography.labelSmall)
                                     } else {
                                     Text("Registrar serie", style = MaterialTheme.typography.titleMedium)
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    if (!session.isMobilityHold) Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                                         verticalAlignment = Alignment.CenterVertically) {
                                         Button(onClick = { repsInput = (repsInput - 1).coerceAtLeast(0) }) {
                                             Text("−")
@@ -143,6 +146,18 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                         Text("$repsInput reps", style = MaterialTheme.typography.titleMedium)
                                         Button(onClick = { repsInput = (repsInput + 1).coerceAtMost(10000) }) {
                                             Text("+")
+                                        }
+                                    }
+                                    if (session.isMobility) {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalAlignment = Alignment.CenterVertically) {
+                                            Button(onClick = { mobilitySecondsInput = (mobilitySecondsInput - 5).coerceAtLeast(5) }) {
+                                                Text("−")
+                                            }
+                                            Text("${mobilitySecondsInput}s", style = MaterialTheme.typography.titleMedium)
+                                            Button(onClick = { mobilitySecondsInput = (mobilitySecondsInput + 5).coerceAtMost(3600) }) {
+                                                Text("+")
+                                            }
                                         }
                                     }
                                     if (session.allowsWeight) {
@@ -161,7 +176,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                         }
                                     }
                                     Button(onClick = { queueSet(session) },
-                                        enabled = repsInput > 0,
+                                        enabled = repsInput > 0 && (!session.isMobility || mobilitySecondsInput > 0),
                                         modifier = Modifier.fillMaxWidth()) {
                                         Text("Confirmar serie")
                                     }
@@ -280,7 +295,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             repsInput !in 1..10000) return
         val queued = runCatching {
             pendingStore.append(session.sessionId, session.exerciseIndex - 1,
-                repsInput, weightInput)
+                repsInput, weightInput, if (session.isMobility) mobilitySecondsInput else null)
             pendingCount = pendingStore.count()
         }
         if (queued.isFailure) {
@@ -332,7 +347,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             sessionCache.edit().putString("snapshot", raw).apply()
             if (visibleSession?.sessionId != summary.sessionId ||
                 visibleSession?.exerciseIndex != summary.exerciseIndex) {
-                repsInput = summary.prescribedReps ?: 0
+                repsInput = if (summary.isMobilityHold) 1 else (summary.prescribedReps ?: 0)
+                mobilitySecondsInput = summary.prescribedDurationSeconds ?: 30
                 weightInput = summary.prescribedWeightKg
             }
             visibleSession = summary
@@ -375,7 +391,10 @@ data class WatchSessionSummary(
     val prescribedWeightKg: Double?,
     val wodFormatLabel: String?,
     val globalScore: Boolean,
-    val wodMovements: List<String>
+    val wodMovements: List<String>,
+    val prescribedDurationSeconds: Int? = null,
+    val isMobility: Boolean = false,
+    val isMobilityHold: Boolean = false
 ) {
     companion object {
         fun fromJson(session: JSONObject): WatchSessionSummary {
@@ -385,6 +404,13 @@ data class WatchSessionSummary(
             require(index in 0 until exercises.length()) { "Invalid active exercise index" }
             val exercise = exercises.getJSONObject(index)
             val sourceExercise = exercise.getJSONObject("exercise")
+            val isMobility = sourceExercise.optString("sportTag") == "Movilidad"
+            val isMobilityHold = isMobility && sourceExercise.optString("catalogId") in setOf(
+                "mobility-14", "mobility-15", "mobility-16", "mobility-20", "mobility-21",
+                "mobility-30", "mobility-31", "mobility-32", "mobility-36", "mobility-38",
+                "mobility-39", "mobility-40", "mobility-41", "mobility-42", "mobility-44",
+                "mobility-46", "mobility-60", "mobility-61", "mobility-62",
+                "mobility-67", "mobility-70", "mobility-80")
             val mode = ExerciseInput.mode(sourceExercise.getString("name"),
                 sourceExercise.optString("equipment"), sourceExercise.optString("targetMuscle"),
                 sourceExercise.optString("muscleGroup"))
@@ -425,10 +451,10 @@ data class WatchSessionSummary(
             return WatchSessionSummary(
                 sessionId = session.getString("id"),
                 title = session.getString("title"),
-                canLogOnWatch = mode in setOf(
-                    ExerciseInputMode.LOAD_REPS, ExerciseInputMode.REPS_ONLY) &&
+                canLogOnWatch = (isMobility || mode in setOf(
+                    ExerciseInputMode.LOAD_REPS, ExerciseInputMode.REPS_ONLY)) &&
                     exercise.optString("blockKind") != "wod",
-                allowsWeight = mode.showsWeight,
+                allowsWeight = !isMobility && mode.showsWeight,
                 exerciseName = exercise.getJSONObject("exercise").getString("name"),
                 exerciseIndex = index + 1,
                 exerciseCount = exercises.length(),
@@ -439,7 +465,12 @@ data class WatchSessionSummary(
                 }?.getDouble("targetWeightKg"),
                 wodFormatLabel = wodFormat?.displayName,
                 globalScore = globalScore,
-                wodMovements = movementLines
+                wodMovements = movementLines,
+                isMobility = isMobility,
+                isMobilityHold = isMobilityHold,
+                prescribedDurationSeconds = target?.takeIf {
+                    it.has("targetDurationSeconds") && !it.isNull("targetDurationSeconds") }
+                    ?.optInt("targetDurationSeconds")?.takeIf { it > 0 }
             )
         }
     }
