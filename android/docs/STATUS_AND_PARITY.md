@@ -25,9 +25,10 @@ Pruebas de regresión declaradas: `domain/src/test` para reloj, WOD, presets y
 conflictos; `mobile/src/androidTest` para persistencia e identidad de sesiones.
 Deben ejecutarse antes de dar la funcionalidad por probada.
 
-CI anterior: GitHub Actions ha marcado fallos con `runner_id=0` y cero pasos;
-no constituye evidencia de fallo de código ni de éxito. Se requiere runner
-operativo + Gradle 9.6, SDK 37 y emuladores/dispositivos.
+CI: runner operativo con Gradle 9.6 y SDK 37; la ejecución
+`39931372564` pasó mobile, wear, tests JVM e instrumentados en emulador.
+Los cambios de cronómetro y Diario se validan en ejecuciones posteriores.
+La CI no sustituye una prueba OAuth/Drive real ni un Wear OS físico.
 
 ## Catálogo y primera cuenta
 
@@ -46,9 +47,8 @@ de `ExerciseSearch.bilingualPhrases`. Búsqueda prioriza nombre exacto,
 alias inglés/español y coincidencia parcial. La selección de ejercicio
 inicia Apuntar series; un bloque WOD no puede transformarse de manera tácita.
 
-No se han ejecutado tests ni compilaciones completas: el CI depende de
-la disponibilidad de runners de GitHub, que en las anteriores ejecuciones
-figuraban sin runner y sin pasos.
+Se han ejecutado CI y pruebas de emulador; véase el apartado CI superior.
+Las comprobaciones de OAuth y sincronización entre dispositivos reales siguen pendientes.
 
 ## Refuerzo de seguridad y comportamiento (segunda revisión)
 
@@ -70,9 +70,9 @@ figuraban sin runner y sin pasos.
   basadas en `WatchSessionHub.swift`. Todavía no gobierna la ejecución
   de WOD en la interfaz.
 
-**Advertencia:** pruebas escritas != pruebas ejecutadas. Requiere SDK 37,
-Gradle 9.6, JDK 17, credenciales OAuth reales, emulador y reloj. Los workflows
-de GitHub disponibles no están asignando runners.
+**Advertencia:** los runners han ejecutado Gradle/SDK/emulador. No confundir
+las pruebas automatizadas con validación de cuentas Google, Drive y relojes
+físicos en condiciones reales.
 
 ## Salud Android (lectura observada)
 

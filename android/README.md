@@ -4,7 +4,7 @@ Implementación nativa independiente en `android/`:
 
 - `mobile`: Kotlin + Jetpack Compose / Material 3, Credential Manager Google,
   Google Drive appDataFolder, historial local, importación JSON y ejecución de
-  rutinas **de fuerza** con persistencia compatible con `AppState` Swift.
+  rutinas de fuerza y WOD con resultado global, cronómetro local persistente,\n  programación por fecha/semana y persistencia compatible con `AppState` Swift.
 - `domain`: reloj, captura de resultado WOD, prescripción y resolución de conflictos.
 - `wear`: Compose for Wear OS Material 3 y recepción de sesión activa mediante Data Layer.
 - `Health Connect`: lectura voluntaria de pasos y calorías activas reales, sin datos inventados ni escrituras.
@@ -32,8 +32,11 @@ gradle :domain:testDebugUnitTest :mobile:assembleDebug :wear:assembleDebug
 gradle :mobile:connectedDebugAndroidTest
 ```
 
-**Estado:** no verificadas estas compilaciones con SDK/Gradle, ni OAuth/Drive
-con cuentas reales. Falta la paridad completa con iOS/watchOS.
+**Validación:** CI `39931372564` aprobado: compilación de mobile/wear,
+tests unitarios y pruebas instrumentadas en emulador. Las incorporaciones
+posteriores de cronómetro y Diario tienen sus propios runs de CI.
+**No se ha realizado aún el E2E OAuth/Drive con una cuenta Google ni pruebas
+en un reloj físico.** Falta la paridad completa con iOS/watchOS.
 Véanse `docs/STATUS_AND_PARITY.md`, `docs/GOOGLE_IDENTITY_DRIVE.md`
 y `docs/AUDIT_2026_10_23.md`.
 
@@ -44,3 +47,14 @@ registro por bloque (reps/rondas o tiempo) y guardado sin series inventadas.
 Los formatos por movimiento (EMOM, Tabata, Circuito, etc.) permanecen
 bloqueados. Tampoco se afirma que el reloj en Play funcione aún como iOS.
 Ver `docs/STATUS_AND_PARITY.md`.
+
+## Autenticación Google y Supabase
+
+El ID OAuth Web público ya se incorpora como valor por defecto de
+`REPERA_GOOGLE_WEB_CLIENT_ID`; también se configura la URL de Repera Supabase
+y su clave pública `sb_publishable_`. Se exige una sesión Supabase validada
+con ID token Google y nonce antes de mostrar la aplicación autenticada.
+No existen claves privadas ni OAuth Client Secret en el APK o en el repositorio.
+Es posible sobrescribir los valores públicos mediante propiedades Gradle.
+La sesión verificada no se persiste: al reiniciar el proceso se solicita
+una nueva autenticación.
