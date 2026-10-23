@@ -69,7 +69,7 @@ class ProgressLayoutPolishContractTests(unittest.TestCase):
     def test_example_charts_clip_only_the_plot_and_keep_axes_inside_margins(self):
         for name in ("StatsView.swift", "HealthRecovery.swift", "ExerciseProgressView.swift"):
             source = read(name)
-            self.assertIn(".chartXScale(domain: 0.5...7.5)", source)
+            self.assertIn(".chartXScale(domain: 0...8)", source)
             self.assertIn(".chartPlotStyle { $0.clipped() }", source)
         charts = read("ProgressTrendCards.swift")
         self.assertIn(".chartPlotStyle { $0.clipped() }", charts)

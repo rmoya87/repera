@@ -359,7 +359,7 @@ struct StatsView: View {
                             .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
                         }
                     }
-                    .chartXScale(domain: 0.5...7.5)
+                    .chartXScale(domain: 0...8)
                     .chartYScale(domain: 35.0...65.0)
                     .chartPlotStyle { $0.clipped() }
                     .chartXAxis {

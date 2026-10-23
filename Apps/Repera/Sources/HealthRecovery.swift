@@ -742,7 +742,7 @@ struct HealthRecoveryProgressView: View {
                         .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round))
                     }
                 }
-                .chartXScale(domain: 0.5...7.5)
+                .chartXScale(domain: 0...8)
                 .chartYScale(domain: 0.0...10.0)
                 .chartPlotStyle { $0.clipped() }
                 .chartYAxis {
@@ -780,7 +780,7 @@ struct HealthRecoveryProgressView: View {
                             .foregroundStyle(OG.accent)
                         }
                     }
-                    .chartXScale(domain: 0.5...7.5)
+                    .chartXScale(domain: 0...8)
                     .chartPlotStyle { $0.clipped() }
                     .frame(height: 105)
                     Divider().opacity(0.25)
@@ -810,7 +810,7 @@ struct HealthRecoveryProgressView: View {
                     .cornerRadius(3)
                 }
             }
-            .chartXScale(domain: 0.5...7.5)
+            .chartXScale(domain: 0...8)
             .chartPlotStyle { $0.clipped() }
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)

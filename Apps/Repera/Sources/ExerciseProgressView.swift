@@ -58,7 +58,7 @@ struct ExerciseProgressView: View {
                             .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
                         }
                     }
-                    .chartXScale(domain: 0.5...7.5)
+                    .chartXScale(domain: 0...8)
                     .chartPlotStyle { $0.clipped() }
                     .frame(height: 160)
                     .allowsHitTesting(false)
