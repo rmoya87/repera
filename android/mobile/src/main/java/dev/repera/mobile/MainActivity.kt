@@ -137,6 +137,12 @@ class MainActivity : ComponentActivity() {
                 onCompleteWodBlock = {
                     runWorkoutAction { completeWodMovementBlock() }
                 },
+                onReviseWodMovement = { id, quantity, weight ->
+                    runWorkoutAction { reviseWodMovementSet(id, quantity, weight) }
+                },
+                onDeleteWodMovement = { id ->
+                    runWorkoutAction { deleteWodMovementSet(id) }
+                },
                 onQuickLog = { id -> runWorkoutAction { startQuickLog(id) } },
                 onInitializeLocal = ::initializeLocalCatalog,
                 onLogSet = { quantity, weight, rir, warmup ->
