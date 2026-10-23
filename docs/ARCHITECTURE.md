@@ -2,6 +2,10 @@
 
 Última actualización: 2026-10-23 (catálogo de movilidad, filtro y búsqueda bilingüe)
 
+## Series de movilidad (iOS)
+
+`CatalogMovilidad` incorpora 82 ejercicios ES/EN identificados con `sportTag = "Movilidad"`. `Exercise.isMobilityHold` distingue las posturas estáticas de los movimientos dinámicos. Ambos usan registro tiempo+reps mediante `ExerciseLoggingStyle.repsAndTime`, con UI que oculta reps para una postura sostenida. `PlannedSet.targetDurationSeconds` es opcional en Codable y sobrevive a la duplicación de planes; `WorkoutView` lo utiliza para precargar la duración editable sin contabilizarla como registro real hasta confirmar la serie. `LoggedSet.durationSeconds` conserva los segundos ejecutados. La evolución temporal soporta `ExerciseProgressMetric.bestHold` y `duration`, y `ProgressSnapshot` resume segundos reales y número de sesiones sin asignarlos a fatiga/e1RM. `ExerciseArt` bloquea coincidencias parciales con arte de fuerza y utiliza placeholder hasta que las 82 fichas tengan imágenes revisadas.
+
 ## Unidad de cardio en rutinas y sesiones
 
 `RoutineExercise.quantityUnit` es un campo `Codable` opcional (Cal o metros) que controla la unidad de las series de cardio en una rutina de fuerza o bloque. `SessionController.from` propaga el valor a `SessionExercise.quantityUnit`, que usa Play para inicializar el registro en la unidad elegida. Para movimientos WOD se reutiliza `WODMovement.prescribedQuantityUnit`. La ausencia del campo en JSON antiguo conserva la compatibilidad: se usa la unidad por defecto del ejercicio. Las series continúan registrándose en `LoggedSet.quantityUnit` y no como kilogramos.
