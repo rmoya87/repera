@@ -468,8 +468,9 @@ data class WatchSessionSummary(
                 wodMovements = movementLines,
                 isMobility = isMobility,
                 isMobilityHold = isMobilityHold,
-                prescribedDurationSeconds = target?.optInt("targetDurationSeconds")?.takeIf {
-                    target.has("targetDurationSeconds") && it > 0 }
+                prescribedDurationSeconds = target?.takeIf {
+                    it.has("targetDurationSeconds") && !it.isNull("targetDurationSeconds") }
+                    ?.optInt("targetDurationSeconds")?.takeIf { it > 0 }
             )
         }
     }
