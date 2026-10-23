@@ -421,8 +421,14 @@ public enum ExerciseSearch {
             let equipmentNorm = ExerciseSearch.normalize(exercise.equipment ?? "")
             let target = ExerciseSearch.normalize(exercise.targetMuscle ?? "")
             let body = ExerciseSearch.normalize(exercise.bodyPart ?? "")
-            let aliases = (ExerciseSearch.englishAliasesByCatalogName[name] ?? []).joined(separator: " ")
             let spanishAlias = SportExerciseNames.spanishAlias(for: exercise.name).map(ExerciseSearch.normalize) ?? ""
+            // Conservar abreviaturas y variantes EN de los nombres ES antiguos
+            // (OCR/pizarra) incluso tras renombrar la entrada principal.
+            let aliases = (
+                ExerciseSearch.englishAliasesByCatalogName[name]
+                ?? ExerciseSearch.englishAliasesByCatalogName[spanishAlias]
+                ?? []
+            ).joined(separator: " ")
             self.name = name
             self.muscle = muscle
             // Aliases EN en meta: «back squat» encuentra Sentadilla aunque la frase no se traduzca.
