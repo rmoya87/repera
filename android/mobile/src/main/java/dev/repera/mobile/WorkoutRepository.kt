@@ -433,6 +433,71 @@ class WorkoutRepository(context: Context, googleId: String) {
         return summarize(session)
     }
 
+    /** Update a confirmed WOD entry without changing its identity or timestamp. */
+    @Synchronized fun reviseWodMovementSet(setId: String, quantity: Int, weightKg: Double?): ActiveWorkout {
+        require(setId.isNotBlank() && quantity >= 0)
+        require(weightKg == null || (weightKg.isFinite() && weightKg >= 0))
+        val state = requireState()
+        val session = requireActive(state)
+        val items = session.getJSONArray("exercises")
+        val current = items.getJSONObject(session.getInt("currentIndex"))
+        val blockId = current.optString("blockId")
+        check(current.optString("blockKind") == "wod")
+        check(WodFormat.fromWire(current.optString("wodFormat"))?.capture == ResultCapture.PER_MOVEMENT_SETS)
+        var found = false
+        for (i in 0 until items.length()) {
+            val item = items.getJSONObject(i)
+            if (item.optString("blockId") != blockId) continue
+            val logs = item.getJSONArray("loggedSets")
+            for (j in 0 until logs.length()) {
+                val set = logs.getJSONObject(j)
+                if (set.optString("id") != setId) continue
+                set.put("reps", quantity)
+                if (weightKg == null) set.remove("weightKg") else set.put("weightKg", weightKg)
+                item.put("completedReps", (0 until logs.length()).sumOf {
+                    logs.getJSONObject(it).optInt("reps")
+                })
+                found = true
+                break
+            }
+        }
+        check(found) { "Registro WOD no encontrado en el bloque activo" }
+        save(state)
+        return summarize(session)
+    }
+
+    /** Undo one movement record, never remove a strength set or another WOD block. */
+    @Synchronized fun deleteWodMovementSet(setId: String): ActiveWorkout {
+        require(setId.isNotBlank())
+        val state = requireState()
+        val session = requireActive(state)
+        val items = session.getJSONArray("exercises")
+        val current = items.getJSONObject(session.getInt("currentIndex"))
+        val blockId = current.optString("blockId")
+        check(current.optString("blockKind") == "wod")
+        check(WodFormat.fromWire(current.optString("wodFormat"))?.capture == ResultCapture.PER_MOVEMENT_SETS)
+        var found = false
+        for (i in 0 until items.length()) {
+            val item = items.getJSONObject(i)
+            if (item.optString("blockId") != blockId) continue
+            val logs = item.getJSONArray("loggedSets")
+            val kept = JSONArray()
+            for (j in 0 until logs.length()) {
+                val set = logs.getJSONObject(j)
+                if (set.optString("id") == setId) found = true else kept.put(set)
+            }
+            if (kept.length() != logs.length()) {
+                item.put("loggedSets", kept)
+                item.put("completedReps", (0 until kept.length()).sumOf {
+                    kept.getJSONObject(it).optInt("reps")
+                })
+            }
+        }
+        check(found) { "Registro WOD no encontrado en el bloque activo" }
+        save(state)
+        return summarize(session)
+    }
+
     /** Finish a per-movement block without turning unrecorded movements into sets. */
     @Synchronized fun completeWodMovementBlock(): ActiveWorkout? {
         val state = requireState()
@@ -588,8 +653,10 @@ class WorkoutRepository(context: Context, googleId: String) {
                         val logs = item.optJSONArray("loggedSets") ?: JSONArray()
                         (0 until logs.length()).map { n ->
                             val s = logs.getJSONObject(n)
-                            WodRecordedMovement(item.getJSONObject("exercise").optString("name"),
-                                s.optInt("intervalIndex"), s.optInt("reps"))
+                            WodRecordedMovement(s.getString("id"),
+                                item.getJSONObject("exercise").optString("name"),
+                                s.optInt("intervalIndex"), s.optInt("reps"),
+                                s.optDouble("weightKg").takeIf { s.has("weightKg") })
                         }
                     },
                 movements = (0 until moves.length()).map { j ->
@@ -676,7 +743,7 @@ data class WodExecution(
     val restBetweenRoundsSeconds: Int? = null
 )
 
-data class WodRecordedMovement(val name: String, val intervalIndex: Int, val quantity: Int)
+data class WodRecordedMovement(val id: String, val name: String, val intervalIndex: Int, val quantity: Int, val weightKg: Double?)
 
 data class WodMovementSummary(
     val id: String,
