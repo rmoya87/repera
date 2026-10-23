@@ -19,12 +19,17 @@ class TimerAdaptiveLayoutTests(unittest.TestCase):
         layout = screen.split("private func portraitLayout(", 1)[1].split(
             "private func landscapeLayout(", 1
         )[0]
-        self.assertIn("availableClockWidth / 3.05", screen)
+        self.assertIn("availableClockWidth / widthFactor", screen)
+        self.assertIn("hasRound ? 4.22 : 2.76", screen)
+        self.assertIn("geometry.size.width - sideWidth - horizontalInset", screen)
+        self.assertNotIn("max(55, availableClockWidth", screen)
         self.assertIn("geometry.size.height * (landscape ? 0.36 : 0.235)", screen)
         self.assertLess(layout.index("clockBlock(digitHeight: digitHeight)"),
                         layout.index("exerciseDetails"))
-        self.assertIn("Spacer(minLength: 10)", layout)
-        self.assertIn("TimerSystemAudioPanel()", layout)
+        self.assertIn("VStack(spacing: 38)", layout)
+        self.assertIn("exerciseDetails(landscape: false)", layout)
+        self.assertIn("Spacer(minLength: 16)", layout)
+        self.assertNotIn("TimerSystemAudioPanel()", layout)
         self.assertIn("controls(horizontal: false)", layout)
 
     def test_landscape_exercise_music_left_and_clock_buttons_right(self):
@@ -34,7 +39,9 @@ class TimerAdaptiveLayoutTests(unittest.TestCase):
         )[0]
         self.assertLess(layout.index("exerciseDetails"),
                         layout.index("clockBlock(digitHeight: digitHeight)"))
-        self.assertIn("TimerSystemAudioPanel()", layout)
+        self.assertIn("exerciseDetails(landscape: true)", layout)
+        self.assertIn(".frame(maxHeight: .infinity, alignment: .center)", layout)
+        self.assertNotIn("TimerSystemAudioPanel()", layout)
         self.assertIn("controls(horizontal: true)", layout)
         buttons = screen.split("private func controls(horizontal:", 1)[1]
         self.assertIn("HStack(spacing: 12)", buttons)
@@ -58,16 +65,28 @@ class TimerAdaptiveLayoutTests(unittest.TestCase):
         self.assertIn("startPreCountdown(seconds: max(1, Int(ceil(seconds))))", clock)
         self.assertIn("pausedPreCountdownRemaining == nil", clock)
 
-    def test_native_airplay_access_does_not_claim_other_apps_now_playing(self):
+    def test_no_false_now_playing_panel_for_unreadable_external_audio(self):
         screen = read("DigitalClockDisplay.swift")
-        self.assertIn("import AVKit", screen)
-        self.assertIn("AVRoutePickerView", screen)
-        self.assertIn("UIViewRepresentable", screen)
-        self.assertIn("Centro de control", screen)
-        self.assertNotIn("MPNowPlayingInfoCenter", screen.split(
-            "private struct SystemAudioRoutePicker:", 1
-        )[1])
+        self.assertNotIn("Audio del iPhone", screen)
+        self.assertNotIn("TimerSystemAudioPanel", screen)
+        self.assertNotIn("SystemAudioRoutePicker", screen)
+        self.assertNotIn("AVRoutePickerView", screen)
+        self.assertNotIn("MPNowPlayingInfoCenter", screen)
         self.assertNotIn("MPRemoteCommandCenter", screen)
+
+    def test_thumbnail_is_larger_and_timer_action_is_circular_liquid_glass(self):
+        screen = read("DigitalClockDisplay.swift")
+        self.assertIn("size: landscape ? 112 : 100", screen)
+        self.assertIn(".frame(maxWidth: .infinity, alignment: .center)", screen)
+        play = read("WorkoutView.swift")
+        start = play.index("private func content(_ session: WorkoutSession)")
+        end = play.index("private func workoutExerciseRow(", start)
+        block = play[start:end]
+        self.assertIn("OGToolbarGlassButton(", block)
+        self.assertIn('systemName: "timer"', block)
+        self.assertIn("hitSize: 44", block)
+        self.assertIn("appliesGlass: true", block)
+        self.assertNotIn(".background(OG.surface2, in: RoundedRectangle(cornerRadius: 12", block)
 
 
 if __name__ == "__main__":

@@ -1,9 +1,9 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-23 (reloj vertical/paisaje y acceso nativo AirPlay seguro)
+Última actualización: 2026-10-23 (LED de intervalos ajustado, ejercicio centrado y temporizador Liquid Glass)
 
-- **Reloj de bloque (vertical y horizontal):** retrato con dígitos LED ampliados por ancho disponible, movimiento (miniatura y nombre) debajo y botones fijos al pie. Paisaje con ejercicio y acceso a audio a la izquierda, reloj grande a la derecha y Pausar/Continuar + Terminar en una única fila. Durante el preinicio el botón Pausar funciona y Continuar preserva los segundos restantes. La acción Saltar no se presenta.
-- **Audio durante el reloj:** Apple no ofrece API pública para incrustar y controlar el Now Playing de cualquier otra app (Spotify, Podcasts, etc.) ni leer universalmente su carátula, canción y artista. Repera presenta un selector nativo de salida (AVRoutePickerView) para AirPlay y remite la reproducción de terceros al Centro de control, sin inventar metadatos ni usar APIs privadas.
+- **Reloj de bloque (vertical y horizontal):** los dígitos LED escalan de forma exacta según ancho y ronda (HH:MM/ MM:SS sin rondas = 2,76×alto, con dos dígitos verdes de ronda = 4,22×alto), para no desbordarse a la derecha en intervalos. En retrato, miniatura de 100 pt y nombre centrados debajo del tiempo con 38 pt de separación; botones abajo. En paisaje miniatura de 112 pt y nombre en columna izquierda centrada en altura; reloj a la derecha con botones alineados en una fila. El icono del temporizador del bloque dentro de Play usa círculo Liquid Glass nativo de 44 pt.
+- **Now Playing externo:** Repera no dispone de API pública para leer el Now Playing global (Spotify, Podcasts y demás apps) ni detectar de forma fiable su estado. Se elimina la tarjeta genérica «Audio del iPhone» en ambas orientaciones en vez de mostrar un falso reproductor o iconos cuando no hay reproducción verificable. El Centro de control mantiene los controles nativos de esos servicios. Solo sería posible mostrar metadatos mediante una integración específica del proveedor o reproducción propia con permiso y datos accesibles.
 
 ## Tabs
 
