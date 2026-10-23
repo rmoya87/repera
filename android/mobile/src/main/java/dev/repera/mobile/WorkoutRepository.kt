@@ -56,6 +56,8 @@ class WorkoutRepository(context: Context, googleId: String) {
         require(timeCapMinutes in 1..180 && rounds in 1..100)
         require(emomIntervalSeconds in 15..600 && workSeconds in 5..600 &&
             restSeconds in 0..600)
+        if (format == "emom") require(rounds.toLong() * emomIntervalSeconds <= 10800L)
+        if (format == "tabata") require(rounds.toLong() * (workSeconds + restSeconds) <= 10800L)
         if (format == "tabata") require(workSeconds + restSeconds <= 600)
         require(schedule.scheduledDate == null || schedule.weekday == null) {
             "Un entreno no puede ser semanal y de fecha concreta a la vez"
@@ -496,7 +498,7 @@ class WorkoutRepository(context: Context, googleId: String) {
                     ?.takeIf { it > 0 }
             else -> null
         }
-        if (maximumInterval != null && format != WodFormat.CIRCUIT)
+        if (maximumInterval != null)
             require(intervalIndex < maximumInterval) { "Intervalo fuera de la programación" }
         val movements = (0 until exercises.length()).map { exercises.getJSONObject(it) }
             .filter { it.optString("blockId") == blockId }
