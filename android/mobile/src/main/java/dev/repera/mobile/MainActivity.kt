@@ -513,7 +513,9 @@ data class StateOverview(
     val history: List<WorkoutHistoryEntry>,
     val routineEntries: List<RoutineEntry>,
     val exerciseEntries: List<ExerciseEntry>,
-    val exerciseProgress: Map<String, ExerciseProgressSummary> = emptyMap()
+    val exerciseProgress: Map<String, ExerciseProgressSummary> = emptyMap(),
+    val mobilitySessions: Int = 0,
+    val mobilitySeconds: Int = 0
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?): StateOverview? {
@@ -649,6 +651,31 @@ data class StateOverview(
                         MobilityCatalog.isHold(ex.optString("catalogId")))
                 }.sortedBy { it.name }
             }
+            var mobilitySessions = 0
+            var mobilitySeconds = 0
+            val archive = json.getJSONArray("workouts")
+            for (w in 0 until archive.length()) {
+                val workout = archive.getJSONObject(w)
+                val finished = workout.optString("phase") == "finished" ||
+                    (workout.has("finishedAt") && !workout.isNull("finishedAt"))
+                if (!finished) continue
+                val movements = workout.optJSONArray("exercises") ?: continue
+                var elapsed = 0
+                for (m in 0 until movements.length()) {
+                    val movement = movements.getJSONObject(m)
+                    if (movement.optJSONObject("exercise")?.optString("sportTag") != "Movilidad") continue
+                    val sets = movement.optJSONArray("loggedSets") ?: continue
+                    for (k in 0 until sets.length()) {
+                        val set = sets.getJSONObject(k)
+                        if (set.optString("phase", "work") != "warmup" && set.optInt("reps") > 0)
+                            elapsed += set.optInt("durationSeconds").coerceAtLeast(0)
+                    }
+                }
+                if (elapsed > 0) {
+                    mobilitySessions++
+                    mobilitySeconds += elapsed
+                }
+            }
             return StateOverview(
                 workouts = workoutTitles.size,
                 workoutsThisWeek = workoutsThisWeek,
@@ -660,7 +687,9 @@ data class StateOverview(
                 history = history,
                 routineEntries = routineEntries,
                 exerciseEntries = exerciseEntries,
-                exerciseProgress = ExerciseProgressMetrics.fromWorkouts(json.getJSONArray("workouts"))
+                exerciseProgress = ExerciseProgressMetrics.fromWorkouts(json.getJSONArray("workouts")),
+                mobilitySessions = mobilitySessions,
+                mobilitySeconds = mobilitySeconds
             )
         }
     }
