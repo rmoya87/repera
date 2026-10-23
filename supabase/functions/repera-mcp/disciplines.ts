@@ -138,6 +138,37 @@ const warmupIdeas: Record<string, string[]> = {
     "CARs de cadera", "Rotación torácica en cuadrupedia"],
 };
 
+const warmupMovementFocus = [
+  {tokens:["snatch","arrancada","jerk","envion","cargada","clean","press","overhead"],
+    focus:"sobre-cabeza y recepción",
+    exercises:["CARs de hombro","Pasadas de hombros con pica","Rotación torácica en cuadrupedia","Movilidad de muñeca en extensión"]},
+  {tokens:["sentadilla","squat","thruster","lunge","zancada"],
+    focus:"sentadilla y pierna",
+    exercises:["Rodilla a pared para tobillo","90/90 de cadera","Sentadilla profunda con balanceo","Estiramiento del flexor de cadera"]},
+  {tokens:["pull-up","pull up","dominada","muscle-up","muscle up","ring","anilla","rope","cuerda"],
+    focus:"tracción y hombro",
+    exercises:["Círculos de hombros","Protracción y retracción escapular","Colgado activo","Rotación externa de hombro con banda"]},
+  {tokens:["correr","carrera","run","sprint","sled","trineo","farmer","ski","remo maquina","row"],
+    focus:"locomoción y tracción",
+    exercises:["Rodilla a pared para tobillo","CARs de cadera","Estiramiento dinámico de isquios","Zancada Spiderman con rotación"]},
+] as const;
+const gearAliases:Record<string,string> = {
+  "bodyweight":"bodyweight","peso corporal":"bodyweight","sin material":"bodyweight",
+  "bandas":"resistance_band","gomas":"resistance_band","banda elastica":"resistance_band",
+  "resistance_band":"resistance_band","pica":"pvc_pipe","pvc":"pvc_pipe",
+  "pvc_pipe":"pvc_pipe","pared":"wall","wall":"wall",
+  "barra de dominadas":"pullup_bar","pullup_bar":"pullup_bar",
+  "banco":"bench","bench":"bench","rodillo":"foam_roller","foam roller":"foam_roller",
+  "foam_roller":"foam_roller","marco de puerta":"door_frame","door_frame":"door_frame",
+};
+function equipmentStatus(requirements:string[],available?:string[]) {
+  const needs=requirements.filter(x=>x!=="bodyweight");
+  if(!needs.length)return "sin_material";
+  if(available==null)return "pendiente_confirmacion";
+  const declared=new Set(available.map(x=>gearAliases[folded(x)]??folded(x)));
+  return needs.every(x=>declared.has(x))?"disponible_declarado":"no_declarado";
+}
+
 function periodTotals(rows: Session[], since: number, until: number) {
   let workouts=0, workSets=0, strengthSets=0, volumeKg=0;
   let meters=0, calories=0, measuredSeconds=0, unknownUnitSets=0;
@@ -267,17 +298,35 @@ export function registerDisciplinePlanningTools(server:McpServer,db:SupabaseClie
       availableEquipment:z.array(z.string().trim().min(2).max(60)).max(20).optional(),
     }),annotations:{readOnlyHint:true},
   },async({mainDiscipline,mainMovements,sessionMinutes,availableEquipment})=>{
-    const names=warmupIdeas[mainDiscipline];
+    const patterns=warmupMovementFocus.filter(p=>
+      mainMovements.some(m=>p.tokens.some(token=>folded(m).includes(token))));
+    const names=[...new Set([
+      ...warmupIdeas[mainDiscipline].slice(0,3),
+      ...patterns.flatMap(p=>p.exercises),
+      ...warmupIdeas[mainDiscipline].slice(3),
+    ])];
     const {data,error}=await db.from("business_exercise_catalog")
       .select("catalog_key,name,category").in("name",names);
     errorIf(error,"No se pudieron comprobar los movimientos de calentamiento");
+    const keys=(data??[]).map(x=>x.catalog_key);
+    const {data:metadata,error:metaError}=keys.length?await db.from("training_exercise_metadata")
+      .select("catalog_key,required_equipment").in("catalog_key",keys):{data:[],error:null};
+    errorIf(metaError,"No se pudo comprobar el material necesario para calentamiento");
+    const meta=new Map((metadata??[]).map(x=>[x.catalog_key,x.required_equipment as string[]]));
     const available=new Map((data??[]).map(x=>[x.name,x]));
     return reply({
       purpose:"Progressively prepare the actual movement patterns and energy system, without exhausting the athlete.",
       mainDiscipline,mainMovements,sessionMinutes:sessionMinutes??null,
+      detected_movement_focus:patterns.map(p=>p.focus),
       athlete_declared_equipment:availableEquipment??null,
       steps:disciplineGuides.warmup.construction,
-      candidates:names.map(name=>available.get(name)).filter(Boolean),
+      candidates:names.flatMap(name=>{
+        const item=available.get(name);
+        if(!item)return [];
+        const required=meta.get(item.catalog_key)??[];
+        return [{...item,required_equipment:required,
+          equipment_status:equipmentStatus(required,availableEquipment)}];
+      }),
       instructions:[
         "Pick only relevant movements and confirmed accessible equipment; candidate names do NOT confirm gear availability",
         "Scale preparation time to real session duration and complexity; dynamic controlled mobility precedes technical lifting",
@@ -333,6 +382,9 @@ export function registerDisciplinePlanningTools(server:McpServer,db:SupabaseClie
       recorded_workouts_in_window:rows.length,last_recorded_at:latest,
       recent_exercise_records:exerciseSummaries(rows,topExercises),
       wod_result_entries:rows.reduce((n,row)=>n+(row.wod_results?.length??0),0),
+      recent_wod_result_samples:rows.filter(row=>(row.wod_results?.length??0)>0)
+        .slice(0,12).map(row=>({finished_at:row.finished_at,
+          title:row.title,stored_results:row.wod_results?.slice(0,3)??[]})),
       upcoming_ai_proposals:plans.data??[],
       latest_training_programs:programs.data??[],
       local_calendar_snapshot:calendar.data??null,
