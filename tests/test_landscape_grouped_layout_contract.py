@@ -83,6 +83,10 @@ class LandscapeGroupedLayoutTests(unittest.TestCase):
         self.assertIn(".padding(.horizontal, OG.pad)", calendar)
         self.assertIn("7 * max(1, weekCarouselHeight - 8) + 6 * 4", home)
         self.assertIn("frame(height: weekCarouselHeight)", calendar)
+        # El fondo inferior gris no permite que asome el fondo blanco
+        # en los laterales seguros del iPhone colocado en horizontal.
+        self.assertIn(".background(OG.bg.ignoresSafeArea(edges: .horizontal))", home)
+        self.assertIn(".background(OG.bg.ignoresSafeArea(edges: .bottom))", home)
 
     def test_home_and_exercise_hero_keep_intentional_edge_to_edge(self):
         home = read("HomeView.swift")
