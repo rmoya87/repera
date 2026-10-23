@@ -9,6 +9,19 @@
 - `clearCredentialState` restaura la vista inicial; los datos siguen protegidos en el
   espacio privado de esa cuenta para un futuro acceso válido.
 
+## Configuración OAuth recibida (23/10/2026)
+
+Google Cloud project **repera-app**; OAuth consent *External / Testing*.
+El usuario ha comunicado que Drive API, scopes y proveedor Google de Supabase están habilitados. Estos ajustes de consola todavía requieren una prueba real con una cuenta autorizada; el conector de Supabase confirma que el proyecto está activo pero no expone la configuración de proveedores Auth.
+
+- Client ID **Web** (identificador público): `1026054616574-qmugi1nalpar1vv0tdftv97cn6aljoji.apps.googleusercontent.com`. Se configura en `android/gradle.properties` y se utiliza como `serverClientId` de Credential Manager. No guardar aquí el client secret.
+- Client ID **Android** (identificador público): `1026054616574-aklvn35uk4np08a3b61c5utq06j9vr24.apps.googleusercontent.com`. Google Play Services lo relaciona con `com.app.repera` y el certificado SHA-1 registrado en Google Cloud; **no** sustituye al ID Web en `GetSignInWithGoogleOption`.
+- Scope Drive separado: `https://www.googleapis.com/auth/drive.appdata`. No solicitar `drive` completo.
+- La cuenta utilizada debe estar incluida entre los usuarios de prueba hasta publicar la pantalla OAuth. La huella debug debe coincidir con el APK instalado y debe añadirse también la de firma de Google Play para producción.
+- OAuth Web de Supabase: comprobar en su consola que el callback sea exactamente `https://uvzgujlrqohreoucirms.supabase.co/auth/v1/callback` si no existe dominio Auth personalizado.
+
+**Límite de implementación**: Android obtiene identidad de Google para aislar datos locales y solicitar Drive, pero todavía **no intercambia el Google ID token por una sesión Supabase Auth**. Habilitar Google en Supabase no crea por sí solo esa sesión, permisos RLS ni el vínculo con usuarios Apple. No tratar `GoogleIdTokenCredential.uniqueId` como un `auth.uid()` o token de acceso a Supabase. Para la integración profesional habrá que completar `signInWith(IDToken)` (Google) con nonce compatible, sesión verificada, logout/revocación y pruebas E2E.
+
 ## Drive
 
 - Scope OAuth incremental: `https://www.googleapis.com/auth/drive.appdata`.
