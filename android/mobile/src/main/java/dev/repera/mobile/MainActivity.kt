@@ -27,6 +27,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.time.Instant
+import java.time.ZoneId
 import java.security.SecureRandom
 
 /**
@@ -124,8 +126,8 @@ class MainActivity : ComponentActivity() {
                 onWodTimerAction = ::changeWodTimer,
                 onWodTimerTick = ::refreshWodTimer,
                 onStartRoutine = { id -> runWorkoutAction { startRoutine(id) } },
-                onCreateRoutine = { title, format, entries, minutes, rounds ->
-                    runWorkoutAction { createRoutine(title, format, entries, minutes, rounds) }
+                onCreateRoutine = { title, format, entries, minutes, rounds, schedule ->
+                    runWorkoutAction { createRoutine(title, format, entries, minutes, rounds, schedule) }
                 },
                 onWodScore = { rounds, reps, seconds ->
                     runWorkoutAction { recordWodScore(rounds, reps, seconds) }
@@ -508,7 +510,17 @@ data class StateOverview(
                             block.optString("kind") == "strength" ||
                                 WodSessionAssembler.supports(block)
                         }
-                    RoutineEntry(item.getString("id"), item.optString("title"), supported)
+                    val day = item.optString("scheduledDate").takeIf { it.isNotBlank() }
+                        ?.let { value -> runCatching {
+                            Instant.parse(value).atZone(ZoneId.systemDefault()).toLocalDate().toString()
+                        }.getOrNull() }
+                    RoutineEntry(
+                        id = item.getString("id"), title = item.optString("title"),
+                        supported = supported, scheduledDate = day,
+                        weekday = item.optInt("weekday").takeIf { item.has("weekday") && it in 1..7 },
+                        timeMinutes = item.optInt("scheduledTimeMinutes")
+                            .takeIf { item.has("scheduledTimeMinutes") && it in 0..1439 }
+                    )
                 }
             }
             val exerciseEntries = json.getJSONArray("exercises").let { array ->
@@ -539,7 +551,14 @@ data class StateOverview(
     }
 }
 
-data class RoutineEntry(val id: String, val title: String, val supported: Boolean)
+data class RoutineEntry(
+    val id: String,
+    val title: String,
+    val supported: Boolean,
+    val scheduledDate: String? = null,
+    val weekday: Int? = null,
+    val timeMinutes: Int? = null
+)
 
 data class ExerciseEntry(val id: String, val name: String, val supportsBasicInput: Boolean, val allowsWeight: Boolean)
 

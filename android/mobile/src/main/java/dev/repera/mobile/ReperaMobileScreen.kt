@@ -52,6 +52,10 @@ import dev.repera.domain.ExerciseAliasSearch
 import dev.repera.domain.WodFormat
 import dev.repera.domain.WodClock
 import dev.repera.domain.WodClockSpec
+import java.time.LocalDate
+import java.time.LocalTime
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
 
@@ -73,7 +77,7 @@ fun ReperaMobileScreen(
     onWodTimerAction: (String) -> Unit,
     onWodTimerTick: () -> Unit,
     onStartRoutine: (String) -> Unit,
-    onCreateRoutine: (String, String, List<RoutineDraftEntry>, Int, Int) -> Unit,
+    onCreateRoutine: (String, String, List<RoutineDraftEntry>, Int, Int, RoutineSchedule) -> Unit,
     onWodScore: (Int?, Int?, Int?) -> Unit,
     onQuickLog: (String) -> Unit,
     onInitializeLocal: () -> Unit,
@@ -247,16 +251,49 @@ fun ReperaMobileScreen(
                 }
                 if (selected == "Diario") {
                     val routines = overview?.routineEntries.orEmpty()
-                    if (routines.isEmpty()) item { Text("Sin rutinas locales disponibles") }
-                    items(routines, key = { it.id }) { routine ->
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(routine.title, style = MaterialTheme.typography.titleMedium)
-                                TextButton(
-                                    onClick = { onStartRoutine(routine.id); selected = "Inicio" },
-                                    enabled = !busy && activeWorkout == null && routine.supported
-                                ) { Text(if (routine.supported) "Empezar entrenamiento" else "Formato pendiente") }
-                            }
+                    val today = LocalDate.now()
+                    val todays = routines.filter {
+                        it.scheduledDate == today.toString() ||
+                            (it.scheduledDate == null && it.weekday == today.dayOfWeek.value)
+                    }
+                    val dated = routines.filter {
+                        it.scheduledDate != null && it.scheduledDate != today.toString()
+                    }.sortedBy { it.scheduledDate }
+                    val weekly = routines.filter { it.weekday != null }
+                    val library = routines.filter {
+                        it.scheduledDate == null && it.weekday == null
+                    }
+                    if (routines.isEmpty()) item { Text("No hay rutinas creadas") }
+                    if (todays.isNotEmpty()) item {
+                        Text("Entrenamientos de hoy · $today", style = MaterialTheme.typography.titleLarge)
+                    }
+                    items(todays, key = { "today:" + it.id }) { routine ->
+                        ScheduledRoutineCard(routine, busy, activeWorkout == null) {
+                            onStartRoutine(it); selected = "Inicio"
+                        }
+                    }
+                    if (dated.isNotEmpty()) item {
+                        Text("Entrenamientos por fecha", style = MaterialTheme.typography.titleLarge)
+                    }
+                    items(dated, key = { "date:" + it.id }) { routine ->
+                        ScheduledRoutineCard(routine, busy, activeWorkout == null) {
+                            onStartRoutine(it); selected = "Inicio"
+                        }
+                    }
+                    if (weekly.isNotEmpty()) item {
+                        Text("Programación semanal", style = MaterialTheme.typography.titleLarge)
+                    }
+                    items(weekly, key = { "week:" + it.id }) { routine ->
+                        ScheduledRoutineCard(routine, busy, activeWorkout == null) {
+                            onStartRoutine(it); selected = "Inicio"
+                        }
+                    }
+                    if (library.isNotEmpty()) item {
+                        Text("Biblioteca sin fecha", style = MaterialTheme.typography.titleLarge)
+                    }
+                    items(library, key = { "library:" + it.id }) { routine ->
+                        ScheduledRoutineCard(routine, busy, activeWorkout == null) {
+                            onStartRoutine(it); selected = "Inicio"
                         }
                     }
                 }
@@ -602,6 +639,33 @@ private fun WodScoreCard(
     }
 }
 
+@Composable
+private fun ScheduledRoutineCard(
+    routine: RoutineEntry,
+    busy: Boolean,
+    canStart: Boolean,
+    onStart: (String) -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(routine.title, style = MaterialTheme.typography.titleMedium)
+            val label = if (routine.scheduledDate != null) routine.scheduledDate else
+                routine.weekday?.let { day ->
+                    listOf("Lunes", "Martes", "Miércoles", "Jueves", "Viernes",
+                        "Sábado", "Domingo").getOrNull(day - 1)
+                } ?: "Sin fecha"
+            val hour = routine.timeMinutes?.let { "%02d:%02d".format(it / 60, it % 60) }
+            Text(label + (hour?.let { " · $it" } ?: ""),
+                style = MaterialTheme.typography.bodyMedium)
+            TextButton(
+                onClick = { onStart(routine.id) },
+                enabled = !busy && canStart && routine.supported
+            ) { Text(if (routine.supported) "Empezar entrenamiento" else "Formato pendiente") }
+        }
+    }
+}
+
 private data class RoutineDraftRow(
     val id: String, val name: String, val sets: Int, val quantity: Int, val weightKg: Double?
 )
@@ -612,7 +676,7 @@ private fun RoutineCreatorCard(
     exercises: List<ExerciseEntry>,
     aliases: Map<String, String>,
     busy: Boolean,
-    onSave: (String, String, List<RoutineDraftEntry>, Int, Int) -> Unit
+    onSave: (String, String, List<RoutineDraftEntry>, Int, Int, RoutineSchedule) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var kind by remember { mutableStateOf("strength") }
@@ -622,6 +686,10 @@ private fun RoutineCreatorCard(
     var weight by remember { mutableStateOf("") }
     var cap by remember { mutableStateOf("12") }
     var rounds by remember { mutableStateOf("1") }
+    var planning by remember { mutableStateOf("library") }
+    var specificDate by remember { mutableStateOf(LocalDate.now().toString()) }
+    var weekday by remember { mutableStateOf(1) }
+    var clockTime by remember { mutableStateOf("") }
     val chosen = remember { mutableStateListOf<RoutineDraftRow>() }
     val weightValue = weight.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
     val quantity = reps.toIntOrNull()
@@ -696,6 +764,39 @@ private fun RoutineCreatorCard(
                     modifier = Modifier.fillMaxWidth(), singleLine = true
                 )
             }
+            Text("Programación", style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("library" to "Sin fecha", "date" to "Día concreto", "weekly" to "Semanal")
+                    .forEach { option ->
+                        FilterChip(selected = planning == option.first,
+                            onClick = { planning = option.first },
+                            label = { Text(option.second) })
+                    }
+            }
+            if (planning == "date") {
+                OutlinedTextField(
+                    value = specificDate,
+                    onValueChange = { specificDate = it.take(10) },
+                    label = { Text("Fecha (AAAA-MM-DD)") },
+                    singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+            }
+            if (planning == "weekly") {
+                Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    listOf("L", "M", "X", "J", "V", "S", "D").forEachIndexed { index, label ->
+                        FilterChip(selected = weekday == index + 1,
+                            onClick = { weekday = index + 1 },
+                            label = { Text(label) })
+                    }
+                }
+            }
+            if (planning != "library") {
+                OutlinedTextField(value = clockTime,
+                    onValueChange = { clockTime = it.take(5) },
+                    label = { Text("Hora opcional (HH:mm)") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true)
+            }
             Text("Ejercicios de la rutina", style = MaterialTheme.typography.titleMedium)
             chosen.forEach { draft ->
                 Row(
@@ -732,20 +833,33 @@ private fun RoutineCreatorCard(
                     }
                 ) { Text("+ " + candidate.name) }
             }
+            val validDate = planning != "date" || runCatching {
+                LocalDate.parse(specificDate)
+            }.isSuccess
+            val parsedClock = if (clockTime.isBlank()) null else
+                runCatching { LocalTime.parse(clockTime) }.getOrNull()
+            val validClock = planning == "library" || clockTime.isBlank() || parsedClock != null
             val validCap = cap.toIntOrNull()?.let { it in 1..180 } == true
             val validRounds = kind != "forTime" ||
                 rounds.toIntOrNull()?.let { it in 1..100 } == true
             Button(
                 enabled = !busy && title.trim().isNotEmpty() &&
                     title.trim().length <= 100 && chosen.isNotEmpty() &&
-                    (kind == "strength" || (validCap && validRounds)),
+                    (kind == "strength" || (validCap && validRounds)) && validDate && validClock,
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
                     val entries = chosen.map {
                         RoutineDraftEntry(it.id, it.quantity, it.sets, it.weightKg)
                     }
                     onSave(title, kind, entries, cap.toIntOrNull() ?: 12,
-                        rounds.toIntOrNull() ?: 1)
+                        rounds.toIntOrNull() ?: 1,
+                        RoutineSchedule(
+                            scheduledDate = if (planning == "date") specificDate else null,
+                            weekday = if (planning == "weekly") weekday else null,
+                            timeMinutes = if (planning == "library") null else parsedClock?.let {
+                                it.hour * 60 + it.minute
+                            }
+                        ))
                 }
             ) { Text("Guardar rutina") }
         }

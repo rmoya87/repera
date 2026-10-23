@@ -8,6 +8,8 @@ import dev.repera.domain.ResultCapture
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -35,7 +37,8 @@ class WorkoutRepository(context: Context, googleId: String) {
         format: String,
         entries: List<RoutineDraftEntry>,
         timeCapMinutes: Int = 12,
-        rounds: Int = 1
+        rounds: Int = 1,
+        schedule: RoutineSchedule = RoutineSchedule()
     ): String {
         val cleaned = title.trim()
         require(cleaned.isNotBlank() && cleaned.length <= 100) { "Escribe un título válido" }
@@ -46,6 +49,12 @@ class WorkoutRepository(context: Context, googleId: String) {
         }
         require(entries.size <= 60) { "Demasiados movimientos" }
         require(timeCapMinutes in 1..180 && rounds in 1..100)
+        require(schedule.scheduledDate == null || schedule.weekday == null) {
+            "Un entreno no puede ser semanal y de fecha concreta a la vez"
+        }
+        require(schedule.weekday == null || schedule.weekday in 1..7)
+        require(schedule.timeMinutes == null || schedule.timeMinutes in 0..1439)
+        val scheduledDay = schedule.scheduledDate?.let { LocalDate.parse(it) }
         val state = requireState()
         val catalog = state.getJSONArray("exercises")
         val byId = (0 until catalog.length()).associate {
@@ -96,12 +105,22 @@ class WorkoutRepository(context: Context, googleId: String) {
             if (format == "forTime") block.put("rounds", rounds)
         }
         val id = UUID.randomUUID().toString()
-        state.getJSONArray("routines").put(JSONObject()
+        val nativeRoutine = JSONObject()
             .put("id", id)
             .put("title", cleaned)
             .put("blocks", JSONArray().put(block))
             .put("progression", "off")
-            .put("isFavorite", false))
+            .put("isFavorite", false)
+        if (scheduledDay != null) {
+            // Swift Routine.scheduledDate stores the user's calendar start-of-day as a Date.
+            nativeRoutine.put("scheduledDate", scheduledDay.atStartOfDay(ZoneId.systemDefault())
+                .toInstant().toString())
+        } else if (schedule.weekday != null) {
+            nativeRoutine.put("weekday", schedule.weekday)
+        }
+        if (schedule.timeMinutes != null)
+            nativeRoutine.put("scheduledTimeMinutes", schedule.timeMinutes)
+        state.getJSONArray("routines").put(nativeRoutine)
         save(state)
         return id
     }
@@ -589,4 +608,11 @@ data class RoutineDraftEntry(
     val quantity: Int,
     val sets: Int = 3,
     val weightKg: Double? = null
+)
+
+/** Mirrors Swift Routine: one-off dates and weekly templates are mutually exclusive. */
+data class RoutineSchedule(
+    val scheduledDate: String? = null,
+    val weekday: Int? = null,
+    val timeMinutes: Int? = null
 )

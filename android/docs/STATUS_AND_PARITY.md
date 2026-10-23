@@ -189,3 +189,15 @@ Limitaciones restantes: la misma lógica de cronómetro todavía no se transmite
 como control bidireccional a Wear OS; los formatos WOD de registro por movimiento
 siguen bloqueados. El CI incluye tests instrumentados de pausas, reanudación
 y aislamiento entre cuentas.
+
+## Programación por fecha (Diario Android)
+
+Se han portado los campos nativos Swift `Routine.weekday`,
+`Routine.scheduledDate` y `Routine.scheduledTimeMinutes`. Crear permite
+rutina sin fecha, para un día concreto o patrón semanal, más una hora
+opcional. El Diario distingue entrenamientos de hoy, fechas concretas,
+programación semanal y biblioteca, mostrando solo rutinas almacenadas reales.
+Las fechas se codifican como inicio de día de la zona horaria local y se
+recuperan desde ISO-8601. Pendiente: integración con programas IA y
+planificaciones profesionales, edición/reprogramación y vistas de calendario
+más avanzadas.
