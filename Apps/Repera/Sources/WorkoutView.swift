@@ -523,8 +523,9 @@ struct WorkoutView: View {
         isOpen: Bool,
         blockResult: WODBlockResult?
     ) -> some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             ExerciseThumb(exercise: entry.exercise, size: 48)
+                .padding(.top, 2)
             VStack(alignment: .leading, spacing: 4) {
                 Text(entry.exercise.name)
                     .font(.system(size: 16, weight: .semibold))

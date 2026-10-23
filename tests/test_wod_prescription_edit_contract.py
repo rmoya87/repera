@@ -13,32 +13,30 @@ def read(path):
 
 
 class CompletedWODPrescriptionTests(unittest.TestCase):
-    def test_finished_wod_displays_original_and_performed_separately(self):
+    def test_real_fields_are_compact_and_prescription_is_kept_unchanged(self):
         view = read("Apps/Repera/Sources/PlanView.swift")
-        self.assertIn('DisclosureGroup("Adaptación del movimiento (opcional)")', view)
-        self.assertIn('DisclosureGroup("Corregir prescripción o adaptación")', view)
-        self.assertIn('label: "KG PRESCRITOS"', view)
-        self.assertIn('label: "REPS PRESCRITAS"', view)
-        self.assertIn("text: completedWODScaledValue(movementID: movementID, weight: false)", view)
-        self.assertIn("InlineWODMovementSets(", view)
-        self.assertIn("preservePrescriptionOnAppear: true", view)
-        self.assertIn("completedStrengthRxFields(blockIndex: index, exerciseIndex: itemIndex", view)
+        self.assertIn("completedStrengthPrescription(index: index)", view)
+        self.assertIn("HStack(alignment: .top, spacing: 12)", view)
+        self.assertIn("completedWODScalingFields(movementID: item.id", view)
         self.assertIn("completedWODScalingFields(movementID: move.id", view)
+        self.assertIn('"REPS REALES"', view)
+        self.assertIn('"KG REALES"', view)
+        self.assertNotIn("Prescrito (editable)", view)
+        self.assertNotIn("Realizado (opcional)", view)
+        self.assertNotIn("En blanco = prescripción original", view)
+        self.assertNotIn('DisclosureGroup("Corregir prescripción o adaptación")', view)
+        self.assertNotIn('DisclosureGroup("Adaptación del movimiento (opcional)")', view)
         self.assertIn("completedScoreEditor(for: block)", view)
 
-    def test_rx_input_persists_both_source_movement_and_planned_sets(self):
+    def test_visual_prefill_does_not_create_false_scaled_results(self):
         view = read("Apps/Repera/Sources/PlanView.swift")
-        self.assertIn("private func completedWODRxValue(", view)
-        self.assertIn("private func completedStrengthRxValue(", view)
-        self.assertIn("scaledInputDrafts[key] = input", view)
-        self.assertIn("movements[movementIndex].weightMaleKg = value", view)
-        self.assertIn("movements[movementIndex].reps = reps", view)
-        self.assertIn("explicit[i].targetWeightKg = value", view)
-        self.assertIn("explicit[i].targetReps = reps", view)
-        self.assertIn("plannedSets[i].targetWeightKg = value", view)
-        self.assertIn("plannedSets[i].targetReps = reps", view)
-        self.assertIn("if hasScheme", view)
-        self.assertIn("if exercise.loggingStyle == .loadAndReps", view)
+        self.assertIn("private func completedPrescribedValue(", view)
+        self.assertIn("return entry.adaptedReps.map(String.init) ?? prescribed", view)
+        self.assertIn('return entry.adaptedWeightKg.map { String(format: "%g", $0) } ?? prescribed', view)
+        self.assertIn("reps == Int(prescribed) ? nil : reps", view)
+        self.assertIn("abs(kg - $0) < 0.05", view)
+        self.assertNotIn("private func completedWODRxValue(", view)
+        self.assertNotIn("private func completedStrengthRxValue(", view)
 
     def test_completed_bridge_does_not_replace_rx_with_logged_sets(self):
         domain = read("Packages/ReperaDomain/Sources/ReperaDomain/CompletedWorkoutEditing.swift")
