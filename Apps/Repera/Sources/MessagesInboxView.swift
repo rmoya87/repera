@@ -136,6 +136,7 @@ struct MessagesInboxView: View {
                 }
                 .navigationTitle("Nuevo mensaje")
                 .navigationBarTitleDisplayMode(.inline)
+                .ogTransparentNav()
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cerrar") { showCompose = false }

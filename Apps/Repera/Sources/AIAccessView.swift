@@ -226,6 +226,7 @@ struct AIAccessView: View {
         }
         .navigationTitle("Acceso IA")
         .navigationBarTitleDisplayMode(.large)
+        .ogTransparentNav()
         .sheet(isPresented: Binding(
             get: { createdToken != nil },
             set: { if !$0 { createdToken = nil } }
@@ -262,6 +263,7 @@ struct AIAccessView: View {
                 .padding(24)
                 .navigationTitle("Nuevo token")
                 .navigationBarTitleDisplayMode(.inline)
+                .ogTransparentNav()
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Cerrar") { createdToken = nil }
