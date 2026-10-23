@@ -87,6 +87,7 @@ fun ReperaMobileScreen(
     onInitializeLocal: () -> Unit,
     onLogSet: (Int, Double?, Double?, Boolean) -> Unit,
     onReviseSet: (String, Int, Double?) -> Unit,
+    onDeleteSet: (String) -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit,
     onImportJson: () -> Unit,
@@ -210,6 +211,7 @@ fun ReperaMobileScreen(
                                         busy = busy,
                                         onLogSet = onLogSet,
                                         onReviseSet = onReviseSet,
+                                        onDeleteSet = onDeleteSet,
                                         onNext = onNext,
                                         onFinish = onFinish
                                     )
@@ -427,6 +429,7 @@ private fun ActiveWorkoutCard(
     busy: Boolean,
     onLogSet: (Int, Double?, Double?, Boolean) -> Unit,
     onReviseSet: (String, Int, Double?) -> Unit,
+    onDeleteSet: (String) -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit
 ) {
@@ -465,11 +468,17 @@ private fun ActiveWorkoutCard(
                         " ${index + 1}: ${set.reps} reps" +
                         (set.weightKg?.let { " · $it kg" } ?: "") +
                         (set.rir?.let { " · RIR $it" } ?: ""))
-                    TextButton(onClick = {
-                        editingId = set.id
-                        editingQuantity = set.reps.toString()
-                        editingWeight = set.weightKg?.toString() ?: ""
-                    }, enabled = !busy) { Text("Editar") }
+                    Row {
+                        TextButton(onClick = {
+                            editingId = set.id
+                            editingQuantity = set.reps.toString()
+                            editingWeight = set.weightKg?.toString() ?: ""
+                        }, enabled = !busy) { Text("Editar") }
+                        TextButton(onClick = {
+                            if (editingId == set.id) editingId = null
+                            onDeleteSet(set.id)
+                        }, enabled = !busy) { Text("Eliminar") }
+                    }
                 }
             }
             if (editingId != null) {

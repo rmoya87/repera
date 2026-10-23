@@ -78,6 +78,12 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: gradle -p android :mobile:connectedDebugAndroidTest --no-daemon --stacktrace
+      - name: Explain failing emulator tests
+        if: failure()
+        run: |
+          echo "## Instrumented test failures" >> "$GITHUB_STEP_SUMMARY"
+          find android/mobile/build/outputs/androidTest-results -type f -name '*.xml' -print -exec grep -nE 'failure|error|testcase' {} \; || true
+          find android/mobile/build/outputs/androidTest-results -type f -name '*.xml' -exec sh -c 'for f; do grep -n -A 15 -B 2 "<failure" "$f" || true; done' sh {} + >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
       - name: Upload instrumentation reports
         if: always()
         uses: actions/upload-artifact@v4

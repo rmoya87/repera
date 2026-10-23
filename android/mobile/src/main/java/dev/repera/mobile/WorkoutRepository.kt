@@ -553,6 +553,39 @@ class WorkoutRepository(context: Context, googleId: String) {
         finishInPlace(state, requireActive(state))
     }
 
+    /** Undo a saved strength set without changing the identity or timestamp of any other set. */
+    @Synchronized fun deleteCurrentSet(setId: String): ActiveWorkout {
+        val state = requireState()
+        val session = requireActive(state)
+        val exercise = session.getJSONArray("exercises").getJSONObject(session.getInt("currentIndex"))
+        check(exercise.optString("blockKind") != "wod") { "Usa el editor WOD para estos movimientos" }
+        check(!exercise.optBoolean("isCompleted")) { "No se puede editar un ejercicio cerrado" }
+        val old = exercise.getJSONArray("loggedSets")
+        val kept = JSONArray()
+        var removed = false
+        for (i in 0 until old.length()) {
+            val entry = old.getJSONObject(i)
+            if (entry.optString("id") == setId) {
+                removed = true
+            } else {
+                kept.put(entry)
+            }
+        }
+        check(removed) { "Serie no encontrada" }
+        exercise.put("loggedSets", kept)
+        val work = (0 until kept.length()).sumOf { n ->
+            val set = kept.getJSONObject(n)
+            if (set.optString("phase", "work") == "warmup") 0 else {
+                set.optInt("reps") + (set.optJSONArray("drops")?.let { drops ->
+                    (0 until drops.length()).sumOf { drops.getJSONObject(it).optInt("reps") }
+                } ?: 0)
+            }
+        }
+        exercise.put("completedReps", work)
+        save(state)
+        return summarize(session)
+    }
+
     @Synchronized fun reviseCurrentSet(setId: String, quantity: Int, weightKg: Double?): ActiveWorkout {
         require(quantity >= 0 && (weightKg == null || (weightKg.isFinite() && weightKg >= 0)))
         val state = requireState()

@@ -151,6 +151,7 @@ class MainActivity : ComponentActivity() {
                 onReviseSet = { id, quantity, weight ->
                     runWorkoutAction { reviseCurrentSet(id, quantity, weight) }
                 },
+                onDeleteSet = { id -> runWorkoutAction { deleteCurrentSet(id) } },
                 onNext = { runWorkoutAction { next() } },
                 onFinish = { runWorkoutAction { finish() } },
                 onImportJson = { importJson.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
