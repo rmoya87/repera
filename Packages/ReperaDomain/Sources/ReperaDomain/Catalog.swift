@@ -28,7 +28,8 @@ public enum Catalog {
             (CatalogEnrichment.rows
                 + CatalogHalterofilia.rows
                 + CatalogGimnasia.rows
-                + CatalogCrossFit.rows).map { row in
+                + CatalogCrossFit.rows
+                + CatalogMovilidad.rows).map { row in
                 let localized = CatalogSpanish.localize(
                     name: row.name,
                     description: row.description,

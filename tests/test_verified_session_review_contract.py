@@ -45,7 +45,7 @@ class VerifiedSessionScoreContractTests(unittest.TestCase):
         self.assertIn("Text(\"NOTA GLOBAL\")",review)
         for label in ("Evolución personal","Cumplimiento","Rendimiento WOD"):
             self.assertIn(label,model)
-        self.assertIn("if let dayScore {",home)
+        self.assertIn("if let score {",home)
         self.assertIn("review.scoreBasis == .personalHistory",home)
         self.assertIn("private static let sessionReviewFormulaVersion = 11",
                       read("Apps/Repera/Sources/ReperaStore.swift"))

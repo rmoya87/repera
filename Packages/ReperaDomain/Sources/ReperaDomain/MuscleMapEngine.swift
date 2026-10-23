@@ -69,6 +69,8 @@ public enum MuscleMapEngine {
             guard ageHours >= 0, ageHours < 30 * 24 else { continue }
 
             for entry in workout.exercises {
+                // La movilidad no representa volumen de fuerza ni fatiga muscular.
+                guard entry.exercise.sportTag != "Movilidad" else { continue }
                 let hardSets = entry.loggedSets.reduce(0.0) { partial, set in
                     guard set.reps > 0 else { return partial }
                     if hardOnly {
@@ -154,6 +156,7 @@ public enum MuscleMapEngine {
             let when = workout.finishedAt ?? workout.startedAt ?? now
             guard when >= weekAgo else { continue }
             for entry in workout.exercises {
+                guard entry.exercise.sportTag != "Movilidad" else { continue }
                 let sets = entry.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }.count
                 guard sets > 0 else { continue }
                 for (slug, w) in MuscleTaxonomy.muscleWeights(for: entry.exercise) {

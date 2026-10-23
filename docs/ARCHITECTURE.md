@@ -1,6 +1,10 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-23 (editor de resultados WOD integrado en fuente existente de Play)
+Última actualización: 2026-10-23 (catálogo de movilidad, filtro y búsqueda bilingüe)
+
+## Series de movilidad (iOS)
+
+`CatalogMovilidad` incorpora 82 ejercicios ES/EN identificados con `sportTag = "Movilidad"`. `Exercise.isMobilityHold` distingue las posturas estáticas de los movimientos dinámicos. Ambos usan registro tiempo+reps mediante `ExerciseLoggingStyle.repsAndTime`, con UI que oculta reps para una postura sostenida. `PlannedSet.targetDurationSeconds` es opcional en Codable y sobrevive a la duplicación de planes; `WorkoutView` lo utiliza para precargar la duración editable sin contabilizarla como registro real hasta confirmar la serie. `LoggedSet.durationSeconds` conserva los segundos ejecutados. La evolución temporal soporta `ExerciseProgressMetric.bestHold` y `duration`, y `ProgressSnapshot` resume segundos reales y número de sesiones sin asignarlos a fatiga/e1RM. `ExerciseArt` bloquea coincidencias parciales con arte de fuerza y utiliza placeholder hasta que las 82 fichas tengan imágenes revisadas.
 
 ## Unidad de cardio en rutinas y sesiones
 
@@ -99,7 +103,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 | Módulo | Responsabilidad |
 |--------|-----------------|
 | `Models.swift` | `Exercise`, `Routine`, `RoutineBlock`, `WODMovement`, `WorkoutSession`, `AppState`…; `ExerciseLoggingStyle` (load / reps / comba / `machineWork` Cal·m) + `LoggedSet.quantityUnit` |
-| `Catalog*.swift` | Seed gym / CrossFit / halterofilia / gimnasia + ES (`CatalogSpanish` 188/188: desc + guía entrenador); deporte en `sportTag`, grupo = músculo principal |
+| `Catalog*.swift` | Seed gym / CrossFit / halterofilia / gimnasia / movilidad (82) + ES (`CatalogSpanish` 188/188: desc + guía entrenador); deporte en `sportTag`, grupo = músculo principal |
 | `CatalogWODs.swift` | Benchmarks conocidos (`WODTemplate` → `RoutineBlock` con `wodTemplateId`); `WODScoreBands` principiante→élite |
 | `WODBlockResult` / `WODResultCapture` | Score por bloque (reps AMRAP / tiempo For Time / series); `WorkoutSession.wodResults` |
 | `SessionReview` / `SessionReviewEngine` | Valoración post-entreno: nota por rendimiento (bandas / ritmos / typical) + ajuste ±2 con `ExerciseEquivalence` + ajuste ±2 con `SessionCardioEffort` (FC/kcal de Salud); `WorkoutSession.sessionReview` |
