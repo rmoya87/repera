@@ -45,6 +45,10 @@ class GoogleIdentityContractTests(unittest.TestCase):
         self.assertIn("client.auth.signOut()", signout)
         self.assertIn("UserDefaults.standard.set(false, forKey: googleSignedInKey)", signout)
         self.assertNotIn("removeObject(forKey: localOwnerUserIDKey)", signout)
+        self.assertIn("didExplicitlySignOut = true", signout)
+        self.assertIn("UserDefaults.standard.set(true, forKey: explicitSignOutKey)", signout)
+        self.assertIn("guard !didExplicitlySignOut else", auth)
+        self.assertIn("clearExplicitSignOutAfterVerifiedLogin()", auth)
 
     def test_login_and_account_ui_include_both_providers(self):
         login = source("Onboarding/OnboardingFlowView.swift")
@@ -72,6 +76,7 @@ class GoogleIdentityContractTests(unittest.TestCase):
         self.assertIn("advance(to: .appleSignIn)", snippet)
         app = source("ReperaApp.swift")
         self.assertIn("businessAuth.isGoogleSignedIn", app)
+        self.assertIn("guard !businessAuth.didExplicitlySignOut else { return false }", app)
 
 
 if __name__ == "__main__":

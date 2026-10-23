@@ -291,7 +291,8 @@ struct ReperaApp: App {
 
     /// Apple o Google verificado + Supabase + onboarding hecho.
     private var canEnterMainApp: Bool {
-        AuthSessionLaunchPolicy.decide(
+        guard !businessAuth.didExplicitlySignOut else { return false }
+        return AuthSessionLaunchPolicy.decide(
             .init(
                 appleSignedIn: appleAuth.isSignedIn,
                 hasCachedSupabaseSession: businessAuth.hasCachedSupabaseSession,
