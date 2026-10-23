@@ -37,130 +37,59 @@ struct ProgressEmptyChart: View {
     }
 }
 
-/// Real Apple Health heart-rate zones for the most recent finished workout.
-/// The optional 0...10 number describes *intensity*, never quality/performance.
+/// Subcontenido de Cardio: distribución de zonas del último entreno,
+/// basada en Apple Salud. Nunca calcula pulsaciones ni notas ficticias en Pro.
 struct ProgressHeartZonesCard: View {
     let workouts: [WorkoutSession]
     var isTeaserPreview: Bool = false
     @State private var zones: HealthKitStore.WorkoutHeartZones?
+
+    private struct ZoneSlice: Identifiable {
+        let index: Int
+        let seconds: Double
+        var id: Int { index }
+    }
 
     private var latest: WorkoutSession? {
         workouts.filter { $0.finishedAt != nil }.max {
             ($0.finishedAt ?? .distantPast) < ($1.finishedAt ?? .distantPast)
         }
     }
+
     private let colors: [Color] = [OG.blue, OG.accent, OG.orange, OG.red, OG.red]
 
     var body: some View {
         Group {
             if isTeaserPreview {
-                // Misma composición que la tarjeta real, pero con muestras
-                // inventadas y una etiqueta inequívoca de ejemplo.
-                let previewSeconds: [Double] = [120, 420, 720, 570, 270]
-                let total = previewSeconds.reduce(0, +)
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        OGCardSectionTitle(title: "Zonas cardíacas · último entreno")
-                        Spacer()
-                        Text("Ejemplo")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(OG.label2)
-                            .accessibilityLabel("Ejemplo, zonas ficticias")
-                    }
-                    OGCard(padding: 10) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Entrenamiento de ejemplo · 35 min")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(OG.label)
-                            GeometryReader { geometry in
-                                let usableWidth = max(1.0, geometry.size.width - CGFloat((previewSeconds.count - 1) * 2))
-                                HStack(spacing: 2) {
-                                    ForEach(previewSeconds.indices, id: \.self) { index in
-                                        RoundedRectangle(cornerRadius: 3)
-                                            .fill(colors[index % colors.count])
-                                            .frame(width: usableWidth * CGFloat(previewSeconds[index] / total))
-                                    }
-                                }
-                            }
-                            .frame(height: 16)
-                            HStack(spacing: 6) {
-                                ForEach(previewSeconds.indices, id: \.self) { index in
-                                    VStack(spacing: 4) {
-                                        Text("Z\(index + 1)")
-                                            .font(.caption2.weight(.semibold))
-                                            .foregroundStyle(colors[index % colors.count])
-                                        Text("\(Int((100 * previewSeconds[index] / total).rounded()))%")
-                                            .font(.caption2.monospacedDigit())
-                                            .foregroundStyle(OG.label2)
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                }
-                            }
-                            Text("Carga cardiovascular: 7/10 · intensidad, no rendimiento")
-                                .font(.caption.weight(.medium))
-                                .foregroundStyle(OG.label)
-                            Text("Ejemplo · 100% del tiempo cubierto")
-                                .font(.caption)
-                                .foregroundStyle(OG.label3)
-                        }
-                    }
-                }
-                .accessibilityLabel("Ejemplo de zonas cardíacas, datos ficticios.")
+                zoneContent(
+                    title: "Entrenamiento de ejemplo · 35 min",
+                    slices: [120, 420, 720, 570, 270].enumerated().map {
+                        ZoneSlice(index: $0.offset + 1, seconds: Double($0.element))
+                    },
+                    intensity: 7,
+                    coverage: nil,
+                    isExample: true
+                )
             } else if let zones {
-                let total = max(1.0, zones.zones.reduce(0) { $0 + $1.seconds })
-                VStack(alignment: .leading, spacing: 8) {
-                    OGCardSectionTitle(title: "Zonas cardíacas · último entreno")
-                    OGCard(padding: 10) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text(zones.title)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(OG.label)
-                            GeometryReader { geometry in
-                                let usableWidth = max(1.0, geometry.size.width - CGFloat(max(0, zones.zones.count - 1) * 2))
-                                HStack(spacing: 2) {
-                                    ForEach(zones.zones) { zone in
-                                        RoundedRectangle(cornerRadius: 3)
-                                            .fill(colors[(zone.index - 1) % colors.count])
-                                            .frame(width: usableWidth * CGFloat(zone.seconds / total))
-                                    }
-                                }
-                            }
-                            .frame(height: 16)
-                            HStack(spacing: 6) {
-                                ForEach(zones.zones) { zone in
-                                    VStack(spacing: 4) {
-                                        Text("Z\(zone.index)")
-                                            .font(.caption2.weight(.semibold))
-                                            .foregroundStyle(colors[(zone.index - 1) % colors.count])
-                                        Text("\(Int((100 * zone.seconds / total).rounded()))%")
-                                            .font(.caption2.monospacedDigit())
-                                            .foregroundStyle(OG.label2)
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                }
-                            }
-                            if let intensity = zones.intensityLoad {
-                                Text("Carga cardiovascular: \(intensity)/10 · intensidad, no rendimiento")
-                                    .font(.caption.weight(.medium))
-                                    .foregroundStyle(OG.label)
-                            } else {
-                                Text("Cobertura cardíaca insuficiente para estimar la intensidad.")
-                                    .font(.caption).foregroundStyle(OG.label3)
-                            }
-                            Text("\(zones.source) · \(Int((zones.coveredFraction * 100).rounded()))% del tiempo cubierto. La nota v11 no cambia por el pulso.")
-                                .font(.caption).foregroundStyle(OG.label3)
-                        }
-                    }
-                }
+                zoneContent(
+                    title: zones.title,
+                    slices: zones.zones.map {
+                        ZoneSlice(index: $0.index, seconds: $0.seconds)
+                    },
+                    intensity: zones.intensityLoad,
+                    coverage: "\(zones.source) · \(Int((zones.coveredFraction * 100).rounded()))% del tiempo cubierto",
+                    isExample: false
+                )
             } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    OGCardSectionTitle(title: "Zonas cardíacas · último entreno")
-                    OGCard {
-                        ProgressEmptyChart(
-                            message: "Sin zonas cardíacas registradas para el último entreno."
-                        )
-                    }
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Zonas cardíacas")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(OG.label)
+                    Text("Sin zonas registradas en Apple Salud para el último entreno.")
+                        .font(.caption)
+                        .foregroundStyle(OG.label2)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .task(id: latest?.id) {
@@ -170,11 +99,117 @@ struct ProgressHeartZonesCard: View {
             zones = await HealthKitStore.shared.heartZones(for: latest)
         }
     }
+
+    private func zoneContent(
+        title: String,
+        slices: [ZoneSlice],
+        intensity: Int?,
+        coverage: String?,
+        isExample: Bool
+    ) -> some View {
+        let total = max(1.0, slices.reduce(0) { $0 + $1.seconds })
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Zonas cardíacas")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(OG.label)
+                Spacer(minLength: 8)
+                if isExample {
+                    Text("Ejemplo")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(OG.label2)
+                }
+            }
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(OG.label2)
+
+            // El porcentaje pertenece a su barra, no a una fila separada.
+            GeometryReader { geometry in
+                let usableWidth = max(0, geometry.size.width - CGFloat(max(0, slices.count - 1) * 2))
+                HStack(spacing: 2) {
+                    ForEach(slices) { slice in
+                        let fraction = max(0, slice.seconds / total)
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(colors[(max(1, slice.index) - 1) % colors.count])
+                            if slice.seconds > 0 {
+                                Text("\(Int((100 * fraction).rounded()))%")
+                                    .font(.system(size: 10, weight: .bold).monospacedDigit())
+                                    .foregroundStyle(.white)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.5)
+                                    .padding(.horizontal, 1)
+                            }
+                        }
+                        .frame(width: usableWidth * CGFloat(fraction))
+                        .accessibilityLabel("Zona \(slice.index), \(Int((100 * fraction).rounded())) por ciento")
+                    }
+                }
+            }
+            .frame(height: 28)
+
+            HStack(spacing: 6) {
+                ForEach(slices) { slice in
+                    Text("Z\(slice.index)")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(colors[(max(1, slice.index) - 1) % colors.count])
+                        .frame(maxWidth: .infinity)
+                }
+            }
+
+            if let intensity {
+                HStack(spacing: 14) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Intensidad cardiovascular")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(OG.label)
+                        Text("Carga cardíaca, no nota de rendimiento")
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                    }
+                    Spacer(minLength: 0)
+                    ZStack {
+                        Circle()
+                            .stroke(OG.surface3, lineWidth: 5)
+                        Circle()
+                            .trim(from: 0, to: CGFloat(min(10, max(0, intensity))) / 10)
+                            .stroke(OG.accent, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                        VStack(spacing: 0) {
+                            Text("\(intensity)")
+                                .font(.system(size: 22, weight: .bold).monospacedDigit())
+                                .foregroundStyle(OG.label)
+                            Text("/10")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(OG.label2)
+                        }
+                    }
+                    .frame(width: 58, height: 58)
+                    .accessibilityLabel("Intensidad cardiovascular: \(intensity) de 10")
+                }
+                .padding(12)
+                .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            } else {
+                Text("Sin cobertura suficiente para valorar la intensidad cardiovascular.")
+                    .font(.caption)
+                    .foregroundStyle(OG.label2)
+            }
+
+            if let coverage {
+                Text(coverage)
+                    .font(.caption)
+                    .foregroundStyle(OG.label3)
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
 }
 
 /// Cardio: FC mín / media / máx (series ya preparadas).
 struct ProgressCardioChartCard: View {
     var prepared: ProgressPreparedCharts
+    var workouts: [WorkoutSession] = []
     @State private var selectedDate: Date?
 
     private var points: [ProgressPreparedCharts.HeartRatePlotPoint] { prepared.heartRate }
@@ -336,6 +371,12 @@ struct ProgressCardioChartCard: View {
                             yRange: 60.0...160.0
                         )
                     }
+                    Divider().opacity(0.35)
+                    // Integrado debajo de los tres tiles FC: nunca otra tarjeta.
+                    ProgressHeartZonesCard(
+                        workouts: workouts,
+                        isTeaserPreview: prepared.isTeaserPreview
+                    )
                 }
             }
         }
