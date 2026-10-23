@@ -138,7 +138,7 @@ fun ReperaMobileScreen(
                 .filter { it.second >= 0 }
                 .sortedWith(compareByDescending<Pair<ExerciseEntry, Int>> { it.second }
                     .thenBy { it.first.name })
-                .take(100).map { it.first }.toList()
+                .map { it.first }.toList()
         }
         Scaffold(
             topBar = { TopAppBar(title = { Text("repera") }) },
