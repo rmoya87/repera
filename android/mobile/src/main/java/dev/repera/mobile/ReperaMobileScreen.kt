@@ -571,7 +571,10 @@ private fun WodScoreCard(
     LaunchedEffect(active.id, active.index, suggestedInterval) {
         if (!intervalEdited) intervalInput = suggestedInterval.toString()
     }
-    var quantityInput by remember(active.id, active.index, selectedMovement) { mutableStateOf("") }
+    var quantityInput by remember(active.id, active.index, selectedMovement) {
+        val first = wod.movements.filter { !it.isRest }.getOrNull(selectedMovement)
+        mutableStateOf((first?.calories ?: first?.meters ?: first?.reps)?.toString() ?: "")
+    }
     var weightInput by remember(active.id, active.index, selectedMovement) { mutableStateOf("") }
     val scoreIsTime = wod.capture == "ELAPSED_TIME"
     val valid = if (scoreIsTime) elapsed != null else
