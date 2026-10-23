@@ -18,7 +18,7 @@ class LocalSnapshotStore(context: Context, uniqueGoogleId: String) {
     private val remoteBackup = AtomicFile(File(folder, "remote_before_upload.json"))
 
     @Synchronized fun read(): ByteArray? =
-        if (stateFile.exists()) stateFile.openRead().use { it.readBytes() } else null
+        if (stateFile.baseFile.exists()) stateFile.openRead().use { it.readBytes() } else null
 
     @Synchronized fun write(bytes: ByteArray) {
         validate(bytes)
