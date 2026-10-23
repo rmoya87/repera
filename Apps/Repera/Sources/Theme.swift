@@ -302,18 +302,11 @@ extension OGPageHeader where Leading == EmptyView {
     }
 }
 
-/// Mantener el MISMO estilo agrupado en portrait y landscape.
-/// Los márgenes del scroll contenido deben ser horizontales: establecer
-/// top/bottom a cero via .all desactiva el espaciado nativo de secciones.
-/// iPhone horizontal tiene altura compacta y requiere un margen extra para
-/// preservar aire y esquinas redondeadas del insetGrouped.
+/// Margen único de 16 pt en retrato y paisaje, el mismo que Progreso.
+/// No sumar márgenes por size class: Diario, Crear, Play y Ejercicios
+/// quedaban desalineados con las tarjetas de Progreso al girar el teléfono.
+/// Mantener la List insetGrouped nativa conserva las esquinas de secciones.
 private struct OGListChromeModifier: ViewModifier {
-    @Environment(\.verticalSizeClass) private var verticalSizeClass
-
-    private var horizontalMargin: CGFloat {
-        verticalSizeClass == .compact ? OG.pad + 12 : OG.pad
-    }
-
     func body(content: Content) -> some View {
         content
             .listStyle(.insetGrouped)
@@ -323,7 +316,7 @@ private struct OGListChromeModifier: ViewModifier {
             }
             .listRowBackground(OG.surface)
             .tint(OG.accent)
-            .contentMargins(.horizontal, horizontalMargin, for: .scrollContent)
+            .contentMargins(.horizontal, OG.pad, for: .scrollContent)
             .listSectionSpacing(12)
     }
 }
