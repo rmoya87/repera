@@ -225,41 +225,10 @@ struct PlanView: View {
             }
         }
 
-        let datedPlans = store.state.routines
-            .filter { $0.scheduledDate != nil }
-            .sorted { ($0.scheduledDate ?? .distantFuture) < ($1.scheduledDate ?? .distantFuture) }
+        // Diario únicamente muestra su plan semanal y publicaciones profesionales.
+        // Rutinas con scheduledDate (entrenos sueltos de Inicio/IA) NO pertenecen
+        // necesariamente a la programación del Diario y no deben aparecer aquí.
         Section {
-            if !datedPlans.isEmpty {
-                ForEach(datedPlans) { routine in
-                    Button {
-                        onOpenRoutine(routine)
-                    } label: {
-                        HStack(spacing: 14) {
-                            Image(systemName: "calendar.badge.clock")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(OG.accent)
-                                .frame(width: 44, height: 44)
-                                .background(OG.surface2, in: Circle())
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text(routine.title)
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(OG.label)
-                                if let date = routine.scheduledDate {
-                                    Text(date.formatted(date: .abbreviated, time: .omitted))
-                                        .font(.system(size: 13))
-                                        .foregroundStyle(OG.label2)
-                                }
-                                scheduleChips(for: routine)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(OG.label3)
-                        }
-                        .padding(.vertical, 5)
-                    }
-                }
-            }
             ForEach(1...7, id: \.self) { day in
                 let routine = store.routine(forWeekday: day)
                 Button {
