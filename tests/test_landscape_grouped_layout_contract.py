@@ -13,19 +13,19 @@ def read(name: str) -> str:
 
 
 class LandscapeGroupedLayoutTests(unittest.TestCase):
-    def test_shared_list_uses_native_inset_grouped_and_landscape_margins(self):
+    def test_shared_list_matches_progress_margins_in_both_orientations(self):
         theme = read("Theme.swift")
         modifier = theme.split("private struct OGListChromeModifier:", 1)[1].split(
             "extension View {", 1
         )[0]
-        self.assertIn("@Environment(\\.verticalSizeClass)", modifier)
-        self.assertIn("verticalSizeClass == .compact ? OG.pad + 12 : OG.pad", modifier)
         self.assertIn(".listStyle(.insetGrouped)", modifier)
-        self.assertIn(".contentMargins(.horizontal, horizontalMargin, for: .scrollContent)", modifier)
+        self.assertIn(".contentMargins(.horizontal, OG.pad, for: .scrollContent)", modifier)
         self.assertIn(".listSectionSpacing(12)", modifier)
         self.assertIn("OG.bg.ignoresSafeArea()", modifier)
+        self.assertNotIn("verticalSizeClass == .compact", modifier)
+        self.assertNotIn("OG.pad + 12", modifier)
         self.assertNotIn(".contentMargins(.all", modifier)
-        self.assertNotIn(".padding(.horizontal, horizontalMargin)", modifier)
+        self.assertNotIn(".padding(.horizontal", modifier)
         self.assertNotIn(".clipShape(", modifier)
 
     def test_editor_and_play_share_native_grouped_sections(self):
@@ -69,6 +69,20 @@ class LandscapeGroupedLayoutTests(unittest.TestCase):
             self.assertIn(".ogListChrome()", read(filename), filename)
         theme = read("Theme.swift")
         self.assertIn("func ogListChrome() -> some View {\n        modifier(OGListChromeModifier())", theme)
+
+    def test_home_calendar_is_centered_and_all_seven_days_fit_vertically(self):
+        home = read("HomeView.swift")
+        calendar = home.split("private var weekSelectorCard: some View {", 1)[1].split(
+            "private func calendarDayColumn(", 1
+        )[0]
+        self.assertIn("let side = min(", calendar)
+        self.assertIn("weekCarouselHeight - 8", calendar)
+        self.assertIn("(geo.size.width - spacing * 6) / 7", calendar)
+        self.assertIn(".frame(maxWidth: calendarVisibleWidth)", calendar)
+        self.assertIn(".frame(maxWidth: .infinity, alignment: .center)", calendar)
+        self.assertIn(".padding(.horizontal, OG.pad)", calendar)
+        self.assertIn("7 * max(1, weekCarouselHeight - 8) + 6 * 4", home)
+        self.assertIn("frame(height: weekCarouselHeight)", calendar)
 
     def test_home_and_exercise_hero_keep_intentional_edge_to_edge(self):
         home = read("HomeView.swift")
