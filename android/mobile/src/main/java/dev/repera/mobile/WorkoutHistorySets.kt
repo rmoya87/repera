@@ -12,7 +12,8 @@ import org.json.JSONObject
  */
 internal object WorkoutHistorySets {
     /** Effective positive working sets for statistics; never writes inferred sets to disk. */
-    data class EffectiveSet(val reps: Int, val weightKg: Double?, val unit: String)
+    data class EffectiveSet(val reps: Int, val weightKg: Double?, val unit: String,
+        val durationSeconds: Int? = null)
 
     fun effectiveWorkSets(workout: JSONObject, exercise: JSONObject): List<EffectiveSet> {
         val logged = exercise.optJSONArray("loggedSets") ?: JSONArray()
@@ -20,9 +21,12 @@ internal object WorkoutHistorySets {
             val set = logged.getJSONObject(n)
             if (set.optString("phase", "work") == "warmup" || set.optInt("reps") <= 0)
                 null else EffectiveSet(set.optInt("reps"),
-                    valueOrNull(set, "weightKg"), resolvedUnit(set, exercise))
+                    valueOrNull(set, "weightKg"), resolvedUnit(set, exercise),
+                    set.optInt("durationSeconds").takeIf { it > 0 })
         }
         if (actual.isNotEmpty()) return actual
+        // La movilidad no puede generar segundos reales desde una prescripción sin apuntar.
+        if (exercise.optJSONObject("exercise")?.optString("sportTag") == "Movilidad") return emptyList()
         // A score-only WOD has no work-set history. Its prescribed movement targets
         // must not become artificial confirmed sets after the global score is saved.
         if (exercise.optString("blockKind") == "wod") return emptyList()
@@ -51,13 +55,15 @@ internal object WorkoutHistorySets {
                 quantityUnit = resolvedUnit(set, exercise),
                 weight = valueOrNull(set, "weightKg"),
                 rir = valueOrNull(set, "rir"),
+                durationSeconds = set.optInt("durationSeconds").takeIf { it > 0 },
                 warmup = set.optString("phase", "work") == "warmup"
             )
         }
         val finished = workout.optString("phase") == "finished" ||
             (workout.has("finishedAt") && !workout.isNull("finishedAt") &&
                 workout.optString("finishedAt").isNotBlank())
-        if (validWork || !finished || exercise.optString("blockKind") == "wod") return actualLines
+        if (validWork || !finished || exercise.optString("blockKind") == "wod" ||
+            exercise.optJSONObject("exercise")?.optString("sportTag") == "Movilidad") return actualLines
 
         val planned = exercise.optJSONArray("plannedSets") ?: return actualLines
         val accepted = (0 until planned.length()).mapNotNull { n ->
@@ -75,6 +81,7 @@ internal object WorkoutHistorySets {
                 quantityUnit = resolvedUnit(set, exercise),
                 weight = valueOrNull(set, "targetWeightKg"),
                 rir = valueOrNull(set, "targetRir"),
+                durationSeconds = null,
                 warmup = false
             )
         }
@@ -98,9 +105,10 @@ internal object WorkoutHistorySets {
     }
 
     private fun line(reps: Int, quantityUnit: String, weight: Double?, rir: Double?,
-                     warmup: Boolean): String = buildString {
+                     durationSeconds: Int? = null, warmup: Boolean): String = buildString {
         if (warmup) append("Calentamiento · ")
         append("$reps $quantityUnit")
+        if (durationSeconds != null) append(" · ${durationSeconds}s")
         if (weight != null) append(" · $weight kg")
         if (rir != null) append(" · RIR $rir")
     }
