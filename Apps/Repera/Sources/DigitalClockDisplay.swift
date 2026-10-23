@@ -1,3 +1,4 @@
+import AVKit
 import ReperaDomain
 import SwiftUI
 
@@ -135,7 +136,54 @@ private struct SevenSegmentDigit: View {
     }
 }
 
-/// Pantalla completa del reloj: imagen del ejercicio, display LED y botón Comenzar / controles.
+/// Acceso nativo y seguro al enrutamiento de audio del dispositivo.
+/// Las APIs públicas de iOS no permiten leer/controlar el Now Playing de
+/// Spotify, Podcasts u otras apps. No se fabrican metadatos ni comandos.
+private struct SystemAudioRoutePicker: UIViewRepresentable {
+    func makeUIView(context: Context) -> AVRoutePickerView {
+        let picker = AVRoutePickerView(frame: .zero)
+        picker.tintColor = .white
+        picker.activeTintColor = .systemGreen
+        picker.prioritizesVideoDevices = false
+        return picker
+    }
+
+    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
+}
+
+/// Mantiene el acceso a AirPlay/salida nativa sin apropiarse de otra sesión
+/// multimedia. La reproducción de terceros sigue en Centro de control.
+private struct TimerSystemAudioPanel: View {
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "music.note")
+                .font(.system(size: 22, weight: .medium))
+                .foregroundStyle(.white)
+                .frame(width: 42, height: 42)
+                .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Audio del iPhone")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                Text("Reproducción: Centro de control")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.68))
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 2)
+            SystemAudioRoutePicker()
+                .frame(width: 42, height: 42)
+                .accessibilityLabel("Elegir salida de audio AirPlay")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+        .accessibilityElement(children: .contain)
+    }
+}
+
+/// Reloj del bloque para orientación vertical u horizontal.
+/// Botones siempre visibles; solo se muestra «Terminar» si el formato lo permite.
 struct BlockTimerScreen: View {
     var title: String
     var subtitle: String
@@ -148,41 +196,40 @@ struct BlockTimerScreen: View {
     var primaryTitle: String
     var onPrimary: () -> Void
     var onClose: () -> Void
-    var onSkip: (() -> Void)?
-    /// For Time count-up: botón Terminar.
     var onFinish: (() -> Void)? = nil
     var showFinish: Bool = false
 
     @Environment(\.verticalSizeClass) private var verticalSizeClass
-
     private var isLandscape: Bool { verticalSizeClass == .compact }
 
-    /// Arriba/abajo sin ejercicio: reloj y Comenzar/Parar centrados (sobre todo en horizontal).
-    private var centersChrome: Bool { exercise == nil }
-
     var body: some View {
-        GeometryReader { geo in
-            let digitH: CGFloat = isLandscape
-                ? min(centersChrome ? 140 : 120, geo.size.height * (centersChrome ? 0.38 : 0.42))
-                : min(centersChrome ? 100 : 88, geo.size.width * 0.2)
+        GeometryReader { geometry in
+            let landscape = isLandscape || geometry.size.width > geometry.size.height
+            let sideWidth = landscape && exercise != nil
+                ? min(260, geometry.size.width * 0.31)
+                : 0
+            let availableClockWidth = landscape
+                ? geometry.size.width - sideWidth - (exercise == nil ? 48 : 66)
+                : geometry.size.width - 32
+            // Dos pares LED + separador ocupan aproximadamente 2,9x su alto.
+            // Aprovechar ancho Y alto; no dejar el reloj pequeño en retrato.
+            let digitHeight = min(
+                landscape ? 165 : 138,
+                max(55, availableClockWidth / 3.05),
+                geometry.size.height * (landscape ? 0.36 : 0.235)
+            )
 
             ZStack {
                 Color.black.ignoresSafeArea()
-
-                if isLandscape {
-                    if centersChrome {
-                        centeredLandscapeLayout(digitHeight: digitH)
-                    } else {
-                        landscapeWithExercise(digitHeight: digitH, size: geo.size)
-                    }
+                if landscape {
+                    landscapeLayout(digitHeight: digitHeight, availableWidth: geometry.size.width)
                 } else {
-                    portraitLayout(digitHeight: digitH)
+                    portraitLayout(digitHeight: digitHeight)
                 }
             }
         }
     }
 
-    /// Top bar: X liquid glass alineada con el título grande.
     private var topBar: some View {
         HStack(alignment: .center, spacing: 12) {
             OGToolbarGlassButton(
@@ -194,7 +241,7 @@ struct BlockTimerScreen: View {
             )
             if !title.isEmpty {
                 Text(title)
-                    .font(.system(size: isLandscape ? 26 : 28, weight: .bold))
+                    .font(.system(size: isLandscape ? 25 : 28, weight: .bold))
                     .foregroundStyle(.white)
                     .tracking(-0.4)
                     .lineLimit(1)
@@ -206,141 +253,145 @@ struct BlockTimerScreen: View {
         .padding(.top, 8)
     }
 
+    private var exerciseDetails: some View {
+        Group {
+            if let exercise {
+                VStack(alignment: isLandscape ? .leading : .center, spacing: 10) {
+                    ExerciseThumb(exercise: exercise, size: isLandscape ? 72 : 66)
+                    Text(exercise.name)
+                        .font(.system(size: isLandscape ? 17 : 18, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(isLandscape ? .leading : .center)
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.8)
+                }
+                .frame(maxWidth: .infinity, alignment: isLandscape ? .leading : .center)
+                .accessibilityElement(children: .combine)
+            }
+        }
+    }
+
     private func portraitLayout(digitHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
             topBar
-
-            if let exercise {
-                VStack(spacing: 10) {
-                    ExerciseThumb(exercise: exercise, size: 72)
-                    Text(exercise.name)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-                }
-                .padding(.top, 16)
-            }
-
             Spacer(minLength: 8)
-
-            clockBlock(digitHeight: digitHeight)
-
-            if centersChrome {
-                controls
-                    .frame(maxWidth: 360)
-                    .padding(.top, 28)
-                    .padding(.horizontal, 24)
-                Spacer(minLength: 8)
-            } else {
-                Spacer(minLength: 8)
-                controls
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 28)
+            VStack(spacing: 22) {
+                clockBlock(digitHeight: digitHeight)
+                // El movimiento aparece DESPUÉS del reloj, no en el encabezado.
+                if exercise != nil {
+                    exerciseDetails
+                }
             }
-        }
-        .padding(.bottom, centersChrome ? 28 : 0)
-    }
-
-    private func centeredLandscapeLayout(digitHeight: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            topBar
-            Spacer(minLength: 4)
-            clockBlock(digitHeight: digitHeight)
-            controls
-                .frame(maxWidth: 320)
-                .padding(.top, 20)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 12)
+            Spacer(minLength: 10)
+            TimerSystemAudioPanel()
                 .padding(.horizontal, 24)
-            Spacer(minLength: 4)
+                .padding(.bottom, 12)
+            controls(horizontal: false)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 18)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.bottom, 12)
     }
 
-    private func landscapeWithExercise(digitHeight: CGFloat, size: CGSize) -> some View {
+    private func landscapeLayout(digitHeight: CGFloat, availableWidth: CGFloat) -> some View {
         VStack(spacing: 0) {
             topBar
-            HStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 12) {
-                    if let exercise {
-                        ExerciseThumb(exercise: exercise, size: 64)
-                        Text(exercise.name)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .lineLimit(3)
+            HStack(alignment: .top, spacing: 22) {
+                if exercise != nil {
+                    VStack(alignment: .leading, spacing: 12) {
+                        exerciseDetails
+                        Spacer(minLength: 8)
+                        TimerSystemAudioPanel()
                     }
+                    .frame(width: min(260, availableWidth * 0.31), alignment: .leading)
+                    .padding(.leading, 20)
+                    .padding(.bottom, 12)
+                }
+                VStack(spacing: 14) {
                     Spacer(minLength: 0)
-                    controls
-                }
-                .frame(width: min(220, size.width * 0.28), alignment: .leading)
-                .padding(.leading, 20)
-                .padding(.vertical, 12)
-
-                VStack(spacing: 10) {
-                    Spacer()
                     clockBlock(digitHeight: digitHeight)
-                    Spacer()
+                    // Pausar/Continuar + Terminar en UNA fila bajo el reloj.
+                    controls(horizontal: true)
+                        .frame(maxWidth: 500)
+                    Spacer(minLength: 0)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.trailing, 16)
+                .padding(.horizontal, 12)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .frame(maxHeight: .infinity)
         }
     }
 
     private func clockBlock(digitHeight: CGFloat) -> some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             DigitalClockDisplay(
                 roundNumber: roundNumber,
                 totalSeconds: displaySeconds,
                 digitHeight: digitHeight
             )
-            .padding(.horizontal, 12)
-
+            .frame(maxWidth: .infinity)
             if !subtitle.isEmpty || (totalRounds != nil && roundNumber != nil) {
                 HStack(spacing: 8) {
                     if let totalRounds, let roundNumber {
                         Text("\(roundNumber)/\(totalRounds)")
-                            .font(.system(size: isLandscape ? 14 : 15, weight: .semibold).monospacedDigit())
-                            .foregroundStyle(OG.label2)
+                            .font(.system(size: 14, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(.white.opacity(0.6))
                     }
                     if !subtitle.isEmpty {
                         Text(subtitle)
-                            .font(.system(size: isLandscape ? 14 : 15, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(OG.accent)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
                     }
                 }
             }
         }
+        .accessibilityElement(children: .contain)
     }
 
-    private var controls: some View {
-        VStack(spacing: 12) {
-            Button(action: onPrimary) {
-                Text(primaryTitle)
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 54)
-                    .background(.white, in: Capsule())
-            }
-            .buttonStyle(.plain)
+    private var pauseOrResumeButton: some View {
+        Button(action: onPrimary) {
+            Text(primaryTitle)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(maxWidth: .infinity, minHeight: 54)
+                .background(.white, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(primaryTitle + " temporizador")
+    }
 
+    private var finishButton: some View {
+        Group {
             if showFinish, let onFinish {
                 Button(action: onFinish) {
                     Text("Terminar")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 48)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity, minHeight: 54)
                         .background(OG.accent, in: Capsule())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Terminar bloque")
             }
+        }
+    }
 
-            if let onSkip, isRunning {
-                Button("Saltar", action: onSkip)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(OG.label2)
+    private func controls(horizontal: Bool) -> some View {
+        Group {
+            if horizontal {
+                HStack(spacing: 12) {
+                    pauseOrResumeButton
+                    finishButton
+                }
+            } else {
+                VStack(spacing: 12) {
+                    pauseOrResumeButton
+                    finishButton
+                }
             }
         }
     }
