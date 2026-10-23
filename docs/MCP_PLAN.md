@@ -1,5 +1,15 @@
 # Repera IA — tokens personales, planificación y MCP
 
+
+## Planificación HYROX y rendimiento cardio (23/10/2026)
+
+- Herramienta de lectura `get_hyrox_training_reference`: secuencia oficial de 8 pares carrera (1000 m) + estación; nueve nombres de movimiento (incluida carrera), claves de catálogo, distancia/reps y material. Remite a `https://hyrox.com/the-fitness-race/`. **No infiere los pesos** sin categoría/división y normativa aplicable.
+- Estaciones: SkiErg 1000 m, Sled Push 50 m, Sled Pull 50 m, Burpee Broad Jump 80 m, RowErg 1000 m, Farmers Carry 200 m, Sandbag Lunges 100 m y Wall Balls 100 repeticiones. La sesión completa se representa mediante WOD `forTime` con **16 movimientos intercalados**, no 9 rondas ni calorías convertidas a metros.
+- Búsqueda `search_training_exercises` y `search_training_exercises_enriched`: consulta `HYROX` devuelve las nueve entradas estables, manteniendo CrossFit y otras etiquetas originales como origen. Se añaden solo `catalog:Burpee Broad Jump` y `catalog:Sandbag Lunges` a Supabase con metadatos y alias ES/EN; el resto reutiliza claves existentes.
+- `get_exercise_progress` ofrece `meters`, `calories`, `repetitions` separados con máximo/total y control de unidades desconocidas. `get_exercise_performance` conserva unidad y duración de cada serie y solo estima 1RM para repeticiones cargadas; nunca para metros ni calorías.
+- Para crear un plan: consultar `get_training_profile`, `get_training_calendar`, `get_training_analysis`, `get_exercise_performance` y `get_hyrox_training_reference`; preguntar fecha de la competición, individual/dobles, categoría, nivel actual, frecuencia disponible, equipamiento y limitaciones. Crear macroplan con `create_training_program` y luego sesiones fechadas (`create_training_plan`); comprobar que no se pisan calendarios ocupados.
+- Límite real: registrar estaciones y planificar distancia/repeticiones **no** equivale a disponer de cronometraje por estación, parciales automáticos, VO₂max, umbrales de lactato o estado clínico. No inventar datos. La Edge Function se debe desplegar y comprobar tras fusionar; el código en GitHub no actualiza por sí solo la función publicada.
+
 ## Contrato WOD por formato (22/10/2026)
 
 El MCP publica `get_wod_format_contract` como herramienta de **solo lectura**, con correspondencia explícita entre `WODFormat.resultCapture` de iOS, resultado principal y temporizador:
