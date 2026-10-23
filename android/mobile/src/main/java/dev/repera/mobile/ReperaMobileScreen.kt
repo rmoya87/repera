@@ -278,6 +278,30 @@ fun ReperaMobileScreen(
                             }
                         }
                     }
+                    if (overview?.weeklyMuscleGroups?.isNotEmpty() == true) {
+                        item {
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Column(modifier = Modifier.padding(18.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text("Series por grupo · esta semana",
+                                        style = MaterialTheme.typography.titleMedium)
+                                    val groups = overview.weeklyMuscleGroups.take(8)
+                                    val ceiling = groups.maxOf { it.sets }.coerceAtLeast(1).toFloat()
+                                    groups.forEach { group ->
+                                        Text("${group.group} · ${group.sets} series",
+                                            style = MaterialTheme.typography.bodySmall)
+                                        LinearProgressIndicator(
+                                            progress = { group.sets.toFloat() / ceiling },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            color = brandGreen
+                                        )
+                                    }
+                                    Text("Distribución por grupo del catálogo; no mide fatiga ni recuperación.",
+                                        style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                    }
                     if (recent.isNotEmpty()) {
                         item {
                             Text("Resultados recientes", style = MaterialTheme.typography.titleMedium)
