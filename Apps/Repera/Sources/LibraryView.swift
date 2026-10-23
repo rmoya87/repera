@@ -64,7 +64,7 @@ struct LibraryView: View {
         "Core", "Glúteos", "Gemelos", "Antebrazos", "Cardio",
     ]
 
-    private let sportTags: Set<String> = ["CrossFit", "Halterofilia", "Gimnasia", "Cardio"]
+    private let sportTags: Set<String> = ["CrossFit", "Halterofilia", "Gimnasia", "Cardio", "Movilidad"]
 
     var body: some View {
         NavigationStack {
@@ -519,6 +519,7 @@ struct LibraryView: View {
         case "Halterofilia": return 2
         case "Gimnasia": return 3
         case "Cardio": return 4
+        case "Movilidad": return 5
         default: return 99
         }
     }
