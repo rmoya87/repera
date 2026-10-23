@@ -64,6 +64,18 @@ class WorkoutHistorySetsInstrumentedTest {
             WorkoutHistorySets.displayLines(JSONObject().put("phase", "finished"), exercise))
     }
 
+    @Test fun finishedWodWithPlannedTargetsAndBlockScoreIsNotAConfirmedSet() {
+        val exercise = JSONObject().put("blockKind", "wod")
+            .put("blockId", "block1")
+            .put("loggedSets", JSONArray())
+            .put("plannedSets", JSONArray().put(JSONObject().put("targetReps", 21)))
+        val workout = JSONObject().put("phase", "finished")
+            .put("wodResults", JSONArray().put(JSONObject().put("id", "block1")
+                .put("format", "forTime").put("elapsedSeconds", 387)))
+        assertTrue(WorkoutHistorySets.displayLines(workout, exercise).isEmpty())
+        assertTrue(WorkoutHistorySets.effectiveWorkSets(workout, exercise).isEmpty())
+    }
+
     @Test fun scoreOnlyWodDoesNotFabricateMovementSets() {
         val exercise = JSONObject().put("blockKind", "wod")
             .put("loggedSets", JSONArray()).put("plannedSets", JSONArray())

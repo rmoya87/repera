@@ -23,6 +23,9 @@ internal object WorkoutHistorySets {
                     valueOrNull(set, "weightKg"), resolvedUnit(set, exercise))
         }
         if (actual.isNotEmpty()) return actual
+        // A score-only WOD has no work-set history. Its prescribed movement targets
+        // must not become artificial confirmed sets after the global score is saved.
+        if (exercise.optString("blockKind") == "wod") return emptyList()
         val finished = workout.optString("phase") == "finished" ||
             (workout.has("finishedAt") && !workout.isNull("finishedAt") &&
                 workout.optString("finishedAt").isNotBlank())
@@ -54,7 +57,7 @@ internal object WorkoutHistorySets {
         val finished = workout.optString("phase") == "finished" ||
             (workout.has("finishedAt") && !workout.isNull("finishedAt") &&
                 workout.optString("finishedAt").isNotBlank())
-        if (validWork || !finished) return actualLines
+        if (validWork || !finished || exercise.optString("blockKind") == "wod") return actualLines
 
         val planned = exercise.optJSONArray("plannedSets") ?: return actualLines
         val accepted = (0 until planned.length()).mapNotNull { n ->
