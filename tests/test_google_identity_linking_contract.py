@@ -21,7 +21,7 @@ class GoogleIdentityContractTests(unittest.TestCase):
         self.assertIn("provider: .google", auth)
         self.assertIn('URL(string: "repera://auth/callback")', auth)
         self.assertIn("ASWebAuthenticationSession(", auth)
-        self.assertIn("client.auth.linkIdentityURL(", auth)
+        self.assertIn("client.auth.getLinkIdentityURL(", auth)
         self.assertIn("client.auth.session(from: callback)", auth)
         self.assertIn("confirmed.user.id == currentID", auth)
 
