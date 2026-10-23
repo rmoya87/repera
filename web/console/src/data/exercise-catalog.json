@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "source": "Packages/ReperaDomain/Sources/ReperaDomain/Catalog.swift",
-  "count": 189,
+  "count": 198,
   "exercises": [
     {
       "catalogKey": "catalog:Press banca",
@@ -947,6 +947,51 @@
       "catalogKey": "catalog:Farmer carry",
       "name": "Farmer carry",
       "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dominadas lastradas",
+      "name": "Dominadas lastradas",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Remo pliométrico en anillas pies elevados",
+      "name": "Remo pliométrico en anillas pies elevados",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Fondos en anillas kipping",
+      "name": "Fondos en anillas kipping",
+      "category": "Gimnasia"
+    },
+    {
+      "catalogKey": "catalog:Step-up al cajón con kettlebell goblet",
+      "name": "Step-up al cajón con kettlebell goblet",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Carrera",
+      "name": "Carrera",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Cargada y envión con mancuerna",
+      "name": "Cargada y envión con mancuerna",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Burpee box jump over",
+      "name": "Burpee box jump over",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Burpee Broad Jump",
+      "name": "Burpee Broad Jump",
+      "category": "HYROX"
+    },
+    {
+      "catalogKey": "catalog:Sandbag Lunges",
+      "name": "Sandbag Lunges",
+      "category": "HYROX"
     }
   ]
 }
