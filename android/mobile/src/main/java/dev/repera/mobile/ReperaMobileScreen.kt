@@ -546,8 +546,8 @@ fun ReperaMobileScreen(
 private fun ActiveWorkoutCard(
     active: ActiveWorkout,
     busy: Boolean,
-    onLogSet: (Int, Double?, Double?, Boolean, String?, Int?) -> Unit,
-    onReviseSet: (String, Int, Double?, String?, Int?) -> Unit,
+    onLogSet: (Int, Double?, Double?, Boolean, String?, Int?, Int?) -> Unit,
+    onReviseSet: (String, Int, Double?, String?, Int?, Int?) -> Unit,
     onDeleteSet: (String) -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit
