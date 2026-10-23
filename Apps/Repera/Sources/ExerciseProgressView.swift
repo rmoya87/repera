@@ -15,7 +15,10 @@ struct ExerciseProgressView: View {
                 if subscriptions.isPro {
                     ExerciseEvolutionPanel(exerciseId: exerciseId)
                 } else {
-                    FreeExerciseSummaryCard(exerciseId: exerciseId)
+                    VStack(alignment: .leading, spacing: 12) {
+                        FreeExerciseSummaryCard(exerciseId: exerciseId)
+                        freeExerciseEvolutionPreview
+                    }
                 }
             }
             .padding(.horizontal, OG.pad)
@@ -26,6 +29,41 @@ struct ExerciseProgressView: View {
         .ogPinnedTransparentNav(
             store.resolvedCatalogExercise(id: exerciseId)?.name ?? "Ejercicio"
         )
+    }
+
+    /// El historial propio es gratuito; la evolución Pro se ilustra sin leer sus marcas.
+    private var freeExerciseEvolutionPreview: some View {
+        let values: [Double] = [40, 43, 42, 46, 48, 46, 52]
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                OGCardSectionTitle(title: "Evolución")
+                Spacer()
+                Text("Ejemplo")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(OG.label2)
+            }
+            OGCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Evolución de carga · datos ficticios")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label3)
+                    Chart {
+                        ForEach(0..<values.count, id: \.self) { index in
+                            LineMark(
+                                x: .value("Sesión", index + 1),
+                                y: .value("Peso", values[index])
+                            )
+                            .interpolationMethod(.catmullRom)
+                            .foregroundStyle(OG.accent)
+                            .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                        }
+                    }
+                    .frame(height: 160)
+                    .allowsHitTesting(false)
+                }
+            }
+        }
+        .accessibilityLabel("Ejemplo de evolución del ejercicio, datos ficticios.")
     }
 }
 
@@ -267,12 +305,13 @@ struct ExerciseEvolutionPanel: View {
     private var chartBlock: some View {
         VStack(alignment: .leading, spacing: 10) {
             if points.count < 2 {
-                Text(points.isEmpty
-                     ? "Entrena este ejercicio para ver la curva."
-                     : "Haz al menos 2 sesiones para ver la tendencia.")
-                    .font(.system(size: 14))
-                    .foregroundStyle(OG.label2)
-                    .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
+                ProgressEmptyChart(
+                    message: points.isEmpty
+                        ? "Entrena este ejercicio para ver la curva."
+                        : "Haz al menos 2 sesiones para ver la tendencia.",
+                    height: 180,
+                    yRange: chartYDomain
+                )
             } else {
                 Chart {
                     ForEach(points) { pt in
