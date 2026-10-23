@@ -2,10 +2,46 @@ import Charts
 import ReperaDomain
 import SwiftUI
 
+/// Mantiene las dimensiones y el eje de una gráfica sin simular observaciones.
+struct ProgressEmptyChart: View {
+    var message: String
+    var height: CGFloat = 150
+    var yRange: ClosedRange<Double> = 0.0...10.0
+
+    var body: some View {
+        ZStack {
+            Chart {
+                RuleMark(y: .value("Base", yRange.lowerBound))
+                    .foregroundStyle(Color.clear)
+            }
+            .chartYScale(domain: yRange)
+            .chartXAxis(.hidden)
+            .chartYAxis {
+                AxisMarks(
+                    position: .leading,
+                    values: [yRange.lowerBound, (yRange.lowerBound + yRange.upperBound) / 2, yRange.upperBound]
+                ) { _ in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.6, dash: [3, 4]))
+                        .foregroundStyle(OG.surface3)
+                    AxisValueLabel()
+                }
+            }
+            .frame(height: height)
+            Text(message)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(OG.label2)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 /// Real Apple Health heart-rate zones for the most recent finished workout.
 /// The optional 0...10 number describes *intensity*, never quality/performance.
 struct ProgressHeartZonesCard: View {
     let workouts: [WorkoutSession]
+    var isTeaserPreview: Bool = false
     @State private var zones: HealthKitStore.WorkoutHeartZones?
 
     private var latest: WorkoutSession? {
@@ -17,7 +53,42 @@ struct ProgressHeartZonesCard: View {
 
     var body: some View {
         Group {
-            if let zones {
+            if isTeaserPreview {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        OGCardSectionTitle(title: "Zonas cardíacas · último entreno")
+                        Spacer()
+                        Text("Ejemplo")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(OG.label2)
+                    }
+                    OGCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Distribución ilustrativa · datos ficticios")
+                                .font(.footnote)
+                                .foregroundStyle(OG.label3)
+                            HStack(spacing: 2) {
+                                ForEach(0..<5, id: \.self) { index in
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(colors[index])
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 16)
+                                        .opacity([0.4, 0.8, 1.0, 0.8, 0.4][index])
+                                }
+                            }
+                            HStack {
+                                ForEach(1...5, id: \.self) { index in
+                                    Text("Z\(index)")
+                                        .font(.caption2.weight(.medium))
+                                        .foregroundStyle(OG.label2)
+                                        .frame(maxWidth: .infinity)
+                                }
+                            }
+                        }
+                    }
+                }
+                .accessibilityLabel("Ejemplo de zonas cardíacas, datos ficticios.")
+            } else if let zones {
                 let total = max(1.0, zones.zones.reduce(0) { $0 + $1.seconds })
                 VStack(alignment: .leading, spacing: 8) {
                     OGCardSectionTitle(title: "Zonas cardíacas · último entreno")
@@ -63,9 +134,19 @@ struct ProgressHeartZonesCard: View {
                         }
                     }
                 }
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    OGCardSectionTitle(title: "Zonas cardíacas · último entreno")
+                    OGCard {
+                        ProgressEmptyChart(
+                            message: "Sin zonas cardíacas registradas para el último entreno."
+                        )
+                    }
+                }
             }
         }
         .task(id: latest?.id) {
+            guard !isTeaserPreview else { return }
             zones = nil
             guard let latest else { return }
             zones = await HealthKitStore.shared.heartZones(for: latest)
@@ -231,11 +312,11 @@ struct ProgressCardioChartCard: View {
                             }
                         }
                     } else {
-                        Text("Sin ritmo cardíaco de Salud en \(range.title.lowercased()).")
-                            .font(.system(size: 13))
-                            .foregroundStyle(OG.label3)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 8)
+                        ProgressEmptyChart(
+                            message: "Sin ritmo cardíaco de Salud en \(range.title.lowercased()).",
+                            height: 140,
+                            yRange: 60.0...160.0
+                        )
                     }
                 }
             }
@@ -393,11 +474,11 @@ struct ProgressCaloriesChartCard: View {
                         .frame(maxWidth: .infinity)
                         .clipped()
                     } else {
-                        Text("Sin kcal de Salud en \(range.title.lowercased()).")
-                            .font(.system(size: 13))
-                            .foregroundStyle(OG.label3)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 8)
+                        ProgressEmptyChart(
+                            message: "Sin kcal de Salud en \(range.title.lowercased()).",
+                            height: 140,
+                            yRange: 0.0...600.0
+                        )
                     }
                 }
             }
@@ -511,13 +592,11 @@ struct ProgressWeightChartCard: View {
             OGCard {
                 VStack(alignment: .leading, spacing: 10) {
                     if points.isEmpty {
-                        Text(goalKg == nil
-                             ? "Sin pesajes en \(range.title.lowercased()). Registra peso en Ajustes."
-                             : "Sin pesajes en \(range.title.lowercased()). Objetivo \(goalKg!.formatted(.number.precision(.fractionLength(1)))) kg.")
-                            .font(.system(size: 14))
-                            .foregroundStyle(OG.label2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 20)
+                        ProgressEmptyChart(
+                            message: "Sin pesajes en \(range.title.lowercased()). Registra peso en Ajustes.",
+                            height: 168,
+                            yRange: yDomain
+                        )
                     } else {
                         Chart {
                             if let goal = goalKg {

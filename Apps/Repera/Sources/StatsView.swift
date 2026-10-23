@@ -63,13 +63,17 @@ struct StatsView: View {
                             case .training:
                                 if isPro {
                                     tilesGrid
+                                    activityCard
+                                    muscleBalanceCard
                                     proAdvancedSections
                                 } else {
                                     freeTilesGrid
                                     freeActivityCard
+                                    muscleBalanceCard
+                                    freeExerciseTrendPreview
                                     ProTeaserCard(
                                         title: "Descubre todo tu progreso",
-                                        bodyText: "Analiza tu evolución, tus marcas personales y el equilibrio muscular.",
+                                        bodyText: "Analiza tu evolución por ejercicio y tus marcas personales.",
                                         cta: "Descubrir Repera Pro",
                                         appearance: .progress
                                     ) {
@@ -191,21 +195,23 @@ struct StatsView: View {
         model.setRange(.week)
     }
 
+    private var muscleBalanceCard: some View {
+        MuscleBalanceCard(
+                workouts: snap.filteredWorkouts,
+                external: snap.filteredStimuli,
+                rangeLabel: model.range.title,
+                weekStartsOnMonday: mondayFirst,
+                preparedLoadAll: snap.muscleLoadAll,
+                preparedLoadHard: snap.muscleLoadHard,
+                preparedFatigueAll: snap.muscleFatigueAll,
+                preparedFatigueHard: snap.muscleFatigueHard,
+                preparedHasHardSets: snap.hasHardSets
+            )
+    }
+
     @ViewBuilder
     private var proAdvancedSections: some View {
-        activityCard
 
-        MuscleBalanceCard(
-            workouts: snap.filteredWorkouts,
-            external: snap.filteredStimuli,
-            rangeLabel: model.range.title,
-            weekStartsOnMonday: mondayFirst,
-            preparedLoadAll: snap.muscleLoadAll,
-            preparedLoadHard: snap.muscleLoadHard,
-            preparedFatigueAll: snap.muscleFatigueAll,
-            preparedFatigueHard: snap.muscleFatigueHard,
-            preparedHasHardSets: snap.hasHardSets
-        )
 
         if snap.chartExercises.isEmpty {
             progressEmptyCard(
@@ -242,33 +248,24 @@ struct StatsView: View {
             weekStartsOnMonday: mondayFirst
         )
 
-        // HealthKit keeps READ permission private. Real observed series are
-        // valid even when the user denied optional workout WRITE permission.
-        if health.isAuthorized || !health.recentDailyHeartRate.isEmpty || !health.recentDailyActiveEnergy.isEmpty {
-            if model.isPreparing && snap.range != model.range {
-                ProgressView("Actualizando gráficas…")
-                    .tint(OG.accent)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-            }
-            ProgressHeartZonesCard(workouts: snap.filteredWorkouts)
-            ProgressCardioChartCard(prepared: snap.charts)
-            ProgressCaloriesChartCard(prepared: snap.charts)
-        } else {
-            VStack(alignment: .leading, spacing: 8) {
-                OGCardSectionTitle(title: "Salud")
-                progressEmptyCard(
-                    title: "Salud no conectada",
-                    subtitle: "Autoriza Apple Salud para ver FC y kcal.",
-                    systemImage: "heart.text.square",
-                    cta: "Ajustes de Salud"
-                ) {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        UIApplication.shared.open(url)
-                    }
+        // Las gráficas reales siempre ocupan su lugar, incluso sin permisos
+        // o sin mediciones: eje y mensaje, nunca valores simulados en Pro.
+        if !health.isAuthorized && health.recentDailyHeartRate.isEmpty
+            && health.recentDailyActiveEnergy.isEmpty {
+            progressEmptyCard(
+                title: "Salud no conectada",
+                subtitle: "Autoriza Apple Salud para ver FC y kcal.",
+                systemImage: "heart.text.square",
+                cta: "Ajustes de Salud"
+            ) {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
                 }
             }
         }
+        ProgressHeartZonesCard(workouts: snap.filteredWorkouts)
+        ProgressCardioChartCard(prepared: snap.charts)
+        ProgressCaloriesChartCard(prepared: snap.charts)
 
         ProgressWeightChartCard(
             entries: store.state.bodyWeights,
@@ -336,11 +333,60 @@ struct StatsView: View {
         }
     }
 
+    /// Gráfica demostrativa Pro: nunca lee registros ni marcas del usuario.
+    private var freeExerciseTrendPreview: some View {
+        let weights: [Double] = [42, 45, 44, 49, 47, 52, 55]
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                OGCardSectionTitle(title: "Evolución por ejercicio")
+                Spacer()
+                Text("Ejemplo")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(OG.label2)
+            }
+            OGCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Evolución de carga · datos ficticios")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label3)
+                    Chart {
+                        ForEach(0..<weights.count, id: \.self) { index in
+                            LineMark(
+                                x: .value("Sesión", index + 1),
+                                y: .value("Peso", weights[index])
+                            )
+                            .foregroundStyle(OG.accent)
+                            .interpolationMethod(.catmullRom)
+                            .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                        }
+                    }
+                    .chartYScale(domain: 35.0...65.0)
+                    .chartXAxis {
+                        AxisMarks(values: [1, 3, 5, 7]) { _ in
+                            AxisGridLine()
+                            AxisValueLabel()
+                        }
+                    }
+                    .frame(height: 150)
+                    .allowsHitTesting(false)
+                }
+            }
+        }
+        .accessibilityLabel("Ejemplo de evolución por ejercicio, datos simulados.")
+    }
+
     /// Preview free de Actividad: datos simulados (no Salud real) para mostrar el valor de Pro.
     @ViewBuilder
     private var freeHealthPreview: some View {
         let sample = ProgressPreparedCharts.teaserSample(weekStartsOnMonday: mondayFirst)
         VStack(alignment: .leading, spacing: 12) {
+            ProgressSessionScoreChartCard(
+                workouts: [],
+                range: .week,
+                weekStartsOnMonday: mondayFirst,
+                isTeaserPreview: true
+            )
+            ProgressHeartZonesCard(workouts: [], isTeaserPreview: true)
             ProgressCardioChartCard(prepared: sample)
             ProgressCaloriesChartCard(prepared: sample)
             ProgressWeightChartCard(
@@ -760,6 +806,7 @@ private struct ProgressSessionScoreChartCard: View {
     var workouts: [WorkoutSession]
     var range: ProgressTimeRange
     var weekStartsOnMonday: Bool
+    var isTeaserPreview: Bool = false
 
     private struct ScoreDay: Identifiable {
         let date: Date
@@ -769,6 +816,16 @@ private struct ProgressSessionScoreChartCard: View {
 
     private var points: [ScoreDay] {
         let calendar = Calendar.current
+        if isTeaserPreview {
+            let today = calendar.startOfDay(for: Date())
+            let scores: [Double] = [6, 7, 7, 8, 6, 8, 9]
+            return (0..<scores.count).compactMap { index in
+                guard let date = calendar.date(byAdding: .day, value: index - 6, to: today) else {
+                    return nil
+                }
+                return ScoreDay(date: date, score: scores[index])
+            }
+        }
         let rated: [(Date, Double)] = workouts.compactMap { session in
             guard let finishedAt = session.finishedAt,
                   let review = session.sessionReview,
@@ -785,20 +842,32 @@ private struct ProgressSessionScoreChartCard: View {
         }
     }
 
-    @ViewBuilder
     var body: some View {
         let values = points
-        if !values.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline) {
-                    OGCardSectionTitle(title: "Puntuación de entrenos")
-                    Spacer(minLength: 8)
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                OGCardSectionTitle(title: "Puntuación de entrenos")
+                Spacer(minLength: 8)
+                if isTeaserPreview {
+                    Text("Ejemplo")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(OG.label2)
+                        .accessibilityLabel("Ejemplo, datos ficticios")
+                } else if !values.isEmpty {
                     Text("\(Int((values.map(\.score).reduce(0, +) / Double(values.count)).rounded()))/10")
                         .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(OG.label)
                 }
-                OGCard {
-                    VStack(alignment: .leading, spacing: 10) {
+            }
+            OGCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    if values.isEmpty {
+                        ProgressEmptyChart(
+                            message: "Todavía no hay puntuaciones basadas en tu historial.",
+                            height: 164,
+                            yRange: 0.0...10.0
+                        )
+                    } else {
                         Chart {
                             ForEach(values) { point in
                                 LineMark(
@@ -809,7 +878,7 @@ private struct ProgressSessionScoreChartCard: View {
                                 .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
                                 .foregroundStyle(OG.accent)
                             }
-                            if let selectedDate,
+                            if !isTeaserPreview, let selectedDate,
                                let selected = values.min(by: {
                                    abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate))
                                }) {
@@ -842,9 +911,12 @@ private struct ProgressSessionScoreChartCard: View {
                             }
                         }
                         .frame(height: 164)
-                        Text("Media diaria de notas basadas en tu historial comparable.")
-                            .font(.caption)
-                            .foregroundStyle(OG.label3)
+                        .allowsHitTesting(!isTeaserPreview)
+                        if !isTeaserPreview {
+                            Text("Media diaria de notas basadas en tu historial comparable.")
+                                .font(.caption)
+                                .foregroundStyle(OG.label3)
+                        }
                     }
                 }
             }
