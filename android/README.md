@@ -21,7 +21,9 @@ El catálogo Android mantiene los **196 movimientos anteriores** e incorpora **8
 
 En **Ejercicios** hay chips Material 3 **Todos / Movilidad** y búsqueda bilingüe. `CatalogBootstrap.appendMissingMobility` añade exclusivamente los 82 ejercicios ausentes a cuentas ya existentes, conserva los UUID y los entrenamientos anteriores, y evita duplicaciones en sucesivos arranques. Las sesiones de movilidad no admiten introducir kg como fuerza. Hay pruebas instrumentadas para catálogo, alias y migración idempotente.
 
-**Pendiente de validación real:** compilar e instrumentar en emulador/dispositivo, revisar miniaturas y sincronizar el contenido con las versiones finales de iOS cuando se fusionen las ramas. No se asume que las imágenes de movilidad estén generadas ni revisadas.
+**Duración y evolución:** el editor nativo puede prescribir segundos por serie; Play usa el tiempo prescrito o editable, oculta peso/RIR y en las posturas sostenidas registra el tiempo sin pedir repeticiones. Las series reales guardan `durationSeconds`; el resumen de cada ejercicio calcula mejor sostén y total de segundos, y Progreso incluye sesiones y tiempo confirmado. Ninguna prescripción no ejecutada genera segundos ficticios. La paridad de WOD avanzados, Watch y sincronización de imágenes permanece pendiente.
+
+**Pendiente de validación real:** compilar e instrumentar en emulador/dispositivo, revisar miniaturas y sincronizar el contenido con las versiones finales de iOS cuando se fusionen las ramas. Las 82 ilustraciones específicas de movilidad **todavía no existen ni están validadas**; se usan placeholders.
 
 ## Configuración externa
 
