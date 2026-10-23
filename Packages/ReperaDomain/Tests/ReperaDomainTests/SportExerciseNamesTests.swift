@@ -6,7 +6,7 @@ final class SportExerciseNamesTests: XCTestCase {
         let sports = Catalog.seed().filter {
             $0.sportTag == "CrossFit" || $0.sportTag == "Halterofilia"
         }
-        XCTAssertEqual(sports.count, 86)
+        XCTAssertEqual(sports.count, 94)
 
         for exercise in sports {
             guard let spanish = SportExerciseNames.spanishAlias(for: exercise.name) else {

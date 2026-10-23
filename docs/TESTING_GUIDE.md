@@ -13,6 +13,14 @@ Checklist manual por feature. Preferible dispositivo real para Live Activity y W
 - [ ] Plan CrossFit AMRAP y Halterofilia fuerza + calentamiento: comprobar estructura aceptada por `create_training_plan` y que las duraciones especiales y fases warm-up aún no se presentan como métricas nativas inexistentes.
 - [ ] Tras actualizar Edge Function, confirmar autenticación PAT, read-only scopes, revocación y que `create_training_plan` solo aparece con `training:write`.
 
+## Biblioteca de ejercicios: ordenar y filtrar (23/10/2026)
+
+- [ ] Abrir la misma hoja de filtros: confirmar dos secciones **Ordenar** y **Filtrar**, selección única independiente y botón **Hecho** sin cierre al cambiar una elección.
+- [ ] Elegir **Halterofilia** y después **Músculo**: solo ejercicios olímpicos, distribuidos por grupo anatómico; cambiar a **Alfabético** no altera el filtro.
+- [ ] Con **Todos**, **CrossFit**, **Gimnasia**, **Cardio**, **HYROX**, **Movilidad**, **Favoritos** y **WODs**, comprobar que cada filtro conserva el sort y funciona con búsqueda ES/EN. En WODs, título y botón de alta respetan la pantalla WOD.
+- [ ] Buscar `snatch high pull`, `clean high pull`, `clean deadlift`, `squat jerk`, `jerk dip and drive`, `block power snatch`, `block power clean` y `snatch grip push press`: verificar la ficha sin duplicados y la asignación correcta a Halterofilia.
+- [ ] Verificar 288 claves únicas en iOS y web, 48 etiquetadas directamente Halterofilia, y comprobar en backend las ocho altas sin sobrescribir historial ni categorías existentes.
+
 ## HYROX y evolución cardio (2026-10-23)
 
 - [ ] En **Ejercicios → Filtro → HYROX** aparecen las nueve estaciones, con buscador ES/EN. En **Deporte** CrossFit/HYROX comparten Wall Ball y SkiErg sin duplicar UUID ni historial; nuevos ejercicios solo Burpee Broad Jump y Sandbag Lunges.
