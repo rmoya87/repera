@@ -77,9 +77,11 @@ class WorkoutRepository(context: Context, googleId: String) {
                     (inputMode(movement).showsWeight && entry.weightKg.isFinite() &&
                         entry.weightKg >= 0))
                 val planned = JSONArray()
+                val mobility = movement.optString("sportTag") == "Movilidad"
                 repeat(entry.sets) {
                     val set = JSONObject().put("id", UUID.randomUUID().toString())
-                        .put("targetReps", entry.quantity)
+                        .put("targetReps", if (mobility && isMobilityHold(movement)) 1 else entry.quantity)
+                    if (mobility) set.put("targetDurationSeconds", entry.durationSeconds ?: if (isMobilityHold(movement)) 30 else 60)
                     if (entry.weightKg != null) set.put("targetWeightKg", entry.weightKg)
                     planned.put(set)
                 }
@@ -236,10 +238,12 @@ class WorkoutRepository(context: Context, googleId: String) {
             "Este ejercicio requiere un tipo de entrada aún no disponible"
         }
         val presets = JSONArray()
+        val mobility = exercise.optString("sportTag") == "Movilidad"
         repeat(3) {
             val target = JSONObject()
                 .put("id", UUID.randomUUID().toString())
-                .put("targetReps", lastReps ?: 8)
+                .put("targetReps", if (mobility && isMobilityHold(exercise)) 1 else (lastReps ?: if (mobility) 8 else 8))
+            if (mobility) target.put("targetDurationSeconds", if (isMobilityHold(exercise)) 30 else 60)
                 .put("targetPercent1RMIsMinimum", false)
             if (lastWeight != null) target.put("targetWeightKg", lastWeight)
             presets.put(target)
@@ -270,7 +274,8 @@ class WorkoutRepository(context: Context, googleId: String) {
         weightKg: Double?,
         rir: Double? = null,
         warmup: Boolean = false,
-        setId: String? = null
+        setId: String? = null,
+        durationSeconds: Int? = null
     ): ActiveWorkout {
         require(setId == null || setId.isNotBlank())
         require(quantity >= 0) { "Cantidad inválida" }
@@ -283,6 +288,12 @@ class WorkoutRepository(context: Context, googleId: String) {
         val exercise = array.getJSONObject(index)
         check(exercise.optString("blockKind") != "wod") { "Los scores WOD se registran por bloque" }
         val movement = exercise.getJSONObject("exercise")
+        val mobility = movement.optString("sportTag") == "Movilidad"
+        if (mobility) {
+            require(durationSeconds != null && durationSeconds in 1..3600) { "Indica los segundos reales de movilidad" }
+            require(rir == null && weightKg == null) { "Movilidad no utiliza kg ni RIR" }
+            if (isMobilityHold(movement)) require(quantity == 1) { "Las posturas se miden por segundos" }
+        }
         val inputMode = inputMode(movement)
         check(inputMode.basicRecorderAvailable)
         check(inputMode.showsWeight || weightKg == null) {
@@ -301,6 +312,7 @@ class WorkoutRepository(context: Context, googleId: String) {
             .put("clusters", JSONArray())
         if (weightKg != null) set.put("weightKg", weightKg)
         if (rir != null) set.put("rir", rir)
+        if (durationSeconds != null) set.put("durationSeconds", durationSeconds)
         val unit = exercise.optString("quantityUnit")
         if (unit.isNotBlank()) set.put("quantityUnit", unit)
         logged.put(set)
@@ -627,7 +639,7 @@ class WorkoutRepository(context: Context, googleId: String) {
         return summarize(session)
     }
 
-    @Synchronized fun reviseCurrentSet(setId: String, quantity: Int, weightKg: Double?): ActiveWorkout {
+    @Synchronized fun reviseCurrentSet(setId: String, quantity: Int, weightKg: Double?, durationSeconds: Int? = null): ActiveWorkout {
         require(quantity >= 0 && (weightKg == null || (weightKg.isFinite() && weightKg >= 0)))
         val state = requireState()
         val session = requireActive(state)
@@ -640,6 +652,11 @@ class WorkoutRepository(context: Context, googleId: String) {
         check(supportsSimpleInput(movement)) { "Este editor no admite el tipo de movimiento" }
         check(inputMode(movement).showsWeight || weightKg == null) { "Este ejercicio no registra peso" }
         val original = logged.getJSONObject(index)
+        if (movement.optString("sportTag") == "Movilidad") {
+            require(durationSeconds != null && durationSeconds in 1..3600) { "Duración de movilidad inválida" }
+            require(weightKg == null && (!isMobilityHold(movement) || quantity == 1))
+            original.put("durationSeconds", durationSeconds)
+        }
         original.put("reps", quantity)
         if (weightKg == null) original.remove("weightKg") else original.put("weightKg", weightKg)
         // Recompute only work sets, preserving each existing identity and completedAt.
@@ -669,6 +686,15 @@ class WorkoutRepository(context: Context, googleId: String) {
         state.remove("activeSession")
         save(state)
     }
+
+    private fun isMobilityHold(exercise: JSONObject): Boolean =
+        exercise.optString("sportTag") == "Movilidad" && exercise.optString("catalogId") in setOf(
+            "mobility-14", "mobility-15", "mobility-16", "mobility-20", "mobility-21",
+            "mobility-30", "mobility-31", "mobility-32", "mobility-36", "mobility-38",
+            "mobility-39", "mobility-40", "mobility-41", "mobility-42", "mobility-44",
+            "mobility-46", "mobility-60", "mobility-61", "mobility-62", "mobility-66",
+            "mobility-67", "mobility-70", "mobility-80"
+        )
 
     private fun inputMode(exercise: JSONObject): ExerciseInputMode =
         if (exercise.optString("sportTag") == "Movilidad") ExerciseInputMode.REPS_ONLY
@@ -781,6 +807,9 @@ class WorkoutRepository(context: Context, googleId: String) {
             exerciseName = current.getJSONObject("exercise").getString("name"),
             completedSets = logged.length(),
             prescribedQuantity = next?.optInt("targetReps"),
+            prescribedDurationSeconds = next?.takeIf { it.has("targetDurationSeconds") }?.optInt("targetDurationSeconds"),
+            isMobility = current.getJSONObject("exercise").optString("sportTag") == "Movilidad",
+            isMobilityHold = isMobilityHold(current.getJSONObject("exercise")),
             prescribedWeightKg = next?.takeIf { it.has("targetWeightKg") && !it.isNull("targetWeightKg") }
                 ?.getDouble("targetWeightKg"),
             allowsWeight = inputMode(current.getJSONObject("exercise")).showsWeight,
@@ -793,7 +822,8 @@ class WorkoutRepository(context: Context, googleId: String) {
                     weightKg = if (set.has("weightKg") && !set.isNull("weightKg"))
                         set.getDouble("weightKg") else null,
                     phase = set.optString("phase", "work"),
-                    rir = if (set.has("rir") && !set.isNull("rir")) set.getDouble("rir") else null
+                    rir = if (set.has("rir") && !set.isNull("rir")) set.getDouble("rir") else null,
+                    durationSeconds = set.optInt("durationSeconds").takeIf { it > 0 }
                 )
             }
         )
@@ -805,7 +835,8 @@ data class WorkoutSetSummary(
     val reps: Int,
     val weightKg: Double?,
     val phase: String = "work",
-    val rir: Double? = null
+    val rir: Double? = null,
+    val durationSeconds: Int? = null
 )
 data class ActiveWorkout(
     val id: String,
@@ -817,6 +848,9 @@ data class ActiveWorkout(
     val prescribedQuantity: Int?,
     val prescribedWeightKg: Double?,
     val allowsWeight: Boolean,
+    val prescribedDurationSeconds: Int? = null,
+    val isMobility: Boolean = false,
+    val isMobilityHold: Boolean = false,
     val sets: List<WorkoutSetSummary>,
     val wod: WodExecution? = null
 )
@@ -853,7 +887,8 @@ data class RoutineDraftEntry(
     val exerciseId: String,
     val quantity: Int,
     val sets: Int = 3,
-    val weightKg: Double? = null
+    val weightKg: Double? = null,
+    val durationSeconds: Int? = null
 )
 
 /** Mirrors Swift Routine: one-off dates and weekly templates are mutually exclusive. */
