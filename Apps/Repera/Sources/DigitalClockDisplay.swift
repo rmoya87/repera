@@ -1,4 +1,3 @@
-import AVKit
 import ReperaDomain
 import SwiftUI
 
@@ -12,6 +11,13 @@ struct DigitalClockDisplay: View {
 
     private var minutes: Int { max(0, totalSeconds) / 60 }
     private var seconds: Int { max(0, totalSeconds) % 60 }
+
+    /// Ancho matemático del conjunto de dígitos LED: cada par mide 1,24h;
+    /// HH:MM son 2,76h y la ronda añade 1,24h + 0,22h. Este factor
+    /// sustituye a 3,05 (solo tiempo), que desbordaba al dibujar intervalos.
+    static func widthFactor(hasRound: Bool) -> CGFloat {
+        hasRound ? 4.22 : 2.76
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: digitHeight * 0.22) {
@@ -136,52 +142,9 @@ private struct SevenSegmentDigit: View {
     }
 }
 
-/// Acceso nativo y seguro al enrutamiento de audio del dispositivo.
-/// Las APIs públicas de iOS no permiten leer/controlar el Now Playing de
-/// Spotify, Podcasts u otras apps. No se fabrican metadatos ni comandos.
-private struct SystemAudioRoutePicker: UIViewRepresentable {
-    func makeUIView(context: Context) -> AVRoutePickerView {
-        let picker = AVRoutePickerView(frame: .zero)
-        picker.tintColor = .white
-        picker.activeTintColor = .systemGreen
-        picker.prioritizesVideoDevices = false
-        return picker
-    }
-
-    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
-}
-
-/// Mantiene el acceso a AirPlay/salida nativa sin apropiarse de otra sesión
-/// multimedia. La reproducción de terceros sigue en Centro de control.
-private struct TimerSystemAudioPanel: View {
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "music.note")
-                .font(.system(size: 22, weight: .medium))
-                .foregroundStyle(.white)
-                .frame(width: 42, height: 42)
-                .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Audio del iPhone")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
-                Text("Reproducción: Centro de control")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.68))
-                    .lineLimit(2)
-            }
-            Spacer(minLength: 2)
-            SystemAudioRoutePicker()
-                .frame(width: 42, height: 42)
-                .accessibilityLabel("Elegir salida de audio AirPlay")
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
-        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
-        .accessibilityElement(children: .contain)
-    }
-}
-
+/// Repera no reproduce audio propio. La API pública de iOS no expone el
+/// Now Playing global de Spotify o Podcasts a otras apps; por eso no se
+/// muestra una tarjeta falsa ni un placeholder cuando nada es accesible.
 /// Reloj del bloque para orientación vertical u horizontal.
 /// Botones siempre visibles; solo se muestra «Terminar» si el formato lo permite.
 struct BlockTimerScreen: View {
@@ -205,17 +168,23 @@ struct BlockTimerScreen: View {
     var body: some View {
         GeometryReader { geometry in
             let landscape = isLandscape || geometry.size.width > geometry.size.height
-            let sideWidth = landscape && exercise != nil
+            let sideWidth: CGFloat = landscape && exercise != nil
                 ? min(260, geometry.size.width * 0.31)
                 : 0
-            let availableClockWidth = landscape
-                ? geometry.size.width - sideWidth - (exercise == nil ? 48 : 66)
-                : geometry.size.width - 32
-            // Dos pares LED + separador ocupan aproximadamente 2,9x su alto.
-            // Aprovechar ancho Y alto; no dejar el reloj pequeño en retrato.
+            // Espacio ocupado por safe area interna, margen de columna, HStack
+            // y márgenes del cronómetro. En vertical se reserva aire al glow.
+            let horizontalInset: CGFloat = landscape
+                ? (exercise == nil ? 40 : 94)
+                : 44
+            let availableClockWidth = max(
+                1, geometry.size.width - sideWidth - horizontalInset
+            )
+            let widthFactor = DigitalClockDisplay.widthFactor(hasRound: roundNumber != nil)
+            // Sin un mínimo artificial de 55 pt: con ronda + MM:SS causaba
+            // clipping en iPhone estrecho. Cada cifra usa su ancho real.
             let digitHeight = min(
                 landscape ? 165 : 138,
-                max(55, availableClockWidth / 3.05),
+                availableClockWidth / widthFactor,
                 geometry.size.height * (landscape ? 0.36 : 0.235)
             )
 
@@ -253,19 +222,21 @@ struct BlockTimerScreen: View {
         .padding(.top, 8)
     }
 
-    private var exerciseDetails: some View {
+    /// El ejercicio acompaña al reloj sin pegarse a los dígitos.
+    /// En ambas orientaciones el contenido queda centrado en su espacio.
+    private func exerciseDetails(landscape: Bool) -> some View {
         Group {
             if let exercise {
-                VStack(alignment: isLandscape ? .leading : .center, spacing: 10) {
-                    ExerciseThumb(exercise: exercise, size: isLandscape ? 72 : 66)
+                VStack(alignment: .center, spacing: landscape ? 15 : 12) {
+                    ExerciseThumb(exercise: exercise, size: landscape ? 112 : 100)
                     Text(exercise.name)
-                        .font(.system(size: isLandscape ? 17 : 18, weight: .semibold))
+                        .font(.system(size: landscape ? 20 : 21, weight: .semibold))
                         .foregroundStyle(.white)
-                        .multilineTextAlignment(isLandscape ? .leading : .center)
+                        .multilineTextAlignment(.center)
                         .lineLimit(3)
                         .minimumScaleFactor(0.8)
                 }
-                .frame(maxWidth: .infinity, alignment: isLandscape ? .leading : .center)
+                .frame(maxWidth: .infinity, alignment: .center)
                 .accessibilityElement(children: .combine)
             }
         }
@@ -275,19 +246,16 @@ struct BlockTimerScreen: View {
         VStack(spacing: 0) {
             topBar
             Spacer(minLength: 8)
-            VStack(spacing: 22) {
+            VStack(spacing: 38) {
                 clockBlock(digitHeight: digitHeight)
-                // El movimiento aparece DESPUÉS del reloj, no en el encabezado.
+                // Más aire y centrado real para nombre y miniatura.
                 if exercise != nil {
-                    exerciseDetails
+                    exerciseDetails(landscape: false)
                 }
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 12)
-            Spacer(minLength: 10)
-            TimerSystemAudioPanel()
-                .padding(.horizontal, 24)
-                .padding(.bottom, 12)
+            Spacer(minLength: 16)
             controls(horizontal: false)
                 .padding(.horizontal, 24)
                 .padding(.bottom, 18)
@@ -298,16 +266,15 @@ struct BlockTimerScreen: View {
     private func landscapeLayout(digitHeight: CGFloat, availableWidth: CGFloat) -> some View {
         VStack(spacing: 0) {
             topBar
-            HStack(alignment: .top, spacing: 22) {
+            HStack(alignment: .center, spacing: 22) {
                 if exercise != nil {
-                    VStack(alignment: .leading, spacing: 12) {
-                        exerciseDetails
-                        Spacer(minLength: 8)
-                        TimerSystemAudioPanel()
-                    }
-                    .frame(width: min(260, availableWidth * 0.31), alignment: .leading)
-                    .padding(.leading, 20)
-                    .padding(.bottom, 12)
+                    exerciseDetails(landscape: true)
+                        .frame(
+                            width: min(260, availableWidth * 0.31),
+                            maxHeight: .infinity,
+                            alignment: .center
+                        )
+                        .padding(.leading, 20)
                 }
                 VStack(spacing: 14) {
                     Spacer(minLength: 0)

@@ -387,17 +387,16 @@ struct WorkoutView: View {
                             .foregroundStyle(OG.label)
                             .lineLimit(2)
                         Spacer(minLength: 8)
-                        Button {
+                        OGToolbarGlassButton(
+                            systemName: "timer",
+                            accessibilityLabel: "Temporizador de \(block.title)",
+                            tint: OG.accent,
+                            iconSize: 19,
+                            hitSize: 44,
+                            appliesGlass: true
+                        ) {
                             openBlockTimer(block, session: session)
-                        } label: {
-                            Image(systemName: "timer")
-                                .font(.system(size: 19, weight: .semibold))
-                                .foregroundStyle(OG.accent)
-                                .frame(width: 44, height: 44)
-                                .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Temporizador de \(block.title)")
                     }
                     .listRowBackground(OG.surface)
 
