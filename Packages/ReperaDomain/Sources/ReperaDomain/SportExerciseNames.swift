@@ -103,6 +103,17 @@ public enum SportExerciseNames {
         return aliases
     }()
 
+    private static func key(_ value: String) -> String {
+        value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "es_ES"))
+            .lowercased()
+    }
+
+    private static let normalizedSpanishToEnglish: [String: String] =
+        Dictionary(uniqueKeysWithValues: legacySpanishToEnglish.map { (key($0.key), $0.value) })
+
+    private static let normalizedEnglishToSpanish: [String: String] =
+        Dictionary(uniqueKeysWithValues: englishToSpanish.map { (key($0.key), $0.value) })
+
     /// No modificar el catálogo general de musculación ni gimnasia.
     public static func displayName(_ name: String, sport: String?) -> String {
         guard sport == "CrossFit" || sport == "Halterofilia" else { return name }
@@ -111,16 +122,16 @@ public enum SportExerciseNames {
 
     /// Puente de nombres antiguos en entrenos locales/cloud y en buscadores.
     public static func canonicalName(_ name: String) -> String {
-        legacySpanishToEnglish[name] ?? name
+        legacySpanishToEnglish[name] ?? normalizedSpanishToEnglish[key(name)] ?? name
     }
 
     /// Nombre español conservado como alias, sin alterar la identidad del ejercicio.
     public static func spanishAlias(for name: String) -> String? {
-        englishToSpanish[name] ?? (legacySpanishToEnglish[name] == nil ? nil : name)
+        normalizedEnglishToSpanish[key(name)] ?? (normalizedSpanishToEnglish[key(name)] == nil ? nil : name)
     }
 
     /// Alias técnicos EN->ES para indexación o resolución inversa de la pizarra.
     public static func englishAlias(forSpanish name: String) -> String? {
-        legacySpanishToEnglish[name]
+        normalizedSpanishToEnglish[key(name)]
     }
 }
