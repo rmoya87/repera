@@ -343,7 +343,7 @@ struct StatsView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label2)
             }
-            OGCard {
+            OGCard(padding: 10) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Evolución de carga · datos ficticios")
                         .font(.footnote)

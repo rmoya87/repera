@@ -42,7 +42,7 @@ struct ExerciseProgressView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label2)
             }
-            OGCard {
+            OGCard(padding: 10) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Evolución de carga · datos ficticios")
                         .font(.footnote)
@@ -127,7 +127,7 @@ struct ExerciseEvolutionPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Evolución")
-            OGCard {
+            OGCard(padding: 10) {
                 VStack(alignment: .leading, spacing: 14) {
                     summaryTiles
 

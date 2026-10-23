@@ -765,7 +765,7 @@ struct HealthRecoveryProgressView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label2)
             }
-            OGCard {
+            OGCard(padding: 10) {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack {
                         Text("Variabilidad cardíaca (VFC)")
@@ -1001,7 +1001,7 @@ struct HealthRecoveryProgressView: View {
     private var physiologyContent: some View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Constantes fisiológicas")
-            OGCard {
+            OGCard(padding: 10) {
                 VStack(alignment: .leading, spacing: 14) {
                     vitalChart("Variabilidad cardíaca (VFC)", unit: "ms", keyPath: \.hrvMilliseconds)
                     Divider().opacity(0.25)
