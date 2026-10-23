@@ -344,15 +344,15 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 
     private fun clearSession(erasePending: Boolean) {
         sessionCache.edit().remove("snapshot").apply()
-        if (erasePending) {
-            val erased = runCatching { pendingStore.clear() }.isSuccess
-            if (erased) pendingCount = 0
-            else sendStatus = "No se pudo borrar la cola privada; revisa el reloj"
-        }
+        val outboxCleared = if (erasePending) runCatching {
+            pendingStore.clear()
+        }.isSuccess else true
+        if (erasePending && outboxCleared) pendingCount = 0
         repsInput = 0
         weightInput = null
         confirmDiscardPending = false
-        sendStatus = null
+        sendStatus = if (outboxCleared) null
+            else "No se pudo borrar la cola privada; revisa el reloj"
         visibleSession = null
         syncProblem = false
         showingCachedSession = false
