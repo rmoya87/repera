@@ -290,6 +290,10 @@ class WorkoutRepositoryInstrumentedTest {
         assertThrows(IllegalStateException::class.java) {
             repository.completeWodMovementBlock()
         }
+        assertThrows(IllegalArgumentException::class.java) {
+            repository.recordWodMovement(0, 5, 12, null)
+        }
+        assertTrue(repository.active()!!.wod!!.recorded.isEmpty())
         repository.recordWodMovement(0, 0, 12, null)
         val reloaded = WorkoutRepository(ctx, user)
         assertEquals(1, reloaded.active()!!.wod!!.recorded.size)
