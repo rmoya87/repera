@@ -297,6 +297,7 @@ class WorkoutRepositoryInstrumentedTest {
         repository.recordWodMovement(0, 0, 12, null)
         val reloaded = WorkoutRepository(ctx, user)
         assertEquals(1, reloaded.active()!!.wod!!.recorded.size)
+        assertNull(reloaded.active()!!.wod!!.recorded.single().quantityUnit)
         reloaded.recordWodMovement(1, 1, 8, null)
         val recorded = reloaded.active()!!.wod!!.recorded
         val originalId = recorded.last().id
