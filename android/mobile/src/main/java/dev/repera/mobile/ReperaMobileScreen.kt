@@ -400,6 +400,11 @@ fun ReperaMobileScreen(
                     val entries = filteredExerciseEntries
                     item {
                         Text("${entries.size} ejercicios", style = MaterialTheme.typography.labelMedium)
+                        if (exerciseFilter == "Hyrox") {
+                            Text("Movimientos útiles para Hyrox presentes en el catálogo; " +
+                                "no equivale al listado oficial completo de estaciones.",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                     if (entries.isEmpty()) item { Text("Sin ejercicios coincidentes") }
                     items(entries, key = { it.id }) { entry ->
