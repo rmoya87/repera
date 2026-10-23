@@ -31,7 +31,7 @@ private enum ExercisePickerFilter: Hashable, Sendable {
             if tag == "Fuerza" {
                 return doc.sportTag == nil && doc.muscleGroup != "Cardio"
             }
-            return doc.sportTag == tag || (tag == "Cardio" && doc.muscleGroup == "Cardio")
+            return doc.disciplineTags.contains(tag) || (tag == "Cardio" && doc.muscleGroup == "Cardio")
         }
     }
 }
@@ -124,7 +124,7 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
                         }
                     }
                     Menu("Disciplina") {
-                        ForEach(["Fuerza", "CrossFit", "Halterofilia", "Gimnasia", "Cardio"], id: \.self) { sport in
+                        ForEach(["Fuerza", "CrossFit", "HYROX", "Halterofilia", "Gimnasia", "Cardio"], id: \.self) { sport in
                             Button {
                                 filter = .sport(sport)
                             } label: {
