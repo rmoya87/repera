@@ -141,9 +141,9 @@ struct StatsView: View {
                     }
                 }
             }
-            // Una categoría puede tener mucha más altura que otra. Recrear
-            // su ScrollView evita mantener el offset anterior (pantalla negra).
-            .id(topic)
+            // Mantener estable el ScrollView al cambiar de categoría evita un desmontaje
+            // y remontaje con saltos visibles durante la carga de Recuperación.
+            .defaultScrollAnchor(.top, for: .sizeChanges)
             .background(OG.bg)
             .ogContentTitleNav()
             .sheet(isPresented: $showRangePicker) {
