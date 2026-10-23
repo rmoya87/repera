@@ -688,13 +688,8 @@ class WorkoutRepository(context: Context, googleId: String) {
     }
 
     private fun isMobilityHold(exercise: JSONObject): Boolean =
-        exercise.optString("sportTag") == "Movilidad" && exercise.optString("catalogId") in setOf(
-            "mobility-14", "mobility-15", "mobility-16", "mobility-20", "mobility-21",
-            "mobility-30", "mobility-31", "mobility-32", "mobility-36", "mobility-38",
-            "mobility-39", "mobility-40", "mobility-41", "mobility-42", "mobility-44",
-            "mobility-46", "mobility-60", "mobility-61", "mobility-62", "mobility-66",
-            "mobility-67", "mobility-70", "mobility-80"
-        )
+        exercise.optString("sportTag") == "Movilidad" &&
+            MobilityCatalog.isHold(exercise.optString("catalogId"))
 
     private fun inputMode(exercise: JSONObject): ExerciseInputMode =
         if (exercise.optString("sportTag") == "Movilidad") ExerciseInputMode.REPS_ONLY
@@ -897,3 +892,15 @@ data class RoutineSchedule(
     val weekday: Int? = null,
     val timeMinutes: Int? = null
 )
+
+/** Claves de movilidad sostenida compartidas por la planificación y Play. */
+internal object MobilityCatalog {
+    private val holdIds: Set<String> = setOf(
+        "mobility-14", "mobility-15", "mobility-16", "mobility-20", "mobility-21",
+        "mobility-30", "mobility-31", "mobility-32", "mobility-36", "mobility-38",
+        "mobility-39", "mobility-40", "mobility-41", "mobility-42", "mobility-44",
+        "mobility-46", "mobility-60", "mobility-61", "mobility-62", "mobility-66",
+        "mobility-67", "mobility-70", "mobility-80"
+    )
+    fun isHold(catalogId: String): Boolean = catalogId in holdIds
+}
