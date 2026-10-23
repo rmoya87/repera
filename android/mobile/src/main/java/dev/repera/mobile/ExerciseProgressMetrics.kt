@@ -9,7 +9,9 @@ data class ExerciseProgressSummary(
     val bestReps: Int?,
     val bestCalories: Int?,
     val bestMeters: Int?,
-    val lastDate: String?
+    val lastDate: String?,
+    val bestDurationSeconds: Int? = null,
+    val totalDurationSeconds: Int = 0
 )
 
 internal object ExerciseProgressMetrics {
@@ -21,6 +23,8 @@ internal object ExerciseProgressMetrics {
         var bestReps = 0
         var bestCalories = 0
         var bestMeters = 0
+        var bestDurationSeconds = 0
+        var totalDurationSeconds = 0
         var lastDate: String? = null
 
         fun add(sets: List<WorkoutHistorySets.EffectiveSet>, date: String?) {
@@ -32,6 +36,11 @@ internal object ExerciseProgressMetrics {
                     "cal" -> bestCalories = maxOf(bestCalories, set.reps)
                     "m" -> bestMeters = maxOf(bestMeters, set.reps)
                     else -> bestReps = maxOf(bestReps, set.reps)
+                }
+                val seconds = set.durationSeconds ?: 0
+                if (seconds > 0) {
+                    bestDurationSeconds = maxOf(bestDurationSeconds, seconds)
+                    totalDurationSeconds += seconds
                 }
                 val weight = set.weightKg
                 if (weight != null && weight > 0) {
@@ -53,7 +62,9 @@ internal object ExerciseProgressMetrics {
             bestReps = bestReps.takeIf { it > 0 },
             bestCalories = bestCalories.takeIf { it > 0 },
             bestMeters = bestMeters.takeIf { it > 0 },
-            lastDate = lastDate
+            lastDate = lastDate,
+            bestDurationSeconds = bestDurationSeconds.takeIf { it > 0 },
+            totalDurationSeconds = totalDurationSeconds
         )
     }
 
