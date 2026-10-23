@@ -444,8 +444,8 @@ fun ReperaMobileScreen(
 private fun ActiveWorkoutCard(
     active: ActiveWorkout,
     busy: Boolean,
-    onLogSet: (Int, Double?, Double?, Boolean) -> Unit,
-    onReviseSet: (String, Int, Double?) -> Unit,
+    onLogSet: (Int, Double?, Double?, Boolean, String?, Int?) -> Unit,
+    onReviseSet: (String, Int, Double?, String?, Int?) -> Unit,
     onDeleteSet: (String) -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit
@@ -517,8 +517,8 @@ private fun ActiveWorkoutCard(
                             editingId = set.id
                             editingQuantity = set.reps.toString()
                             editingWeight = set.weightKg?.toString() ?: ""
-                        editingUnit = set.unit
-                        editingDuration = set.durationSeconds?.toString() ?: ""
+                            editingUnit = set.unit
+                            editingDuration = set.durationSeconds?.toString() ?: ""
                         }, enabled = !busy) { Text("Editar") }
                         TextButton(onClick = {
                             if (editingId == set.id) editingId = null
