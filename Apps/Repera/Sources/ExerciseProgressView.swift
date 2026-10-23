@@ -161,6 +161,14 @@ struct ExerciseEvolutionPanel: View {
         .onAppear {
             seedMetricIfNeeded()
         }
+        .onChange(of: exerciseId) { _, _ in
+            didSeedMetric = false
+            seedMetricIfNeeded()
+        }
+        .onChange(of: progressStyle) { _, _ in
+            didSeedMetric = false
+            seedMetricIfNeeded()
+        }
     }
 
     @ViewBuilder
