@@ -310,10 +310,10 @@ public enum BoardScanLiteParser {
         if let fields = capture(
             #"(?i)^(?:EVERY|CADA)\s+(\d+)\s*("|''?|S\b|SEC(?:ONDS?)?\b|MIN(?:UTES?)?\b)?\s*X\s*(\d+)\b"#,
             from: line
-        ), fields.count == 3,
-           let amount = Int(fields[0]), let count = Int(fields[2]),
+        ), (fields.count == 2 || fields.count == 3),
+           let amount = Int(fields[0]), let count = Int(fields.last ?? ""),
            amount > 0 && count > 0 && count <= 200 {
-            let unit = fields[1].uppercased()
+            let unit = fields.count == 3 ? fields[1].uppercased() : ""
             let isSeconds = unit == "\"" || unit == "S" || unit.hasPrefix("SEC")
             let intervalSeconds = isSeconds ? amount : amount * 60
             return Header(
