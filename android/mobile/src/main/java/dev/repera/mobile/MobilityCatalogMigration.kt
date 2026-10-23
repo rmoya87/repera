@@ -1,6 +1,7 @@
 package dev.repera.mobile
 
 import android.content.Context
+import dev.repera.domain.ExerciseAliasSearch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
@@ -34,10 +35,12 @@ internal object MobilityCatalogMigration {
         val originalCount = catalog.length()
         val existingCatalogIds = mutableSetOf<String>()
         val existingExerciseIds = mutableSetOf<String>()
+        val existingNames = mutableSetOf<String>()
         for (i in 0 until catalog.length()) {
             val item = catalog.getJSONObject(i)
             item.optString("catalogId").takeIf { it.isNotBlank() }?.let(existingCatalogIds::add)
             existingExerciseIds.add(item.getString("id"))
+            existingNames.add(ExerciseAliasSearch.normalize(item.optString("name")))
         }
         val usedSeedIds = mutableSetOf<String>()
         for (i in 0 until seeds.length()) {
@@ -45,13 +48,19 @@ internal object MobilityCatalogMigration {
             val catalogId = seed.getString("catalogId")
             require((catalogId.startsWith("mobility-") ||
                 catalogId.startsWith("hyrox-")) && usedSeedIds.add(catalogId))
-            if (catalogId in existingCatalogIds) continue
+            // Swift CatalogSeedBuilder.sportRow has catalogId=nil for HYROX.
+            // Detect the exact canonical name as well, so importing an iOS
+            // catalog never creates a duplicate station with a different UUID.
+            val canonicalName = ExerciseAliasSearch.normalize(seed.getString("name"))
+            if (catalogId in existingCatalogIds ||
+                (catalogId.startsWith("hyrox-") && canonicalName in existingNames)) continue
             val id = UUID.nameUUIDFromBytes(
                 ("repera:catalog:" + catalogId).toByteArray(Charsets.UTF_8)
             ).toString()
             check(existingExerciseIds.add(id)) { "Colisión de UUID en el catálogo" }
             catalog.put(JSONObject(seed.toString()).put("id", id))
             existingCatalogIds.add(catalogId)
+            existingNames.add(canonicalName)
         }
         if (catalog.length() == originalCount) return false
 

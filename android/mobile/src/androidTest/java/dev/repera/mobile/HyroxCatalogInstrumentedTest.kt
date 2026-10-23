@@ -38,6 +38,27 @@ class HyroxCatalogInstrumentedTest {
         assertFalse(MobilityCatalogMigration.ensure(context, account))
     }
 
+    @Test fun importingAppleStationWithoutCatalogIdNeverDuplicatesItsIdentity() {
+        val account = UUID.randomUUID().toString()
+        CatalogBootstrap.initializeEmptyAccount(context, account)
+        val local = LocalSnapshotStore(context, account)
+        val state = JSONObject(String(local.read()!!))
+        val appleId = UUID.randomUUID().toString()
+        state.getJSONArray("exercises").put(JSONObject()
+            .put("id", appleId).put("name", "Burpee Broad Jump")
+            .put("sportTag", "HYROX").put("muscleGroup", "Cardio")
+            .put("isCustom", false))
+        state.put("syncRevision", 4).put("updatedAt", "2026-10-23T12:00:00Z")
+        local.write(state.toString().toByteArray())
+        assertTrue(MobilityCatalogMigration.ensure(context, account))
+        val catalog = JSONObject(String(local.read()!!)).getJSONArray("exercises")
+        assertEquals(280, catalog.length())
+        val same = (0 until catalog.length()).map { catalog.getJSONObject(it) }
+            .filter { it.optString("name") == "Burpee Broad Jump" }
+        assertEquals(1, same.size)
+        assertEquals(appleId, same.single().getString("id"))
+    }
+
     @Test fun sandbagMetersAndLoadAreRecordedWithoutFalseEstimatedOneRm() {
         val account = UUID.randomUUID().toString()
         CatalogBootstrap.initializeEmptyAccount(context, account)
