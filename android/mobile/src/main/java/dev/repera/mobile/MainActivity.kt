@@ -311,8 +311,10 @@ class MainActivity : ComponentActivity() {
         snapshot = overview
         activeWorkout = active
         refreshWodTimer()
+        // Local persistence is the source of truth. A missing/disconnected watch
+        // must not make a saved training action appear to have failed.
         withContext(Dispatchers.IO) {
-            WearActiveSessionBridge.publish(this@MainActivity, bytes)
+            runCatching { WearActiveSessionBridge.publish(this@MainActivity, bytes) }
         }
     }
 
