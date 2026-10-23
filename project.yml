@@ -103,6 +103,10 @@ targets:
       path: Apps/Repera/Resources/Info.plist
       properties:
         CFBundleDisplayName: Repera
+        CFBundleURLTypes:
+          - CFBundleURLName: com.app.repera.auth
+            CFBundleURLSchemes:
+              - repera
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         # Clave pública RevenueCat (`appl_…`). Sustituir en ASC / xcconfig; vacío = modo gratis.

@@ -25,6 +25,7 @@ struct SettingsView: View {
     @State private var restoreMessage: String?
     @State private var notificationsStatus: UNAuthorizationStatus = .notDetermined
     @State private var confirmSignOut = false
+    @State private var googleLinkFeedback: String?
     @State private var isSyncingEverything = false
     @State private var syncIconSpinning = false
     @State private var syncFeedback: String?
@@ -90,8 +91,8 @@ struct SettingsView: View {
                             }
                         }
                         HStack(spacing: 5) {
-                            Text(appleAuth.isSignedIn ? "Sesión iniciada" : "Sin sesión")
-                            if let email = appleAuth.email, !email.isEmpty {
+                            Text(businessAuth.isConnected ? "Sesión iniciada" : "Sin sesión")
+                            if let email = businessAuth.accountEmail ?? appleAuth.email, !email.isEmpty {
                                 Text("·")
                                 Text(email).lineLimit(1).truncationMode(.middle)
                             }
@@ -169,6 +170,24 @@ struct SettingsView: View {
                 }
                 .disabled(isSyncingEverything)
 
+                if businessAuth.isConnected, !businessAuth.isGoogleSignedIn {
+                    Button {
+                        Task {
+                            let linked = await businessAuth.linkGoogleToCurrentAccount()
+                            googleLinkFeedback = linked
+                                ? "Google vinculado a esta cuenta."
+                                : (businessAuth.lastErrorMessage ?? "No se pudo vincular Google.")
+                        }
+                    } label: {
+                        Label("Vincular cuenta de Google", systemImage: "person.crop.circle.badge.plus")
+                    }
+                    .disabled(businessAuth.isConnecting)
+                }
+                if let googleLinkFeedback {
+                    Text(googleLinkFeedback)
+                        .font(.caption)
+                        .foregroundStyle(OG.label2)
+                }
                 Button("Cerrar sesión", role: .destructive) {
                     confirmSignOut = true
                 }
@@ -554,7 +573,7 @@ struct SettingsView: View {
             OGConfirmSheet(
                 systemImage: "person.crop.circle.badge.xmark",
                 title: "¿Cerrar sesión?",
-                message: "Volverás a la pantalla de Sign in with Apple. Tus datos locales se conservan.",
+                message: "Volverás al acceso con Apple o Google. Tus datos locales se conservan.",
                 confirmTitle: "Cerrar sesión",
                 onConfirm: {
                     appleAuth.signOut()

@@ -20,6 +20,31 @@ final class BusinessAuthStore {
     private(set) var hasRestoredSession = false
     private(set) var profileMigrationErrorMessage: String?
     private let appleIdentityBindingKey = "repera.business.appleIdentityHash.v1"
+    /// UUID remoto estable: impide que una cuenta Google distinta abra los datos
+    /// deportivos locales que antes pertenecían a otra identidad Apple.
+    private let localOwnerUserIDKey = "repera.business.localOwnerSupabaseUserID.v1"
+    /// Solo indica una sesión Google activa; se borra al cerrar sesión.
+    private let googleSignedInKey = "repera.business.googleSignedIn.v1"
+    private static let googleRedirectURL = URL(string: "repera://auth/callback")!
+
+    var isGoogleSignedIn: Bool {
+        UserDefaults.standard.bool(forKey: googleSignedInKey)
+    }
+
+    var accountEmail: String? { client?.auth.currentSession?.user.email }
+
+    private var localOwnerID: String? {
+        UserDefaults.standard.string(forKey: localOwnerUserIDKey)
+    }
+
+    private func isSameLocalOwner(_ remoteID: UUID) -> Bool {
+        guard let localOwnerID else { return true }
+        return localOwnerID == remoteID.uuidString.lowercased()
+    }
+
+    private func rememberOwner(_ remoteID: UUID) {
+        UserDefaults.standard.set(remoteID.uuidString.lowercased(), forKey: localOwnerUserIDKey)
+    }
     /// El usuario eligió no vincular Supabase ahora: no re-mostrar el muro de migración en cada arranque.
     private let continueLocalOnlyKey = "repera.business.continueLocalOnly.v1"
     private(set) var lastErrorMessage: String?
@@ -49,6 +74,7 @@ final class BusinessAuthStore {
     /// tras un refresh fallido (`sessionCleanupErrorCodes`).
     var hasPriorSupabaseBinding: Bool {
         UserDefaults.standard.string(forKey: appleIdentityBindingKey) != nil
+            || isGoogleSignedIn
     }
 
     private init() {
@@ -100,6 +126,13 @@ final class BusinessAuthStore {
                 "restoreSession soft: no Apple local cache=\(hasCachedSupabaseSession) binding=\(hasPriorSupabaseBinding)"
             )
             if let cached = client.auth.currentSession {
+                // Una sesión de otra cuenta no debe exponer datos locales.
+                guard isSameLocalOwner(cached.user.id) else {
+                    isConnected = false
+                    lastErrorMessage = "Esta cuenta es diferente de la vinculada al historial local."
+                    return
+                }
+                rememberOwner(cached.user.id)
                 AuthSessionTrace.event(
                     "restoreSession HIT cache without Apple expired=\(cached.isExpired) user=\(cached.user.id)"
                 )
@@ -186,6 +219,10 @@ final class BusinessAuthStore {
 
     private func acceptCachedSession(expectedBinding: String) {
         UserDefaults.standard.set(expectedBinding, forKey: appleIdentityBindingKey)
+        if let session = client?.auth.currentSession {
+            rememberOwner(session.user.id)
+        }
+        UserDefaults.standard.set(false, forKey: googleSignedInKey)
         isConnected = true
         isMigrationRequired = false
         setPrefersLocalOnly(false)
@@ -306,6 +343,11 @@ final class BusinessAuthStore {
             guard !session.isExpired, AppleAuthStore.shared.userID == credential.user else {
                 throw AccountMigrationError.identityChanged
             }
+            guard isSameLocalOwner(session.user.id) else {
+                throw AccountMigrationError.identityChanged
+            }
+            rememberOwner(session.user.id)
+            UserDefaults.standard.set(false, forKey: googleSignedInKey)
             UserDefaults.standard.set(expectedBinding, forKey: appleIdentityBindingKey)
             isConnected = true
             isMigrationRequired = false
@@ -326,6 +368,83 @@ final class BusinessAuthStore {
             BusinessDataStore.shared.clear()
             lastErrorMessage = "No se ha podido conectar con Supabase: \(error.localizedDescription)"
             AuthSessionTrace.event("connect FAIL: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    /// OAuth con Google usa ASWebAuthenticationSession del SDK Supabase, con
+    /// retorno protegido por la URL registrada en iOS y en Auth Redirect URLs.
+    /// Supabase vincula identidades automáticamente solo con email verificado.
+    /// La prueba definitiva de que es la misma persona es el UUID Supabase.
+    @discardableResult
+    func signInWithGoogle() async -> Bool {
+        guard let client else {
+            lastErrorMessage = "Supabase Repera no está configurado."
+            return false
+        }
+        guard !isConnecting else { return false }
+        isConnecting = true
+        defer { isConnecting = false }
+        lastErrorMessage = nil
+
+        // No se borra el historial local, ni el propietario anterior.
+        do {
+            let session = try await client.auth.signInWithOAuth(
+                provider: .google,
+                redirectTo: Self.googleRedirectURL
+            )
+            guard isSameLocalOwner(session.user.id) else {
+                // Correo distinto/no verificado, Apple «Ocultar mi correo»,
+                // o cuentas realmente diferentes: NUNCA fusionar datos.
+                try? await client.auth.signOut()
+                isConnected = false
+                lastErrorMessage = "Google corresponde a otra cuenta. Entra con Apple y vincula Google desde Cuenta para usar tu historial."
+                return false
+            }
+            rememberOwner(session.user.id)
+            UserDefaults.standard.set(true, forKey: googleSignedInKey)
+            UserDefaults.standard.removeObject(forKey: appleIdentityBindingKey)
+            isConnected = true
+            isMigrationRequired = false
+            hasRestoredSession = true
+            setPrefersLocalOnly(false)
+            lastErrorMessage = nil
+            await BusinessDataStore.shared.refresh()
+            return true
+        } catch {
+            lastErrorMessage = "No se pudo iniciar sesión con Google: \(error.localizedDescription)"
+            // No afirmar éxito ni aceptar una sesión de identidad desconocida.
+            return false
+        }
+    }
+
+    /// Vinculación iniciada DESDE una cuenta Apple ya autenticada. Es la vía
+    /// segura si Apple devuelve una dirección privada diferente de Google.
+    /// Requiere habilitar Manual Linking en Supabase Auth.
+    @discardableResult
+    func linkGoogleToCurrentAccount() async -> Bool {
+        guard let client, isConnected, !isConnecting,
+              let currentID = client.auth.currentSession?.user.id,
+              isSameLocalOwner(currentID) else {
+            lastErrorMessage = "Inicia sesión con Apple antes de vincular Google."
+            return false
+        }
+        isConnecting = true
+        defer { isConnecting = false }
+        lastErrorMessage = nil
+        do {
+            try await client.auth.linkIdentity(
+                provider: .google,
+                redirectTo: Self.googleRedirectURL
+            )
+            guard client.auth.currentSession?.user.id == currentID else {
+                lastErrorMessage = "No se ha podido comprobar la misma cuenta. No se han combinado datos."
+                return false
+            }
+            rememberOwner(currentID)
+            return true
+        } catch {
+            lastErrorMessage = "No se pudo vincular Google. Comprueba que esté habilitada la vinculación manual en Supabase."
             return false
         }
     }
@@ -352,8 +471,11 @@ final class BusinessAuthStore {
             }
             guard let session = client.auth.currentSession,
                   !session.accessToken.isEmpty,
-                  let appleUserID = AppleAuthStore.shared.userID,
-                  UserDefaults.standard.string(forKey: appleIdentityBindingKey) == Self.hashedNonce(appleUserID)
+                  isSameLocalOwner(session.user.id),
+                  (isGoogleSignedIn || (
+                    AppleAuthStore.shared.userID.map { Self.hashedNonce($0) }
+                        == UserDefaults.standard.string(forKey: appleIdentityBindingKey)
+                  ))
             else {
                 AuthSessionTrace.event("syncPublicProfile skip: no usable session")
                 return
@@ -452,6 +574,12 @@ final class BusinessAuthStore {
 
     /// Sign out from business platform independently of the Apple/iCloud personal store.
     func signOut() async {
+        // Conservar SOLO el UUID propietario para evitar mezcla al cambiar de
+        // Apple a Google. La sesión/tokens sí se revocan.
+        if let uid = client?.auth.currentSession?.user.id {
+            rememberOwner(uid)
+        }
+        UserDefaults.standard.set(false, forKey: googleSignedInKey)
         BusinessWorkoutSyncStore.shared.clearSession()
         isConnected = false
         isMigrationRequired = false
