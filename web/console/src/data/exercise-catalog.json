@@ -265,203 +265,430 @@
     },
     {
       "catalogKey": "catalog:Arrancada",
-      "name": "Arrancada",
-      "category": "Halterofilia"
+      "name": "Snatch",
+      "category": "Halterofilia",
+      "aliases": [
+        "Arrancada",
+        "full snatch",
+        "squat snatch",
+        "arrancada completa",
+        "sn"
+      ]
     },
     {
       "catalogKey": "catalog:Zancadas inversas con barra",
-      "name": "Zancadas inversas con barra",
-      "category": "Halterofilia"
+      "name": "Back rack reverse lunge",
+      "category": "Halterofilia",
+      "aliases": [
+        "Zancadas inversas con barra"
+      ]
     },
     {
       "catalogKey": "catalog:Arrancada de potencia",
-      "name": "Arrancada de potencia",
-      "category": "Halterofilia"
+      "name": "Power Snatch",
+      "category": "Halterofilia",
+      "aliases": [
+        "Arrancada de potencia",
+        "p snatch",
+        "psn",
+        "arrancada alta"
+      ]
     },
     {
       "catalogKey": "catalog:Arrancada colgante",
-      "name": "Arrancada colgante",
-      "category": "Halterofilia"
+      "name": "Hang Snatch",
+      "category": "Halterofilia",
+      "aliases": [
+        "Arrancada colgante",
+        "hang sn",
+        "arrancada desde colgado",
+        "hsn"
+      ]
     },
     {
       "catalogKey": "catalog:Arrancada colgante completa",
-      "name": "Arrancada colgante completa",
-      "category": "Halterofilia"
+      "name": "Hang Squat Snatch",
+      "category": "Halterofilia",
+      "aliases": [
+        "Arrancada colgante completa",
+        "hang full snatch",
+        "hs snatch",
+        "hssn",
+        "arrancada colgante profunda"
+      ]
     },
     {
       "catalogKey": "catalog:Hang power snatch",
       "name": "Hang power snatch",
-      "category": "Halterofilia"
+      "category": "Halterofilia",
+      "aliases": [
+        "hpsn",
+        "hang p snatch",
+        "power snatch from hang",
+        "arrancada potencia colgante"
+      ]
     },
     {
       "catalogKey": "catalog:Arrancada muscular",
-      "name": "Arrancada muscular",
-      "category": "Halterofilia"
+      "name": "Muscle Snatch",
+      "category": "Halterofilia",
+      "aliases": [
+        "Arrancada muscular",
+        "m snatch",
+        "muscle sn",
+        "arrancada sin recepción profunda"
+      ]
     },
     {
       "catalogKey": "catalog:Arrancada desde bloques",
-      "name": "Arrancada desde bloques",
-      "category": "Halterofilia"
+      "name": "Block Snatch",
+      "category": "Halterofilia",
+      "aliases": [
+        "Arrancada desde bloques",
+        "snatch from blocks",
+        "block squat snatch",
+        "arrancada desde tacos"
+      ]
     },
     {
       "catalogKey": "catalog:Arrancada con pausa",
-      "name": "Arrancada con pausa",
-      "category": "Halterofilia"
+      "name": "Pause Snatch",
+      "category": "Halterofilia",
+      "aliases": [
+        "Arrancada con pausa",
+        "paused snatch",
+        "snatch with pause",
+        "arrancada pausada"
+      ]
     },
     {
       "catalogKey": "catalog:Balance de arrancada",
-      "name": "Balance de arrancada",
-      "category": "Halterofilia"
+      "name": "Snatch Balance",
+      "category": "Halterofilia",
+      "aliases": [
+        "Balance de arrancada",
+        "sb snatch",
+        "snatch balance behind neck",
+        "recepcion arrancada con impulso"
+      ]
     },
     {
       "catalogKey": "catalog:Drop snatch",
       "name": "Drop snatch",
-      "category": "Halterofilia"
+      "category": "Halterofilia",
+      "aliases": [
+        "snatch drop",
+        "drop into snatch",
+        "caida de arrancada"
+      ]
     },
     {
       "catalogKey": "catalog:Tall snatch",
       "name": "Tall snatch",
-      "category": "Halterofilia"
+      "category": "Halterofilia",
+      "aliases": [
+        "tall sn",
+        "arrancada de extensión",
+        "tall squat snatch"
+      ]
     },
     {
       "catalogKey": "catalog:Arrancada en split",
-      "name": "Arrancada en split",
-      "category": "Halterofilia"
+      "name": "Split Snatch",
+      "category": "Halterofilia",
+      "aliases": [
+        "Arrancada en split",
+        "split sn",
+        "arrancada en tijera"
+      ]
     },
     {
       "catalogKey": "catalog:Tirón de arrancada",
-      "name": "Tirón de arrancada",
-      "category": "Halterofilia"
+      "name": "Snatch Pull",
+      "category": "Halterofilia",
+      "aliases": [
+        "Tirón de arrancada",
+        "sn pull",
+        "tiron de arrancada completo"
+      ]
     },
     {
       "catalogKey": "catalog:Peso muerto agarre arrancada",
-      "name": "Peso muerto agarre arrancada",
-      "category": "Halterofilia"
+      "name": "Snatch-Grip Deadlift",
+      "category": "Halterofilia",
+      "aliases": [
+        "Peso muerto agarre arrancada",
+        "snatch grip dl",
+        "sgdl",
+        "deadlift snatch grip",
+        "peso muerto agarre ancho"
+      ]
     },
     {
       "catalogKey": "catalog:Cargada",
-      "name": "Cargada",
-      "category": "Halterofilia"
+      "name": "Clean",
+      "category": "Halterofilia",
+      "aliases": [
+        "Cargada",
+        "full clean",
+        "squat clean",
+        "cargada completa"
+      ]
     },
     {
       "catalogKey": "catalog:Cargada de potencia",
-      "name": "Cargada de potencia",
-      "category": "Halterofilia"
+      "name": "Power Clean",
+      "category": "Halterofilia",
+      "aliases": [
+        "Cargada de potencia",
+        "pc",
+        "p clean",
+        "cargada alta"
+      ]
     },
     {
       "catalogKey": "catalog:Cargada colgante",
-      "name": "Cargada colgante",
-      "category": "Halterofilia"
+      "name": "Hang Clean",
+      "category": "Halterofilia",
+      "aliases": [
+        "Cargada colgante",
+        "hang squat clean",
+        "cargada desde colgado",
+        "hc"
+      ]
     },
     {
       "catalogKey": "catalog:Cargada colgante completa",
-      "name": "Cargada colgante completa",
-      "category": "Halterofilia"
+      "name": "Hang Squat Clean",
+      "category": "Halterofilia",
+      "aliases": [
+        "Cargada colgante completa",
+        "hsc",
+        "hang full clean",
+        "cargada colgante profunda"
+      ]
     },
     {
       "catalogKey": "catalog:Hang power clean",
       "name": "Hang power clean",
-      "category": "Halterofilia"
+      "category": "Halterofilia",
+      "aliases": [
+        "hpc",
+        "hang p clean",
+        "power clean from hang",
+        "cargada potencia colgante"
+      ]
     },
     {
       "catalogKey": "catalog:Cargada muscular",
-      "name": "Cargada muscular",
-      "category": "Halterofilia"
+      "name": "Muscle Clean",
+      "category": "Halterofilia",
+      "aliases": [
+        "Cargada muscular",
+        "m clean",
+        "cargada sin sentadilla"
+      ]
     },
     {
       "catalogKey": "catalog:Cargada desde bloques",
-      "name": "Cargada desde bloques",
-      "category": "Halterofilia"
+      "name": "Block Clean",
+      "category": "Halterofilia",
+      "aliases": [
+        "Cargada desde bloques",
+        "clean from blocks",
+        "block squat clean",
+        "cargada desde tacos"
+      ]
     },
     {
       "catalogKey": "catalog:Cargada con pausa",
-      "name": "Cargada con pausa",
-      "category": "Halterofilia"
+      "name": "Pause Clean",
+      "category": "Halterofilia",
+      "aliases": [
+        "Cargada con pausa",
+        "paused clean",
+        "clean with pause",
+        "cargada pausada"
+      ]
     },
     {
       "catalogKey": "catalog:Tall clean",
       "name": "Tall clean",
-      "category": "Halterofilia"
+      "category": "Halterofilia",
+      "aliases": [
+        "tall c",
+        "cargada desde extension"
+      ]
     },
     {
       "catalogKey": "catalog:Tirón de cargada",
-      "name": "Tirón de cargada",
-      "category": "Halterofilia"
+      "name": "Clean Pull",
+      "category": "Halterofilia",
+      "aliases": [
+        "Tirón de cargada",
+        "clean pull from floor",
+        "tiron de cargada completo"
+      ]
     },
     {
       "catalogKey": "catalog:Cargada y press",
-      "name": "Cargada y press",
-      "category": "Halterofilia"
+      "name": "Clean and Press",
+      "category": "Halterofilia",
+      "aliases": [
+        "Cargada y press",
+        "c&p",
+        "clean & press",
+        "cargada y press estricto"
+      ]
     },
     {
       "catalogKey": "catalog:Cargada y envión",
-      "name": "Cargada y envión",
-      "category": "Halterofilia"
+      "name": "Clean and Jerk",
+      "category": "Halterofilia",
+      "aliases": [
+        "Cargada y envión",
+        "c&j",
+        "cj",
+        "c+j",
+        "clean & jerk",
+        "dos tiempos",
+        "dos tiempos olimpicos",
+        "cargada y envion olimpico"
+      ]
     },
     {
       "catalogKey": "catalog:Push press",
       "name": "Push press",
-      "category": "Halterofilia"
+      "category": "Halterofilia",
+      "aliases": [
+        "pp",
+        "press de impulso",
+        "press con piernas"
+      ]
     },
     {
       "catalogKey": "catalog:Push jerk",
       "name": "Push jerk",
-      "category": "Halterofilia"
+      "category": "Halterofilia",
+      "aliases": [
+        "pj",
+        "jerk en paralelo",
+        "envion con pies paralelos"
+      ]
     },
     {
       "catalogKey": "catalog:Split jerk",
       "name": "Split jerk",
-      "category": "Halterofilia"
+      "category": "Halterofilia",
+      "aliases": [
+        "sj",
+        "jerk en split",
+        "jerk en tijera",
+        "envion split"
+      ]
     },
     {
       "catalogKey": "catalog:Power jerk",
       "name": "Power jerk",
-      "category": "Halterofilia"
+      "category": "Halterofilia",
+      "aliases": [
+        "power j",
+        "jerk de potencia",
+        "envion potencia"
+      ]
     },
     {
       "catalogKey": "catalog:Balance de envión",
-      "name": "Balance de envión",
-      "category": "Halterofilia"
+      "name": "Jerk Balance",
+      "category": "Halterofilia",
+      "aliases": [
+        "Balance de envión",
+        "jerk balance drill",
+        "balance de jerk"
+      ]
     },
     {
       "catalogKey": "catalog:Strict press",
       "name": "Strict press",
-      "category": "Halterofilia"
+      "category": "Halterofilia",
+      "aliases": [
+        "sp",
+        "strict overhead press",
+        "press estricto de pie"
+      ]
     },
     {
       "catalogKey": "catalog:Press detrás de nuca",
-      "name": "Press detrás de nuca",
-      "category": "Halterofilia"
+      "name": "Behind-the-Neck Press",
+      "category": "Halterofilia",
+      "aliases": [
+        "Press detrás de nuca",
+        "btn press",
+        "press tras nuca"
+      ]
     },
     {
       "catalogKey": "catalog:Envión detrás de nuca",
-      "name": "Envión detrás de nuca",
-      "category": "Halterofilia"
+      "name": "Behind-the-Neck Jerk",
+      "category": "Halterofilia",
+      "aliases": [
+        "Envión detrás de nuca",
+        "btn jerk",
+        "jerk btn",
+        "jerk desde nuca"
+      ]
     },
     {
       "catalogKey": "catalog:Sots press",
       "name": "Sots press",
-      "category": "Halterofilia"
+      "category": "Halterofilia",
+      "aliases": [
+        "sots",
+        "sots overhead press"
+      ]
     },
     {
       "catalogKey": "catalog:Overhead squat",
       "name": "Overhead squat",
-      "category": "Halterofilia"
+      "category": "Halterofilia",
+      "aliases": [
+        "ohs",
+        "ohsq",
+        "sentadilla overhead",
+        "sentadilla sobre cabeza"
+      ]
     },
     {
       "catalogKey": "catalog:Front rack lunge",
       "name": "Front rack lunge",
-      "category": "Halterofilia"
+      "category": "Halterofilia",
+      "aliases": [
+        "fr lunge",
+        "fr lunges",
+        "zancada rack frontal"
+      ]
     },
     {
       "catalogKey": "catalog:Sentadilla frontal con pausa",
-      "name": "Sentadilla frontal con pausa",
-      "category": "Halterofilia"
+      "name": "Pause Front Squat",
+      "category": "Halterofilia",
+      "aliases": [
+        "Sentadilla frontal con pausa",
+        "paused fs",
+        "pause fs",
+        "pfs",
+        "sentadilla frontal pausada"
+      ]
     },
     {
       "catalogKey": "catalog:Sumo high pull",
       "name": "Sumo high pull",
-      "category": "Halterofilia"
+      "category": "Halterofilia",
+      "aliases": [
+        "sdhp",
+        "sumo deadlift high pull",
+        "tiron alto sumo deadlift"
+      ]
     },
     {
       "catalogKey": "catalog:Dominadas estrictas",
@@ -1405,43 +1632,93 @@
     },
     {
       "catalogKey": "catalog:Tirón alto de arrancada",
-      "name": "Tirón alto de arrancada",
-      "category": "Halterofilia"
+      "name": "Snatch High Pull",
+      "category": "Halterofilia",
+      "aliases": [
+        "Tirón alto de arrancada",
+        "shp",
+        "snatch highpull",
+        "high pull de arrancada"
+      ]
     },
     {
       "catalogKey": "catalog:Tirón alto de cargada",
-      "name": "Tirón alto de cargada",
-      "category": "Halterofilia"
+      "name": "Clean High Pull",
+      "category": "Halterofilia",
+      "aliases": [
+        "Tirón alto de cargada",
+        "chp",
+        "clean highpull",
+        "high pull de cargada"
+      ]
     },
     {
       "catalogKey": "catalog:Peso muerto de cargada",
-      "name": "Peso muerto de cargada",
-      "category": "Halterofilia"
+      "name": "Clean Deadlift",
+      "category": "Halterofilia",
+      "aliases": [
+        "Peso muerto de cargada",
+        "clean grip deadlift",
+        "cgdl",
+        "peso muerto agarre cargada"
+      ]
     },
     {
       "catalogKey": "catalog:Envión en sentadilla",
-      "name": "Envión en sentadilla",
-      "category": "Halterofilia"
+      "name": "Squat Jerk",
+      "category": "Halterofilia",
+      "aliases": [
+        "Envión en sentadilla",
+        "squat j",
+        "sj squat",
+        "jerk en sentadilla"
+      ]
     },
     {
       "catalogKey": "catalog:Dip y drive de envión",
-      "name": "Dip y drive de envión",
-      "category": "Halterofilia"
+      "name": "Jerk Dip and Drive",
+      "category": "Halterofilia",
+      "aliases": [
+        "Dip y drive de envión",
+        "jerk dip drive",
+        "dip & drive",
+        "dip drive",
+        "jerk dip + drive",
+        "impulso de envion"
+      ]
     },
     {
       "catalogKey": "catalog:Arrancada de potencia desde bloques",
-      "name": "Arrancada de potencia desde bloques",
-      "category": "Halterofilia"
+      "name": "Block Power Snatch",
+      "category": "Halterofilia",
+      "aliases": [
+        "Arrancada de potencia desde bloques",
+        "bpsn",
+        "power snatch off blocks",
+        "arrancada potencia desde tacos"
+      ]
     },
     {
       "catalogKey": "catalog:Cargada de potencia desde bloques",
-      "name": "Cargada de potencia desde bloques",
-      "category": "Halterofilia"
+      "name": "Block Power Clean",
+      "category": "Halterofilia",
+      "aliases": [
+        "Cargada de potencia desde bloques",
+        "bpc",
+        "power clean off blocks",
+        "cargada potencia desde tacos"
+      ]
     },
     {
       "catalogKey": "catalog:Push press con agarre de arrancada",
-      "name": "Push press con agarre de arrancada",
-      "category": "Halterofilia"
+      "name": "Snatch-Grip Push Press",
+      "category": "Halterofilia",
+      "aliases": [
+        "Push press con agarre de arrancada",
+        "sgpp",
+        "snatch grip pp",
+        "push press ancho"
+      ]
     }
   ]
 }
