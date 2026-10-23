@@ -11,7 +11,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 test('full native catalog is mirrored with stable unique keys',()=>{
  assert.equal(catalog.length,288);
  assert.equal(new Set(catalog.map(x=>x.catalogKey)).size,288);
- assert.ok(catalog.every(x=>x.catalogKey==='catalog:'+x.name));
+ assert.ok(catalog.every(x=>x.catalogKey==='catalog:'+x.name || (x.category==='Halterofilia' && x.aliases?.includes(x.catalogKey.slice(8)))));
  for(const [file,regex] of [
   ['CatalogEnrichment',/\bEnrichedSeed\(\s*name:\s*"([^"]+)"/g],
   ['CatalogHalterofilia',/\bh\(\s*"([^"]+)"/g],
@@ -21,7 +21,22 @@ test('full native catalog is mirrored with stable unique keys',()=>{
   ['CatalogMovilidad',/\bmove\("([^"]+)", english:/g]
  ]){
   const native=read('../../../Packages/ReperaDomain/Sources/ReperaDomain/'+file+'.swift');
-  for(const match of native.matchAll(regex))assert.ok(catalog.some(c=>c.name===match[1]),'Missing native exercise: '+match[1]);
+  for(const match of native.matchAll(regex))assert.ok(catalog.some(c=>c.catalogKey==='catalog:'+match[1]),'Missing native exercise: '+match[1]);
+ }
+});
+test('Olympic lifting display is English while legacy IDs and Spanish aliases remain intact',()=>{
+ const lifts=catalog.filter(x=>x.category==='Halterofilia');
+ assert.equal(lifts.length,48);
+ assert.ok(lifts.every(x=>Array.isArray(x.aliases)&&x.catalogKey.startsWith('catalog:')));
+ for(const [key,title,alias] of [
+  ['catalog:Arrancada','Snatch','arrancada completa'],
+  ['catalog:Cargada y envión','Clean and Jerk','c&j'],
+  ['catalog:Tirón alto de arrancada','Snatch High Pull','shp'],
+  ['catalog:Arrancada de potencia desde bloques','Block Power Snatch','bpsn'],
+ ]) {
+  const row=lifts.find(x=>x.catalogKey===key);
+  assert.equal(row?.name,title);
+  assert.ok(row.aliases.includes(alias));
  }
 });
 test('strong and WOD blocks preserve sets, catalog identity and free names',()=>{
