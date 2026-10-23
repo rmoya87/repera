@@ -40,11 +40,16 @@ internal object ExerciseProgressMetrics {
                 }
                 val weight = set.weightKg
                 if (weight != null && weight > 0) {
-                    bestE1RM = maxOf(bestE1RM, weight * (1.0 + set.reps / 30.0))
+                    // Carries and sleds have kg + metres; metres are not reps and
+                    // must never be fed into Epley estimated one-rep-max.
+                    if (set.unit == "reps") {
+                        bestE1RM = maxOf(bestE1RM, weight * (1.0 + set.reps / 30.0))
+                    }
                     if (weight > maxWeight ||
-                        (kotlin.math.abs(weight - maxWeight) < 0.05 && set.reps > repsAtMaxWeight)) {
+                        (kotlin.math.abs(weight - maxWeight) < 0.05 &&
+                            set.unit == "reps" && set.reps > repsAtMaxWeight)) {
                         maxWeight = weight
-                        repsAtMaxWeight = set.reps
+                        repsAtMaxWeight = if (set.unit == "reps") set.reps else 0
                     }
                 }
             }

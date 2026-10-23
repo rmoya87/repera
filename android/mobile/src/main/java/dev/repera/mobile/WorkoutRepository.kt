@@ -371,7 +371,9 @@ class WorkoutRepository(context: Context, googleId: String) {
             .takeIf { it in setOf("reps", "calories", "meters") }
             ?: ExerciseInput.defaultQuantityUnit(
                 movement.getString("name"), movement.optString("equipment"))
-        if (inputMode == ExerciseInputMode.MACHINE_WORK) {
+        if (inputMode == ExerciseInputMode.LOAD_DISTANCE) {
+            check(unit == "meters") { "Este transporte se registra en metros" }
+        } else if (inputMode == ExerciseInputMode.MACHINE_WORK) {
             check(unit == "meters" || unit == "calories")
             if (!ExerciseInput.supportsCaloriesAndMeters(
                     movement.getString("name"), movement.optString("equipment"))) {
@@ -744,7 +746,9 @@ class WorkoutRepository(context: Context, googleId: String) {
         if (weightKg == null) original.remove("weightKg") else original.put("weightKg", weightKg)
         if (deficitCm == null) original.remove("deficitCm") else original.put("deficitCm", deficitCm)
         if (quantityUnit != null) {
-            if (inputMode(movement) == ExerciseInputMode.MACHINE_WORK) {
+            if (inputMode(movement) == ExerciseInputMode.LOAD_DISTANCE) {
+                check(quantityUnit == "meters")
+            } else if (inputMode(movement) == ExerciseInputMode.MACHINE_WORK) {
                 check(quantityUnit in setOf("calories", "meters"))
                 check(ExerciseInput.supportsCaloriesAndMeters(
                     movement.getString("name"), movement.optString("equipment")) ||
@@ -920,7 +924,8 @@ class WorkoutRepository(context: Context, googleId: String) {
                     current.getJSONObject("exercise").getString("name"),
                     current.getJSONObject("exercise").optString("equipment")),
             durationInput = inputMode(current.getJSONObject("exercise")) in
-                setOf(ExerciseInputMode.MACHINE_WORK, ExerciseInputMode.REPS_AND_TIME),
+                setOf(ExerciseInputMode.MACHINE_WORK, ExerciseInputMode.REPS_AND_TIME,
+                    ExerciseInputMode.LOAD_DISTANCE),
             cardioToggle = ExerciseInput.supportsCaloriesAndMeters(
                 current.getJSONObject("exercise").getString("name"),
                 current.getJSONObject("exercise").optString("equipment")),

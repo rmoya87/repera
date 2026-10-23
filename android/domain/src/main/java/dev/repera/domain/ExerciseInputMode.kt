@@ -6,6 +6,7 @@ enum class ExerciseInputMode(val basicRecorderAvailable: Boolean, val showsWeigh
     REPS_ONLY(true, false),
     REPS_AND_TIME(true, false),
     MACHINE_WORK(true, false),
+    LOAD_DISTANCE(true, true),
     HSPU_DEFICIT(true, false)
 }
 
@@ -13,6 +14,9 @@ object ExerciseInput {
     /** Mirrors Swift Exercise.defaultQuantityUnit; never use reps for machine-work by default. */
     fun defaultQuantityUnit(name: String, equipment: String?): String {
         val n = ExerciseAliasSearch.normalize(name)
+        if (n in setOf("sled push", "sled pull", "farmer carry",
+                "farmer walk", "sandbag lunges", "burpee broad jump"))
+            return "meters"
         val style = mode(name, equipment, null, null)
         if (style != ExerciseInputMode.MACHINE_WORK) return "reps"
         val rower = n.contains("rower") || n.contains("remoerg") ||
@@ -26,6 +30,7 @@ object ExerciseInput {
     fun supportsCaloriesAndMeters(name: String, equipment: String?): Boolean {
         if (mode(name, equipment, null, null) != ExerciseInputMode.MACHINE_WORK) return false
         val n = ExerciseAliasSearch.normalize(name)
+        if (n == "burpee broad jump") return false
         return listOf("carrera", "running", "run", "shuttle", "treadmill", "cinta")
             .none { n.contains(it) }
     }
@@ -37,6 +42,10 @@ object ExerciseInput {
         if (sportTag == "Movilidad") return ExerciseInputMode.REPS_AND_TIME
         val n = ExerciseAliasSearch.normalize(name)
         val eq = ExerciseAliasSearch.normalize(equipment ?: "")
+        if (n in setOf("sled push", "sled pull", "farmer carry",
+                "farmer walk", "sandbag lunges"))
+            return ExerciseInputMode.LOAD_DISTANCE
+        if (n == "burpee broad jump") return ExerciseInputMode.MACHINE_WORK
         if (eq.contains("comba") || n.contains("double under") ||
             n.contains("single under") || n.contains("triple under") ||
             (n.contains("doble") && n.contains("comba")) ||

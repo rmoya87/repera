@@ -15,7 +15,8 @@ object ExerciseCatalogFilters {
 
     fun matches(entry: ExerciseEntry, filter: String): Boolean = when (filter) {
         "Todos" -> true
-        "Hyrox" -> entry.hyroxTraining
+        "Hyrox", "HYROX" -> entry.hyroxTraining ||
+            entry.sportTag.equals("HYROX", ignoreCase = true)
         "Cardio" -> entry.muscleGroup.equals("Cardio", ignoreCase = true) ||
             entry.loggingStyle == "machineWork" || entry.loggingStyle == "repsAndTime"
         else -> entry.sportTag.equals(filter, ignoreCase = true)
@@ -23,7 +24,8 @@ object ExerciseCatalogFilters {
 
     fun available(entries: List<ExerciseEntry>): List<String> {
         val fixed = listOf("Todos", "Cardio", "Hyrox")
-        val tags = entries.mapNotNull { it.sportTag }.distinct().sorted()
+        val tags = entries.mapNotNull { it.sportTag }.distinct()
+            .filterNot { tag -> fixed.any { it.equals(tag, ignoreCase = true) } }.sorted()
         val filters = fixed + tags
         return filters.distinct().filter { it == "Todos" || entries.any { entry -> matches(entry, it) } }
     }
