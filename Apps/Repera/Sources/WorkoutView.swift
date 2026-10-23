@@ -19,7 +19,7 @@ struct WorkoutView: View {
     @State private var dropRepsText = ""
     @State private var pendingDrops: [DropSegment] = []
     @State private var clusterRepsText = ""
-    @State private var clusterRest = 15
+    @State private var clusterRestText = "15"
     @State private var pendingClusters: [RestPauseCluster] = []
     @State private var editingRoutine: Routine?
     @State private var notesDraft = ""
@@ -421,6 +421,11 @@ struct WorkoutView: View {
                             }
                         }
                         .listRowBackground(OG.surface)
+                        // Sin línea entre el ejercicio abierto y la cabecera de series.
+                        .listRowSeparator(
+                            session.currentIndex == index ? .hidden : .visible,
+                            edges: .bottom
+                        )
 
                         if session.currentIndex == index {
                             setsBoard(entry)
@@ -1613,37 +1618,78 @@ struct WorkoutView: View {
                         .font(.caption2)
                         .foregroundStyle(OG.label2)
                     ForEach(Array(pendingClusters.enumerated()), id: \.element.id) { idx, cluster in
-                        Text("\(idx + 1). \(cluster.reps) reps · descanso \(cluster.restSeconds)s")
+                        Text("\(idx + 1). \(cluster.reps) reps · descanso \(cluster.restSeconds) s")
                             .font(.caption.monospacedDigit())
                     }
-                    HStack(spacing: 10) {
-                        OGNumericTextField(
-                            text: $clusterRepsText,
-                            allowsDecimal: false,
-                            autoFocus: false,
-                            isFocused: advancedFocusedField == OGSetFieldID(rowID: advancedFieldRowID, column: 2),
-                            submitTitle: "✓",
-                            onFocused: { advancedFocusedField = OGSetFieldID(rowID: advancedFieldRowID, column: 2) },
-                            onFocusLost: { if advancedFocusedField?.column == 2 { advancedFocusedField = nil } },
-                            onCommit: { advancedFocusedField = nil }
-                        )
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
 
-                        Stepper("\(clusterRest)s", value: $clusterRest, in: 5...30, step: 5)
-                        Button("Añadir") {
-                            let reps = Int(clusterRepsText) ?? 0
-                            guard reps > 0 else { return }
-                            pendingClusters.append(RestPauseCluster(reps: reps, restSeconds: clusterRest))
-                            clusterRepsText = ""
+                    HStack(alignment: .bottom, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("REPS")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(OG.label3)
+                            OGNumericTextField(
+                                text: $clusterRepsText,
+                                allowsDecimal: false,
+                                autoFocus: false,
+                                isFocused: advancedFocusedField == OGSetFieldID(rowID: advancedFieldRowID, column: 2),
+                                submitTitle: "✓",
+                                onFocused: { advancedFocusedField = OGSetFieldID(rowID: advancedFieldRowID, column: 2) },
+                                onFocusLost: { if advancedFocusedField?.column == 2 { advancedFocusedField = nil } },
+                                onCommit: { advancedFocusedField = nil }
+                            )
+                            .frame(maxWidth: .infinity, minHeight: 46)
+                            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
+                            .accessibilityLabel("Repeticiones del cluster")
                         }
+                        .frame(maxWidth: .infinity)
+
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("DESCANSO")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(OG.label3)
+                            HStack(spacing: 4) {
+                                OGNumericTextField(
+                                    text: $clusterRestText,
+                                    allowsDecimal: false,
+                                    autoFocus: false,
+                                    onCommit: {}
+                                )
+                                .frame(maxWidth: .infinity, minHeight: 46)
+                                Text("s")
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundStyle(OG.label2)
+                                    .fixedSize(horizontal: true, vertical: false)
+                            }
+                            .padding(.horizontal, 10)
+                            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
+                            .accessibilityLabel("Descanso del cluster en segundos")
+                        }
+                        .frame(maxWidth: .infinity)
                     }
+
+                    Button {
+                        let reps = Int(clusterRepsText) ?? 0
+                        let seconds = Int(clusterRestText) ?? 0
+                        guard reps > 0, (5...30).contains(seconds) else { return }
+                        pendingClusters.append(RestPauseCluster(reps: reps, restSeconds: seconds))
+                        clusterRepsText = ""
+                    } label: {
+                        Label("Añadir cluster", systemImage: "plus")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(OG.accent)
+                            .frame(maxWidth: .infinity, minHeight: 46)
+                            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled((Int(clusterRepsText) ?? 0) <= 0
+                        || !(5...30).contains(Int(clusterRestText) ?? 0))
                 }
             }
         }
-        .padding(OG.pad)
+        // La sección List ya aplica sus márgenes y el fondo blanco.
+        // Evitar otra caja con padding lateral que estreche los controles.
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
     }
 
     private func loggedList(_ current: SessionExercise) -> some View {
