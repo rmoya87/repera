@@ -37,7 +37,7 @@ struct ExerciseEvolutionPanel: View {
 
     @State private var metric: ExerciseProgressMetric = .topSet
     @State private var range: ProgressRange = .all
-    @State private var selectedPoint: ExerciseProgressPoint?
+    @State private var selectedChartDate: Date?
     @State private var editingTope = false
     @State private var topeDraft = ""
     @State private var didSeedMetric = false
@@ -112,11 +112,8 @@ struct ExerciseEvolutionPanel: View {
                 }
             }
         }
-        .onChange(of: metric) { _, _ in selectedPoint = points.last }
-        .onChange(of: range) { _, _ in selectedPoint = points.last }
         .onAppear {
             seedMetricIfNeeded()
-            selectedPoint = points.last
         }
     }
 
@@ -286,11 +283,22 @@ struct ExerciseEvolutionPanel: View {
                         .foregroundStyle(OG.blue)
                         .interpolationMethod(.catmullRom)
 
-                        PointMark(
-                            x: .value("Fecha", pt.date),
-                            y: .value("Valor", pt.value)
-                        )
-                        .foregroundStyle(OG.blue)
+                    }
+
+                    if let selectedChartDate,
+                       let selected = points.min(by: {
+                           abs($0.date.timeIntervalSince(selectedChartDate)) < abs($1.date.timeIntervalSince(selectedChartDate))
+                       }) {
+                        RuleMark(x: .value("Fecha seleccionada", selected.date))
+                            .foregroundStyle(OG.label2)
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                            .annotation(position: .top) {
+                                Text(tooltip(for: selected))
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(OG.label)
+                                    .padding(5)
+                                    .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
+                            }
                     }
 
                     if let tested = testedOneRMKg, showsOneRMCeiling {
@@ -305,6 +313,7 @@ struct ExerciseEvolutionPanel: View {
                             }
                     }
                 }
+                .chartXSelection(value: $selectedChartDate)
                 .chartXAxis {
                     AxisMarks(values: .automatic) { _ in
                         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
@@ -322,11 +331,7 @@ struct ExerciseEvolutionPanel: View {
                 .chartYScale(domain: chartYDomain)
                 .frame(height: 180)
 
-                if let tip = selectedPoint ?? points.last {
-                    Text(tooltip(for: tip))
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(OG.label)
-                }
+
             }
         }
         .padding(12)

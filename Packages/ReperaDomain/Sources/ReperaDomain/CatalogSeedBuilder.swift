@@ -45,7 +45,7 @@ enum CatalogSeedBuilder {
     ) -> EnrichedSeed {
         let group = MuscleTaxonomy.libraryMuscleGroup(primaries: primaries, target: target)
         return row(
-            name,
+            SportExerciseNames.displayName(name, sport: sport),
             group: group,
             equipment: equipment,
             target: target,

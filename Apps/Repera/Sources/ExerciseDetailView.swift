@@ -8,6 +8,8 @@ struct ExerciseDetailView: View {
     let exerciseId: UUID
     /// Entreno desde el que se abrió la ficha (para «Esta sesión» vs anteriores).
     var highlightSessionId: UUID? = nil
+    /// Instancia concreta cuando el mismo ejercicio figura en varios bloques.
+    var highlightExerciseInstanceId: UUID? = nil
 
     var onOpenedWorkout: (() -> Void)? = nil
 
@@ -40,7 +42,8 @@ struct ExerciseDetailView: View {
                             if let highlightSessionId {
                                 ExerciseThisSessionCard(
                                     exerciseId: resolvedId,
-                                    highlightSessionId: highlightSessionId
+                                    highlightSessionId: highlightSessionId,
+                                    highlightExerciseInstanceId: highlightExerciseInstanceId
                                 )
                             }
 

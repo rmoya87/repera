@@ -7,17 +7,18 @@ public enum CatalogSpanish {
         description: String?,
         instructions: [String]
     ) -> (description: String?, instructions: [String]) {
-        let desc = spanishByName[name] ?? description.map(translateSentence)
-        let steps = spanishInstructions[name] ?? instructions.map(translateSentence)
+        let legacyName = SportExerciseNames.spanishAlias(for: name) ?? name
+        let desc = spanishByName[name] ?? spanishByName[legacyName] ?? description.map(translateSentence)
+        let steps = spanishInstructions[name] ?? spanishInstructions[legacyName] ?? instructions.map(translateSentence)
         return (desc, steps)
     }
 
     public static func description(forName name: String) -> String? {
-        spanishByName[name]
+        spanishByName[name] ?? spanishByName[SportExerciseNames.spanishAlias(for: name) ?? name]
     }
 
     public static func instructions(forName name: String) -> [String]? {
-        spanishInstructions[name]
+        spanishInstructions[name] ?? spanishInstructions[SportExerciseNames.spanishAlias(for: name) ?? name]
     }
 
     public static func translateSentence(_ raw: String) -> String {

@@ -522,6 +522,10 @@ struct HealthRecoveryProgressView: View {
     @State private var recovery = HealthRecoveryStore.shared
     @State private var physiology = HealthPhysiologyStore.shared
     @State private var recoveryPoints: [TrainingRecoveryPoint] = []
+    @State private var selectedRecoveryDate: Date?
+    @State private var selectedSleepDate: Date?
+    @State private var selectedVitalDate: Date?
+    @State private var selectedPhysiologyDate: Date?
     @State private var currentReadiness: RecoveryEngine.TrainingReadiness?
     @State private var currentSleepHours: Double?
     @Environment(HealthKitStore.self) private var health
@@ -733,16 +737,12 @@ struct HealthRecoveryProgressView: View {
         var id: Date { date }
     }
 
+    /// VFC conserva la evolución, sin marcadores estáticos.
     private func vitalChart(
         _ title: String, unit: String,
         keyPath: KeyPath<RecoveryEngine.DailyVitals, Double?>
     ) -> some View {
-        let values = physiology.days.filter {
-            range.contains($0.date, weekStartsOnMonday: weekStartsOnMonday)
-        }.compactMap { sample -> VitalPlot? in
-            guard let value = sample[keyPath: keyPath] else { return nil }
-            return VitalPlot(date: sample.date, value: value)
-        }
+        let values = vitalValues(keyPath)
         return VStack(alignment: .leading, spacing: 7) {
             HStack {
                 Text(title).font(.subheadline.weight(.medium)).foregroundStyle(OG.label)
@@ -754,20 +754,28 @@ struct HealthRecoveryProgressView: View {
                 }
             }
             if values.count >= 2 {
-                Chart(values) { sample in
-                    LineMark(
-                        x: .value("Día", sample.date),
-                        y: .value(title, sample.value)
-                    )
-                    .interpolationMethod(.linear)
-                    .foregroundStyle(OG.accent)
-                    PointMark(
-                        x: .value("Día", sample.date),
-                        y: .value(title, sample.value)
-                    )
-                    .foregroundStyle(OG.accent)
-                    .symbolSize(24)
+                Chart {
+                    ForEach(values) { sample in
+                        LineMark(x: .value("Día", sample.date), y: .value(title, sample.value))
+                            .interpolationMethod(.linear)
+                            .foregroundStyle(OG.accent)
+                    }
+                    if let selectedVitalDate,
+                       let selected = values.min(by: {
+                           abs($0.date.timeIntervalSince(selectedVitalDate)) < abs($1.date.timeIntervalSince(selectedVitalDate))
+                       }) {
+                        RuleMark(x: .value("Día seleccionado", selected.date))
+                            .foregroundStyle(OG.label2)
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                            .annotation(position: .top) {
+                                Text(String(format: "%.0f %@", selected.value, unit))
+                                    .font(.caption.weight(.semibold))
+                                    .padding(5)
+                                    .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
+                            }
+                    }
                 }
+                .chartXSelection(value: $selectedVitalDate)
                 .chartXAxis {
                     AxisMarks(values: .automatic(desiredCount: 3)) {
                         AxisGridLine()
@@ -783,6 +791,76 @@ struct HealthRecoveryProgressView: View {
         }
     }
 
+    private func vitalValues(_ keyPath: KeyPath<RecoveryEngine.DailyVitals, Double?>) -> [VitalPlot] {
+        physiology.days.filter {
+            range.contains($0.date, weekStartsOnMonday: weekStartsOnMonday)
+        }.compactMap { sample in
+            guard let value = sample[keyPath: keyPath] else { return nil }
+            return VitalPlot(date: sample.date, value: value)
+        }
+    }
+
+    /// Dos minigráficas de barras: mismo bloque, escalas independientes
+    /// para no equiparar lpm y respiraciones/min.
+    private func vitalBarTile(
+        _ title: String, unit: String,
+        keyPath: KeyPath<RecoveryEngine.DailyVitals, Double?>
+    ) -> some View {
+        let values = vitalValues(keyPath)
+        let selected = selectedPhysiologyDate.flatMap { date in
+            values.min { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) }
+        }
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(OG.label2)
+            Text(values.last.map { String(format: "%.0f %@", $0.value, unit) } ?? "—")
+                .font(.system(size: 17, weight: .semibold).monospacedDigit())
+                .foregroundStyle(OG.label)
+            if !values.isEmpty {
+                Chart {
+                    ForEach(values) { sample in
+                        BarMark(x: .value("Día", sample.date, unit: .day),
+                                y: .value(title, sample.value))
+                            .foregroundStyle(OG.accent.opacity(0.8))
+                            .cornerRadius(3)
+                    }
+                    if let selected {
+                        RuleMark(x: .value("Día seleccionado", selected.date))
+                            .foregroundStyle(OG.label2)
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                            .annotation(position: .top) {
+                                Text(String(format: "%.0f %@", selected.value, unit))
+                                    .font(.caption2.weight(.semibold))
+                            }
+                    }
+                }
+                .chartXSelection(value: $selectedPhysiologyDate)
+                .chartXAxis(.hidden)
+                .chartYAxis(.hidden)
+                .frame(height: 82)
+            } else {
+                Text("Sin datos").font(.caption).foregroundStyle(OG.label3)
+                    .frame(height: 82, alignment: .center)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func vitalValueTile(_ label: String, value: String, icon: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(label, systemImage: icon)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(OG.label2)
+            Text(value)
+                .font(.system(size: 19, weight: .semibold).monospacedDigit())
+                .foregroundStyle(OG.label)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12))
+    }
+
     private var physiologyContent: some View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Constantes fisiológicas")
@@ -790,21 +868,21 @@ struct HealthRecoveryProgressView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     vitalChart("Variabilidad cardíaca (VFC)", unit: "ms", keyPath: \.hrvMilliseconds)
                     Divider().opacity(0.25)
-                    vitalChart("Frecuencia en reposo", unit: "lpm", keyPath: \.restingHeartRateBpm)
-                    Divider().opacity(0.25)
-                    vitalChart("Frecuencia respiratoria", unit: "resp/min", keyPath: \.respiratoryRateBpm)
+                    HStack(alignment: .top, spacing: 10) {
+                        vitalBarTile("Pulso en reposo", unit: "lpm", keyPath: \.restingHeartRateBpm)
+                        vitalBarTile("Respiración", unit: "resp/min", keyPath: \.respiratoryRateBpm)
+                    }
                     if let latest = physiology.days.last {
+                        HStack(alignment: .top, spacing: 10) {
+                            if let oxygen = latest.oxygenSaturationPercent {
+                                vitalValueTile("Oxígeno en sangre", value: String(format: "%.0f%%", oxygen), icon: "lungs")
+                            }
+                            if let wrist = latest.wristTemperatureCelsius {
+                                vitalValueTile("Temperatura nocturna", value: String(format: "%.1f °C", wrist), icon: "thermometer.medium")
+                            }
+                        }
                         if let recovery = latest.heartRateRecoveryBpm {
-                            Text("Recuperación cardíaca 1 min: \(Int(recovery.rounded())) lpm")
-                                .font(.caption).foregroundStyle(OG.label2)
-                        }
-                        if let oxygen = latest.oxygenSaturationPercent {
-                            Text(String(format: "Oxígeno registrado: %.0f%%", oxygen))
-                                .font(.caption).foregroundStyle(OG.label2)
-                        }
-                        if let wrist = latest.wristTemperatureCelsius {
-                            Text(String(format: "Temperatura nocturna de muñeca: %.1f °C", wrist))
-                                .font(.caption).foregroundStyle(OG.label2)
+                            vitalValueTile("Recuperación cardíaca 1 min", value: "\(Int(recovery.rounded())) lpm", icon: "heart")
                         }
                     }
                 }
@@ -944,12 +1022,29 @@ struct HealthRecoveryProgressView: View {
                         }
                     }
                 } else {
-                    Label("Datos insuficientes", systemImage: "heart")
-                        .font(.headline)
-                        .foregroundStyle(OG.label)
-                    Text("Necesitamos sueño y entrenamientos recientes para calcular tu preparación.")
-                        .font(.subheadline)
-                        .foregroundStyle(OG.label2)
+                    ZStack {
+                        Chart {
+                            RuleMark(y: .value("Base", 0.0))
+                                .foregroundStyle(Color.clear)
+                        }
+                        .chartYScale(domain: 0.0...10.0)
+                        .chartXAxis(.hidden)
+                        .chartYAxis {
+                            AxisMarks(position: .leading, values: [0.0, 5.0, 10.0]) { _ in
+                                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.6, dash: [3, 4]))
+                                    .foregroundStyle(OG.surface3)
+                                AxisValueLabel()
+                            }
+                        }
+                        .frame(height: 150)
+
+                        Text("Necesitamos datos de sueño y entrenamientos recientes")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(OG.label2)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 28)
+                    }
+                    .accessibilityElement(children: .combine)
                 }
             }
         }
@@ -962,7 +1057,8 @@ struct HealthRecoveryProgressView: View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Evolución de recuperación")
             OGCard {
-                Chart(recoveryPoints) { point in
+                Chart {
+                    ForEach(recoveryPoints) { point in
                     LineMark(
                         x: .value("Día", point.date),
                         y: .value("Recuperación", point.score)
@@ -985,13 +1081,24 @@ struct HealthRecoveryProgressView: View {
                     )
                     .alignsMarkStylesWithPlotArea()
 
-                    PointMark(
-                        x: .value("Día", point.date),
-                        y: .value("Recuperación", point.score)
-                    )
-                    .foregroundStyle(readinessColor(point.score))
-                    .symbolSize(36)
                 }
+                if let selectedRecoveryDate,
+                   let selected = recoveryPoints.min(by: {
+                       abs($0.date.timeIntervalSince(selectedRecoveryDate)) < abs($1.date.timeIntervalSince(selectedRecoveryDate))
+                   }) {
+                    RuleMark(x: .value("Día seleccionado", selected.date))
+                        .foregroundStyle(OG.label2)
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                        .annotation(position: .top) {
+                            Text("\(Int(selected.score.rounded()))/10 · \(selected.date.formatted(.dateTime.day().month(.abbreviated)))")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(OG.label)
+                                .padding(5)
+                                .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
+                        }
+                }
+                }
+                .chartXSelection(value: $selectedRecoveryDate)
                 .chartYScale(domain: 0.0...10.0)
                 .chartYAxis {
                     AxisMarks(position: .leading, values: [0.0, 5.0, 10.0])
@@ -1073,14 +1180,24 @@ struct HealthRecoveryProgressView: View {
                         .lineStyle(StrokeStyle(lineWidth: 2.4, lineCap: .round, lineJoin: .round))
                         .interpolationMethod(.catmullRom)
 
-                        PointMark(
-                            x: .value("Día", night.date),
-                            y: .value("Horas", night.hours)
-                        )
-                        .symbolSize(nights.count > 10 ? 22 : 36)
-                        .foregroundStyle(NightSky.rem)
+                    }
+                    if let selectedSleepDate,
+                       let selected = nights.min(by: {
+                           abs($0.date.timeIntervalSince(selectedSleepDate)) < abs($1.date.timeIntervalSince(selectedSleepDate))
+                       }) {
+                        RuleMark(x: .value("Día seleccionado", selected.date))
+                            .foregroundStyle(NightSky.glow)
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                            .annotation(position: .top) {
+                                Text(String(format: "%.1f h", selected.hours))
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(5)
+                                    .background(NightSky.ink, in: RoundedRectangle(cornerRadius: 6))
+                            }
                     }
                 }
+                .chartXSelection(value: $selectedSleepDate)
                 .chartXScale(domain: xStart...xEnd)
                 .chartYScale(domain: yLo...yHi)
                 .chartXAxis(.hidden)

@@ -817,6 +817,7 @@ struct HomeView: View {
             // Cuando hay varias sesiones, el listado sí crece verticalmente.
             if !hasActive {
                 addAnotherWorkoutButton
+                    .padding(.top, 8)
             }
         }
         .swipeActionsContainer()
