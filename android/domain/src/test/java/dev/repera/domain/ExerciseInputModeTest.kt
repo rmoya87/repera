@@ -16,6 +16,18 @@ class ExerciseInputModeTest {
             ExerciseInput.mode("Dominadas", "Peso corporal", "lats", "Espalda"))
     }
 
+    @Test fun mobilityNeverRequestsExternalLoad() {
+        val hold = ExerciseInput.mode("Colgado pasivo", "Barra", "lats", "Espalda", "Movilidad")
+        assertEquals(ExerciseInputMode.REPS_AND_TIME, hold)
+        assertFalse(hold.showsWeight)
+        val dynamic = ExerciseInput.mode("CARs de hombro", "Peso corporal",
+            "delts", "Hombros", "Movilidad")
+        assertEquals(ExerciseInputMode.REPS_AND_TIME, dynamic)
+        assertTrue(dynamic.basicRecorderAvailable)
+        assertEquals(ExerciseInputMode.LOAD_REPS,
+            ExerciseInput.mode("Press banca", "Barra", "pectorals", "Pecho"))
+    }
+
     @Test fun cardioAndJumpRopeAreRecordableWithCorrectUnits() {
         assertTrue(ExerciseInput.mode("SkiErg", null, null, "Cardio").basicRecorderAvailable)
         assertTrue(ExerciseInput.mode("Double under", "Comba", null, "Cardio").basicRecorderAvailable)
