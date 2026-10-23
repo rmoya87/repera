@@ -262,8 +262,10 @@ struct StatsView: View {
                 }
             }
         }
-        ProgressHeartZonesCard(workouts: snap.filteredWorkouts)
-        ProgressCardioChartCard(prepared: snap.charts)
+        ProgressCardioChartCard(
+            prepared: snap.charts,
+            workouts: snap.filteredWorkouts
+        )
         ProgressCaloriesChartCard(prepared: snap.charts)
 
         ProgressWeightChartCard(
@@ -387,7 +389,6 @@ struct StatsView: View {
                 weekStartsOnMonday: mondayFirst,
                 isTeaserPreview: true
             )
-            ProgressHeartZonesCard(workouts: [], isTeaserPreview: true)
             ProgressCardioChartCard(prepared: sample)
             ProgressCaloriesChartCard(prepared: sample)
             ProgressWeightChartCard(

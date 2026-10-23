@@ -19,15 +19,16 @@ class ProgressFidelityLayoutTests(unittest.TestCase):
         self.assertIn(".background(OG.surface)", home)
         self.assertIn('activityTodayCard', home)
 
-    def test_scheduled_date_routines_are_in_weekly_programming_section(self):
+    def test_diary_does_not_show_one_off_workouts_created_elsewhere(self):
         diary = swift("PlanView.swift")
         section = diary.split("private var scheduleContent", 1)[1].split("private func scheduleChips", 1)[0]
-        self.assertIn("if !datedPlans.isEmpty {", section)
-        self.assertIn("ForEach(datedPlans)", section)
+        self.assertNotIn("ForEach(datedPlans)", section)
+        self.assertNotIn("scheduledDate != nil", section)
+        self.assertNotIn('Text("Entrenamientos con fecha")', section)
         self.assertIn("ForEach(1...7, id:", section)
         self.assertIn('Text("Tu programación")', section)
-        self.assertNotIn('Text("Entrenamientos con fecha")', section)
-        self.assertLess(section.index("ForEach(datedPlans)"), section.index("ForEach(1...7"))
+        self.assertIn("store.routine(forWeekday: day)", section)
+        self.assertIn("businessData.trainingSessions", section)
         self.assertIn("onOpenRoutine(routine)", section)
 
     def test_score_chart_is_smoothed_and_same_card_width_as_real(self):
@@ -39,17 +40,25 @@ class ProgressFidelityLayoutTests(unittest.TestCase):
         self.assertIn("Ejemplo ·", score)
         self.assertIn("isTeaserPreview: isTeaserPreview", score)
 
-    def test_heart_zone_sample_shows_actual_distribution_layout(self):
+    def test_heart_zones_are_inside_cardio_with_in_bar_percentages(self):
+        stats = swift("StatsView.swift")
+        self.assertNotIn("ProgressHeartZonesCard(", stats)
         charts = swift("ProgressTrendCards.swift")
-        zones = charts.split("struct ProgressHeartZonesCard:", 1)[1].split("struct ProgressCardioChartCard:", 1)[0]
-        sample = zones.split("if isTeaserPreview {", 1)[1].split("} else if let zones {", 1)[0]
-        self.assertIn("previewSeconds", sample)
-        self.assertIn("usableWidth * CGFloat(previewSeconds[index] / total)", sample)
-        self.assertIn("100 * previewSeconds[index] / total", sample)
-        self.assertIn("Carga cardiovascular: 7/10", sample)
-        self.assertIn('Text("Ejemplo")', sample)
-        self.assertNotIn("Distribución ilustrativa", sample)
-        self.assertIn("OGCard(padding: 10)", sample)
+        zone = charts.split("struct ProgressHeartZonesCard:", 1)[1].split("struct ProgressCardioChartCard:", 1)[0]
+        cardio = charts.split("struct ProgressCardioChartCard:", 1)[1].split("struct ProgressCaloriesChartCard:", 1)[0]
+        self.assertIn("ProgressHeartZonesCard(", cardio)
+        self.assertIn("workouts: workouts", cardio)
+        self.assertIn("isTeaserPreview: prepared.isTeaserPreview", cardio)
+        self.assertIn("if let stats = periodStats", cardio)
+        self.assertLess(cardio.index("cardioStatPill(title: \"Máx\""), cardio.index("ProgressHeartZonesCard("))
+        self.assertNotIn("OGCard(", zone)
+        self.assertNotIn("Zonas cardíacas · último entreno", charts)
+        self.assertIn('Text("\\(Int((100 * fraction).rounded()))%")', zone)
+        self.assertIn('Text("Intensidad cardiovascular")', zone)
+        self.assertIn(".trim(from: 0, to:", zone)
+        self.assertIn("HealthKitStore.shared.heartZones(for: latest)", zone)
+        self.assertIn("if isTeaserPreview", zone)
+        self.assertIn("slice.seconds / total", zone)
 
     def test_heart_rate_sample_has_the_same_three_tiles(self):
         charts = swift("ProgressTrendCards.swift")
