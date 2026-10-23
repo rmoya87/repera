@@ -218,8 +218,7 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
             "mobility-14", "mobility-15", "mobility-16", "mobility-20", "mobility-21",
             "mobility-30", "mobility-31", "mobility-32", "mobility-36", "mobility-38",
             "mobility-39", "mobility-40", "mobility-41", "mobility-42", "mobility-44",
-            "mobility-46", "mobility-60", "mobility-61", "mobility-62", "mobility-66",
-            "mobility-67", "mobility-70", "mobility-80"
+            "mobility-46", "mobility-60", "mobility-61", "mobility-62",             "mobility-67", "mobility-70", "mobility-80"
         ]
         return holdIds.contains(identifier)
     }
