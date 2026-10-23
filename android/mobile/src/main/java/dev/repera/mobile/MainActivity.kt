@@ -403,6 +403,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private suspend fun reloadFor(id: String) {
         val (overview, active, bytes) = withContext(Dispatchers.IO) {
             val store = LocalSnapshotStore(this@MainActivity, id)
+            CatalogBootstrap.appendMissingMobility(this@MainActivity, id)
             val bytes = store.read()
             Triple(StateOverview.fromBytes(bytes), WorkoutRepository(this@MainActivity, id).active(), bytes)
         }
@@ -515,7 +516,9 @@ data class StateOverview(
     val exerciseEntries: List<ExerciseEntry>,
     val exerciseProgress: Map<String, ExerciseProgressSummary> = emptyMap(),
     val weeklyDayTotals: List<Int> = emptyList(),
-    val weeklyMuscleGroups: List<MuscleWorkloadMetrics.GroupCount> = emptyList()
+    val weeklyMuscleGroups: List<MuscleWorkloadMetrics.GroupCount> = emptyList(),
+    val mobilitySessions: Int = 0,
+    val mobilitySeconds: Int = 0
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?): StateOverview? {
@@ -655,18 +658,46 @@ data class StateOverview(
                         ex.optString("targetMuscle"),
                         ex.optString("muscleGroup")
                     )
+                    val mobility = ex.optString("sportTag") == "Movilidad"
                     ExerciseEntry(ex.getString("id"), ex.getString("name"),
-                        mode.basicRecorderAvailable, mode.showsWeight,
+                        mobility || mode.basicRecorderAvailable, !mobility && mode.showsWeight,
                         muscleGroup = ex.optString("muscleGroup"),
                         sportTag = ex.optString("sportTag").takeIf { it.isNotBlank() },
                         hyroxTraining = ExerciseCatalogFilters.isHyroxTrainingMovement(
                             ex.getString("name")),
-                        loggingStyle = when (mode) {
+                        isMobilityHold = mobility && MobilityCatalog.isHold(ex.optString("catalogId")),
+                        loggingStyle = if (mobility) "mobility" else when (mode) {
                             dev.repera.domain.ExerciseInputMode.MACHINE_WORK -> "machineWork"
                             dev.repera.domain.ExerciseInputMode.REPS_AND_TIME -> "repsAndTime"
                             else -> "strength"
                         })
                 }.sortedBy { it.name }
+            }
+            var mobilitySessions = 0
+            var mobilitySeconds = 0
+            val archive = json.getJSONArray("workouts")
+            for (w in 0 until archive.length()) {
+                val workout = archive.getJSONObject(w)
+                val finished = workout.optString("phase") == "finished" ||
+                    (workout.has("finishedAt") && !workout.isNull("finishedAt"))
+                if (!finished) continue
+                var elapsed = 0
+                val moves = workout.optJSONArray("exercises") ?: continue
+                for (i in 0 until moves.length()) {
+                    val entry = moves.getJSONObject(i)
+                    if (entry.optJSONObject("exercise")?.optString("sportTag") != "Movilidad") continue
+                    val sets = entry.optJSONArray("loggedSets") ?: continue
+                    for (j in 0 until sets.length()) {
+                        val set = sets.getJSONObject(j)
+                        if (set.optString("phase", "work") == "work" && set.optInt("reps") > 0) {
+                            elapsed += set.optInt("durationSeconds").coerceAtLeast(0)
+                        }
+                    }
+                }
+                if (elapsed > 0) {
+                    mobilitySessions++
+                    mobilitySeconds += elapsed
+                }
             }
             return StateOverview(
                 workouts = workoutTitles.size,
@@ -680,6 +711,8 @@ data class StateOverview(
                 routineEntries = routineEntries,
                 exerciseEntries = exerciseEntries,
                 exerciseProgress = ExerciseProgressMetrics.fromWorkouts(json.getJSONArray("workouts")),
+                mobilitySessions = mobilitySessions,
+                mobilitySeconds = mobilitySeconds,
                 weeklyDayTotals = weeklyDayTotals.toList(),
                 weeklyMuscleGroups = MuscleWorkloadMetrics.weekly(
                     json.getJSONArray("workouts"), today, ZoneId.systemDefault())
@@ -701,8 +734,11 @@ data class ExerciseEntry(
     val id: String, val name: String, val supportsBasicInput: Boolean,
     val allowsWeight: Boolean, val muscleGroup: String = "",
     val sportTag: String? = null, val hyroxTraining: Boolean = false,
-    val loggingStyle: String = "strength"
-)
+    val loggingStyle: String = "strength",
+    val isMobilityHold: Boolean = false
+) {
+    val isMobility: Boolean get() = sportTag == "Movilidad"
+}
 
 data class WorkoutHistoryEntry(
     val id: String,
