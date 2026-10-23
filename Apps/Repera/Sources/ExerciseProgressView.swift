@@ -92,8 +92,17 @@ struct ExerciseEvolutionPanel: View {
         exercise?.loggingStyle ?? .loadAndReps
     }
 
+    private var progressStyle: ExerciseLoggingStyle {
+        // Carries y zancadas con carga mantienen su estilo de apunte (kg + cantidad),
+        // pero evolucionan por la unidad real de distancia, no por un 1RM ficticio.
+        if exercise?.defaultQuantityUnit == .meters && loggingStyle != .machineWork {
+            return .machineWork
+        }
+        return loggingStyle
+    }
+
     private var availableMetrics: [ExerciseProgressMetric] {
-        ExerciseProgressMetric.available(for: loggingStyle)
+        ExerciseProgressMetric.available(for: progressStyle)
     }
 
     private var history: ExerciseHistorySummary {
@@ -109,7 +118,7 @@ struct ExerciseEvolutionPanel: View {
     }
 
     private var isStrengthProgress: Bool {
-        loggingStyle == .loadAndReps
+        progressStyle == .loadAndReps
     }
 
     private var points: [ExerciseProgressPoint] {
@@ -156,7 +165,7 @@ struct ExerciseEvolutionPanel: View {
 
     @ViewBuilder
     private var metricPicker: some View {
-        if loggingStyle == .machineWork {
+        if progressStyle == .machineWork {
             Picker("Métrica", selection: $metric) {
                 ForEach(availableMetrics) { m in
                     Text(m.title).tag(m)
@@ -176,7 +185,7 @@ struct ExerciseEvolutionPanel: View {
     private func seedMetricIfNeeded() {
         guard !didSeedMetric else { return }
         didSeedMetric = true
-        if loggingStyle == .machineWork {
+        if progressStyle == .machineWork {
             let h = history
             if h.bestMeters != nil {
                 metric = .bestMeters
@@ -218,7 +227,7 @@ struct ExerciseEvolutionPanel: View {
                 }
             } else {
                 HStack(spacing: 10) {
-                    if loggingStyle == .machineWork {
+                    if progressStyle == .machineWork {
                         evoTile("Cal máx.", h.bestCalories.map { "\($0)" } ?? "—")
                         evoTile("m máx.", h.bestMeters.map { "\($0)" } ?? "—")
                     } else {
@@ -230,7 +239,7 @@ struct ExerciseEvolutionPanel: View {
                     }
                     evoTile("Veces", h.hasData ? "\(h.timesPerformed)" : "—")
                 }
-                if loggingStyle == .machineWork || loggingStyle == .repsAndTime {
+                if progressStyle == .machineWork || loggingStyle == .repsAndTime {
                     HStack(spacing: 10) {
                         evoTile(
                             "Mejor tiempo",
