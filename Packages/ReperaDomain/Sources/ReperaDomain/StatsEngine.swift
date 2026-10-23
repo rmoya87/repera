@@ -4,6 +4,12 @@ public enum StatsEngine {
     /// Resultados efectivos para estadísticas: una sesión terminada sin sets
     /// registrados conserva las cantidades originales aceptadas por el atleta.
     /// Nunca se proyectan series de entrenamientos pendientes.
+    /// Recupera la unidad prescrita para registros antiguos sin quantityUnit.
+    /// Una unidad explícita nunca se reinterpreta (ni siquiera .reps).
+    private static func resolvedQuantityUnit(_ set: LoggedSet, in exercise: SessionExercise) -> ExerciseQuantityUnit {
+        set.quantityUnit ?? exercise.quantityUnit ?? exercise.exercise.defaultQuantityUnit
+    }
+
     public static func effectiveWorkSets(_ exercise: SessionExercise, in workout: WorkoutSession) -> [LoggedSet] {
         let recorded = exercise.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
         if !recorded.isEmpty { return recorded }
@@ -194,22 +200,22 @@ public enum StatsEngine {
                 lastDate = date
                 lastWeight = work.last?.weightKg
                 lastReps = work.last?.reps
-                lastQuantityUnit = work.last?.quantityUnit
+                lastQuantityUnit = work.last.map { resolvedQuantityUnit($0, in: ex) }
                 lastDurationSeconds = work.last?.durationSeconds
             }
             for set in work {
-                switch set.quantityUnit {
+                switch resolvedQuantityUnit(set, in: ex) {
                 case .calories:
                     bestCalories = max(bestCalories, set.reps)
                 case .meters:
                     bestMeters = max(bestMeters, set.reps)
-                case .reps, .none:
+                case .reps:
                     bestReps = max(bestReps, set.reps)
                 }
                 if let sec = set.durationSeconds {
                     bestDurationSeconds = max(bestDurationSeconds, sec)
                 }
-                if let w = set.weightKg, w > 0 {
+                if resolvedQuantityUnit(set, in: ex) == .reps, let w = set.weightKg, w > 0 {
                     let e1 = w * (1 + Double(set.reps) / 30.0)
                     if e1 > best1RM {
                         best1RM = e1
@@ -309,6 +315,11 @@ public enum ExerciseProgressMetric: String, CaseIterable, Sendable, Identifiable
     case bestQuantity
     /// Suma de cal / m / reps de la sesión.
     case totalQuantity
+    /// Cardio: las distancias y calorías nunca comparten una misma serie.
+    case bestMeters
+    case bestCalories
+    case totalMeters
+    case totalCalories
     /// Mayor tiempo mantenido en una sola serie de movilidad.
     case bestHold
     /// Segundos totales de series con duración.
@@ -323,6 +334,10 @@ public enum ExerciseProgressMetric: String, CaseIterable, Sendable, Identifiable
         case .effort: return "Esfuerzo"
         case .bestQuantity: return "Mejor"
         case .totalQuantity: return "Total"
+        case .bestMeters: return "m máx."
+        case .bestCalories: return "cal máx."
+        case .totalMeters: return "m total"
+        case .totalCalories: return "cal total"
         case .bestHold: return "Mejor sostén"
         case .duration: return "Tiempo"
         }
@@ -338,7 +353,7 @@ public enum ExerciseProgressMetric: String, CaseIterable, Sendable, Identifiable
         case .repsAndTime:
             return [.bestQuantity, .totalQuantity, .duration]
         case .machineWork:
-            return [.bestQuantity, .totalQuantity, .duration]
+            return [.bestMeters, .bestCalories, .totalMeters, .totalCalories, .duration]
         }
     }
 }
@@ -525,6 +540,23 @@ extension StatsEngine {
                 points.append(
                     ExerciseProgressPoint(date: date, value: avg, weightKg: top, reps: nil, rir: avg)
                 )
+            case .bestMeters, .bestCalories, .totalMeters, .totalCalories:
+                let unit: ExerciseQuantityUnit = (metric == .bestMeters || metric == .totalMeters) ? .meters : .calories
+                let matching = work.filter { resolvedQuantityUnit($0, in: ex) == unit && $0.reps > 0 }
+                guard !matching.isEmpty else { continue }
+                if metric == .bestMeters || metric == .bestCalories {
+                    guard let best = matching.max(by: { $0.reps < $1.reps }) else { continue }
+                    points.append(ExerciseProgressPoint(
+                        date: date, value: Double(best.reps), weightKg: best.weightKg,
+                        reps: best.reps, rir: best.rir, quantityUnit: unit,
+                        durationSeconds: best.durationSeconds
+                    ))
+                } else {
+                    let total = matching.reduce(0) { $0 + $1.reps }
+                    points.append(ExerciseProgressPoint(
+                        date: date, value: Double(total), reps: total, quantityUnit: unit
+                    ))
+                }
             case .bestQuantity:
                 guard let best = work.max(by: { $0.reps < $1.reps }) else { continue }
                 points.append(
@@ -534,14 +566,14 @@ extension StatsEngine {
                         weightKg: best.weightKg,
                         reps: best.reps,
                         rir: best.rir,
-                        quantityUnit: best.quantityUnit,
+                        quantityUnit: resolvedQuantityUnit(best, in: ex),
                         durationSeconds: best.durationSeconds
                     )
                 )
             case .totalQuantity:
                 let total = work.reduce(0) { $0 + $1.reps }
                 guard total > 0 else { continue }
-                let unit = work.compactMap(\.quantityUnit).first
+                let unit = work.first.map { resolvedQuantityUnit($0, in: ex) }
                 points.append(
                     ExerciseProgressPoint(
                         date: date,

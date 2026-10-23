@@ -29,7 +29,8 @@ public enum Catalog {
                 + CatalogHalterofilia.rows
                 + CatalogGimnasia.rows
                 + CatalogCrossFit.rows
-                + CatalogMovilidad.rows).map { row in
+                + CatalogMovilidad.rows
+                + CatalogHyrox.rows).map { row in
                 let localized = CatalogSpanish.localize(
                     name: row.name,
                     description: row.description,
@@ -81,4 +82,73 @@ public enum Catalog {
             Routine(title: "Pull 2", weekday: 6, exercises: pull.map { sets($0, reps: 10, weight: 35) }),
         ]
     }
+}
+
+/// Estaciones de HYROX y etiquetas secundarias del catálogo.
+///
+/// No se generan copias de ejercicios existentes: el movimiento mantiene UUID,
+/// deporte de origen e historial aunque pertenezca a CrossFit y a HYROX.
+public enum HyroxExercises {
+    public static let competitionStations: [String] = [
+        "Run", "SkiErg", "Sled push", "Sled pull", "Burpee Broad Jump",
+        "Remo máquina", "Farmer carry", "Sandbag Lunges", "Wall ball",
+    ]
+
+    private static let matchingNames: Set<String> = Set([
+        // Nombre del seed CrossFit y equivalencias históricas en español.
+        "Run", "Carrera", "Cinta / carrera", "Running",
+        "SkiErg", "Esquí ergómetro",
+        "Sled push", "Empuje de trineo",
+        "Sled pull", "Arrastre de trineo",
+        "Burpee Broad Jump", "Burpee Broad Jumps", "Burpee con salto de longitud", "Burpees con salto de longitud",
+        "Remo máquina", "Remoergómetro", "RowErg", "Rowing",
+        "Farmer carry", "Farmer walk", "Farmers carry", "Paseo del granjero",
+        "Sandbag Lunges", "Sandbag Lunge", "Zancadas con saco",
+        "Wall ball", "Wall balls", "Lanzamiento de balón a pared",
+    ].map { name in
+        name.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "es_ES"))
+            .lowercased()
+    })
+
+    public static func isMovement(named name: String) -> Bool {
+        let normalized = name.folding(
+            options: [.diacriticInsensitive, .caseInsensitive],
+            locale: Locale(identifier: "es_ES")
+        ).lowercased()
+        return matchingNames.contains(normalized)
+    }
+}
+
+/// Solo se añaden las estaciones ausentes del catálogo existente.
+enum CatalogHyrox {
+    static let rows: [EnrichedSeed] = [
+        CatalogSeedBuilder.sportRow(
+            "Burpee Broad Jump", sport: "HYROX", equipment: "Peso corporal",
+            target: "cardiovascular system", secondary: ["quadriceps", "glutes", "chest"],
+            body: "full body",
+            description: "Burpee con salto horizontal continuo, medido en metros para HYROX.",
+            instructions: [
+                "Colócate detrás de la línea de salida.",
+                "Apoya manos y desciende el pecho al suelo.",
+                "Recoge los pies y salta hacia delante con ambos pies.",
+                "Aterriza con control y continúa hasta completar la distancia.",
+            ],
+            primaries: ["quadriceps", "gluteal"],
+            secondaries: ["chest", "abs"]
+        ),
+        CatalogSeedBuilder.sportRow(
+            "Sandbag Lunges", sport: "HYROX", equipment: "Saco",
+            target: "quads", secondary: ["glutes", "hamstrings", "core"],
+            body: "upper legs",
+            description: "Zancadas caminando con saco sobre los hombros, medidas en metros para HYROX.",
+            instructions: [
+                "Coloca el saco con seguridad sobre los hombros.",
+                "Da una zancada larga y lleva la rodilla posterior al suelo.",
+                "Extiende cadera y rodilla antes de dar el siguiente paso.",
+                "Alterna las piernas y progresa hasta completar la distancia.",
+            ],
+            primaries: ["quadriceps", "gluteal"],
+            secondaries: ["hamstring", "abs"]
+        ),
+    ]
 }

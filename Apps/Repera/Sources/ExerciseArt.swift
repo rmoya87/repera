@@ -554,6 +554,7 @@ enum ExerciseArt {
         "Elevación de piernas": "art_elev_piernas",
         "Hip thrust": "art_hip_thrust",
         "Cinta / carrera": "art_cardio",
+        "Carrera": "art_cardio",
         "Bici estática": "art_bici",
         "Remo máquina": "art_remo_erg",
         "Farmer walk": "art_farmer",

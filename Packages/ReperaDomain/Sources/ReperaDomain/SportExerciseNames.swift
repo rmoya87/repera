@@ -50,6 +50,8 @@ public enum SportExerciseNames {
     ]
 
     private static let originalEnglishAliases: [String: String] = [
+        "Burpee Broad Jump": "Burpee con salto de longitud",
+        "Sandbag Lunges": "Zancadas con saco",
         "Air bike": "Bicicleta de aire",
         "Ball slam": "Golpeo de balón al suelo",
         "Bar facing burpee": "Burpee frente a la barra",

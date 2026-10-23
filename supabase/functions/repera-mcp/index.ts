@@ -3,6 +3,7 @@ import { createMcpHandler, McpServer } from "npm:@modelcontextprotocol/server@2.
 import { createClient } from "npm:@supabase/supabase-js@2.58.0";
 import { z } from "npm:zod@4.3.6";
 import { registerCoachTools } from "./coach.ts";
+import { registerDisciplinePlanningTools } from "./disciplines.ts";
 import { registerMutationTools } from "./mutations.ts";
 import { workout, wodFormat, wodFormatContract } from "./schema.ts";
 import { scheduledInstant } from "./time.ts";
@@ -29,7 +30,7 @@ type ExerciseEntry = {
   loggedSets?: Array<{
     id?: string;
     reps?: number; weightKg?: number; rir?: number; phase?: string; kind?: string;
-    durationSeconds?: number;
+    durationSeconds?: number; quantityUnit?: "reps" | "meters" | "calories";
   }>;
 };
 type WorkoutRow = {
@@ -63,7 +64,7 @@ function projectExercise(entry: ExerciseEntry) {
       : null,
     sets: (entry.loggedSets ?? []).map(s => ({
       logged_set_id:s.id ?? null,
-      reps: s.reps ?? null, weight_kg: s.weightKg ?? null,
+      reps: s.reps ?? null, quantity_unit: s.quantityUnit ?? null, weight_kg: s.weightKg ?? null,
       rir: s.rir ?? null, duration_seconds: s.durationSeconds ?? null,
       phase: s.phase ?? null, kind: s.kind ?? null,
     })),
@@ -100,6 +101,19 @@ function muscleBalance(rows: WorkoutRow[]) {
 
 // API contract intentionally mirrors ReperaDomain's RoutineBlock and WODMovement,
 // without ever requiring the AI to mint internal UUIDs.
+const hyroxStations = [
+  {name:"Running",catalogKey:"catalog:Carrera",distanceMeters:1000,unit:"meters",equipment:"bodyweight"},
+  {name:"SkiErg",catalogKey:"catalog:SkiErg",distanceMeters:1000,unit:"meters",equipment:"ski_erg"},
+  {name:"Sled Push",catalogKey:"catalog:Sled push",distanceMeters:50,unit:"meters",equipment:"sled"},
+  {name:"Sled Pull",catalogKey:"catalog:Sled pull",distanceMeters:50,unit:"meters",equipment:"sled_and_rope"},
+  {name:"Burpee Broad Jumps",catalogKey:"catalog:Burpee Broad Jump",distanceMeters:80,unit:"meters",equipment:"bodyweight"},
+  {name:"Rowing",catalogKey:"catalog:Remo máquina",distanceMeters:1000,unit:"meters",equipment:"rowing_erg"},
+  {name:"Farmers Carry",catalogKey:"catalog:Farmer carry",distanceMeters:200,unit:"meters",equipment:"two_kettlebells"},
+  {name:"Sandbag Lunges",catalogKey:"catalog:Sandbag Lunges",distanceMeters:100,unit:"meters",equipment:"sandbag"},
+  {name:"Wall Balls",catalogKey:"catalog:Wall ball",reps:100,unit:"reps",equipment:"medicine_ball"},
+] as const;
+// HYROX es una pertenencia secundaria: no cambia category/origen CrossFit de movimientos compartidos.
+const hyroxCatalogKeys = hyroxStations.map(s=>s.catalogKey);
 const inputDays = z.number().int().min(1).max(365).default(90);
 const inputLimit = z.number().int().min(1).max(100).default(30);
 const pagedInput = z.strictObject({
@@ -223,8 +237,9 @@ Deno.serve(async (request) => {
   }
 
   const handler = createMcpHandler(() => {
-    const server = new McpServer({ name: "repera-training", version: "0.4.0" });
+    const server = new McpServer({ name: "repera-training", version: "0.5.0" });
     registerCoachTools(server, db, ownerId, token.id, canWrite);
+    registerDisciplinePlanningTools(server, db, ownerId);
     registerAthleteChangeTools(server,db,ownerId,token.id,canWrite);
     if (canWrite) registerMutationTools(server, db, ownerId);
     server.registerTool("get_mcp_access_info", {
@@ -238,6 +253,26 @@ Deno.serve(async (request) => {
       revoke_in:"Repera iOS → Ajustes → Acceso IA → Revocar token",
       protocol:"Personal HTTPS Bearer token (PAT), not OAuth. Do not forward to third parties.",
       date_semantics:"scheduledDate is athlete-local date. If scheduledTimeMinutes is given, scheduledTimeZone (IANA) and scheduledUtcOffsetMinutes (UTC east-positive) are required; scheduled_at resolves an exact instant including DST.",
+    }));
+    server.registerTool("get_hyrox_training_reference", {
+      description:"Official HYROX solo race station sequence, stable Repera catalog keys, distances/reps and planning caveats. Read before preparing a HYROX training program; do not assume division loads, race date, available gear or fitness level.",
+      inputSchema:z.strictObject({}),
+      annotations:{readOnlyHint:true},
+    },async()=>reply({
+      event:"HYROX solo",source:"https://hyrox.com/the-fitness-race/",
+      race_structure:"8 × 1 km runs alternating with 8 functional stations; 8 km total running",
+      ordered_stations:hyroxStations.slice(1).map((station,i)=>({station:i+1,runBeforeMeters:1000,...station})),
+      prescribed_format:{kind:"wod",wodFormat:"forTime",rounds:1,
+        note:"Represent 16 alternating movements: 1 km run BEFORE each station. Preserve distanceMeters vs reps, and capture total elapsed time. Station load is division-specific."},
+      planning_checklist:[
+        "Ask for race date, available weeks, solo/doubles, division and applicable official rulebook",
+        "Ask about training days, session duration, running baseline, injury/limitations and actual access to SkiErg, RowErg, sled, kettlebells, sandbag and wall-ball target",
+        "Use get_training_profile, get_training_calendar, get_training_analysis and get_exercise_performance to establish OBSERVED baseline and missing data",
+        "Progress running, stations, transitions and race-specific simulations gradually; distinguish easy running, threshold/intervals and strength capacity",
+        "Specify distanceMeters for 8 station-distance segments, reps for Wall Balls, and division-specific external load only after division is known",
+        "Never equate calories and meters, infer a station split from a total elapsed time, or invent athlete performance/medical readiness",
+        "Create macrocycle with create_training_program then queue explicit dated sessions using create_training_plan; avoid occupied calendar slots"
+      ]
     }));
     server.registerTool("get_wod_format_contract", {
       description: "Read the canonical Repera WOD result capture and timer rules for AMRAP, RFT/For Time, EMOM/Every X, Tabata, Chipper/AFAP/Ladder, Strength/Skill, Death By, Max Effort and other formats. Check this before creating or interpreting WOD scores.",
@@ -287,7 +322,7 @@ Deno.serve(async (request) => {
       annotations: { readOnlyHint: true },
     }, async ({ days }) => reply({ days, ...muscleBalance(await workouts(days, 500)) }));
     server.registerTool("get_exercise_progress", {
-      description: "Exercise name search in completed sessions, reporting logged weight and reps progression.",
+      description: "Exercise name search in completed sessions. Report metres, calories, repetitions and weight separately; never add unlike units.",
       inputSchema: z.strictObject({ name: z.string().trim().min(2).max(100), days: inputDays }),
       annotations: { readOnlyHint: true },
     }, async ({ name, days }) => {
@@ -295,11 +330,25 @@ Deno.serve(async (request) => {
       const rows = await workouts(days, 500);
       return reply(rows.flatMap(row => (row.exercises ?? [])
         .filter(e => (e.exercise?.name ?? "").toLocaleLowerCase("es").includes(needle))
-        .map(e => ({ date: row.finished_at, exercise: e.exercise?.name,
-          sets: (e.loggedSets ?? []).length,
-          reps: (e.loggedSets ?? []).reduce((n, s) => n + (s.reps ?? 0), 0),
-          max_weight_kg: Math.max(0, ...(e.loggedSets ?? []).map(s => s.weightKg ?? 0)),
-        }))));
+        .map(e => {
+          const working=(e.loggedSets??[]).filter(s=>s.phase!=="warmup");
+          const byUnit=(unit:"meters"|"calories"|"reps")=>working
+            .filter(s=>(s.quantityUnit??"reps")===unit)
+            .map(s=>Math.max(0,s.reps??0));
+          const meters=byUnit("meters"),calories=byUnit("calories"),reps=byUnit("reps");
+          const summary=(values:number[])=>({
+            best:values.length?Math.max(...values):null,
+            total:values.length?values.reduce((a,b)=>a+b,0):null
+          });
+          return {date:row.finished_at,exercise:e.exercise?.name,
+            sets:working.length,meters:summary(meters),calories:summary(calories),
+            repetitions:summary(reps),
+            reps:reps.reduce((total,value)=>total+value,0), // Backwards-compatible; units other than reps excluded.
+            max_weight_kg:working.some(s=>(s.weightKg??0)>0)
+              ?Math.max(...working.map(s=>s.weightKg??0)):null,
+            unknown_unit_sets:working.filter(s=>s.quantityUnit==null).length,
+          };
+        })));
     });
     server.registerTool("search_training_exercises", {
       description: "Search named movements in the Repera professional catalog. Do not invent unprovided anatomical metadata.",
@@ -307,8 +356,11 @@ Deno.serve(async (request) => {
       annotations: { readOnlyHint: true },
     }, async ({ query, limit }) => {
       const pattern = query.replace(/[%_\\]/g, " ").trim();
-      const { data, error } = await db.from("training_exercise_catalog")
-        .select("catalog_key,name,category").ilike("name", "%" + pattern + "%").order("name").limit(limit);
+      let request = db.from("training_exercise_catalog").select("catalog_key,name,category");
+      request = pattern.toLowerCase() === "hyrox"
+        ? request.in("catalog_key",[...hyroxCatalogKeys])
+        : request.ilike("name","%" + pattern + "%");
+      const { data, error } = await request.order("name").limit(limit);
       if (error) throw new Error("Error al buscar el catálogo");
       return reply(data ?? []);
     });
