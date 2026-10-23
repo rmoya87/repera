@@ -450,7 +450,7 @@ data class StateOverview(
                     }.toMutableList()
                     val exercises = workout.optJSONArray("exercises") ?: org.json.JSONArray()
                     val recordedSets = (0 until exercises.length()).sumOf { n ->
-                        exercises.getJSONObject(n).optJSONArray("loggedSets")?.length() ?: 0
+                        WorkoutHistorySets.displayLines(workout, exercises.getJSONObject(n)).size
                     }
                     if (recordedSets > 0) details += "$recordedSets series"
                     workout.optString("title") + if (details.isEmpty()) ""
@@ -475,27 +475,10 @@ data class StateOverview(
                     val movements = (0 until saved.length()).map { i ->
                         val exercise = saved.getJSONObject(i)
                         val movement = exercise.optJSONObject("exercise")
-                        val recorded = exercise.optJSONArray("loggedSets") ?: org.json.JSONArray()
                         WorkoutHistoryMovement(
                             name = movement?.optString("name") ?: "Ejercicio",
                             wod = exercise.optString("blockKind") == "wod",
-                            registered = (0 until recorded.length()).map { j ->
-                                val set = recorded.getJSONObject(j)
-                                val amount = set.optInt("reps")
-                                val unit = when (set.optString("quantityUnit", "reps")) {
-                                    "calories" -> "cal"
-                                    "meters" -> "m"
-                                    else -> "reps"
-                                }
-                                buildString {
-                                    if (set.optString("phase", "work") == "warmup") append("Calentamiento · ")
-                                    append("$amount $unit")
-                                    if (set.has("weightKg") && !set.isNull("weightKg"))
-                                        append(" · ${set.getDouble("weightKg")} kg")
-                                    if (set.has("rir") && !set.isNull("rir"))
-                                        append(" · RIR ${set.getDouble("rir")}")
-                                }
-                            }
+                            registered = WorkoutHistorySets.displayLines(session, exercise)
                         )
                     }
                     val wodScores = session.optJSONArray("wodResults") ?: org.json.JSONArray()
