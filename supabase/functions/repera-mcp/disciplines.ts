@@ -119,9 +119,11 @@ export const disciplineGuides = {
   },
 } as const;
 
-const catalogCategory: Record<Discipline, string | null> = {
-  crossfit: "CrossFit", weightlifting: "Halterofilia",
-  mobility: "Movilidad", warmup: null,
+const catalogCategories: Record<Discipline, string[] | null> = {
+  // CrossFit draws from gymnastics, barbell and conventional strength without relabelling them.
+  crossfit: ["CrossFit", "Gimnasia", "Halterofilia", "Fuerza"],
+  weightlifting: ["Halterofilia", "Fuerza"],
+  mobility: ["Movilidad"], warmup: null,
 };
 const warmupIdeas: Record<string, string[]> = {
   "weightlifting": ["CARs de hombro", "90/90 de cadera", "Rodilla a pared para tobillo",
@@ -139,6 +141,7 @@ const warmupIdeas: Record<string, string[]> = {
 function periodTotals(rows: Session[], since: number, until: number) {
   let workouts=0, workSets=0, strengthSets=0, volumeKg=0;
   let meters=0, calories=0, measuredSeconds=0, unknownUnitSets=0;
+  let rirSum=0,rirSamples=0;
   const days=new Set<string>();
   for(const row of rows) {
     const at=Date.parse(row.finished_at??"");
@@ -147,6 +150,9 @@ function periodTotals(rows: Session[], since: number, until: number) {
     for(const e of row.exercises??[])for(const set of e.loggedSets??[]) {
       if(set.phase==="warmup" || !((set.reps??0)>0 || (set.durationSeconds??0)>0))continue;
       workSets++;
+      if(set.rir!=null&&Number.isFinite(set.rir)&&set.rir>=0&&set.rir<=10){
+        rirSum+=set.rir;rirSamples++;
+      }
       const n=Math.max(0,set.reps??0);
       if(set.durationSeconds!=null&&set.durationSeconds>0)measuredSeconds+=set.durationSeconds;
       switch(set.quantityUnit){
@@ -167,7 +173,9 @@ function periodTotals(rows: Session[], since: number, until: number) {
   return {workouts,distinct_recorded_days:days.size,working_sets:workSets,
     weighted_sets_with_load:strengthSets,verified_tonnage_kg:round(volumeKg),
     logged_meters:meters,logged_calories:calories,
-    set_duration_seconds_total:measuredSeconds,unknown_unit_sets:unknownUnitSets};
+    set_duration_seconds_total:measuredSeconds,
+    recorded_rir_average:rirSamples?round(rirSum/rirSamples):null,
+    sets_with_rir:rirSamples,unknown_unit_sets:unknownUnitSets};
 }
 function exerciseSummaries(rows: Session[], limit: number) {
   const map=new Map<string,{name:string;catalog_key:string|null;sessions:number;
@@ -209,17 +217,17 @@ export function registerDisciplinePlanningTools(server:McpServer,db:SupabaseClie
     description:"Read discipline-specific evidence-based planning guardrails and real Repera catalog exercises for CrossFit, Halterofilia/weightlifting, Movilidad or Calentamiento. Use with get_athlete_planning_context, get_training_calendar and format contract before writing; do not invent loads, skills or available equipment.",
     inputSchema:z.strictObject({
       discipline,includeExercises:z.boolean().default(true),
-      limit:z.number().int().min(5).max(200).default(120),
+      limit:z.number().int().min(5).max(350).default(250),
     }),annotations:{readOnlyHint:true},
   },async({discipline:kind,includeExercises,limit})=>{
     const guide=disciplineGuides[kind];
     let exercises:unknown[]=[];
     if(includeExercises){
-      const category=catalogCategory[kind];
-      if(category){
+      const categories=catalogCategories[kind];
+      if(categories){
         const {data,error}=await db.from("business_exercise_catalog")
-          .select("catalog_key,name,category").eq("category",category)
-          .order("name").limit(limit);
+          .select("catalog_key,name,category").in("category",categories)
+          .order("category").order("name").limit(limit);
         errorIf(error,"No se pudo leer el catálogo de disciplina");
         const keys=(data??[]).map(x=>x.catalog_key);
         const {data:metadata,error:metaError}=keys.length?await db.from("training_exercise_metadata")
@@ -241,7 +249,8 @@ export function registerDisciplinePlanningTools(server:McpServer,db:SupabaseClie
       discipline:kind,...guide,available_exercises:exercises,
       catalog_note:kind==="warmup"
         ?"Warmup is a phase using existing catalog keys; do not create a new exercise or claim a new kind in the iOS payload."
-        :"List contains existing verified catalog rows; category describes origin and may coexist with other disciplines.",
+        :"List contains existing catalog rows; original category is retained. CrossFit combines strength, gymnastics and weightlifting without changing each exercise's native discipline.",
+      catalog_categories_included:catalogCategories[kind]??[],
       how_to_use:["Read get_athlete_planning_context for observed loads, record quality, and explicit profile",
         "Check get_training_calendar for conflicts", "Read get_wod_format_contract before choosing an interval or score",
         "Use catalog_key/name exactly as returned; adapt exercise difficulty only with confirmed skills/equipment",
