@@ -316,5 +316,10 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] La ficha de movilidad conserva explicación y pasos sin mostrar «Carga sugerida» ni campo de kg; se puede marcar favorita.
 - [ ] Registrar movilidad y volver a Progreso no añade series artificiales al mapa de fatiga.
 - [ ] Los movimientos nuevos se añaden una sola vez tras migrar el catálogo existente y conservan el historial al reiniciar.
-- [ ] Comprobar miniaturas de ejercicios nuevos: fallback válido mientras se generan/validan imágenes reales.
+- [ ] Imagen específica: por ahora debe aparecer placeholder de movilidad; no asignar una fotografía de fuerza por coincidencia textual. Generar y validar las 82 imágenes antes de declarar cobertura visual.
+- [ ] Crear rutina con postura del niño (1 mantenimiento de 45 s) y Gato-vaca (8 repeticiones en 60 s); reabrir y comprobar segundos prescritos, duplicación y compatibilidad JSON.
+- [ ] Iniciar Play: el tiempo inicial debe coincidir con la prescripción, sin kg ni RIR, y las posturas no deben mostrar un campo de reps.
+- [ ] Cambiar segundos y completar series en Play; comprobar que Evolución usa tiempo **registrado**, incluyendo mejor sostén y tiempo acumulado, no tiempo prescrito.
+- [ ] Comprobar resumen global de Movilidad (sesiones + minutos reales), tanto en Gratis —semana actual— como Pro —periodo seleccionado—.
+- [ ] Comprobar que los ejercicios existentes de fuerza, cardio, comba y WOD mantienen sus campos y récords anteriores.
 
