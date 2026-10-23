@@ -440,6 +440,9 @@ class WorkoutRepository(context: Context, googleId: String) {
             .put("drops", JSONArray())
             .put("clusters", JSONArray())
         if (weightKg != null) set.put("weightKg", weightKg)
+        // Preserve the prescribed machine/distance unit in each actual WOD log.
+        val quantityUnit = exercise.optString("quantityUnit")
+        if (quantityUnit.isNotBlank()) set.put("quantityUnit", quantityUnit)
         exercise.getJSONArray("loggedSets").put(set)
         exercise.put("completedReps", exercise.optInt("completedReps") + quantity)
         session.put("phase", "counting")
