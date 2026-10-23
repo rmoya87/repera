@@ -384,6 +384,9 @@ fun ReperaMobileScreen(
                                         progress.bestReps?.let { Text("Máximo: $it reps") }
                                         progress.bestCalories?.let { Text("Máximo: $it cal") }
                                         progress.bestMeters?.let { Text("Máximo: $it m") }
+                                        progress.bestDurationSeconds?.let { seconds ->
+                                            Text("Duración máxima: ${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}")
+                                        }
                                     }
                                 }
                                 TextButton(

@@ -61,6 +61,7 @@ class CardioRecordInstrumentedTest {
         assertEquals(40, stats.bestCalories)
         assertEquals(1000, stats.bestMeters)
         assertNull(stats.bestReps)
+        assertEquals(475, stats.bestDurationSeconds)
     }
 
     @Test fun runRejectsCaloriesAndDoesNotPersistInvalidWork() {

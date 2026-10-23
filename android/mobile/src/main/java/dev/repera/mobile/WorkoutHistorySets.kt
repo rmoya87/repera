@@ -12,7 +12,9 @@ import org.json.JSONObject
  */
 internal object WorkoutHistorySets {
     /** Effective positive working sets for statistics; never writes inferred sets to disk. */
-    data class EffectiveSet(val reps: Int, val weightKg: Double?, val unit: String)
+    data class EffectiveSet(
+        val reps: Int, val weightKg: Double?, val unit: String, val durationSeconds: Int? = null
+    )
 
     fun effectiveWorkSets(workout: JSONObject, exercise: JSONObject): List<EffectiveSet> {
         val logged = exercise.optJSONArray("loggedSets") ?: JSONArray()
@@ -20,7 +22,10 @@ internal object WorkoutHistorySets {
             val set = logged.getJSONObject(n)
             if (set.optString("phase", "work") == "warmup" || set.optInt("reps") <= 0)
                 null else EffectiveSet(set.optInt("reps"),
-                    valueOrNull(set, "weightKg"), resolvedUnit(set, exercise))
+                    valueOrNull(set, "weightKg"), resolvedUnit(set, exercise),
+                    set.optInt("durationSeconds").takeIf {
+                        set.has("durationSeconds") && it > 0
+                    })
         }
         if (actual.isNotEmpty()) return actual
         // A score-only WOD has no work-set history. Its prescribed movement targets
@@ -51,6 +56,9 @@ internal object WorkoutHistorySets {
                 quantityUnit = resolvedUnit(set, exercise),
                 weight = valueOrNull(set, "weightKg"),
                 rir = valueOrNull(set, "rir"),
+                durationSeconds = set.optInt("durationSeconds").takeIf {
+                    set.has("durationSeconds") && it > 0
+                },
                 warmup = set.optString("phase", "work") == "warmup"
             )
         }
@@ -75,6 +83,7 @@ internal object WorkoutHistorySets {
                 quantityUnit = resolvedUnit(set, exercise),
                 weight = valueOrNull(set, "targetWeightKg"),
                 rir = valueOrNull(set, "targetRir"),
+                durationSeconds = null,
                 warmup = false
             )
         }
@@ -98,10 +107,12 @@ internal object WorkoutHistorySets {
     }
 
     private fun line(reps: Int, quantityUnit: String, weight: Double?, rir: Double?,
-                     warmup: Boolean): String = buildString {
+                     durationSeconds: Int?, warmup: Boolean): String = buildString {
         if (warmup) append("Calentamiento · ")
         append("$reps $quantityUnit")
         if (weight != null) append(" · $weight kg")
         if (rir != null) append(" · RIR $rir")
+        if (durationSeconds != null)
+            append(" · ${durationSeconds / 60}:${(durationSeconds % 60).toString().padStart(2, '0')}")
     }
 }
