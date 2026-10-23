@@ -36,6 +36,7 @@ struct WorkoutView: View {
     @State private var pendingWODConfirm: PendingWODConfirm?
     /// Las marcas de bloque usan filas expandibles normales, igual que los ejercicios.
     @State private var expandedScoreBlocks: Set<UUID> = []
+    @State private var expandedTechniquesExerciseID: UUID?
     @State private var usesAutomaticTimer = false
     @State private var pendingTimerBlockID: UUID?
     /// EMOM/Tabata: el reloj ha terminado, pero todavía se pueden registrar series.
@@ -431,14 +432,41 @@ struct WorkoutView: View {
 
                     if block.indexes.contains(session.currentIndex),
                        let current = session.currentExercise {
-                        DisclosureGroup("Técnicas de serie · dropset / rest-pause") {
-                            logForm(current)
-                                .padding(.top, 8)
+                        Button {
+                            expandedTechniquesExerciseID =
+                                expandedTechniquesExerciseID == current.id ? nil : current.id
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text("Técnicas de serie · dropset / rest-pause")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(OG.label)
+                                Spacer(minLength: 8)
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .rotationEffect(.degrees(
+                                        expandedTechniquesExerciseID == current.id ? 180 : 0
+                                    ))
+                                    .foregroundStyle(OG.label2)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            .contentShape(Rectangle())
                         }
-                        .font(.system(size: 13, weight: .medium))
-                        .tint(OG.label2)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Técnicas de serie")
+                        .accessibilityValue(
+                            expandedTechniquesExerciseID == current.id ? "Desplegadas" : "Plegadas"
+                        )
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 4, trailing: 16))
                         .listRowBackground(OG.surface)
+                        .listRowSeparator(.hidden)
+
+                        if expandedTechniquesExerciseID == current.id {
+                            logForm(current)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 12, trailing: 16))
+                                .listRowBackground(OG.surface)
+                                .listRowSeparator(.hidden)
+                        }
                     }
                     if finishedTimedBlockID == block.id,
                        block.format?.resultCapture == .perMovementSets {

@@ -674,7 +674,7 @@ struct DayEditorView: View {
                 case .favorite:
                     Text("Los favoritos se reutilizan desde Crear. Opcionalmente puedes asignarlos a un día en Programado.")
                 case .oneOff:
-                    Text("Entreno solo para este día. No aparece en el plan semanal de Diario.")
+                    EmptyView()
                 case .plan:
                     Text("La rutina es reutilizable. En Programado puedes cambiar el día sin editar el contenido.")
                 }
@@ -767,13 +767,6 @@ struct DayEditorView: View {
                     } label: {
                         Label("Añadir rutina", systemImage: "list.bullet.rectangle")
                     }
-                }
-            } footer: {
-                switch mode {
-                case .session:
-                    Text("Cada bloque permite configurar un formato de reloj opcional. Elegir WOD añade un benchmark; también puedes añadir una rutina.")
-                case .oneOff, .plan, .favorite:
-                    Text("Configura el formato en cualquier bloque o déjalo sin formato. Elegir WOD importa benchmarks; Añadir rutina copia bloques.")
                 }
             }
         }
