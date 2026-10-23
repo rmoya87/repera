@@ -783,7 +783,7 @@ struct HealthRecoveryProgressView: View {
                     }
                 }
                 .frame(height: 105)
-                .accessibilityLabel("Tendencia: \\(title)")
+                .accessibilityLabel("Tendencia: \(title)")
             } else {
                 Text(values.isEmpty ? "Sin mediciones en este periodo." : "Una medición; aún no hay tendencia.")
                     .font(.caption).foregroundStyle(OG.label3)
@@ -866,11 +866,11 @@ struct HealthRecoveryProgressView: View {
             OGCardSectionTitle(title: "Constantes fisiológicas")
             OGCard {
                 VStack(alignment: .leading, spacing: 14) {
-                    vitalChart("Variabilidad cardíaca (VFC)", unit: "ms", keyPath: \\.hrvMilliseconds)
+                    vitalChart("Variabilidad cardíaca (VFC)", unit: "ms", keyPath: \.hrvMilliseconds)
                     Divider().opacity(0.25)
                     HStack(alignment: .top, spacing: 10) {
-                        vitalBarTile("Pulso en reposo", unit: "lpm", keyPath: \\.restingHeartRateBpm)
-                        vitalBarTile("Respiración", unit: "resp/min", keyPath: \\.respiratoryRateBpm)
+                        vitalBarTile("Pulso en reposo", unit: "lpm", keyPath: \.restingHeartRateBpm)
+                        vitalBarTile("Respiración", unit: "resp/min", keyPath: \.respiratoryRateBpm)
                     }
                     if let latest = physiology.days.last {
                         HStack(alignment: .top, spacing: 10) {
@@ -882,7 +882,7 @@ struct HealthRecoveryProgressView: View {
                             }
                         }
                         if let recovery = latest.heartRateRecoveryBpm {
-                            vitalValueTile("Recuperación cardíaca 1 min", value: "\\(Int(recovery.rounded())) lpm", icon: "heart")
+                            vitalValueTile("Recuperación cardíaca 1 min", value: "\(Int(recovery.rounded())) lpm", icon: "heart")
                         }
                     }
                 }
@@ -1057,7 +1057,8 @@ struct HealthRecoveryProgressView: View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Evolución de recuperación")
             OGCard {
-                Chart(recoveryPoints) { point in
+                Chart {
+                    ForEach(recoveryPoints) { point in
                     LineMark(
                         x: .value("Día", point.date),
                         y: .value("Recuperación", point.score)
