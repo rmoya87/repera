@@ -269,11 +269,8 @@ struct BlockTimerScreen: View {
             HStack(alignment: .center, spacing: 22) {
                 if exercise != nil {
                     exerciseDetails(landscape: true)
-                        .frame(
-                            width: min(260, availableWidth * 0.31),
-                            maxHeight: .infinity,
-                            alignment: .center
-                        )
+                        .frame(width: min(260, availableWidth * 0.31))
+                        .frame(maxHeight: .infinity, alignment: .center)
                         .padding(.leading, 20)
                 }
                 VStack(spacing: 14) {
