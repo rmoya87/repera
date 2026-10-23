@@ -14,6 +14,15 @@ el almacenamiento privado. Para dar acceso profesional a Supabase se requiere
 un proveedor Google y autenticación verificada en backend; nunca basta con el
 identificador de cuenta obtenido en el teléfono.
 
+
+## Biblioteca de movilidad
+
+El catálogo Android mantiene los **196 movimientos anteriores** e incorpora **82 ejercicios de movilidad** (278 ejercicios en el seed inicial) importados de `CatalogMovilidad.swift` en la rama iOS `feat/exercise-mobility-catalog-20261023`. Incluyen nombre español, alias ingleses, descripción, dos instrucciones, grupo muscular y el campo `sportTag = "Movilidad"`.
+
+En **Ejercicios** hay chips Material 3 **Todos / Movilidad** y búsqueda bilingüe. `CatalogBootstrap.appendMissingMobility` añade exclusivamente los 82 ejercicios ausentes a cuentas ya existentes, conserva los UUID y los entrenamientos anteriores, y evita duplicaciones en sucesivos arranques. Las sesiones de movilidad no admiten introducir kg como fuerza. Hay pruebas instrumentadas para catálogo, alias y migración idempotente.
+
+**Pendiente de validación real:** compilar e instrumentar en emulador/dispositivo, revisar miniaturas y sincronizar el contenido con las versiones finales de iOS cuando se fusionen las ramas. No se asume que las imágenes de movilidad estén generadas ni revisadas.
+
 ## Configuración externa
 
 Google Cloud debe tener habilitados Credential Manager/Google Auth Platform, Drive API,
