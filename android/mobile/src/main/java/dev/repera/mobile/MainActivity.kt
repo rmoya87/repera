@@ -656,7 +656,16 @@ data class StateOverview(
                         ex.optString("muscleGroup")
                     )
                     ExerciseEntry(ex.getString("id"), ex.getString("name"),
-                        mode.basicRecorderAvailable, mode.showsWeight)
+                        mode.basicRecorderAvailable, mode.showsWeight,
+                        muscleGroup = ex.optString("muscleGroup"),
+                        sportTag = ex.optString("sportTag").takeIf { it.isNotBlank() },
+                        hyroxTraining = ExerciseCatalogFilters.isHyroxTrainingMovement(
+                            ex.getString("name")),
+                        loggingStyle = when (mode) {
+                            dev.repera.domain.ExerciseInputMode.MACHINE_WORK -> "machineWork"
+                            dev.repera.domain.ExerciseInputMode.REPS_AND_TIME -> "repsAndTime"
+                            else -> "strength"
+                        })
                 }.sortedBy { it.name }
             }
             return StateOverview(
@@ -688,7 +697,12 @@ data class RoutineEntry(
     val timeMinutes: Int? = null
 )
 
-data class ExerciseEntry(val id: String, val name: String, val supportsBasicInput: Boolean, val allowsWeight: Boolean)
+data class ExerciseEntry(
+    val id: String, val name: String, val supportsBasicInput: Boolean,
+    val allowsWeight: Boolean, val muscleGroup: String = "",
+    val sportTag: String? = null, val hyroxTraining: Boolean = false,
+    val loggingStyle: String = "strength"
+)
 
 data class WorkoutHistoryEntry(
     val id: String,

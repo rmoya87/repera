@@ -124,12 +124,14 @@ fun ReperaMobileScreen(
         }
         var selected by rememberSaveable { mutableStateOf("Inicio") }
         var exerciseSearch by rememberSaveable { mutableStateOf("") }
+        var exerciseFilter by rememberSaveable { mutableStateOf("Todos") }
         var diaryDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
         // LazyListScope is not @Composable: calculate the filtered list here,
         // where remember is legal, then hand the immutable result to LazyColumn.
-        val filteredExerciseEntries = remember(exerciseSearch, overview?.exerciseEntries) {
+        val filteredExerciseEntries = remember(exerciseSearch, exerciseFilter, overview?.exerciseEntries) {
             overview?.exerciseEntries.orEmpty()
                 .asSequence()
+                .filter { ExerciseCatalogFilters.matches(it, exerciseFilter) }
                 .map { it to ExerciseAliasSearch.score(exerciseSearch, it.name, englishAliases) }
                 .filter { it.second >= 0 }
                 .sortedWith(compareByDescending<Pair<ExerciseEntry, Int>> { it.second }
@@ -385,7 +387,20 @@ fun ReperaMobileScreen(
                             label = { Text("Buscar ejercicio") }
                         )
                     }
+                    item {
+                        Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ExerciseCatalogFilters.available(overview?.exerciseEntries.orEmpty()).forEach { filter ->
+                                FilterChip(selected = exerciseFilter == filter,
+                                    onClick = { exerciseFilter = filter },
+                                    label = { Text(filter) })
+                            }
+                        }
+                    }
                     val entries = filteredExerciseEntries
+                    item {
+                        Text("${entries.size} ejercicios", style = MaterialTheme.typography.labelMedium)
+                    }
                     if (entries.isEmpty()) item { Text("Sin ejercicios coincidentes") }
                     items(entries, key = { it.id }) { entry ->
                         Card(modifier = Modifier.fillMaxWidth()) {
