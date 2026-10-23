@@ -44,6 +44,9 @@
 11. Accesibilidad, TalkBack, Dynamic Color coherente con la marca, tablet/plegable, landscape, rotación; notificaciones, permisos y consumo de batería.
 12. Firma, Play Console, pruebas en varios dispositivos, monitorización de fallos y versión de datos/migraciones.
 
+
+- Material 3 claro y oscuro comparten el verde de marca `#30D158` con contenido negro para acciones primarias; no usar el verde oscuro y texto blanco de la base previa.
+
 ## Criterios de cierre
 
 La paridad no es un porcentaje inventado: requiere matriz por comportamiento y resultado entre iOS 27 y Android 17, pruebas contractuales para cada WOD/unidad/estadística, E2E Google/Supabase/Drive, pruebas con reloj físico y CI verde después de integrar. En la revisión actual **no se afirma equivalencia funcional ni ausencia de bugs**.

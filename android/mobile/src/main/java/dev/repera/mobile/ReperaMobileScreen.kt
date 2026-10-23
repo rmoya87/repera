@@ -96,7 +96,7 @@ fun ReperaMobileScreen(
 ) {
     val scheme = if (isSystemInDarkTheme()) {
         darkColorScheme(primary = brandGreen, onPrimary = Color.Black)
-    } else lightColorScheme(primary = Color(0xFF16833B), onPrimary = Color.White)
+    } else lightColorScheme(primary = brandGreen, onPrimary = Color.Black)
     val context = LocalContext.current
     val englishAliases = remember(context) { ExerciseSearchAssets.load(context) }
     MaterialTheme(colorScheme = scheme) {
