@@ -68,8 +68,9 @@ class LocalHealthPhysiologyContract(unittest.TestCase):
         cards = source("Apps/Repera/Sources/ProgressTrendCards.swift")
         self.assertIn("workout.zoneGroup(for: heartType)", health)
         self.assertIn("coveredFraction >= 0.60", health)
-        self.assertIn("intensity, no rendimiento", cards)
-        self.assertIn("Carga cardiovascular", cards)
+        self.assertIn("Carga cardíaca, no nota de rendimiento", cards)
+        self.assertIn("Intensidad cardiovascular", cards)
+        self.assertIn("zoneContent(", cards)
 
     def test_health_signals_remain_off_cloud(self):
         mirror = source("Apps/Repera/Sources/BusinessWorkoutSyncStore.swift")
