@@ -46,6 +46,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private val messageClient by lazy { Wearable.getMessageClient(this) }
     private val pendingStore by lazy { WearPendingSetStore(this) }
     private var repsInput by mutableStateOf(0)
+    private var weightInput by mutableStateOf<Double?>(null)
+    private var confirmDiscardPending by mutableStateOf(false)
     private var pendingCount by mutableStateOf(0)
     private var sendStatus by mutableStateOf<String?>(null)
     private var visibleSession by mutableStateOf<WatchSessionSummary?>(null)
@@ -130,24 +132,57 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                             Text("+")
                                         }
                                     }
+                                    if (session.prescribedWeightKg != null) {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalAlignment = Alignment.CenterVertically) {
+                                            Button(onClick = {
+                                                weightInput = ((weightInput ?: 0.0) - 0.5)
+                                                    .coerceAtLeast(0.0)
+                                            }) { Text("−") }
+                                            Text("${weightInput ?: 0.0} kg",
+                                                style = MaterialTheme.typography.titleMedium)
+                                            Button(onClick = {
+                                                weightInput = ((weightInput ?: 0.0) + 0.5)
+                                                    .coerceAtMost(2000.0)
+                                            }) { Text("+") }
+                                        }
+                                    }
                                     Button(onClick = { queueSet(session) },
                                         enabled = repsInput > 0,
                                         modifier = Modifier.fillMaxWidth()) {
                                         Text("Confirmar serie")
                                     }
                                 }
-                                if (pendingCount > 0) {
-                                    Text("$pendingCount pendientes de confirmar",
+                            }
+                            if (pendingCount > 0) {
+                                Text("$pendingCount series pendientes de confirmar",
+                                    style = MaterialTheme.typography.labelSmall)
+                                Button(onClick = { resendPending() },
+                                    modifier = Modifier.fillMaxWidth()) {
+                                    Text("Reintentar sincronización")
+                                }
+                                if (confirmDiscardPending) {
+                                    Text("Descartar las series no sincronizadas?",
+                                        textAlign = TextAlign.Center,
                                         style = MaterialTheme.typography.labelSmall)
-                                    Button(onClick = { resendPending() },
-                                        modifier = Modifier.fillMaxWidth()) {
-                                        Text("Reenviar pendientes")
+                                    Button(onClick = {
+                                        pendingStore.clear()
+                                        pendingCount = 0
+                                        confirmDiscardPending = false
+                                        sendStatus = "Series pendientes descartadas"
+                                    }) { Text("Sí, descartar") }
+                                    Button(onClick = { confirmDiscardPending = false }) {
+                                        Text("Cancelar")
+                                    }
+                                } else {
+                                    Button(onClick = { confirmDiscardPending = true }) {
+                                        Text("Descartar pendientes")
                                     }
                                 }
-                                sendStatus?.let {
-                                    Text(it, style = MaterialTheme.typography.labelSmall,
-                                        textAlign = TextAlign.Center)
-                                }
+                            }
+                            sendStatus?.let {
+                                Text(it, style = MaterialTheme.typography.labelSmall,
+                                    textAlign = TextAlign.Center)
                             }
                         }
                     }
@@ -165,8 +200,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             try {
                 for (item in items) {
                     if (item.uri.path == "/repera/active-session") {
-                        val bytes = DataMapItem.fromDataItem(item).dataMap.getByteArray("session")
-                        runOnUiThread { showSession(bytes) }
+                        val data = DataMapItem.fromDataItem(item).dataMap
+                        val bytes = data.getByteArray("session")
+                        val signedOut = data.getBoolean("signedOut")
+                        runOnUiThread { showSession(bytes, signedOut) }
                     }
                 }
             } finally {
@@ -185,10 +222,12 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         for (event in events) {
             if (event.dataItem.uri.path == "/repera/active-session") {
                 if (event.type == com.google.android.gms.wearable.DataEvent.TYPE_DELETED) {
-                    runOnUiThread { clearSession() }
+                    runOnUiThread { clearSession(erasePending = false) }
                 } else {
-                    val bytes = DataMapItem.fromDataItem(event.dataItem).dataMap.getByteArray("session")
-                    runOnUiThread { showSession(bytes) }
+                    val data = DataMapItem.fromDataItem(event.dataItem).dataMap
+                    val bytes = data.getByteArray("session")
+                    val signedOut = data.getBoolean("signedOut")
+                    runOnUiThread { showSession(bytes, signedOut) }
                 }
             }
         }
@@ -217,7 +256,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private fun queueSet(session: WatchSessionSummary) {
         if (session.wodFormatLabel != null || repsInput !in 1..10000) return
         pendingStore.append(session.sessionId, session.exerciseIndex - 1,
-            repsInput, session.prescribedWeightKg)
+            repsInput, weightInput)
         pendingCount = pendingStore.count()
         sendStatus = "Serie guardada en el reloj; esperando confirmación"
         resendPending()
@@ -241,9 +280,15 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }
     }
 
-    private fun showSession(bytes: ByteArray?) {
+    private fun showSession(bytes: ByteArray?, signedOut: Boolean = false) {
+        if (signedOut) {
+            clearSession(erasePending = true)
+            return
+        }
         if (bytes == null || bytes.isEmpty()) {
-            clearSession()
+            // A finished workout is NOT account logout. Never discard unacknowledged
+            // sets because the phone has completed the active session.
+            clearSession(erasePending = false)
             return
         }
         val raw = String(bytes, Charsets.UTF_8)
@@ -255,6 +300,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             if (visibleSession?.sessionId != summary.sessionId ||
                 visibleSession?.exerciseIndex != summary.exerciseIndex) {
                 repsInput = summary.prescribedReps ?: 0
+                weightInput = summary.prescribedWeightKg
             }
             visibleSession = summary
             resendPending()
@@ -266,11 +312,15 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
     }
 
-    private fun clearSession() {
+    private fun clearSession(erasePending: Boolean) {
         sessionCache.edit().remove("snapshot").apply()
-        pendingStore.clear()
-        pendingCount = 0
+        if (erasePending) {
+            pendingStore.clear()
+            pendingCount = 0
+        }
         repsInput = 0
+        weightInput = null
+        confirmDiscardPending = false
         sendStatus = null
         visibleSession = null
         syncProblem = false

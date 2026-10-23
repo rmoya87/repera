@@ -487,7 +487,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 // Data Layer is best effort: a disconnected watch must never prevent
                 // clearing the authenticated phone UI and its in-memory state.
                 withContext(Dispatchers.IO) {
-                    runCatching { WearActiveSessionBridge.publish(this@MainActivity, null) }
+                    runCatching { WearActiveSessionBridge.signOut(this@MainActivity) }
                 }
                 profile = null
                 snapshot = null
