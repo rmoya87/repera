@@ -93,4 +93,42 @@ class MobilityCatalogInstrumentedTest {
         val absent = ExerciseProgressMetrics.fromWorkouts(JSONArray().put(workout))
         assertFalse(absent.containsKey(posture.getString("id")))
     }
+
+    @Test fun timedMobilityUsesRealSetsAndNeverFabricatesPrescribedTime() {
+        val movement = JSONObject()
+            .put("id", "mobility-test-1")
+            .put("name", "Postura del niño")
+            .put("catalogId", "mobility-31")
+            .put("sportTag", "Movilidad")
+        val planned = JSONArray().put(JSONObject().put("targetReps", 1)
+            .put("targetDurationSeconds", 60))
+        val exercise = JSONObject()
+            .put("exercise", movement)
+            .put("plannedSets", planned)
+            .put("loggedSets", JSONArray())
+            .put("blockKind", "strength")
+        val workout = JSONObject()
+            .put("title", "Movilidad")
+            .put("phase", "finished")
+            .put("finishedAt", "2026-10-23T12:00:00Z")
+            .put("exercises", JSONArray().put(exercise))
+
+        assertTrue(WorkoutHistorySets.effectiveWorkSets(workout, exercise).isEmpty())
+        assertTrue(ExerciseProgressMetrics.fromWorkouts(JSONArray().put(workout)).isEmpty())
+
+        val actual = JSONArray()
+            .put(JSONObject().put("id", "1").put("reps", 1)
+                .put("durationSeconds", 25).put("phase", "work"))
+            .put(JSONObject().put("id", "2").put("reps", 1)
+                .put("durationSeconds", 45).put("phase", "work"))
+        exercise.put("loggedSets", actual)
+        val summary = ExerciseProgressMetrics.fromWorkouts(JSONArray().put(workout))["mobility-test-1"]
+        assertNotNull(summary)
+        assertEquals(45, summary!!.bestDurationSeconds)
+        assertEquals(70, summary.totalDurationSeconds)
+        assertEquals(1, summary.timesPerformed)
+        val detail = WorkoutHistorySets.displayLines(workout, exercise)
+        assertEquals(2, detail.size)
+        assertTrue(detail[1].contains("45s"))
+    }
 }
