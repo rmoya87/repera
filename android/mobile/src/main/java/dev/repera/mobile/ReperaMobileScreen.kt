@@ -843,8 +843,7 @@ private fun WodScoreCard(
         WodFormat.EMOM, WodFormat.DEATH_BY ->
             elapsedClock / (wod.intervalSeconds ?: 60).coerceAtLeast(1) + 1
         WodFormat.CIRCUIT ->
-            // Circuit uses one interval for each station, with extra rests between rounds.
-            (elapsedClock / (wod.intervalSeconds ?: 60).coerceAtLeast(1)) + 1
+            WodClock.activeIntervalIndex(spec, elapsedClock) + 1
         WodFormat.TABATA ->
             elapsedClock / ((wod.workSeconds ?: 20).coerceAtLeast(1) +
                 (wod.restSeconds ?: 10).coerceAtLeast(0)).coerceAtLeast(1) + 1

@@ -49,6 +49,20 @@ class WodClockTest {
         assertEquals("Finalizado", WodClock.face(spec, 320).label)
     }
 
+    @Test fun circuitIntervalSuggestionSkipsRestBetweenRounds() {
+        val spec = WodClockSpec(WodFormat.CIRCUIT, stations = 2, rounds = 3,
+            intervalSeconds = 45, restBetweenRoundsSeconds = 25,
+            blockTimeCapMinutes = 12)
+        assertEquals(0, WodClock.activeIntervalIndex(spec, 0))
+        assertEquals(1, WodClock.activeIntervalIndex(spec, 45))
+        assertEquals(2, WodClock.activeIntervalIndex(spec, 90))
+        assertEquals(2, WodClock.activeIntervalIndex(spec, 115))
+        assertEquals(3, WodClock.activeIntervalIndex(spec, 160))
+        assertEquals(4, WodClock.activeIntervalIndex(spec, 230))
+        assertEquals(5, WodClock.activeIntervalIndex(spec, 319))
+        assertEquals(5, WodClock.activeIntervalIndex(spec, 320))
+    }
+
     @Test fun tabataCanHaveZeroRestAsPrescribed() {
         val spec = WodClockSpec(WodFormat.TABATA, rounds = 4,
             workSeconds = 20, restSeconds = 0)

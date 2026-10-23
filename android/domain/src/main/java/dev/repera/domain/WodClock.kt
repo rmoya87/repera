@@ -62,6 +62,35 @@ object WodClock {
         }
     }
 
+    /** Zero-based station/interval index derived from the real phase sequence.
+     * Rest between circuit rounds never counts as a workout station.
+     */
+    fun activeIntervalIndex(spec: WodClockSpec, elapsedSeconds: Int): Int {
+        val elapsed = elapsedSeconds.coerceAtLeast(0)
+        return when (spec.format) {
+            WodFormat.CIRCUIT -> {
+                val phases = phases(spec)
+                var remaining = elapsed
+                var stationIndex = 0
+                for (phase in phases) {
+                    if (remaining < phase.seconds) return stationIndex.coerceAtLeast(0)
+                    remaining -= phase.seconds
+                    if (phase.label.startsWith("Estación")) stationIndex++
+                }
+                (stationIndex - 1).coerceAtLeast(0)
+            }
+            WodFormat.EMOM, WodFormat.DEATH_BY ->
+                (elapsed / (spec.intervalSeconds ?: 60).coerceAtLeast(1))
+                    .coerceAtMost(((spec.plannedIntervals ?: spec.rounds) ?: 10000) - 1)
+                    .coerceAtLeast(0)
+            WodFormat.TABATA ->
+                (elapsed / ((spec.workSeconds ?: 20).coerceAtLeast(1) +
+                    (spec.restSeconds ?: 10).coerceAtLeast(0)).coerceAtLeast(1))
+                    .coerceAtMost(((spec.rounds ?: 8) - 1).coerceAtLeast(0))
+            else -> 0
+        }
+    }
+
     fun face(spec: WodClockSpec, elapsedSeconds: Int): WodClockFace {
         val elapsed = elapsedSeconds.coerceAtLeast(0)
         val cap = timeCapSeconds(spec)
