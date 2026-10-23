@@ -95,7 +95,7 @@ class DriveSnapshotService(private val token: String, private val local: LocalSn
             emptyArray("bodyWeights") && emptyArray("favoriteTimers") &&
             emptyObject("settings") && emptyObject("exerciseLoadPrefs") &&
             state.optJSONObject("activeSession") == null &&
-            exercises.length() == 196 &&
+            (exercises.length() == 196 || exercises.length() == 278) &&
             (0 until exercises.length()).none { index ->
                 exercises.getJSONObject(index).optBoolean("isCustom")
             }

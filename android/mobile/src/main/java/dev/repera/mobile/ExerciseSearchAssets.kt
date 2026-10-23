@@ -9,8 +9,14 @@ object ExerciseSearchAssets {
         val source = context.assets.open("exercise_search_aliases.json")
             .bufferedReader(Charsets.UTF_8).use { it.readText() }
         val data = JSONObject(source)
-        return data.keys().asSequence().associate { key ->
+        val mobility = context.assets.open("mobility_aliases.json")
+            .bufferedReader(Charsets.UTF_8).use { JSONObject(it.readText()) }
+        val known = data.keys().asSequence().associate { key ->
             ExerciseAliasSearch.normalize(key) to data.getString(key)
+        }.toMutableMap()
+        mobility.keys().forEach { key ->
+            known.putIfAbsent(ExerciseAliasSearch.normalize(key), mobility.getString(key))
         }
+        return known
     }
 }

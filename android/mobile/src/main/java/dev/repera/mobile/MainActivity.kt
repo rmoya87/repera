@@ -417,6 +417,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private suspend fun reloadFor(id: String) {
         val (overview, active, bytes) = withContext(Dispatchers.IO) {
             val store = LocalSnapshotStore(this@MainActivity, id)
+            MobilityCatalogMigration.ensure(this@MainActivity, id)
             val bytes = store.read()
             Triple(StateOverview.fromBytes(bytes), WorkoutRepository(this@MainActivity, id).active(), bytes)
         }
