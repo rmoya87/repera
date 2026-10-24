@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit
  * account hydration so a background sync cannot overwrite a user's workout.
  */
 internal class RemoteExerciseCatalog(private val context: Context) {
+    private companion object { val gate = Any() }
     private val cache = AtomicFile(File(context.filesDir, "exercise_catalog_remote_v1.json"))
     private val http = OkHttpClient.Builder().callTimeout(25, TimeUnit.SECONDS).build()
 
@@ -67,8 +68,7 @@ internal class RemoteExerciseCatalog(private val context: Context) {
         }
     }
 
-    @Synchronized
-    fun refresh(accessToken: String): Boolean {
+    fun refresh(accessToken: String): Boolean = synchronized(gate) {
         require(accessToken.isNotBlank())
         val latest = fetch("mobile_exercise_catalog_events?select=id&order=id.desc&limit=1", accessToken)
         if (latest.length() == 0) return false
@@ -121,8 +121,7 @@ internal class RemoteExerciseCatalog(private val context: Context) {
      * favorites and private entries. No historical workout, routine or set is edited.
      * This method is called only from the account-load IO dispatcher.
      */
-    @Synchronized
-    fun applyToAccount(googleId: String): Boolean {
+    fun applyToAccount(googleId: String): Boolean = synchronized(gate) {
         val cached = readCache()
         if (cached.optLong("revision", 0) == 0L) return false
         val entries = cached.getJSONObject("entries")
@@ -162,6 +161,7 @@ internal class RemoteExerciseCatalog(private val context: Context) {
                 .put("id", id).put("isCustom", false).put("isFavorite", false)
             val original = exercise.toString()
             exercise.put("name", publishedName)
+            exercise.put("_remoteCatalogKey", key)
             exercise.put("isCatalogArchived", !remote.optBoolean("is_active", true))
             if (nativeID.isNotBlank()) exercise.put("catalogId", nativeID)
             val primary = remote.optJSONArray("primary_muscles") ?: JSONArray()
