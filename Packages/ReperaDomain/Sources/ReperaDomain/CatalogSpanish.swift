@@ -1115,6 +1115,12 @@ public enum CatalogSpanish {
             "Cargas que permitan snatch con hombros sanos.",
         ],
         "Man maker": [
+            "Plancha alta con manos en las mancuernas y cuerpo en linea.",
+            "Flexion completa hasta el pecho cerca del suelo.",
+            "Remo a un lado con la cadera cuadrada; repite al otro lado.",
+            "Salta los pies adelante y clean: mancuernas a los hombros.",
+            "Thruster: baja en squat con las mancuernas en los hombros.",
+            "Al subir, press a bloqueo overhead.",
             "Mancuernas al ancho de hombros; plancha con agarre en los mangos, cuerpo en línea.",
             "Flexión de pecho (push-up) completa; luego remo a cada lado con cadera cuadrada (sin rotar).",
             "Salta o pasa pies adelante, clean a hombros y thruster: squat + press a bloqueo overhead.",
@@ -2023,6 +2029,9 @@ public enum CatalogSpanish {
             "Si duelen rodillas, elimina el salto.",
         ],
         "Jumping lunge": [
+            "Zancada profunda con la pierna derecha adelante: rodilla trasera cerca del suelo sin apoyar, torso alto.",
+            "Salta y cambia las piernas en el aire.",
+            "Aterriza suave en la zancada contraria: la pierna izquierda queda adelante.",
             "Desde zancada, salta e intercambia piernas en el aire; aterriza en zancada del otro lado.",
             "Torso alto; aterrizaje suave; rodilla trasera cerca del suelo.",
             "Error típico: aterrizaje rígido o rodilla que se va adentro.",
