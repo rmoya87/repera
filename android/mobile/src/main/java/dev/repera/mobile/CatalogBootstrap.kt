@@ -12,7 +12,7 @@ object CatalogBootstrap {
         val catalogText = context.assets.open("catalog_seed.json")
             .bufferedReader(Charsets.UTF_8).use { it.readText() }
         val catalog = JSONArray(catalogText)
-        check(catalog.length() == 196) { "El catálogo no está completo" }
+        check(catalog.length() == 288) { "El catálogo no está completo" }
         val ids = (0 until catalog.length()).map { catalog.getJSONObject(it).getString("id") }
         require(ids.distinct().size == ids.size) { "IDs de catálogo repetidos" }
         val state = JSONObject()

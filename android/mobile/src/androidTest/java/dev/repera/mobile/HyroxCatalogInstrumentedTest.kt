@@ -20,9 +20,11 @@ class HyroxCatalogInstrumentedTest {
         val before = (0 until original.length()).associate {
             original.getJSONObject(it).getString("name") to original.getJSONObject(it).getString("id")
         }
-        assertTrue(MobilityCatalogMigration.ensure(context, account))
+        // El seed fresco ya incluye las 288 entradas (estaciones Hyrox incluidas),
+        // por lo que la migración es un no-op en cuentas nuevas.
+        assertFalse(MobilityCatalogMigration.ensure(context, account))
         val catalog = JSONObject(String(local.read()!!)).getJSONArray("exercises")
-        assertEquals(280, catalog.length())
+        assertEquals(288, catalog.length())
         val rows = (0 until catalog.length()).map { catalog.getJSONObject(it) }
         val stationNames = setOf("Carrera", "SkiErg", "Sled push", "Sled pull",
             "Burpee Broad Jump", "Remo máquina", "Farmer carry", "Sandbag Lunges",
@@ -50,9 +52,11 @@ class HyroxCatalogInstrumentedTest {
             .put("isCustom", false))
         state.put("syncRevision", 4).put("updatedAt", "2026-10-23T12:00:00Z")
         local.write(state.toString().toByteArray())
-        assertTrue(MobilityCatalogMigration.ensure(context, account))
+        // La estación importada desde Apple (sin catalogId) se detecta por nombre
+        // canónico y conserva su UUID; el resto del catálogo ya venía sembrado.
+        assertFalse(MobilityCatalogMigration.ensure(context, account))
         val catalog = JSONObject(String(local.read()!!)).getJSONArray("exercises")
-        assertEquals(280, catalog.length())
+        assertEquals(289, catalog.length())
         val same = (0 until catalog.length()).map { catalog.getJSONObject(it) }
             .filter { it.optString("name") == "Burpee Broad Jump" }
         assertEquals(1, same.size)

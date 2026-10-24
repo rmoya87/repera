@@ -55,7 +55,7 @@ class ExerciseDetailInstrumentedTest {
         // Paridad con iOS: "Remo pliométrico en anillas pies elevados" tampoco
         // resuelve arte en el nameMap de ExerciseArt.swift; el resto debe resolver.
         assertEquals(listOf("Remo pliométrico en anillas pies elevados"), missing)
-        assertEquals(278, total)
+        assertEquals(370, total)  // 288 del seed unificado + 82 de mobility_seed (cobertura de arte)
     }
 
     @Test

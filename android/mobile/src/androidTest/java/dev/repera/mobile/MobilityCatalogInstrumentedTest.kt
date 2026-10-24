@@ -18,11 +18,15 @@ class MobilityCatalogInstrumentedTest {
         CatalogBootstrap.initializeEmptyAccount(context, account)
         val store = LocalSnapshotStore(context, account)
         val before = JSONObject(String(store.read()!!))
-        assertEquals(196, before.getJSONArray("exercises").length())
-        assertTrue(MobilityCatalogMigration.ensure(context, account))
+        // El catálogo nativo ya siembra las 288 entradas (196 base + 82 Movilidad
+        // + 2 Hyrox + 8 halterofilia nuevas) con los mismos UUID v3 que la
+        // migración genera para instalaciones antiguas, así ambas generaciones
+        // comparten identidad.
+        assertEquals(288, before.getJSONArray("exercises").length())
+        assertFalse(MobilityCatalogMigration.ensure(context, account))
         val migrated = JSONObject(String(store.read()!!))
         val exercises = migrated.getJSONArray("exercises")
-        assertEquals(280, exercises.length())
+        assertEquals(288, exercises.length())
         val mobility = (0 until exercises.length()).map { exercises.getJSONObject(it) }
             .filter { it.optString("sportTag") == "Movilidad" }
         assertEquals(82, mobility.size)
@@ -30,6 +34,14 @@ class MobilityCatalogInstrumentedTest {
         assertTrue(mobility.all { it.getJSONArray("instructions").length() >= 5 })
         assertTrue(mobility.all { it.optString("equipment").isNotBlank() })
         val ids = mobility.associate { it.getString("catalogId") to it.getString("id") }
+        // Los ids del seed deben ser exactamente los UUID v3 que la migración
+        // calcula con nameUUIDFromBytes, para que una instalación antigua y una
+        // nueva referencien el mismo ejercicio.
+        for ((catalogId, id) in ids) {
+            val expected = UUID.nameUUIDFromBytes(
+                ("repera:catalog:" + catalogId).toByteArray(Charsets.UTF_8)).toString()
+            assertEquals("id distinto al esquema de la migración para " + catalogId, expected, id)
+        }
         assertFalse(MobilityCatalogMigration.ensure(context, account))
         val after = JSONObject(String(store.read()!!))
         val returned = (0 until after.getJSONArray("exercises").length())
@@ -43,7 +55,7 @@ class MobilityCatalogInstrumentedTest {
         val aliases = ExerciseSearchAssets.load(context)
         assertEquals("Flexión cervical suave",
             aliases[dev.repera.domain.ExerciseAliasSearch.normalize("Neck flexion stretch")])
-        assertEquals(280, StateOverview.fromBytes(store.read())!!.exercises)
+        assertEquals(288, StateOverview.fromBytes(store.read())!!.exercises)
     }
 
     @Test fun migrationOfExistingWorkoutsNeverRewritesAthleteHistoryOrCustomExercises() {
@@ -51,6 +63,19 @@ class MobilityCatalogInstrumentedTest {
         CatalogBootstrap.initializeEmptyAccount(context, account)
         val store = LocalSnapshotStore(context, account)
         val existing = JSONObject(String(store.read()!!))
+        // Rebobinar al catálogo de 196 entradas: sin Movilidad, sin Hyrox extra
+        // y sin las 8 de halterofilia añadidas en esta sincronización.
+        val catalog = existing.getJSONArray("exercises")
+        val newHaltero = setOf("Snatch High Pull", "Clean High Pull", "Clean Deadlift",
+            "Squat Jerk", "Jerk Dip and Drive", "Block Power Snatch", "Block Power Clean",
+            "Snatch-Grip Push Press")
+        for (i in catalog.length() - 1 downTo 0) {
+            val item = catalog.getJSONObject(i)
+            val cid = item.optString("catalogId")
+            if (cid.startsWith("mobility-") || cid.startsWith("hyrox-") ||
+                item.optString("name") in newHaltero) catalog.remove(i)
+        }
+        assertEquals(196, catalog.length())
         existing.getJSONArray("exercises").put(JSONObject()
             .put("id", UUID.randomUUID().toString()).put("name", "Mi ejercicio")
             .put("isCustom", true).put("muscleGroup", "Core"))
