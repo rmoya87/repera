@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import dev.repera.mobile.monetization.LocalSubscriptions
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.Icons
@@ -187,17 +188,32 @@ internal fun ExercisesTab(
                                 Text("Duración máxima: ${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}")
                             }
                             if (sessions.isNotEmpty()) {
-                                Text("Historial · ${sessions.size} sesiones",
-                                    style = MaterialTheme.typography.titleSmall)
-                                (if (showAllSessions) sessions else sessions.take(5)).forEach { visit ->
-                                    Text(visit.date.take(10) + " · " + visit.title,
-                                        style = MaterialTheme.typography.bodyMedium)
-                                    Text(visit.lines.joinToString("  "),
-                                        style = MaterialTheme.typography.labelSmall)
+                                // Historial completo por ejercicio = Pro (paridad
+                                // iOS exerciseFullHistory, contexto exerciseHistory).
+                                val subscriptions = LocalSubscriptions.current
+                                val historyAllowed = subscriptions
+                                    ?.decision(dev.repera.domain.monetization.ReperaFeature.EXERCISE_FULL_HISTORY)
+                                    ?.allowed ?: true
+                                if (historyAllowed) {
+                                    Text("Historial · ${sessions.size} sesiones",
+                                        style = MaterialTheme.typography.titleSmall)
+                                    (if (showAllSessions) sessions else sessions.take(5)).forEach { visit ->
+                                        Text(visit.date.take(10) + " · " + visit.title,
+                                            style = MaterialTheme.typography.bodyMedium)
+                                        Text(visit.lines.joinToString("  "),
+                                            style = MaterialTheme.typography.labelSmall)
+                                    }
+                                    if (sessions.size > 5) TextButton(
+                                        onClick = { showAllSessions = !showAllSessions }
+                                    ) { Text(if (showAllSessions) "Ver menos" else "Ver todas las sesiones") }
+                                } else {
+                                    TextButton(onClick = {
+                                        subscriptions?.presentPaywall(
+                                            dev.repera.domain.monetization.PaywallContext.EXERCISE_HISTORY,
+                                            feature = dev.repera.domain.monetization.ReperaFeature.EXERCISE_FULL_HISTORY
+                                        )
+                                    }) { Text("Historial completo con Repera Pro") }
                                 }
-                                if (sessions.size > 5) TextButton(
-                                    onClick = { showAllSessions = !showAllSessions }
-                                ) { Text(if (showAllSessions) "Ver menos" else "Ver todas las sesiones") }
                             }
                         }
                     }
