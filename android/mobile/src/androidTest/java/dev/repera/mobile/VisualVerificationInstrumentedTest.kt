@@ -15,6 +15,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
@@ -151,14 +154,22 @@ class VisualVerificationInstrumentedTest {
         brandContent {
             // Caja 840x400 dp: fuerza la rama apaisada (ancho > alto) para
             // capturar el layout landscape sin rotar el emulador.
+            // requiredSize ignora las restricciones del padre: con size() el
+            // ancho quedaba coaccionado al de la pantalla y la captura salía
+            // idéntica a la vertical (detectado por md5 idéntico en CI).
             androidx.compose.foundation.layout.Box(
-                modifier = Modifier.size(840.dp, 400.dp)
+                modifier = Modifier
+                    .requiredSize(840.dp, 400.dp)
+                    .testTag("wod_landscape_capture")
             ) {
                 WodClockScreen(active, false, timer, {}, {}, {}, requestNotificationPermission = false)
             }
         }
         compose.waitForIdle()
-        save("reloj_wod_apaisado", compose.onRoot().captureToImage())
+        save(
+            "reloj_wod_apaisado",
+            compose.onNodeWithTag("wod_landscape_capture").captureToImage()
+        )
     }
 
     @Test
