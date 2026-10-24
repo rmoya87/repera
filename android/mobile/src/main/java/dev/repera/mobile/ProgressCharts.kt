@@ -142,3 +142,30 @@ internal fun HeatmapCard(title: String, levels: List<Pair<java.time.LocalDate, I
         }
     }
 }
+
+/** Gráfica de línea simple para series de puntos día→valor. */
+@Composable
+internal fun DayPointLineChart(
+    points: List<dev.repera.domain.ProgressDayPoint>,
+    modifier: Modifier = Modifier
+) {
+    if (points.isEmpty()) return
+    val line = MaterialTheme.colorScheme.primary
+    Canvas(modifier = modifier.fillMaxWidth().height(100.dp)) {
+        val minV = points.minOf { it.value }
+        val maxV = points.maxOf { it.value }
+        val span = (maxV - minV).coerceAtLeast(1e-9)
+        fun x(i: Int) = if (points.size == 1) size.width / 2f
+            else i * size.width / (points.size - 1)
+        fun y(v: Double) =
+            size.height - ((v - minV) / span * size.height * 0.85f).toFloat() - size.height * 0.075f
+        val path = Path()
+        points.forEachIndexed { i, p ->
+            if (i == 0) path.moveTo(x(i), y(p.value))
+            else path.lineTo(x(i), y(p.value))
+        }
+        drawPath(path, color = line, style = Stroke(width = 4f))
+        drawCircle(color = line, radius = 6f,
+            center = Offset(x(points.size - 1), y(points.last().value)))
+    }
+}

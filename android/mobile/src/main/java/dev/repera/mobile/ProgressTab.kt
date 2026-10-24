@@ -216,6 +216,19 @@ internal fun ProgressTab(
                 item { HeatmapCard("Volumen (kg por día)",
                     snapshot.heatmapVolume) }
             }
+            if (snapshot.cardioSeries.isNotEmpty()) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Cardio", style = MaterialTheme.typography.titleMedium)
+                            Text("${snapshot.cardioSeries.sumOf { it.value }.toInt()} min en el rango",
+                                style = MaterialTheme.typography.bodyMedium)
+                            DayPointLineChart(snapshot.cardioSeries)
+                        }
+                    }
+                }
+            }
 
             if (snapshot.records.isNotEmpty()) {
                 item {
@@ -275,6 +288,7 @@ internal fun ProgressTab(
                                 Text("Cambio 30 días: $sign${formatWeight(delta)} kg",
                                     style = MaterialTheme.typography.bodyMedium)
                             }
+                            DayPointLineChart(snapshot.weightPoints)
                             var weightInput by rememberSaveable { mutableStateOf("") }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
