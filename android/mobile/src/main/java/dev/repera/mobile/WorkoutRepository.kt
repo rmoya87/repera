@@ -1983,6 +1983,55 @@ class WorkoutRepository(context: Context, googleId: String) {
         save(state)
     }
 
+    /** Id del registro de Health Connect vinculado a la sesión
+     *  (healthKitWorkoutUUID iOS), o null si no se ha vinculado. */
+    @Synchronized fun healthRecordId(sessionId: String): String? {
+        val state = loadOrNull() ?: return null
+        val archive = state.optJSONArray("workouts") ?: return null
+        for (i in 0 until archive.length()) {
+            val session = archive.optJSONObject(i) ?: continue
+            if (session.optString("id") == sessionId) {
+                return session.optString(
+                    dev.repera.domain.HealthSessionLink.SNAPSHOT_FIELD)
+                    .takeIf { it.isNotBlank() }
+            }
+        }
+        return null
+    }
+
+    /** Persiste el vínculo sesión ↔ registro de Salud (campo aditivo). */
+    @Synchronized fun setHealthRecordId(sessionId: String, recordId: String) {
+        val state = loadOrNull() ?: return
+        val archive = state.optJSONArray("workouts") ?: return
+        for (i in 0 until archive.length()) {
+            val session = archive.optJSONObject(i) ?: continue
+            if (session.optString("id") == sessionId) {
+                session.put(dev.repera.domain.HealthSessionLink.SNAPSHOT_FIELD, recordId)
+                save(state)
+                return
+            }
+        }
+    }
+
+    /** Título + ventana de la sesión para la escritura en Salud. */
+    @Synchronized fun sessionTitleAndRange(sessionId: String): Triple<String, Long, Long>? {
+        val state = loadOrNull() ?: return null
+        val archive = state.optJSONArray("workouts") ?: return null
+        for (i in 0 until archive.length()) {
+            val session = archive.optJSONObject(i) ?: continue
+            if (session.optString("id") != sessionId) continue
+            val start = runCatching { java.time.Instant.parse(
+                session.optString("startedAt")).toEpochMilli() }.getOrNull()
+            val end = runCatching { java.time.Instant.parse(
+                session.optString("finishedAt")).toEpochMilli() }.getOrNull()
+            if (start != null && end != null && end > start) {
+                return Triple(session.optString("title").ifBlank { "Sesión" }, start, end)
+            }
+            return null
+        }
+        return null
+    }
+
     /** Ventana temporal de una sesión (epoch ms inicio/fin) para leer Salud. */
     @Synchronized fun sessionTimeRange(sessionId: String): Pair<Long, Long>? {
         val state = loadOrNull() ?: return null

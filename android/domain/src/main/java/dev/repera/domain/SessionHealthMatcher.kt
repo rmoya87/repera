@@ -99,6 +99,17 @@ object SessionHealthMatcher {
         return Association.None
     }
 
+    /** Vínculo directo por id de registro (fetchWorkout(uuid) iOS): si la
+     *  sesión ya tiene un registro de Salud enlazado y sigue existiendo, ese
+     *  es el asociado sin pasar por umbrales de ventana. */
+    fun matchById(
+        candidates: List<CandidateSession>,
+        linkedRecordId: String?
+    ): CandidateSession? {
+        if (linkedRecordId.isNullOrBlank()) return null
+        return candidates.firstOrNull { it.id == linkedRecordId }
+    }
+
     /** Fusiona muestras de FC de todos los orígenes en la ventana: dedup de
      *  duplicados exactos entre orígenes y detección de señal contradictoria.
      *  Nunca elige un origen por densidad. */

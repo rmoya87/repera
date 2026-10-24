@@ -90,6 +90,26 @@ class SessionHealthMatcherTest {
         assertEquals(5, series.size)
     }
 
+    @Test fun linkedRecordIdWinsWithoutWindowThresholds() {
+        val linked = candidate("hc-123", 500, 520, "dev.repera")
+        val found = SessionHealthMatcher.matchById(listOf(linked), "hc-123")
+        assertEquals("hc-123", found?.id)
+    }
+
+    @Test fun unknownLinkedIdFallsBackToNoMatch() {
+        val linked = candidate("hc-123", 600, 660, "dev.repera")
+        assertEquals(null, SessionHealthMatcher.matchById(listOf(linked), "hc-999"))
+        assertEquals(null, SessionHealthMatcher.matchById(listOf(linked), null))
+    }
+
+    @Test fun clientRecordIdIsStableAndSessionScoped() {
+        assertEquals("repera-session-abc", HealthSessionLink.clientRecordId("abc"))
+        assertEquals(HealthSessionLink.clientRecordId("abc"),
+            HealthSessionLink.clientRecordId("abc"))
+        assertTrue(HealthSessionLink.clientRecordId("abc") !=
+            HealthSessionLink.clientRecordId("def"))
+    }
+
     @Test fun emptyEvidenceIsEmpty() {
         assertEquals(SessionHealthMatcher.HeartMerge.Empty,
             SessionHealthMatcher.mergeHeartRate(emptyList()))

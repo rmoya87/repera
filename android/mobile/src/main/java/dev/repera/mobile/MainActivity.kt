@@ -1080,21 +1080,36 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
     }
 
-    /** Tras terminar una sesión: relee FC/kcal de Salud en su ventana y
-     *  afina la nota (refineSessionReviewWithHealth iOS). Sin permisos o sin
-     *  señal no toca nada. Si la hoja de valoración sigue visible con esa
-     *  sesión, la actualiza (presentIfPending iOS). */
+    /** Tras terminar una sesión: primero syncWorkoutToHealth iOS (escribe o
+     *  vincula el registro propio de Salud con idempotencia; sin permiso el
+     *  entreno queda intacto en local) y después refineSessionReviewWithHealth
+     *  (relee FC/kcal SOLO con asociación confiable y afina la nota). Si la
+     *  hoja de valoración sigue visible con esa sesión, la actualiza
+     *  (presentIfPending iOS). */
     private fun refineFinishedSessionWithHealth(sessionId: String) {
         val signedIn = profile ?: return
         val reader = HealthConnectReader(this)
         if (!reader.available()) return
         lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val repo = WorkoutRepository(this@MainActivity, signedIn.uniqueId)
+                    val info = repo.sessionTitleAndRange(sessionId) ?: return@runCatching
+                    val linked = HealthConnectWriter(this@MainActivity)
+                        .syncFinishedSession(sessionId, info.first,
+                            info.second, info.third, repo.healthRecordId(sessionId))
+                    if (linked != null && repo.healthRecordId(sessionId) == null) {
+                        repo.setHealthRecordId(sessionId, linked)
+                    }
+                }
+            }
             val updated = withContext(Dispatchers.IO) {
                 runCatching {
                     if (!reader.hasPermissions()) return@runCatching null
                     val repo = WorkoutRepository(this@MainActivity, signedIn.uniqueId)
                     val range = repo.sessionTimeRange(sessionId) ?: return@runCatching null
-                    val sample = reader.readSessionSample(range.first, range.second)
+                    val sample = reader.readSessionSample(range.first, range.second,
+                        repo.healthRecordId(sessionId))
                     if (!sample.hasUsableSignal) return@runCatching null
                     WorkoutRepository(this@MainActivity, signedIn.uniqueId)
                         .refineSessionReviewWithCardio(sessionId, sample)
