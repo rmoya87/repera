@@ -75,6 +75,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var centerSubmitting by mutableStateOf(false)
     private var centerError by mutableStateOf<String?>(null)
     private val sessionStore by lazy { SessionStore(this) }
+    /** Wizard obligatorio de primer acceso (port OnboardingStore iOS). */
+    private val onboarding by lazy { OnboardingStore.create(this) }
     /** Estado comercial (Pro/Gratis) + cuotas + paywall. Port del entorno iOS. */
     private val subscriptions by lazy {
         SubscriptionManager(
@@ -460,6 +462,16 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         lifecycleScope.launch { subscriptions.start() }
         setContent {
             CompositionLocalProvider(LocalSubscriptions provides subscriptions) {
+            if (profile == null || !onboarding.isComplete) {
+                OnboardingFlow(
+                    store = onboarding,
+                    subscriptions = subscriptions,
+                    isSignedIn = profile != null,
+                    signInBusy = busy,
+                    signInError = status,
+                    onGoogleSignIn = ::signInWithGoogle
+                )
+            } else {
             ReperaMobileScreen(
                 isAuthenticated = profile != null,
                 displayName = profile?.displayName,
@@ -632,6 +644,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 ModalBottomSheet(onDismissRequest = { subscriptions.dismissPaywall() }) {
                     PaywallScreen(subscriptions = subscriptions, mode = PaywallMode.SHEET)
                 }
+            }
             }
             }
         }
@@ -1217,6 +1230,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 WodTimerService.sync(this@MainActivity, null, null, null)
                 todayHealth = null
                 status = null
+                // Cerrar sesión no es crear una cuenta nueva: volver al paso
+                // de login SIN olvidar permisos/precios ya vistos (port iOS).
+                onboarding.resetToSignIn()
                 busy = false
             }
         }
