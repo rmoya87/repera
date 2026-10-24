@@ -20,6 +20,8 @@ La tabla de eventos es de **solo lectura para clientes autenticados** (RLS). No 
 
 **Rendimiento y ejecución en segundo plano (iOS 27):** `RemoteExerciseCatalogStore.DiskStorage` es un actor dedicado para las lecturas y escrituras JSON atómicas. La reconstrucción de fichas se calcula en un `Task.detached(priority: .utility)` antes de actualizar el estado observable en MainActor; se descarta la mezcla si el usuario editó favoritos o entrenamientos durante el cálculo. El arranque no espera a Supabase ni muestra un spinner. `ReperaApp` integra el modificador nativo `.backgroundTask(.appRefresh(...))` y `BGAppRefreshTaskRequest`, declarado en el Info.plist generado por XcodeGen con `UIBackgroundModes=fetch`. La ejecución es **oportunista y controlada por iOS**, no un temporizador exacto: si el sistema no la concede, se refresca de forma silenciosa en lanzamiento/regreso a primer plano. Una ejecución solo en segundo plano actualiza la caché pública en disco; nunca accede al historial personal ni modifica el JSON/iCloud antes de hidratar la app.
 
+Al eliminar la sincronización manual de Cuenta, los entrenamientos de Salud pendientes también se reintentan automáticamente en tareas de prioridad utility cuando existe permiso previo de escritura HealthKit. No se solicitan permisos nuevos en segundo plano; se evitan reintentos simultáneos y se limita el repaso a una vez por hora.
+
 La caché remota **no** contiene entrenamientos ni datos de Salud. La sincronización del catálogo **no** es una sincronización de historias de usuario.
 
 ## Publicar cambios editoriales (sin nuevas versiones)
