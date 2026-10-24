@@ -7,10 +7,11 @@ import { registerDisciplinePlanningTools } from "./disciplines.ts";
 import { registerMutationTools } from "./mutations.ts";
 import { workout, wodFormat, wodFormatContract } from "./schema.ts";
 import { scheduledInstant } from "./time.ts";
+import { resolveOAuthToken, resourceMetadata, challenge } from "../_shared/ai-oauth.ts";
 import { registerAthleteChangeTools } from "./athlete-changes.ts";
 
-// Personal access token (PAT) MCP. PAT is an opaque bearer credential,
-// not an OAuth authorization code or a JWT. Always use TLS.
+// OAuth 2.1 plus legacy personal access tokens. OAuth identity is verified
+// against project JWKS, MCP audience, active consent and the Auth session.
 // Service-role key stays only inside the Edge Function; EVERY query is scoped
 // to owner_id derived from the authenticated hashed token.
 const db = createClient(
@@ -42,7 +43,8 @@ function reply(data: unknown) {
 }
 function fail(status: number, message: string) {
   return new Response(JSON.stringify({ error: message }), {
-    status, headers: { "content-type": "application/json", "cache-control": "no-store" },
+    status, headers: { "content-type": "application/json", "cache-control": "no-store",
+      ...(status === 401 ? { "www-authenticate": challenge() } : {}) },
   });
 }
 async function sha256(value: string): Promise<string> {
@@ -136,17 +138,28 @@ function nextCursor(offset:number):string {
 }
 
 Deno.serve(async (request) => {
-  const match = /^Bearer (rep_ai_[A-Za-z0-9_-]{43})$/.exec(request.headers.get("authorization") ?? "");
-  if (!match) return fail(401, "Bearer token personal de Repera requerido");
-  // Tokens are never logged, sent to third-party services, or stored in plaintext.
-  const hash = await sha256(match[1]);
-  const { data: token, error: tokenError } = await db.from("ai_access_tokens")
-    .select("id,owner_id,expires_at,scopes")
-    .eq("token_hash", hash).is("revoked_at", null).maybeSingle();
-  if (tokenError) return fail(503, "No se pudo verificar el token");
-  if (!token || (token.expires_at && Date.parse(token.expires_at) <= Date.now())) {
-    return fail(401, "Token caducado o revocado");
+  const path = new URL(request.url).pathname;
+  if (request.method === "GET" && path.endsWith("/.well-known/oauth-protected-resource")) {
+    return Response.json(resourceMetadata(), { headers: { "access-control-allow-origin": "*", "cache-control": "no-store" } });
   }
+  const bearer = /^Bearer ([^\s]+)$/.exec(request.headers.get("authorization") ?? "")?.[1];
+  if (!bearer || bearer.length > 8192) return fail(401, "Conecta tu cuenta de Repera");
+  let authenticatedToken: { id: string; owner_id: string; expires_at: string | null; scopes: string[] } | null = null;
+  if (/^rep_ai_[A-Za-z0-9_-]{43}$/.test(bearer)) {
+    const hash = await sha256(bearer);
+    const { data, error } = await db.from("ai_access_tokens")
+      .select("id,owner_id,expires_at,scopes")
+      .eq("token_hash", hash).is("revoked_at", null).maybeSingle();
+    if (error) return fail(503, "No se pudo verificar el acceso");
+    authenticatedToken = data;
+  } else {
+    try { authenticatedToken = await resolveOAuthToken(db, bearer); }
+    catch { return fail(401, "Vuelve a conectar tu cuenta de Repera"); }
+  }
+  if (!authenticatedToken || (authenticatedToken.expires_at && Date.parse(authenticatedToken.expires_at) <= Date.now())) {
+    return fail(401, "Acceso caducado o desconectado");
+  }
+  const token = authenticatedToken;
   const ownerId: string = token.owner_id;
   const canWrite = (token.scopes ?? ["training:read","training:write"]).includes("training:write");
   // Only owner-scoped reads and inserts. Service role cannot leak other athletes.
@@ -193,7 +206,7 @@ Deno.serve(async (request) => {
     }
     // Stable deterministic UUID per owner+request: a retry cannot duplicate
     // dated proposals. Existing records are never silently overwritten.
-    let batchId = crypto.randomUUID();
+    let batchId: string = crypto.randomUUID();
     if (idempotencyKey) {
       const digest = new Uint8Array(await crypto.subtle.digest("SHA-256",
         new TextEncoder().encode(ownerId+":"+idempotencyKey)));

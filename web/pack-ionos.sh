@@ -19,6 +19,7 @@ cp "${ROOT}/js/site.js" "${STAGE}/js/"
 # Acceso profesional autenticado con Supabase; ningún dato real se empaqueta.
 cp "${ROOT}/console/index.html" "${STAGE}/console/"
 cp -R "${ROOT}/console/src" "${STAGE}/console/src"
+cp -R "${ROOT}/ai" "${STAGE}/ai"
 cp -R "${ROOT}/assets/exercises" "${STAGE}/assets/exercises"
 cp "${ROOT}/assets/"*.png "${STAGE}/assets/" 2>/dev/null || true
 cp "${ROOT}/assets/"*.jpg "${STAGE}/assets/" 2>/dev/null || true

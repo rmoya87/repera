@@ -337,7 +337,7 @@ export function registerCoachTools(
     const matches=(all??[]).filter(e=>(term==="hyrox" && hyroxKeys.has(e.catalog_key))
       || normalized(e.name).includes(term)
       || normalized(e.display_name_en??"").includes(term)
-      || (index.get(e.catalog_key)?.aliases??[]).some(a=>normalized(a).includes(term)));
+      || (index.get(e.catalog_key)?.aliases??[]).some((a: string)=>normalized(a).includes(term)));
     return result({results:matches.slice(0,limit).map(e=>({...e,
         name:e.display_name_en??e.name,legacy_name:e.name,
         metadata:index.get(e.catalog_key)??null})),

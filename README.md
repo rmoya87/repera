@@ -136,7 +136,7 @@ Reimplementación Swift propia. openGym es AGPL — no se incorpora su código a
 
 ## Acceso IA y recepción automática
 
-Ajustes → Acceso IA crea/revoca tokens personales con la sesión Supabase del inicio normal de Repera, sin presentar otro inicio de sesión de Apple. Los entrenamientos que un asistente envía mediante el MCP aparecen en Inicio/Diario automáticamente mientras la app está abierta y se avisan con una tarjeta breve, gracias a la suscripción Realtime protegida por RLS del usuario. El botón «Sincronizar ahora» de Cuenta también recupera planes pendientes; si iOS suspende/cierra la app, se incorporan al volver al primer plano. **No hay notificaciones push cuando la app está cerrada**. Detalles y checklist en [docs/MCP_PLAN.md](docs/MCP_PLAN.md).
+Ajustes → Conecta tu IA presenta los asistentes disponibles y las conexiones; los tokens personales quedan en Configuración manual. La vinculación OAuth abre el asistente y requiere autorización de Repera en la web; sus botones permanecen deshabilitados hasta publicar las fichas reales. Los entrenamientos que un asistente envía mediante el MCP aparecen en Inicio/Diario automáticamente mientras la app está abierta y se avisan con una tarjeta breve, gracias a la suscripción Realtime protegida por RLS del usuario. El botón «Sincronizar ahora» de Cuenta también recupera planes pendientes; si iOS suspende/cierra la app, se incorporan al volver al primer plano. **No hay notificaciones push cuando la app está cerrada**. Detalles y checklist en [docs/MCP_PLAN.md](docs/MCP_PLAN.md).
 
 
 ## Coach deportivo IA
@@ -153,9 +153,16 @@ El perfil de entrenamiento se observa a partir del historial deportivo de Repera
 
 El catálogo nativo, la búsqueda y Supabase incorporan cuatro movimientos distintivos detectados en ejemplos de gimnasios (Carrera, Dominadas lastradas, Remo pliométrico en anillas pies elevados y Step-up al cajón con kettlebell goblet). El parser ligero separa intervalos, For Time con varios tramos, series de halterofilia con %1RM, pausas y descansos. Los programas de IA se abren desde Diario; antes de empezar una sesión se puede pulsar en movimientos enlazados a la biblioteca. En Cuenta el avatar editable integra el indicador Apple y la sincronización muestra el estado dentro del botón. Se elimina el texto que pedía configurar RevenueCat porque StoreKit puede funcionar sin él.
 
-El MCP v0.4 ofrece edición/archivo/restauración de propuestas pendientes con versiones, tokens personales de solo lectura o lectura/escritura y fechas de vencimiento, entradas estrictas, paginación de historial/planes/programas y metadatos de articulaciones informativos. **No** implementa todavía OAuth 2.1, borrado remoto de entrenamientos ya realizados, ni notificaciones cuando la app está cerrada. Ver [docs/MCP_PLAN.md](docs/MCP_PLAN.md).
+El MCP v0.4 ofrece edición/archivo/restauración de propuestas pendientes con versiones, tokens personales de solo lectura o lectura/escritura y fechas de vencimiento, entradas estrictas, paginación de historial/planes/programas y metadatos de articulaciones informativos. **No** borra directamente entrenamientos ya realizados ni envía notificaciones cuando la app está cerrada. El soporte OAuth 2.1 se añade detrás de activación controlada; véase [conexiones OAuth](docs/OAUTH_CONNECTIONS.md). Ver [docs/MCP_PLAN.md](docs/MCP_PLAN.md).
 
 
 ## Historial editable de manera segura desde MCP
 
 Desde Acceso IA se pueden aprobar o rechazar propuestas de cambio de entrenamientos completados y de ejercicios personalizados generadas por un asistente con permiso de escritura. Nunca se sobrescriben directamente los entrenos en iCloud desde el backend. La creación/edición de un ejercicio personalizado respeta los límites de cuenta; la biblioteca de ejercicios de Repera sigue siendo curada. Los horarios concretos requieren zona IANA y offset UTC explícitos; fechas sin hora mantienen su semántica de día del calendario. Los planes comparten un esquema completo y estricto para creación y actualización. Más detalles: [docs/MCP_PLAN.md](docs/MCP_PLAN.md).
+
+
+## Conexión guiada con asistentes (2026-10-24)
+
+Última actualización: 2026-10-24.
+
+Se incorpora el soporte de OAuth gestionado por Supabase, consentimiento web y aislamiento de credenciales MCP, manteniendo los PAT manuales. La nueva UI **Conecta tu IA** no activa ChatGPT/Claude hasta disponer de las fichas publicadas. La integración no está publicada por el hecho de integrar este código. Arquitectura, pruebas, despliegue y presentación a revisión: [docs/OAUTH_CONNECTIONS.md](docs/OAUTH_CONNECTIONS.md).

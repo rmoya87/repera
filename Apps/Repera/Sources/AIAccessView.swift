@@ -14,6 +14,7 @@ private struct AIAccessTokenInfo: Decodable, Identifiable {
     let revokedAt: String?
     let lastUsedAt: String?
     let scopes: [String]?
+    let oauthClientID: UUID?
 
     enum CodingKeys: String, CodingKey {
         case id, label
@@ -23,6 +24,7 @@ private struct AIAccessTokenInfo: Decodable, Identifiable {
         case revokedAt = "revoked_at"
         case lastUsedAt = "last_used_at"
         case scopes
+        case oauthClientID = "oauth_client_id"
     }
     // PostgreSQL timestamps may include fractional seconds. The default
     // ISO8601DateFormatter rejects these without .withFractionalSeconds.
@@ -31,6 +33,12 @@ private struct AIAccessTokenInfo: Decodable, Identifiable {
         if let date = formatter.date(from: raw) { return date }
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter.date(from: raw)
+    }
+
+    var hasConnected: Bool { isActive && lastUsedAt != nil }
+    var lastUseLabel: String? {
+        guard let raw = lastUsedAt, let date = Self.parseTimestamp(raw) else { return nil }
+        return "Último uso: \(date.formatted(date: .abbreviated, time: .shortened))"
     }
 
     var isActive: Bool {
@@ -55,10 +63,34 @@ private struct AIFunctionError: Decodable {
     let error: String
 }
 
-/// Personal bearer-token management. Server generates the 256-bit token; only
-/// its SHA-256 digest is stored. Plaintext stays in volatile view state until
-/// the one-time sheet is dismissed.
+private struct AIConnectionProvider: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let directoryURL: String?
+
+    var connectionURL: URL? {
+        guard let directoryURL, let url = URL(string: directoryURL),
+              url.scheme == "https", url.user == nil, url.password == nil, url.port == nil,
+              url.path.count > 1 else { return nil }
+        let hosts = id == "chatgpt" ? ["chatgpt.com"] : id == "claude" ? ["claude.ai", "claude.com"] : []
+        return hosts.contains(url.host ?? "") ? url : nil
+    }
+}
+private struct AIConnectionCatalog: Decodable {
+    let providers: [AIConnectionProvider]
+}
+
 struct AIAccessView: View {
+    @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var providers = [
+        AIConnectionProvider(id: "chatgpt", name: "ChatGPT", directoryURL: nil),
+        AIConnectionProvider(id: "claude", name: "Claude", directoryURL: nil)
+    ]
+    @State private var catalogError: String?
+    @State private var catalogLoading = true
+    @State private var showManualAccess = false
+
     @Environment(BusinessAuthStore.self) private var auth
     @Environment(ReperaStore.self) private var store
     @State private var changeRequests = AIChangeRequestStore.shared
@@ -74,71 +106,14 @@ struct AIAccessView: View {
 
     var body: some View {
         Form {
+            connectionSection
+            connectionsSection
             Section {
-                TextField("Nombre del acceso (ej. Mi entrenador IA)", text: $tokenName)
-                        .textInputAutocapitalization(.sentences)
-                        .autocorrectionDisabled()
-                    Picker("Caducidad", selection: $expiry) {
-                        Text("7 días").tag("7d")
-                        Text("30 días").tag("30d")
-                        Text("90 días").tag("90d")
-                        Text("1 año").tag("365d")
-                        Text("Ilimitado").tag("unlimited")
-                    }
-                    Toggle("Permitir enviar y editar entrenamientos", isOn: $canWrite)
-                        .tint(OG.accent)
-                    if expiry == "unlimited" {
-                        Label("Un token ilimitado seguirá funcionando hasta que lo revoques. Úsalo solo con asistentes de confianza.", systemImage: "exclamationmark.shield")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                    Button {
-                        Task { await createToken() }
-                    } label: {
-                        Label(isBusy ? "Creando acceso…" : "Crear token", systemImage: "plus.circle.fill")
-                    }
-                    .disabled(isBusy || !auth.isConnected || tokenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            } header: {
-                Text("Nuevo acceso IA")
-            }
-
-            Section {
-                if tokens.isEmpty {
-                    Text("No tienes tokens de IA creados.")
-                        .foregroundStyle(.secondary)
+                DisclosureGroup("Configuración manual", isExpanded: $showManualAccess) {
+                    Text("Para asistentes que requieren una clave de acceso. Pégala en su configuración, nunca en una conversación.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    manualAccessFields
                 }
-                ForEach(tokens) { token in
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text(token.label).font(.headline)
-                            Spacer()
-                            if token.isActive {
-                                Image(systemName: "checkmark.shield.fill").foregroundStyle(.green)
-                            } else {
-                                Image(systemName: "lock.shield").foregroundStyle(.secondary)
-                            }
-                        }
-                        Text("\(token.tokenPrefix)…")
-                            .font(.caption.monospaced())
-                            .foregroundStyle(.secondary)
-                        Text(token.scopes?.contains("training:write") == true
-                             ? "Lectura y escritura" : "Solo lectura")
-                            .font(.caption).foregroundStyle(.secondary)
-                        Text(token.revokedAt != nil ? "Revocado" : token.expiryLabel)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        if token.isActive {
-                            Button("Revocar token", role: .destructive) {
-                                Task { await revoke(token) }
-                            }
-                            .disabled(isBusy)
-                            .font(.subheadline)
-                        }
-                    }
-                    .padding(.vertical, 5)
-                }
-            } header: {
-                Text("Mis tokens")
             }
 
             if !changeRequests.pending.isEmpty {
@@ -222,11 +197,10 @@ struct AIAccessView: View {
         }
         .refreshable {
             await refreshTokens()
+            await refreshProviders()
             await changeRequests.refresh(store:store)
         }
-        .navigationTitle("Acceso IA")
-        .navigationBarTitleDisplayMode(.large)
-        .ogTransparentNav()
+        .ogPinnedTransparentNav("Conecta tu IA")
         .sheet(isPresented: Binding(
             get: { createdToken != nil },
             set: { if !$0 { createdToken = nil } }
@@ -236,7 +210,7 @@ struct AIAccessView: View {
                     Label("Token creado", systemImage: "checkmark.shield.fill")
                         .font(.title2.bold())
                         .foregroundStyle(.green)
-                    Text("Cópialo y guárdalo en tu asistente. Por seguridad no volverá a mostrarse.")
+                    Text("Copia esta clave en la configuración de tu asistente. No la pegues en el chat. Solo se muestra una vez.")
                     Text(createdToken ?? "")
                         .font(.footnote.monospaced())
                         .textSelection(.enabled)
@@ -278,8 +252,14 @@ struct AIAccessView: View {
                 await auth.restoreSession()
             }
             await refreshTokens()
+            await refreshProviders()
             await changeRequests.syncCustomExercises(store:store)
             await changeRequests.refresh(store:store)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                Task { await refreshTokens(); await refreshProviders() }
+            }
         }
         .onChange(of: auth.isConnected) { _, connected in
             if connected {
@@ -294,22 +274,158 @@ struct AIAccessView: View {
         }
     }
 
+    private var connectionSection: some View {
+        Section {
+            Text("Usa tu asistente habitual para consultar tus entrenamientos y preparar tus próximas sesiones.")
+                .foregroundStyle(OG.label2)
+            ForEach(providers) { provider in
+                VStack(alignment: .leading, spacing: 6) {
+                    Button {
+                        if let url = provider.connectionURL { openURL(url) }
+                    } label: {
+                        HStack {
+                            Text("Conectar con \(provider.name)").fontWeight(.semibold)
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                        }
+                        .foregroundStyle(.black)
+                        .padding(12)
+                        .background(OG.accent, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(provider.connectionURL == nil || !auth.isConnected || catalogLoading)
+                    .opacity(provider.connectionURL == nil || !auth.isConnected || catalogLoading ? 0.45 : 1)
+                    if provider.connectionURL == nil && !catalogLoading && catalogError == nil {
+                        Text("Disponible cuando se publique la integración.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+            if catalogLoading { ProgressView("Comprobando disponibilidad…") }
+            if let catalogError {
+                Text(catalogError).font(.footnote).foregroundStyle(.secondary)
+                Button("Reintentar") { Task { await refreshProviders() } }
+            }
+            if !auth.isConnected {
+                Text("Inicia sesión en Repera para conectar tu asistente.")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+            Text("Se abrirá tu asistente para autorizar Repera. No tendrás que copiar claves. Puedes desconectarlo cuando quieras.")
+                .font(.footnote).foregroundStyle(.secondary)
+        } header: { Text("Elige tu asistente") }
+    }
+
+    private var connectionsSection: some View {
+        Section {
+            if tokens.isEmpty {
+                Text("Aún no tienes asistentes conectados.").foregroundStyle(.secondary)
+            }
+            ForEach(tokens) { token in
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text(token.label).font(.headline)
+                        Spacer()
+                        Text(token.isActive ? (token.hasConnected ? "Conectado" : "Pendiente de conexión") : "Desconectado")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Text(token.scopes?.contains("training:write") == true
+                         ? "Puede consultar y preparar entrenamientos" : "Puede consultar tus entrenamientos")
+                        .font(.caption).foregroundStyle(.secondary)
+                    if let lastUse = token.lastUseLabel {
+                        Text(lastUse).font(.caption).foregroundStyle(.secondary)
+                    }
+                    if token.oauthClientID == nil {
+                        Text(token.expiryLabel).font(.caption).foregroundStyle(.secondary)
+                    }
+                    if token.isActive {
+                        if token.hasConnected, let provider = providers.first(where: { $0.name == token.label }), token.oauthClientID != nil {
+                            Button("Abrir \(provider.name)") {
+                                openURL(URL(string: provider.id == "chatgpt" ? "https://chatgpt.com/" : "https://claude.ai/")!)
+                            }
+                        }
+                        Button("Desconectar", role: .destructive) { Task { await revoke(token) } }
+                            .disabled(isBusy)
+                    }
+                }.padding(.vertical, 5)
+            }
+        } header: { Text("Mis conexiones") }
+    }
+
+    private var manualAccessFields: some View {
+        Group {
+                TextField("Nombre del acceso (ej. Mi entrenador IA)", text: $tokenName)
+                        .textInputAutocapitalization(.sentences)
+                        .autocorrectionDisabled()
+                    Picker("Caducidad", selection: $expiry) {
+                        Text("7 días").tag("7d")
+                        Text("30 días").tag("30d")
+                        Text("90 días").tag("90d")
+                        Text("1 año").tag("365d")
+                        Text("Ilimitado").tag("unlimited")
+                    }
+                    Toggle("Permitir enviar y editar entrenamientos", isOn: $canWrite)
+                        .tint(OG.accent)
+                    if expiry == "unlimited" {
+                        Label("Un token ilimitado seguirá funcionando hasta que lo revoques. Úsalo solo con asistentes de confianza.", systemImage: "exclamationmark.shield")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    Button {
+                        Task { await createToken() }
+                    } label: {
+                        Label(isBusy ? "Creando acceso…" : "Crear token", systemImage: "plus.circle.fill")
+                    }
+                    .disabled(isBusy || !auth.isConnected || tokenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+        }
+    }
+
+    @MainActor
+    private func refreshProviders() async {
+        catalogLoading = true
+        defer { catalogLoading = false }
+        do {
+            let url = URL(string: "https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-ai-connect/catalog")!
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard let response = response as? HTTPURLResponse, response.statusCode == 200 else { throw AccessError.server }
+            let catalog = try JSONDecoder().decode(AIConnectionCatalog.self, from: data)
+            guard Set(catalog.providers.map(\.id)) == Set(["chatgpt", "claude"]), catalog.providers.count == 2 else { throw AccessError.server }
+            providers = catalog.providers.sorted { $0.id < $1.id }
+            catalogError = nil
+        } catch {
+            providers = providers.map { AIConnectionProvider(id: $0.id, name: $0.name, directoryURL: nil) }
+            catalogError = "No se pudo comprobar la disponibilidad de las conexiones."
+        }
+    }
+
     @MainActor
     private func refreshTokens() async {
         guard auth.isConnected, let client = auth.apiClient else { return }
         do {
             let session = try await client.auth.session
             guard !session.isExpired else { return }
-            let items: [AIAccessTokenInfo] = try await client.from("ai_access_tokens")
-                .select("id,label,token_prefix,created_at,expires_at,revoked_at,last_used_at,scopes")
-                .eq("owner_id", value: session.user.id.uuidString)
-                .order("created_at", ascending: false)
-                .execute().value
+            let items: [AIAccessTokenInfo]
+            do {
+                items = try await client.from("ai_access_tokens")
+                    .select("id,label,token_prefix,created_at,expires_at,revoked_at,last_used_at,scopes,oauth_client_id")
+                    .eq("owner_id", value: session.user.id.uuidString)
+                    .order("created_at", ascending: false)
+                    .execute().value
+            } catch let error as PostgrestError where error.code == "42703" {
+                // Keep existing manual connections manageable during a staged
+                // rollout, before the additive OAuth migration is applied.
+                items = try await client.from("ai_access_tokens")
+                    .select("id,label,token_prefix,created_at,expires_at,revoked_at,last_used_at,scopes")
+                    .eq("owner_id", value: session.user.id.uuidString)
+                    .order("created_at", ascending: false)
+                    .execute().value
+            }
             guard auth.apiClient?.auth.currentSession?.user.id == session.user.id else { return }
             tokens = items
             errorMessage = nil
         } catch {
-            errorMessage = "No se pudieron obtener los tokens: \(error.localizedDescription)"
+            errorMessage = "No se pudieron cargar las conexiones: \(error.localizedDescription)"
         }
     }
 
@@ -361,15 +477,26 @@ struct AIAccessView: View {
         do {
             let session = try await client.auth.session
             guard !session.isExpired else { throw AccessError.sessionExpired }
+            if token.oauthClientID != nil {
+                let url = URL(string: "https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-ai-connect/disconnect")!
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.httpBody = try JSONSerialization.data(withJSONObject: ["id": token.id.uuidString])
+                let (_, response) = try await URLSession.shared.data(for: request)
+                guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw AccessError.server }
+            } else {
             try await client.from("ai_access_tokens")
                 .update(["revoked_at": ISO8601DateFormatter().string(from: Date())])
                 .eq("id", value: token.id.uuidString)
                 .eq("owner_id", value: session.user.id.uuidString)
                 .execute()
+            }
             await refreshTokens()
-            successMessage = "Token revocado. Ya no permite acceder a Repera."
+            successMessage = "Acceso desconectado. Ya no permite acceder a Repera."
         } catch {
-            errorMessage = "No se pudo revocar el token: \(error.localizedDescription)"
+            errorMessage = "No se pudo desconectar: \(error.localizedDescription)"
         }
     }
 

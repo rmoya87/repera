@@ -539,7 +539,7 @@ struct SettingsView: View {
                 NavigationLink {
                     AIAccessView()
                 } label: {
-                    Label("Acceso IA", systemImage: "brain.head.profile")
+                    Label("Conecta tu IA", systemImage: "brain.head.profile")
                         .foregroundStyle(OG.label)
                 }
                 LabeledContent("Entrenamientos", value: "\(store.state.workouts.count)")

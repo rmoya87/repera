@@ -26,6 +26,14 @@ Deno.serve(async (request) => {
   // Auth JWT is verified by the Supabase Auth server, not decoded blindly.
   const { data: { user }, error: authError } = await db.auth.getUser(bearer[1]);
   if (authError || !user) return reply(401, { error: "Sesión inválida" });
+  // Only decode AFTER getUser verifies this exact JWT. Delegated assistants
+  // must never exchange their access for an unrestricted personal token.
+  try {
+    const claims = JSON.parse(atob(bearer[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (claims.client_id || claims.role !== 'authenticated' || claims.sub !== user.id) {
+      return reply(403, { error: "Se requiere la sesión personal de Repera" });
+    }
+  } catch { return reply(401, { error: "Sesión inválida" }); }
   if (Number(request.headers.get("content-length") || 0) > 2048) {
     return reply(413, { error: "Solicitud demasiado grande" });
   }

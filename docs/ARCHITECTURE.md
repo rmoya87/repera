@@ -256,7 +256,7 @@ La configuración `.github/workflows/ios27-ci.yml` completó correctamente los c
 
 `athlete_workout_mirror` permanece como tabla física privada para que las versiones iOS actuales sigan funcionando con `upsert(id)`. `athlete_workouts` es una vista `security_invoker` para lectura deportiva filtrada. `training_exercise_catalog` es un alias de consulta de `business_exercise_catalog`. Las cinco tablas vacías del prototipo se retiraron con `RESTRICT`.
 
-OAuth interactivo se ha sustituido por credenciales personales `rep_ai_…`, emitidas desde **Ajustes → Datos → Acceso IA**. La Edge Function `repera-ai-tokens` verifica la sesión Supabase del iPhone y crea tokens aleatorios de 256 bits: solo persiste SHA-256, metadatos y expiración, nunca el secreto original. La aplicación lo muestra una vez, con nombre, caducidad configurable (incluida ilimitada) y revocación posterior. `mcp_user_consents` se eliminó tras comprobar que estaba vacío. Los JWT OAuth con `client_id` no disponen de acceso al historial.
+Los accesos manuales usan credenciales personales `rep_ai_…`, emitidas desde **Ajustes → Datos → Conecta tu IA**. La Edge Function `repera-ai-tokens` verifica la sesión Supabase del iPhone y crea tokens aleatorios de 256 bits: solo persiste SHA-256, metadatos y expiración, nunca el secreto original. La aplicación lo muestra una vez, con nombre, caducidad configurable (incluida ilimitada) y revocación posterior. `mcp_user_consents` se eliminó tras comprobar que estaba vacío. Los JWT OAuth no disponen de acceso directo al historial por Data API; el nuevo recorrido OAuth los valida exclusivamente en el MCP con audiencia y rol aislados.
 
 La Edge Function `repera-mcp` verifica el hash de cada Bearer token antes de construir el servidor MCP; usa consultas filtradas por `owner_id` asociado al token. `service_role` es exclusivamente un secreto de servidor, nunca se expone al iPhone/agente. Los planes generados se validan contra el contrato de `RoutineBlock` (fuerza/WOD, series/RIR y formatos) y se escriben en la bandeja `ai_training_plans` del dueño. `AITrainingInboxStore` los incorpora al modelo nativo `Routine` en el iPhone, evitando reemplazar planes de fechas ocupadas; Inicio muestra el calendario y Diario tiene sección de entrenos por fecha. **No exportar HealthKit, GPS, peso o notas privadas.**
 
@@ -296,3 +296,10 @@ Los programas IA se consultan en `PlanView` → Diario/Programado, junto a las s
 
 Las operaciones remotas `update_workout`, `delete_workout` y CRUD de ejercicios personalizados **no** escriben en `athlete_workout_mirror` ni cambian un historial iCloud por su cuenta. El MCP autentica al titular, valida cambios con esquema cerrado, comprueba existencia/versión del espejo y crea una solicitud pendiente. El iPhone consulta `ai_athlete_change_requests` con RLS propietaria y solo aplica tras confirmación explícita en Acceso IA. `AIChangeRequestStore` preserva campos privados, HealthKit y GPS en correcciones de series/título porque solo muta campos concretos sobre la sesión local existente. Los borrados se ejecutan con el mismo flujo que la eliminación manual, incluido el aviso de Salud. Ejercicios personalizados confirmados se espejan sin tocar los ejercicios curados globales. El calendario planificado mantiene fecha civil, zona IANA, desfase de horario de verano y, cuando hay hora concreta, instante UTC.
 
+
+
+## Conexión guiada con asistentes (2026-10-24)
+
+Última actualización: 2026-10-24.
+
+Se incorpora el soporte de OAuth gestionado por Supabase, consentimiento web y aislamiento de credenciales MCP, manteniendo los PAT manuales. La nueva UI **Conecta tu IA** no activa ChatGPT/Claude hasta disponer de las fichas publicadas. La integración no está publicada por el hecho de integrar este código. Arquitectura, pruebas, despliegue y presentación a revisión: [OAUTH_CONNECTIONS.md](OAUTH_CONNECTIONS.md).

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex"><meta name="referrer" content="no-referrer">
+  <title>Conecta tu asistente · Repera</title>
+  <link rel="stylesheet" href="./connect.css">
+</head>
+<body>
+  <main>
+    <a class="brand" href="/">repera<span>●</span></a>
+    <p class="eyebrow">TU ENTRENAMIENTO, CONTIGO</p>
+    <h1>Conecta tu asistente</h1>
+    <p id="intro">Autoriza a tu IA para ayudarte con tus entrenamientos de Repera.</p>
+    <p id="status" role="status" aria-live="polite">Comprobando conexión…</p>
+    <section id="login" hidden>
+      <h2>Entra en tu cuenta de Repera</h2>
+      <p>Usa la misma cuenta y forma de acceso que utilizas en la app.</p>
+      <button type="button" data-provider="apple">Continuar con Apple</button>
+      <button type="button" data-provider="google" class="secondary">Continuar con Google</button>
+    </section>
+    <section id="consent" hidden>
+      <h2 id="client-name"></h2>
+      <p id="account"></p>
+      <ul><li>Consultar tu historial deportivo y tu planificación.</li><li>Consultar ejercicios y tu progreso registrado.</li></ul>
+      <label class="permission"><input type="checkbox" id="can-write" checked><span>Permitir crear y modificar mi planificación</span></label>
+      <p class="note">Los cambios en entrenamientos realizados y ejercicios personalizados seguirán necesitando tu aprobación en Repera. No se comparte Apple Salud, sueño ni ubicación.</p>
+      <p id="identity" class="note"></p>
+      <button type="button" id="approve">Autorizar conexión</button>
+      <button type="button" id="deny" class="secondary">Cancelar</button>
+      <button type="button" id="switch-account" class="text-button">Usar otra cuenta de Repera</button>
+    </section>
+    <section id="unavailable" hidden><p>La conexión se inicia desde la integración de Repera en tu asistente. Si todavía no aparece, aún está pendiente de publicación.</p><a href="/faq">Ayuda de Repera</a></section>
+    <p class="note">Puedes retirar el acceso desde Repera → Ajustes → Conecta tu IA.</p>
+    <footer><a href="/privacy">Privacidad</a><a href="/terms">Condiciones</a></footer>
+  </main>
+  <script type="module" src="./connect.js"></script>
+</body>
+</html>

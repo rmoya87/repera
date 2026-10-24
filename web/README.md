@@ -134,3 +134,8 @@ Secciones home: hero, pilares, cómo funciona, para quién, funciones, Watch, co
 - Revisión legal profesional de `privacy.html` y `terms.html` antes de producción.
 - Capturas oficiales de producto (hoy: mascota PNG transparente `mascot-hero.png` / `mascot-watch.png`; favicon = AppIcon).
 - Proveedor de analítica (solo tras consentimiento) si se desea medición.
+
+
+## Consentimiento de asistentes · 2026-10-24
+
+Última actualización: 2026-10-24. `pack-ionos.sh` incluye `ai/` para `https://repera.app/ai/`. Usa login Apple/Google con la cuenta de Repera y consentimiento explícito, sin claves manuales. Requiere desplegar el backend y configurar OAuth antes de habilitar los botones; no está publicado automáticamente. Procedimiento: [OAUTH_CONNECTIONS.md](../docs/OAUTH_CONNECTIONS.md).

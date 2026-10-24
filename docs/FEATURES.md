@@ -291,7 +291,7 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 
 ### Acceso IA y planes entrantes (iOS 27)
 
-- **Ajustes → Acceso IA:** creación, copia puntual, listado y revocación de tokens personales; no aparece una pantalla adicional para iniciar sesión con Apple. La autenticación se recupera al arrancar Repera. La vista es compacta: sin footers descriptivos ni botón de actualización de planes.
+- **Ajustes → Conecta tu IA:** botones ChatGPT/Claude condicionados a una ficha publicada, conexiones y último uso, desconexión y configuración manual plegada. Crear un acceso no lo marca conectado: requiere una llamada autenticada. La autenticación nativa se recupera al arrancar Repera.
 - La IA que guarda un entrenamiento en `ai_training_plans` hace que **Inicio y Diario** actualicen sus rutinas en primer plano mediante Supabase Realtime, con aviso temporal de llegada. No se sobrescribe un plan personal ya asociado a ese día.
 - **Cuenta → Sincronizar ahora** mantiene la recuperación explícita de iCloud, Supabase e Inbox IA. Al volver de segundo plano se recuperan cambios perdidos aunque Realtime se haya desconectado. No hay notificaciones APNs en segundo plano en esta versión.
 
@@ -325,11 +325,18 @@ Supabase dispone de 189 fichas enriquecidas desde el catálogo nativo de Repera:
 - **Cuenta**: foto editable tocando el avatar con sello Apple abajo a la derecha; nombre y «Sesión iniciada · email» a la derecha. «Sincronizar ahora» muestra el resultado en un subtítulo, no en fila propia. Quitados controles separados de cambiar/quitar foto y leyenda descriptiva bajo Salud.
 - **Compras**: StoreKit 2 es el fallback disponible sin clave pública de RevenueCat; no mostrar errores internos «build no configurado» a clientes. Si App Store Connect no devuelve ofertas, sí mostrar un estado de indisponibilidad y reintento. Una compra real requiere IDs vigentes en App Store Connect y pruebas sandbox/TestFlight.
 - **Scan**: mantiene varios tramos de un mismo For Time, cap global, intervalos, descansos entre rondas y A/B con cinco rondas. Series de Squat Snatch al 70/75/>80% quedan como prescripción porcentual y notas; no se derivan kg sin referencia de 1RM. Nuevos movimientos: Carrera, Dominadas lastradas, Remo pliométrico en anillas pies elevados, Step-up al cajón con kettlebell goblet.
-- **MCP**: herramientas de editar, archivar y restaurar propuestas/programas con versión y control de propietario. PAT con permisos de lectura/escritura, paginación y schemas estrictos. No reemplaza un entrenamiento ya importado al dispositivo ni implementa OAuth de terceros.
+- **MCP**: herramientas de editar, archivar y restaurar propuestas/programas con versión y control de propietario. PAT con permisos de lectura/escritura, paginación y schemas estrictos. No reemplaza un entrenamiento ya importado al dispositivo y añade soporte OAuth gestionado, pendiente de despliegue y publicación de las integraciones.
 
 
 ### MCP: corrección de entrenamientos, CRUD personalizado y horarios internacionales
 
-- El asistente puede solicitar corregir un entrenamiento terminado (título y reps/kg/RIR por serie), eliminarlo o crear/editar/eliminar un ejercicio **personalizado**. Estas solicitudes quedan pendientes hasta que el deportista las confirme en **Ajustes → Acceso IA**; la IA no puede borrar a distancia el historial o cambiar la biblioteca global de movimientos.
+- El asistente puede solicitar corregir un entrenamiento terminado (título y reps/kg/RIR por serie), eliminarlo o crear/editar/eliminar un ejercicio **personalizado**. Estas solicitudes quedan pendientes hasta que el deportista las confirme en **Ajustes → Conecta tu IA**; la IA no puede borrar a distancia el historial o cambiar la biblioteca global de movimientos.
 - Enviar una fecha con hora exige `scheduledTimeZone` IANA y `scheduledUtcOffsetMinutes`, ambos contrastados con el horario oficial (incluidos cambios de verano/invierno). Los programas tienen zona de inicio y el calendario indica su zona.
 - `update_ai_training_plan` valida los mismos bloques y series que `create_training_plan`. Entradas desconocidas o configuraciones fuerza/WOD incoherentes se rechazan antes de guardar.
+
+
+## Conexión guiada con asistentes (2026-10-24)
+
+Última actualización: 2026-10-24.
+
+Se incorpora el soporte de OAuth gestionado por Supabase, consentimiento web y aislamiento de credenciales MCP, manteniendo los PAT manuales. La nueva UI **Conecta tu IA** no activa ChatGPT/Claude hasta disponer de las fichas publicadas. La integración no está publicada por el hecho de integrar este código. Arquitectura, pruebas, despliegue y presentación a revisión: [OAUTH_CONNECTIONS.md](OAUTH_CONNECTIONS.md).
