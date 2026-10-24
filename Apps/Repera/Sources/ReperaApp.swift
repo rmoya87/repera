@@ -209,7 +209,7 @@ struct ReperaApp: App {
                         Task {
                             guard store.isHydrated else { return }
                             await store.refreshFromiCloud()
-                            RemoteExerciseCatalogStore.shared.restoreCached(to: store)
+                            await RemoteExerciseCatalogStore.shared.restoreCached(to: store)
                             await refreshHealthOnForeground(forceProgressiveIfNeeded: true)
                             await subscriptions.refreshOnForeground()
                             // Pull latest published trainer blocks, reservations and passes
