@@ -61,6 +61,7 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import dev.repera.domain.MuscleTaxonomy
 import dev.repera.domain.ProgressTimeRange
+import dev.repera.mobile.monetization.LocalSubscriptions
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.rememberScrollState
@@ -123,10 +124,23 @@ internal fun ProgressTab(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
+                val subscriptions = LocalSubscriptions.current
                 ProgressTimeRange.entries.forEach { range ->
+                    val allowed = subscriptions?.canSelectProgressRange(range)?.allowed ?: true
                     FilterChip(
                         selected = selectedRange == range.wire,
-                        onClick = { selectedRange = range.wire },
+                        onClick = {
+                            // Gate Gratis = solo semana (paridad iOS
+                            // ReperaFeature.requiresPro / canSelectProgressRange).
+                            if (allowed) {
+                                selectedRange = range.wire
+                            } else {
+                                subscriptions?.presentPaywall(
+                                    dev.repera.domain.monetization.PaywallContext.PROGRESS,
+                                    feature = dev.repera.domain.monetization.ReperaFeature.PROGRESS_PERIOD_BEYOND_WEEK
+                                )
+                            }
+                        },
                         label = { Text(range.title) }
                     )
                 }
