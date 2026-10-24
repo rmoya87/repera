@@ -222,7 +222,7 @@ Column(
                                         Button(onClick = { callbacks.onRepsMinus() }) {
                                             Text("−")
                                         }
-                                        Text("$state.repsInput reps", style = MaterialTheme.typography.titleMedium)
+                                        Text("${state.repsInput} reps", style = MaterialTheme.typography.titleMedium)
                                         Button(onClick = { callbacks.onRepsPlus() }) {
                                             Text("+")
                                         }
@@ -250,7 +250,7 @@ Column(
                                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                                             verticalAlignment = Alignment.CenterVertically) {
                                             Button(onClick = { callbacks.onDurationDelta(-5) }) { Text("−") }
-                                            Text("$state.durationInput s",
+                                            Text("${state.durationInput} s",
                                                 style = MaterialTheme.typography.titleMedium)
                                             Button(onClick = { callbacks.onDurationDelta(5) }) {
                                                 Text("+")
@@ -269,7 +269,7 @@ Column(
                                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                                             verticalAlignment = Alignment.CenterVertically) {
                                             Button(onClick = { callbacks.onDeficitDelta(-1) }) { Text("−") }
-                                            Text("$state.deficitInput cm",
+                                            Text("${state.deficitInput} cm",
                                                 style = MaterialTheme.typography.titleMedium)
                                             Button(onClick = { callbacks.onDeficitDelta(1) }) {
                                                 Text("+")
@@ -285,7 +285,7 @@ Column(
                                 }
                             }
                             if (state.pendingCount > 0) {
-                                Text("$state.pendingCount series pendientes de confirmar",
+                                Text("${state.pendingCount} series pendientes de confirmar",
                                     style = MaterialTheme.typography.labelSmall)
                                 Button(onClick = { callbacks.onResendPending() },
                                     modifier = Modifier.fillMaxWidth()) {
