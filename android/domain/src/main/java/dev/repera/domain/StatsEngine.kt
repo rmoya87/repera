@@ -34,7 +34,10 @@ data class StatsExercise(
     val exerciseName: String,
     val muscleGroup: String? = null,
     val isMobility: Boolean = false,
-    val sets: List<StatsSet> = emptyList()
+    val sets: List<StatsSet> = emptyList(),
+    /** Objetivo planificado (plannedSets de la sesión): base de la progresión. */
+    val plannedTargetReps: Int? = null,
+    val plannedSetCount: Int = 0
 )
 
 data class StatsWorkout(

@@ -125,13 +125,17 @@ object ProgressSnapshotBuilder {
                     statsSet(logged.getJSONObject(s), entry)
                 }
                 val mobility = detail?.optString("sportTag") == "Movilidad"
+                val planned = entry.optJSONArray("plannedSets")
                 exercises.add(StatsExercise(
                     exerciseId = detail?.optString("id")
                         ?: entry.optString("exerciseId"),
                     exerciseName = detail?.optString("name") ?: "Ejercicio",
                     muscleGroup = detail?.optString("muscleGroup"),
                     isMobility = mobility,
-                    sets = sets
+                    sets = sets,
+                    plannedTargetReps = planned?.optJSONObject(0)
+                        ?.optInt("targetReps")?.takeIf { it > 0 },
+                    plannedSetCount = planned?.length() ?: 0
                 ))
                 stimulusExercises.add(MuscleStimulusExercise(
                     sportTag = detail?.optString("sportTag"),
