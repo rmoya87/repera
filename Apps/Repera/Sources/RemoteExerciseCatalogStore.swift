@@ -9,7 +9,7 @@ import Supabase
 final class RemoteExerciseCatalogStore {
     static let shared = RemoteExerciseCatalogStore()
 
-    private struct RemoteEntry: Codable {
+    private struct RemoteEntry: Codable, Sendable {
         var name: String
         var category: String
         var displayNameEn: String?
@@ -54,7 +54,7 @@ final class RemoteExerciseCatalogStore {
 
     private struct Version: Decodable { let id: Int64 }
 
-    private struct DiskSnapshot: Codable {
+    private struct DiskSnapshot: Codable, Sendable {
         var revision: Int64 = 0
         var entries: [String: RemoteEntry] = [:]
         /// La clave editorial nunca cambia, aunque se renombre el ejercicio.
@@ -68,38 +68,57 @@ final class RemoteExerciseCatalogStore {
     private(set) var lastErrorMessage: String?
     private(set) var lastSuccessfulSync: Date?
 
-    private let fileURL: URL = {
-        let directory = FileManager.default.urls(
-            for: .applicationSupportDirectory, in: .userDomainMask
-        )[0].appendingPathComponent("Repera", isDirectory: true)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        return directory.appendingPathComponent("exercise_catalog_remote_v1.json")
-    }()
+    /// File I/O is isolated on a dedicated actor so initial hydration, encoding
+    /// and atomic writes never block SwiftUI's MainActor.
+    private actor DiskStorage {
+        private let url: URL = {
+            let directory = FileManager.default.urls(
+                for: .applicationSupportDirectory, in: .userDomainMask
+            )[0].appendingPathComponent("Repera", isDirectory: true)
+            return directory.appendingPathComponent("exercise_catalog_remote_v1.json")
+        }()
+
+        func read() -> DiskSnapshot {
+            guard let data = try? Data(contentsOf: url),
+                  let saved = try? JSONDecoder().decode(DiskSnapshot.self, from: data)
+            else { return DiskSnapshot() }
+            return saved
+        }
+
+        func write(_ snapshot: DiskSnapshot) throws {
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(), withIntermediateDirectories: true
+            )
+            let data = try JSONEncoder().encode(snapshot)
+            try data.write(to: url, options: .atomic)
+        }
+    }
+
+    private let disk = DiskStorage()
 
     private init() {}
 
-    private func localSnapshot() -> DiskSnapshot {
+    private func localSnapshot() async -> DiskSnapshot {
         if let snapshot { return snapshot }
-        let stored = (try? Data(contentsOf: fileURL))
-            .flatMap { try? JSONDecoder().decode(DiskSnapshot.self, from: $0) }
-        let resolved = stored ?? DiskSnapshot()
-        snapshot = resolved
-        return resolved
+        let loaded = await disk.read()
+        snapshot = loaded
+        return loaded
     }
 
     /// Reaplicar al restaurar iCloud: el seed empaquetado no puede pisar una corrección remota.
-    func restoreCached(to store: ReperaStore) {
-        var saved = localSnapshot()
+    func restoreCached(to store: ReperaStore) async {
+        var saved = await localSnapshot()
         guard saved.revision > 0 else { return }
-        if apply(saved: &saved, to: store) {
+        if await apply(saved: &saved, to: store) {
             store.bumpCatalogEpoch()
             store.persistLocalOnly(immediate: true)
         }
         snapshot = saved
-        save(saved)
+        try? await disk.write(saved)
     }
 
-    func refresh(store: ReperaStore, force: Bool = false) async {
+    /// Called headlessly by native BGAppRefresh, then applied to UI at next foreground.
+    func refresh(store: ReperaStore? = nil, force: Bool = false) async {
         guard !isRefreshing, BusinessAuthStore.shared.isConnected,
               let client = BusinessAuthStore.shared.apiClient else { return }
         if !force, let lastProbeAt, Date().timeIntervalSince(lastProbeAt) < 60 { return }
@@ -116,7 +135,7 @@ final class RemoteExerciseCatalogStore {
                 .execute().value
             lastProbeAt = Date()
             guard let head = versions.first?.id, head > 0 else { return }
-            var working = localSnapshot()
+            var working = await localSnapshot()
             if working.revision > head { working = DiskSnapshot() }
             guard head > working.revision else {
                 lastSuccessfulSync = Date()
@@ -162,15 +181,15 @@ final class RemoteExerciseCatalogStore {
 
             // Guardar el feed completo antes de actualizar la UI: nunca avanzar
             // el cursor solo en memoria y perder actualizaciones tras un cierre.
-            try saveThrowing(working)
+            try await disk.write(working)
             snapshot = working
-            if apply(saved: &working, to: store) {
+            if let store, await apply(saved: &working, to: store) {
                 store.bumpCatalogEpoch()
                 store.persistLocalOnly(immediate: true)
                 store.notifyCatalogChangedForWatch()
             }
             snapshot = working
-            try saveThrowing(working)
+            try await disk.write(working)
             lastSuccessfulSync = Date()
             lastErrorMessage = nil
         } catch {
@@ -179,20 +198,35 @@ final class RemoteExerciseCatalogStore {
         }
     }
 
-    private func save(_ snapshot: DiskSnapshot) {
-        try? saveThrowing(snapshot)
-    }
-
-    private func saveThrowing(_ snapshot: DiskSnapshot) throws {
-        let data = try JSONEncoder().encode(snapshot)
-        try data.write(to: fileURL, options: [.atomic])
-    }
-
     /// Mezcla por clave editorial + UUID persistente + alias original de la clave.
     /// Nunca se reemplazan los UUID históricos ni los favoritos del usuario.
     @discardableResult
-    private func apply(saved: inout DiskSnapshot, to store: ReperaStore) -> Bool {
-        var result = store.state.exercises
+    private func apply(saved: inout DiskSnapshot, to store: ReperaStore) async -> Bool {
+        for _ in 0..<3 {
+            let revision = store.state.syncRevision
+            let epoch = store.catalogEpoch
+            let current = store.state.exercises
+            let source = saved
+            let merged = await Task.detached(priority: .utility) {
+                Self.merge(source: source, current: current)
+            }.value
+            // A user can edit favourites during decoding: never commit stale input.
+            guard store.state.syncRevision == revision, store.catalogEpoch == epoch else { continue }
+            saved = merged.snapshot
+            if merged.changed {
+                store.state.exercises = merged.exercises
+                store.state.updatedAt = Date()
+            }
+            return merged.changed
+        }
+        return false
+    }
+
+    nonisolated private static func merge(
+        source: DiskSnapshot, current: [Exercise]
+    ) -> (snapshot: DiskSnapshot, exercises: [Exercise], changed: Bool) {
+        var saved = source
+        var result = current
         var byID: [UUID: Int] = [:]
         var byName: [String: Int] = [:]
         var byCatalogID: [String: Int] = [:]
@@ -265,11 +299,7 @@ final class RemoteExerciseCatalogStore {
         }
         // Las bajas se conservan en la librería interna; UI/pickers las ocultan,
         // por lo que sesiones, rutinas y PRs antiguos siguen resolviendo el UUID.
-        if changed {
-            store.state.exercises = result
-            store.state.updatedAt = Date()
-        }
-        return changed
+        return (saved, result, changed)
     }
 
     /// UUID reproducible para fichas publicadas tras la instalación del seed;
