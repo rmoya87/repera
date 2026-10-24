@@ -29,6 +29,10 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
@@ -72,6 +76,7 @@ internal fun ExercisesTab(
     activeWorkout: ActiveWorkout?,
     onQuickLog: (String) -> Unit,
     onOpenExercise: (String) -> Unit,
+    onSetExerciseFavorite: (String, Boolean) -> Unit = { _, _ -> },
     onInitializeLocal: () -> Unit,
     onImportJson: () -> Unit,
     onDriveSync: () -> Unit,
@@ -89,6 +94,7 @@ internal fun ExercisesTab(
     val filteredExerciseEntries = remember(exerciseSearch, exerciseFilter, overview?.exerciseEntries) {
         overview?.exerciseEntries.orEmpty()
             .asSequence()
+            .filter { exerciseFilter != "Favoritos" || it.isFavorite }
             .filter { ExerciseCatalogFilters.matches(it, exerciseFilter) }
             .map { it to ExerciseAliasSearch.score(exerciseSearch, it.name, englishAliases) }
             .filter { it.second >= 0 }
@@ -115,6 +121,11 @@ internal fun ExercisesTab(
         item {
             Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Filtro Favoritos (paridad LibraryView iOS), además de los
+                // filtros de catálogo.
+                FilterChip(selected = exerciseFilter == "Favoritos",
+                    onClick = { exerciseFilter = "Favoritos" },
+                    label = { Text("Favoritos") })
                 ExerciseCatalogFilters.available(overview?.exerciseEntries.orEmpty()).forEach { filter ->
                     FilterChip(selected = exerciseFilter == filter,
                         onClick = { exerciseFilter = filter },
@@ -135,7 +146,24 @@ internal fun ExercisesTab(
         items(entries, key = { it.id }) { entry ->
             Card(modifier = Modifier.fillMaxWidth().clickable { onOpenExercise(entry.id) }) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(entry.displayName, style = MaterialTheme.typography.titleMedium)
+                    Row(modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text(entry.displayName,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f))
+                        IconButton(onClick = {
+                            onSetExerciseFavorite(entry.id, !entry.isFavorite)
+                        }, enabled = !busy) {
+                            Icon(
+                                if (entry.isFavorite) Icons.Default.Star
+                                else Icons.Default.StarBorder,
+                                contentDescription = if (entry.isFavorite)
+                                    "Quitar de favoritos" else "Marcar favorito",
+                                tint = if (entry.isFavorite) brandGreen
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                     val progress = overview?.exerciseProgress?.get(entry.id)
                     var showHistory by remember(entry.id) { mutableStateOf(false) }
                     var showAllSessions by remember(entry.id) { mutableStateOf(false) }

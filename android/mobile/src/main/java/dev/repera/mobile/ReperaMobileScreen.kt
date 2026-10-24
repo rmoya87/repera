@@ -136,6 +136,7 @@ fun ReperaMobileScreen(
     onLogBodyWeight: (Double) -> Unit,
     onSetRoutineProgression: (String, String) -> Unit,
     onSetRoutineFavorite: (String, Boolean) -> Unit,
+    onSetExerciseFavorite: (String, Boolean) -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit,
     onImportJson: () -> Unit,
@@ -363,6 +364,7 @@ fun ReperaMobileScreen(
                         overview = overview,
                         activeWorkout = activeWorkout,
                         onQuickLog = onQuickLog,
+                        onSetExerciseFavorite = onSetExerciseFavorite,
                         onOpenExercise = { exerciseId ->
                             navController.navigate("ejercicio/$exerciseId")
                         },

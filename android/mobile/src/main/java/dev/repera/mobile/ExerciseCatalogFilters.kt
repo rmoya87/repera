@@ -14,7 +14,7 @@ object ExerciseCatalogFilters {
         ExerciseAliasSearch.normalize(name) in hyrox
 
     fun matches(entry: ExerciseEntry, filter: String): Boolean = when (filter) {
-        "Todos" -> true
+        "Todos", "Favoritos" -> true
         "Hyrox", "HYROX" -> entry.hyroxTraining ||
             entry.sportTag.equals("HYROX", ignoreCase = true)
         "Cardio" -> entry.muscleGroup.equals("Cardio", ignoreCase = true) ||

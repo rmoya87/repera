@@ -589,6 +589,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onSetRoutineFavorite = { id, favorite ->
                     runWorkoutAction { setRoutineFavorite(id, favorite) }
                 },
+                onSetExerciseFavorite = { id, favorite ->
+                    runWorkoutAction { setExerciseFavorite(id, favorite) }
+                },
                 onNext = { runWorkoutAction { next() } },
                 onFinish = {
                     StrengthRestService.cancel(this)
@@ -1422,6 +1425,7 @@ data class StateOverview(
                         secondaryMuscles = ex.optJSONArray("secondaryMuscles")?.let { arr ->
                             (0 until arr.length()).map { arr.getString(it) }
                         }.orEmpty(),
+                        isFavorite = ex.optBoolean("isFavorite", false),
                         detailDescription = ex.optString("detailDescription")
                             .takeIf { it.isNotBlank() },
                         instructions = ex.optJSONArray("instructions")?.let { arr ->
@@ -1550,7 +1554,8 @@ data class ExerciseEntry(
     val secondaryMuscles: List<String> = emptyList(),
     val detailDescription: String? = null,
     val instructions: List<String> = emptyList(),
-    val isCustom: Boolean = false
+    val isCustom: Boolean = false,
+    val isFavorite: Boolean = false
 ) {
     /** Nombre visible como en Apple: SportExerciseNames.displayName canoniza
      * CrossFit/Halterofilia al inglés sin tocar el nombre persistido ni el ID. */
