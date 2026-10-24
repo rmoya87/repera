@@ -267,6 +267,20 @@ final class RemoteExerciseCatalogStore {
         return changed
     }
 
+    /// UUID reproducible para fichas publicadas tras la instalación del seed;
+    /// dos iPhone con la misma cuenta nunca crean dos IDs para la misma clave.
+    private nonisolated static func stableUUID(for catalogKey: String) -> UUID {
+        var bytes = Array(SHA256.hash(data: Data(
+            ("com.app.repera.remote-catalog.v1:" + catalogKey).utf8
+        )).prefix(16))
+        bytes[6] = (bytes[6] & 0x0f) | 0x50
+        bytes[8] = (bytes[8] & 0x3f) | 0x80
+        let hex = bytes.map { String(format: "%02x", $0) }.joined()
+        return UUID(uuidString:
+            "\(hex.prefix(8))-\(hex.dropFirst(8).prefix(4))-\(hex.dropFirst(12).prefix(4))-\(hex.dropFirst(16).prefix(4))-\(hex.dropFirst(20).prefix(12))"
+        )!
+    }
+
     private nonisolated static func normalized(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines)
             .folding(options: [.diacriticInsensitive, .caseInsensitive],
