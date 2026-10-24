@@ -28,11 +28,23 @@ internal object CatalogRefreshMigration {
         val bytes = store.read() ?: return false
         LocalSnapshotStore.validate(bytes)
         val state = JSONObject(String(bytes, Charsets.UTF_8))
-        val catalog = state.getJSONArray("exercises")
         val seed = context.assets.open("catalog_seed.json")
             .bufferedReader(Charsets.UTF_8).use { org.json.JSONArray(it.readText()) }
         check(seed.length() == EXPECTED_CATALOG) { "Catálogo semilla incompleto" }
+        val changed = mergeSeedIntoState(seed, state)
+        if (!changed) return false
+        store.write(state.toString().toByteArray(Charsets.UTF_8))
+        return true
+    }
 
+    /** Núcleo puro (sin I/O) para pruebas JVM: aplica el seed sobre el estado.
+     *  Devuelve true si el estado quedó modificado. */
+    internal fun mergeSeedIntoState(
+        seed: org.json.JSONArray,
+        state: JSONObject,
+        now: Instant = Instant.now()
+    ): Boolean {
+        val catalog = state.getJSONArray("exercises")
         val byId = mutableMapOf<String, JSONObject>()
         for (i in 0 until catalog.length()) {
             val item = catalog.getJSONObject(i)
@@ -141,10 +153,9 @@ internal object CatalogRefreshMigration {
             (0 until catalog.length()).none { catalog.getJSONObject(it).optBoolean("isCustom") }
         if (!untouched) {
             state.put("syncRevision", state.optInt("syncRevision", 0) + 1)
-            state.put("updatedAt", Instant.now().toString())
+            state.put("updatedAt", now.toString())
             state.put("lastWriterDeviceId", "android-catalog-refresh")
         }
-        store.write(state.toString().toByteArray(Charsets.UTF_8))
         return true
     }
     private fun collectExerciseIds(node: org.json.JSONArray, into: MutableSet<String>) {
