@@ -139,6 +139,16 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/ReperaDerivedData" \
             CODE_SIGNING_ALLOWED=NO build 2>&1 | tee "$RUNNER_TEMP/repera-ios-build.log"
+      - name: Compile Apple's standard LaunchScreen.storyboard independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun ibtool --compile "$RUNNER_TEMP/LaunchScreen.storyboardc" Apps/Repera/Resources/LaunchScreen.storyboard
+          test -d "$RUNNER_TEMP/LaunchScreen.storyboardc" || {
+            echo "::error::LaunchScreen storyboard failed to compile"; exit 1;
+          }
+          echo "PASS: LaunchScreen.storyboard compiled by Apple's Interface Builder"
+
       - name: Verify native launch storyboard, mascot and first-frame assets in Repera.app
         shell: bash
         run: |
@@ -146,14 +156,14 @@ jobs:
           APP="$RUNNER_TEMP/ReperaDerivedData/Build/Products/Debug-iphonesimulator/Repera.app"
           test -f "$APP/Info.plist" || { echo "::error::Compiled app Info.plist missing"; exit 1; }
           test -f "$APP/Assets.car" || { echo "::error::Asset catalog missing"; exit 1; }
-          test -d "$APP/ReperaBarbellStartup.storyboardc" || {
+          test -d "$APP/LaunchScreen.storyboardc" || {
             echo "::error::Native launch storyboard was not compiled"; exit 1;
           }
           python3 - "$APP/Info.plist" <<'PY'
           import plistlib,sys
           with open(sys.argv[1],"rb") as f:
               info=plistlib.load(f)
-          assert info.get("UILaunchStoryboardName")=="ReperaBarbellStartup", info.get("UILaunchStoryboardName")
+          assert info.get("UILaunchStoryboardName")=="LaunchScreen", info.get("UILaunchStoryboardName")
           assert not info.get("UILaunchScreen"), "Blank UILaunchScreen is overriding storyboard"
           print("PASS: native storyboard configured in packaged Info.plist")
           PY

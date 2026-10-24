@@ -60,9 +60,9 @@ jobs:
               assert sum(1 for rgb in face.getdata() if max(rgb)<105)>500, "Eyes or mouth lost"
           props=plistlib.loads((root/"Info.plist").read_bytes())
           assert "UILaunchScreen" not in props
-          assert props["UILaunchStoryboardName"]=="ReperaBarbellStartup"
+          assert props["UILaunchStoryboardName"]=="LaunchScreen"
           import xml.etree.ElementTree as ET
-          storyboard=Path("Apps/Repera/Resources/ReperaBarbellStartup.storyboard")
+          storyboard=Path("Apps/Repera/Resources/LaunchScreen.storyboard")
           tree=ET.parse(storyboard)
           assert tree.getroot().get("launchScreen")=="YES"
           assert len(tree.findall('.//imageView[@image="ReperaNativeOpaqueHero"]'))==1
@@ -71,9 +71,13 @@ jobs:
           assert len(tree.findall('.//resources/image[@name="ReperaNativeOpaqueHero"]'))==1
           config=Path("project.yml").read_text()
           assert "UILaunchScreen:" not in config
-          assert "UILaunchStoryboardName: ReperaBarbellStartup" in config
-          assert "path: Apps/Repera/Resources/ReperaBarbellStartup.storyboard" in config
+          assert "UILaunchStoryboardName: LaunchScreen" in config
+          assert "path: Apps/Repera/Resources/LaunchScreen.storyboard" in config
           assert "path: Apps/Repera/Resources/ReperaNativeLaunch.storyboard" not in config
+          assert 'path: Apps/Repera/Resources/LaunchScreen.storyboard' in config
+          assert 'UILaunchStoryboardName: LaunchScreen' in config
+          # Only the built-in launch storyboard is part of the Xcode target.
+          assert 'path: Apps/Repera/Resources/ReperaBarbellStartup.storyboard' not in config
           direct=Path("Apps/Repera/Resources/ReperaStartupBarbell.png")
           assert direct.read_bytes()==image.read_bytes(), "First SwiftUI splash differs from native artwork"
           runner=Path("Apps/Repera/Sources/ReperaApp.swift").read_text()
