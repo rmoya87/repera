@@ -1081,6 +1081,9 @@ public enum CatalogSpanish {
             "Aprende sin peso o con un objeto ligero en la palma.",
         ],
         "Goblet squat": [
+            "De pie, KB vertical junto al pecho con codos abajo y adentro.",
+            "Baja con control: pecho alto, rodillas sobre la línea de los pies, talones abajo.",
+            "Abajo: mantén los talones apoyados y los codos entre las rodillas; empuja el suelo para subir.",
             "Sujeta una KB o mancuerna vertical junto al pecho (codos abajo/adentro); pies al ancho de squat.",
             "Baja a profundidad cómoda con pecho alto y codos entre rodillas; talones abajo.",
             "Empuja el suelo y sube a extensión completa; la carga actúa como contrapeso.",
