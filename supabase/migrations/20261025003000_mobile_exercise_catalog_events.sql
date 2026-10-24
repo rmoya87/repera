@@ -1,5 +1,31 @@
 -- Catálogo remoto incremental para Repera iOS (y futuros clientes).
 -- La tabla profesional sigue siendo la única fuente editorial; las filas son un feed de cambios.
+-- El CHECK anterior forzaba catalog_key = 'catalog:' || name.
+-- Quitar esa dependencia permite renombrar conservando identidad y estadísticas.
+alter table public.business_exercise_catalog drop constraint if exists catalog_key_valid;
+alter table public.business_exercise_catalog
+  add constraint mobile_catalog_key_format check (
+    catalog_key like 'catalog:%' and length(catalog_key) > 8
+    and length(name) between 2 and 150
+  );
+
+create or replace function public.repera_catalog_prevent_key_change()
+returns trigger language plpgsql set search_path = ''
+as $function$
+begin
+  if new.catalog_key is distinct from old.catalog_key then
+    raise exception 'catalog_key is immutable; update the name instead';
+  end if;
+  return new;
+end
+$function$;
+
+revoke all on function public.repera_catalog_prevent_key_change() from public, anon, authenticated;
+drop trigger if exists repera_catalog_immutable_key on public.business_exercise_catalog;
+create trigger repera_catalog_immutable_key
+before update on public.business_exercise_catalog
+for each row execute function public.repera_catalog_prevent_key_change();
+
 alter table public.business_exercise_catalog
   add column if not exists mobile_description text,
   add column if not exists mobile_instructions text[],
