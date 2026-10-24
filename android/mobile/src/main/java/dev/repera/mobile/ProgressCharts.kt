@@ -3,7 +3,9 @@ package dev.repera.mobile
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -196,13 +198,26 @@ internal fun DayPointLineChart(
                 color = MaterialTheme.colorScheme.primary)
         }
         Row(modifier = Modifier.fillMaxWidth()) {
-            Text(valueFormat(maxV),
-                style = MaterialTheme.typography.labelSmall,
+            // Columna de valores (máx arriba, mín abajo) separada de las
+            // fechas: antes el mínimo compartía fila con la primera fecha y
+            // colisionaban ("80.9 25 sept").
+            Column(
                 modifier = Modifier
-                    .align(androidx.compose.ui.Alignment.Top)
-                    .padding(end = 4.dp))
+                    .width(52.dp)
+                    .height(124.dp)
+                    .padding(end = 4.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(valueFormat(maxV),
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1, softWrap = false)
+                Text(valueFormat(minV),
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1, softWrap = false)
+            }
+            Column(modifier = Modifier.weight(1f)) {
             Canvas(modifier = Modifier
-                .weight(1f)
+                .fillMaxWidth()
                 .height(100.dp)
                 .pointerInput(points) {
                     detectTapGestures { offset ->
@@ -245,20 +260,19 @@ internal fun DayPointLineChart(
                         center = Offset(x(i), y(points[i].value)))
                 }
             }
-        }
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Text(valueFormat(minV),
-                style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.padding(end = 4.dp, top = 2.dp))
-            Row(modifier = Modifier.weight(1f)) {
+            Row(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
                 Text(firstDay.format(shortFormatter),
-                    style = MaterialTheme.typography.labelSmall)
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1, softWrap = false)
                 Spacer(modifier = Modifier.weight(1f))
                 Text(midDay.format(shortFormatter),
-                    style = MaterialTheme.typography.labelSmall)
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1, softWrap = false)
                 Spacer(modifier = Modifier.weight(1f))
                 Text(lastDay.format(shortFormatter),
-                    style = MaterialTheme.typography.labelSmall)
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1, softWrap = false)
+            }
             }
         }
     }

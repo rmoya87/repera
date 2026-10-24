@@ -91,11 +91,14 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
+          # La imagen 36.1 + APKs mobile y wear agotaban la partición de datos
+          # por defecto: los tests "pasaban" sin ejecutarse (0 tests).
+          disk-size: 8G
           disable-animations: true
           # UNA sola línea: android-emulator-runner ejecuta cada línea del
           # script en un sh -c distinto, así que un TEST_EXIT en su propia
           # línea se pierde y el paso sale verde aunque fallen los tests.
-          script: gradle -p android :mobile:connectedDebugAndroidTest :wear:connectedDebugAndroidTest --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; ls -laR android/screenshots/ || true; exit $TEST_EXIT
+          script: gradle -p android :mobile:connectedDebugAndroidTest :wear:connectedDebugAndroidTest --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; ls -laR android/screenshots/ || true; OK=1; for f in mobile wear; do X=$(ls android/$f/build/outputs/androidTest-results/connected/debug/TEST-*.xml 2>/dev/null | head -1); if [ -z "$X" ] || ! grep -q 'tests="[1-9]' "$X"; then echo "FALLO HARNESS: 0 tests ejecutados en $f (gradle devolvió $TEST_EXIT)"; OK=0; fi; done; if [ "$OK" = 0 ]; then exit 1; fi; exit $TEST_EXIT
       - name: Explain failing emulator tests
         if: failure()
         run: |
@@ -162,7 +165,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: adb shell getprop ro.build.version.sdk_full; gradle -p android :mobile:connectedDebugAndroidTest --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; ls -laR android/screenshots/ || true; exit $TEST_EXIT
+          script: adb shell getprop ro.build.version.sdk_full; gradle -p android :mobile:connectedDebugAndroidTest --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; ls -laR android/screenshots/ || true; OK=1; for f in mobile; do X=$(ls android/$f/build/outputs/androidTest-results/connected/debug/TEST-*.xml 2>/dev/null | head -1); if [ -z "$X" ] || ! grep -q 'tests="[1-9]' "$X"; then echo "FALLO HARNESS: 0 tests ejecutados en $f (gradle devolvió $TEST_EXIT)"; OK=0; fi; done; if [ "$OK" = 0 ]; then exit 1; fi; exit $TEST_EXIT
       - name: Upload visual verification screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -232,7 +235,7 @@ jobs:
           arch: x86_64
           profile: wearos_small_round
           disable-animations: true
-          script: gradle -p android :wear:connectedDebugAndroidTest --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots-wear; adb pull /sdcard/Pictures/ReperaVerification android/screenshots-wear/ || true; ls -laR android/screenshots-wear/ || true; exit $TEST_EXIT
+          script: gradle -p android :wear:connectedDebugAndroidTest --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots-wear; adb pull /sdcard/Pictures/ReperaVerification android/screenshots-wear/ || true; ls -laR android/screenshots-wear/ || true; OK=1; for f in wear; do X=$(ls android/$f/build/outputs/androidTest-results/connected/debug/TEST-*.xml 2>/dev/null | head -1); if [ -z "$X" ] || ! grep -q 'tests="[1-9]' "$X"; then echo "FALLO HARNESS: 0 tests ejecutados en $f (gradle devolvió $TEST_EXIT)"; OK=0; fi; done; if [ "$OK" = 0 ]; then exit 1; fi; exit $TEST_EXIT
       - name: Upload wear visual verification screenshots
         if: always()
         uses: actions/upload-artifact@v4

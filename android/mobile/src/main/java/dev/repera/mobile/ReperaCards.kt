@@ -29,6 +29,11 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
@@ -1107,21 +1112,29 @@ internal fun WeekCalendarStrip(selected: LocalDate, onSelect: (LocalDate) -> Uni
                 val days = listOf("L", "M", "X", "J", "V", "S", "D")
                 repeat(7) { index ->
                     val day = weekStart.plusDays(index.toLong())
-                    FilterChip(
-                        selected = day == selected,
-                        onClick = { onSelect(day) },
-                        modifier = Modifier.weight(1f),
-                        // Letra sobre número como el selector iOS (HomeView):
-                        // en una línea el número se recortaba en el chip.
-                        label = {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(days[index],
-                                    style = MaterialTheme.typography.labelSmall)
-                                Text("${day.dayOfMonth}",
-                                    style = MaterialTheme.typography.titleSmall)
-                            }
-                        }
-                    )
+                    // Celda propia (no FilterChip): el padding interno del chip
+                    // envolvía los números de dos cifras ("1/9" en vez de 19).
+                    // Letra 11sp sobre número 17sp como calendarDayColumn (iOS).
+                    val isSelected = day == selected
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                            .background(
+                                if (isSelected) brandGreen.copy(alpha = 0.18f)
+                                else androidx.compose.ui.graphics.Color.Transparent
+                            )
+                            .clickable { onSelect(day) }
+                            .padding(vertical = 8.dp)
+                    ) {
+                        Text(days[index], fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1, softWrap = false)
+                        Text("${day.dayOfMonth}", fontSize = 17.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            maxLines = 1, softWrap = false)
+                    }
                 }
             }
         }
