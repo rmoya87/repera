@@ -1,4 +1,4 @@
-name: Validate splash transparency and facial details
+name: Validate Repera splash artwork and opacity
 
 on:
   push:
@@ -6,50 +6,58 @@ on:
     paths:
       - "Apps/Repera/Resources/Assets.xcassets/MascotHero.imageset/**"
       - "Apps/Repera/Resources/Assets.xcassets/MascotRunning.imageset/**"
+      - "Apps/Repera/Resources/Assets.xcassets/ReperaLaunchHeroOpaque.imageset/**"
+      - "Apps/Repera/Resources/ReperaLaunchOpaque.storyboard"
+      - "Apps/Repera/Resources/Info.plist"
+      - "project.yml"
       - ".github/workflows/validate-splash-alpha.yml"
   pull_request:
     paths:
-      - "Apps/Repera/Resources/Assets.xcassets/MascotHero.imageset/**"
-      - "Apps/Repera/Resources/Assets.xcassets/MascotRunning.imageset/**"
+      - "Apps/Repera/Resources/Assets.xcassets/**"
+      - "Apps/Repera/Resources/ReperaLaunchOpaque.storyboard"
+      - "Apps/Repera/Resources/Info.plist"
+      - "project.yml"
       - ".github/workflows/validate-splash-alpha.yml"
 
 jobs:
-  alpha:
+  verify-native-launch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python -m pip install pillow numpy
-      - name: Verify original character and running mascot RGBA
+      - run: python -m pip install --disable-pip-version-check pillow
+      - name: Verify no alpha leaks in native iOS splash and exact launch wiring
         run: |
           python - <<'PY'
-          import json
-          import numpy as np
-          from PIL import Image
           from pathlib import Path
-          root = Path("Apps/Repera/Resources/Assets.xcassets")
-          for name, filename in [("MascotHero", "mascot-hero.png"), ("MascotRunning", "mascot-running.png")]:
-              folder = root / f"{name}.imageset"
-              cfg = json.loads((folder/"Contents.json").read_text())
-              assert cfg["images"][0]["filename"] == filename
-              im = np.asarray(Image.open(folder/filename).convert("RGBA"))
-              h,w=im.shape[:2]
-              alpha=im[:,:,3]
-              pixels=np.r_[alpha[0],alpha[-1],alpha[:,0],alpha[:,-1]]
-              clear_ratio=np.mean(pixels<10)
-              print(name, "resolution", w,h,"clear_border_ratio",clear_ratio, "transparent_fraction",float(np.mean(alpha<10)))
-              assert clear_ratio>0.98, f"{name}: opaque background at edges"
-              assert np.mean(alpha>245)>0.16, f"{name}: missing solid mascot"
-              for px,py in ((12,12),(w-13,12),(12,h-13),(w-13,h-13)):
-                  assert alpha[py,px]<10, f"{name}: background is not transparent at {(px,py)}"
-              if name=="MascotHero":
-                  for px,py in ((444,381),(606,412),(515,440)):
-                      assert alpha[py,px]==255, f"Transparent facial detail {(px,py)}"
-              if name=="MascotHero":
-                  yy,xx=np.ogrid[:h,:w]
-                  for cx,cy,rx,ry in ((445,379,23,39),(607,411,23,38)):
-                      pupil=((xx-cx)**2/rx**2+(yy-cy)**2/ry**2)<0.82
-                      assert np.min(alpha[pupil])==255, f"An eye still contains transparent pixels: {(cx,cy)}"
-                  assert np.min(alpha[405:447,480:556])>=245, "Smile skin contains transparent pixels"
-          launch=Path("Apps/Repera/Resources/LaunchScreen.storyboard").read_text()
-          assert 'image="MascotHero"' in launch, "Native launch must use fixed alpha asset"
+          from xml.etree import ElementTree
+          import json
+          import plistlib
+          from PIL import Image
+
+          root=Path("Apps/Repera/Resources")
+          catalog=root/"Assets.xcassets"
+          native=catalog/"ReperaLaunchHeroOpaque.imageset"
+          manifest=json.loads((native/"Contents.json").read_text(encoding="utf-8"))
+          assert manifest["images"][0]["filename"]=="repera-launch-hero-opaque.png"
+          with Image.open(native/"repera-launch-hero-opaque.png") as im:
+              assert im.mode=="RGB", "Native launch must be fully opaque RGB, NOT RGBA"
+              assert im.size==(1024,1024)
+              assert im.getpixel((0,0))==(48,209,88), "Incorrect Repera green"
+              for point in ((445,379),(607,411),(518,445)):
+                  pixel=im.getpixel(point)
+                  assert max(pixel)<115, f"Eye or smile became green at {point}: {pixel}"
+          native_story=root/"ReperaLaunchOpaque.storyboard"
+          tree=ElementTree.parse(native_story)
+          assert len(tree.findall('.//imageView[@image="ReperaLaunchHeroOpaque"]'))==1
+          assert len(tree.findall('.//resources/image[@name="ReperaLaunchHeroOpaque"]'))==1
+          assert not (root/"LaunchScreen.storyboard").exists(), "Old storyboard still present"
+          plist=plistlib.loads((root/"Info.plist").read_bytes())
+          assert plist["UILaunchStoryboardName"]=="ReperaLaunchOpaque"
+          project=Path("project.yml").read_text()
+          assert "path: Apps/Repera/Resources/ReperaLaunchOpaque.storyboard" in project
+          assert "UILaunchStoryboardName: ReperaLaunchOpaque" in project
+          # Preserve the second splash's runner.
+          app=Path("Apps/Repera/Sources/ReperaApp.swift").read_text()
+          assert 'UIImage(named: "MascotRunning")' in app
+          print("PASS: opaque eyes/mouth, brand green, unique storyboard, runner unchanged")
           PY
