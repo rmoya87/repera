@@ -2,7 +2,7 @@
 
 App nativa de entrenamiento (**iPhone + Apple Watch**), **local-first + iCloud**, acceso con Apple o Google (SDK oficial iOS + sesión Supabase), UI **SwiftUI Liquid Glass** (iOS 27+).
 
-Última actualización: 2026-10-25 (catálogo editorial Supabase offline-first para iOS, PR en validación).
+Última actualización: 2026-10-25 (actualizaciones de catálogo invisibles y nativas iOS 27, PR en validación).
 
 El acceso Google usa el SDK oficial `GoogleSignIn` 10.1.0. Su botón tiene presentación SwiftUI adaptada al de Apple: contenido centrado, sin sombra y esquinas redondeadas; la autenticación sigue siendo del SDK. Los identificadores públicos del cliente OAuth **iOS** de `com.app.repera`, su esquema de retorno y el cliente Web del backend están configurados en `Configs/GoogleSignIn.xcconfig`. Regenerar XcodeGen antes de compilar. Configuración y validación pendiente en [docs/GOOGLE_AUTH_IOS.md](docs/GOOGLE_AUTH_IOS.md).
 
@@ -13,7 +13,7 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 | Documento | Contenido |
 |-----------|-----------|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Capas, targets, paquetes, datos |
-| [docs/REMOTE_EXERCISE_CATALOG.md](docs/REMOTE_EXERCISE_CATALOG.md) | Catálogo Supabase incremental, caché offline, archivado y despliegue |
+| [docs/REMOTE_EXERCISE_CATALOG.md](docs/REMOTE_EXERCISE_CATALOG.md) | Catálogo Supabase incremental, caché offline, BGAppRefresh nativo iOS 27 y despliegue |
 | [docs/FEATURES.md](docs/FEATURES.md) | Funcionalidad por pestaña / flujo |
 | [docs/MOVILITY_CATALOG.md](docs/MOVILITY_CATALOG.md) | Los 82 ejercicios de movilidad, por región y alias inglés |
 | [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | Observation, caches, Home/HK, thumbs |
@@ -141,17 +141,17 @@ Reimplementación Swift propia. openGym es AGPL — no se incorpora su código a
 
 ## Acceso IA y recepción automática
 
-Ajustes → Conecta tu IA presenta los asistentes disponibles y las conexiones; los tokens personales quedan en Configuración manual. La vinculación OAuth requiere autorización de Repera en la web. Claude ofrece instrucciones copiables para configurar el conector una vez con un ID público, sin claves personales; ChatGPT permanece deshabilitado hasta publicar su ficha real. Los entrenamientos que un asistente envía mediante el MCP aparecen en Inicio/Diario automáticamente mientras la app está abierta y se avisan con una tarjeta breve, gracias a la suscripción Realtime protegida por RLS del usuario. El botón «Sincronizar ahora» de Cuenta también recupera planes pendientes; si iOS suspende/cierra la app, se incorporan al volver al primer plano. **No hay notificaciones push cuando la app está cerrada**. Detalles y checklist en [docs/MCP_PLAN.md](docs/MCP_PLAN.md).
+Ajustes → Conecta tu IA presenta los asistentes disponibles y las conexiones; los tokens personales quedan en Configuración manual. La vinculación OAuth requiere autorización de Repera en la web. Claude ofrece instrucciones copiables para configurar el conector una vez con un ID público, sin claves personales; ChatGPT permanece deshabilitado hasta publicar su ficha real. Los entrenamientos que un asistente envía mediante el MCP aparecen en Inicio/Diario automáticamente mientras la app está abierta y se avisan con una tarjeta breve, gracias a la suscripción Realtime protegida por RLS del usuario. Las propuestas pendientes se recuperan automáticamente al iniciar la app y al volver al primer plano, sin acciones manuales. **No hay notificaciones push cuando la app está cerrada**. Detalles y checklist en [docs/MCP_PLAN.md](docs/MCP_PLAN.md).
 
 
 ## Coach deportivo IA
 
-El MCP Repera también expone un perfil de entrenamiento voluntario (objetivo, experiencia, tiempo, equipo), la agenda de rutinas personales próximas sin notas ni Salud, el catálogo de ejercicios enlazado con ID nativos y los programas por fases hasta 52 semanas. El perfil se deduce del historial deportivo mediante `get_training_profile` y el asistente pregunta por objetivos, tiempo y material cuando faltan datos; no hay formulario de perfil IA en Ajustes. Desde **Ajustes → Entrenamiento** se pueden revisar/activar programas y seguir usando **Cuenta → Sincronizar ahora**. El asistente puede crear programas persistentes y propuestas concretas de hasta 14 entrenamientos por petición. Las métricas del backend son estimaciones de esfuerzo deportivo, no un sistema clínico. La sincronización completa con entrenadores y la verificación E2E en dispositivo siguen abiertas; detalles en [docs/MCP_PLAN.md](docs/MCP_PLAN.md).
+El MCP Repera también expone un perfil de entrenamiento voluntario (objetivo, experiencia, tiempo, equipo), la agenda de rutinas personales próximas sin notas ni Salud, el catálogo de ejercicios enlazado con ID nativos y los programas por fases hasta 52 semanas. El perfil se deduce del historial deportivo mediante `get_training_profile` y el asistente pregunta por objetivos, tiempo y material cuando faltan datos; no hay formulario de perfil IA en Ajustes. Desde **Ajustes → Entrenamiento** se pueden revisar/activar programas y recibir las actualizaciones de forma automática. El asistente puede crear programas persistentes y propuestas concretas de hasta 14 entrenamientos por petición. Las métricas del backend son estimaciones de esfuerzo deportivo, no un sistema clínico. La sincronización completa con entrenadores y la verificación E2E en dispositivo siguen abiertas; detalles en [docs/MCP_PLAN.md](docs/MCP_PLAN.md).
 
 
 ### Perfil IA, Apple y permisos (21/10/2026)
 
-El perfil de entrenamiento se observa a partir del historial deportivo de Repera; las preferencias que el histórico no acredita (objetivo actual, disponibilidad, material) se preguntan durante el chat y solo se guardan si el deportista las confirma expresamente mediante MCP. No existe formulario «Perfil deportivo IA» en Ajustes. El servidor aporta requisitos de equipamiento normalizado para el catálogo y demandas articulares orientativas solo donde la asignación está contrastada; no son evaluaciones de lesiones. La cuenta Apple puede sincronizar nombre y avatar ahora que Supabase tiene la columna `profiles.avatar_url`, el bucket `profile-avatars` y permisos RLS de propietario. En Cuenta, «Sincronizar ahora» muestra los procesos concretos aún pendientes y espera a las sincronizaciones automáticas concurrentes. En Apple Salud, los permisos de sueño y ciclo no se presentan como pendientes por no haber sido decididos: se solicitan únicamente si el usuario los activa.
+El perfil de entrenamiento se observa a partir del historial deportivo de Repera; las preferencias que el histórico no acredita (objetivo actual, disponibilidad, material) se preguntan durante el chat y solo se guardan si el deportista las confirma expresamente mediante MCP. No existe formulario «Perfil deportivo IA» en Ajustes. El servidor aporta requisitos de equipamiento normalizado para el catálogo y demandas articulares orientativas solo donde la asignación está contrastada; no son evaluaciones de lesiones. La cuenta Apple puede sincronizar nombre y avatar ahora que Supabase tiene la columna `profiles.avatar_url`, el bucket `profile-avatars` y permisos RLS de propietario. La sincronización se realiza automáticamente al restaurar sesión y volver al primer plano, sin controles manuales en Cuenta. En Apple Salud, los permisos de sueño y ciclo no se presentan como pendientes por no haber sido decididos: se solicitan únicamente si el usuario los activa.
 
 
 ## Escáner CrossFit / Coach MCP v0.4 (22/10/2026)
