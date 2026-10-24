@@ -174,10 +174,12 @@ struct ExerciseDetailView: View {
                             }
                         }
 
-                        if let equipment = meta.equipment {
+                        if !meta.equipments.isEmpty {
                             metaRow(title: "Equipo") {
                                 chipFlow {
-                                    metaChip(equipment, icon: ExerciseCategorySymbols.equipment)
+                                    ForEach(meta.equipments, id: \.self) { equipment in
+                                        metaChip(equipment, icon: ExerciseCategorySymbols.equipmentSymbol(for: equipment))
+                                    }
                                 }
                             }
                         }
@@ -240,7 +242,7 @@ struct ExerciseDetailView: View {
     private struct DetailMeta {
         var primary: String
         var secondaries: [String]
-        var equipment: String?
+        var equipments: [String]
         var sports: [String]
         var hasContent: Bool { !primary.isEmpty }
     }
@@ -264,17 +266,17 @@ struct ExerciseDetailView: View {
                 secondaries.insert(label, at: 0)
             }
         }
-        let equipment = exercise.equipment.flatMap { raw -> String? in
-            let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            return t.isEmpty ? nil : LocalizedMuscle.es(t)
-        }
+        let equipments = (exercise.equipment ?? "")
+            .split(separator: ",")
+            .map { LocalizedMuscle.es(String($0).trimmingCharacters(in: .whitespacesAndNewlines)) }
+            .filter { !$0.isEmpty }
         let sports = exercise.disciplineTags.filter {
             !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
         return DetailMeta(
             primary: primary,
             secondaries: secondaries,
-            equipment: equipment,
+            equipments: equipments,
             sports: sports
         )
     }
