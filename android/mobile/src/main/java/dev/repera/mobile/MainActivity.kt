@@ -658,7 +658,8 @@ data class StateOverview(
     val weeklyMuscleGroups: List<MuscleWorkloadMetrics.GroupCount> = emptyList(),
     val progressByRange: Map<String, ProgressSnapshotData> = emptyMap(),
     val exerciseSessions: Map<String, List<ExerciseSessionHistory.Visit>> = emptyMap(),
-    val recovery: RecoveryState? = null
+    val recovery: RecoveryState? = null,
+    val chartsByRange: Map<String, dev.repera.domain.ProgressPreparedCharts> = emptyMap()
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?, health: HealthSamples? = null,
@@ -931,6 +932,21 @@ data class StateOverview(
                 exerciseSessions = ExerciseSessionHistory.fromArchive(json.getJSONArray("workouts")),
                 progressByRange = dev.repera.domain.ProgressTimeRange.entries.associate { range ->
                     range.wire to ProgressSnapshotBuilder.build(json, range, health = health)
+                },
+                chartsByRange = dev.repera.domain.ProgressTimeRange.entries.associate { range ->
+                    range.wire to dev.repera.domain.ProgressChartBuilder.build(
+                        range = range,
+                        weekStartsOnMonday = true,
+                        heartRateDays = health?.heartRateDays?.map {
+                            dev.repera.domain.DailyHeartRatePoint(
+                                it.date, it.minBpm, it.avgBpm, it.maxBpm)
+                        } ?: emptyList(),
+                        energyDays = health?.energyDays?.map {
+                            dev.repera.domain.DailyActiveEnergyPoint(it.date, it.kcal)
+                        } ?: emptyList(),
+                        workouts = ProgressSnapshotBuilder.statsWorkouts(json),
+                        external = health?.daySamples ?: emptyList(),
+                        now = java.time.LocalDate.now())
                 }
             )
         }

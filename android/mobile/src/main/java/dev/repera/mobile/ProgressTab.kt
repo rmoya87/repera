@@ -205,6 +205,9 @@ internal fun ProgressTab(
                     }
                 }
             }
+            overview?.chartsByRange?.get(selectedRange)?.let { charts ->
+                item { ProgressChartsCard(charts) }
+            }
             if (snapshot.records.isNotEmpty()) {
                 item {
                     Card(modifier = Modifier.fillMaxWidth()) {

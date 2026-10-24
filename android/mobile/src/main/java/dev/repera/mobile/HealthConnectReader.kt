@@ -22,7 +22,8 @@ import java.time.ZoneId
 data class TodayHealth(val steps: Long?, val activeKcal: Double?)
 
 /** Lecturas diarias para Progreso: mismo contrato que HealthKitStore en iOS. */
-data class DailyHeartRatePoint(val date: LocalDate, val avgBpm: Double)
+data class DailyHeartRatePoint(val date: LocalDate, val avgBpm: Double,
+                              val minBpm: Double, val maxBpm: Double)
 data class DailyEnergyPoint(val date: LocalDate, val kcal: Double)
 
 /** Lote de salud para el snapshot de Progreso. */
@@ -150,7 +151,8 @@ class HealthConnectReader(private val context: Context) {
             .atStartOfDay(zone).toInstant()
         val now = Instant.now()
 
-        val heartRateDays = mutableMapOf<LocalDate, Pair<Double, Int>>()
+        val heartRateDays = mutableMapOf<LocalDate, Triple<Double, Double, Double>>()
+        val heartRateCounts = mutableMapOf<LocalDate, Int>()
         if (granted.contains(HealthPermission.getReadPermission(HeartRateRecord::class))) {
             val response = client.readRecords(ReadRecordsRequest(
                 HeartRateRecord::class, TimeRangeFilter.between(start, now)))
@@ -158,9 +160,13 @@ class HealthConnectReader(private val context: Context) {
                 val day = record.startTime.atZone(zone).toLocalDate()
                 val bpm = record.samples.map { it.beatsPerMinute }
                 if (bpm.isEmpty()) continue
-                val acc = heartRateDays[day] ?: (0.0 to 0)
-                heartRateDays[day] =
-                    (acc.first + bpm.average() * bpm.size) to (acc.second + bpm.size)
+                val acc = heartRateDays[day]
+                val n = heartRateCounts[day] ?: 0
+                heartRateDays[day] = Triple(
+                    minOf(acc?.first ?: Double.MAX_VALUE, bpm.min().toDouble()),
+                    (acc?.second ?: 0.0) + bpm.average() * bpm.size,
+                    maxOf(acc?.third ?: 0.0, bpm.max().toDouble()))
+                heartRateCounts[day] = n + bpm.size
             }
         }
 
@@ -195,7 +201,12 @@ class HealthConnectReader(private val context: Context) {
 
         return HealthSamples(
             heartRateDays = heartRateDays.map { (day, acc) ->
-                DailyHeartRatePoint(day, if (acc.second > 0) acc.first / acc.second else 0.0)
+                val n = heartRateCounts[day] ?: 0
+                DailyHeartRatePoint(
+                    date = day,
+                    avgBpm = if (n > 0) acc.second / n else 0.0,
+                    minBpm = if (acc.first == Double.MAX_VALUE) 0.0 else acc.first,
+                    maxBpm = acc.third)
             }.sortedBy { it.date },
             energyDays = energyDays.map { (day, kcal) -> DailyEnergyPoint(day, kcal) }
                 .sortedBy { it.date },
