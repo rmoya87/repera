@@ -4,7 +4,7 @@
 
 ## Fuente editorial
 
-La fuente de datos es `public.business_exercise_catalog` unida a `public.training_exercise_metadata`, **no** otro catálogo nuevo. La migración `20261025003000_mobile_exercise_catalog_events.sql` añade campos opcionales de descripción, instrucciones, grupo, parte corporal y disciplina a la tabla editorial y un registro de eventos `public.mobile_exercise_catalog_events`.
+La fuente de datos es `public.business_exercise_catalog` unida a `public.training_exercise_metadata`, **no** otro catálogo nuevo. La migración `20261024223050_mobile_exercise_catalog_events.sql` añade campos opcionales de descripción, instrucciones, grupo, parte corporal y disciplina a la tabla editorial y un registro de eventos `public.mobile_exercise_catalog_events`.
 
 La tabla de eventos es de **solo lectura para clientes autenticados** (RLS). No se autorizan INSERT/UPDATE/DELETE desde la app, ni se distribuyen claves de servicio. Dos triggers (cambios en ficha o metadatos) publican una revisión monotónica `id`, con `catalog_key`, `operation=upsert|delete` y `payload` del ejercicio. `is_active=false` o el borrado editorial generan una lápida. La migración publica una instantánea inicial para todas las claves existentes.
 
