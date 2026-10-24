@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var wodTimer by mutableStateOf<WodTimerState?>(null)
     private var todayHealth by mutableStateOf<TodayHealth?>(null)
     private var healthSamples by mutableStateOf<HealthSamples?>(null)
+    private var recoveryRead by mutableStateOf<RecoveryRead?>(null)
     private val credentialManager by lazy { CredentialManager.create(this) }
     private var verifiedSupabase: SupabaseIdentity.Session? = null
     private val sessionStore by lazy { SessionStore(this) }
@@ -447,6 +448,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 healthSamples = withContext(Dispatchers.IO) {
                     runCatching { reader.readSamples(370) }.getOrNull()
                 }
+                recoveryRead = withContext(Dispatchers.IO) {
+                    runCatching { reader.readRecovery(45) }.getOrNull()
+                }
                 profile?.let { reloadFor(it.uniqueId) }
                 status = null
             } catch (error: Exception) {
@@ -504,7 +508,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 val result = withContext(Dispatchers.IO) {
                     val store = LocalSnapshotStore(this@MainActivity, signedIn.uniqueId)
                     val outcome = DriveSnapshotService(oneTimeToken, store).synchronize()
-                    outcome to StateOverview.fromBytes(store.read(), healthSamples)
+                    outcome to StateOverview.fromBytes(store.read(), healthSamples, recoveryRead)
                 }
                 reloadFor(signedIn.uniqueId)
                 status = when (result.first) {
@@ -529,7 +533,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             val store = LocalSnapshotStore(this@MainActivity, id)
             MobilityCatalogMigration.ensure(this@MainActivity, id)
             val bytes = store.read()
-            Triple(StateOverview.fromBytes(bytes, healthSamples), WorkoutRepository(this@MainActivity, id).active(), bytes)
+            Triple(StateOverview.fromBytes(bytes, healthSamples, recoveryRead), WorkoutRepository(this@MainActivity, id).active(), bytes)
         }
         snapshot = overview
         activeWorkout = active
@@ -631,6 +635,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     }
 }
 
+data class RecoveryState(
+    val readiness: dev.repera.domain.RecoveryEngine.TrainingReadiness?,
+    val sleepIndex: Int?,
+    val lastNightHours: Double?,
+    val recentAverageSleepHours: Double?
+)
+
 data class StateOverview(
     val workouts: Int,
     val workoutsThisWeek: Int,
@@ -646,10 +657,12 @@ data class StateOverview(
     val weeklyDayTotals: List<Int> = emptyList(),
     val weeklyMuscleGroups: List<MuscleWorkloadMetrics.GroupCount> = emptyList(),
     val progressByRange: Map<String, ProgressSnapshotData> = emptyMap(),
-    val exerciseSessions: Map<String, List<ExerciseSessionHistory.Visit>> = emptyMap()
+    val exerciseSessions: Map<String, List<ExerciseSessionHistory.Visit>> = emptyMap(),
+    val recovery: RecoveryState? = null
 ) {
     companion object {
-        fun fromBytes(bytes: ByteArray?, health: HealthSamples? = null): StateOverview? {
+        fun fromBytes(bytes: ByteArray?, health: HealthSamples? = null,
+                      recovery: RecoveryRead? = null): StateOverview? {
             if (bytes == null) return null
             LocalSnapshotStore.validate(bytes)
             val json = JSONObject(String(bytes, Charsets.UTF_8))
@@ -872,7 +885,35 @@ data class StateOverview(
                         isCustom = ex.optBoolean("isCustom"))
                 }.sortedBy { it.name }
             }
+            val recoveryState = recovery?.let { rec ->
+                val stats = ProgressSnapshotBuilder.statsWorkouts(json)
+                val lastNight = rec.nights.lastOrNull()
+                val recentNights = rec.nights.takeLast(7)
+                val avg = if (recentNights.isEmpty()) null
+                    else recentNights.map { it.hours }.average()
+                val observed = health?.externalActivities?.map {
+                    dev.repera.domain.RecoveryEngine.ObservedActivity(
+                        epochMillis = it.epochMillis,
+                        durationMinutes = it.durationMinutes,
+                        isCardio = dev.repera.domain.HealthMuscleMapper
+                            .isCardio(it.type))
+                } ?: emptyList()
+                RecoveryState(
+                    readiness = dev.repera.domain.RecoveryEngine.trainingReadiness(
+                        nowMillis = System.currentTimeMillis(),
+                        sleepHours = lastNight?.hours,
+                        recentAverageSleepHours = avg,
+                        workouts = stats,
+                        vitalHistory = rec.vitals,
+                        observedActivities = observed),
+                    sleepIndex = dev.repera.domain.RecoveryEngine.sleepIndex(
+                        lastNight?.hours, avg),
+                    lastNightHours = lastNight?.hours,
+                    recentAverageSleepHours = avg
+                )
+            }
             return StateOverview(
+                recovery = recoveryState,
                 workouts = workoutTitles.size,
                 workoutsThisWeek = workoutsThisWeek,
                 routines = routineEntries.size,

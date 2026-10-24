@@ -170,6 +170,41 @@ internal fun ProgressTab(
                     }
                 }
             }
+            overview?.recovery?.let { recovery ->
+                if (recovery.readiness != null || recovery.sleepIndex != null) {
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(
+                                modifier = Modifier.padding(18.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text("Recuperación",
+                                    style = MaterialTheme.typography.titleLarge)
+                                recovery.lastNightHours?.let { hours ->
+                                    val index = recovery.sleepIndex
+                                    Text("%.1f h de sueño".format(hours) +
+                                        (index?.let { " · índice ${it / 10}/10" } ?: ""),
+                                        style = MaterialTheme.typography.titleMedium)
+                                }
+                                recovery.readiness?.let { ready ->
+                                    Text("Disposición para entrenar: " +
+                                        "${ready.score.toInt()}/10",
+                                        style = MaterialTheme.typography.titleMedium)
+                                    Text(ready.advice.label,
+                                        style = MaterialTheme.typography.bodyMedium)
+                                    ready.vitalNotes.forEach { note ->
+                                        Text("· $note",
+                                            style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                                Text("Estimación orientativa con tus datos de Salud; " +
+                                    "no es un diagnóstico.",
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
+            }
             if (snapshot.records.isNotEmpty()) {
                 item {
                     Card(modifier = Modifier.fillMaxWidth()) {

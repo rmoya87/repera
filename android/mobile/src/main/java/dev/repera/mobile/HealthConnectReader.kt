@@ -6,6 +6,9 @@ import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
+import androidx.health.connect.client.records.RestingHeartRateRecord
+import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
@@ -23,6 +26,11 @@ data class DailyHeartRatePoint(val date: LocalDate, val avgBpm: Double)
 data class DailyEnergyPoint(val date: LocalDate, val kcal: Double)
 
 /** Lote de salud para el snapshot de Progreso. */
+data class RecoveryRead(
+    val nights: List<dev.repera.domain.RecoverySleepNight>,
+    val vitals: List<dev.repera.domain.RecoveryEngine.DailyVitals>
+)
+
 data class HealthSamples(
     val heartRateDays: List<DailyHeartRatePoint>,
     val energyDays: List<DailyEnergyPoint>,
@@ -40,7 +48,11 @@ class HealthConnectReader(private val context: Context) {
             HealthPermission.getReadPermission(StepsRecord::class),
             HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
             HealthPermission.getReadPermission(HeartRateRecord::class),
-            HealthPermission.getReadPermission(ExerciseSessionRecord::class)
+            HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+            HealthPermission.getReadPermission(SleepSessionRecord::class),
+            HealthPermission.getReadPermission(
+                HeartRateVariabilityRmssdRecord::class),
+            HealthPermission.getReadPermission(RestingHeartRateRecord::class)
         )
 
         /** Health Connect EXERCISE_TYPE_* → claves de HealthMuscleMapper
@@ -189,5 +201,102 @@ class HealthConnectReader(private val context: Context) {
                 .sortedBy { it.date },
             externalActivities = externalActivities.sortedBy { it.epochMillis }
         )
+    }
+
+    /** Mediana diaria con los rangos válidos y el corte de las 7:00 de iOS
+     *  (HealthPhysiologyStore.refresh). */
+    private fun medianForDay(
+        samples: List<Pair<Long, Double>>, day: LocalDate, zone: ZoneId,
+        valid: ClosedFloatingPointRange<Double>, beforeMorning: Boolean
+    ): Double? {
+        val cutoff = day.atTime(7, 0).atZone(zone).toInstant().toEpochMilli()
+        val sorted = samples.filter { (ts, v) ->
+            Instant.ofEpochMilli(ts).atZone(zone).toLocalDate() == day &&
+                (!beforeMorning || ts <= cutoff) && v.isFinite() && v in valid
+        }.map { it.second }.sorted()
+        if (sorted.isEmpty()) return null
+        val i = sorted.size / 2
+        return if (sorted.size % 2 == 0) (sorted[i - 1] + sorted[i]) / 2
+        else sorted[i]
+    }
+
+    /** Noches de sueño y constantes diarias de los últimos `days` días.
+     *  Solo lo concedido: sin permiso la lista sale vacía (iOS igual:
+     *  nunca inventa ceros). */
+    suspend fun readRecovery(days: Int): RecoveryRead {
+        check(available()) { "Health Connect no está disponible en este dispositivo" }
+        val client = HealthConnectClient.getOrCreate(context)
+        val granted = client.permissionController.getGrantedPermissions()
+        val zone = ZoneId.systemDefault()
+        val start = LocalDate.now(zone).minusDays(days.toLong() - 1)
+            .atStartOfDay(zone).toInstant()
+        val now = Instant.now()
+
+        val stageSamples = mutableListOf<dev.repera.domain.SleepStageSample>()
+        if (granted.contains(HealthPermission.getReadPermission(
+                SleepSessionRecord::class))) {
+            val response = client.readRecords(ReadRecordsRequest(
+                SleepSessionRecord::class, TimeRangeFilter.between(start, now)))
+            for (record in response.records) {
+                val source = record.metadata.dataOrigin.packageName
+                for (stage in record.stages) {
+                    val key = when (stage.stage) {
+                        SleepSessionRecord.STAGE_TYPE_DEEP -> "DEEP"
+                        SleepSessionRecord.STAGE_TYPE_REM -> "REM"
+                        SleepSessionRecord.STAGE_TYPE_LIGHT -> "LIGHT"
+                        // Despierto no cuenta como sueño.
+                        SleepSessionRecord.STAGE_TYPE_AWAKE,
+                        SleepSessionRecord.STAGE_TYPE_AWAKE_IN_BED,
+                        SleepSessionRecord.STAGE_TYPE_OUT_OF_BED -> continue
+                        else -> "OTRO"
+                    }
+                    stageSamples.add(dev.repera.domain.SleepStageSample(
+                        startMillis = stage.startTime.toEpochMilli(),
+                        endMillis = stage.endTime.toEpochMilli(),
+                        stage = key, source = source))
+                }
+                // Sesión sin fases: el total cuenta como "OTRO".
+                if (record.stages.isEmpty()) {
+                    stageSamples.add(dev.repera.domain.SleepStageSample(
+                        startMillis = record.startTime.toEpochMilli(),
+                        endMillis = record.endTime.toEpochMilli(),
+                        stage = "OTRO", source = source))
+                }
+            }
+        }
+        val nights = dev.repera.domain.combineSleepNights(stageSamples, zone)
+
+        val hrv = mutableListOf<Pair<Long, Double>>()
+        if (granted.contains(HealthPermission.getReadPermission(
+                HeartRateVariabilityRmssdRecord::class))) {
+            val response = client.readRecords(ReadRecordsRequest(
+                HeartRateVariabilityRmssdRecord::class,
+                TimeRangeFilter.between(start, now)))
+            for (record in response.records) {
+                hrv.add(record.time.toEpochMilli() to record.heartRateVariabilityMillis.toDouble())
+            }
+        }
+        val rest = mutableListOf<Pair<Long, Double>>()
+        if (granted.contains(HealthPermission.getReadPermission(
+                RestingHeartRateRecord::class))) {
+            val response = client.readRecords(ReadRecordsRequest(
+                RestingHeartRateRecord::class,
+                TimeRangeFilter.between(start, now)))
+            for (record in response.records) {
+                rest.add(record.time.toEpochMilli() to record.beatsPerMinute.toDouble())
+            }
+        }
+        val daysSet = (hrv + rest).map {
+            Instant.ofEpochMilli(it.first).atZone(zone).toLocalDate()
+        }.toSortedSet()
+        val vitals = daysSet.map { day ->
+            dev.repera.domain.RecoveryEngine.DailyVitals(
+                day = day,
+                hrvMilliseconds = medianForDay(hrv, day, zone,
+                    5.0..300.0, beforeMorning = true),
+                restingHeartRateBpm = medianForDay(rest, day, zone,
+                    30.0..130.0, beforeMorning = true))
+        }
+        return RecoveryRead(nights = nights, vitals = vitals)
     }
 }
