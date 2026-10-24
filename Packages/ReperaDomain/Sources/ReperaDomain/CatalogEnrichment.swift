@@ -174,7 +174,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Prensa",
             muscleGroup: "Piernas",
-            equipment: "Máquina",
+            equipment: "Máquina prensa de piernas",
             catalogId: "0760",
             target: "quads",
             secondaryMuscles: ["glutes", "hamstrings", "calves"],
@@ -200,7 +200,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Extensión de cuádriceps",
             muscleGroup: "Piernas",
-            equipment: "Máquina",
+            equipment: "Máquina de extensión de cuádriceps",
             catalogId: "4386",
             target: "quads",
             secondaryMuscles: ["hip flexors"],
@@ -213,7 +213,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Curl femoral",
             muscleGroup: "Isquios",
-            equipment: "Máquina",
+            equipment: "Máquina de curl femoral",
             catalogId: "0569",
             target: "hamstrings",
             secondaryMuscles: ["glutes", "calves"],
@@ -226,7 +226,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Elevación de gemelos",
             muscleGroup: "Gemelos",
-            equipment: "Máquina",
+            equipment: "Máquina de gemelos",
             catalogId: "3390",
             target: "calves",
             secondaryMuscles: ["soleus"],
@@ -447,7 +447,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Hack squat",
             muscleGroup: "Piernas",
-            equipment: "Máquina",
+            equipment: "Máquina Hack squat",
             catalogId: "0743",
             target: "quads",
             secondaryMuscles: ["glutes", "hamstrings"],
@@ -499,7 +499,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Remo máquina",
             muscleGroup: "Cardio",
-            equipment: "Máquina",
+            equipment: "Remoergómetro",
             catalogId: "1161",
             target: "cardiovascular system",
             secondaryMuscles: ["lats", "quadriceps", "hamstrings", "core"],
