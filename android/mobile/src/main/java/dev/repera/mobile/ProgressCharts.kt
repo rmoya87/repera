@@ -6,6 +6,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -117,8 +122,8 @@ internal fun HeatmapCard(title: String, levels: List<Pair<java.time.LocalDate, I
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(18.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge)
-            val base = MaterialTheme.colorScheme.primary
-            val empty = MaterialTheme.colorScheme.surfaceVariant
+            // Paleta 1:1 con iOS: BodyMapPalette.fill(level) (gris→verde→
+            // amarillo→naranja→rojo), no alfa escalado del primario.
             Canvas(modifier = Modifier
                 .fillMaxWidth()
                 .height(118.dp)
@@ -135,21 +140,31 @@ internal fun HeatmapCard(title: String, levels: List<Pair<java.time.LocalDate, I
                     val cell = offset + i
                     val col = cell / 7
                     val row = cell % 7
-                    val color = when (level) {
-                        0 -> empty
-                        1 -> base.copy(alpha = 0.25f)
-                        2 -> base.copy(alpha = 0.45f)
-                        3 -> base.copy(alpha = 0.7f)
-                        else -> base
-                    }
                     drawRoundRect(
-                        color = color,
+                        color = BodyMapPalette.fill(level),
                         topLeft = Offset(col * cw + gap / 2, row * ch + gap / 2),
                         size = androidx.compose.ui.geometry.Size(
                             cw - gap, ch - gap),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f)
                     )
                 }
+            }
+            // Leyenda 1:1 con ActivityHeatmapView iOS.
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Menos", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                (0..4).forEach { level ->
+                    Spacer(Modifier.width(4.dp))
+                    Box(Modifier.size(11.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
+                        .background(BodyMapPalette.fill(level)))
+                }
+                Spacer(Modifier.width(4.dp))
+                Text("Más", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text("Intensidad por cuartiles del periodo",
                 style = MaterialTheme.typography.bodySmall)

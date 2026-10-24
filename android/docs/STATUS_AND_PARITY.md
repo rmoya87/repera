@@ -365,10 +365,14 @@ ninguno aparecía en las auditorías del 23/10.
   entreno» (con confirmación) en las tarjetas de fuerza y WOD, deteniendo
   la captura de ubicación como iOS.
 - **Heatmap de actividad** (`ActivityHeatmapView` 488, usada por
-  `StatsView`): tiempo/volumen por día, franja horizontal en periodos cortos
-  y rejilla semanal en largos, con muestras externas de Salud (Android ya
-  tiene `ExternalDaySample` en `HealthConnectReader`/`ProgressSnapshot` como
-  base). Estado: ABIERTO.
+  `StatsView`): NO es gap de capacidad — Android ya tiene
+  `StatsEngine.heatmapLevel/heatmapThresholds` (dominio) + `HeatmapCard`
+  (rejilla semanal por cuartiles) en Progreso. Diferencias de presentación
+  abiertas (fidelidad, no capacidad): iOS usa un segmented picker
+  Tiempo/Volumen en UNA tarjeta (Android: dos tarjetas), franja horizontal
+  en rangos cortos (Android: siempre rejilla), etiquetas de mes/día, y la
+  paleta `BodyMapPalette.fill(level)` (Android: alfa escalado del primario →
+  corregido a la paleta de marca el 24/10, pendiente CI).
 - **Ruta cardio y análisis** (`CardioRouteComponents` 570 + dominio
   `CardioRouteAnalysis` 147, usados por `HistoryView`): gráficas
   cardio/altitud con selección táctil, análisis de ruta y mapa
