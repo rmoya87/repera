@@ -473,7 +473,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Cinta / carrera",
             muscleGroup: "Cardio",
-            equipment: nil,
+            equipment: "Cinta de correr",
             catalogId: "2197",
             target: "cardiovascular system",
             secondaryMuscles: ["quadriceps", "hamstrings", "glutes", "calves"],
@@ -486,7 +486,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Bici estática",
             muscleGroup: "Cardio",
-            equipment: nil,
+            equipment: "Bicicleta estática",
             catalogId: "2279",
             target: "cardiovascular system",
             secondaryMuscles: ["quadriceps", "hamstrings", "glutes"],
@@ -642,7 +642,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Paso lateral con banda",
             muscleGroup: "Glúteos",
-            equipment: nil,
+            equipment: "Banda elástica",
             catalogId: "3776",
             target: "glutes",
             secondaryMuscles: ["abductors", "core"],
