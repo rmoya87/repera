@@ -260,6 +260,21 @@ El CI debe comprobarse en el HEAD actual; sus ejecuciones anteriores no
 certifican commits más recientes.
 
 
+## Wear OS 6.1 (API 36.1) — estado y siguiente intento controlado (25/10/2026)
+
+- La pata 36.1 del job `wear-instrumented` se retiró tras dos timeouts de
+  arranque (600 s y 1200 s). CAUSA NO CONFIRMADA: los logs de esos runs ya no
+  son accesibles vía gh (fuera del historial recuperable).
+- Hipótesis «libpulse/loader» DESCARTADA como explicación suficiente: la
+  acción `reactivecircus/android-emulator-runner@v2` aplica por defecto
+  `-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim`
+  (default declarado en action.yml@v2), de modo que el job Wear YA arrancaba
+  con el set sano; la ausencia de `emulator-options` en el job no implicaba
+  ausencia de `-noaudio`.
+- Intento controlado PREPARADO (sin rerun hasta que billing vuelva): pata 36.1
+  con flags explícitos (`-memory 4096 -wipe-data -verbose`), captura del log
+  del emulador y de `getprop sys.boot_completed` como artefacto, timeout 1200 s.
+
 ## Corrección del extractor de catálogo y etiquetas de equipo (25/10/2026)
 
 - `extract_catalog.py` replica ahora `SportExerciseNames.spanishAlias` con la
