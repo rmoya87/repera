@@ -202,7 +202,8 @@ class WorkoutRepository(context: Context, googleId: String) {
     @Synchronized fun createRoutineFromScan(
         title: String,
         blocks: List<dev.repera.domain.RoutineBlock>,
-        schedule: RoutineSchedule = RoutineSchedule()
+        schedule: RoutineSchedule = RoutineSchedule(),
+        routineId: String? = null
     ): String {
         val cleaned = title.trim()
         require(cleaned.isNotBlank() && cleaned.length <= 100) { "Escribe un título válido" }
@@ -226,7 +227,7 @@ class WorkoutRepository(context: Context, googleId: String) {
             }
             array.put(BoardScanImport.wireBlock(block))
         }
-        val id = UUID.randomUUID().toString()
+        val id = routineId ?: UUID.randomUUID().toString()
         val nativeRoutine = JSONObject()
             .put("id", id)
             .put("title", cleaned)
@@ -252,6 +253,51 @@ class WorkoutRepository(context: Context, googleId: String) {
      * separados, igual que iOS). Conserva identidad, título y programación
      * de la rutina; los entrenos ya registrados nunca se reescriben.
      */
+    /** Rutinas actuales (copia) para dedupe/idempotencia del inbox IA. */
+    @Synchronized fun routinesSnapshot(): List<JSONObject> {
+        val state = requireState()
+        val routines = state.optJSONArray("routines") ?: JSONArray()
+        return (0 until routines.length()).map {
+            JSONObject(routines.getJSONObject(it).toString())
+        }
+    }
+
+    /** iOS AITrainingInboxStore.catalogExercise: por catalogKey, luego por
+     * nombre normalizado; si no existe, crea ejercicio libre (isCustom) que
+     * permanece usable/editable en el mismo bloque y registro. Devuelve el id. */
+    @Synchronized fun resolveOrCreateCatalogExercise(
+        name: String,
+        catalogKey: String? = null,
+        muscleGroup: String = "Otros"
+    ): String {
+        val state = requireState()
+        val catalog = state.getJSONArray("exercises")
+        if (catalogKey != null) {
+            for (i in 0 until catalog.length()) {
+                val exercise = catalog.getJSONObject(i)
+                if (exercise.optString("catalogId") == catalogKey)
+                    return exercise.getString("id")
+            }
+        }
+        val wanted = dev.repera.domain.ExerciseAliasSearch.normalize(name)
+        for (i in 0 until catalog.length()) {
+            val exercise = catalog.getJSONObject(i)
+            if (dev.repera.domain.ExerciseAliasSearch.normalize(
+                    exercise.optString("name")) == wanted)
+                return exercise.getString("id")
+        }
+        val id = UUID.randomUUID().toString()
+        catalog.put(JSONObject()
+            .put("id", id)
+            .put("name", name)
+            .put("muscleGroup", muscleGroup)
+            .put("equipment", JSONObject.NULL)
+            .put("targetMuscle", "")
+            .put("isCustom", true))
+        save(state)
+        return id
+    }
+
     @Synchronized fun replaceRoutineBlocks(id: String, blocks: List<RoutineBlockDraft>) {
         require(blocks.size in 1..10) { "La rutina necesita entre 1 y 10 bloques" }
         val state = requireState()

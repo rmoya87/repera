@@ -200,7 +200,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 centerSubmitting = centerSubmitting,
                 centerError = centerError,
                 centerSnapshot = centerSnapshot,
-                onCenterRefresh = ::refreshCenter,
+                onCenterRefresh = {
+                    refreshCenter()
+                    syncAITrainingInbox()
+                },
                 onCenterAccept = { invitation ->
                     centerAction { s -> accept(s, invitation) }
                 },
@@ -418,6 +421,27 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
      * store when the refresh token is no longer accepted. Only a refresh round
      * trip decides validity; the stored access token is never trusted blindly.
      */
+    /**
+     * Bandeja de planes IA (port AITrainingInboxStore): traduce planes
+     * pendientes del servidor a rutinas nativas. iOS usa Realtime; Android
+     * sincroniza al restaurar/iniciar sesión y al refrescar Center.
+     */
+    private fun syncAITrainingInbox() {
+        val session = verifiedSupabase ?: return
+        val uniqueId = profile?.uniqueId ?: return
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                AITrainingInbox().sync(session, WorkoutRepository(this@MainActivity, uniqueId))
+            }
+            if (result.error != null) {
+                status = result.error
+            } else if (result.imported > 0) {
+                status = "Plan de IA aplicado: " + (result.lastImportedTitle ?: "entreno")
+                reloadFor(uniqueId)
+            }
+        }
+    }
+
     private fun refreshCenter() {
         val session = verifiedSupabase ?: return
         if (centerLoading) return
@@ -494,6 +518,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 )
                 profile = GoogleProfile(stored.uniqueId, stored.email, stored.displayName)
                 DriveSyncWorker.schedulePeriodic(this@MainActivity)
+                syncAITrainingInbox()
                 reloadFor(stored.uniqueId)
             } catch (_: Exception) {
                 // Expired or revoked refresh token: back to the login screen.
@@ -559,6 +584,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 profile = signedIn
                 persistSession(session, signedIn)
                 DriveSyncWorker.schedulePeriodic(this@MainActivity)
+                syncAITrainingInbox()
                 reloadFor(id)
                 status = if (snapshot == null) "No hay datos locales. Sincroniza Google Drive." else null
             } catch (error: Exception) {
