@@ -317,12 +317,22 @@ fun ReperaMobileScreen(
                         busy = busy,
                         activeWorkout = activeWorkout,
                         onStartRoutine = onStartRoutine,
+                        onOpenTimer = { favId ->
+                            if (favId != null) navController.navigate("temporizador?fav=" + favId)
+                            else navController.navigate("temporizador")
+                        },
                         onBack = { navController.popBackStack() }
                     )
                 }
-                composable("temporizador") {
+                composable(
+                    route = "temporizador?fav={fav}",
+                    arguments = listOf(navArgument("fav") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    })
+                ) { backStackEntry ->
                     StandaloneTimerScreen(
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        favoriteId = backStackEntry.arguments?.getString("fav")
                     )
                 }
                 composable("escaner") {

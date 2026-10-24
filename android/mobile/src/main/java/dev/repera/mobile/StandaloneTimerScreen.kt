@@ -92,12 +92,17 @@ private object TimerFeedback {
  * de pared (System.currentTimeMillis), nunca a acumulación de ticks.
  */
 @Composable
-internal fun StandaloneTimerScreen(onBack: () -> Unit) {
+internal fun StandaloneTimerScreen(onBack: () -> Unit, favoriteId: String? = null) {
     val context = LocalContext.current
     val store = remember { StandaloneTimerStore(context) }
-    var config by remember { mutableStateOf(StandaloneTimerConfig()) }
+    // Apertura desde el hub de favoritos (paridad FavoritesHubView iOS):
+    // carga la configuración guardada y la edición queda anclada a ese id.
+    val openedFavorite = remember(favoriteId) {
+        favoriteId?.let { id -> store.favorites().firstOrNull { it.id == id } }
+    }
+    var config by remember { mutableStateOf(openedFavorite?.config ?: StandaloneTimerConfig()) }
     var favorites by remember { mutableStateOf(store.favorites()) }
-    var editingFavoriteId by remember { mutableStateOf<String?>(null) }
+    var editingFavoriteId by remember { mutableStateOf<String?>(openedFavorite?.id) }
     var showSaveDialog by remember { mutableStateOf(false) }
     var saveTitle by remember { mutableStateOf("") }
     var showClock by remember { mutableStateOf(false) }
