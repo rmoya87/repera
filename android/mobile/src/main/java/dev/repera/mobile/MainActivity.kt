@@ -530,6 +530,20 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         thisAppearance to prior
                     }
                 },
+                heartSeriesProvider = { sessionId ->
+                    val uid = profile?.uniqueId
+                    if (uid == null) emptyList() else {
+                        val reader = HealthConnectReader(this)
+                        runCatching {
+                            if (!reader.available() || !reader.hasPermissions())
+                                return@runCatching emptyList()
+                            val range = WorkoutRepository(this, uid)
+                                .sessionTimeRange(sessionId)
+                                ?: return@runCatching emptyList()
+                            reader.readSessionHeartSeries(range.first, range.second)
+                        }.getOrDefault(emptyList())
+                    }
+                },
                 loadGuideProvider = { exerciseId, targetReps, targetRir ->
                     val uid = profile?.uniqueId
                     val bytes = uid?.let { LocalSnapshotStore(this, it).read() }

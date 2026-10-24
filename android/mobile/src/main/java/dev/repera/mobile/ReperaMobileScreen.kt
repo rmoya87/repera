@@ -141,6 +141,7 @@ fun ReperaMobileScreen(
         Pair<SessionAppearance?, SessionAppearance?> = { _, _, _ -> null to null },
     loadGuideProvider: (exerciseId: String, targetReps: Int, targetRir: Double?) ->
         LoadGuide? = { _, _, _ -> null },
+    heartSeriesProvider: suspend (String) -> List<Pair<Long, Int>> = { emptyList() },
     onDeleteFinishedSet: (String, String, String) -> Unit,
     onDeleteWorkout: (String) -> Unit,
     onLogBodyWeight: (Double) -> Unit,
@@ -225,6 +226,7 @@ fun ReperaMobileScreen(
             ) {
                 composable("inicio") {
                     HomeTab(
+                        heartSeriesProvider = heartSeriesProvider,
                         displayName = displayName,
                         busy = busy,
                         syncing = syncing,

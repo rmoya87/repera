@@ -55,6 +55,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.key
@@ -1226,7 +1227,10 @@ internal fun WorkoutHistoryCard(
         { _, _, _, _, _, _ -> },
     onDeleteFinishedSet: (String, String, String) -> Unit = { _, _, _ -> },
     onDeleteWorkout: (String) -> Unit = {},
-    onOpenExerciseFromSession: (String, String, String) -> Unit = { _, _, _ -> }
+    onOpenExerciseFromSession: (String, String, String) -> Unit = { _, _, _ -> },
+    /** Serie de FC de la sesión (epoch ms → lpm) desde Salud; vacía sin
+     *  permisos o sin datos (la sección solo se pinta con ≥2 muestras). */
+    heartSeriesProvider: suspend (String) -> List<Pair<Long, Int>> = { emptyList() }
 ) {
     var expanded by remember(workout.id) { mutableStateOf(false) }
     var selectedMovement by remember(workout.id) { mutableStateOf<Int?>(null) }
@@ -1412,6 +1416,9 @@ internal fun WorkoutHistoryCard(
                 // Valoración verificable de la sesión (SessionReviewCard iOS en
                 // Historial; en Android el detalle vive en la tarjeta expandida).
                 workout.review?.let { SessionReviewCard(it) }
+                // Curva de pulso de la sesión (extras.heartRateSeries iOS):
+                // solo se muestra con datos de Salud (≥2 muestras).
+                HeartRateCurveSection(workout.id, heartSeriesProvider)
                 // Ruta GPS: distancia/desnivel/splits y perfil de altitud
                 // (CardioRouteComponents iOS; el análisis es 1:1 en dominio).
                 if (workout.routePoints.size >= 2) {
@@ -1612,9 +1619,9 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
             val minAlt = analysis.profile.minOf { it.altitudeMeters }
             val maxAlt = analysis.profile.maxOf { it.altitudeMeters }
             val maxDist = analysis.profile.last().distanceKm
-            // Scrub táctil (paridad chartXSelection iOS): arrastrar o tocar
-            // selecciona el punto más cercano del perfil y muestra su
-            // altitud/distancia con regla discontinua y punto marcador.
+            // Scrub táctil (paridad chartXSelection iOS): durante el arrastre
+            // se selecciona el punto más cercano del perfil (regla discontinua
+            // + marcador + etiqueta «m · km») y al soltar se limpia, como iOS.
             var selectedDistance by remember { mutableStateOf<Double?>(null) }
             val picked = selectedDistance?.let { sel ->
                 analysis.profile.minByOrNull {
@@ -1635,17 +1642,6 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
             }
             Canvas(modifier = Modifier.fillMaxWidth().height(96.dp)
                 .pointerInput(analysis.profile) {
-                    fun select(x: Float) {
-                        val span = maxDist.coerceAtLeast(0.001)
-                        selectedDistance = (x / size.width.toFloat())
-                            .coerceIn(0f, 1f) * span
-                    }
-                    detectTapGestures(
-                        onTap = { select(it.x) },
-                        onLongPress = { selectedDistance = null }
-                    )
-                }
-                .pointerInput(analysis.profile) {
                     detectDragGestures(
                         onDragStart = { start ->
                             val span = maxDist.coerceAtLeast(0.001)
@@ -1658,7 +1654,8 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
                                 size.width.toFloat()).coerceIn(0f, 1f) * span
                             change.consume()
                         },
-                        onDragEnd = { selectedDistance = null }
+                        onDragEnd = { selectedDistance = null },
+                        onDragCancel = { selectedDistance = null }
                     )
                 }) {
                 val spanAlt = (maxAlt - minAlt).coerceAtLeast(1.0)
@@ -1690,7 +1687,7 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
                         center = androidx.compose.ui.geometry.Offset(px, py))
                 }
             }
-            Text("Altitud ${minAlt.toInt()}–${maxAlt.toInt()} m sobre la distancia · toca o arrastra para inspeccionar",
+            Text("Altitud ${minAlt.toInt()}–${maxAlt.toInt()} m sobre la distancia · arrastra para inspeccionar",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -1824,4 +1821,86 @@ internal fun loadGuideSetLine(set: LoadGuideSet): String =
     dev.repera.domain.SetSummaryLine.displayLine(
         reps = set.reps, quantityUnit = set.unit,
         weightKg = set.weightKg, durationSeconds = set.durationSeconds)
+
+/** Curva de pulso de la sesión con scrub (port de la sección «Ritmo
+ *  cardíaco» de CardioRouteComponents iOS): cabecera con punto elegido o
+ *  media, línea con regla discontinua y marcador durante el arrastre. */
+@Composable
+private fun HeartRateCurveSection(
+    sessionId: String,
+    provider: suspend (String) -> List<Pair<Long, Int>>
+) {
+    val series by produceState(initialValue = emptyList<Pair<Long, Int>>(),
+        key1 = sessionId) {
+        value = runCatching { provider(sessionId) }.getOrDefault(emptyList())
+    }
+    if (series.size < 2) return
+    val minBpm = series.minOf { it.second }
+    val maxBpm = series.maxOf { it.second }
+    val t0 = series.first().first
+    val t1 = series.last().first
+    var selectedTime by remember(sessionId) { mutableStateOf<Long?>(null) }
+    val picked = selectedTime?.let { sel ->
+        series.minByOrNull { kotlin.math.abs(it.first - sel) }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Ritmo cardíaco", style = MaterialTheme.typography.titleMedium)
+            Text(
+                if (picked != null) "${picked.second} lpm"
+                else "Media ${series.map { it.second }.average().toInt()} lpm",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (picked != null) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        val spanT = (t1 - t0).coerceAtLeast(1L).toDouble()
+        val spanBpm = (maxBpm - minBpm).coerceAtLeast(1).toDouble()
+        Canvas(modifier = Modifier.fillMaxWidth().height(96.dp)
+            .pointerInput(series) {
+                detectDragGestures(
+                    onDragStart = { start ->
+                        selectedTime = t0 + ((start.x / size.width.toFloat())
+                            .coerceIn(0f, 1f) * spanT).toLong()
+                    },
+                    onDrag = { change, _ ->
+                        selectedTime = t0 + ((change.position.x /
+                            size.width.toFloat()).coerceIn(0f, 1f) * spanT).toLong()
+                        change.consume()
+                    },
+                    onDragEnd = { selectedTime = null },
+                    onDragCancel = { selectedTime = null }
+                )
+            }) {
+            val path = androidx.compose.ui.graphics.Path()
+            series.forEachIndexed { i, (t, bpm) ->
+                val x = (((t - t0) / spanT).toFloat()) * size.width
+                val y = size.height -
+                    (((bpm - minBpm) / spanBpm).toFloat() * size.height)
+                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            drawPath(path, color = androidx.compose.ui.graphics.Color(0xFFFF453A),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4f))
+            if (picked != null) {
+                val px = (((picked.first - t0) / spanT).toFloat()) * size.width
+                val py = size.height -
+                    (((picked.second - minBpm) / spanBpm).toFloat() * size.height)
+                drawLine(
+                    color = androidx.compose.ui.graphics.Color(0x73FFFFFF),
+                    start = androidx.compose.ui.geometry.Offset(px, 0f),
+                    end = androidx.compose.ui.geometry.Offset(px, size.height),
+                    strokeWidth = 2f,
+                    pathEffect = androidx.compose.ui.graphics.PathEffect
+                        .dashPathEffect(floatArrayOf(8f, 8f))
+                )
+                drawCircle(color = androidx.compose.ui.graphics.Color(0xFFFF453A),
+                    radius = 9f,
+                    center = androidx.compose.ui.geometry.Offset(px, py))
+            }
+        }
+        Text("${minBpm}–${maxBpm} lpm durante la sesión · arrastra para inspeccionar",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
 

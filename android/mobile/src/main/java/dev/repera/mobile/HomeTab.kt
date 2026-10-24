@@ -98,6 +98,7 @@ internal fun HomeTab(
     onDeleteFinishedSet: (String, String, String) -> Unit,
     onDeleteWorkout: (String) -> Unit = {},
     onOpenExerciseFromSession: (String, String, String) -> Unit = { _, _, _ -> },
+    heartSeriesProvider: suspend (String) -> List<Pair<Long, Int>> = { emptyList() },
 
     onNavigateCreate: () -> Unit,
     onDeleteRoutine: (String) -> Unit = {},
@@ -238,7 +239,8 @@ internal fun HomeTab(
         items(workouts, key = { it.id }) { workout ->
             WorkoutHistoryCard(workout, busy,
                         onReviseFinishedSet, onDeleteFinishedSet,
-                        onDeleteWorkout, onOpenExerciseFromSession)
+                        onDeleteWorkout, onOpenExerciseFromSession,
+                        heartSeriesProvider)
         }
         item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
         item {

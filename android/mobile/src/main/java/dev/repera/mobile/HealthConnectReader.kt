@@ -143,6 +143,27 @@ class HealthConnectReader(private val context: Context) {
         )
     }
 
+    /** Serie temporal de FC de una sesión (epoch ms → lpm) para la curva
+     *  del detalle (extras.heartRateSeries iOS). Vacía sin permiso o datos. */
+    suspend fun readSessionHeartSeries(startEpochMs: Long, endEpochMs: Long): List<Pair<Long, Int>> {
+        if (!available() || endEpochMs <= startEpochMs) return emptyList()
+        val client = HealthConnectClient.getOrCreate(context)
+        val granted = client.permissionController.getGrantedPermissions()
+        if (!granted.contains(HealthPermission.getReadPermission(HeartRateRecord::class)))
+            return emptyList()
+        val response = client.readRecords(ReadRecordsRequest(
+            HeartRateRecord::class,
+            TimeRangeFilter.between(Instant.ofEpochMilli(startEpochMs),
+                Instant.ofEpochMilli(endEpochMs))))
+        // Misma deduplicación por origen que readSessionSample.
+        return (response.records
+            .groupBy { it.metadata.dataOrigin.packageName }
+            .maxByOrNull { it.value.sumOf { r -> r.samples.size } }
+            ?.value ?: emptyList()).flatMap { record ->
+            record.samples.map { it.time.toEpochMilli() to it.beatsPerMinute.toInt() }
+        }.sortedBy { it.first }
+    }
+
     /** Muestra de cardio de UNA sesión (HealthKitStore.sessionHealthExtras
      *  iOS): serie de FC y kcal activas dentro de la ventana del entreno.
      *  Requiere permisos ya concedidos; sin permiso devuelve muestra vacía. */
@@ -156,15 +177,25 @@ class HealthConnectReader(private val context: Context) {
         if (granted.contains(HealthPermission.getReadPermission(HeartRateRecord::class))) {
             val response = client.readRecords(ReadRecordsRequest(
                 HeartRateRecord::class, TimeRangeFilter.between(start, end)))
-            bpm = response.records.flatMap { it.samples }
-                .map { it.beatsPerMinute.toDouble() }
+            // Health Connect NO deduplica entre orígenes: si teléfono y reloj
+            // escriben la misma sesión, sumar todo duplica. Se usa solo el
+            // origen dominante (más muestras), documentado como aproximación;
+            // iOS delega la deduplicación en HealthKit.
+            bpm = response.records
+                .groupBy { it.metadata.dataOrigin.packageName }
+                .maxByOrNull { it.value.sumOf { r -> r.samples.size } }
+                ?.value?.flatMap { it.samples }
+                ?.map { it.beatsPerMinute.toDouble() } ?: emptyList()
         }
         var kcal: Double? = null
         if (granted.contains(HealthPermission.getReadPermission(
                 ActiveCaloriesBurnedRecord::class))) {
             val response = client.readRecords(ReadRecordsRequest(
                 ActiveCaloriesBurnedRecord::class, TimeRangeFilter.between(start, end)))
-            val total = response.records.sumOf { it.energy.inKilocalories }
+            val total = response.records
+                .groupBy { it.metadata.dataOrigin.packageName }
+                .maxByOrNull { it.value.size }
+                ?.value?.sumOf { it.energy.inKilocalories } ?: 0.0
             if (total > 0) kcal = total
         }
         return dev.repera.domain.SessionCardioSample(
