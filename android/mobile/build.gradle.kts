@@ -45,6 +45,9 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:5.5.0")
     implementation("androidx.health.connect:connect-client:1.1.0")
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    // Google Play Billing: solo detección de compras; la concesión Pro exige
+    // verificación backend (ver android/docs/MONETIZATION_PLAY_BILLING.md).
+    implementation("com.android.billingclient:billing-ktx:8.0.0")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20231013")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")

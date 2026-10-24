@@ -69,6 +69,7 @@ class UnconfiguredEntitlementProvider : EntitlementProvider {
 object CommercialConfig {
     const val MONTHLY_PRODUCT_ID = "com.app.repera.premium.monthly"
     const val ANNUAL_PRODUCT_ID = "com.app.repera.premium.yearly"
+    val ALL_PRODUCT_IDS = setOf(MONTHLY_PRODUCT_ID, ANNUAL_PRODUCT_ID)
     const val PRIVACY_POLICY_URL = "https://repera.app/privacy"
     const val TERMS_OF_USE_URL = "https://repera.app/terms"
     /** Deep link de gestión de suscripciones de Google Play. */
