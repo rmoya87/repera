@@ -131,11 +131,7 @@ class VisualVerificationInstrumentedTest {
         save("progreso_peso_cardio", compose.onRoot().captureToImage())
     }
 
-    @Test
-    fun capturaPantallaProgresoCompletaConTemaRepera() {
-        // Pantalla real: tema de marca (verde Repera) + datos reales construidos
-        // por el pipeline StateOverview.fromBytes, no composables aislados.
-        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+    private fun estadoSinteticoOverview(): StateOverview {
         val today = LocalDate.now()
         fun exercise(id: String, name: String, muscle: String, equipment: String?) =
             JSONObject().put("id", id).put("name", name).put("muscleGroup", muscle)
@@ -188,8 +184,15 @@ class VisualVerificationInstrumentedTest {
             .put("exerciseLoadPrefs", JSONObject())
             .put("syncRevision", 1)
             .put("lastWriterDeviceId", "visual-test")
-        val bytes = state.toString().toByteArray(Charsets.UTF_8)
-        val overview = StateOverview.fromBytes(bytes)!!
+        return StateOverview.fromBytes(
+            state.toString().toByteArray(Charsets.UTF_8))!!
+    }
+
+    @Test
+    fun capturaPantallaProgresoCompletaConTemaRepera() {
+        // Pantalla real: tema de marca (verde Repera) + datos reales construidos
+        // por el pipeline StateOverview.fromBytes, no composables aislados.
+        val overview = estadoSinteticoOverview()
         compose.setContent {
             MaterialTheme(colorScheme = androidx.compose.material3.lightColorScheme(
                 primary = brandGreen,
@@ -208,5 +211,42 @@ class VisualVerificationInstrumentedTest {
         }
         compose.waitForIdle()
         save("pantalla_progreso_tema_repera", compose.onRoot().captureToImage())
+    }
+
+    @Test
+    fun capturaPantallaInicioConTemaRepera() {
+        // Pantalla de inicio real con tema de marca y datos del pipeline real.
+        val overview = estadoSinteticoOverview()
+        compose.setContent {
+            MaterialTheme(colorScheme = androidx.compose.material3.lightColorScheme(
+                primary = brandGreen,
+                onPrimary = androidx.compose.ui.graphics.Color.Black)) {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    HomeTab(
+                        displayName = "Ramón", busy = false, syncing = false,
+                        status = null, overview = overview, todayHealth = null,
+                        onHealthConnect = {}, activeWorkout = null, wodTimer = null,
+                        onWodTimerAction = {}, onWodTimerTick = {},
+                        onStartRoutine = {}, onWodScore = { _, _, _ -> },
+                        onWodMovement = { _, _, _, _ -> },
+                        onCompleteWodBlock = {},
+                        onReviseWodMovement = { _, _, _ -> },
+                        onDeleteWodMovement = {},
+                        onLogSet = { _, _, _, _, _, _, _ -> },
+                        onLogDropSet = { _, _, _ -> },
+                        onLogRestPauseSet = { _, _ -> },
+                        onReviseSet = { _, _, _, _, _, _ -> },
+                        onDeleteSet = {},
+                        onReviseFinishedSet = { _, _, _, _, _, _ -> },
+                        onDeleteFinishedSet = { _, _, _ -> },
+                        onNext = {}, onFinish = {},
+                        onInitializeLocal = {}, onImportJson = {},
+                        onDriveSync = {}, onExportJson = {}, onSignOut = {},
+                        onNavigateCreate = {}, onOpenClock = {})
+                }
+            }
+        }
+        compose.waitForIdle()
+        save("pantalla_inicio_tema_repera", compose.onRoot().captureToImage())
     }
 }
