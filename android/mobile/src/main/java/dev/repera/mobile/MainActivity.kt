@@ -79,10 +79,23 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
     }
 
+    /** Espejo del calendario de planificación para la IA (contexto). */
+    private fun syncAITrainingContext() {
+        val session = verifiedSupabase ?: return
+        val uniqueId = profile?.uniqueId ?: return
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                AITrainingContextStore(this@MainActivity, session.userId)
+                    .sync(session, WorkoutRepository(this@MainActivity, uniqueId))
+            }
+        }
+    }
+
     /** Espejo IA + bandeja: tras establecer sesión o refrescar. */
     private fun syncSupabaseMirrors() {
         syncAITrainingInbox()
         syncWorkoutMirror()
+        syncAITrainingContext()
     }
 
     /** Realtime de planes IA: vivo solo en foreground, resync al suscribirse. */

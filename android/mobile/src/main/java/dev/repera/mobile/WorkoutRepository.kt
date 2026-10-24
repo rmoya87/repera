@@ -262,6 +262,15 @@ class WorkoutRepository(context: Context, googleId: String) {
         }
     }
 
+    /** Catálogo de ejercicios actual (copia) para el espejo de contexto IA. */
+    @Synchronized fun exercisesSnapshot(): List<JSONObject> {
+        val state = requireState()
+        val catalog = state.optJSONArray("exercises") ?: JSONArray()
+        return (0 until catalog.length()).map {
+            JSONObject(catalog.getJSONObject(it).toString())
+        }
+    }
+
     /** iOS AITrainingInboxStore.catalogExercise: por catalogKey, luego por
      * nombre normalizado; si no existe, crea ejercicio libre (isCustom) que
      * permanece usable/editable en el mismo bloque y registro. Devuelve el id. */
