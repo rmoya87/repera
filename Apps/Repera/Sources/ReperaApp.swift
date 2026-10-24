@@ -173,7 +173,9 @@ struct ReperaApp: App {
                     }
 
                     if canEnterMainApp {
-                        CatalogBackgroundRefreshScheduler.schedule()
+                        if businessAuth.isConnected || businessAuth.hasPriorSupabaseBinding {
+                            CatalogBackgroundRefreshScheduler.schedule()
+                        }
                         Task(priority: .utility) {
                             await businessAuth.syncPublicProfile(
                                 displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName,
@@ -198,7 +200,9 @@ struct ReperaApp: App {
                 }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .background {
-                        CatalogBackgroundRefreshScheduler.schedule()
+                        if businessAuth.isConnected || businessAuth.hasPriorSupabaseBinding {
+                            CatalogBackgroundRefreshScheduler.schedule()
+                        }
                         aiInbox.stopRealtime()
                         wasBackgrounded = true
                         Task {
@@ -237,6 +241,7 @@ struct ReperaApp: App {
                 }
                 .onChange(of: businessAuth.isConnected) { _, connected in
                     if connected {
+                        CatalogBackgroundRefreshScheduler.schedule()
                         Task {
                             await RemoteExerciseCatalogStore.shared.refresh(store: store)
                             await workoutSync.sync(store: store)
