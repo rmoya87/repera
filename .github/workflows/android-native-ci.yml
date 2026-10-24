@@ -102,7 +102,7 @@ jobs:
           # API 36.1: surfaceflinger (RegionSamplingThread) ha crasheado en 2
           # runs y el boot no llega a completar dentro de la ventana; forzar
           # renderizado por software y arranque limpio sin snapshots.
-          emulator-options: -no-snapshot-save -no-boot-anim -memory 4096 -gpu swiftshader_indirect
+          emulator-options: -no-snapshot-save -no-boot-anim -no-audio -memory 4096 -gpu swiftshader_indirect
           # UNA sola línea: android-emulator-runner ejecuta cada línea del
           # script en un sh -c distinto, así que un TEST_EXIT en su propia
           # línea se pierde y el paso sale verde aunque fallen los tests.
