@@ -113,7 +113,7 @@ jobs:
           git add Apps/Repera/Resources/Assets.xcassets/ReperaLaunchHeroOpaque.imageset \
                   Apps/Repera/Resources/ReperaLaunchOpaque.storyboard \
                   Apps/Repera/Resources/LaunchScreen.storyboard \
-                  Apps/Repera/Resources/Info.plist project.yml \
+                  Apps/Repera/Resources/Info.plist project.yml
           git rm .github/workflows/rebuild-opaque-native-launch-once.yml
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Fix cached transparent iOS launch: opaque Repera mascot and new launch storyboard"
           git pull --rebase origin main
