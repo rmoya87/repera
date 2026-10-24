@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-24 (SDK oficial Google Sign-In y bienvenida adaptable)
+Última actualización: 2026-10-25 (catálogo remoto incremental, cache persistente y RLS)
 
 ## Series de movilidad (iOS)
 
@@ -8,7 +8,7 @@
 
 ## Catálogo de ejercicios remoto y offline (2026-10-25)
 
-`RemoteExerciseCatalogStore` consulta el feed de cambios `mobile_exercise_catalog_events` generado por triggers sobre el catálogo profesional y sus metadatos. Una lectura de la última revisión precede a páginas incrementales de 150 eventos. Los resultados se guardan atómicamente fuera del JSON personal/iCloud en Application Support; tras cualquier recuperación de iCloud se aplica la caché como capa editorial. `Catalog.seed()` permanece de respaldo para primer arranque sin red. `Exercise.isCatalogArchived` preserva UUID/estadísticas y oculta bajas de biblioteca/pickers. Watch recibe actualizaciones de contexto desde iOS y no requiere un cliente Supabase propio. Detalles y límites de implantación: [REMOTE_EXERCISE_CATALOG.md](REMOTE_EXERCISE_CATALOG.md).
+`RemoteExerciseCatalogStore` consulta el feed de cambios `mobile_exercise_catalog_events` generado por triggers sobre el catálogo profesional y sus metadatos. Una lectura de la última revisión precede a páginas incrementales de 150 eventos (confirmaciones serializadas). Las correcciones de material usan `mobile_equipment`, sin sustituir el seed más detallado por el material genérico de MCP. Los resultados se guardan atómicamente fuera del JSON personal/iCloud en Application Support; tras cualquier recuperación de iCloud se aplica la caché como capa editorial. `Catalog.seed()` permanece de respaldo para primer arranque sin red. `Exercise.isCatalogArchived` preserva UUID/estadísticas y oculta bajas de biblioteca/pickers. Watch recibe actualizaciones de contexto desde iOS y no requiere un cliente Supabase propio. Detalles y límites de implantación: [REMOTE_EXERCISE_CATALOG.md](REMOTE_EXERCISE_CATALOG.md).
 
 ## Unidad de cardio en rutinas y sesiones
 
