@@ -1071,6 +1071,9 @@ public enum CatalogSpanish {
             "Aprende swing y clean de KB antes del snatch.",
         ],
         "Clean kettlebell": [
+            "Bisagra: kettlebell en el suelo entre los pies, espalda plana.",
+            "Extension de cadera y tiron pegado al cuerpo.",
+            "Rack estable: codo pegado, campana apoyada suave en el antebrazo.",
             "KB entre pies o ligeramente delante; bisagra, agarra el mango, extiende cadera y guía la KB a rack (codo pegado, mango en pecho).",
             "No golpees el antebrazo: ‘enrosca’ la mano alrededor del mango en la recepción.",
             "Párate estable en rack; baja a swing o suelo con control.",
