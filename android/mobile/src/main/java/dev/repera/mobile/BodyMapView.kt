@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Path as ComposePath
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -186,24 +187,37 @@ private fun BodySilhouetteView(
         val dx = (size.width - vb.width() * scale) / 2 - vb.left * scale
         val dy = (size.height - vb.height() * scale) / 2 - vb.top * scale
 
-        drawContext.canvas.save()
-        drawContext.canvas.translate(dx, dy)
-        drawContext.canvas.scale(scale, scale)
-        for (slug in MuscleTaxonomy.muscles) {
-            val level = levels[slug] ?: 0
-            val isSel = selected == slug
-            for (path in view.musclePaths[slug] ?: emptyList()) {
-                val compose = path.asComposePath()
-                drawPath(compose, color = BodyMapPalette.fill(level))
-                if (isSel) {
-                    drawPath(compose, color = Color.White, style = Stroke(width = 1.5f / scale))
+        android.util.Log.i("BodyMap", "draw size=$size vb=$vb scale=$scale " +
+            "músculos=${view.musclePaths.size} rutas=${view.musclePaths.values.sumOf { it.size }} " +
+            "inertes=${view.inertPaths.mapValues { it.value.size }}")
+        // Orden 1:1 con iOS: inertes (sin cabeza) detrás, músculos encima y la
+        // cabeza neutra la última. Transformación con la API idiomática de
+        // DrawScope (withTransform), no con save/restore del canvas crudo.
+        withTransform({
+            translate(dx, dy)
+            scale(scale, scale, Offset.Zero)
+        }) {
+            for (key in view.inertPaths.keys.sorted()) {
+                if (key == "head") continue
+                for (path in view.inertPaths[key] ?: emptyList()) {
+                    drawPath(path.asComposePath(), color = BodyMapPalette.silhouette)
                 }
             }
+            for (slug in MuscleTaxonomy.muscles) {
+                val level = levels[slug] ?: 0
+                val isSel = selected == slug
+                for (path in view.musclePaths[slug] ?: emptyList()) {
+                    val compose = path.asComposePath()
+                    drawPath(compose, color = BodyMapPalette.fill(level))
+                    if (isSel) {
+                        drawPath(compose, color = Color.White, style = Stroke(width = 1.5f / scale))
+                    }
+                }
+            }
+            for (path in view.inertPaths["head"] ?: emptyList()) {
+                drawPath(path.asComposePath(), color = BodyMapPalette.silhouette)
+            }
         }
-        for (path in view.inertPaths["head"] ?: emptyList()) {
-            drawPath(path.asComposePath(), color = BodyMapPalette.silhouette)
-        }
-        drawContext.canvas.restore()
     }
 }
 
