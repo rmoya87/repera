@@ -257,14 +257,3 @@ object SportExerciseNames {
     /** Alias técnicos EN->ES para indexación o resolución inversa de la pizarra. */
     fun englishAliasForSpanish(name: String): String? = normalizedSpanishToEnglish[key(name)]
 }
-
-/** Port del subconjunto de ExerciseEquivalence.swift que usa el escáner. */
-object ExerciseEquivalence {
-    private fun normalize(s: String): String = Normalizer.normalize(s, Normalizer.Form.NFD)
-        .replace(Regex("\\p{Mn}+"), "")
-        .lowercase(Locale.ROOT)
-        .trim()
-
-    fun sameName(a: String, b: String): Boolean =
-        normalize(SportExerciseNames.canonicalName(a)) == normalize(SportExerciseNames.canonicalName(b))
-}

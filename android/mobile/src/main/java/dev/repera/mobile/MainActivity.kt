@@ -54,6 +54,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var status by mutableStateOf<String?>(null)
     private var snapshot by mutableStateOf<StateOverview?>(null)
     private var activeWorkout by mutableStateOf<ActiveWorkout?>(null)
+    private var pendingReview by mutableStateOf<dev.repera.domain.SessionReview?>(null)
     private var wodTimer by mutableStateOf<WodTimerState?>(null)
     private var todayHealth by mutableStateOf<TodayHealth?>(null)
     private var healthSamples by mutableStateOf<HealthSamples?>(null)
@@ -604,6 +605,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onDriveSync = ::authorizeDrive,
                 onSignOut = ::signOut
             )
+            // Hoja post-entreno (SessionReviewSheet iOS): se presenta una vez
+            // al terminar una sesión con valoración verificable.
+            pendingReview?.let { review ->
+                SessionReviewSheet(review) { pendingReview = null }
+            }
         }
     }
 
@@ -1053,9 +1059,16 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val (overview, active, bytes) = withContext(Dispatchers.IO) {
             val store = LocalSnapshotStore(this@MainActivity, id)
             MobilityCatalogMigration.ensure(this@MainActivity, id)
+            val repository = WorkoutRepository(this@MainActivity, id)
+            // Recalcula notas persistidas si subió la fórmula (iOS v11).
+            runCatching { repository.refreshSessionReviewsIfNeeded() }
             val bytes = store.read()
-            Triple(StateOverview.fromBytes(bytes, healthSamples, recoveryRead), WorkoutRepository(this@MainActivity, id).active(), bytes)
+            Triple(StateOverview.fromBytes(bytes, healthSamples, recoveryRead), repository.active(), bytes)
         }
+        // Valoración pendiente tras terminar sesión (pendingSessionReview iOS).
+        withContext(Dispatchers.IO) {
+            WorkoutRepository(this@MainActivity, id).consumePendingReview()
+        }?.let { pendingReview = it.second }
         snapshot = overview
         activeWorkout = active
         refreshWodTimer()
@@ -1307,6 +1320,8 @@ data class StateOverview(
                     WorkoutHistoryEntry(
                         id = session.optString("id"),
                         title = session.optString("title"),
+                        review = session.optJSONObject("sessionReview")
+                            ?.let { SessionReviewJson.fromJson(it) },
                         startedAt = runCatching {
                             java.time.Instant.parse(session.optString("startedAt"))
                                 .atZone(java.time.ZoneId.systemDefault())
@@ -1568,7 +1583,8 @@ data class WorkoutHistoryEntry(
     val title: String,
     val startedAt: String,
     val results: List<String>,
-    val movements: List<WorkoutHistoryMovement>
+    val movements: List<WorkoutHistoryMovement>,
+    val review: dev.repera.domain.SessionReview? = null
 )
 data class WorkoutHistoryMovement(
     val name: String,

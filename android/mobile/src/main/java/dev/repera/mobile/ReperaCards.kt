@@ -1273,6 +1273,9 @@ internal fun WorkoutHistoryCard(
                     }
                 }
             } else {
+                // Valoración verificable de la sesión (SessionReviewCard iOS en
+                // Historial; en Android el detalle vive en la tarjeta expandida).
+                workout.review?.let { SessionReviewCard(it) }
                 workout.movements.forEachIndexed { index, movement ->
                     TextButton(
                         modifier = Modifier.fillMaxWidth(),

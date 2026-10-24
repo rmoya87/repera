@@ -5,6 +5,7 @@ import dev.repera.domain.ExerciseInput
 import dev.repera.domain.ExerciseInputMode
 import dev.repera.domain.WodFormat
 import dev.repera.domain.ResultCapture
+import dev.repera.domain.SessionReview
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
@@ -1834,7 +1835,47 @@ class WorkoutRepository(context: Context, googleId: String) {
         session.put("phase", "finished").put("finishedAt", nowISO8601())
         state.getJSONArray("workouts").put(session)
         state.remove("activeSession")
+        // Valoración post-entreno (paridad ReperaStore.attachSessionReview iOS):
+        // se calcula con todo el historial y se persiste dentro de la sesión.
+        val review = SessionReviewSupport.attachToFinishedSession(state, session)
+        if (review != null) {
+            prefs.edit().putString(SessionReviewSupport.PREFS_PENDING_KEY,
+                session.optString("id")).apply()
+        }
         save(state)
+    }
+
+    /** Valoración pendiente de mostrar tras terminar (pendingSessionReview iOS).
+     *  Se consume una sola vez. */
+    @Synchronized fun consumePendingReview(): Pair<String, SessionReview>? {
+        val id = prefs.getString(SessionReviewSupport.PREFS_PENDING_KEY, null)
+            ?: return null
+        prefs.edit().remove(SessionReviewSupport.PREFS_PENDING_KEY).apply()
+        val state = loadOrNull() ?: return null
+        val archive = state.optJSONArray("workouts") ?: return null
+        for (i in 0 until archive.length()) {
+            val session = archive.optJSONObject(i) ?: continue
+            if (session.optString("id") == id) {
+                val review = session.optJSONObject("sessionReview")
+                    ?.let { SessionReviewJson.fromJson(it) } ?: return null
+                return id to review
+            }
+        }
+        return null
+    }
+
+    /** Recalcula notas de todos los entrenos si la fórmula cambió
+     *  (refreshSessionReviewsIfNeeded iOS). */
+    @Synchronized fun refreshSessionReviewsIfNeeded() {
+        val stored = prefs.getInt(SessionReviewSupport.PREFS_VERSION_KEY, 0)
+        val state = loadOrNull() ?: return
+        if (SessionReviewSupport.refreshAllIfNeeded(state, stored)) {
+            save(state)
+        }
+        if (stored < SessionReviewSupport.FORMULA_VERSION) {
+            prefs.edit().putInt(SessionReviewSupport.PREFS_VERSION_KEY,
+                SessionReviewSupport.FORMULA_VERSION).apply()
+        }
     }
 
     private fun isMobilityHold(exercise: JSONObject): Boolean =
