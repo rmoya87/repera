@@ -464,7 +464,7 @@ final class ReperaStore: NSObject {
 
     func completeInitialRemoteSync() async {
         await refreshFromiCloud(isInitial: true)
-        RemoteExerciseCatalogStore.shared.restoreCached(to: self)
+        await RemoteExerciseCatalogStore.shared.restoreCached(to: self)
         didCompleteInitialRemoteSync = true
     }
 
