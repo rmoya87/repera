@@ -48,7 +48,6 @@ class HealthConnectWriter(private val context: Context) {
             val start = Instant.ofEpochMilli(startEpochMs)
             val end = Instant.ofEpochMilli(endEpochMs)
             var candidates: List<SessionHealthMatcher.CandidateSession> = emptyList()
-            var ownByClientId: String? = null
             if (granted.contains(HealthPermission.getReadPermission(ExerciseSessionRecord::class))) {
                 val lo = start.minusMillis(SessionHealthMatcher.QUERY_SLACK_MS)
                 val hi = end.plusMillis(SessionHealthMatcher.QUERY_SLACK_MS)
@@ -59,28 +58,22 @@ class HealthConnectWriter(private val context: Context) {
                         id = it.metadata.id,
                         startEpochMs = it.startTime.toEpochMilli(),
                         endEpochMs = it.endTime.toEpochMilli(),
-                        packageName = it.metadata.dataOrigin.packageName
+                        packageName = it.metadata.dataOrigin.packageName,
+                        clientRecordId = it.metadata.clientRecordId
                     )
                 }
-                val wantedClientId = HealthSessionLink.clientRecordId(sessionId)
-                ownByClientId = response.records.firstOrNull {
-                    it.metadata.dataOrigin.packageName == context.packageName &&
-                        it.metadata.clientRecordId == wantedClientId
-                }?.metadata?.id
             }
-            // 1) Vínculo persistido que sigue existiendo.
-            SessionHealthMatcher.matchById(candidates, storedRecordId)?.let { return it.id }
-            // 2) Registro propio con el clientRecordId de esta sesión.
-            ownByClientId?.let { return it }
-            // 3) Una única sesión EXTERNA inequívoca: se adopta, no se escribe.
-            val association = SessionHealthMatcher.associate(
-                startEpochMs, endEpochMs, candidates, context.packageName)
-            if (association is SessionHealthMatcher.Association.Matched &&
-                association.session.packageName != context.packageName) {
-                return association.session.id
+            // Decisión de vínculo en dominio puro (SessionHealthMatcher.resolveLink):
+            // el vínculo persistido solo se reusa si pertenece a ESTA sesión y el
+            // registro sigue válido; la ambigüedad se excluye ANTES de insertar.
+            when (val decision = SessionHealthMatcher.resolveLink(
+                sessionId, startEpochMs, endEpochMs, storedRecordId,
+                candidates, context.packageName)) {
+                is SessionHealthMatcher.LinkDecision.UseExisting -> return decision.recordId
+                SessionHealthMatcher.LinkDecision.Skip -> return null
+                SessionHealthMatcher.LinkDecision.Insert -> Unit
             }
-            if (association == SessionHealthMatcher.Association.Ambiguous) return null
-            // 4) Escritura idempotente (mismo clientRecordId ⇒ actualiza).
+            // Escritura idempotente (mismo clientRecordId ⇒ actualiza).
             val zone = ZoneId.systemDefault().rules.getOffset(start)
             val record = ExerciseSessionRecord(
                 startTime = start,

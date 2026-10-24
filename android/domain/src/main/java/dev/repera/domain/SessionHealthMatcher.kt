@@ -39,7 +39,8 @@ object SessionHealthMatcher {
         val id: String,
         val startEpochMs: Long,
         val endEpochMs: Long,
-        val packageName: String
+        val packageName: String,
+        val clientRecordId: String? = null
     )
 
     sealed interface Association {
@@ -108,6 +109,70 @@ object SessionHealthMatcher {
     ): CandidateSession? {
         if (linkedRecordId.isNullOrBlank()) return null
         return candidates.firstOrNull { it.id == linkedRecordId }
+    }
+
+    /** Decisión de vínculo/escritura de la sesión propia en Salud. */
+    sealed interface LinkDecision {
+        /** Reusar/adoptar un registro existente; NO se escribe nada. */
+        data class UseExisting(val recordId: String) : LinkDecision
+        /** Insertar (o actualizar por clientRecordId) el registro propio. */
+        data object Insert : LinkDecision
+        /** Asociación ambigua: ni reutilizar ni escribir (conservar local). */
+        data object Skip : LinkDecision
+    }
+
+    /** Vínculo persistido reutilizable SOLO si el registro sigue existiendo Y
+     *  pertenece a ESTA sesión: propio con el clientRecordId de la sesión, o
+     *  supera los umbrales de asociación por ventana de associate(). Un
+     *  vínculo que apunta a un registro que ya no existe o que no cumple
+     *  ninguna de las dos condiciones (obsoleto, de otra sesión o corrupto)
+     *  se descarta y se cae a las reglas normales. */
+    fun validStoredLink(
+        sessionId: String,
+        sessionStartMs: Long,
+        sessionEndMs: Long,
+        storedRecordId: String?,
+        candidates: List<CandidateSession>,
+        ownPackageName: String
+    ): CandidateSession? {
+        if (storedRecordId.isNullOrBlank()) return null
+        val rec = candidates.firstOrNull { it.id == storedRecordId } ?: return null
+        val ownsIt = rec.packageName == ownPackageName &&
+            rec.clientRecordId != null &&
+            rec.clientRecordId == HealthSessionLink.clientRecordId(sessionId)
+        if (ownsIt) return rec
+        return if (associate(sessionStartMs, sessionEndMs, listOf(rec), ownPackageName)
+            is Association.Matched) rec else null
+    }
+
+    /** Orden de decisión de syncWorkoutToHealth (HealthKitStore.finishWorkout
+     *  iOS), con la ambigüedad excluida explícitamente ANTES de insertar:
+     *  1) vínculo persistido válido (validStoredLink); 2) registro propio con
+     *  el clientRecordId de la sesión (idempotencia); 3) una única sesión
+     *  plausible: externa → se adopta sin escribir; propia → se reusa (iOS
+     *  actualiza el registro existente; insertar crearía duplicado);
+     *  Ambiguous → Skip; None → Insert. */
+    fun resolveLink(
+        sessionId: String,
+        sessionStartMs: Long,
+        sessionEndMs: Long,
+        storedRecordId: String?,
+        candidates: List<CandidateSession>,
+        ownPackageName: String
+    ): LinkDecision {
+        validStoredLink(sessionId, sessionStartMs, sessionEndMs,
+            storedRecordId, candidates, ownPackageName)
+            ?.let { return LinkDecision.UseExisting(it.id) }
+        val wantedClientId = HealthSessionLink.clientRecordId(sessionId)
+        candidates.firstOrNull {
+            it.packageName == ownPackageName && it.clientRecordId == wantedClientId
+        }?.let { return LinkDecision.UseExisting(it.id) }
+        return when (val a = associate(
+            sessionStartMs, sessionEndMs, candidates, ownPackageName)) {
+            is Association.Matched -> LinkDecision.UseExisting(a.session.id)
+            Association.Ambiguous -> LinkDecision.Skip
+            Association.None -> LinkDecision.Insert
+        }
     }
 
     /** Fusiona muestras de FC de todos los orígenes en la ventana: dedup de

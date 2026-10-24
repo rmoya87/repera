@@ -212,12 +212,18 @@ class HealthConnectReader(private val context: Context) {
      *  (None) o con asociación ambigua (Ambiguous) no se lee nada — la
      *  señal que solo coincide en ventana puede ser ajena, y la nota
      *  existente se conserva (iOS sí lee FC de ventana sin workout). */
-    private suspend fun matchedSession(startEpochMs: Long, endEpochMs: Long,
+    private suspend fun matchedSession(sessionId: String?, startEpochMs: Long, endEpochMs: Long,
                                        linkedRecordId: String?): dev.repera.domain.SessionHealthMatcher.CandidateSession? {
         val candidates = readSessionCandidates(startEpochMs, endEpochMs)
-        // Vínculo persistido primero (fetchWorkout(uuid) iOS); si no, matching.
-        dev.repera.domain.SessionHealthMatcher.matchById(candidates, linkedRecordId)
-            ?.let { return it }
+        // Vínculo persistido primero (fetchWorkout(uuid) iOS), pero solo se
+        // reusa si pertenece a ESTA sesión y el registro sigue válido; si no,
+        // matching por ventana. Un vínculo sin sessionId no es verificable y
+        // no se fía ciegamente.
+        if (sessionId != null) {
+            dev.repera.domain.SessionHealthMatcher.validStoredLink(
+                sessionId, startEpochMs, endEpochMs, linkedRecordId,
+                candidates, context.packageName)?.let { return it }
+        }
         return (dev.repera.domain.SessionHealthMatcher.associate(
             startEpochMs, endEpochMs, candidates, context.packageName)
             as? dev.repera.domain.SessionHealthMatcher.Association.Matched)?.session
@@ -228,9 +234,10 @@ class HealthConnectReader(private val context: Context) {
      *  con dedup de duplicados exactos (SessionHealthMatcher); si la señal es
      *  contradictoria entre orígenes devuelve vacío (ni curva ni refinado). */
     suspend fun readSessionHeartSeries(startEpochMs: Long, endEpochMs: Long,
-                                       linkedRecordId: String? = null): List<Pair<Long, Int>> {
+                                       linkedRecordId: String? = null,
+                                       linkedSessionId: String? = null): List<Pair<Long, Int>> {
         if (!available() || endEpochMs <= startEpochMs) return emptyList()
-        val matched = matchedSession(startEpochMs, endEpochMs, linkedRecordId) ?: return emptyList()
+        val matched = matchedSession(linkedSessionId, startEpochMs, endEpochMs, linkedRecordId) ?: return emptyList()
         val evidence = readSessionEvidence(matched.startEpochMs, matched.endEpochMs)
         return when (val merged = dev.repera.domain.SessionHealthMatcher
             .mergeHeartRate(evidence.heart)) {
@@ -250,11 +257,12 @@ class HealthConnectReader(private val context: Context) {
      *  - kcal: SOLO del origen de la sesión asociada y dentro de su rango
      *    (workout.statistics iOS); sin asociación no hay kcal. */
     suspend fun readSessionSample(startEpochMs: Long, endEpochMs: Long,
-                                  linkedRecordId: String? = null): dev.repera.domain.SessionCardioSample {
+                                  linkedRecordId: String? = null,
+                                  linkedSessionId: String? = null): dev.repera.domain.SessionCardioSample {
         if (!available() || endEpochMs <= startEpochMs) return dev.repera.domain.SessionCardioSample()
         // Sin asociación confiable (None o Ambiguous) no se refina: la nota
         // existente se conserva y la FC ajena en ventana no se usa.
-        val matched = matchedSession(startEpochMs, endEpochMs, linkedRecordId)
+        val matched = matchedSession(linkedSessionId, startEpochMs, endEpochMs, linkedRecordId)
             ?: return dev.repera.domain.SessionCardioSample()
         val evidence = readSessionEvidence(matched.startEpochMs, matched.endEpochMs)
         val bpm: List<Double> = when (val merged = dev.repera.domain.SessionHealthMatcher

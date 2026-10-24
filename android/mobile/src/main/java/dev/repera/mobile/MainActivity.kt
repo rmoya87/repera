@@ -60,6 +60,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
 
     private var profile by mutableStateOf<GoogleProfile?>(null)
     private var busy by mutableStateOf(false)
+    private var restoringSession by mutableStateOf(false)
     private var syncing by mutableStateOf(false)
     private var status by mutableStateOf<String?>(null)
     private var snapshot by mutableStateOf<StateOverview?>(null)
@@ -480,7 +481,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         lifecycleScope.launch { subscriptions.start() }
         setContent {
             CompositionLocalProvider(LocalSubscriptions provides subscriptions) {
-            if (profile == null || !onboarding.isComplete) {
+            if (restoringSession) {
+                LaunchSplashScreen()
+            } else if (profile == null || !onboarding.isComplete) {
                 OnboardingFlow(
                     store = onboarding,
                     subscriptions = subscriptions,
@@ -548,7 +551,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                             val range = WorkoutRepository(this, uid)
                                 .sessionTimeRange(sessionId)
                                 ?: return@runCatching emptyList()
-                            reader.readSessionHeartSeries(range.first, range.second)
+                            reader.readSessionHeartSeries(range.first, range.second,
+                                linkedRecordId = WorkoutRepository(this, uid).healthRecordId(sessionId),
+                                linkedSessionId = sessionId)
                         }.getOrDefault(emptyList())
                     }
                 },
@@ -957,6 +962,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val stored = sessionStore.load() ?: return
         if (busy) return
         busy = true
+        restoringSession = true
         lifecycleScope.launch {
             try {
                 val session = withContext(Dispatchers.IO) {
@@ -1003,6 +1009,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 profile = null
             } finally {
                 busy = false
+                restoringSession = false
             }
         }
     }
@@ -1109,7 +1116,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     val repo = WorkoutRepository(this@MainActivity, signedIn.uniqueId)
                     val range = repo.sessionTimeRange(sessionId) ?: return@runCatching null
                     val sample = reader.readSessionSample(range.first, range.second,
-                        repo.healthRecordId(sessionId))
+                        repo.healthRecordId(sessionId), sessionId)
                     if (!sample.hasUsableSignal) return@runCatching null
                     WorkoutRepository(this@MainActivity, signedIn.uniqueId)
                         .refineSessionReviewWithCardio(sessionId, sample)
