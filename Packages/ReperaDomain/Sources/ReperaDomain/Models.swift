@@ -189,6 +189,50 @@ public enum ExerciseLoggingStyle: String, Codable, Sendable, Hashable {
     }
 }
 
+/// Compatibilidades por movimiento, no por equipamiento: un snatch con barra
+/// no se convierte en snatch con mancuerna, y cada ejercicio mantiene su historial.
+/// Listas cerradas para no etiquetar como CrossFit toda la musculación de máquinas.
+private enum ExerciseDisciplineRules {
+    static func normalized(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.diacriticInsensitive, .caseInsensitive],
+                     locale: Locale(identifier: "es_ES"))
+            .lowercased()
+    }
+
+    static let crossFitGeneral: Set<String> = [
+        // Básicos de fuerza y acondicionamiento habituales en un box.
+        "press banca", "press banca inclinada", "press militar", "remo con barra",
+        "peso muerto", "peso muerto rumano", "peso muerto sumo",
+        "sentadilla", "sentadilla frontal", "zancadas", "plancha",
+        "fondos", "dominadas", "remo invertido", "ab wheel",
+        "farmer walk", "remo maquina", "bici estatica",
+        "paso lateral con banda"
+    ]
+
+    static let crossFitGymnastics: Set<String> = [
+        // Peso corporal usado como movimiento gimnástico en un WOD.
+        "burpee", "burpee box jump over", "burpee box jump",
+        "burpee al cajon", "burpee pull-up", "bar facing burpee",
+        "box jump", "salto al cajon", "box jump over",
+        "box step-up", "step-up al cajon", "broad jump", "bear crawl",
+        "walking lunge", "fondos", "dominadas", "remo invertido",
+        "plancha", "ab wheel"
+    ]
+
+    static let hyroxAlsoCrossFit: Set<String> = [
+        "burpee broad jump", "sandbag lunges"
+    ]
+
+    static let cardioNames: Set<String> = [
+        "run", "carrera", "cinta / carrera", "running", "shuttle run",
+        "ski erg", "skierg", "rowerg", "remo maquina", "remoergometro",
+        "air bike", "echo bike", "bici estatica",
+        "double-under", "single-under", "triple-under",
+        "dobles de comba", "simples de comba", "triples de comba"
+    ]
+}
+
 public struct Exercise: Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var name: String
@@ -223,12 +267,27 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         return holdIds.contains(identifier)
     }
 
-    /// Disciplinas compatibles, sin sustituir el origen del ejercicio.
-    /// HYROX es una etiqueta transversal: p. ej. Wall ball sigue siendo CrossFit.
+    /// Una misma variante pertenece a varias disciplinas, sin duplicar su UUID
+    /// ni su historial. `sportTag` sigue siendo el origen guardado en disco/cloud.
     public var disciplineTags: [String] {
-        var tags = sportTag.map { [$0] } ?? []
-        if HyroxExercises.isMovement(named: name) && !tags.contains("HYROX") {
-            tags.append("HYROX")
+        var tags: [String] = []
+        func include(_ tag: String) {
+            if !tags.contains(tag) { tags.append(tag) }
+        }
+        if let sportTag, !sportTag.isEmpty { include(sportTag) }
+
+        let normalized = ExerciseDisciplineRules.normalized(name)
+        if sportTag == "Halterofilia" || sportTag == "Gimnasia"
+            || ExerciseDisciplineRules.crossFitGeneral.contains(normalized)
+            || (sportTag == "HYROX" && ExerciseDisciplineRules.hyroxAlsoCrossFit.contains(normalized)) {
+            include("CrossFit")
+        }
+        if sportTag == "Gimnasia" || ExerciseDisciplineRules.crossFitGymnastics.contains(normalized) {
+            include("Gimnasia")
+        }
+        if HyroxExercises.isMovement(named: name) { include("HYROX") }
+        if muscleGroup == "Cardio" || ExerciseDisciplineRules.cardioNames.contains(normalized) {
+            include("Cardio")
         }
         return tags
     }
