@@ -205,18 +205,19 @@ class HealthConnectReader(private val context: Context) {
         val heart: List<dev.repera.domain.SessionHealthMatcher.HeartSample>,
         val kcal: List<KcalSample>)
 
-    /** Rango efectivo de lectura: el de la sesión de Salud asociada si la hay
-     *  (rangeStart/rangeEnd de sessionHealthExtras iOS), si no la ventana del
-     *  entreno. Ambigüedad ⇒ null (no se lee nada). */
+    /** Rango efectivo de lectura: el de la sesión de Salud asociada
+     *  (rangeStart/rangeEnd de sessionHealthExtras iOS). POLÍTICA ANDROID,
+     *  más estricta que iOS por decisión del equipo: sin asociación
+     *  (None) o con asociación ambigua (Ambiguous) no se lee nada — la
+     *  señal que solo coincide en ventana puede ser ajena, y la nota
+     *  existente se conserva (iOS sí lee FC de ventana sin workout). */
     private suspend fun effectiveRange(startEpochMs: Long, endEpochMs: Long): Pair<Long, Long>? {
         val candidates = readSessionCandidates(startEpochMs, endEpochMs)
         return when (val a = dev.repera.domain.SessionHealthMatcher.associate(
             startEpochMs, endEpochMs, candidates, context.packageName)) {
             is dev.repera.domain.SessionHealthMatcher.Association.Matched ->
                 a.session.startEpochMs to a.session.endEpochMs
-            dev.repera.domain.SessionHealthMatcher.Association.Ambiguous -> null
-            dev.repera.domain.SessionHealthMatcher.Association.None ->
-                startEpochMs to endEpochMs
+            else -> null
         }
     }
 
@@ -247,32 +248,25 @@ class HealthConnectReader(private val context: Context) {
      *    (workout.statistics iOS); sin asociación no hay kcal. */
     suspend fun readSessionSample(startEpochMs: Long, endEpochMs: Long): dev.repera.domain.SessionCardioSample {
         if (!available() || endEpochMs <= startEpochMs) return dev.repera.domain.SessionCardioSample()
+        // Sin asociación confiable (None o Ambiguous) no se refina: la nota
+        // existente se conserva y la FC ajena en ventana no se usa.
         val candidates = readSessionCandidates(startEpochMs, endEpochMs)
         val association = dev.repera.domain.SessionHealthMatcher.associate(
             startEpochMs, endEpochMs, candidates, context.packageName)
-        if (association == dev.repera.domain.SessionHealthMatcher.Association.Ambiguous) {
-            return dev.repera.domain.SessionCardioSample()
-        }
-        // Con sesión asociada se lee en SU rango (rangeStart/rangeEnd iOS).
-        val rangeStart = (association as? dev.repera.domain.SessionHealthMatcher
-            .Association.Matched)?.session?.startEpochMs ?: startEpochMs
-        val rangeEnd = (association as? dev.repera.domain.SessionHealthMatcher
-            .Association.Matched)?.session?.endEpochMs ?: endEpochMs
-        val evidence = readSessionEvidence(rangeStart, rangeEnd)
+        val matched = (association as? dev.repera.domain.SessionHealthMatcher
+            .Association.Matched)?.session ?: return dev.repera.domain.SessionCardioSample()
+        val evidence = readSessionEvidence(matched.startEpochMs, matched.endEpochMs)
         val bpm: List<Double> = when (val merged = dev.repera.domain.SessionHealthMatcher
             .mergeHeartRate(evidence.heart)) {
             is dev.repera.domain.SessionHealthMatcher.HeartMerge.Merged ->
                 merged.series.map { it.second.toDouble() }
             else -> emptyList()
         }
-        val kcal: Double? = (association as? dev.repera.domain.SessionHealthMatcher
-            .Association.Matched)?.let { matched ->
-            evidence.kcal.filter {
-                it.originPackage == matched.session.packageName &&
-                    it.startMs >= matched.session.startEpochMs &&
-                    it.endMs <= matched.session.endEpochMs
-            }.sumOf { it.kcal }.takeIf { it > 0 }
-        }
+        val kcal: Double? = evidence.kcal.filter {
+            it.originPackage == matched.packageName &&
+                it.startMs >= matched.startEpochMs &&
+                it.endMs <= matched.endEpochMs
+        }.sumOf { it.kcal }.takeIf { it > 0 }
         return dev.repera.domain.SessionCardioSample(
             averageHeartRateBpm = bpm.takeIf { it.isNotEmpty() }?.average(),
             maxHeartRateBpm = bpm.maxOrNull(),

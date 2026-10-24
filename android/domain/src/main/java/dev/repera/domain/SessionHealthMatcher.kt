@@ -10,20 +10,26 @@ package dev.repera.domain
  *   candidato solo se acepta si es único o el segundo solapa <85% del mejor
  *   (si no, ambiguo → no se asocia nada).
  * - HealthKit fusiona orígenes internamente; Health Connect NO deduplica, así
- *   que la mezcla se hace aquí con reglas explícitas y conservadoras: se
- *   fusionan TODOS los orígenes (nunca se elige «el de más muestras»), se
- *   eliminan duplicados exactos (mismo instante ±2 s y mismo lpm: teléfono +
- *   reloj de la misma app, o registros externos duplicados) y si dos orígenes
- *   se contradicen en la misma ventana (señal ajena solapada) la muestra se
- *   declara ambigua y NO se refina la nota: se conserva la existente.
+ *   que la mezcla se hace aquí. La fusión de todos los orígenes es la parte
+ *   equivalente a HealthKit; los umbrales concretos de dedup y contienda
+ *   (±2 s, buckets de 30 s, >15 lpm, ≥30% contestado) son POLÍTICA NUEVA DE
+ *   ANDROID sin fuente Apple: se fusionan TODOS los orígenes (nunca se elige
+ *   «el de más muestras»), se eliminan duplicados exactos (mismo instante
+ *   ±2 s y mismo lpm: teléfono + reloj de la misma app, o registros externos
+ *   duplicados) y si dos orígenes se contradicen en la misma ventana (señal
+ *   ajena solapada) la muestra se declara ambigua y NO se refina la nota:
+ *   se conserva la existente.
  */
 object SessionHealthMatcher {
 
+    // Umbrales LITERALES de HealthKitStore.overlappingWorkout (iOS).
     const val QUERY_SLACK_MS: Long = 45 * 60 * 1000
     private const val MIN_SESSION_OVERLAP_RATIO = 0.70
     private const val MIN_CANDIDATE_OVERLAP_RATIO = 0.60
     private const val MIN_CANDIDATE_OVERLAP_MS = 60_000L
     private const val AMBIGUITY_RATIO = 0.85
+    // Constantes de POLÍTICA NUEVA ANDROID (sin equivalente escrito en iOS;
+    // HealthKit deduplica/fusiona internamente sin exponer sus umbrales).
     private const val DUP_TOLERANCE_MS = 2_000L
     private const val BUCKET_MS = 30_000L
     private const val CONTEST_BPM = 15
