@@ -368,25 +368,25 @@ struct ReperaApp: App {
 }
 
 
-/// Matches LaunchScreen.storyboard: one UIKit image view, AspectFit and full-screen bounds.
-/// Avoids a SwiftUI vs. UIKit sizing jump while the session is validated.
+/// Same mascot, brand color and constraints as LaunchScreen.storyboard.
+/// Keep the launch image visible while authentication is restored.
 private struct LaunchSplashView: UIViewRepresentable {
     func makeUIView(context: Context) -> UIView {
         let canvas = UIView()
-        canvas.backgroundColor = UIColor(red: 0, green: 0.180, blue: 0.141, alpha: 1)
+        canvas.backgroundColor = UIColor(red: 48 / 255, green: 209 / 255, blue: 88 / 255, alpha: 1)
         canvas.isUserInteractionEnabled = false
 
-        let splash = UIImageView(image: UIImage(named: "Splash"))
-        splash.contentMode = .scaleAspectFit
-        splash.clipsToBounds = true
-        splash.translatesAutoresizingMaskIntoConstraints = false
-        canvas.addSubview(splash)
+        let mascot = UIImageView(image: UIImage(named: "MascotWelcome"))
+        mascot.contentMode = .scaleAspectFit
+        mascot.clipsToBounds = true
+        mascot.translatesAutoresizingMaskIntoConstraints = false
+        canvas.addSubview(mascot)
 
         NSLayoutConstraint.activate([
-            splash.topAnchor.constraint(equalTo: canvas.topAnchor),
-            splash.leadingAnchor.constraint(equalTo: canvas.leadingAnchor),
-            splash.trailingAnchor.constraint(equalTo: canvas.trailingAnchor),
-            splash.bottomAnchor.constraint(equalTo: canvas.bottomAnchor)
+            mascot.centerXAnchor.constraint(equalTo: canvas.centerXAnchor),
+            mascot.centerYAnchor.constraint(equalTo: canvas.centerYAnchor),
+            mascot.widthAnchor.constraint(equalTo: canvas.widthAnchor, multiplier: 0.64),
+            mascot.heightAnchor.constraint(equalTo: canvas.heightAnchor, multiplier: 0.52)
         ])
         return canvas
     }
