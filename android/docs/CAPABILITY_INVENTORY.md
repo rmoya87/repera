@@ -56,21 +56,30 @@ gap) / SUSTITUIDO (infra Apple-only con equivalente Android ya elegido).
   6.1: sin ejecución validada (timeouts de arranque en CI).
 - Hardware físico: sin validación en dispositivo real (fuera de mi alcance).
 
-## Catálogo de ejercicios: 212 iOS vs 196 Android (GAP de datos)
+## Catálogo de ejercicios: 288 iOS vs 196 Android (GAP de datos, RECONCILIADO)
 
-Conteo por familias en main (`primaries:` por fila): Enrichment 53,
-Halterofilia 50, Gimnasia 60, CrossFit 48, Movilidad ~50, Hyrox ~12 (estructura
-distinta). El seed Android (196, portado en 2c6bd9e de una versión antigua)
-carece de ~90 entradas presentes en iOS — la familia Movilidad casi entera y
-variantes de haltero/gimnasia añadidas después. El «288» del análisis de arte
-corresponde a ejercicios con variantes de arte, no al catálogo. Identidad: iOS
-genera `UUID()` aleatorio por instalación para las semillas, así que la
-identidad multiplataforma NO es el UUID (el seed Android usa uuid5 propio);
-la clave real es nombre/`catalogId`. Plan: extractor de las 6 familias Swift →
-entradas JSON con ids uuid5 estables + test instrumentado que exija el conteo
-y campos obligatorios. Estado: ABIERTO.
+Referencia Apple: `origin/main` e1621b8 (24/10). `CatalogQualityTests` (commit
+2d879a4) exige `seed.count == 288`. Conteo exacto por familias (nombres
+únicos): Enrichment 52 + Halterofilia 48 + Gimnasia 58 + CrossFit 46 +
+Movilidad 82 + Hyrox 2 = **288**. Android `catalog_seed.json`: **196**, subconjunto
+estricto (0 nombres extra; faltan exactamente **92**, casi toda la familia
+Movilidad y variantes de haltero/gimnasia añadidas tras el port inicial
+2c6bd9e). El «288 semillas» del análisis de arte coincide con este conteo.
 
-## Watch (5 ficheros): cubierto
+Identidad: iOS genera `UUID()` aleatorio por instalación para semillas → la
+identidad multiplataforma NO es el UUID; es nombre/`catalogId`. El seed
+Android usa uuid5 propio (estable solo en Android). Reglas del re-sync:
+referencia = origin/main e1621b8 o posterior; NO reasignar ids de las 196
+entradas existentes (las referencian entrenos guardados); ids uuid5 nuevos
+solo para las 92 entradas nuevas; añadir test instrumentado de conteo exacto
+y campos obligatorios. Estado: ABIERTO (plan listo, extractor pendiente).
+
+AVISO de frescura: las lecturas iOS previas de esta sesión usaban FETCH_HEAD
+5099d9f (main se movió a e1621b8 por el trabajo de arte en paralelo). Los
+ports de la sesión (onboarding, ubicación, preview, LoadSuggestion…) deben
+re-verificarse contra e1621b8 antes del cierre final.
+
+## Watch (5 ficheros): cubierto## Watch (5 ficheros): cubierto
 
 `ReperaWatchApp` → `WearMainActivity`; `WatchSessionHub`/`WatchSessionView` →
 `WearHomeContent` + pantallas de sesión; `WatchConnectivityClient` → bridge
