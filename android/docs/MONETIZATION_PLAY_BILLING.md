@@ -42,25 +42,27 @@ conserva como UNKNOWN.
 
 ## Requisito mínimo en la cuenta de Ramón (antes de tocar nada)
 
-Imprescindible para verificar (sin esto no hay Pro en producción):
-1. Play Console > Configuración > Acceso a la API: vincular un proyecto de
-   Google Cloud y habilitar "Google Play Android Developer API".
-   (https://developers.google.com/android-publisher/getting_started)
-2. Crear cuenta de servicio en ese proyecto y descargar su clave JSON.
+Imprescindible para verificar (sin esto no hay Pro en producción). Fuente
+única y vigente: https://developers.google.com/android-publisher/getting_started
+1. Crear un proyecto Google Cloud (si no hay uno) y habilitar en él
+   "Google Play Developer API". Cita oficial: "You no longer need to link
+   your developer account to a Google Cloud Project in order to access the
+   Google Play Developer API" - el paso de vinculación explícita ya NO
+   existe; basta proyecto + API habilitada + cuenta de servicio invitada.
+2. Crear la cuenta de servicio (Google Cloud Console > Service Accounts) y
+   descargar su clave JSON. Autenticación oficial: "You need to configure
+   access ... with an OAuth client or a service account. In most cases, you
+   should use a service account" (OAuth client es para actuar en nombre de
+   un usuario humano; para backend servidor-a-servidor: cuenta de servicio,
+   clave guardada como secreto SOLO en el backend).
 3. Play Console > Usuarios y permisos: invitar la cuenta de servicio con
-   acceso SOLO a la app Repera. Permiso imprescindible para VERIFICAR
-   (GET purchases.subscriptionsv2.get): "Ver datos financieros, pedidos y
-   respuestas a encuestas de satisfacción". La página oficial
-   (https://developers.google.com/android-publisher/getting_started) lista
-   ADEMÁS "Manage orders and subscriptions" para las Billing APIs en
-   general: solo hace falta si el backend ejecuta acciones de escritura
-   (acknowledge/refund/revoke por API); manteniendo el acknowledge en el
-   dispositivo NO se necesita. Autenticación: la misma página permite OAuth
-   client (en nombre de un usuario humano) o cuenta de servicio; para un
-   backend servidor-a-servidor la oficial recomendada es cuenta de servicio
-   con clave JSON guardada como secreto SOLO en el backend. El enlace del
-   proyecto Google Cloud con Play Console (Configuración > Acceso a la API)
-   es paso obligatorio del flujo oficial, no opcional.
+   acceso SOLO a la app Repera. Permisos, cita oficial literal: "To use the
+   Google Play Billing APIs, you must grant the following permissions:
+   View financial data, orders, and cancellation survey responses; Manage
+   orders and subscriptions". La fuente los exige CONJUNTAMENTE para las
+   Billing APIs y NO documenta granularidad por endpoint: si uno solo
+   bastara para purchases.subscriptionsv2.get NO está confirmado en la
+   fuente - el mínimo seguro documentado son ambos, limitados a la app.
 4. Endpoint backend (Supabase Edge Function nueva) que reciba purchaseToken
    de la app y consulte purchases.subscriptionsv2.get; guarda entitlement
    por usuario. La clave JSON vive solo en el backend (secreto).
