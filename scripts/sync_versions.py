@@ -86,6 +86,26 @@ def from_project() -> tuple[str, str] | None:
     return validate(values["MARKETING_VERSION"], values["CURRENT_PROJECT_VERSION"])
 
 
+def prefer_newer_config(project_pair: tuple[str, str]) -> tuple[str, str]:
+    """Never downgrade a committed release with stale generated Xcode settings.
+
+    XcodeGen's preGenCommand reads a previously generated .xcodeproj, which
+    otherwise overwrites changes pulled from origin/main (including a build
+    bump needed to invalidate Apple's cached launch snapshot).
+    """
+    current = read_config()
+
+    def version_key(value: tuple[str, str]) -> tuple[tuple[int, ...], tuple[int, ...]]:
+        marketing, build = value
+        marketing_parts = tuple(int(n) for n in marketing.split("."))
+        build_parts = tuple(int(n) for n in build.split("."))
+        return marketing_parts + (0,) * (3 - len(marketing_parts)), build_parts + (0,) * (3 - len(build_parts))
+
+    if version_key(current) > version_key(project_pair):
+        return current
+    return project_pair
+
+
 def check_wiring() -> None:
     """Check that XcodeGen and source plists use build-setting substitutions."""
     spec = (ROOT / "project.yml").read_text(encoding="utf-8")
@@ -134,6 +154,7 @@ def main() -> int:
             pair = from_project()
             if pair is None:
                 return 0  # First generation, CI or an unavailable Xcode project.
+            pair = prefer_newer_config(pair)
         else:
             pair = validate(*args.set)
         changed = write_config(*pair)

@@ -73,6 +73,11 @@ jobs:
           assert "UILaunchScreen:" not in config
           assert "UILaunchStoryboardName: LaunchScreen" in config
           assert "path: Apps/Repera/Resources/LaunchScreen.storyboard" in config
+          # Splash art fills the full native launch window, without scaling
+          # down to a small content box or relying on a second overlay.
+          constraint_ids={node.attrib.get("id") for node in tree.findall(".//constraint")}
+          required={"mascot-leading","mascot-trailing","mascot-top","mascot-bottom"}
+          assert required.issubset(constraint_ids), "Native splash mascot not pinned edge-to-edge"
           assert "path: Apps/Repera/Resources/ReperaNativeLaunch.storyboard" not in config
           assert 'path: Apps/Repera/Resources/LaunchScreen.storyboard' in config
           assert 'UILaunchStoryboardName: LaunchScreen' in config

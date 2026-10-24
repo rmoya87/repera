@@ -43,6 +43,11 @@ class VersionSyncTests(unittest.TestCase):
             self.assertEqual(sync.from_project(), ('2.0.3', '117'))
             self.assertEqual(command.call_args.args[0][-1], '-showBuildSettings')
 
+    def test_regeneration_never_downgrades_new_build_from_git(self):
+        self.assertEqual(sync.prefer_newer_config(('1.0.0','4')),('1.0.0','5'))
+        self.assertEqual(sync.prefer_newer_config(('1.0.0','6')),('1.0.0','6'))
+        self.assertEqual(sync.prefer_newer_config(('1.1.0','1')),('1.1.0','1'))
+
     def test_skip_missing_generated_project(self):
         original_project = sync.PROJECT
         sync.PROJECT = Path(self.temp.name) / 'absent.xcodeproj'
