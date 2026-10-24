@@ -1144,6 +1144,9 @@ public enum CatalogSpanish {
             "Elige peso y altura que permitan mecánica limpia bajo fatiga.",
         ],
         "Ball slam": [
+            "De pie, balon al pecho con ambas manos y core firme.",
+            "Sube el balon a extension completa sobre la cabeza.",
+            "Golpea el balon contra el suelo con bisagra de cadera y brazos.",
             "Medball a la altura del pecho o overhead; pies al ancho de hombros, core firme.",
             "Extiende a overhead (si el estándar lo pide) y golpea el balón al suelo con fuerza de cadera y brazos.",
             "Agarra el bote o recoge y repite; no redondees la lumbar al recoger.",
