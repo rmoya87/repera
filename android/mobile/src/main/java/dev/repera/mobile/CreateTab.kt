@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import dev.repera.mobile.monetization.LocalSubscriptions
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.Icons
@@ -81,6 +82,7 @@ internal fun CreateTab(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val subscriptions = LocalSubscriptions.current
     val englishAliases = remember(context) { ExerciseSearchAssets.load(context) }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -94,7 +96,22 @@ internal fun CreateTab(
                     exercises = overview.exerciseEntries,
                     aliases = englishAliases,
                     busy = busy,
-                    onSave = onCreateRoutine
+                    onSave = onSave@{ title, format, entries, minutes, rounds, schedule, interval, work, rest, ladder ->
+                        // Gate de límite Gratis de rutinas (paridad iOS:
+                        // canCreateLibraryRoutine(isNew: true)). Las rutinas
+                        // nuevas cuentan contra el límite; editar no pasa por aquí.
+                        if (subscriptions != null &&
+                            !subscriptions.canCreateLibraryRoutine(isNew = true).allowed
+                        ) {
+                            subscriptions.presentPaywall(
+                                dev.repera.domain.monetization.PaywallContext.ROUTINES_LIMIT,
+                                feature = dev.repera.domain.monetization.ReperaFeature.UNLIMITED_ROUTINES
+                            )
+                            return@onSave
+                        }
+                        onCreateRoutine(title, format, entries, minutes, rounds,
+                            schedule, interval, work, rest, ladder)
+                    }
                 )
             }
         }

@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import dev.repera.mobile.monetization.LocalSubscriptions
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -41,8 +42,9 @@ import java.io.File
 /**
  * Pantalla del escáner de pizarra. Paridad con StartHubSheet de iOS:
  * foto -> OCR -> parser lite -> revisión -> crear rutina.
- * Gate de suscripción replicado como costura (BoardScanQuota) pendiente
- * de monetización real.
+ * Gate de suscripción real: canStartBoardScan() antes de leer y
+ * consumeBoardScanIfNeeded(attemptID) idempotente al llegar a revisión
+ * (igual que iOS); el paywall se presenta con contexto boardScansLimit.
  */
 @Composable
 internal fun BoardScanScreen(
@@ -58,11 +60,18 @@ internal fun BoardScanScreen(
     var review by remember { mutableStateOf<List<RoutineBlock>?>(null) }
     var reviewTitle by remember { mutableStateOf("Entreno de pizarra") }
 
+    val subscriptions = LocalSubscriptions.current
+
     fun process(uri: Uri) {
         if (reading) return
-        if (!BoardScanQuota.canStart()) {
-            // Paywall pendiente de RevenueCat; hoy nunca se alcanza.
-            errorMessage = "Escaneos agotados. La suscripción llegará pronto."
+        // Id del intento: la cuota se consume una sola vez aunque el usuario
+        // reintente la misma foto tras un fallo de OCR (idempotencia iOS).
+        val attemptID = java.util.UUID.randomUUID().toString()
+        if (subscriptions != null && !subscriptions.canStartBoardScan().allowed) {
+            subscriptions.presentPaywall(
+                dev.repera.domain.monetization.PaywallContext.BOARD_SCANS_LIMIT,
+                feature = dev.repera.domain.monetization.ReperaFeature.UNLIMITED_BOARD_SCANS
+            )
             return
         }
         reading = true
@@ -80,7 +89,7 @@ internal fun BoardScanScreen(
                 if (parsed.blocks.isEmpty() && parsed.lines.isEmpty()) {
                     errorMessage = "No encontré texto útil. Prueba más cerca, más luz o otra foto."
                 } else {
-                    BoardScanQuota.consume()
+                    subscriptions?.consumeBoardScanIfNeeded(attemptID)
                     review = parsed.blocks
                 }
             } catch (error: Exception) {

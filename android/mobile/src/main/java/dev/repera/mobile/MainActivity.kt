@@ -1094,6 +1094,15 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             WorkoutRepository(this@MainActivity, id).consumePendingReview()
         }?.let { pendingReview = it.second }
         snapshot = overview
+        // Contadores que alimentan la política de límites Gratis (iOS:
+        // SubscriptionManager.syncCounts). Rutinas guardadas y ejercicios
+        // propios (isCustom) del estado real.
+        overview?.let {
+            subscriptions.syncCounts(
+                libraryRoutines = it.routines,
+                customExercises = it.exerciseEntries.count { e -> e.isCustom }
+            )
+        }
         activeWorkout = active
         refreshWodTimer()
         // Local persistence is the source of truth. A missing/disconnected watch
