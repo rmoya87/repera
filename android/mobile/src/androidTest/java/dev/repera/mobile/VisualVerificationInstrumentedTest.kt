@@ -224,6 +224,55 @@ class VisualVerificationInstrumentedTest {
     }
 
     @Test
+    fun capturaAccesoIAConTemaRepera() {
+        // Pantalla Acceso IA con datos sintéticos: tokens, cambio pendiente
+        // y estado de bandeja, con el tema de marca.
+        val tokens = listOf(
+            AIAccessStore.TokenInfo(
+                id = "t1", label = "Mi entrenador IA", tokenPrefix = "rpa_7f3c",
+                createdAt = "2026-10-01T10:00:00Z",
+                expiresAt = "2026-12-30T10:00:00Z",
+                revokedAt = null, lastUsedAt = null,
+                scopes = listOf("training:read", "training:write")),
+            AIAccessStore.TokenInfo(
+                id = "t2", label = "Prueba antigua", tokenPrefix = "rpa_00aa",
+                createdAt = "2026-01-01T10:00:00Z", expiresAt = null,
+                revokedAt = "2026-06-01T10:00:00Z", lastUsedAt = null,
+                scopes = listOf("training:read")))
+        val change = AIChangeRequestStore.Change(
+            id = "c1", operation = "update_workout", targetId = "w1",
+            expectedUpdatedAt = "2026-10-24T08:00:00Z",
+            payload = JSONObject()
+                .put("workoutTitle", "Pierna 24 oct")
+                .put("setChanges", JSONArray().put(JSONObject()
+                    .put("loggedSetId", "12345678-aaaa-bbbb-cccc-ddddeeeeffff")
+                    .put("reps", 8).put("weightKg", 102.5))),
+            createdAt = "2026-10-24T09:00:00Z")
+        compose.setContent {
+            MaterialTheme(colorScheme = androidx.compose.material3.lightColorScheme(
+                primary = brandGreen,
+                onPrimary = androidx.compose.ui.graphics.Color.Black)) {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    AIAccessScreen(
+                        connected = true, busy = false, tokens = tokens,
+                        errorMessage = null, successMessage = null,
+                        createdToken = null,
+                        changes = listOf(change), changeBusy = false,
+                        changeError = null,
+                        inboxPending = 2,
+                        inboxConflicts = listOf(
+                            "2026-10-26: el ejercicio 'Pistol squat' no existe"),
+                        onRefresh = {}, onCreate = { _, _, _ -> },
+                        onRevoke = {}, onDecide = { _, _ -> },
+                        onDismissCreated = {}, onCopyCreated = {})
+                }
+            }
+        }
+        compose.waitForIdle()
+        save("acceso_ia", compose.onRoot().captureToImage())
+    }
+
+    @Test
     fun capturaPantallaProgresoCompletaConTemaRepera() {
         // Pantalla real: tema de marca (verde Repera) + datos reales construidos
         // por el pipeline StateOverview.fromBytes, no composables aislados.

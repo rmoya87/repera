@@ -98,6 +98,130 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         syncAITrainingContext()
     }
 
+    // ---- Acceso IA (port AIAccessView): tokens + cambios + bandeja ----
+    private var aiTokens by mutableStateOf<List<AIAccessStore.TokenInfo>?>(null)
+    private var aiBusy by mutableStateOf(false)
+    private var aiError by mutableStateOf<String?>(null)
+    private var aiSuccess by mutableStateOf<String?>(null)
+    private var aiCreatedToken by mutableStateOf<String?>(null)
+    private var aiChanges by mutableStateOf<List<AIChangeRequestStore.Change>>(
+        emptyList())
+    private var aiChangeBusy by mutableStateOf(false)
+    private var aiChangeError by mutableStateOf<String?>(null)
+    private var aiInboxPending by mutableStateOf(0)
+    private var aiInboxConflicts by mutableStateOf<List<String>>(emptyList())
+
+    private fun clearAIAccessState() {
+        aiTokens = null; aiBusy = false; aiError = null; aiSuccess = null
+        aiCreatedToken = null; aiChanges = emptyList(); aiChangeBusy = false
+        aiChangeError = null; aiInboxPending = 0; aiInboxConflicts = emptyList()
+    }
+
+    private fun refreshAIAccess() {
+        val session = verifiedSupabase ?: return
+        val uniqueId = profile?.uniqueId ?: return
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                val repository = WorkoutRepository(this@MainActivity, uniqueId)
+                val store = AIChangeRequestStore(this@MainActivity, session.userId)
+                store.syncCustomExercises(session, repository)
+                AIAccessStore().refresh(session) to store.refresh(session)
+            }
+            when (val tokens = result.first) {
+                is AIAccessStore.LoadResult.Loaded -> {
+                    aiTokens = tokens.tokens; aiError = null
+                }
+                is AIAccessStore.LoadResult.Failed -> aiError = tokens.message
+            }
+            when (val changes = result.second) {
+                is AIChangeRequestStore.RefreshResult.Loaded ->
+                    aiChanges = changes.pending
+                is AIChangeRequestStore.RefreshResult.Failed ->
+                    aiChangeError = changes.message
+            }
+        }
+    }
+
+    private fun createAIToken(label: String, expiry: String, canWrite: Boolean) {
+        val session = verifiedSupabase ?: return
+        if (aiBusy) return
+        aiBusy = true; aiError = null; aiSuccess = null
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                AIAccessStore().create(session, label, expiry, canWrite)
+            }
+            when (result) {
+                is AIAccessStore.CreateResult.Created -> {
+                    // El plano solo vive en este estado hasta cerrar el diálogo.
+                    aiCreatedToken = result.token
+                    refreshAIAccess()
+                }
+                is AIAccessStore.CreateResult.Failed -> aiError = result.message
+            }
+            aiBusy = false
+        }
+    }
+
+    private fun revokeAIToken(tokenId: String) {
+        val session = verifiedSupabase ?: return
+        if (aiBusy) return
+        aiBusy = true; aiError = null; aiSuccess = null
+        lifecycleScope.launch {
+            val failure = withContext(Dispatchers.IO) {
+                AIAccessStore().revoke(session, tokenId)
+            }
+            if (failure == null) {
+                aiSuccess = "Token revocado. Ya no permite acceder a Repera."
+                refreshAIAccess()
+            } else aiError = failure
+            aiBusy = false
+        }
+    }
+
+    private fun decideAIChange(change: AIChangeRequestStore.Change,
+                               approve: Boolean) {
+        val session = verifiedSupabase ?: return
+        val uniqueId = profile?.uniqueId ?: return
+        if (aiChangeBusy) return
+        aiChangeBusy = true; aiChangeError = null
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                AIChangeRequestStore(this@MainActivity, session.userId).decide(
+                    session, change, approve,
+                    WorkoutRepository(this@MainActivity, uniqueId),
+                    WorkoutMirrorStore(this@MainActivity, session.userId))
+            }
+            when (result) {
+                is AIChangeRequestStore.DecideResult.Applied -> {
+                    aiSuccess = "Cambio aplicado."
+                    reloadFor(uniqueId)
+                }
+                is AIChangeRequestStore.DecideResult.Rejected ->
+                    aiSuccess = "Solicitud rechazada."
+                is AIChangeRequestStore.DecideResult.Failed ->
+                    aiChangeError = result.message
+            }
+            aiChangeBusy = false
+            refreshAIAccess()
+        }
+    }
+
+    private fun copyCreatedAIToken() {
+        val token = aiCreatedToken ?: return
+        val clip = android.content.ClipData.newPlainText("Token de acceso IA",
+            token)
+        // Marca sensible: la vista previa del portapapeles no lo muestra.
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            clip.description.extras = android.os.PersistableBundle().apply {
+                putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE,
+                    true)
+            }
+        }
+        (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+            .setPrimaryClip(clip)
+        aiSuccess = "Token copiado al portapapeles."
+    }
+
     /** Realtime de planes IA: vivo solo en foreground, resync al suscribirse. */
     private val aiPlansRealtime by lazy {
         AIPlansRealtimeListener(
@@ -256,6 +380,23 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onCenterCancel = { booking ->
                     centerAction { s -> cancel(s, booking) }
                 },
+                aiConnected = verifiedSupabase != null,
+                aiTokens = aiTokens,
+                aiBusy = aiBusy,
+                aiError = aiError,
+                aiSuccess = aiSuccess,
+                aiCreatedToken = aiCreatedToken,
+                aiChanges = aiChanges,
+                aiChangeBusy = aiChangeBusy,
+                aiChangeError = aiChangeError,
+                aiInboxPending = aiInboxPending,
+                aiInboxConflicts = aiInboxConflicts,
+                onAIRefresh = ::refreshAIAccess,
+                onAICreate = ::createAIToken,
+                onAIRevoke = ::revokeAIToken,
+                onAIDecide = ::decideAIChange,
+                onAIDismissCreated = { aiCreatedToken = null },
+                onAICopyCreated = ::copyCreatedAIToken,
                 onAddWodTemplate = { templateId ->
                     val template = dev.repera.domain.CatalogWods.template(templateId)
                     if (template != null) runWorkoutAction { createWodRoutine(template) }
@@ -478,6 +619,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             val result = withContext(Dispatchers.IO) {
                 AITrainingInbox().sync(session, WorkoutRepository(this@MainActivity, uniqueId))
             }
+            aiInboxPending = result.pending
+            aiInboxConflicts = result.conflicts
             if (result.error != null) {
                 status = result.error
             } else if (result.imported > 0) {
@@ -571,6 +714,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 sessionStore.clear()
                 aiPlansRealtime.stop()
                 verifiedSupabase = null
+                clearAIAccessState()
                 centerSnapshot = null
                 centerError = null
                 profile = null
@@ -638,6 +782,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             } catch (error: Exception) {
                 aiPlansRealtime.stop()
                 verifiedSupabase = null
+                clearAIAccessState()
                 centerSnapshot = null
                 centerError = null
                 profile = null
@@ -880,6 +1025,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             } finally {
                 aiPlansRealtime.stop()
                 verifiedSupabase = null
+                clearAIAccessState()
                 sessionStore.clear()
                 // Data Layer is best effort: a disconnected watch must never prevent
                 // clearing the authenticated phone UI and its in-memory state.

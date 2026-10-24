@@ -1,8 +1,10 @@
 package dev.repera.mobile
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,12 +15,15 @@ import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -30,6 +35,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -84,6 +90,23 @@ fun ReperaMobileScreen(
     onCenterAccept: (BusinessCenterStore.Invitation) -> Unit,
     onCenterBook: (BusinessCenterStore.Occurrence, BusinessCenterStore.Pass) -> Unit,
     onCenterCancel: (BusinessCenterStore.Booking) -> Unit,
+    aiConnected: Boolean,
+    aiTokens: List<AIAccessStore.TokenInfo>?,
+    aiBusy: Boolean,
+    aiError: String?,
+    aiSuccess: String?,
+    aiCreatedToken: String?,
+    aiChanges: List<AIChangeRequestStore.Change>,
+    aiChangeBusy: Boolean,
+    aiChangeError: String?,
+    aiInboxPending: Int,
+    aiInboxConflicts: List<String>,
+    onAIRefresh: () -> Unit,
+    onAICreate: (String, String, Boolean) -> Unit,
+    onAIRevoke: (String) -> Unit,
+    onAIDecide: (AIChangeRequestStore.Change, Boolean) -> Unit,
+    onAIDismissCreated: () -> Unit,
+    onAICopyCreated: () -> Unit,
     onWodScore: (Int?, Int?, Int?) -> Unit,
     onWodMovement: (Int, Int, Int, Double?) -> Unit,
     onCompleteWodBlock: () -> Unit,
@@ -148,7 +171,16 @@ fun ReperaMobileScreen(
                 TabSpec("center", "Center", Icons.Outlined.Apartment) else tab
         }
         Scaffold(
-            topBar = { TopAppBar(title = { Text("repera") }) },
+            topBar = {
+                TopAppBar(
+                    title = { Text("repera") },
+                    actions = {
+                        IconButton(onClick = { navigateTab("ajustes") }) {
+                            Icon(imageVector = Icons.Outlined.Settings,
+                                contentDescription = "Ajustes")
+                        }
+                    })
+            },
             bottomBar = {
                 NavigationBar {
                     visibleTabs.forEach { tab ->
@@ -318,6 +350,34 @@ fun ReperaMobileScreen(
                         onNavigateHome = { navigateTab("inicio") }
                     )
                 }
+                composable("ajustes") {
+                    SettingsTab(onOpenAIAccess = {
+                        navController.navigate("acceso-ia")
+                    })
+                }
+                composable("acceso-ia") {
+                    // iOS .task: recuperar tokens + cambios al entrar.
+                    LaunchedEffect(Unit) { onAIRefresh() }
+                    AIAccessScreen(
+                        connected = aiConnected,
+                        busy = aiBusy,
+                        tokens = aiTokens,
+                        errorMessage = aiError,
+                        successMessage = aiSuccess,
+                        createdToken = aiCreatedToken,
+                        changes = aiChanges,
+                        changeBusy = aiChangeBusy,
+                        changeError = aiChangeError,
+                        inboxPending = aiInboxPending,
+                        inboxConflicts = aiInboxConflicts,
+                        onRefresh = onAIRefresh,
+                        onCreate = onAICreate,
+                        onRevoke = onAIRevoke,
+                        onDecide = onAIDecide,
+                        onDismissCreated = onAIDismissCreated,
+                        onCopyCreated = onAICopyCreated
+                    )
+                }
                 composable(
                     route = "rutina/{routineId}",
                     arguments = listOf(navArgument("routineId") { type = NavType.StringType })
@@ -356,6 +416,29 @@ fun ReperaMobileScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+
+/** Ajustes mínimos: sección Datos con la entrada Acceso IA (paridad con la
+ *  ubicación de iOS en SettingsView). El resto de ajustes de iOS aún no
+ *  tiene pantalla Android. */
+@Composable
+private fun SettingsTab(onOpenAIAccess: () -> Unit) {
+    Column(modifier = Modifier.fillMaxSize().padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("Ajustes", style = MaterialTheme.typography.titleLarge)
+        Text("Datos", style = MaterialTheme.typography.titleMedium)
+        Row(modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpenAIAccess)
+            .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text("Acceso IA", style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f))
+            Icon(imageVector = Icons.Outlined.KeyboardArrowRight,
+                contentDescription = null)
         }
     }
 }
