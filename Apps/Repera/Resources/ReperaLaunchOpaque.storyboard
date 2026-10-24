@@ -15,8 +15,8 @@
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <!-- Mascota transparente independiente del fondo. AspectFit evita recortes o deformaciones. -->
-                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="MascotHero" translatesAutoresizingMaskIntoConstraints="NO" id="Mascot-Splash">
+                            <!-- Mascota y verde opacos; misma proporcion en todas las orientaciones. -->
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="ReperaLaunchHeroOpaque" translatesAutoresizingMaskIntoConstraints="NO" id="Mascot-Splash">
                                 <rect key="frame" x="71.22" y="204.48" width="250.56" height="443.04"/>
                             </imageView>
                         </subviews>
@@ -37,6 +37,6 @@
         </scene>
     </scenes>
     <resources>
-        <image name="MascotHero" width="1024" height="1024"/>
+        <image name="ReperaLaunchHeroOpaque" width="1024" height="1024"/>
     </resources>
 </document>
