@@ -142,10 +142,15 @@ class WorkoutRepository(context: Context, googleId: String) {
                     if (entry.weightKg != null) set.put("targetWeightKg", entry.weightKg)
                     planned.put(set)
                 }
-                exercises.put(JSONObject().put("id", UUID.randomUUID().toString())
+                require(entry.restSeconds == null || entry.restSeconds in 0..600) {
+                    "El descanso debe estar entre 0 y 600 segundos"
+                }
+                val item = JSONObject().put("id", UUID.randomUUID().toString())
                     .put("exerciseId", entry.exerciseId).put("plannedSets", planned)
                     .put("quantityUnit", ExerciseInput.defaultQuantityUnit(
-                        movement.getString("name"), movement.optString("equipment"))))
+                        movement.getString("name"), movement.optString("equipment")))
+                entry.restSeconds?.let { item.put("restSeconds", it) }
+                exercises.put(item)
             }
             block.put("exercises", exercises)
         } else {
@@ -1594,7 +1599,8 @@ data class RoutineDraftEntry(
     val exerciseId: String,
     val quantity: Int,
     val sets: Int = 3,
-    val weightKg: Double? = null
+    val weightKg: Double? = null,
+    val restSeconds: Int? = null
 )
 
 /** Mirrors Swift Routine: one-off dates and weekly templates are mutually exclusive. */

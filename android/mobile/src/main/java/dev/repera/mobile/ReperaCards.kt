@@ -770,7 +770,8 @@ internal fun ScheduledRoutineCard(
 }
 
 private data class RoutineDraftRow(
-    val id: String, val name: String, val sets: Int, val quantity: Int, val weightKg: Double?
+    val id: String, val name: String, val sets: Int, val quantity: Int,
+    val weightKg: Double?, val restSeconds: Int? = null
 )
 
 /** Material editor for the Swift Routine/RoutineBlock subset actually supported on Android. */
@@ -788,6 +789,7 @@ internal fun RoutineCreatorCard(
     var reps by remember { mutableStateOf("10") }
     var sets by remember { mutableStateOf("3") }
     var weight by remember { mutableStateOf("") }
+    var entryRest by remember { mutableStateOf("") }
     var cap by remember { mutableStateOf("12") }
     var rounds by remember { mutableStateOf("1") }
     var interval by remember { mutableStateOf("60") }
@@ -802,7 +804,9 @@ internal fun RoutineCreatorCard(
     val weightValue = weight.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
     val quantity = reps.toIntOrNull()
     val setCount = sets.toIntOrNull()
-    val validNumeric = quantity != null && quantity in 1..10000 &&
+    val validEntryRest = entryRest.isBlank() ||
+        entryRest.toIntOrNull()?.let { it in 0..600 } == true
+    val validNumeric = quantity != null && quantity in 1..10000 && validEntryRest &&
         (kind != "strength" || (setCount != null && setCount in 1..30 &&
             (weight.isBlank() || (weightValue != null &&
                 weightValue.isFinite() && weightValue >= 0))))
@@ -907,6 +911,12 @@ internal fun RoutineCreatorCard(
                     modifier = Modifier.fillMaxWidth(), singleLine = true
                 )
                 OutlinedTextField(
+                    value = entryRest,
+                    onValueChange = { entryRest = it.filter(Char::isDigit) },
+                    label = { Text("Descanso opcional (segundos)") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                )
+                OutlinedTextField(
                     value = weight, onValueChange = { weight = it },
                     label = { Text("Peso prescrito opcional (kg)") },
                     modifier = Modifier.fillMaxWidth(), singleLine = true
@@ -953,7 +963,8 @@ internal fun RoutineCreatorCard(
                 ) {
                     Text(draft.name + " · " +
                         (if (kind == "strength") "${draft.sets}×" else "") +
-                        "${draft.quantity} reps")
+                        "${draft.quantity} reps" +
+                        (draft.restSeconds?.let { " · ${it}s descanso" } ?: ""))
                     TextButton(onClick = { chosen.remove(draft) }, enabled = !busy) {
                         Text("Quitar")
                     }
@@ -975,7 +986,9 @@ internal fun RoutineCreatorCard(
                                 candidate.name,
                                 if (kind == "strength") setCount ?: 3 else 1,
                                 quantity,
-                                if (kind == "strength" && candidate.allowsWeight) weightValue else null
+                                if (kind == "strength" && candidate.allowsWeight) weightValue else null,
+                                restSeconds = if (kind == "strength")
+                                    entryRest.toIntOrNull()?.takeIf { it in 0..600 } else null
                             ))
                         }
                     }
@@ -1015,7 +1028,8 @@ internal fun RoutineCreatorCard(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
                     val entries = chosen.map {
-                        RoutineDraftEntry(it.id, it.quantity, it.sets, it.weightKg)
+                        RoutineDraftEntry(it.id, it.quantity, it.sets, it.weightKg,
+                            restSeconds = it.restSeconds)
                     }
                     onSave(title, kind, entries, cap.toIntOrNull() ?: 12,
                         rounds.toIntOrNull() ?: 1,
