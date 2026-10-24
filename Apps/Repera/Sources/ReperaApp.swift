@@ -178,6 +178,7 @@ struct ReperaApp: App {
                                 avatarJPEG: store.state.settings.profileAvatarJPEG
                             )
                             await businessData.refresh()
+                            await RemoteExerciseCatalogStore.shared.refresh(store: store)
                             await workoutSync.sync(store: store)
                             _ = await aiInbox.sync(store: store)
                             _ = await AITrainingContextStore.shared.syncCalendar(store: store)
@@ -208,12 +209,14 @@ struct ReperaApp: App {
                         Task {
                             guard store.isHydrated else { return }
                             await store.refreshFromiCloud()
+                            RemoteExerciseCatalogStore.shared.restoreCached(to: store)
                             await refreshHealthOnForeground(forceProgressiveIfNeeded: true)
                             await subscriptions.refreshOnForeground()
                             // Pull latest published trainer blocks, reservations and passes
                             // on foreground. Supabase RLS keeps personal history private.
                             if businessAuth.isConnected {
                                 await businessData.refresh()
+                                await RemoteExerciseCatalogStore.shared.refresh(store: store)
                                 await workoutSync.sync(store: store)
                                 _ = await aiInbox.sync(store: store)
                                 _ = await AITrainingContextStore.shared.syncCalendar(store: store)
@@ -232,6 +235,7 @@ struct ReperaApp: App {
                 .onChange(of: businessAuth.isConnected) { _, connected in
                     if connected {
                         Task {
+                            await RemoteExerciseCatalogStore.shared.refresh(store: store)
                             await workoutSync.sync(store: store)
                             _ = await aiInbox.sync(store: store)
                             _ = await AITrainingContextStore.shared.syncCalendar(store: store)
@@ -256,6 +260,7 @@ struct ReperaApp: App {
                 .onChange(of: store.didCompleteInitialRemoteSync) { _, finished in
                     if finished && businessAuth.isConnected {
                         Task {
+                            await RemoteExerciseCatalogStore.shared.refresh(store: store)
                             await workoutSync.sync(store: store)
                             _ = await aiInbox.sync(store: store)
                             _ = await AITrainingContextStore.shared.syncCalendar(store: store)
