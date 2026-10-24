@@ -17,12 +17,16 @@ private enum ExerciseSortMode: String, CaseIterable, Identifiable, Sendable {
     var icon: String {
         switch self {
         case .alphabetical: return "a.circle"
-        case .muscle: return "square.stack"
-        case .equipment: return "wrench"
+        case .muscle: return ExerciseCategorySymbols.muscle
+        case .equipment: return ExerciseCategorySymbols.equipment
         }
     }
     var selectedIcon: String {
-        icon + ".fill"
+        switch self {
+        case .alphabetical: return "a.circle.fill"
+        case .muscle: return "lungs.fill"
+        case .equipment: return "dumbbell.fill"
+        }
     }
 }
 
@@ -54,17 +58,27 @@ private enum ExerciseFilterMode: String, CaseIterable, Identifiable, Sendable {
     var icon: String {
         switch self {
         case .all: return "square.grid.2x2"
-        case .weightlifting: return "dumbbell"
-        case .crossfit: return "bolt"
-        case .gymnastics: return "person.crop.circle"
+        case .weightlifting: return ExerciseCategorySymbols.discipline("Halterofilia")
+        case .crossfit: return ExerciseCategorySymbols.discipline("CrossFit")
+        case .gymnastics: return ExerciseCategorySymbols.discipline("Gimnasia")
         case .cardio: return "heart"
-        case .hyrox: return "flame"
-        case .mobility: return "leaf"
+        case .hyrox: return ExerciseCategorySymbols.discipline("HYROX")
+        case .mobility: return ExerciseCategorySymbols.discipline("Movilidad")
         case .favorites: return "star"
         case .wods: return "stopwatch"
         }
     }
-    var selectedIcon: String { icon + ".fill" }
+    // Las variantes «.fill» no existen para todos los SF Symbols deportivos.
+    // Mantener el símbolo exacto y marcar la selección con color y check.
+    var selectedIcon: String {
+        switch self {
+        case .all: return "square.grid.2x2.fill"
+        case .cardio: return "heart.fill"
+        case .favorites: return "star.fill"
+        case .wods: return "stopwatch.fill"
+        case .weightlifting, .crossfit, .gymnastics, .hyrox, .mobility: return icon
+        }
+    }
     /// Orden de presentación alfabético, sin alterar los valores estables de filtrado.
     static var alphabeticalCases: [ExerciseFilterMode] {
         allCases.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
