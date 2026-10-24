@@ -10,7 +10,12 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,6 +45,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -132,20 +138,35 @@ private fun OnboardingSignInStep(
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(24.dp))
+        // Botón Google con la marca oficial (paridad OnboardingFlowView iOS):
+        // logo G multicolor 20dp, fondo/blanco según tema, borde 1dp y
+        // colores de texto de las guías de marca de Google Sign-In.
+        val dark = isSystemInDarkTheme()
+        val googleBackground = if (dark) Color(0xFF131314) else Color.White
+        val googleForeground = if (dark) Color(0xFFE3E3E3) else Color(0xFF1F1F1F)
+        val googleBorder = if (dark) Color(0xFF8E918F) else Color(0xFF747775)
         Button(
             onClick = onGoogleSignIn,
             enabled = !busy,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier.fillMaxWidth().widthIn(max = 480.dp).height(52.dp),
             shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, googleBorder),
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                contentColor = MaterialTheme.colorScheme.onSurface
+                containerColor = googleBackground,
+                contentColor = googleForeground
             )
         ) {
             if (busy) {
                 CircularProgressIndicator(
                     modifier = Modifier.height(20.dp).width(20.dp),
                     strokeWidth = 2.dp
+                )
+                Spacer(Modifier.width(10.dp))
+            } else {
+                Image(
+                    painter = painterResource(R.drawable.google_g),
+                    contentDescription = null,
+                    modifier = Modifier.height(20.dp).width(20.dp)
                 )
                 Spacer(Modifier.width(10.dp))
             }
