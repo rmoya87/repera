@@ -95,10 +95,13 @@ class WearVisualVerificationInstrumentedTest {
             }
         }
         compose.waitForIdle()
-        compose.onNodeWithText("5 reps", substring = true).assertExists()
+        // Dos nodos contienen "5 reps" (prescripción cabecera y entrada de
+        // registro): coincidencias exactas para no ambiguar el matcher.
+        compose.onNodeWithText("5 reps · 100.0 kg").assertExists()
         compose.onAllNodesWithText("WearHomeState(", substring = true).assertCountEquals(0)
         // Todos los controles alcanzables con scroll en el viewport redondo.
         compose.onNodeWithText("Registrar serie").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("5 reps").assertIsDisplayed()
         save("wear_sesion_fuerza", compose.onRoot().captureToImage())
     }
 
