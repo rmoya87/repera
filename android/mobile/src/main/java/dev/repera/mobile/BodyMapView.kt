@@ -7,6 +7,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -160,9 +161,13 @@ internal fun BodyMapView(
         return
     }
     Row(modifier.height(220.dp).fillMaxWidth().testTag("body_map_loaded")) {
-        BodySilhouetteView(paths.front, levels, selected, onSelect, Modifier.weight(1f))
+        // weight(1f) en una Row solo fija el ANCHO; sin fillMaxHeight el
+        // Canvas (sin contenido intrínseco) medía altura 0 y no dibujaba nada.
+        BodySilhouetteView(paths.front, levels, selected, onSelect,
+            Modifier.weight(1f).fillMaxHeight())
         Spacer(Modifier.width(4.dp))
-        BodySilhouetteView(paths.back, levels, selected, onSelect, Modifier.weight(1f))
+        BodySilhouetteView(paths.back, levels, selected, onSelect,
+            Modifier.weight(1f).fillMaxHeight())
     }
 }
 
