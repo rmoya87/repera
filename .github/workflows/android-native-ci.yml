@@ -48,10 +48,19 @@ jobs:
           if-no-files-found: ignore
 
   android-instrumented:
-    name: Phone integration tests on emulator
+    name: Phone integration tests on emulator (API ${{ matrix.api }})
     needs: android-native
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # Cobertura de ejecución real: minSdk 30 y las dos imágenes de
+        # sistema más recientes publicadas. NO existe imagen android-37
+        # (Android 17) en el repositorio de SDK a 24/10/2026
+        # (sdkmanager --channel=3 --list): la ejecución sobre API 37
+        # queda bloqueada por Google hasta que se publique la imagen.
+        api: ['30', '35', '36.1']
     permissions:
       contents: read
     steps:
@@ -77,7 +86,7 @@ jobs:
       - name: Run real SQLite/JSON workout persistence tests on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: ${{ matrix.api }}
           target: google_apis
           arch: x86_64
           profile: pixel_6
@@ -96,14 +105,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: android-visual-screenshots
+          name: android-visual-screenshots-api${{ matrix.api }}
           path: android/screenshots/**
           if-no-files-found: ignore
       - name: Upload instrumentation reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: android-instrumentation-results
+          name: android-instrumentation-results-api${{ matrix.api }}
           path: |
             android/mobile/build/outputs/androidTest-results/**
             android/mobile/build/reports/androidTests/**
