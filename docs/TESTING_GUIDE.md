@@ -4,6 +4,17 @@
 
 Checklist manual por feature. Preferible dispositivo real para Live Activity y Watch.
 
+## Sincronización invisible nativa iOS 27 (25/10/2026)
+
+- [ ] Abrir/Reabrir Repera sin conexión: Inicio y la biblioteca aparecen con caché local, sin esperar al backend ni mostrar indicadores.
+- [ ] En primer plano con cuenta conectada: consultar solo la revisión; si coincide, no descargar ejercicios ni reconstruir secciones.
+- [ ] Simular `BGAppRefresh`: guardar nuevas revisiones en Application Support sin hidratar o modificar el historial personal/iCloud durante ejecución headless.
+- [ ] Al volver a primer plano: aplicar una actualización descargada por `BGAppRefresh` y preservar favoritos, UUID, rutinas y récords sin saltos visuales.
+- [ ] Verificar en la app instalada que `BGTaskSchedulerPermittedIdentifiers` y `UIBackgroundModes=fetch` están en el Info.plist generado y que el sistema puede registrar la tarea.
+- [ ] Comprobar que si el SO no concede ejecución o el usuario fuerza el cierre, la sincronización se recupera silenciosamente al siguiente arranque; no hay promesas de periodicidad exacta.
+- [ ] Observar Instruments Main Thread Checker/Time Profiler: lectura JSON, codificación y mezcla masiva deben ejecutarse fuera del hilo principal; SwiftUI solo publica el snapshot resultante.
+- [ ] En Cuenta no debe existir «Sincronizar ahora», fecha de última actualización ni spinner.
+
 ## Catálogo editorial Supabase (25/10/2026)
 
 - [x] Backfill real de 287 ejercicios y cursor 1–287 en Supabase Repera, RLS de lectura authenticated, sin permiso de lectura anon.
@@ -15,7 +26,7 @@ Checklist manual por feature. Preferible dispositivo real para Live Activity y W
 - [ ] Marcar `is_active=false`: desaparece de biblioteca y selector, pero rutinas, sesiones, récords y favoritos históricos conservan ID y datos. Reactivar y comprobar retorno.
 - [ ] Renombrar un ejercicio sin cambiar `catalog_key` ni UUID: no crear duplicados y conservar evolución.
 - [ ] Sin conexión: iniciar rápido, mostrar caché, seguir entrenando; reconectar para obtener únicamente los eventos pendientes.
-- [ ] Con iCloud antiguo, cerrar/reabrir y usar «Sincronizar ahora»: la copia remota corrige fichas una vez recuperada iCloud.
+- [ ] Con iCloud antiguo, cerrar/reabrir sin tocar controles: la copia remota corrige las fichas tras recuperarse iCloud.
 - [ ] Revisar Watch activo al cambiar un ejercicio desde iPhone; probar app Watch sin conectividad con historial precargado.
 - [ ] Compilar con Xcode 27, ejecutar Swift XCTest ReperaDomain, simulador iPhone/Watch y pruebas de dispositivos reales antes de fusionar PR.
 
@@ -313,10 +324,10 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] Autorizar lectura y escritura de **Entrenamientos** en Ajustes → Apple Salud. Terminar una sesión Repera desde iPhone: en la app Salud debe aparecer un HKWorkout de fuerza con inicio, fin, nombre Repera e identidad estable; el registro Repera almacena el mismo UUID.
 - [ ] Finalizar una sesión con un entrenamiento real de Entreno de Apple Watch solapado al menos 70 % y no ambiguo: enlazar el UUID externo, sus fechas y duración **aunque no tenga calorías**; no escribir otro HKWorkout de Repera. Si la sesión del reloj estuvo pausada, el indicador de tiempo de Inicio debe usar la duración real del HKWorkout, no el tiempo de pared.
 - [ ] Con energía medida por el propio HKWorkout de Apple Watch, mostrarla; sin muestra de energía, mostrar — en kcal por sesión, no energía activa ambiente del mismo periodo.
-- [ ] Denegar escritura pero permitir lectura: vincular un HKWorkout de Apple Watch coincidente. Si no existe, conservar el entrenamiento local sin marcarlo como guardado en Salud y comunicar permisos pendientes en Sincronizar ahora.
-- [ ] Sin permisos para escribir ni workout externo, guardar Repera únicamente en local. Dar el permiso posteriormente y pulsar Sincronizar ahora: se crea **una** muestra HealthKit con UUID y la app deja de informar de ella como pendiente.
-- [ ] Terminar entreno, cerrar/reabrir la app y repetir Sincronizar ahora: debe encontrar el HKWorkout propio por metadatos ReperaSessionID, sin generar duplicados.
-- [ ] Simular doble sincronización concurrente: «Terminar» y «Sincronizar ahora» no crean dos HKWorkout de la misma sesión. Mantener los datos originales si HealthKit devuelve error o no confirma UUID (p. ej. dispositivo bloqueado).
+- [ ] Denegar escritura pero permitir lectura: vincular un HKWorkout de Apple Watch coincidente. Si no existe, conservar el entrenamiento local sin marcarlo como guardado en Salud y mantener el entrenamiento local sin exigir interacción de sincronización.
+- [ ] Sin permisos para escribir ni workout externo, guardar Repera únicamente en local. Dar el permiso posteriormente y reabrir la app: se crea **una** muestra HealthKit con UUID y la app deja de informar de ella como pendiente.
+- [ ] Terminar entreno, cerrar/reabrir la app y regresar a primer plano: debe encontrar el HKWorkout propio por metadatos ReperaSessionID, sin generar duplicados.
+- [ ] Simular doble sincronización concurrente: «Terminar» y la actualización automática al volver a primer plano no crean dos HKWorkout de la misma sesión. Mantener los datos originales si HealthKit devuelve error o no confirma UUID (p. ej. dispositivo bloqueado).
 - [ ] Con varios HKWorkout en un día, comprobar que un registro de Watch enlazado no se suma de nuevo como actividad externa ni duplica minutos. Una actividad externa distinta y no solapada sí se suma.
 - [ ] No dar por cubierta captura de FC y kcal propias de la app watchOS Repera: actualmente no ejecuta HKWorkoutSession; probar solo con entrenamientos de HealthKit reales (p. ej. Entreno de Apple).
 - [ ] Revisar permisos, modo avión, bloqueo/desbloqueo de pantalla, reintentos, cambios de día y sincronización iCloud con el iPhone real. Validar que se omiten kcal estimadas históricas.
