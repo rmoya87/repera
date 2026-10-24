@@ -59,7 +59,7 @@ public enum ExerciseEquipmentGroup {
         if named(["box jump", "box step", "box squat", "box step-up",
                   "burpee box", "salto al cajon", "step-up al cajon",
                   "burpee al cajon", "box jump over"]) ||
-            equipped(["cajon", "plyo box", "jump box"]) || e == "box" {
+            equipped(["cajon", "plyo box", "jump box"]) || e == "box" || e == "step" {
             return "Cajones"
         }
         if named(["double-under", "single-under", "triple-under", "jump rope",
@@ -84,7 +84,7 @@ public enum ExerciseEquipmentGroup {
                   "chest to bar", "toes to bar", "knees to elbows",
                   "toes to rings", "muscle-up barra", "bar muscle up",
                   "hip to bar", "pull-over barra"]) ||
-            equipped(["barra de dominadas", "pull-up bar", "pullup bar"]) {
+            equipped(["barra de dominadas", "barra fija", "pull-up bar", "pullup bar"]) {
             return "Barras de dominadas"
         }
 
@@ -101,6 +101,8 @@ public enum ExerciseEquipmentGroup {
         }
         if equipped(["balon", "medicine ball", "medball"]) { return "Balones medicinales" }
         if named(["fondos en banco"]) || equipped(["banco", "bench"]) { return "Bancos" }
+        if equipped(["rueda abdominal", "ab wheel"]) { return "Ruedas abdominales" }
+        if equipped(["plataforma elevada"]) { return "Plataformas de apoyo" }
         if equipped(["pica", "pvc pipe"]) { return "Picas" }
         if equipped(["rodillo", "foam roller"]) { return "Rodillos" }
         if equipped(["marco de puerta", "door frame"]) { return "Marcos de puerta" }
