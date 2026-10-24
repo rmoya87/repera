@@ -39,9 +39,10 @@ import org.json.JSONObject
  *
  * Teselas: OpenFreeMap (sin key/cuenta/coste; atribución integrada del estilo
  * visible vía el botón de atribución de MapLibre, que queda habilitado).
- * Privacidad: los puntos de la ruta NUNCA salen del dispositivo — solo se
- * descargan teselas del área visible (bbox), no la ruta; los tests usan
- * coordenadas sintéticas.
+ * Privacidad: el array de puntos de la ruta NO se envía a ningún servicio,
+ * pero las peticiones de teselas revelan al proveedor la ZONA visible
+ * (bounding box) y la IP del dispositivo. No se registran coordenadas en
+ * logs ni analytics, y los tests usan coordenadas sintéticas.
  *
  * Degradado: si el estilo/teselas fallan (servicio caído, sin red), se
  * sustituye por una polilínea en Canvas con los mismos colores y se indica
@@ -58,14 +59,37 @@ internal fun RouteMapView(
         RouteMapFallback(points, modifier)
         return
     }
+    // Lifecycle MapLibre: onStart/Resume/... atados al ciclo del composable
+    // (sin ello el mapa pierde GL o gasta batería en segundo plano).
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    var mapView by remember { mutableStateOf<MapView?>(null) }
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_START -> mapView?.onStart()
+                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> mapView?.onResume()
+                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> mapView?.onPause()
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> mapView?.onStop()
+                androidx.lifecycle.Lifecycle.Event.ON_DESTROY -> mapView?.onDestroy()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            mapView?.onDestroy()
+            mapView = null
+        }
+    }
     AndroidView(
         modifier = modifier.testTag("route_map"),
         factory = { context ->
             MapLibre.getInstance(context)
-            MapView(context).apply {
+            MapView(context).also { mapView = it }.apply {
                 // El listener de fallo de carga vive en MapView (widget), no en
                 // MapLibreMap (comprobado contra el AAR de MapLibre 13.7.1).
                 addOnDidFailLoadingMapListener { failed = true }
+                onCreate(null)
                 getMapAsync { map ->
                     map.uiSettings.apply {
                         isLogoEnabled = true
@@ -158,7 +182,8 @@ private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier
                 }
             }
         }
-        Text("Mapa no disponible", fontSize = 12.sp,
+        Text("Mapa no disponible · © OpenStreetMap contributors · © OpenFreeMap",
+            fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.align(Alignment.BottomStart))
     }

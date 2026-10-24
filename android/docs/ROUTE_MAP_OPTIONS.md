@@ -36,6 +36,14 @@ teselas. Políticas verificadas a 24/10/2026 (URLs al final).
   No es «mapa nativo»: sin calles ni contexto. Solo como degradado si ninguna
   opción con teselas es aceptable.
 
+## Privacidad (precisión importante)
+El array de puntos de la ruta NO se envía a ningún servicio, pero la petición
+de teselas revela al proveedor la ZONA visible (bounding box) y la IP del
+dispositivo: no se puede afirmar que «la ubicación nunca sale». No se
+registran coordenadas en logs ni analytics, no se precargan rutas reales en
+tests, y no se promete uso offline completo por una caché puntual del visor.
+La atribución se muestra tanto con mapa como con el degradado.
+
 ## Recomendación
 A (MapLibre + OpenFreeMap): paridad visual con MapKit, coste cero, sin key ni
 facturación, producción permitida por sus TOS. B como plan de reserva con
