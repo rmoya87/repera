@@ -1,0 +1,12 @@
+{
+  "images": [
+    {
+      "filename": "repera-native-opaque-hero.png",
+      "idiom": "universal"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}
