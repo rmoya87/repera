@@ -2,7 +2,7 @@
 
 Última actualización: 2026-10-24 (presentación del botón alineada con Apple, autenticación Google Sign-In).
 
-Repera utiliza el SDK oficial `GoogleSignIn` **10.1.0** mediante Swift Package Manager para autenticar y vincular cuentas. La presentación solicitada para el botón se implementa en SwiftUI: contenido centrado, sin sombra, mismo ancho y alto mínimo de 52 pt que Apple y esquinas continuas de 12 pt. El botón llama al mismo flujo del SDK. La G multicolor oficial se incorpora sin modificar desde `https://developers.google.com/static/identity/images/g-logo.png`; no se incluyen fuentes propias. Se retira el componente visual `GoogleSignInSwift`, que fija la sombra y la alineación, manteniendo el SDK de autenticación.
+Repera utiliza el SDK oficial `GoogleSignIn` **10.1.0** mediante Swift Package Manager para autenticar y vincular cuentas. La presentación solicitada para el botón se implementa en SwiftUI: contenido centrado, sin sombra, mismo ancho y altura fija de 52 pt que Apple y esquinas continuas de 12 pt. Ambos logos usan un marco de 20 × 20 pt con ajuste proporcional; el símbolo Apple deja de depender de una fuente de 18 pt. El botón llama al mismo flujo del SDK. La G multicolor oficial se incorpora sin modificar desde `https://developers.google.com/static/identity/images/g-logo.png`; no se incluyen fuentes propias. Se retira el componente visual `GoogleSignInSwift`, que fija la sombra y la alineación, manteniendo el SDK de autenticación.
 
 ## Configuración necesaria
 

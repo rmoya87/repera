@@ -68,6 +68,8 @@ private struct OnboardingSignInStep: View {
     }
 
     private var busy: Bool { signingInWith != nil }
+    private let signInButtonHeight: CGFloat = 52
+    private let signInIconSize: CGFloat = 20
 
     /// Día: botón negro / texto blanco. Noche: botón blanco / texto negro (HIG Apple SIWA).
     private var appleButtonBackground: Color {
@@ -158,16 +160,19 @@ private struct OnboardingSignInStep: View {
                     if signingInWith == .apple {
                         ProgressView()
                             .tint(appleButtonForeground)
+                            .frame(width: signInIconSize, height: signInIconSize)
                     } else {
                         Image(systemName: "apple.logo")
-                            .font(.system(size: 18, weight: .semibold))
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: signInIconSize, height: signInIconSize)
+                            .accessibilityHidden(true)
                     }
                     Text("Iniciar sesión con Apple")
                         .font(.system(size: 17, weight: .semibold))
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .frame(minHeight: 52)
+                .frame(height: signInButtonHeight)
                 .foregroundStyle(appleButtonForeground)
                 .background(appleButtonBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
@@ -185,14 +190,13 @@ private struct OnboardingSignInStep: View {
                             .renderingMode(.original)
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 20, height: 20)
+                            .frame(width: signInIconSize, height: signInIconSize)
                             .accessibilityHidden(true)
                         Text("Iniciar sesión con Google")
                             .font(.system(size: 17, weight: .semibold))
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .frame(minHeight: 52)
+                    .frame(height: signInButtonHeight)
                     .foregroundStyle(googleButtonForeground)
                     .background(googleButtonBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay {
