@@ -136,7 +136,7 @@ object ProgressSnapshotBuilder {
                 exercises.add(StatsExercise(
                     exerciseId = detail?.optString("id")
                         ?: entry.optString("exerciseId"),
-                    exerciseName = detail?.optString("name") ?: "Ejercicio",
+                    exerciseName = detail?.exerciseDisplayName() ?: "Ejercicio",
                     muscleGroup = detail?.optString("muscleGroup"),
                     isMobility = mobility,
                     sets = sets,

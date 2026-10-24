@@ -853,7 +853,7 @@ data class StateOverview(
                         val exercise = saved.getJSONObject(i)
                         val movement = exercise.optJSONObject("exercise")
                         WorkoutHistoryMovement(
-                            name = movement?.optString("name") ?: "Ejercicio",
+                            name = movement?.exerciseDisplayName() ?: "Ejercicio",
                             wod = exercise.optString("blockKind") == "wod",
                             registered = WorkoutHistorySets.displayLines(session, exercise),
                             entryId = exercise.optString("id"),
@@ -1071,6 +1071,16 @@ data class StateOverview(
             )
         }
     }
+}
+
+
+/** Nombre visible de un ejercicio embebido en JSON (sesiones, historial):
+ * canoniza como Apple vía SportExerciseNames usando sportTag si existe,
+ * sin tocar el nombre persistido. */
+internal fun org.json.JSONObject.exerciseDisplayName(): String {
+    val base = optString("name").ifBlank { return "Ejercicio" }
+    val tag = optString("sportTag").takeIf { it.isNotBlank() }
+    return dev.repera.domain.SportExerciseNames.displayName(base, tag)
 }
 
 data class RoutineEntry(

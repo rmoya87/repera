@@ -1604,7 +1604,7 @@ class WorkoutRepository(context: Context, googleId: String) {
             title = session.getString("title"),
             index = index,
             total = exercises.length(),
-            exerciseName = current.getJSONObject("exercise").getString("name"),
+            exerciseName = current.getJSONObject("exercise").exerciseDisplayName(),
             completedSets = logged.length(),
             prescribedQuantity = next?.optInt("targetReps"),
             prescribedDurationSeconds = next?.takeIf { it.has("targetDurationSeconds") }
