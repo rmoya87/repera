@@ -1,0 +1,46 @@
+name: Refine native splash dumbbell alpha
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/refine-launch-once.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install pillow numpy opencv-python-headless
+      - name: Recreate dedicated native splash and green diagnostic
+        run: python scripts/fix_launch_barbell_alpha.py
+      - name: Verify metadata and face pixel opacity
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          from PIL import Image
+          directory=Path("Apps/Repera/Resources/Assets.xcassets/MascotLaunchBarbell.imageset")
+          info=json.loads((directory/"Contents.json").read_text())
+          assert info["images"][0]["filename"]=="mascot-launch-barbell.png"
+          im=Image.open(directory/"mascot-launch-barbell.png").convert("RGBA")
+          for point in ((445,379),(607,411),(518,438),(453,351),(617,380)):
+              assert im.getpixel(point)[3]==255, f"Transparent detail: {point}"
+          assert im.getpixel((0,0))[3]==0
+          assert 'image="MascotLaunchBarbell"' in Path("Apps/Repera/Resources/LaunchScreen.storyboard").read_text()
+          PY
+      - name: Publish final PNG and remove temporary workflow
+        run: |
+          git add Apps/Repera/Resources/Assets.xcassets/MascotLaunchBarbell.imageset/mascot-launch-barbell.png docs/assets/repera-launch-alpha-preview.png
+          git rm .github/workflows/refine-launch-once.yml
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Refine launch barbell silhouette and keep all facial details opaque"
+          git push origin HEAD:main
