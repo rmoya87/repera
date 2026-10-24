@@ -91,6 +91,9 @@ internal fun ProgressTab(
     val snapshot = overview?.progressByRange?.get(selectedRange)
     val today = LocalDate.now()
     val weekStart = today.minusDays((today.dayOfWeek.value - 1).toLong())
+    val dayFmt = java.time.format.DateTimeFormatter
+        .ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
+        .withLocale(java.util.Locale.getDefault())
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -107,7 +110,7 @@ internal fun ProgressTab(
                     Text("Esta semana", style = MaterialTheme.typography.titleLarge)
                     Text("${overview?.workoutsThisWeek ?: 0} sesiones esta semana",
                         style = MaterialTheme.typography.headlineSmall)
-                    Text("Del ${weekStart} al ${today}")
+                    Text("Del ${weekStart.format(dayFmt)} al ${today.format(dayFmt)}")
                     WeekTrainingBars(overview?.weeklyDayTotals.orEmpty())
                     Text("El total semanal usa todo el historial local. " +
                         "Los detalles de abajo muestran las últimas 20 sesiones.",
@@ -116,8 +119,10 @@ internal fun ProgressTab(
             }
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+            androidx.compose.foundation.layout.FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 ProgressTimeRange.entries.forEach { range ->
                     FilterChip(
                         selected = selectedRange == range.wire,
