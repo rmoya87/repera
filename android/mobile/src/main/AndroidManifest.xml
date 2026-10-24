@@ -31,6 +31,9 @@
         </activity>
         <activity android:name=".HealthPrivacyActivity" android:exported="false" />
         <service
+            android:name=".StrengthRestService"
+            android:exported="false" />
+        <service
             android:name=".WodTimerService"
             android:exported="false"
             android:foregroundServiceType="specialUse">

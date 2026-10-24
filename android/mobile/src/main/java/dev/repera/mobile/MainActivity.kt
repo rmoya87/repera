@@ -210,14 +210,29 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onQuickLog = { id -> runWorkoutAction { startQuickLog(id) } },
                 onInitializeLocal = ::initializeLocalCatalog,
                 onLogSet = { quantity, weight, rir, warmup, unit, duration, deficit ->
-                    runWorkoutAction { logCurrentSet(quantity, weight, rir, warmup,
+                    val rest = currentRestInfo()
+                    runWorkoutAction(onSuccess = {
+                        rest?.let { (name, seconds) ->
+                            StrengthRestService.start(this, name, seconds)
+                        }
+                    }) { logCurrentSet(quantity, weight, rir, warmup,
                         quantityUnit = unit, durationSeconds = duration, deficitCm = deficit) }
                 },
                 onLogDropSet = { quantity, weight, drops ->
-                    runWorkoutAction { logDropSet(quantity, weight, drops) }
+                    val rest = currentRestInfo()
+                    runWorkoutAction(onSuccess = {
+                        rest?.let { (name, seconds) ->
+                            StrengthRestService.start(this, name, seconds)
+                        }
+                    }) { logDropSet(quantity, weight, drops) }
                 },
                 onLogRestPauseSet = { clusters, weight ->
-                    runWorkoutAction { logRestPauseSet(clusters, weight) }
+                    val rest = currentRestInfo()
+                    runWorkoutAction(onSuccess = {
+                        rest?.let { (name, seconds) ->
+                            StrengthRestService.start(this, name, seconds)
+                        }
+                    }) { logRestPauseSet(clusters, weight) }
                 },
                 onReviseSet = { id, quantity, weight, unit, duration, deficit ->
                     runWorkoutAction { reviseCurrentSet(id, quantity, weight, unit, duration, deficit) }
@@ -238,7 +253,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     runWorkoutAction { setRoutineProgression(id, policy) }
                 },
                 onNext = { runWorkoutAction { next() } },
-                onFinish = { runWorkoutAction { finish() } },
+                onFinish = {
+                    StrengthRestService.cancel(this)
+                    runWorkoutAction { finish() }
+                },
                 onImportJson = { importJson.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                 onExportJson = { exportJson.launch("repera-entrenamientos.json") },
                 onGoogleSignIn = ::signInWithGoogle,
@@ -312,11 +330,18 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             lifecycleScope.launch {
                 val result = runCatching {
                     withContext(Dispatchers.IO) {
+                        val wearRest = runCatching {
+                            WorkoutRepository(this@MainActivity, signedIn.uniqueId)
+                                .restInfoForExercise(exerciseIndex)
+                        }.getOrNull()
                         WorkoutRepository(this@MainActivity, signedIn.uniqueId).logWearSet(
                             sessionId, exerciseIndex, id, quantity, weight, rir,
                             durationSeconds = duration, quantityUnit = unit,
                             deficitCm = deficit
                         )
+                        wearRest?.let { (name, seconds) ->
+                            StrengthRestService.start(this@MainActivity, name, seconds)
+                        }
                     }
                     reloadFor(signedIn.uniqueId)
                 }
@@ -616,7 +641,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             active.wod, wodTimer)
     }
 
-    private fun runWorkoutAction(action: WorkoutRepository.() -> Unit) {
+    private fun runWorkoutAction(onSuccess: (() -> Unit)? = null,
+                                 action: WorkoutRepository.() -> Unit) {
         val signedIn = profile ?: return
         if (busy) return
         busy = true
@@ -628,12 +654,21 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 reloadFor(signedIn.uniqueId)
                 DriveSyncWorker.syncNow(this@MainActivity)
                 status = null
+                onSuccess?.invoke()
             } catch (error: Exception) {
                 status = error.localizedMessage ?: "No se pudo guardar el entrenamiento"
             } finally {
                 busy = false
             }
         }
+    }
+
+    /** Descanso prescrito del ejercicio en curso antes de registrar la serie. */
+    private fun currentRestInfo(): Pair<String, Int>? {
+        val signedIn = profile ?: return null
+        return runCatching {
+            WorkoutRepository(this, signedIn.uniqueId).restInfoForExercise()
+        }.getOrNull()
     }
 
     private fun initializeLocalCatalog() {

@@ -1058,6 +1058,25 @@ class WorkoutRepository(context: Context, googleId: String) {
         return summarize(session)
     }
 
+    /**
+     * Nombre y descanso prescrito del ejercicio indicado (o el actual), para la
+     * notificación de cuenta atrás tras registrar una serie. null si no hay
+     * sesión activa, el índice no existe o no hay descanso configurado.
+     */
+    @Synchronized fun restInfoForExercise(exerciseIndex: Int? = null): Pair<String, Int>? {
+        val state = loadOrNull() ?: return null
+        val session = state.optJSONObject("activeSession") ?: return null
+        val array = session.optJSONArray("exercises") ?: return null
+        val index = exerciseIndex ?: session.optInt("currentIndex", -1)
+        if (index !in 0 until array.length()) return null
+        val exercise = array.getJSONObject(index)
+        val rest = exercise.optInt("restSeconds", -1)
+        if (rest <= 0) return null
+        val name = exercise.optJSONObject("exercise")?.optString("name")
+            ?: return null
+        return name to rest
+    }
+
     @Synchronized fun finish(): Unit {
         val state = requireState()
         finishInPlace(state, requireActive(state))
