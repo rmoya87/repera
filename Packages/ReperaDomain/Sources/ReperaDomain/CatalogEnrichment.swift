@@ -50,7 +50,7 @@ enum CatalogEnrichment {
             secondaryMuscles: ["shoulders", "biceps"],
             bodyPart: "chest",
             description: "Aperturas en banco inclinado: abres y cierras en arco con codos blandos para estirar y contraer el pecho.",
-            instructions: ["Lie on a bench with chains.", "Hold weights above your chest.", "Open arms.", "Stretch your chest.", "Bring weights together.", "Keep elbows soft."],
+            instructions: ["Lie back on a bench set to about a 30 degree incline.", "Hold weights above your chest.", "Open arms.", "Stretch your chest.", "Bring weights together.", "Keep elbows soft."],
             primaries: ["chest"],
             secondaries: ["deltoids", "biceps"]
         ),
@@ -583,7 +583,7 @@ enum CatalogEnrichment {
             secondaryMuscles: ["glutes", "hamstrings", "core"],
             bodyPart: "upper legs",
             description: "Sentadilla búlgara: pierna trasera elevada; cuádriceps y glúteo de la pierna delantera.",
-            instructions: ["Start in a split stance with your torso upright.", "Lower into a split squat until the front thigh is parallel.", "Sit back and roll onto your back with control.", "Roll up and return to the split stance.", "Stand and repeat, then switch legs."],
+            instructions: ["Rest the top of your rear foot on a bench and plant your front foot far enough forward.", "Lower with control until your rear knee approaches the floor and your front thigh is about parallel.", "Keep your torso upright and your front knee tracking over your toes.", "Push through your front foot to stand; the rear leg only stabilizes.", "Finish your reps, then switch legs."],
             primaries: ["quadriceps", "gluteal"],
             secondaries: ["hamstring", "abs"]
         ),
