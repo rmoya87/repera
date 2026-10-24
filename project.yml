@@ -54,7 +54,7 @@ targets:
       - path: Apps/Repera/Resources/ExerciseArt
         buildPhase: resources
         type: folder
-      - path: Apps/Repera/Resources/ReperaLaunchOpaque.storyboard
+      - path: Apps/Repera/Resources/ReperaLaunchBundle.storyboard
         buildPhase: resources
       # PNG directo en el bundle: el Launch Screen se renderiza ANTES de que Assets.car este preparado.
       - path: Apps/Repera/Resources/LaunchHeroOpaque.png
@@ -127,7 +127,7 @@ targets:
         RevenueCatPublicAPIKey: YOUR_REVENUECAT_PUBLIC_API_KEY
         ReperaSupabaseURL: https://uvzgujlrqohreoucirms.supabase.co
         ReperaSupabasePublishableKey: sb_publishable_uY9c82Ur7VK4VOo9n2zCEg_PmywmLbA
-        UILaunchStoryboardName: ReperaLaunchOpaque
+        UILaunchStoryboardName: ReperaLaunchBundle
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft

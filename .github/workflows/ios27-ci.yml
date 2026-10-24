@@ -148,11 +148,11 @@ jobs:
           test -f "$APP/LaunchHeroOpaque.png" || {
             echo "::error::Raw native launch PNG missing from app bundle"; exit 1;
           }
-          test -d "$APP/ReperaLaunchOpaque.storyboardc" || {
-            echo "::error::ReperaLaunchOpaque.storyboardc missing"; exit 1;
+          test -d "$APP/ReperaLaunchBundle.storyboardc" || {
+            echo "::error::ReperaLaunchBundle.storyboardc missing"; exit 1;
           }
           ACTUAL="$(/usr/libexec/PlistBuddy -c 'Print :UILaunchStoryboardName' "$APP/Info.plist")"
-          test "$ACTUAL" = "ReperaLaunchOpaque" || {
+          test "$ACTUAL" = "ReperaLaunchBundle" || {
             echo "::error::Incorrect UILaunchStoryboardName: $ACTUAL"; exit 1;
           }
           cmp Apps/Repera/Resources/LaunchHeroOpaque.png "$APP/LaunchHeroOpaque.png" || {
