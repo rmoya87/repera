@@ -1,6 +1,6 @@
 # Catálogo remoto incremental de ejercicios
 
-Última actualización: 2026-10-25. Implementación inicial para iPhone. **El deploy SQL y las pruebas de dispositivo se verifican por separado.**
+Última actualización: 2026-10-25. Actualización invisible y tareas nativas iOS 27. **El deploy SQL y las pruebas de dispositivo se verifican por separado.**
 
 ## Fuente editorial
 
@@ -12,11 +12,13 @@ La tabla de eventos es de **solo lectura para clientes autenticados** (RLS). No 
 
 1. Inicio: `ReperaStore` hidrata el JSON personal y, como respaldo de primera instalación sin Internet, las fichas empaquetadas en `Catalog.seed()`. Ni red ni Supabase bloquean el arranque.
 2. Después de recuperar iCloud, `RemoteExerciseCatalogStore.restoreCached` superpone la última instantánea remota persistida en Application Support (`exercise_catalog_remote_v1.json`).
-3. Con una sesión de Supabase válida, se consulta **una fila** (`max(id)` mediante orden descendente y límite 1). Si no cambió, no se descarga el catálogo.
+3. Sin ningún botón o indicador de sincronización, una tarea asíncrona de prioridad baja consulta **una fila** (`max(id)` mediante orden descendente y límite 1). Si no cambió, no se descarga el catálogo.
 4. Si hay revisión posterior, se solicitan **solo los eventos nuevos** en páginas de 150 (`id > cursor` y `id <= revisionObjetivo`, orden ascendente). Solo tras recibir todas las páginas se escribe de forma atómica el snapshot y se avanza el cursor.
 5. Se actualizan fichas sin cambiar UUID locales, favoritos, rutinas, sesiones ni récords. Las claves `catalog_key` se mantienen aunque cambie el nombre; para adopción inicial también se reconoce el nombre histórico en `catalog:NombreAnterior` y `native_catalog_id`.
 6. Las bajas se marcan `isCatalogArchived=true`: desaparecen de biblioteca y selectores compartidos, pero las referencias históricas permanecen y siguen decodificándose. El reloj recibe el contexto actualizado de la sesión desde el iPhone.
-7. En el primer plano se restaura la caché tras iCloud y se vuelve a comprobar la revisión remota. Sin Internet, sin cuenta Supabase o ante un error se conserva la copia local sin borrar información.
+7. Al volver a primer plano se restaura la caché tras iCloud y se vuelve a comprobar la revisión remota. Sin Internet, sin cuenta Supabase o ante un error se conserva la copia local sin borrar información.
+
+**Rendimiento y ejecución en segundo plano (iOS 27):** `RemoteExerciseCatalogStore.DiskStorage` es un actor dedicado para las lecturas y escrituras JSON atómicas. La reconstrucción de fichas se calcula en un `Task.detached(priority: .utility)` antes de actualizar el estado observable en MainActor; se descarta la mezcla si el usuario editó favoritos o entrenamientos durante el cálculo. El arranque no espera a Supabase ni muestra un spinner. `ReperaApp` integra el modificador nativo `.backgroundTask(.appRefresh(...))` y `BGAppRefreshTaskRequest`, declarado en el Info.plist generado por XcodeGen con `UIBackgroundModes=fetch`. La ejecución es **oportunista y controlada por iOS**, no un temporizador exacto: si el sistema no la concede, se refresca de forma silenciosa en lanzamiento/regreso a primer plano. Una ejecución solo en segundo plano actualiza la caché pública en disco; nunca accede al historial personal ni modifica el JSON/iCloud antes de hidratar la app.
 
 La caché remota **no** contiene entrenamientos ni datos de Salud. La sincronización del catálogo **no** es una sincronización de historias de usuario.
 
