@@ -128,292 +128,93 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             )) {
                 AppScaffold {
                     ScreenScaffold { insets ->
-                        Column(
+                        WearHomeContent(
+                            state = WearHomeState(
+                                session = visibleSession,
+                                showingCachedSession = showingCachedSession,
+                                finishedSummary = finishedSummary,
+                                todayPlan = todayPlanJson,
+                                syncProblem = syncProblem,
+                                health = health,
+                                wodTimerJson = wodTimerJson,
+                                wodTickSeconds = wodTickSeconds,
+                                sessionPaused = sessionPaused,
+                                restRemaining = restRemaining,
+                                repsInput = repsInput,
+                                weightInput = weightInput,
+                                rirInput = rirInput,
+                                durationInput = durationInput,
+                                unitInput = unitInput,
+                                deficitInput = deficitInput,
+                                pendingCount = pendingCount,
+                                confirmDiscardPending = confirmDiscardPending,
+                                sendStatus = sendStatus
+                            ),
+                            callbacks = WearHomeCallbacks(
+                                onDismissFinished = { finished ->
+                                    sessionCache.edit().putString(
+                                        "finishedDismissed", finished.sessionId).apply()
+                                    finishedSummary = null
+                                },
+                                onStartTodayPlan = { startTodayPlan() },
+                                onTogglePause = { togglePause() },
+                                onFinishSession = { session -> finishSessionFromWatch(session) },
+                                onSkipRest = { skipRest() },
+                                onRepsMinus = {
+                                    if (visibleSession?.prescribedReps == null) {
+                                        repCounter.applyManualDelta(-1)
+                                        repsInput = repCounter.count
+                                    } else {
+                                        repsInput = (repsInput - 1).coerceAtLeast(0)
+                                    }
+                                },
+                                onRepsPlus = {
+                                    if (visibleSession?.prescribedReps == null) {
+                                        repCounter.applyManualDelta(1)
+                                        repsInput = repCounter.count
+                                    } else {
+                                        repsInput = (repsInput + 1).coerceAtMost(10000)
+                                    }
+                                },
+                                onWeightDelta = { delta ->
+                                    weightInput = ((weightInput ?: 0.0) + delta)
+                                        .coerceAtLeast(0.0).coerceAtMost(2000.0)
+                                },
+                                onRirMinus = {
+                                    rirInput = ((rirInput ?: 3.0) - 1).coerceAtLeast(0.0)
+                                },
+                                onRirPlus = {
+                                    rirInput = ((rirInput ?: 1.0) + 1).coerceAtMost(5.0)
+                                },
+                                onRirClear = { rirInput = null },
+                                onDurationDelta = { delta ->
+                                    durationInput = (durationInput + delta).coerceAtLeast(5)
+                                },
+                                onCycleUnit = {
+                                    unitInput = when (unitInput) {
+                                        "reps" -> "calories"
+                                        "calories" -> "meters"
+                                        else -> "reps"
+                                    }
+                                },
+                                onDeficitDelta = { delta ->
+                                    deficitInput = (deficitInput + delta).coerceAtLeast(0)
+                                },
+                                onQueueSet = { session -> queueSet(session) },
+                                onResendPending = { resendPending() },
+                                onDiscardConfirm = { ask -> confirmDiscardPending = ask },
+                                onDiscardPending = {
+                                    val dropped = runCatching {
+                                        pendingStore.clear()
+                                        pendingCount = 0
+                                    }.isSuccess
+                                    confirmDiscardPending = false
+                                    sendStatus = if (dropped) "Series pendientes descartadas"
+                                        else "No se pudieron descartar los registros"
+                                }
+                            ),
                             modifier = Modifier.fillMaxSize().padding(insets)
-                                .verticalScroll(rememberScrollState())
-                                .padding(horizontal = 16.dp),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text("repera", style = MaterialTheme.typography.titleMedium)
-                            Spacer(Modifier.height(6.dp))
-                            val session = visibleSession
-                            if (session == null) {
-                                val finishedNow = finishedSummary
-                                if (finishedNow != null) {
-                                    Text("Sesión completada",
-                                        style = MaterialTheme.typography.titleMedium)
-                                    Text(finishedNow.title, textAlign = TextAlign.Center,
-                                        style = MaterialTheme.typography.labelMedium)
-                                    Text("${finishedNow.minutes} min · " +
-                                        "${finishedNow.exercises} ejercicios · " +
-                                        "${finishedNow.sets} series",
-                                        textAlign = TextAlign.Center,
-                                        style = MaterialTheme.typography.labelSmall)
-                                    Button(onClick = {
-                                        sessionCache.edit().putString(
-                                            "finishedDismissed", finishedNow.sessionId).apply()
-                                        finishedSummary = null
-                                    }) { Text("Cerrar") }
-                                } else {
-                                val plan = todayPlanJson
-                                if (plan != null) {
-                                    Text("Entreno de hoy",
-                                        style = MaterialTheme.typography.titleMedium)
-                                    Text(plan.optString("title"),
-                                        textAlign = TextAlign.Center,
-                                        style = MaterialTheme.typography.labelMedium)
-                                    Text("${plan.optJSONArray("exercises")?.length() ?: 0} ejercicios",
-                                        style = MaterialTheme.typography.labelSmall)
-                                    Button(onClick = { startTodayPlan() }) {
-                                        Text("Empezar")
-                                    }
-                                } else {
-                                Text(if (syncProblem) "No se pudo leer la sesión del teléfono" else "Sin entrenamiento recibido",
-                                    textAlign = TextAlign.Center)
-                                }
-                                }
-                            } else {
-                                if (showingCachedSession) {
-                                    Text("Última sesión recibida · sin conexión confirmada",
-                                        textAlign = TextAlign.Center,
-                                        style = MaterialTheme.typography.labelSmall)
-                                }
-                                Text(session.title, textAlign = TextAlign.Center,
-                                    style = MaterialTheme.typography.labelMedium)
-                                health?.let { (bpm, kcal) ->
-                                    Text(
-                                        listOfNotNull(
-                                            bpm?.let { "$it ppm" },
-                                            kcal?.let { "${it.toInt()} kcal" }
-                                        ).joinToString(" · "),
-                                        style = MaterialTheme.typography.labelSmall)
-                                }
-                                Spacer(Modifier.height(6.dp))
-                                if (session.wodFormatLabel != null) {
-                                    Text(session.wodFormatLabel,
-                                        style = MaterialTheme.typography.titleMedium)
-                                    session.wodMovements.forEach { movement ->
-                                        Text(movement, textAlign = TextAlign.Center,
-                                            style = MaterialTheme.typography.labelSmall)
-                                    }
-                                    wodTimerJson?.let { timer ->
-                                        val spec = dev.repera.domain.WodClockSpec(
-                                            format = dev.repera.domain.WodFormat
-                                                .fromWire(timer.optString("format"))
-                                                ?: return@let,
-                                            blockTimeCapMinutes = timer.optInt("timeCapMinutes")
-                                                .takeIf { timer.has("timeCapMinutes") &&
-                                                    !timer.isNull("timeCapMinutes") },
-                                            intervalSeconds = timer.optInt("intervalSeconds")
-                                                .takeIf { timer.has("intervalSeconds") &&
-                                                    !timer.isNull("intervalSeconds") },
-                                            rounds = timer.optInt("rounds")
-                                                .takeIf { timer.has("rounds") &&
-                                                    !timer.isNull("rounds") },
-                                            workSeconds = timer.optInt("workSeconds")
-                                                .takeIf { timer.has("workSeconds") &&
-                                                    !timer.isNull("workSeconds") },
-                                            restSeconds = timer.optInt("restSeconds")
-                                                .takeIf { timer.has("restSeconds") &&
-                                                    !timer.isNull("restSeconds") },
-                                            restBetweenRoundsSeconds = timer
-                                                .optInt("restBetweenRoundsSeconds")
-                                                .takeIf { timer.has("restBetweenRoundsSeconds") &&
-                                                    !timer.isNull("restBetweenRoundsSeconds") }
-                                        )
-                                        val face = dev.repera.domain.WodClock.face(
-                                            spec, wodTickSeconds)
-                                        val mins = face.primarySeconds / 60
-                                        val secs = face.primarySeconds % 60
-                                        Text("%d:%02d".format(mins, secs),
-                                            style = MaterialTheme.typography.displayMedium)
-                                        face.label?.let {
-                                            Text(it,
-                                                style = MaterialTheme.typography.labelSmall)
-                                        }
-                                    }
-                                    Button(onClick = { togglePause() }) {
-                                        Text(if (sessionPaused) "Reanudar" else "Pausar")
-                                    }
-                                    if (session.globalScore) {
-                                        Text("Resultado por bloque en el teléfono",
-                                            textAlign = TextAlign.Center,
-                                            style = MaterialTheme.typography.labelSmall)
-                                    } else {
-                                        Text("${session.recordedSets} series registradas",
-                                            style = MaterialTheme.typography.labelSmall)
-                                    }
-                                } else {
-                                    Text(session.exerciseName,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        textAlign = TextAlign.Center)
-                                    Text("Ejercicio ${session.exerciseIndex}/${session.exerciseCount}")
-                                    if (session.prescribedReps != null) {
-                                        Text("${session.prescribedReps} reps" +
-                                            (session.prescribedWeightKg?.let { " · $it kg" } ?: ""),
-                                            style = MaterialTheme.typography.titleLarge)
-                                    }
-                                    Text("${session.recordedSets} series registradas",
-                                        style = MaterialTheme.typography.labelSmall)
-                                    Button(onClick = { togglePause() }) {
-                                        Text(if (sessionPaused) "Reanudar" else "Pausar")
-                                    }
-                                    TextButton(onClick = { finishSessionFromWatch(session) }) {
-                                        Text("Terminar sesión",
-                                            style = MaterialTheme.typography.labelSmall)
-                                    }
-                                    if (!session.canLogOnWatch) {
-                                        Text("Este ejercicio solo se registra en el móvil",
-                                            textAlign = TextAlign.Center,
-                                            style = MaterialTheme.typography.labelSmall)
-                                    } else {
-                                    if (restRemaining > 0) {
-                                        Text("Descanso: ${restRemaining}s",
-                                            style = MaterialTheme.typography.titleLarge)
-                                        TextButton(onClick = { skipRest() }) {
-                                            Text("Saltar descanso",
-                                                style = MaterialTheme.typography.labelSmall)
-                                        }
-                                    }
-                                    Text("Registrar serie", style = MaterialTheme.typography.titleMedium)
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        verticalAlignment = Alignment.CenterVertically) {
-                                        Button(onClick = {
-                                            if (session.prescribedReps == null) {
-                                                repCounter.applyManualDelta(-1)
-                                                repsInput = repCounter.count
-                                            } else {
-                                                repsInput = (repsInput - 1).coerceAtLeast(0)
-                                            }
-                                        }) {
-                                            Text("−")
-                                        }
-                                        Text("$repsInput reps", style = MaterialTheme.typography.titleMedium)
-                                        Button(onClick = {
-                                            if (session.prescribedReps == null) {
-                                                repCounter.applyManualDelta(1)
-                                                repsInput = repCounter.count
-                                            } else {
-                                                repsInput = (repsInput + 1).coerceAtMost(10000)
-                                            }
-                                        }) {
-                                            Text("+")
-                                        }
-                                    }
-                                    if (session.allowsWeight) {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                            verticalAlignment = Alignment.CenterVertically) {
-                                            Button(onClick = {
-                                                weightInput = ((weightInput ?: 0.0) - 0.5)
-                                                    .coerceAtLeast(0.0)
-                                            }) { Text("−") }
-                                            Text("${weightInput ?: 0.0} kg",
-                                                style = MaterialTheme.typography.titleMedium)
-                                            Button(onClick = {
-                                                weightInput = ((weightInput ?: 0.0) + 0.5)
-                                                    .coerceAtMost(2000.0)
-                                            }) { Text("+") }
-                                        }
-                                    }
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        verticalAlignment = Alignment.CenterVertically) {
-                                        Button(onClick = {
-                                            rirInput = ((rirInput ?: 3.0) - 1).coerceAtLeast(0.0)
-                                        }) { Text("−") }
-                                        Text(rirInput?.let { "RIR ${it.toInt()}" } ?: "RIR —",
-                                            style = MaterialTheme.typography.titleMedium)
-                                        Button(onClick = {
-                                            rirInput = ((rirInput ?: 1.0) + 1).coerceAtMost(5.0)
-                                        }) { Text("+") }
-                                    }
-                                    TextButton(onClick = { rirInput = null }) {
-                                        Text("Sin RIR", style = MaterialTheme.typography.labelSmall)
-                                    }
-                                    if (session.inputMode == "repsAndTime") {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                            verticalAlignment = Alignment.CenterVertically) {
-                                            Button(onClick = {
-                                                durationInput = (durationInput - 5)
-                                                    .coerceAtLeast(5)
-                                            }) { Text("−") }
-                                            Text("$durationInput s",
-                                                style = MaterialTheme.typography.titleMedium)
-                                            Button(onClick = { durationInput += 5 }) {
-                                                Text("+")
-                                            }
-                                        }
-                                    }
-                                    if (session.inputMode == "machineWork") {
-                                        val label = when (unitInput) {
-                                            "calories" -> "kcal"
-                                            "meters" -> "m"
-                                            else -> "reps"
-                                        }
-                                        Button(onClick = {
-                                            unitInput = when (unitInput) {
-                                                "reps" -> "calories"
-                                                "calories" -> "meters"
-                                                else -> "reps"
-                                            }
-                                        }) { Text("Unidad: $label") }
-                                    }
-                                    if (session.inputMode == "hspuDeficit") {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                            verticalAlignment = Alignment.CenterVertically) {
-                                            Button(onClick = {
-                                                deficitInput = (deficitInput - 1)
-                                                    .coerceAtLeast(0)
-                                            }) { Text("−") }
-                                            Text("$deficitInput cm",
-                                                style = MaterialTheme.typography.titleMedium)
-                                            Button(onClick = { deficitInput += 1 }) {
-                                                Text("+")
-                                            }
-                                        }
-                                    }
-                                    Button(onClick = { queueSet(session) },
-                                        enabled = repsInput > 0,
-                                        modifier = Modifier.fillMaxWidth()) {
-                                        Text("Confirmar serie")
-                                    }
-                                    }
-                                }
-                            }
-                            if (pendingCount > 0) {
-                                Text("$pendingCount series pendientes de confirmar",
-                                    style = MaterialTheme.typography.labelSmall)
-                                Button(onClick = { resendPending() },
-                                    modifier = Modifier.fillMaxWidth()) {
-                                    Text("Reintentar sincronización")
-                                }
-                                if (confirmDiscardPending) {
-                                    Text("Descartar las series no sincronizadas?",
-                                        textAlign = TextAlign.Center,
-                                        style = MaterialTheme.typography.labelSmall)
-                                    Button(onClick = {
-                                        val dropped = runCatching {
-                                            pendingStore.clear()
-                                            pendingCount = 0
-                                        }.isSuccess
-                                        confirmDiscardPending = false
-                                        sendStatus = if (dropped) "Series pendientes descartadas"
-                                            else "No se pudieron descartar los registros"
-                                    }) { Text("Sí, descartar") }
-                                    Button(onClick = { confirmDiscardPending = false }) {
-                                        Text("Cancelar")
-                                    }
-                                } else {
-                                    Button(onClick = { confirmDiscardPending = true }) {
-                                        Text("Descartar pendientes")
-                                    }
-                                }
-                            }
-                            sendStatus?.let {
-                                Text(it, style = MaterialTheme.typography.labelSmall,
-                                    textAlign = TextAlign.Center)
-                            }
-                        }
+                        )
                     }
                 }
             }
