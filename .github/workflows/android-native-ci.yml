@@ -83,10 +83,11 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
-            gradle -p android :mobile:connectedDebugAndroidTest :wear:connectedDebugAndroidTest --no-daemon --stacktrace
+            gradle -p android :mobile:connectedDebugAndroidTest :wear:connectedDebugAndroidTest --no-daemon --stacktrace; TEST_EXIT=$?
             mkdir -p android/screenshots
             adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true
             ls -laR android/screenshots/ || true
+            exit $TEST_EXIT
       - name: Explain failing emulator tests
         if: failure()
         run: |

@@ -1161,7 +1161,11 @@ class WorkoutRepository(context: Context, googleId: String) {
                 "La sesión del reloj ya no es la activa"
             }
         }
-        val active = requireActive(state)
+        // adoptWearSession carga y guarda su propia copia del estado: si aquí
+        // faltaba activeSession hay que releer, el `state` anterior no la tiene.
+        val currentState =
+            if (state.optJSONObject("activeSession") == null) requireState() else state
+        val active = requireActive(currentState)
         check(active.optString("id") == sessionId) { "La sesión del reloj ya no es la activa" }
         check(active.optInt("currentIndex") == exerciseIndex) {
             "El ejercicio activo ha cambiado"
