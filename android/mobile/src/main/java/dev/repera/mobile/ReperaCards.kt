@@ -1073,6 +1073,10 @@ internal fun WeekTrainingBars(totals: List<Int>) {
 }
 
 /** Seven-day Material 3 date picker, saved across configuration changes. */
+internal val reperaDayFormatter: java.time.format.DateTimeFormatter =
+    java.time.format.DateTimeFormatter
+        .ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
+
 @Composable
 internal fun WeekCalendarStrip(selected: LocalDate, onSelect: (LocalDate) -> Unit) {
     val weekStart = selected.minusDays((selected.dayOfWeek.value - 1).toLong())
@@ -1092,15 +1096,20 @@ internal fun WeekCalendarStrip(selected: LocalDate, onSelect: (LocalDate) -> Uni
                     Text("Semana ›")
                 }
             }
-            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            // Los 7 días siempre visibles (sin scroll): el día de hoy nunca
+            // queda escondido al final de la semana.
+            Row(modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 val days = listOf("L", "M", "X", "J", "V", "S", "D")
                 repeat(7) { index ->
                     val day = weekStart.plusDays(index.toLong())
                     FilterChip(
                         selected = day == selected,
                         onClick = { onSelect(day) },
-                        label = { Text("${days[index]} ${day.dayOfMonth}") }
+                        modifier = Modifier.weight(1f),
+                        label = { Text("${days[index]} ${day.dayOfMonth}",
+                            maxLines = 1,
+                            style = MaterialTheme.typography.labelSmall) }
                     )
                 }
             }

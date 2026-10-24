@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
@@ -16,6 +17,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
@@ -55,9 +57,12 @@ class WearVisualVerificationInstrumentedTest {
     private fun WearFrame(content: @Composable () -> Unit) {
         MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(
             primary = Color(0xFF30D158), onPrimary = Color.Black)) {
-            // Fondo oscuro como el AppScaffold real del reloj; sin él el
-            // lienzo de captura es blanco y el texto claro queda invisible.
-            Box(modifier = Modifier.size(320.dp).background(Color(0xFF121212))) {
+            // Viewport REDONDO y oscuro como un reloj real: recorta esquinas
+            // y fuerza a verificar que todo el contenido es accesible con
+            // scroll, no solo visible en un marco cuadrado.
+            Box(modifier = Modifier.size(320.dp)
+                .clip(androidx.compose.foundation.shape.CircleShape)
+                .background(Color(0xFF121212))) {
                 content()
             }
         }
@@ -92,6 +97,8 @@ class WearVisualVerificationInstrumentedTest {
         compose.waitForIdle()
         compose.onNodeWithText("5 reps", substring = true).assertExists()
         compose.onAllNodesWithText("WearHomeState(", substring = true).assertCountEquals(0)
+        // Todos los controles alcanzables con scroll en el viewport redondo.
+        compose.onNodeWithText("Registrar serie").performScrollTo().assertIsDisplayed()
         save("wear_sesion_fuerza", compose.onRoot().captureToImage())
     }
 
@@ -120,6 +127,7 @@ class WearVisualVerificationInstrumentedTest {
         compose.waitForIdle()
         compose.onNodeWithText("Entreno de hoy", substring = true).assertExists()
         compose.onAllNodesWithText("WearHomeState(", substring = true).assertCountEquals(0)
+        compose.onNodeWithText("Reintentar sincronización").performScrollTo().assertIsDisplayed()
         save("wear_entreno_de_hoy", compose.onRoot().captureToImage())
     }
 

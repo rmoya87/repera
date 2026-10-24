@@ -108,7 +108,7 @@ internal fun DiaryTab(
         }
         if (routines.isEmpty()) item { Text("No hay rutinas creadas") }
         if (todays.isNotEmpty()) item {
-            Text("Entrenamientos · $day", style = MaterialTheme.typography.titleLarge)
+            Text("Entrenamientos · " + day.format(reperaDayFormatter), style = MaterialTheme.typography.titleLarge)
         } else item {
             Text("Sin entrenamientos programados para $day",
                 style = MaterialTheme.typography.bodyMedium)
