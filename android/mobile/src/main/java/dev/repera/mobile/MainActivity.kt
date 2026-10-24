@@ -65,6 +65,26 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var centerSubmitting by mutableStateOf(false)
     private var centerError by mutableStateOf<String?>(null)
     private val sessionStore by lazy { SessionStore(this) }
+    /** Espejo Supabase de entrenos terminados (port BusinessWorkoutSyncStore). */
+    private fun syncWorkoutMirror() {
+        val session = verifiedSupabase ?: return
+        val uniqueId = profile?.uniqueId ?: return
+        lifecycleScope.launch {
+            // El espejo nunca bloquea la app: un fallo se reintenta en el
+            // siguiente arranque/refresco y no se muestra en la UI.
+            withContext(Dispatchers.IO) {
+                WorkoutMirrorStore(this@MainActivity, session.userId)
+                    .sync(session, WorkoutRepository(this@MainActivity, uniqueId))
+            }
+        }
+    }
+
+    /** Espejo IA + bandeja: tras establecer sesión o refrescar. */
+    private fun syncSupabaseMirrors() {
+        syncAITrainingInbox()
+        syncWorkoutMirror()
+    }
+
     /** Realtime de planes IA: vivo solo en foreground, resync al suscribirse. */
     private val aiPlansRealtime by lazy {
         AIPlansRealtimeListener(
@@ -212,7 +232,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 centerSnapshot = centerSnapshot,
                 onCenterRefresh = {
                     refreshCenter()
-                    syncAITrainingInbox()
+                    syncSupabaseMirrors()
                 },
                 onCenterAccept = { invitation ->
                     centerAction { s -> accept(s, invitation) }
@@ -531,7 +551,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 profile = GoogleProfile(stored.uniqueId, stored.email, stored.displayName)
                 DriveSyncWorker.schedulePeriodic(this@MainActivity)
                 aiPlansRealtime.start()
-                syncAITrainingInbox()
+                syncSupabaseMirrors()
                 reloadFor(stored.uniqueId)
             } catch (_: Exception) {
                 // Expired or revoked refresh token: back to the login screen.
@@ -599,7 +619,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 persistSession(session, signedIn)
                 DriveSyncWorker.schedulePeriodic(this@MainActivity)
                 aiPlansRealtime.start()
-                syncAITrainingInbox()
+                syncSupabaseMirrors()
                 reloadFor(id)
                 status = if (snapshot == null) "No hay datos locales. Sincroniza Google Drive." else null
             } catch (error: Exception) {
@@ -794,6 +814,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 }
                 reloadFor(signedIn.uniqueId)
                 DriveSyncWorker.syncNow(this@MainActivity)
+                if (verifiedSupabase != null) syncWorkoutMirror()
                 status = null
                 onSuccess?.invoke()
             } catch (error: Exception) {
