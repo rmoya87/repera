@@ -99,6 +99,11 @@ object ProgressSnapshotBuilder {
         )
     }
 
+    /** Archivo completo adaptado a StatsWorkout (para StatsEngine y
+     *  ProgressionEngine). */
+    fun statsWorkouts(state: JSONObject, zone: ZoneId = ZoneId.systemDefault()):
+            List<StatsWorkout> = adapt(state, zone).first
+
     private fun adapt(state: JSONObject, zone: ZoneId):
             Pair<List<StatsWorkout>, List<MuscleStimulusWorkout>> {
         val archive = state.optJSONArray("workouts") ?: JSONArray()

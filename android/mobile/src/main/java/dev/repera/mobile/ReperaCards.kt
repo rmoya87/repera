@@ -644,7 +644,8 @@ internal fun ScheduledRoutineCard(
     onStart: (String) -> Unit,
     onEdit: (String, String, RoutineSchedule) -> Unit = { _, _, _ -> },
     onDelete: (String) -> Unit = {},
-    onEditContent: (String) -> Unit = {}
+    onEditContent: (String) -> Unit = {},
+    onSetProgression: (String, String) -> Unit = { _, _ -> }
 ) {
     var editing by remember(routine.id) { mutableStateOf(false) }
     var confirmingDelete by remember(routine.id) { mutableStateOf(false) }
@@ -672,6 +673,24 @@ internal fun ScheduledRoutineCard(
             val hour = routine.timeMinutes?.let { "%02d:%02d".format(it / 60, it % 60) }
             Text(label + (hour?.let { " · $it" } ?: ""),
                 style = MaterialTheme.typography.bodyMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth()) {
+                Text("Progresión:", style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.align(androidx.compose.ui.Alignment.CenterVertically))
+                androidx.compose.foundation.layout.Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.horizontalScroll(
+                        androidx.compose.foundation.rememberScrollState())) {
+                    dev.repera.domain.ProgressionPolicy.entries.forEach { policy ->
+                        FilterChip(
+                            selected = routine.progression == policy.wire,
+                            onClick = { onSetProgression(routine.id, policy.wire) },
+                            label = { Text(policy.displayName,
+                                style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(
                     onClick = { onStart(routine.id) },

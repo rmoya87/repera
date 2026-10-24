@@ -225,6 +225,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onLogBodyWeight = { kg ->
                     runWorkoutAction { logBodyWeight(kg) }
                 },
+                onSetRoutineProgression = { id, policy ->
+                    runWorkoutAction { setRoutineProgression(id, policy) }
+                },
                 onNext = { runWorkoutAction { next() } },
                 onFinish = { runWorkoutAction { finish() } },
                 onImportJson = { importJson.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
@@ -830,7 +833,8 @@ data class StateOverview(
                         weekday = item.optInt("weekday").takeIf { item.has("weekday") && it in 1..7 },
                         timeMinutes = item.optInt("scheduledTimeMinutes")
                             .takeIf { item.has("scheduledTimeMinutes") && it in 0..1439 },
-                        blocks = blockInfos
+                        blocks = blockInfos,
+                        progression = item.optString("progression", "off")
                     )
                 }
             }
@@ -899,7 +903,8 @@ data class RoutineEntry(
     val scheduledDate: String? = null,
     val weekday: Int? = null,
     val timeMinutes: Int? = null,
-    val blocks: List<RoutineBlockInfo> = emptyList()
+    val blocks: List<RoutineBlockInfo> = emptyList(),
+    val progression: String = "off"
 )
 
 /** Bloque de una rutina tal y como se muestra en el editor de contenido. */

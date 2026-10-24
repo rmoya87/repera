@@ -369,6 +369,11 @@ class WorkoutRepository(context: Context, googleId: String) {
             val exercise = catalog.getJSONObject(it)
             exercise.getString("id") to exercise
         }
+        val policy = dev.repera.domain.ProgressionPolicy
+            .fromWire(routine.optString("progression"))
+            ?: dev.repera.domain.ProgressionPolicy.OFF
+        val history = if (policy != dev.repera.domain.ProgressionPolicy.OFF)
+            ProgressSnapshotBuilder.statsWorkouts(state) else emptyList()
         val planned = JSONArray()
         for (blockIndex in 0 until blocks.length()) {
             val block = blocks.getJSONObject(blockIndex)
@@ -384,10 +389,37 @@ class WorkoutRepository(context: Context, googleId: String) {
                 check(supportsSimpleInput(exercise)) {
                     "La rutina requiere un tipo de entrada que todavía no está disponible en Android"
                 }
+                var plannedSets = JSONArray(
+                    (entry.optJSONArray("plannedSets") ?: JSONArray()).toString())
+                if (policy != dev.repera.domain.ProgressionPolicy.OFF) {
+                    // iOS aplica ProgressionEngine.applySuggestions al iniciar:
+                    // los objetivos planificados se recalculan con el historial.
+                    val targets = (0 until plannedSets.length()).map { t ->
+                        val set = plannedSets.getJSONObject(t)
+                        dev.repera.domain.PlannedTarget(
+                            targetReps = set.optInt("targetReps").takeIf { it > 0 } ?: 8,
+                            targetWeightKg = if (set.has("targetWeightKg") &&
+                                !set.isNull("targetWeightKg"))
+                                set.optDouble("targetWeightKg") else null)
+                    }
+                    val suggestion = dev.repera.domain.ProgressionEngine.suggest(
+                        exerciseId = entry.getString("exerciseId"),
+                        planned = targets,
+                        policy = policy,
+                        workouts = history)
+                    plannedSets = JSONArray()
+                    repeat(maxOf(suggestion.setCount, 1)) {
+                        val set = JSONObject()
+                            .put("id", UUID.randomUUID().toString())
+                            .put("targetReps", suggestion.reps)
+                        suggestion.weightKg?.let { w -> set.put("targetWeightKg", w) }
+                        plannedSets.put(set)
+                    }
+                }
                 val item = JSONObject()
                     .put("id", UUID.randomUUID().toString())
                     .put("exercise", JSONObject(exercise.toString()))
-                    .put("plannedSets", JSONArray((entry.optJSONArray("plannedSets") ?: JSONArray()).toString()))
+                    .put("plannedSets", plannedSets)
                     .put("loggedSets", JSONArray())
                     .put("completedReps", 0)
                     .put("isCompleted", false)
@@ -1073,6 +1105,20 @@ class WorkoutRepository(context: Context, googleId: String) {
 
     /** Espejo de ReperaStore.deleteRoutine: elimina la plantilla y su
      *  presencia en la rotación; los entrenos ya registrados no se tocan. */
+    /** Política de progresión de la rutina (Routine.progression de iOS). */
+    @Synchronized fun setRoutineProgression(id: String, policyWire: String) {
+        require(dev.repera.domain.ProgressionPolicy.fromWire(policyWire) != null) {
+            "Política de progresión desconocida"
+        }
+        val state = requireState()
+        val routines = state.getJSONArray("routines")
+        val routine = (0 until routines.length())
+            .map { routines.getJSONObject(it) }
+            .firstOrNull { it.optString("id") == id } ?: error("Rutina no encontrada")
+        routine.put("progression", policyWire)
+        save(state)
+    }
+
     @Synchronized fun deleteRoutine(id: String) {
         val state = requireState()
         val routines = state.getJSONArray("routines")

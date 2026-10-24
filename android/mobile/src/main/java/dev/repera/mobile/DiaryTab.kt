@@ -73,6 +73,7 @@ internal fun DiaryTab(
     onEditRoutine: (String, String, RoutineSchedule) -> Unit,
     onDeleteRoutine: (String) -> Unit,
     onEditRoutineContent: (String) -> Unit = {},
+    onSetRoutineProgression: (String, String) -> Unit = { _, _ -> },
     onInitializeLocal: () -> Unit,
     onImportJson: () -> Unit,
     onDriveSync: () -> Unit,
@@ -116,7 +117,8 @@ internal fun DiaryTab(
             ScheduledRoutineCard(routine, busy, activeWorkout == null,
                 onStart = { onStartRoutine(it); onNavigateHome() },
                 onEdit = onEditRoutine, onDelete = onDeleteRoutine,
-                onEditContent = onEditRoutineContent)
+                onEditContent = onEditRoutineContent,
+                onSetProgression = onSetRoutineProgression)
         }
         if (dated.isNotEmpty()) item {
             Text("Entrenamientos por fecha", style = MaterialTheme.typography.titleLarge)
@@ -125,7 +127,8 @@ internal fun DiaryTab(
             ScheduledRoutineCard(routine, busy, activeWorkout == null,
                 onStart = { onStartRoutine(it); onNavigateHome() },
                 onEdit = onEditRoutine, onDelete = onDeleteRoutine,
-                onEditContent = onEditRoutineContent)
+                onEditContent = onEditRoutineContent,
+                onSetProgression = onSetRoutineProgression)
         }
         if (weekly.isNotEmpty()) item {
             Text("Programación semanal", style = MaterialTheme.typography.titleLarge)
@@ -134,7 +137,8 @@ internal fun DiaryTab(
             ScheduledRoutineCard(routine, busy, activeWorkout == null,
                 onStart = { onStartRoutine(it); onNavigateHome() },
                 onEdit = onEditRoutine, onDelete = onDeleteRoutine,
-                onEditContent = onEditRoutineContent)
+                onEditContent = onEditRoutineContent,
+                onSetProgression = onSetRoutineProgression)
         }
         if (library.isNotEmpty()) item {
             Text("Biblioteca sin fecha", style = MaterialTheme.typography.titleLarge)
@@ -143,7 +147,8 @@ internal fun DiaryTab(
             ScheduledRoutineCard(routine, busy, activeWorkout == null,
                 onStart = { onStartRoutine(it); onNavigateHome() },
                 onEdit = onEditRoutine, onDelete = onDeleteRoutine,
-                onEditContent = onEditRoutineContent)
+                onEditContent = onEditRoutineContent,
+                onSetProgression = onSetRoutineProgression)
         }
         item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
         item {
