@@ -208,7 +208,7 @@ final class RemoteExerciseCatalogStore {
                 ?? byName[Self.normalized(originalName)]
                 ?? byName[Self.normalized(remote.name)]
             let old = matchedIndex.map { result[$0] }
-            let resolvedID = old?.id ?? saved.localIDs[key] ?? UUID()
+            let resolvedID = old?.id ?? saved.localIDs[key] ?? Self.stableUUID(for: key)
             saved.localIDs[key] = resolvedID
 
             let primary = remote.primaryMuscles ?? []
