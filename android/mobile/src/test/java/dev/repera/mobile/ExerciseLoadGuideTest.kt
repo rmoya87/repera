@@ -122,3 +122,58 @@ class ExerciseLoadGuideTest {
         assertNull(g.suggestionSource)
     }
 }
+
+class LoadGuideApplyActionsTest {
+
+    private fun ls(reps: Int, weight: Double? = null, rir: Double? = null) =
+        LoadGuideSet(weightKg = weight, reps = reps, rir = rir,
+            durationSeconds = null, unit = "reps")
+
+    @Test fun applyScalesLastSessionToSuggestedKg() {
+        // iOS: ratio = kg / anchor (top set); cada serie se escala y redondea
+        // al paso; reps y RIR se conservan de la última sesión.
+        val last = listOf(ls(8, 50.0, 1.0), ls(6, 60.0, null))
+        val out = ExerciseLoadGuide.scaledPlannedSets(90.0, last, 2.5, 2.0)!!
+        assertEquals(2, out.size)
+        assertEquals(8, out[0].targetReps)
+        assertEquals(75.0, out[0].targetWeightKg!!, 0.001) // 50*1.5=75
+        assertEquals(1.0, out[0].targetRir!!, 0.001)
+        assertEquals(6, out[1].targetReps)
+        assertEquals(90.0, out[1].targetWeightKg!!, 0.001) // 60*1.5=90
+        assertEquals(2.0, out[1].targetRir!!, 0.001) // fallbackRir
+    }
+
+    @Test fun applyWithoutAnchorWeightsUsesSuggestedKgEverywhere() {
+        val last = listOf(ls(10, null, 3.0), ls(10, null, null))
+        val out = ExerciseLoadGuide.scaledPlannedSets(40.0, last, 2.5, 2.0)!!
+        assertEquals(40.0, out[0].targetWeightKg!!, 0.001)
+        assertEquals(3.0, out[0].targetRir!!, 0.001)
+        assertEquals(2.0, out[1].targetRir!!, 0.001)
+    }
+
+    @Test fun applyWithEmptyHistoryReturnsNull() {
+        assertNull(ExerciseLoadGuide.scaledPlannedSets(90.0, emptyList(), 2.5, 2.0))
+    }
+
+    @Test fun copyLastSessionPreservesRepsWeightAndRir() {
+        val last = listOf(ls(5, 100.0, 1.5), ls(5, 100.0, null))
+        val out = ExerciseLoadGuide.copyLastSession(last)
+        assertEquals(5, out[0].targetReps)
+        assertEquals(100.0, out[0].targetWeightKg!!, 0.001)
+        assertEquals(1.5, out[0].targetRir!!, 0.001)
+        assertNull(out[1].targetRir) // ausente se conserva ausente (asumido)
+    }
+
+    @Test fun guideCarriesIncrementFromSettings() {
+        val w = JSONObject().put("id", "w1").put("title", "W")
+            .put("phase", "finished").put("finishedAt", "2026-10-20T10:00:00Z")
+            .put("exercises", JSONArray().put(JSONObject()
+                .put("exercise", JSONObject().put("id", "e1").put("name", "Press"))
+                .put("loggedSets", JSONArray().put(JSONObject()
+                    .put("id", "s1").put("reps", 5).put("weightKg", 100.0)))))
+        val root = JSONObject().put("workouts", JSONArray().put(w))
+            .put("settings", JSONObject().put("weightIncrementKg", 1.25))
+        val g = ExerciseLoadGuide.guide(root, "e1", 8, null)
+        assertEquals(1.25, g.incrementKg, 0.001)
+    }
+}

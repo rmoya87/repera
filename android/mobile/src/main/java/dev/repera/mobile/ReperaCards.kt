@@ -1614,7 +1614,7 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
 
 /** Guía de carga (port 1:1 del body de ExerciseLoadGuideCard iOS). */
 @Composable
-private fun LoadGuideSection(guide: LoadGuide, onApply: (Double) -> Unit) {
+internal fun LoadGuideSection(guide: LoadGuide, onApply: (Double) -> Unit) {
     val last = guide.lastSession
     if (last == null && guide.suggestedKg == null) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1697,7 +1697,7 @@ private fun LoadGuideSection(guide: LoadGuide, onApply: (Double) -> Unit) {
     }
 }
 
-private fun loadGuideShortDate(epochMillis: Long): String {
+internal fun loadGuideShortDate(epochMillis: Long): String {
     if (epochMillis <= 0) return ""
     val fmt = java.time.format.DateTimeFormatter.ofPattern("d MMM",
         java.util.Locale("es", "ES"))
@@ -1706,22 +1706,22 @@ private fun loadGuideShortDate(epochMillis: Long): String {
 }
 
 /** kg con 0-1 decimales (iOS fractionLength(0...1)). */
-private fun loadGuideKgLabel(kg: Double): String =
+internal fun loadGuideKgLabel(kg: Double): String =
     if (kg % 1.0 == 0.0) kg.toInt().toString() else "%.1f".format(java.util.Locale.US, kg)
 
 /** %g recortado como C/Swift (aprendizaje: Java %g conserva ceros). */
-private fun loadGuideG(v: Double): String =
+internal fun loadGuideG(v: Double): String =
     if (v % 1.0 == 0.0) v.toInt().toString() else "%.2f".format(java.util.Locale.US, v)
         .trimEnd('0').trimEnd('.')
 
-private fun loadGuideCaption(guide: LoadGuide): String {
+internal fun loadGuideCaption(guide: LoadGuide): String {
     val rir = "RIR " + loadGuideG(guide.effectiveRir) +
         (if (guide.assumedRir) " (asumido)" else "")
     return "${guide.targetReps} reps · $rir · ${guide.suggestionSource}"
 }
 
 /** Línea de serie (misma forma que SetSummaryLine.displayLine). */
-private fun loadGuideSetLine(set: LoadGuideSet): String =
+internal fun loadGuideSetLine(set: LoadGuideSet): String =
     dev.repera.domain.SetSummaryLine.displayLine(
         reps = set.reps, quantityUnit = set.unit,
         weightKg = set.weightKg, durationSeconds = set.durationSeconds)

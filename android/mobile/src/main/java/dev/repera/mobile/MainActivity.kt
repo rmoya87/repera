@@ -1545,7 +1545,21 @@ data class StateOverview(
                                                 ?.takeIf { it > 0 } ?: 8,
                                             sets = planned?.length() ?: 1,
                                             weightKg = if (first?.has("targetWeightKg") == true)
-                                                first.getDouble("targetWeightKg") else null
+                                                first.getDouble("targetWeightKg") else null,
+                                            plannedSets = planned?.let { arr ->
+                                                (0 until arr.length()).map { si ->
+                                                    val ps = arr.getJSONObject(si)
+                                                    PlannedSetDraft(
+                                                        targetReps = ps.optInt("targetReps", 8),
+                                                        targetWeightKg = if (ps.has("targetWeightKg") &&
+                                                            !ps.isNull("targetWeightKg"))
+                                                            ps.getDouble("targetWeightKg") else null,
+                                                        targetRir = if (ps.has("targetRir") &&
+                                                            !ps.isNull("targetRir"))
+                                                            ps.getDouble("targetRir") else null
+                                                    )
+                                                }
+                                            }
                                         )
                                     }
                                 }.orEmpty()
@@ -1739,7 +1753,10 @@ data class RoutineBlockEntryInfo(
     val name: String,
     val quantity: Int,
     val sets: Int = 1,
-    val weightKg: Double? = null
+    val weightKg: Double? = null,
+    /** Series planificadas completas (fuerza), con targetRir si la rutina lo
+     *  trae (iOS lo escribe). Round-trip: editar y guardar no lo pierde. */
+    val plannedSets: List<PlannedSetDraft>? = null
 )
 
 data class ExerciseEntry(

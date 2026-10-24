@@ -487,6 +487,7 @@ fun ReperaMobileScreen(
                             routine = routine,
                             exercises = overview?.exerciseEntries.orEmpty(),
                             busy = busy,
+                            loadGuideProvider = loadGuideProvider,
                             onReplace = { drafts ->
                                 onReplaceRoutineBlocks(routineId, drafts)
                                 navController.popBackStack()
@@ -524,6 +525,7 @@ fun ReperaMobileScreen(
                         routine = draft,
                         exercises = overview?.exerciseEntries.orEmpty(),
                         busy = busy,
+                        loadGuideProvider = loadGuideProvider,
                         onReplace = { drafts ->
                             onSaveOneOffRoutine(nombre, drafts, fecha)
                             navController.popBackStack()

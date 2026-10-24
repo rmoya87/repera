@@ -138,7 +138,25 @@ class WorkoutRepository(context: Context, googleId: String) {
                     (inputMode(movement).showsWeight && entry.weightKg.isFinite() &&
                         entry.weightKg >= 0))
                 val planned = JSONArray()
-                repeat(entry.sets) {
+                val perSet = entry.plannedSets
+                if (perSet != null) {
+                    // Editor por serie: validación y escritura 1:1 (iOS
+                    // PlannedSet: targetReps / targetWeightKg / targetRir).
+                    require(perSet.size in 1..30)
+                    for (ps in perSet) {
+                        require(ps.targetReps in 1..10000)
+                        require(ps.targetWeightKg == null ||
+                            (ps.targetWeightKg.isFinite() && ps.targetWeightKg >= 0))
+                        require(ps.targetRir == null ||
+                            (ps.targetRir.isFinite() && ps.targetRir >= 0))
+                        val set = JSONObject().put("id", UUID.randomUUID().toString())
+                            .put("targetReps", if (isMobilityHold(movement)) 1 else ps.targetReps)
+                        if (isMobilityHold(movement)) set.put("targetDurationSeconds", 30)
+                        ps.targetWeightKg?.let { set.put("targetWeightKg", it) }
+                        ps.targetRir?.let { set.put("targetRir", it) }
+                        planned.put(set)
+                    }
+                } else repeat(entry.sets) {
                     val set = JSONObject().put("id", UUID.randomUUID().toString())
                         .put("targetReps", if (isMobilityHold(movement)) 1 else entry.quantity)
                     if (isMobilityHold(movement)) set.put("targetDurationSeconds", 30)
@@ -2243,7 +2261,18 @@ data class RoutineDraftEntry(
     val quantity: Int,
     val sets: Int = 3,
     val weightKg: Double? = null,
-    val restSeconds: Int? = null
+    val restSeconds: Int? = null,
+    /** Editor por serie (fuerza): cuando llega, sustituye a sets/quantity/
+     *  weightKg uniformes y se escribe 1:1 (paridad PlannedSet iOS). */
+    val plannedSets: List<PlannedSetDraft>? = null
+)
+
+/** Serie planificada (port de PlannedSet iOS). targetRir null = sin fijar;
+ *  se muestra como «asumido» donde aplique, nunca como objetivo confirmado. */
+data class PlannedSetDraft(
+    val targetReps: Int,
+    val targetWeightKg: Double? = null,
+    val targetRir: Double? = null
 )
 
 /** Mirrors Swift Routine: one-off dates and weekly templates are mutually exclusive. */

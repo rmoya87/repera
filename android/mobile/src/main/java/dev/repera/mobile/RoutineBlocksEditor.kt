@@ -37,7 +37,9 @@ fun RoutineBlocksEditorScreen(
     exercises: List<ExerciseEntry>,
     busy: Boolean,
     onReplace: (List<RoutineBlockDraft>) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    loadGuideProvider: (exerciseId: String, targetReps: Int, targetRir: Double?) ->
+        LoadGuide? = { _, _, _ -> null }
 ) {
     val nameById = remember(exercises) { exercises.associate { it.id to it.name } }
     val blocks = remember(routine.id) {
@@ -76,6 +78,7 @@ fun RoutineBlocksEditorScreen(
                 block = block,
                 nameById = nameById,
                 exercises = exercises,
+                loadGuideProvider = loadGuideProvider,
                 onRemove = if (blocks.size > 1) ({ blocks.removeAt(index) }) else null
             )
         }
@@ -97,11 +100,22 @@ private fun formatLabel(wire: String): String = when (wire) {
 }
 
 private class EntryUi(val exerciseId: String, name: String, quantity: Int,
-                      sets: Int, weightKg: Double?) {
+                      sets: Int, weightKg: Double?,
+                      planned: List<PlannedSetDraft>? = null) {
     var name by mutableStateOf(name)
     var quantity by mutableStateOf(quantity.toString())
     var sets by mutableStateOf(sets.toString())
     var weight by mutableStateOf(weightKg?.toString() ?: "")
+    /** Editor por serie (fuerza, paridad PlannedSet iOS). Se inicializa con
+     *  las series existentes (targetRir incluido si la rutina lo trae) y al
+     *  guardar sustituye a quantity/sets/weight uniformes. */
+    val plannedSets = mutableStateListOf<PlannedSetDraft>().apply {
+        val base = planned ?: (1..sets.coerceIn(1, 30)).map {
+            PlannedSetDraft(targetReps = quantity, targetWeightKg = weightKg)
+        }
+        addAll(base)
+    }
+    var setsExpanded by mutableStateOf(false)
 }
 
 private class BlockDraftUi(info: RoutineBlockInfo? = null) {
@@ -115,7 +129,8 @@ private class BlockDraftUi(info: RoutineBlockInfo? = null) {
     var ladder by mutableStateOf(info?.ladderScheme?.joinToString("-") ?: "")
     val entries = mutableStateListOf<EntryUi>().apply {
         info?.entries?.forEach {
-            add(EntryUi(it.exerciseId, it.name, it.quantity, it.sets, it.weightKg))
+            add(EntryUi(it.exerciseId, it.name, it.quantity, it.sets, it.weightKg,
+                it.plannedSets))
         }
     }
 
@@ -130,13 +145,16 @@ private class BlockDraftUi(info: RoutineBlockInfo? = null) {
                 .map { it.toIntOrNull() ?: return null }
         } else null
         val parsed = entries.map { entry ->
-            RoutineDraftEntry(
+            val base = RoutineDraftEntry(
                 exerciseId = entry.exerciseId,
                 quantity = entry.quantity.toIntOrNull() ?: return null,
                 sets = entry.sets.toIntOrNull() ?: return null,
                 weightKg = entry.weight.takeIf { it.isNotBlank() }
                     ?.replace(',', '.')?.toDoubleOrNull() ?: return null
             )
+            if (format == "strength" && entry.setsExpanded)
+                base.copy(plannedSets = entry.plannedSets.toList())
+            else base
         }
         return RoutineBlockDraft(
             title = title.trim(), format = format, entries = parsed,
@@ -151,6 +169,7 @@ private fun BlockEditorCard(
     block: BlockDraftUi,
     nameById: Map<String, String>,
     exercises: List<ExerciseEntry>,
+    loadGuideProvider: (String, Int, Double?) -> LoadGuide?,
     onRemove: (() -> Unit)?
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -214,6 +233,7 @@ private fun BlockEditorCard(
                     resolvedName = entry.name.ifBlank {
                         nameById[entry.exerciseId] ?: "Ejercicio" },
                     isStrength = block.format == "strength",
+                    loadGuideProvider = loadGuideProvider,
                     onRemove = { block.entries.removeAt(index) }
                 )
             }
@@ -251,6 +271,7 @@ private fun EntryEditorRow(
     entry: EntryUi,
     resolvedName: String,
     isStrength: Boolean,
+    loadGuideProvider: (String, Int, Double?) -> LoadGuide?,
     onRemove: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -283,6 +304,123 @@ private fun EntryEditorRow(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f)
                 )
+            }
+        }
+        if (isStrength) {
+            TextButton(onClick = { entry.setsExpanded = !entry.setsExpanded }) {
+                Text(if (entry.setsExpanded) "Cerrar series"
+                    else "Editar series una a una")
+            }
+            if (entry.setsExpanded) {
+                // Port de RoutineExerciseEditor (PlanView iOS): guía de carga
+                // + filas KG/Reps/RIR por serie. El RIR ausente se muestra
+                // vacío; la guía lo etiqueta «asumido», nunca confirmado.
+                val reference = entry.plannedSets.firstOrNull()
+                val guide = remember(entry.exerciseId, reference?.targetReps,
+                    reference?.targetRir) {
+                    loadGuideProvider(entry.exerciseId,
+                        reference?.targetReps ?: 8, reference?.targetRir)
+                }
+                if (guide != null) {
+                    Text("Referencia", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    LoadGuideSection(guide) { kg ->
+                        val last = guide.lastSession
+                        val scaled = last?.let {
+                            ExerciseLoadGuide.scaledPlannedSets(kg, it.sets,
+                                guide.incrementKg, guide.effectiveRir)
+                        }
+                        entry.plannedSets.clear()
+                        if (scaled != null) {
+                            entry.plannedSets.addAll(scaled)
+                        } else {
+                            // Sin sesión previa: fijar el kg en las series
+                            // actuales (bucle final de applySuggestedLoad iOS).
+                            entry.plannedSets.addAll(guide.let { g ->
+                                (1..(entry.sets.toIntOrNull() ?: 3).coerceIn(1, 30))
+                                    .map { PlannedSetDraft(
+                                        targetReps = g.targetReps,
+                                        targetWeightKg = kg,
+                                        targetRir = reference?.targetRir
+                                            ?: g.effectiveRir) }
+                            })
+                        }
+                    }
+                    if (guide.lastSession != null) {
+                        TextButton(onClick = {
+                            entry.plannedSets.clear()
+                            entry.plannedSets.addAll(
+                                ExerciseLoadGuide.copyLastSession(
+                                    guide.lastSession.sets))
+                        }) { Text("Copiar última sesión") }
+                    }
+                    Text("Aplicar escala la última sesión al kg sugerido (misma progresión, reps y RIR).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("KG", style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.weight(1f))
+                    Text("Reps", style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.weight(1f))
+                    Text("RIR", style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.weight(1f))
+                    Spacer(Modifier.weight(0.4f))
+                }
+                entry.plannedSets.forEachIndexed { index, ps ->
+                    var kgText by remember(entry.exerciseId, index, ps) {
+                        mutableStateOf(ps.targetWeightKg?.toString() ?: "")
+                    }
+                    var repsText by remember(entry.exerciseId, index, ps) {
+                        mutableStateOf(ps.targetReps.toString())
+                    }
+                    var rirText by remember(entry.exerciseId, index, ps) {
+                        mutableStateOf(ps.targetRir?.toString() ?: "")
+                    }
+                    fun commit() {
+                        val reps = repsText.toIntOrNull() ?: return
+                        val kg = kgText.takeIf { it.isNotBlank() }
+                            ?.replace(',', '.')?.toDoubleOrNull()
+                        val rir = rirText.takeIf { it.isNotBlank() }
+                            ?.replace(',', '.')?.toDoubleOrNull()
+                        entry.plannedSets[index] = PlannedSetDraft(reps, kg, rir)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = kgText,
+                            onValueChange = { kgText = it; commit() },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.weight(1f))
+                        OutlinedTextField(
+                            value = repsText,
+                            onValueChange = { repsText = it; commit() },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f))
+                        OutlinedTextField(
+                            value = rirText,
+                            onValueChange = { rirText = it; commit() },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.weight(1f))
+                        TextButton(
+                            onClick = { entry.plannedSets.removeAt(index) },
+                            enabled = entry.plannedSets.size > 1,
+                            modifier = Modifier.weight(0.4f)) { Text("✕") }
+                    }
+                }
+                TextButton(onClick = {
+                    val last = entry.plannedSets.lastOrNull()
+                    entry.plannedSets.add(PlannedSetDraft(
+                        targetReps = last?.targetReps ?: 8,
+                        targetWeightKg = last?.targetWeightKg,
+                        targetRir = last?.targetRir))
+                }) { Text("+ Añadir serie") }
             }
         }
     }

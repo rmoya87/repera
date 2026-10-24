@@ -33,7 +33,9 @@ data class LoadGuide(
     val suggestionSource: String?,
     val assumedRir: Boolean,
     val targetReps: Int,
-    val effectiveRir: Double
+    val effectiveRir: Double,
+    /** Paso de redondeo (settings.weightIncrementKg; defecto 2.5). */
+    val incrementKg: Double = 2.5
 )
 
 object ExerciseLoadGuide {
@@ -105,6 +107,56 @@ object ExerciseLoadGuide {
         return if (best > 0) best else null
     }
 
+    /** «Aplicar» del editor: escala la última sesión al kg sugerido (misma
+     *  progresión, reps y RIR; port de PlanView.applySuggestedLoad iOS).
+     *  Sin sesión previa devuelve null: el editor solo fija el kg en las
+     *  series actuales (mismo efecto que el bucle final de iOS). */
+    fun scaledPlannedSets(
+        kg: Double,
+        lastSets: List<LoadGuideSet>,
+        step: Double,
+        fallbackRir: Double
+    ): List<PlannedSetDraft>? {
+        if (kg <= 0 || lastSets.isEmpty()) return null
+        val anchor = lastSets.maxByOrNull { it.weightKg ?: 0.0 }?.weightKg
+            ?: lastSets.mapNotNull { it.weightKg }.firstOrNull()
+        return if (anchor != null && anchor > 0) {
+            val ratio = kg / anchor
+            val safeStep = maxOf(step, 0.5)
+            lastSets.map { set ->
+                val scaled: Double? = run {
+                    val w = set.weightKg
+                    if (w == null || w <= 0) return@run kg
+                    val rounded = Math.round(w * ratio / safeStep) * safeStep
+                    if (rounded > 0) rounded else null
+                }
+                PlannedSetDraft(
+                    targetReps = set.reps,
+                    targetWeightKg = scaled,
+                    targetRir = set.rir ?: fallbackRir
+                )
+            }
+        } else {
+            lastSets.map { set ->
+                PlannedSetDraft(
+                    targetReps = set.reps,
+                    targetWeightKg = kg,
+                    targetRir = set.rir ?: fallbackRir
+                )
+            }
+        }
+    }
+
+    /** «Copiar última sesión» (port de PlanView.applyLastSession iOS). */
+    fun copyLastSession(lastSets: List<LoadGuideSet>): List<PlannedSetDraft> =
+        lastSets.map { set ->
+            PlannedSetDraft(
+                targetReps = set.reps,
+                targetWeightKg = set.weightKg,
+                targetRir = set.rir
+            )
+        }
+
     /** Guía completa para el ejercicio (port de la lógica de
      *  ExerciseLoadGuideCard.body iOS). */
     fun guide(
@@ -168,7 +220,8 @@ object ExerciseLoadGuide {
             suggestionSource = source,
             assumedRir = targetRir == null,
             targetReps = reps,
-            effectiveRir = effectiveRir
+            effectiveRir = effectiveRir,
+            incrementKg = increment
         )
     }
 }
