@@ -45,6 +45,11 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:5.5.0")
     implementation("androidx.health.connect:connect-client:1.1.0")
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    // Mapa nativo de ruta (paridad HealthWorkoutRouteMap iOS): MapLibre GL
+    // (Apache 2.0) + teselas OpenFreeMap (0 €, sin key ni cuenta; TOS
+    // openfreemap.org/tos permiten producción con atribución). Decisión y
+    // alternativas: android/docs/ROUTE_MAP_OPTIONS.md.
+    implementation("org.maplibre.gl:android-sdk:13.7.1")
     // Google Play Billing: solo detección de compras; la concesión Pro exige
     // verificación backend (ver android/docs/MONETIZATION_PLAY_BILLING.md).
     implementation("com.android.billingclient:billing-ktx:8.0.0")

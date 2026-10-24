@@ -11,6 +11,7 @@ import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -1493,6 +1494,11 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
     }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text("Ruta", style = MaterialTheme.typography.titleMedium)
+        // Mapa nativo con la polilínea coloreada por velocidad (paridad
+        // HealthWorkoutRouteMap iOS; no interactivo en el detalle, como iOS).
+        RouteMapView(points = points, isInteractive = false,
+            modifier = Modifier.fillMaxWidth().height(180.dp)
+                .clip(RoundedCornerShape(10.dp)))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
