@@ -54,6 +54,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var repsInput by mutableStateOf(0)
     private var weightInput by mutableStateOf<Double?>(null)
     private var rirInput by mutableStateOf<Double?>(null)
+    private var durationInput by mutableStateOf(30)
+    private var deficitInput by mutableStateOf(5)
+    private var unitInput by mutableStateOf("reps")
     private var finishedSummary by mutableStateOf<FinishedSummary?>(null)
     private var restRemaining by mutableStateOf(0)
     private var restJob: kotlinx.coroutines.Job? = null
@@ -180,7 +183,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                     Text("${session.recordedSets} series registradas",
                                         style = MaterialTheme.typography.labelSmall)
                                     if (!session.canLogOnWatch) {
-                                        Text("Este ejercicio requiere registrar cal, metros o tiempo en el móvil",
+                                        Text("Este ejercicio solo se registra en el móvil",
                                             textAlign = TextAlign.Center,
                                             style = MaterialTheme.typography.labelSmall)
                                     } else {
@@ -231,6 +234,48 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                     }
                                     TextButton(onClick = { rirInput = null }) {
                                         Text("Sin RIR", style = MaterialTheme.typography.labelSmall)
+                                    }
+                                    if (session.inputMode == "repsAndTime") {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalAlignment = Alignment.CenterVertically) {
+                                            Button(onClick = {
+                                                durationInput = (durationInput - 5)
+                                                    .coerceAtLeast(5)
+                                            }) { Text("−") }
+                                            Text("$durationInput s",
+                                                style = MaterialTheme.typography.titleMedium)
+                                            Button(onClick = { durationInput += 5 }) {
+                                                Text("+")
+                                            }
+                                        }
+                                    }
+                                    if (session.inputMode == "machineWork") {
+                                        val label = when (unitInput) {
+                                            "calories" -> "kcal"
+                                            "meters" -> "m"
+                                            else -> "reps"
+                                        }
+                                        Button(onClick = {
+                                            unitInput = when (unitInput) {
+                                                "reps" -> "calories"
+                                                "calories" -> "meters"
+                                                else -> "reps"
+                                            }
+                                        }) { Text("Unidad: $label") }
+                                    }
+                                    if (session.inputMode == "hspuDeficit") {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalAlignment = Alignment.CenterVertically) {
+                                            Button(onClick = {
+                                                deficitInput = (deficitInput - 1)
+                                                    .coerceAtLeast(0)
+                                            }) { Text("−") }
+                                            Text("$deficitInput cm",
+                                                style = MaterialTheme.typography.titleMedium)
+                                            Button(onClick = { deficitInput += 1 }) {
+                                                Text("+")
+                                            }
+                                        }
                                     }
                                     Button(onClick = { queueSet(session) },
                                         enabled = repsInput > 0,
@@ -350,7 +395,13 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             repsInput !in 1..10000) return
         val queued = runCatching {
             pendingStore.append(session.sessionId, session.exerciseIndex - 1,
-                repsInput, weightInput, rirInput)
+                repsInput, weightInput, rirInput,
+                durationSeconds = if (session.inputMode == "repsAndTime")
+                    durationInput else null,
+                quantityUnit = if (session.inputMode == "machineWork")
+                    unitInput else null,
+                deficitCm = if (session.inputMode == "hspuDeficit")
+                    deficitInput else null)
             pendingCount = pendingStore.count()
         }
         if (queued.isFailure) {
@@ -490,7 +541,8 @@ data class WatchSessionSummary(
     val globalScore: Boolean,
     val wodMovements: List<String>,
     val plannedWorkSets: Int = 0,
-    val restSeconds: Int = 0
+    val restSeconds: Int = 0,
+    val inputMode: String = "strength"
 ) {
     companion object {
         fun fromJson(session: JSONObject): WatchSessionSummary {
@@ -542,7 +594,9 @@ data class WatchSessionSummary(
                 sessionId = session.getString("id"),
                 title = session.getString("title"),
                 canLogOnWatch = mode in setOf(
-                    ExerciseInputMode.LOAD_REPS, ExerciseInputMode.REPS_ONLY) &&
+                    ExerciseInputMode.LOAD_REPS, ExerciseInputMode.REPS_ONLY,
+                    ExerciseInputMode.REPS_AND_TIME, ExerciseInputMode.MACHINE_WORK,
+                    ExerciseInputMode.HSPU_DEFICIT) &&
                     exercise.optString("blockKind") != "wod",
                 allowsWeight = mode.showsWeight,
                 exerciseName = exercise.getJSONObject("exercise").getString("name"),
@@ -558,7 +612,13 @@ data class WatchSessionSummary(
                 wodMovements = movementLines,
                 plannedWorkSets = plan?.length() ?: 0,
                 restSeconds = exercise.optInt("restSeconds",
-                    exercise.optInt("blockRestSeconds", 0))
+                    exercise.optInt("blockRestSeconds", 0)),
+                inputMode = when (mode) {
+                    ExerciseInputMode.MACHINE_WORK -> "machineWork"
+                    ExerciseInputMode.REPS_AND_TIME -> "repsAndTime"
+                    ExerciseInputMode.HSPU_DEFICIT -> "hspuDeficit"
+                    else -> "strength"
+                }
             )
         }
     }

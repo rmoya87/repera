@@ -281,9 +281,18 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 payload.optDouble("weightKg", Double.NaN) else null
             val rir = if (payload.has("rir") && !payload.isNull("rir"))
                 payload.optDouble("rir", Double.NaN) else null
+            val duration = if (payload.has("durationSeconds") &&
+                !payload.isNull("durationSeconds"))
+                payload.optInt("durationSeconds") else null
+            val unit = payload.optString("quantityUnit")
+                .takeIf { it in setOf("reps", "calories", "meters") }
+            val deficit = if (payload.has("deficitCm") && !payload.isNull("deficitCm"))
+                payload.optInt("deficitCm") else null
             if (sessionId.isBlank() || exerciseIndex < 0 || quantity !in 1..10000 ||
                 (weight != null && (!weight.isFinite() || weight < 0)) ||
-                (rir != null && (!rir.isFinite() || rir < 0 || rir > 5))) {
+                (rir != null && (!rir.isFinite() || rir < 0 || rir > 5)) ||
+                (duration != null && duration !in 1..86400) ||
+                (deficit != null && deficit !in 0..100)) {
                 sendWearAck(event.sourceNodeId, id, "rejected")
                 return@runOnUiThread
             }
@@ -292,7 +301,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 val result = runCatching {
                     withContext(Dispatchers.IO) {
                         WorkoutRepository(this@MainActivity, signedIn.uniqueId).logWearSet(
-                            sessionId, exerciseIndex, id, quantity, weight, rir
+                            sessionId, exerciseIndex, id, quantity, weight, rir,
+                            durationSeconds = duration, quantityUnit = unit,
+                            deficitCm = deficit
                         )
                     }
                     reloadFor(signedIn.uniqueId)

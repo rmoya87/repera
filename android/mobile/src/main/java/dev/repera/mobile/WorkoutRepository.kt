@@ -1065,7 +1065,9 @@ class WorkoutRepository(context: Context, googleId: String) {
      */
     @Synchronized fun logWearSet(
         sessionId: String, exerciseIndex: Int, setId: String, quantity: Int,
-        weightKg: Double?, rir: Double? = null
+        weightKg: Double?, rir: Double? = null,
+        durationSeconds: Int? = null, quantityUnit: String? = null,
+        deficitCm: Int? = null
     ): Boolean {
         require(sessionId.isNotBlank() && setId.isNotBlank() && exerciseIndex >= 0)
         require(quantity > 0 && quantity <= 10000)
@@ -1094,10 +1096,9 @@ class WorkoutRepository(context: Context, googleId: String) {
         check(exercise.optString("blockKind") != "wod" && !exercise.optBoolean("isCompleted")) {
             "El reloj solo puede registrar series de fuerza abiertas"
         }
-        check(inputMode(exercise.getJSONObject("exercise")) != ExerciseInputMode.HSPU_DEFICIT) {
-            "El déficit de HSPU requiere confirmación con cm en el móvil"
-        }
-        logCurrentSet(quantity, weightKg, rir = rir, warmup = false, setId = setId)
+        logCurrentSet(quantity, weightKg, rir = rir, warmup = false, setId = setId,
+            quantityUnit = quantityUnit, durationSeconds = durationSeconds,
+            deficitCm = deficitCm)
         return true
     }
 
