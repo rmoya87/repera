@@ -86,6 +86,8 @@ fun ReperaMobileScreen(
     onReviseSet: (String, Int, Double?, String?, Int?, Int?) -> Unit,
     onDeleteSet: (String) -> Unit,
     onReviseFinishedSet: (String, String, String, Int, Double?, Int?) -> Unit,
+    exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
+        List<ExerciseProgressPoint> = { _, _, _ -> emptyList() },
     onDeleteFinishedSet: (String, String, String) -> Unit,
     onLogBodyWeight: (Double) -> Unit,
     onSetRoutineProgression: (String, String) -> Unit,
@@ -307,6 +309,7 @@ fun ReperaMobileScreen(
                     } else {
                         ExerciseDetailScreen(
                             entry = entry,
+                            exerciseSeries = exerciseSeries,
                             onBack = { navController.popBackStack() }
                         )
                     }

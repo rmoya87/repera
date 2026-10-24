@@ -162,6 +162,14 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 syncing = syncing,
                 status = status,
                 overview = snapshot,
+                exerciseSeries = { exerciseId, metric, range ->
+                    val uid = profile?.uniqueId
+                    val bytes = uid?.let { LocalSnapshotStore(this, it).read() }
+                    if (bytes == null) emptyList() else ExerciseProgressSeries.compute(
+                        org.json.JSONObject(String(bytes, Charsets.UTF_8))
+                            .optJSONArray("workouts") ?: org.json.JSONArray(),
+                        exerciseId, metric, range)
+                },
                 todayHealth = todayHealth,
                 onHealthConnect = ::connectHealth,
                 activeWorkout = activeWorkout,

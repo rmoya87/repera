@@ -9,17 +9,24 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -36,6 +43,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun ExerciseDetailScreen(
     entry: ExerciseEntry,
+    exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
+        List<ExerciseProgressPoint> = { _, _, _ -> emptyList() },
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -53,6 +62,9 @@ internal fun ExerciseDetailScreen(
         item {
             TextButton(onClick = onBack) { Text("‹ Ejercicios") }
             Text(entry.name, style = MaterialTheme.typography.headlineMedium)
+        }
+        item {
+            ExerciseEvolutionSection(entry = entry, exerciseSeries = exerciseSeries)
         }
         if (frames.size <= 1) {
             item { ArtImage(frames.firstOrNull(), entry.name, Modifier.fillMaxWidth().aspectRatio(4f / 3f)) }
@@ -124,4 +136,92 @@ private fun ArtImage(stem: String?, contentDescription: String, modifier: Modifi
             contentScale = ContentScale.Crop
         )
     }
+}
+
+/** Evolución del ejercicio: métricas, rango y gráfica
+ *  (ExerciseEvolutionPanel de iOS). */
+@Composable
+private fun ExerciseEvolutionSection(
+    entry: ExerciseEntry,
+    exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
+        List<ExerciseProgressPoint>
+) {
+    val metrics = ExerciseProgressMetric.available(
+        if (entry.loggingStyle == "machineWork") "machineWork"
+        else if (entry.loggingStyle == "repsAndTime") "repsAndTime"
+        else "loadAndReps")
+    var metric by rememberSaveable { mutableStateOf(metrics.first().wire) }
+    var range by rememberSaveable {
+        mutableStateOf(ExerciseProgressRange.ALL.wire)
+    }
+    val selectedMetric = metrics.firstOrNull { it.wire == metric } ?: metrics.first()
+    val selectedRange = ExerciseProgressRange.entries
+        .firstOrNull { it.wire == range } ?: ExerciseProgressRange.ALL
+    val points = remember(entry.id, metric, range) {
+        exerciseSeries(entry.id, selectedMetric, selectedRange)
+    }
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Evolución", style = MaterialTheme.typography.titleLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())) {
+                metrics.forEach { m ->
+                    FilterChip(selected = m.wire == metric,
+                        onClick = { metric = m.wire },
+                        label = { Text(m.title) })
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ExerciseProgressRange.entries.forEach { r ->
+                    FilterChip(selected = r.wire == range,
+                        onClick = { range = r.wire },
+                        label = { Text(r.title) })
+                }
+            }
+            if (points.isEmpty()) {
+                Text("Todavía no hay sesiones registradas con esta métrica.",
+                    style = MaterialTheme.typography.bodyMedium)
+            } else {
+                val line = MaterialTheme.colorScheme.primary
+                androidx.compose.foundation.Canvas(modifier = Modifier
+                    .fillMaxWidth().height(120.dp)) {
+                    val minV = points.minOf { it.value }
+                    val maxV = points.maxOf { it.value }
+                    val span = (maxV - minV).coerceAtLeast(1e-9)
+                    fun x(i: Int) = if (points.size == 1) size.width / 2f
+                        else i * size.width / (points.size - 1)
+                    fun y(v: Double) =
+                        size.height - ((v - minV) / span * size.height * 0.9f).toFloat() - size.height * 0.05f
+                    val path = androidx.compose.ui.graphics.Path()
+                    points.forEachIndexed { i, p ->
+                        if (i == 0) path.moveTo(x(i), y(p.value))
+                        else path.lineTo(x(i), y(p.value))
+                    }
+                    drawPath(path, color = line,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4f))
+                    points.forEachIndexed { i, p ->
+                        drawCircle(color = line, radius = 5f,
+                            center = androidx.compose.ui.geometry.Offset(x(i), y(p.value)))
+                    }
+                }
+                val last = points.last()
+                Text("Último: ${formatPointValue(selectedMetric, last)} · " +
+                    "${points.size} registros",
+                    style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    }
+}
+
+private fun formatPointValue(metric: ExerciseProgressMetric,
+                             p: ExerciseProgressPoint): String = when (metric) {
+    ExerciseProgressMetric.TOP_SET ->
+        "${p.value} kg × ${p.reps ?: "?"}"
+    ExerciseProgressMetric.ESTIMATED_ONE_RM -> "%.1f kg".format(p.value)
+    ExerciseProgressMetric.EFFORT -> "RIR %.1f".format(p.value)
+    ExerciseProgressMetric.BEST_HOLD, ExerciseProgressMetric.DURATION ->
+        "${p.value.toInt()} s"
+    else -> "${p.value.toInt()} ${p.quantityUnit ?: "reps"}"
 }
