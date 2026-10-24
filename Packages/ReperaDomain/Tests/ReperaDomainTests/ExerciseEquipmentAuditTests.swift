@@ -105,6 +105,9 @@ final class ExerciseEquipmentAuditTests: XCTestCase {
     }
 
     func testEquipmentSortingRecognizesSpecificTools() {
+        XCTAssertEqual(ExerciseEquipmentGroup.category(name: "Press banca", equipment: "Barra, Banco"), "Barras")
+        XCTAssertEqual(ExerciseEquipmentGroup.category(name: "Press mancuernas", equipment: "Mancuernas, Banco"), "Mancuernas")
+        XCTAssertEqual(ExerciseEquipmentGroup.category(name: "Step-up al cajón con kettlebell goblet", equipment: "Cajón, Kettlebell"), "Cajones")
         XCTAssertEqual(ExerciseEquipmentGroup.category(name: "Remo invertido", equipment: "Barra fija"), "Barras de dominadas")
         XCTAssertEqual(ExerciseEquipmentGroup.category(name: "Ab wheel", equipment: "Rueda abdominal"), "Ruedas abdominales")
         XCTAssertEqual(ExerciseEquipmentGroup.category(name: "SkiErg", equipment: "SkiErg"), "SkiErg / esquí de aire")
