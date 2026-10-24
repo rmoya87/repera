@@ -66,6 +66,38 @@ class WorkoutRepositoryInstrumentedTest {
             .getJSONArray("exercises").getJSONObject(0).getJSONArray("loggedSets").length())
     }
 
+    @Test fun recoveredMirrorWorkoutsMergeOnlyUnknownFinishedIdsSorted() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val user = UUID.randomUUID().toString()
+        val existing = JSONObject().put("id", "w-local")
+            .put("title", "Local").put("finishedAt", "2026-10-22T18:00:00Z")
+        val state = JSONObject().put("settings", JSONObject())
+            .put("exercises", JSONArray()).put("routines", JSONArray())
+            .put("workouts", JSONArray().put(existing))
+            .put("bodyWeights", JSONArray())
+            .put("favoriteTimers", JSONArray()).put("exerciseLoadPrefs", JSONObject())
+            .put("syncRevision", 0).put("lastWriterDeviceId", "")
+            .put("updatedAt", "2026-10-23T00:00:00Z")
+        LocalSnapshotStore(ctx, user).write(state.toString().toByteArray())
+        val repo = WorkoutRepository(ctx, user)
+        val older = JSONObject().put("id", "w-remote-1")
+            .put("title", "Otro dispositivo").put("finishedAt", "2026-10-20T18:00:00Z")
+        val duplicate = JSONObject().put("id", "w-local")
+            .put("title", "Duplicado").put("finishedAt", "2026-10-23T18:00:00Z")
+        val unfinished = JSONObject().put("id", "w-remote-2").put("title", "Vivo")
+        val imported = repo.mergeRecoveredWorkoutsFromSupabase(
+            listOf(older, duplicate, unfinished))
+        assertEquals(1, imported)
+        val saved = JSONObject(String(LocalSnapshotStore(ctx, user).read()!!))
+        val workouts = saved.getJSONArray("workouts")
+        assertEquals(2, workouts.length())
+        assertEquals("w-local", workouts.getJSONObject(0).getString("id"))
+        assertEquals("Local", workouts.getJSONObject(0).getString("title"))
+        assertEquals("w-remote-1", workouts.getJSONObject(1).getString("id"))
+        // Segunda pasada idempotente: ya conocido, no duplica.
+        assertEquals(0, repo.mergeRecoveredWorkoutsFromSupabase(listOf(older)))
+    }
+
     @Test fun noWodIsSilentlyCoercedToStrength() {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
         val user = UUID.randomUUID().toString()

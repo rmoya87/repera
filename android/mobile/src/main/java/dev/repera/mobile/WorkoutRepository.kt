@@ -1496,6 +1496,40 @@ class WorkoutRepository(context: Context, googleId: String) {
     )
 
     /** Entrenos terminados (copia) para validar el objetivo de un cambio IA. */
+    /**
+     * Port de ReperaStore.mergeRecoveredWorkoutsFromSupabase (iOS): incorpora
+     * entrenos terminados recuperados del espejo Supabase que este
+     * dispositivo no conoce (segundo dispositivo). Sólo IDs nuevos con
+     * finishedAt; ordena por finishedAt/startedAt descendente.
+     */
+    @Synchronized fun mergeRecoveredWorkoutsFromSupabase(
+        recovered: List<JSONObject>): Int {
+        if (recovered.isEmpty()) return 0
+        val state = requireState()
+        val archive = state.optJSONArray("workouts")
+            ?: JSONArray().also { state.put("workouts", it) }
+        val known = (0 until archive.length())
+            .map { archive.getJSONObject(it).optString("id") }.toMutableSet()
+        var imported = 0
+        for (session in recovered) {
+            if (session.isNull("finishedAt")) continue
+            if (!known.add(session.optString("id"))) continue
+            archive.put(JSONObject(session.toString()))
+            imported += 1
+        }
+        if (imported > 0) {
+            val sorted = (0 until archive.length())
+                .map { archive.getJSONObject(it) }
+                .sortedByDescending {
+                    it.optString("finishedAt").ifBlank {
+                        it.optString("startedAt") } }
+            state.put("workouts", JSONArray().also { out ->
+                sorted.forEach { out.put(it) } })
+            save(state)
+        }
+        return imported
+    }
+
     @Synchronized fun finishedWorkoutsSnapshot(): List<JSONObject> {
         val state = requireState()
         val archive = state.optJSONArray("workouts") ?: JSONArray()

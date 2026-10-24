@@ -73,4 +73,35 @@ class WorkoutMirrorStoreTest {
         assertEquals(digest, WorkoutMirrorStore.canonicalDigest(
             JSONObject(workout.toString())))
     }
+
+    @Test
+    fun backfillOnlyWhenBlocksMissingAndEverythingElseMatches() {
+        val blocks = org.json.JSONArray().put(JSONObject().put("kind", "wod"))
+        val local = JSONObject()
+            .put("id", "w1").put("title", "WOD").put("finishedAt", "2026-10-20T18:00:00Z")
+            .put("routineBlocks", blocks)
+        val remote = JSONObject()
+            .put("id", "w1").put("title", "WOD").put("finishedAt", "2026-10-20T18:00:00Z")
+        assertTrue(WorkoutMirrorStore.canRestoreMissingBlockSnapshot(local, remote))
+    }
+
+    @Test
+    fun backfillRejectedWhenRemoteHasBlocksOrFieldsDiffer() {
+        val blocks = org.json.JSONArray().put(JSONObject().put("kind", "wod"))
+        val local = JSONObject()
+            .put("id", "w1").put("title", "WOD").put("finishedAt", "2026-10-20T18:00:00Z")
+            .put("routineBlocks", blocks)
+        // El remoto ya tiene bloques: no hay nada que restaurar.
+        val withBlocks = JSONObject(local.toString())
+        assertFalse(WorkoutMirrorStore.canRestoreMissingBlockSnapshot(local, withBlocks))
+        // Cualquier otro campo distinto invalida el backfill.
+        val edited = JSONObject()
+            .put("id", "w1").put("title", "WOD editado").put("finishedAt", "2026-10-20T18:00:00Z")
+        assertFalse(WorkoutMirrorStore.canRestoreMissingBlockSnapshot(local, edited))
+        // Local sin bloques no puede restaurar nada.
+        val noBlocks = JSONObject()
+            .put("id", "w1").put("title", "WOD").put("finishedAt", "2026-10-20T18:00:00Z")
+        assertFalse(WorkoutMirrorStore.canRestoreMissingBlockSnapshot(noBlocks,
+            JSONObject().put("id", "w1")))
+    }
 }

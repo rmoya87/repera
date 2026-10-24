@@ -17,10 +17,10 @@ import java.util.concurrent.TimeUnit
  * huellas SHA-256, tombstones con outbox persistente, paginación de 200 y
  * payload privatizado (nunca notas, valoraciones, ubicación, GPS ni Salud).
  *
- * No portado en este chunk (siguiente): recuperación remota→local de entrenos
- * desconocidos (segundo dispositivo), backfill de snapshots de bloques legacy
- * (requiere SyncConflictResolver) y los toggles de compartir por centro.
- * Divergencia consciente y temporal, reportada al coordinador.
+ * Incluye recuperación remota→local de entrenos desconocidos (segundo
+ * dispositivo) y backfill seguro de snapshots de bloques legacy
+ * (canRestoreMissingBlockSnapshot, port de SyncConflictResolver).
+ * Pendiente: toggles de compartir por centro (athlete_workout_sharing).
  */
 class WorkoutMirrorStore(
     context: Context,
@@ -36,6 +36,8 @@ class WorkoutMirrorStore(
         val mirroredCount: Int = 0,
         val uploaded: Int = 0,
         val tombstoned: Int = 0,
+        val recovered: Int = 0,
+        val restoredBlockSnapshots: Int = 0,
         val error: String? = null
     )
 
@@ -72,6 +74,28 @@ class WorkoutMirrorStore(
             val existing = remote.associateBy { it.getString("id") }
             val deletionIDs = pendingDeletes()
 
+            // 0) Recuperación remota→local: un segundo dispositivo puede
+            //    tener entrenos que este aún no conoce. Sólo IDs nunca
+            //    vistos, no borrados y con payload íntegro.
+            val localIds = repository.finishedWorkoutsSnapshot()
+                .map { it.optString("id") }.toSet()
+            val recovered = mutableListOf<JSONObject>()
+            for (row in remote) {
+                if (!row.isNull("deleted_at")) continue
+                val id = row.optString("id")
+                if (id.isBlank() || localIds.contains(id) ||
+                    deletionIDs.contains(id) || seen[id] != null) continue
+                val payload = row.optJSONObject("payload") ?: continue
+                if (payload.optString("id") != id ||
+                    payload.isNull("finishedAt")) continue
+                recovered.add(payload)
+                seen[id] = canonicalDigest(payload)
+            }
+            val recoveredCount = if (recovered.isEmpty()) 0 else {
+                saveFingerprints(seen)
+                repository.mergeRecoveredWorkoutsFromSupabase(recovered)
+            }
+
             // 1) Tombstones: propagan borrados aunque se hicieran sin red.
             var tombstoned = 0
             if (deletionIDs.isNotEmpty()) {
@@ -96,6 +120,7 @@ class WorkoutMirrorStore(
             //    sobrescribe (puede venir editado de otro dispositivo).
             val uploads = JSONArray()
             val digests = mutableMapOf<String, String>()
+            var restoredBlocks = 0
             for (workout in repository.finishedWorkoutsSnapshot()) {
                 val id = workout.optString("id")
                 if (id.isBlank() || deletionIDs.contains(id)) continue
@@ -104,9 +129,18 @@ class WorkoutMirrorStore(
                 val clean = privatize(workout)
                 val checksum = canonicalDigest(clean)
                 if (remoteRow != null && seen[id] == null) {
-                    // Primera sincronización de este dispositivo: no pisar.
-                    seen[id] = checksum
-                    continue
+                    // Primera sincronización de este dispositivo: no pisar un
+                    // remoto quizá editado en otro dispositivo. Única excepción
+                    // segura: restaurar el snapshot de bloques que falta en un
+                    // WOD legacy cuando TODO lo demás coincide (iOS
+                    // SyncConflictResolver.canRestoreMissingBlockSnapshot).
+                    val remotePayload = remoteRow.optJSONObject("payload")
+                    if (remotePayload == null ||
+                        !canRestoreMissingBlockSnapshot(clean, remotePayload)) {
+                        seen[id] = checksum
+                        continue
+                    }
+                    restoredBlocks += 1
                 }
                 if (remoteRow != null && seen[id] == checksum) continue
                 uploads.put(JSONObject()
@@ -145,7 +179,9 @@ class WorkoutMirrorStore(
                     uploads.getJSONObject(it).getString("id")
                 }).size
             Result(ok = true, mirroredCount = mirrored,
-                uploaded = uploaded, tombstoned = tombstoned)
+                uploaded = uploaded, tombstoned = tombstoned,
+                recovered = recoveredCount,
+                restoredBlockSnapshots = restoredBlocks)
         } catch (error: Exception) {
             Result(ok = false,
                 error = "La sincronización con Supabase está pendiente: " +
@@ -218,6 +254,21 @@ class WorkoutMirrorStore(
             val clean = JSONObject(workout.toString())
             PRIVATE_KEYS.forEach { clean.remove(it) }
             return clean
+        }
+
+        /** Port de SyncConflictResolver.canRestoreMissingBlockSnapshot:
+         * sólo los bloques persistidos en el entreno local pueden enriquecer
+         * un espejo legacy sin ellos; todo lo demás debe coincidir exacto. */
+        internal fun canRestoreMissingBlockSnapshot(
+            localClean: JSONObject, remoteClean: JSONObject): Boolean {
+            val blocks = localClean.optJSONArray("routineBlocks")
+                ?: return false
+            if (blocks.length() == 0) return false
+            val remoteBlocks = remoteClean.optJSONArray("routineBlocks")
+            if (remoteBlocks != null && remoteBlocks.length() > 0) return false
+            val candidate = JSONObject(remoteClean.toString())
+            candidate.put("routineBlocks", JSONArray(blocks.toString()))
+            return canonicalDigest(candidate) == canonicalDigest(localClean)
         }
 
         /** SHA-256 sobre JSON canónico (claves ordenadas, sin espacios):
