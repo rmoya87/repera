@@ -49,6 +49,9 @@ internal object ExerciseProgressMetrics {
                         (kotlin.math.abs(weight - maxWeight) < 0.05 &&
                             set.unit == "reps" && set.reps > repsAtMaxWeight)) {
                         maxWeight = weight
+                        // Metres/calories carried at a weight are not reps at that
+                        // weight: a heavier non-reps set must clear, not zero-fill,
+                        // the reps attribution for the new max.
                         repsAtMaxWeight = if (set.unit == "reps") set.reps else 0
                     }
                 }
@@ -58,7 +61,7 @@ internal object ExerciseProgressMetrics {
         fun summary() = ExerciseProgressSummary(
             timesPerformed = times,
             maxWeightKg = maxWeight.takeIf { it > 0 },
-            repsAtMaxWeight = repsAtMaxWeight.takeIf { maxWeight > 0 },
+            repsAtMaxWeight = repsAtMaxWeight.takeIf { maxWeight > 0 && it > 0 },
             estimatedOneRM = bestE1RM.takeIf { it > 0 },
             bestReps = bestReps.takeIf { it > 0 },
             bestCalories = bestCalories.takeIf { it > 0 },
