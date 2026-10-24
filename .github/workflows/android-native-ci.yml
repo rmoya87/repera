@@ -85,7 +85,9 @@ jobs:
           script: |
             gradle -p android :mobile:connectedDebugAndroidTest :wear:connectedDebugAndroidTest --no-daemon --stacktrace
             mkdir -p android/screenshots
-            for f in progreso_actividad_pulso progreso_heatmaps progreso_peso_cardio; do adb shell run-as com.app.repera cat "/sdcard/Android/data/com.app.repera/cache/screenshots/$f.png" > "android/screenshots/$f.png" || true; [ -s "android/screenshots/$f.png" ] || rm -f "android/screenshots/$f.png"; done; ls -la android/screenshots/
+            adb root && adb wait-for-device && sleep 2
+            adb pull /storage/emulated/0/Android/data/com.app.repera/cache/screenshots android/screenshots/ || true
+            ls -la android/screenshots/ android/screenshots/screenshots/ 2>/dev/null || true
       - name: Explain failing emulator tests
         if: failure()
         run: |
