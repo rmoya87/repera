@@ -52,6 +52,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var repsInput by mutableStateOf(0)
     private var weightInput by mutableStateOf<Double?>(null)
     private var rirInput by mutableStateOf<Double?>(null)
+    private var finishedSummary by mutableStateOf<FinishedSummary?>(null)
     private var confirmDiscardPending by mutableStateOf(false)
     private var pendingCount by mutableStateOf(0)
     private var sendStatus by mutableStateOf<String?>(null)
@@ -93,8 +94,26 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                             Spacer(Modifier.height(6.dp))
                             val session = visibleSession
                             if (session == null) {
+                                val finishedNow = finishedSummary
+                                if (finishedNow != null) {
+                                    Text("Sesión completada",
+                                        style = MaterialTheme.typography.titleMedium)
+                                    Text(finishedNow.title, textAlign = TextAlign.Center,
+                                        style = MaterialTheme.typography.labelMedium)
+                                    Text("${finishedNow.minutes} min · " +
+                                        "${finishedNow.exercises} ejercicios · " +
+                                        "${finishedNow.sets} series",
+                                        textAlign = TextAlign.Center,
+                                        style = MaterialTheme.typography.labelSmall)
+                                    Button(onClick = {
+                                        sessionCache.edit().putString(
+                                            "finishedDismissed", finishedNow.sessionId).apply()
+                                        finishedSummary = null
+                                    }) { Text("Cerrar") }
+                                } else {
                                 Text(if (syncProblem) "No se pudo leer la sesión del teléfono" else "Sin entrenamiento recibido",
                                     textAlign = TextAlign.Center)
+                                }
                             } else {
                                 if (showingCachedSession) {
                                     Text("Última sesión recibida · sin conexión confirmada",
@@ -235,8 +254,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                     if (item.uri.path == "/repera/active-session") {
                         val data = DataMapItem.fromDataItem(item).dataMap
                         val bytes = data.getByteArray("session")
+                        val finished = data.getByteArray("finished")
                         val signedOut = data.getBoolean("signedOut")
-                        runOnUiThread { showSession(bytes, signedOut) }
+                        runOnUiThread { showSession(bytes, signedOut, finished) }
                     }
                 }
             } finally {
@@ -254,14 +274,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     override fun onDataChanged(events: DataEventBuffer) {
         for (event in events) {
             if (event.dataItem.uri.path == "/repera/active-session") {
-                if (event.type == com.google.android.gms.wearable.DataEvent.TYPE_DELETED) {
-                    runOnUiThread { clearSession(erasePending = false) }
-                } else {
-                    val data = DataMapItem.fromDataItem(event.dataItem).dataMap
-                    val bytes = data.getByteArray("session")
-                    val signedOut = data.getBoolean("signedOut")
-                    runOnUiThread { showSession(bytes, signedOut) }
-                }
+                val data = DataMapItem.fromDataItem(event.dataItem).dataMap
+                val bytes = data.getByteArray("session")
+                val finished = data.getByteArray("finished")
+                val signedOut = data.getBoolean("signedOut")
+                runOnUiThread { showSession(bytes, signedOut, finished) }
             }
         }
     }
@@ -329,11 +346,16 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }
     }
 
-    private fun showSession(bytes: ByteArray?, signedOut: Boolean = false) {
+    private fun showSession(bytes: ByteArray?, signedOut: Boolean = false,
+                            finished: ByteArray? = null) {
         if (signedOut) {
+            finishedSummary = null
+            sessionCache.edit().remove("finishedDismissed").apply()
             clearSession(erasePending = true)
             return
         }
+        finishedSummary = FinishedSummary.fromBytes(finished)
+            ?.takeIf { it.sessionId != sessionCache.getString("finishedDismissed", null) }
         if (bytes == null || bytes.isEmpty()) {
             // A finished workout is NOT account logout. Never discard unacknowledged
             // sets because the phone has completed the active session.
@@ -458,6 +480,37 @@ data class WatchSessionSummary(
                 globalScore = globalScore,
                 wodMovements = movementLines
             )
+        }
+    }
+}
+
+internal data class FinishedSummary(
+    val sessionId: String,
+    val title: String,
+    val minutes: Int,
+    val exercises: Int,
+    val sets: Int
+) {
+    companion object {
+        fun fromBytes(bytes: ByteArray?): FinishedSummary? {
+            if (bytes == null || bytes.isEmpty()) return null
+            val w = runCatching {
+                JSONObject(String(bytes, Charsets.UTF_8))
+            }.getOrNull() ?: return null
+            val id = w.optString("id").takeIf { it.isNotBlank() } ?: return null
+            val start = w.optString("startedAt")
+            val end = w.optString("finishedAt")
+            val minutes = runCatching {
+                ((java.time.Instant.parse(end).toEpochMilli() -
+                    java.time.Instant.parse(start).toEpochMilli()) / 60000).toInt()
+            }.getOrDefault(0)
+            val exercises = w.optJSONArray("exercises")
+            val sets = if (exercises == null) 0 else (0 until exercises.length()).sumOf { i ->
+                val logged = exercises.optJSONObject(i)?.optJSONArray("loggedSets")
+                logged?.length() ?: 0
+            }
+            return FinishedSummary(id, w.optString("title").ifBlank { "Entrenamiento" },
+                minutes, exercises?.length() ?: 0, sets)
         }
     }
 }
