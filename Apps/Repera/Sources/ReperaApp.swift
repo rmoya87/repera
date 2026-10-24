@@ -1,3 +1,4 @@
+import BackgroundTasks
 import GoogleSignIn
 import ReperaDomain
 import SwiftUI
@@ -172,6 +173,7 @@ struct ReperaApp: App {
                     }
 
                     if canEnterMainApp {
+                        CatalogBackgroundRefreshScheduler.schedule()
                         Task(priority: .utility) {
                             await businessAuth.syncPublicProfile(
                                 displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName,
@@ -196,6 +198,7 @@ struct ReperaApp: App {
                 }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .background {
+                        CatalogBackgroundRefreshScheduler.schedule()
                         aiInbox.stopRealtime()
                         wasBackgrounded = true
                         Task {
@@ -294,6 +297,9 @@ struct ReperaApp: App {
                         customExercises: store.customExerciseCount
                     )
                 }
+        }
+        .backgroundTask(.appRefresh(CatalogBackgroundRefreshScheduler.identifier)) {
+            await CatalogBackgroundRefreshScheduler.runHeadless()
         }
     }
 
@@ -420,6 +426,37 @@ private struct LaunchSplashView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {}
+}
+
+
+private enum CatalogBackgroundRefreshScheduler {
+    static let identifier = "com.app.repera.catalog.refresh"
+
+    /// Native iOS refresh is opportunistic: never assume this is an exact timer.
+    static func schedule() {
+        let request = BGAppRefreshTaskRequest(identifier: identifier)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 4 * 60 * 60)
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            // An unavailable or disabled background refresh must never block UI.
+        }
+    }
+
+    @MainActor
+    static func runHeadless() async {
+        schedule() // Re-arm for the next system-selected opportunity.
+        guard !Task.isCancelled else { return }
+        let auth = BusinessAuthStore.shared
+        guard auth.hasCachedSupabaseSession || auth.hasPriorSupabaseBinding else { return }
+        if !auth.isConnected {
+            await auth.restoreSession() // Keychain; never show an interactive sign-in.
+        }
+        guard auth.isConnected, !Task.isCancelled else { return }
+        // Update ONLY the shared catalog disk cache. The personal/iCloud store
+        // is not hydrated or modified during a background-only launch.
+        await RemoteExerciseCatalogStore.shared.refresh(force: true)
+    }
 }
 
 /// First visible SwiftUI frame. A copy of the barbell PNG is packaged as a
