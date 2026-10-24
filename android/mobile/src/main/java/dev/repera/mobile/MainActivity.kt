@@ -72,6 +72,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var recoveryRead by mutableStateOf<RecoveryRead?>(null)
     private val credentialManager by lazy { CredentialManager.create(this) }
     private var verifiedSupabase: SupabaseIdentity.Session? = null
+    private var lastCatalogCheckAt = 0L
+    private var catalogRefreshRunning = false
     private var centerSnapshot by mutableStateOf<BusinessCenterStore.Snapshot?>(null)
     private var centerLoading by mutableStateOf(false)
     private var centerSubmitting by mutableStateOf(false)
@@ -464,6 +466,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 busy = false
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val user = profile
+        if (user != null) refreshCatalogSilently(user.uniqueId)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -979,9 +987,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 )
                 profile = GoogleProfile(stored.uniqueId, stored.email, stored.displayName)
                 DriveSyncWorker.schedulePeriodic(this@MainActivity)
+                RemoteExerciseCatalogWorker.schedule(this@MainActivity)
                 aiPlansRealtime.start()
                 syncSupabaseMirrors()
                 reloadFor(stored.uniqueId)
+                refreshCatalogSilently(stored.uniqueId)
             } catch (_: Exception) {
                 // Expired or revoked refresh token: back to the login screen.
                 sessionStore.clear()
@@ -1048,9 +1058,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 profile = signedIn
                 persistSession(session, signedIn)
                 DriveSyncWorker.schedulePeriodic(this@MainActivity)
+                RemoteExerciseCatalogWorker.schedule(this@MainActivity)
                 aiPlansRealtime.start()
                 syncSupabaseMirrors()
                 reloadFor(id)
+                refreshCatalogSilently(id)
                 status = if (snapshot == null) "No hay datos locales. Sincroniza Google Drive." else null
             } catch (error: Exception) {
                 aiPlansRealtime.stop()
@@ -1217,11 +1229,43 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
     }
 
+    /** Silent background check when the app becomes active. Only publish UI changes
+     * after a complete cache download and atomic private-state reconciliation. */
+    private fun refreshCatalogSilently(accountId: String) {
+        val now = System.currentTimeMillis()
+        if (catalogRefreshRunning || now - lastCatalogCheckAt < 60_000L) return
+        val session = sessionStore.load()
+        if (session == null || session.uniqueId != accountId || session.expiresWithin(90)) return
+        lastCatalogCheckAt = now
+        catalogRefreshRunning = true
+        lifecycleScope.launch {
+            try {
+                val changed = withContext(Dispatchers.IO) {
+                    val feed = RemoteExerciseCatalog(this@MainActivity)
+                    val updated = feed.refresh(session.accessToken)
+                    if (updated) {
+                        // Incoming events are already durable in the feed cache.
+                        feed.applyToAccount(accountId)
+                    } else false
+                }
+                if (changed && profile?.uniqueId == accountId) {
+                    reloadFor(accountId)
+                    DriveSyncWorker.syncNow(this@MainActivity)
+                }
+            } catch (_: Exception) {
+                // Unavailable network/auth leaves the previous cache intact.
+            } finally {
+                catalogRefreshRunning = false
+            }
+        }
+    }
+
     private suspend fun reloadFor(id: String) {
         val (overview, active, bytes) = withContext(Dispatchers.IO) {
             val store = LocalSnapshotStore(this@MainActivity, id)
             MobilityCatalogMigration.ensure(this@MainActivity, id)
             CatalogRefreshMigration.ensure(this@MainActivity, id)
+            RemoteExerciseCatalog(this@MainActivity).applyToAccount(id)
             val repository = WorkoutRepository(this@MainActivity, id)
             // Artefactos de altas one-off interrumpidas (proceso muerto antes de
             // Guardar): iOS nunca persiste rutinas con todos los bloques vacíos.
@@ -1370,6 +1414,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 verifiedSupabase = null
                 clearAIAccessState()
                 sessionStore.clear()
+                RemoteExerciseCatalogWorker.cancel(this@MainActivity)
                 // Data Layer is best effort: a disconnected watch must never prevent
                 // clearing the authenticated phone UI and its in-memory state.
                 withContext(Dispatchers.IO) {
@@ -1658,7 +1703,9 @@ data class StateOverview(
                 }
             }
             val exerciseEntries = json.getJSONArray("exercises").let { array ->
-                (0 until array.length()).map { n ->
+                (0 until array.length()).filterNot { n ->
+                    array.getJSONObject(n).optBoolean("isCatalogArchived", false)
+                }.map { n ->
                     val ex = array.getJSONObject(n)
                     val mode = ExerciseInput.mode(
                         ex.getString("name"),
