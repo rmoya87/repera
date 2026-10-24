@@ -78,80 +78,106 @@ def repair_barbell_image(image):
         rgb[gaps > 0] = fixed[gaps > 0]
         alpha[gaps > 0] = 255
 
-    # Definitively paint the two pupils and smile as FULLY opaque, not merely
-    # fill alpha. The source PNG has partly erased RGB at those locations.
-    # Keep the same facial geometry and highlights of Repera's original face.
-    dark = (48, 41, 38)  # RGB warm dark, not a transparent pixel
-    details = np.zeros((h, w), np.uint8)
-    for center, axes, rotation in (
-        ((444, 379), (27, 45), 6),
-        ((606, 411), (28, 43), 5),
+    # Restore plain skin in *only* the three original feature areas before
+    # painting each feature ONCE. This also removes broken alpha artifacts in
+    # the original pixels, and prevents duplicate outlines in later rebuilds.
+    clean = np.zeros((h, w), np.uint8)
+    for center, axes in (
+        ((444, 381), (36, 55)),
+        ((607, 412), (38, 55)),
+        ((515, 434), (57, 39)),
     ):
         xy = (round(center[0] * sx), round(center[1] * sy))
         ab = (round(axes[0] * sx), round(axes[1] * sy))
-        cv2.ellipse(rgb, xy, ab, rotation, 0, 360, dark, -1, cv2.LINE_AA)
-        cv2.ellipse(details, xy, ab, rotation, 0, 360, 255, -1)
-    mouth_center = (round(515 * sx), round(432 * sy))
-    mouth_axes = (round(38 * sx), round(30 * sy))
-    cv2.ellipse(rgb, mouth_center, mouth_axes, 0, 0, 180,
-                dark, round(11 * sx), cv2.LINE_AA)
-    cv2.ellipse(details, mouth_center, mouth_axes, 0, 0, 180,
-                255, round(14 * sx), cv2.LINE_AA)
-    for px, py, radius in ((453, 346, 7), (618, 380, 7)):
+        cv2.ellipse(clean, xy, ab, 0, 0, 360, 255, -1)
+    rgb = cv2.inpaint(rgb, clean, 15, cv2.INPAINT_TELEA)
+    alpha[clean > 0] = 255
+
+    # Draw Repera's compact black eyes and ONE U-shaped smile, opaque by design.
+    dark = (49, 42, 38)
+    detail = np.zeros((h, w), np.uint8)
+    for center, axes, angle in (
+        ((444, 381), (26, 43), 6),
+        ((606, 412), (26, 42), 4),
+    ):
+        xy = (round(center[0] * sx), round(center[1] * sy))
+        ab = (round(axes[0] * sx), round(axes[1] * sy))
+        cv2.ellipse(rgb, xy, ab, angle, 0, 360, dark, -1, cv2.LINE_AA)
+        cv2.ellipse(detail, xy, ab, angle, 0, 360, 255, -1)
+    mouth_xy = (round(517 * sx), round(416 * sy))
+    mouth_ab = (round(35 * sx), round(29 * sy))
+    cv2.ellipse(rgb, mouth_xy, mouth_ab, 0, 0, 180, dark,
+                round(10 * sx), cv2.LINE_AA)
+    cv2.ellipse(detail, mouth_xy, mouth_ab, 0, 0, 180, 255,
+                round(12 * sx), cv2.LINE_AA)
+    for px, py, radius in ((452, 350, 7), (615, 382, 6)):
         xy = (round(px * sx), round(py * sy))
-        cv2.circle(rgb, xy, round(radius * sx), (241, 235, 233), -1, cv2.LINE_AA)
-        cv2.circle(details, xy, round(radius * sx), 255, -1)
-    alpha[details > 0] = 255
+        cv2.circle(rgb, xy, round(radius * sx), (247, 239, 236), -1, cv2.LINE_AA)
+        cv2.circle(detail, xy, round(radius * sx), 255, -1)
+    alpha[detail > 0] = 255
 
     repaired = np.dstack([rgb, alpha])
     return Image.fromarray(repaired, "RGBA")
 
 
 def running_with_original_head(running, original):
-    """Use the original head, face and green headband with a running body."""
+    """Run using EXACT Repera original eyes, smile and blush, never duplicate faces.
+
+    Keep the existing runner's motion and outer head shape. Replace its facial
+    expression by feathering an opaque patch of the corrected, original Repera
+    face over it, after erasing the previous running character's facial marks.
+    """
     run = np.array(running.convert("RGBA"), copy=True)
     old = np.array(original.convert("RGBA"), copy=True)
     rh, rw = run.shape[:2]
     oh, ow = old.shape[:2]
-    assert abs(rw / rh - 1) < 0.15, "Running asset must be square"
+    assert abs(rw / rh - 1) < .15
+    relative = rw / 1254.0
     old_scale = ow / 1024.0
 
-    # Clean speckles in the generated runner's exterior alpha: keep only the
-    # main connected silhouette while leaving original antialiasing.
+    # Remove stray artifacts around the generated silhouette.
     body = largest_silhouette(run[:, :, 3])
-    expanded = cv2.dilate(body, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
-    run[:, :, 3] = np.where(expanded > 0, run[:, :, 3], 0)
+    enlarged = cv2.dilate(body, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7,7)))
+    run[:, :, 3] = np.where(enlarged > 0, run[:, :, 3], 0)
 
-    # Transfer ONLY the genuine facial/headband texture. Earlier we
-    # accidentally transferred weights and extra ear silhouettes too; those
-    # must stay out. The existing runner provides the outer head contour,
-    # ears and the running body. Feather the face/headband patch naturally.
-    head_poly = np.array([
-        [374, 218], [432, 190], [518, 179], [625, 179],
-        [690, 202], [728, 238], [735, 275], [722, 316],
-        [721, 380], [699, 450], [649, 510], [575, 541],
-        [466, 539], [396, 516], [343, 477], [322, 420],
-        [329, 350], [324, 305], [338, 255]
-    ], np.float32) * old_scale
+    # Clear only the running source's eyebrows (not present on Repera).
+    erase = np.zeros((rh, rw), np.uint8)
+    for cx, cy, rx, ry in ((772, 398, 57, 28), (966, 428, 55, 30)):
+        cv2.ellipse(erase,
+            (round(cx * relative), round(cy * relative)),
+            (round(rx * relative), round(ry * relative)), 0, 0, 360, 255, -1)
+    # Inpaint only dark brown eyebrow ink, not green textile or beige skin.
+    dark_brow = np.max(run[:,:,:3], axis=2) < 115
+    brow_bad = ((erase > 0) & dark_brow).astype(np.uint8) * 255
+    if np.any(brow_bad):
+        run[:,:,:3] = cv2.inpaint(run[:,:,:3], brow_bad, 12, cv2.INPAINT_TELEA)
+
+    # A face-only mask (strictly below the headband): no ears, dumbbells or
+    # duplicate head contours are transferred from the original image.
     mask = np.zeros((oh, ow), np.uint8)
-    cv2.fillPoly(mask, [np.rint(head_poly).astype(np.int32)], 255)
-    mask = cv2.GaussianBlur(mask, (0, 0), 16)
-    mask = (mask.astype(np.float32) * old[:, :, 3].astype(np.float32) / 255).astype(np.uint8)
+    cv2.ellipse(mask, (round(516 * old_scale), round(423 * old_scale)),
+                (round(211 * old_scale), round(112 * old_scale)), 0,
+                0, 360, 255, -1)
+    mask = cv2.GaussianBlur(mask, (0,0), 22 * old_scale)
+    mask = (mask.astype(np.float32) * old[:,:,3].astype(np.float32) / 255).astype(np.uint8)
 
-    # Align authentic head and headband with the new running torso.
-    # Coordinates are proportional, not device-specific: assets can be
-    # displayed with aspect-fit on every iPhone / iPad orientation.
-    factor = (rw / 1254.0) * (1024.0 / ow) * 1.38
-    transform = np.float32([[factor, 0, -(rw / 1254.0) * 33],
-                            [0, factor, -(rh / 1254.0) * 40]])
-    head = cv2.warpAffine(old, transform, (rw, rh), flags=cv2.INTER_LANCZOS4, borderMode=cv2.BORDER_CONSTANT, borderValue=(0,0,0,0))
-    matte = cv2.warpAffine(mask, transform, (rw, rh), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
-
-    # Straight-alpha overlay using Pillow avoids dark fringes.
-    overlay = head.copy()
-    overlay[:, :, 3] = matte
-    result = Image.alpha_composite(Image.fromarray(run, "RGBA"), Image.fromarray(overlay, "RGBA"))
-    return result
+    # Place original eyes precisely over running character's eyes.
+    # Original (444,381) -> (760,517), (606,412) -> (948,553).
+    scale = 1.16 * (rw / 1254.0) * (1024.0 / ow)
+    transformation = np.float32([
+        [scale, 0, 245 * relative],
+        [0, scale, 75 * relative],
+    ])
+    face = cv2.warpAffine(old, transformation, (rw, rh),
+                          flags=cv2.INTER_LANCZOS4, borderMode=cv2.BORDER_CONSTANT,
+                          borderValue=(0,0,0,0))
+    matte = cv2.warpAffine(mask, transformation, (rw, rh),
+                           flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT,
+                           borderValue=0)
+    overlay = face.copy()
+    overlay[:,:,3] = matte
+    return Image.alpha_composite(Image.fromarray(run, "RGBA"),
+                                 Image.fromarray(overlay, "RGBA"))
 
 
 def assert_launch_art(image, label):
@@ -164,9 +190,9 @@ def assert_launch_art(image, label):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--running-source", type=Path, required=True)
+    parser.add_argument("--running-source", type=Path, required=True)\n    parser.add_argument("--hero-source", type=Path, default=HERO_PATH)
     args = parser.parse_args()
-    hero = repair_barbell_image(Image.open(HERO_PATH))
+    hero = repair_barbell_image(Image.open(args.hero_source))
     runner = running_with_original_head(Image.open(args.running_source), hero)
     assert_launch_art(hero, "barbell")
     assert_launch_art(runner, "running")
