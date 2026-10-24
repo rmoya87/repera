@@ -381,6 +381,7 @@ struct AIAccessView: View {
         Section {
             Text("Usa tu asistente habitual para consultar tus entrenamientos y preparar tus próximas sesiones.")
                 .foregroundStyle(OG.label2)
+                .listRowSeparator(.hidden)
             ForEach(providers) { provider in
                 Button {
                     if connectionVerified(for: provider) {
@@ -408,6 +409,8 @@ struct AIAccessView: View {
                     .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Color.secondary.opacity(0.25)))
                 }
                 .buttonStyle(.plain)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 3, leading: 16, bottom: 3, trailing: 16))
                 .disabled(!auth.isConnected)
             }
             if !auth.isConnected {
