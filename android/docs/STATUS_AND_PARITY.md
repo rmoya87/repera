@@ -356,8 +356,14 @@ ninguno aparecía en las auditorías del 23/10.
   (24/10): **paridad alcanzada**; no hay UI que portar hasta que iOS la
   active. NO es un gap.
 - **Resumen pre-inicio / gestión de sesión** (`SessionPreviewView` 205,
-  usada por `RootTabView`): tarjeta del plan antes de dar al Play + gestión
-  de la sesión en curso. Estado: ABIERTO.
+  usada por `RootTabView`): PORTADO 24/10 (pendiente CI): hoja
+  `SessionPreviewSheet` con etiqueta de día (1:1 `dayLabel`), bloques con
+  ejercicios y series objetivo, menú Editar/Borrar (con confirmación,
+  `showDeleteConfirm`) y Play; tocar una rutina en Inicio abre la hoja en
+  vez de iniciar directo. Además `endActiveSession(save: false)` iOS no
+  existía en Android: añadido `discardActiveSession` + acción «Descartar
+  entreno» (con confirmación) en las tarjetas de fuerza y WOD, deteniendo
+  la captura de ubicación como iOS.
 - **Heatmap de actividad** (`ActivityHeatmapView` 488, usada por
   `StatsView`): tiempo/volumen por día, franja horizontal en periodos cortos
   y rejilla semanal en largos, con muestras externas de Salud (Android ya
