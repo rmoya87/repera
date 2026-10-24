@@ -238,6 +238,41 @@ class WorkoutRepository(context: Context, googleId: String) {
     }
 
     /**
+     * Registra un peso corporal manual (BodyWeightEntry de iOS:
+     * {id, date, weightKg, source:"manual"}). Un registro por día: repetir
+     * el mismo día sustituye la medición anterior.
+     */
+    @Synchronized fun logBodyWeight(weightKg: Double, date: String? = null) {
+        require(weightKg.isFinite() && weightKg in 20.0..400.0) {
+            "Peso fuera de rango"
+        }
+        val day = date?.let { LocalDate.parse(it) } ?: LocalDate.now()
+        val state = requireState()
+        val weights = state.optJSONArray("bodyWeights")
+            ?: JSONArray().also { state.put("bodyWeights", it) }
+        // Un registro por día: se sustituye el existente.
+        for (i in weights.length() - 1 downTo 0) {
+            val entry = weights.optJSONObject(i) ?: continue
+            if (entry.optString("date").take(10) == day.toString()) weights.remove(i)
+        }
+        weights.put(JSONObject()
+            .put("id", UUID.randomUUID().toString())
+            .put("date", day.atStartOfDay(ZoneId.systemDefault()).toInstant().toString())
+            .put("weightKg", weightKg)
+            .put("source", "manual"))
+        save(state)
+    }
+
+    @Synchronized fun deleteBodyWeight(id: String) {
+        val state = requireState()
+        val weights = state.optJSONArray("bodyWeights") ?: return
+        for (i in weights.length() - 1 downTo 0) {
+            if (weights.optJSONObject(i)?.optString("id") == id) weights.remove(i)
+        }
+        save(state)
+    }
+
+    /**
      * Inserts a benchmark WOD from CatalogWods as a native routine, mirroring
      * Swift WODTemplate.makeBlock: repeated movements stay repeated (Fran's
      * 21-15-9), unmatched names resolve by catalog name at session assembly,

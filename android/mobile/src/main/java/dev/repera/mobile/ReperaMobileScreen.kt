@@ -87,6 +87,7 @@ fun ReperaMobileScreen(
     onDeleteSet: (String) -> Unit,
     onReviseFinishedSet: (String, String, String, Int, Double?, Int?) -> Unit,
     onDeleteFinishedSet: (String, String, String) -> Unit,
+    onLogBodyWeight: (Double) -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit,
     onImportJson: () -> Unit,
@@ -234,7 +235,8 @@ fun ReperaMobileScreen(
                         onExportJson = onExportJson,
                         onSignOut = onSignOut,
                         onReviseFinishedSet = onReviseFinishedSet,
-                        onDeleteFinishedSet = onDeleteFinishedSet
+                        onDeleteFinishedSet = onDeleteFinishedSet,
+                        onLogBodyWeight = onLogBodyWeight
                     )
                 }
                 composable("reloj") {

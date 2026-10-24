@@ -222,6 +222,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onDeleteFinishedSet = { workoutId, entryId, setId ->
                     runWorkoutAction { deleteFinishedSet(workoutId, entryId, setId) }
                 },
+                onLogBodyWeight = { kg ->
+                    runWorkoutAction { logBodyWeight(kg) }
+                },
                 onNext = { runWorkoutAction { next() } },
                 onFinish = { runWorkoutAction { finish() } },
                 onImportJson = { importJson.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },

@@ -46,10 +46,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import dev.repera.domain.ExerciseAliasSearch
 import dev.repera.domain.WodFormat
 import dev.repera.domain.WodClock
@@ -60,6 +62,7 @@ import java.time.format.DateTimeFormatter
 import dev.repera.domain.MuscleTaxonomy
 import dev.repera.domain.ProgressTimeRange
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
@@ -78,6 +81,7 @@ internal fun ProgressTab(
     onSignOut: () -> Unit,
     onReviseFinishedSet: (String, String, String, Int, Double?, Int?) -> Unit,
     onDeleteFinishedSet: (String, String, String) -> Unit,
+    onLogBodyWeight: (Double) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     // Deliberately limited to the recent archive loaded by StateOverview.
@@ -223,6 +227,25 @@ internal fun ProgressTab(
                                 val sign = if (delta >= 0) "+" else ""
                                 Text("Cambio 30 días: $sign${formatWeight(delta)} kg",
                                     style = MaterialTheme.typography.bodyMedium)
+                            }
+                            var weightInput by rememberSaveable { mutableStateOf("") }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                OutlinedTextField(
+                                    value = weightInput,
+                                    onValueChange = { weightInput = it },
+                                    label = { Text("Peso de hoy (kg)") },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Decimal),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                TextButton(onClick = {
+                                    weightInput.replace(',', '.').toDoubleOrNull()?.let {
+                                        onLogBodyWeight(it)
+                                        weightInput = ""
+                                    }
+                                }, enabled = !busy) { Text("Registrar") }
                             }
                         }
                     }
