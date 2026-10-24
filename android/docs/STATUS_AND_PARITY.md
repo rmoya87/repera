@@ -281,3 +281,40 @@ certifican commits más recientes.
 - **Abierto:** cobertura real de imágenes, evolución avanzada por período,
   gestión de la suscripción, Health Services y registro WOD completo en el
   reloj, integración MCP/UI profesional y E2E con Google Auth y Drive.
+
+## Monetización y matriz CI (24/10/2026)
+
+Decisión registrada (Ramón, 24/10): Google Play Billing directo, sin
+RevenueCat; Apple no se toca. Modelo de seguridad acordado: una compra
+detectada localmente NO concede Pro hasta verificación backend
+(`purchases.subscriptionsv2.get` como fuente de verdad, documentación
+oficial citada en `MONETIZATION_PLAY_BILLING.md`). En producción el
+provider queda **no configurado** (Gratis) hasta que exista ese backend:
+la integración comercial está deliberadamente incompleta.
+
+Implementado en rama (con pruebas locales, sin activar compras):
+dominio (`SubscriptionStatus`, `CommercialSnapshot`, `ReperaFeature`,
+límites Gratis, `FreeUsageLedger`, política por feature + 19 tests) y capa
+mobile (`EntitlementProvider` + provider Play Billing estricto,
+`FreeUsageStore` local, `SubscriptionManager`, coordinador, analítica,
+`PaywallScreen` Compose modos sheet/onboarding, `ProTeaserCard`, mascota
+real reutilizada de los assets de main). 6 tests JVM nuevos del store
+(persistencia, idempotencia, aislamiento por carpeta, JSON corrupto).
+Pendiente: activación de productos/precios/trials en Play Console
+(decisión de Ramón), backend de verificación (autorización pendiente),
+cableado de las decisiones en pantallas concretas y onboarding.
+
+Matriz CI verificada con XML reales del run `40119255128` (HEAD `b4e8313`):
+API 30 = 114 mobile + 6 wear; API 35 = 114 + 6; API 37.2 (Android 17
+canary) = 114 mobile; Wear OS 5.1 (API 35) = 6 wear; dominio = 143 tests
+JVM. Todo 0 fallos. **API 36.1 falló dos veces seguidas** con el mismo
+síntoma: `system_server` muere antes de instalar los APK (`Can't find
+service: package`, I/O error en /sdcard) con 6.8G libres al arrancar; la
+causa raíz NO está probada (no se descarta interacción con nuestra carga
+de tests). Se añadió volcado logcat crash+system al paso de fallo para el
+próximo intento. **Wear OS 6.1 (36.1 firmado) sigue sin ejecución
+validada** (timeout de arranque en CI). Las capturas de verificación
+visual del reloj WOD apaisado y del mapa muscular se corrigieron tras
+detectar en inspección que el apaisado era byte-idéntico al vertical
+(constraints coaccionados) y que el mapa capturaba el placeholder de
+carga asíncrona; su verificación visual queda pendiente del próximo run.
