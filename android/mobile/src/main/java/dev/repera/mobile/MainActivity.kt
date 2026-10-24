@@ -1256,8 +1256,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private fun refreshCatalogSilently(accountId: String) {
         val now = System.currentTimeMillis()
         if (catalogRefreshRunning || now - lastCatalogCheckAt < 60_000L) return
-        val saved = sessionStore.load()
-        if (saved == null || saved.uniqueId != accountId) return
+        if (profile?.uniqueId != accountId) return
         lastCatalogCheckAt = now
         catalogRefreshRunning = true
         lifecycleScope.launch {
