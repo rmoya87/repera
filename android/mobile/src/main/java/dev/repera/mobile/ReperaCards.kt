@@ -46,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -1110,9 +1111,16 @@ internal fun WeekCalendarStrip(selected: LocalDate, onSelect: (LocalDate) -> Uni
                         selected = day == selected,
                         onClick = { onSelect(day) },
                         modifier = Modifier.weight(1f),
-                        label = { Text("${days[index]} ${day.dayOfMonth}",
-                            maxLines = 1,
-                            style = MaterialTheme.typography.labelSmall) }
+                        // Letra sobre número como el selector iOS (HomeView):
+                        // en una línea el número se recortaba en el chip.
+                        label = {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(days[index],
+                                    style = MaterialTheme.typography.labelSmall)
+                                Text("${day.dayOfMonth}",
+                                    style = MaterialTheme.typography.titleSmall)
+                            }
+                        }
                     )
                 }
             }
