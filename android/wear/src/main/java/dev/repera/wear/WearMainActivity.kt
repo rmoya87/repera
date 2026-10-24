@@ -1,6 +1,11 @@
 package dev.repera.wear
 
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import androidx.activity.ComponentActivity
@@ -47,6 +52,7 @@ import dev.repera.domain.ResultCapture
  * Do not simulate workout tracking or recorded sets until SessionController is ported.
  */
 class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
+    SensorEventListener,
     MessageClient.OnMessageReceivedListener {
     private val dataClient by lazy { Wearable.getDataClient(this) }
     private val messageClient by lazy { Wearable.getMessageClient(this) }
@@ -61,6 +67,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var restRemaining by mutableStateOf(0)
     private var sessionPaused by mutableStateOf(false)
     private var wodTimerJson by mutableStateOf<JSONObject?>(null)
+    private val repCounter = dev.repera.domain.MotionRepCounter()
+    private var motionSensor: Sensor? = null
+    private var sensorManager: SensorManager? = null
     private var wodTickSeconds by mutableStateOf(0)
     private var wodTickJob: kotlinx.coroutines.Job? = null
     private var restJob: kotlinx.coroutines.Job? = null
@@ -105,6 +114,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 sessionCache.edit().remove("snapshot").apply()
             }
         }
+        sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
+        motionSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
         setContent {
             MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(
                 primary = Color(0xFF30D158), onPrimary = Color.Black
@@ -244,11 +255,25 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                     Text("Registrar serie", style = MaterialTheme.typography.titleMedium)
                                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                                         verticalAlignment = Alignment.CenterVertically) {
-                                        Button(onClick = { repsInput = (repsInput - 1).coerceAtLeast(0) }) {
+                                        Button(onClick = {
+                                            if (session.prescribedReps == null) {
+                                                repCounter.applyManualDelta(-1)
+                                                repsInput = repCounter.count
+                                            } else {
+                                                repsInput = (repsInput - 1).coerceAtLeast(0)
+                                            }
+                                        }) {
                                             Text("−")
                                         }
                                         Text("$repsInput reps", style = MaterialTheme.typography.titleMedium)
-                                        Button(onClick = { repsInput = (repsInput + 1).coerceAtMost(10000) }) {
+                                        Button(onClick = {
+                                            if (session.prescribedReps == null) {
+                                                repCounter.applyManualDelta(1)
+                                                repsInput = repCounter.count
+                                            } else {
+                                                repsInput = (repsInput + 1).coerceAtMost(10000)
+                                            }
+                                        }) {
                                             Text("+")
                                         }
                                     }
@@ -373,6 +398,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 
     override fun onStart() {
         super.onStart()
+        motionSensor?.let { sensor ->
+            sensorManager?.registerListener(this, sensor, 40_000)
+        }
         dataClient.addListener(this)
         messageClient.addListener(this)
         resendPending()
@@ -399,6 +427,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     override fun onStop() {
+        sensorManager?.unregisterListener(this)
         messageClient.removeListener(this)
         dataClient.removeListener(this)
         super.onStop()
@@ -446,6 +475,29 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
     }
 
+    /**
+     * Conteo automático de repeticiones por acelerómetro, igual que
+     * WatchSessionHub.startMotion/tickMotion de watchOS: solo para estilos de
+     * fuerza, sin descanso en curso, sin pausa; la magnitud se convierte a G
+     * (userAcceleration de CoreMotion ya viene sin gravedad) con el mismo
+     * desplazamiento +1. Nunca pisa una prescripción ni el ajuste manual.
+     */
+    override fun onSensorChanged(event: SensorEvent) {
+        val session = visibleSession ?: return
+        if (!session.canLogOnWatch || session.inputMode != "strength" ||
+            session.wodFormatLabel != null || sessionPaused || restRemaining > 0) return
+        val x = event.values[0]; val y = event.values[1]; val z = event.values[2]
+        val magnitudeG = kotlin.math.sqrt(
+            (x * x + y * y + z * z).toDouble()) / 9.80665 + 1.0
+        repCounter.ingest(magnitudeG,
+            SystemClock.elapsedRealtimeNanos() / 1_000_000_000.0)
+        if (session.prescribedReps == null) {
+            repsInput = repCounter.count
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+
     private fun showWodTimer(bytes: ByteArray?) {
         wodTickJob?.cancel()
         val parsed = bytes?.takeIf { it.isNotEmpty() }?.let {
@@ -488,6 +540,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             return
         }
         sendStatus = "Serie guardada en el reloj; esperando confirmación"
+        repCounter.reset()
+        if (session.prescribedReps == null) repsInput = 0
         if (session.restSeconds > 0 &&
             session.recordedSets + 1 < session.plannedWorkSets) {
             startRest(session.restSeconds)
@@ -581,6 +635,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             // Borrador prellenado con la prescripción, como el setDraft de watchOS.
             if (visibleSession?.sessionId != summary.sessionId ||
                 visibleSession?.exerciseIndex != summary.exerciseIndex) {
+                repCounter.reset()
                 summary.prescribedReps?.let { repsInput = it }
                 summary.prescribedWeightKg?.let { weightInput = it }
             }
