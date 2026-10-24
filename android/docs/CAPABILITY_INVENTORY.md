@@ -15,7 +15,7 @@ gap) / SUSTITUIDO (infra Apple-only con equivalente Android ya elegido).
 
 | # | Pieza iOS | Qué falta en Android | Dependencia |
 |---|-----------|----------------------|-------------|
-| 1 | `PlaceSearchSheet` (685) | Búsqueda de lugares para el pin de gym | Decisión de proveedor: Google Places = API key + facturación → ELEVAR a decisión de cuenta antes de tocar nada |
+| 1 | `PlaceSearchSheet` (685) | Búsqueda de lugares para el pin de gym | Opciones sin coste nuevo investigadas: `android.location.Geocoder` (plataforma, sin key ni facturación; requiere backend de Play services, con límites de tasa y disponibilidad variable) y OSM/Nominatim (política de uso estricta: 1 req/s, no producción masiva). Google Places queda como opción de pago solo si las anteriores no bastan; decisión pendiente |
 | 2 | `HealthWorkoutRouteMap` (en `CardioRouteComponents`) | Mapa nativo de la ruta en el detalle del historial | Elección de componente de mapa (investigación técnica autorizada, sin coste) |
 | 3 | Emparejado Salud↔sesión: `SessionCardioEffort` (218), `ReperaSessionMatchIndex` (91), curva FC de sesión, `refineSessionReviewWithHealth` | Curva de FC por sesión, nota ajustada por esfuerzo cardio, índice temporal | Lectura de sesiones de ejercicio en Health Connect + matching temporal |
 | 4 | `DayPlusSheet` (598) | Menú «＋» de un día: alta de entreno suelto con fecha (`DayEditorView` one-off), favoritos, temporizador y escaneo para ese día | Ninguna externa; el modelo ya soporta `scheduledDate` |
@@ -40,6 +40,35 @@ gap) / SUSTITUIDO (infra Apple-only con equivalente Android ya elegido).
 | Mapa muscular (draw) | Causa raíz en logcat (`draw size=487×0`): `weight(1f)` en Row no fija altura; `fillMaxHeight()` aplicado. Pendiente: gate de píxeles en el run sobre 1320b1b |
 | Ubicación (pin + ruta) | Portada completa 24/10 (dominio+tracker+wiring+permisos+onboarding); pendiente CI con ubicación simulada |
 | Descartar sesión | `endActiveSession(save:false)` portado 24/10; pendiente CI |
+
+## Pendientes transversales (fuera del inventario por fichero)
+
+- Monetización comercial/backend: Play Billing directo decidido; activación de
+  producto/precio/prueba en Play Console y verificación de compras en backend
+  siguen SIN autorización ni decisión. «Sustituido» no es paridad completa
+  mientras estos gates sigan abiertos (HealthConnect igual: lectura base
+  portada, emparejado con sesiones abierto como gap #3).
+- Sync entre dispositivos: iCloud best-effort de iOS sin equivalente Android
+  (requeriría backend; no autorizado).
+- Sincronización de arte final desde main definitiva (re-sync abierto).
+- API 36.1: en el run 40124402423 el emulador no completó el arranque con un
+  crash nativo de surfaceflinger (hecho del run; causa no probada). Wear OS
+  6.1: sin ejecución validada (timeouts de arranque en CI).
+- Hardware físico: sin validación en dispositivo real (fuera de mi alcance).
+
+## Catálogo de ejercicios: 212 iOS vs 196 Android (GAP de datos)
+
+Conteo por familias en main (`primaries:` por fila): Enrichment 53,
+Halterofilia 50, Gimnasia 60, CrossFit 48, Movilidad ~50, Hyrox ~12 (estructura
+distinta). El seed Android (196, portado en 2c6bd9e de una versión antigua)
+carece de ~90 entradas presentes en iOS — la familia Movilidad casi entera y
+variantes de haltero/gimnasia añadidas después. El «288» del análisis de arte
+corresponde a ejercicios con variantes de arte, no al catálogo. Identidad: iOS
+genera `UUID()` aleatorio por instalación para las semillas, así que la
+identidad multiplataforma NO es el UUID (el seed Android usa uuid5 propio);
+la clave real es nombre/`catalogId`. Plan: extractor de las 6 familias Swift →
+entradas JSON con ids uuid5 estables + test instrumentado que exija el conteo
+y campos obligatorios. Estado: ABIERTO.
 
 ## Watch (5 ficheros): cubierto
 
