@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-24 (bienvenida y SDK oficial Google Sign-In)
+Última actualización: 2026-10-25 (actualizaciones de catálogo invisibles en iOS 27)
 
 - **Reloj de bloque (vertical y horizontal):** los dígitos LED escalan de forma exacta según ancho y ronda (HH:MM/ MM:SS sin rondas = 2,76×alto, con dos dígitos verdes de ronda = 4,22×alto), para no desbordarse a la derecha en intervalos. En retrato, miniatura de 100 pt y nombre centrados debajo del tiempo con 38 pt de separación; botones abajo. En paisaje miniatura de 112 pt y nombre en columna izquierda centrada en altura; reloj a la derecha con botones alineados en una fila. El icono del temporizador del bloque dentro de Play usa círculo Liquid Glass nativo de 44 pt.
 - **Now Playing externo:** Repera no dispone de API pública para leer el Now Playing global (Spotify, Podcasts y demás apps) ni detectar de forma fiable su estado. Se elimina la tarjeta genérica «Audio del iPhone» en ambas orientaciones en vez de mostrar un falso reproductor o iconos cuando no hay reproducción verificable. El Centro de control mantiene los controles nativos de esos servicios. Solo sería posible mostrar metadatos mediante una integración específica del proveedor o reproducción propia con permiso y datos accesibles.
@@ -192,7 +192,7 @@
 - **Fatiga muscular:** series de máquina/cardio aportan estímulo por duración (no como reps de fuerza); el filtro «Duras» las excluye.
 - Empareja con sesiones Repera por UUID / solape temporal (no se duplican en Historial). La coincidencia externa requiere solape significativo y no ambiguo; los reintentos de escritura usan `ReperaSessionID` para encontrar workouts propios ya guardados, incluso cuando el UUID local se perdió. Los entrenamientos de Repera Watch guardados realmente por HealthKit son considerados externos medidos frente a las estimaciones antiguas del iPhone. Para tiempo de entrenamiento en Inicio se consulta también la duración de cada workout enlazado por UUID; los datos de sesión registrados localmente sirven de respaldo si la consulta es incompleta o si Salud no admite escritura.
 - Borrar entreno en app → intenta borrar workout en Salud.
-- **Sincronizar ahora:** separa los **errores de sincronización** de los WOD históricos cuyos bloques originales nunca se guardaron. Los ejercicios y resultados de esos WOD sí se sincronizan; la ausencia de un snapshot original no se informa como fallo bajo el botón ni se rellena con prescripciones supuestas. Se muestra la fecha de actualización en español. Reintenta enviar los entrenamientos finalizados de Repera que todavía no tengan UUID de Apple Salud, con independencia de Supabase e iCloud, e informa de pendientes/permisos. Puede vincular entrenos existentes de Watch si hay lectura, aunque no haya permiso de escritura; nunca inventa FC/kcal. **Límite actual:** la app nativa `ReperaWatch` solo gestiona series y comunicación con el iPhone y todavía no tiene `HKWorkoutSession`/`HKLiveWorkoutBuilder` para generar mediciones propias de Watch; las métricas del reloj son fuente prioritaria únicamente cuando existe un HKWorkout real accesible en Salud.
+- **Sincronización automática:** los errores del transporte no se confunden con WOD históricos cuyos bloques originales nunca se guardaron. Los ejercicios y resultados de esos WOD sí se sincronizan; la ausencia de un snapshot original no se informa como fallo bajo el botón ni se rellena con prescripciones supuestas. Se muestra la fecha de actualización en español. Reintenta enviar los entrenamientos finalizados de Repera que todavía no tengan UUID de Apple Salud, con independencia de Supabase e iCloud, e informa de pendientes/permisos. Puede vincular entrenos existentes de Watch si hay lectura, aunque no haya permiso de escritura; nunca inventa FC/kcal. **Límite actual:** la app nativa `ReperaWatch` solo gestiona series y comunicación con el iPhone y todavía no tiene `HKWorkoutSession`/`HKLiveWorkoutBuilder` para generar mediciones propias de Watch; las métricas del reloj son fuente prioritaria únicamente cuando existe un HKWorkout real accesible en Salud.
 - **Caché en disco** de actividades/FC/kcal: se invalida el formato antiguo (v2) para no mostrar cifras estimadas históricas; después se muestran datos verificados y HealthKit los actualiza en segundo plano.
 
 ## Ajustes: centros, entrenadores y contratos
@@ -200,7 +200,7 @@
 - **Centro y entrenador**: la conexión Business reutiliza automáticamente la sesión Supabase obtenida al iniciar sesión con Apple; no hay un segundo botón «Conectar con Apple» ni en Ajustes, ni en el buscador, ni en Center. Si se pierde el token, se intenta restaurar desde Keychain y se ofrece «Reintentar» sin volver a pedir Sign in with Apple. Se mantienen búsqueda, invitaciones, vinculación, selección de bono y desvinculación. Las secciones de Cuenta y Centro y entrenador no muestran pies explicativos redundantes.
 - La vinculación conserva los beneficios de acceso completo mientras el vínculo sea válido y revoca ese acceso al desvincular, salvo suscripción Repera Pro.
 - Ficha del centro vinculado: avatar, bonos/sesiones, planificación, compartir resultados y desvincular.
-- **Sincronizar ahora** unifica iCloud + datos Business + espejo privado de entrenamientos.
+- **Sincronización automática** al iniciar sesión y volver al primer plano: iCloud, datos Business, espejo privado y catálogo de ejercicios.
 - Mensajes en Inicio (topbar), no en Ajustes. Avatares de org en app y en Repera Business.
 
 - **Vinculación segura Apple/Google:** Supabase Auth enlaza automáticamente cuentas OAuth con el mismo correo **verificado** y un **único user.id**. Repera almacena el UUID propietario local (sin tokens), lo coteja en login y en restore, y rechaza una cuenta distinta; no fusiona datos por texto de email. Si Apple usa «Ocultar mi correo», se requiere **Cuenta → Vincular cuenta de Google** bajo la sesión Apple auténtica, con Manual Linking habilitado en Supabase. En el cambio de proveedor no se borran sesiones deportivas ni se repite la pantalla de precios ya vista. Los entrenos locales/iCloud siguen usando la cuenta iCloud del dispositivo; la identidad común garantiza la continuidad de datos Supabase, no transfiere automáticamente el contenedor iCloud a otro Apple ID.
@@ -226,7 +226,7 @@
 
 - Subpágina con volver: título large **Ajustes** debajo del chevron (`ogPinnedTransparentNav`; barra del sistema visible tras venir de Inicio). Mismo patrón en Historial, Peso y Rotación.
 - Títulos de sección Form en gris encima de cada grupo. Acciones e iconos en color de etiqueta (negro/blanco sistema), no verde.
-- **Cuenta:** Sign in with Apple, nombre, foto, **Sincronizar ahora** (icono gira + «Sincronizando…»; debajo, fecha de la última sync; iCloud implícito sin fila de estado). Con Supabase: nombre/avatar a `profiles` + Storage. Cerrar sesión.
+- **Cuenta:** Sign in with Apple, nombre, foto, sin botón de sincronización ni spinner; los datos se mantienen automáticamente en segundo plano. Con Supabase: nombre/avatar a `profiles` + Storage. Cerrar sesión.
 - **Centro y entrenador:** vinculados + **Buscar centro o entrenador** (directorio RPC `search_discoverable_organizations`).
 - **Acceso:** completo por vínculo Business, o Repera Pro (App Store); restaurar compras si no hay patrocinio. **Debug Pro** solo en builds `#if DEBUG` (no en App Store).
 - **Salud:** notificaciones, conexión Salud (kcal hoy), ubicación, Ajustes del sistema, **Peso** + objetivo (mismo color `OG.label`). Historial de peso con origen **Propio** / **Salud**. Al dar **Play** se pide ubicación si aún está pendiente.
@@ -294,7 +294,7 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 
 - **Ajustes → Conecta tu IA:** Claude con «Copiar instrucciones y abrir Claude», guía de conexión personalizada OAuth sin secretos; ChatGPT condicionado a su ficha publicada. Conexiones y último uso, desconexión y configuración manual plegada. Crear un acceso no lo marca conectado: requiere una llamada autenticada. La autenticación nativa se recupera al arrancar Repera.
 - La IA que guarda un entrenamiento en `ai_training_plans` hace que **Inicio y Diario** actualicen sus rutinas en primer plano mediante Supabase Realtime, con aviso temporal de llegada. No se sobrescribe un plan personal ya asociado a ese día.
-- **Cuenta → Sincronizar ahora** mantiene la recuperación explícita de iCloud, Supabase e Inbox IA. Al volver de segundo plano se recuperan cambios perdidos aunque Realtime se haya desconectado. No hay notificaciones APNs en segundo plano en esta versión.
+- La app recupera automáticamente iCloud, Supabase e Inbox IA sin intervención del usuario. Al volver de segundo plano se recuperan cambios perdidos aunque Realtime se haya desconectado. No hay notificaciones APNs en segundo plano en esta versión.
 
 
 ### Coach IA · planificación deportiva de 1 a 52 semanas
@@ -313,8 +313,8 @@ Supabase dispone de 189 fichas enriquecidas desde el catálogo nativo de Repera:
 
 ### Corrección de permisos y sincronización de cuenta
 
-- La cuenta Apple y Supabase guardan ahora nombre/avatar en columnas y Storage existentes, con RLS por usuario y JPEG de 2 MB máximo. Los errores no aparecen bajo Centro/Entrenamiento; se comunican desde Cuenta, si afectan una sincronización solicitada.
-- «Sincronizar ahora» espera tareas en marcha y explica qué componente está pendiente, en lugar de «operación incompleta» para cualquier fallo.
+- La cuenta Apple y Supabase guardan ahora nombre/avatar en columnas y Storage existentes, con RLS por usuario y JPEG de 2 MB máximo. La recuperación automática no interrumpe Centro/Entrenamiento con errores transitorios.
+- Las tareas automáticas no bloquean la navegación y registran los fallos transitorios para recuperarse al reactivar la app.
 - Apple Salud muestra solamente permisos autorizados, sin «Pendiente de confirmar» para métricas no solicitadas ni aviso rojo por sueño/ciclo no elegidos.
 - Para la IA se conoce material real por ficha de ejercicio y demandas articulares no clínicas solo en un subconjunto verificado. Las recomendaciones de ejercicios alternativos requieren disponibilidad de material declarada en el chat.
 
@@ -323,7 +323,7 @@ Supabase dispone de 189 fichas enriquecidas desde el catálogo nativo de Repera:
 
 - **Diario**: sección «De tu entrenador IA» con los programas propuestos/activos/pausados y navegación al detalle; se elimina el acceso redundante desde Ajustes.
 - **Previo al entreno**: toca un movimiento reconocido para abrir su ficha de ejercicio, ver técnica e historial.
-- **Cuenta**: foto editable tocando el avatar con sello Apple abajo a la derecha; nombre y «Sesión iniciada · email» a la derecha. «Sincronizar ahora» muestra el resultado en un subtítulo, no en fila propia. Quitados controles separados de cambiar/quitar foto y leyenda descriptiva bajo Salud.
+- **Cuenta**: foto editable tocando el avatar con sello Apple abajo a la derecha; nombre y «Sesión iniciada · email» a la derecha. No hay sincronización manual visible: los cambios llegan sin mostrar indicadores o subtítulos de transporte. Quitados controles separados de cambiar/quitar foto y leyenda descriptiva bajo Salud.
 - **Compras**: StoreKit 2 es el fallback disponible sin clave pública de RevenueCat; no mostrar errores internos «build no configurado» a clientes. Si App Store Connect no devuelve ofertas, sí mostrar un estado de indisponibilidad y reintento. Una compra real requiere IDs vigentes en App Store Connect y pruebas sandbox/TestFlight.
 - **Scan**: mantiene varios tramos de un mismo For Time, cap global, intervalos, descansos entre rondas y A/B con cinco rondas. Series de Squat Snatch al 70/75/>80% quedan como prescripción porcentual y notas; no se derivan kg sin referencia de 1RM. Nuevos movimientos: Carrera, Dominadas lastradas, Remo pliométrico en anillas pies elevados, Step-up al cajón con kettlebell goblet.
 - **MCP**: herramientas de editar, archivar y restaurar propuestas/programas con versión y control de propietario. PAT con permisos de lectura/escritura, paginación y schemas estrictos. No reemplaza un entrenamiento ya importado al dispositivo y añade soporte OAuth gestionado ya desplegado, conexión personalizada de Claude y publicación de ChatGPT todavía pendiente.
