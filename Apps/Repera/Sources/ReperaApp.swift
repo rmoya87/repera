@@ -40,9 +40,7 @@ struct ReperaApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ZStack {
-                launchRootView
-            }
+            launchRootView
                 .onOpenURL { url in
                     GIDSignIn.sharedInstance.handle(url)
                 }
@@ -299,19 +297,23 @@ struct ReperaApp: App {
     /// All environment, overlay and lifecycle modifiers stay inside the window.
     @ViewBuilder
     private var launchRootView: some View {
-        if !uiTestTabShell && launchMascotStage == 0 {
-            LaunchBarbellSplashView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .ignoresSafeArea()
-        } else if !authReady || (!uiTestTabShell && launchMascotStage == 1) {
-            LaunchSplashView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .ignoresSafeArea()
-        } else if uiTestTabShell || canEnterMainApp {
-            RootTabView()
-        } else {
-            // Login normal (Bienvenido + SIWA).
-            OnboardingFlowView()
+        // Stable parent preserves the hydration .task when the intro switches
+        // from the barbell to the runner and then into the authenticated UI.
+        ZStack {
+            if !uiTestTabShell && launchMascotStage == 0 {
+                LaunchBarbellSplashView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .ignoresSafeArea()
+            } else if !authReady || (!uiTestTabShell && launchMascotStage == 1) {
+                LaunchSplashView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .ignoresSafeArea()
+            } else if uiTestTabShell || canEnterMainApp {
+                RootTabView()
+            } else {
+                // Login normal (Bienvenido + SIWA).
+                OnboardingFlowView()
+            }
         }
     }
 
