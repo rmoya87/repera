@@ -161,7 +161,7 @@ jobs:
           python3 - <<'PY'
           import pathlib,struct
           im=pathlib.Path("Apps/Repera/Resources/LaunchHeroOpaque.png").read_bytes()
-          assert im[:8] == b"\\x89PNG\\r\\n\\x1a\\n"
+          assert im[:8] == bytes((137,80,78,71,13,10,26,10))
           w,h=struct.unpack(">II",im[16:24])
           assert (w,h)==(1024,1024)
           color_type=im[25]
