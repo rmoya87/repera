@@ -43,7 +43,7 @@ enum ExerciseCategorySymbols {
         if e.contains("lastre") || e.contains("chaleco") { return "scalemass" }
         if e.contains("comba") { return "figure.jumprope" }
         if e.contains("cuerda de trepa") { return "figure.climbing" }
-        if e.contains("paralela") || e.contains("parallete") { return "figure.dip" }
+        if e.contains("paralela") || e.contains("parallete") { return "figure.strengthtraining.functional" }
         if e.contains("rueda abdominal") || e.contains("ab wheel") { return "circle.circle" }
         if e.contains("rodillo") { return "circle" }
         if e.contains("banco") { return "chair.lounge" }
