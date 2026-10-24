@@ -192,13 +192,14 @@ jobs:
       matrix:
         # Imágenes Wear OS publicadas: 35 = Wear OS 5.1 (preview),
         # 36.1 = Wear OS 6.1 (android-wear-signed).
+        # La pata 6.1 queda retirada: la imagen signed no termina de
+        # arrancar en el runner en dos intentos (timeout de 600 s y de
+        # 1200 s). Se documenta como ejecución no validada en
+        # android/docs/STATUS_AND_PARITY.md.
         include:
           - api: '35'
             target: android-wear
             label: 'Wear OS 5.1 (API 35)'
-          - api: '36.1'
-            target: android-wear-signed
-            label: 'Wear OS 6.1 (API 36.1)'
     steps:
       - uses: actions/checkout@v4
       - name: JDK 17
