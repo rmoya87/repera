@@ -82,18 +82,16 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: |
-            gradle -p android :mobile:connectedDebugAndroidTest :wear:connectedDebugAndroidTest --no-daemon --stacktrace; TEST_EXIT=$?
-            mkdir -p android/screenshots
-            adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true
-            ls -laR android/screenshots/ || true
-            exit $TEST_EXIT
+          # UNA sola línea: android-emulator-runner ejecuta cada línea del
+          # script en un sh -c distinto, así que un TEST_EXIT en su propia
+          # línea se pierde y el paso sale verde aunque fallen los tests.
+          script: gradle -p android :mobile:connectedDebugAndroidTest :wear:connectedDebugAndroidTest --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; ls -laR android/screenshots/ || true; exit $TEST_EXIT
       - name: Explain failing emulator tests
         if: failure()
         run: |
           echo "## Instrumented test failures" >> "$GITHUB_STEP_SUMMARY"
-          find android/mobile/build/outputs/androidTest-results -type f -name '*.xml' -print -exec grep -nE 'failure|error|testcase' {} \; || true
-          find android/mobile/build/outputs/androidTest-results -type f -name '*.xml' -exec sh -c 'for f; do grep -n -A 15 -B 2 "<failure" "$f" || true; done' sh {} + >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          find android/mobile/build/outputs/androidTest-results android/wear/build/outputs/androidTest-results -type f -name '*.xml' -print -exec grep -nE 'failure|error|testcase' {} \; || true
+          find android/mobile/build/outputs/androidTest-results android/wear/build/outputs/androidTest-results -type f -name '*.xml' -exec sh -c 'for f; do grep -n -A 15 -B 2 "<failure" "$f" || true; done' sh {} + >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
       - name: Upload visual verification screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -109,4 +107,6 @@ jobs:
           path: |
             android/mobile/build/outputs/androidTest-results/**
             android/mobile/build/reports/androidTests/**
+            android/wear/build/outputs/androidTest-results/**
+            android/wear/build/reports/androidTests/**
           if-no-files-found: ignore
