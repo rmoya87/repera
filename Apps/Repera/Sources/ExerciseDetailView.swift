@@ -450,20 +450,16 @@ struct ExerciseDetailView: View {
         let primary = LocalizedMuscle.es(exercise.targetMuscle ?? exercise.muscleGroup)
         var seen: Set<String> = [primary.lowercased()]
         var secondaries: [String] = []
-        for raw in exercise.secondaryMuscles {
+        // Solo músculos verificables: «full body», «upper legs», «cardio»,
+        // etc. son regiones genéricas, no músculos secundarios que deban
+        // aparecer con un icono anatómico. Completar desde los slugs reales.
+        for raw in exercise.secondaryMuscles + exercise.secondaryRegions {
+            guard MuscleTaxonomy.canonical(raw) != nil else { continue }
             let label = LocalizedMuscle.es(raw)
             let key = label.lowercased()
             guard !key.isEmpty, !seen.contains(key) else { continue }
             seen.insert(key)
             secondaries.append(label)
-        }
-        if let body = exercise.bodyPart, !body.isEmpty {
-            let label = LocalizedMuscle.es(body)
-            let key = label.lowercased()
-            if !seen.contains(key) {
-                seen.insert(key)
-                secondaries.insert(label, at: 0)
-            }
         }
         let equipments = (exercise.equipment ?? "")
             .split(separator: ",")
