@@ -75,9 +75,16 @@ solo para las 92 entradas nuevas; añadir test instrumentado de conteo exacto
 y campos obligatorios. Estado: ABIERTO (plan listo, extractor pendiente).
 
 AVISO de frescura: las lecturas iOS previas de esta sesión usaban FETCH_HEAD
-5099d9f (main se movió a e1621b8 por el trabajo de arte en paralelo). Los
-ports de la sesión (onboarding, ubicación, preview, LoadSuggestion…) deben
-re-verificarse contra e1621b8 antes del cierre final.
+5099d9f y main avanzó a e1621b8. Re-verificación ya hecha: de los ficheros
+portados en la sesión, SOLO `OnboardingFlowView` cambió (refinamiento visual
+del paso de acceso: colores de marca del botón Google, busy por proveedor,
+layout responsivo con ScrollView; estructura del flujo intacta) — queda como
+ítem de fidelidad. El resto (LoadSuggestion, CardioRouteAnalysis,
+ExerciseSubstitutes, SessionPreviewView, WorkoutLocationTracker,
+OnboardingStore) está SIN CAMBIOS entre 5099d9f y e1621b8. El total 288 está
+confirmado por `CatalogQualityTests` en main independientemente de HEADs
+concretos de runs antiguos. Este inventario es base auditada PENDIENTE de
+revalidación continua contra el main vigente, no cierre definitivo.
 
 ## Watch (5 ficheros): cubierto## Watch (5 ficheros): cubierto
 
