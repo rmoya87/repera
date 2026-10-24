@@ -119,7 +119,9 @@ internal object CatalogRefreshMigration {
                 }
             }
         }
-        for (i in toRemove.reversed()) {
+        // descendingSet() y no reversed(): TreeSet.reversed() (Java 21
+        // SequencedSet) no existe en API < 35 (NoSuchMethodError en API 30).
+        for (i in toRemove.descendingSet()) {
             catalog.remove(i)
             changed = true
         }

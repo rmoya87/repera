@@ -26,7 +26,9 @@ class HyroxCatalogInstrumentedTest {
         val catalog = JSONObject(String(local.read()!!)).getJSONArray("exercises")
         assertEquals(288, catalog.length())
         val rows = (0 until catalog.length()).map { catalog.getJSONObject(it) }
-        val stationNames = setOf("Carrera", "SkiErg", "Sled push", "Sled pull",
+        // Nombre actual en iOS @e1621b8: "Run" (antes "Carrera"; renombrado en
+        // el seed cuando main lo cambió — el test debe seguir el nombre vigente).
+        val stationNames = setOf("Run", "SkiErg", "Sled push", "Sled pull",
             "Burpee Broad Jump", "Remo máquina", "Farmer carry", "Sandbag Lunges",
             "Wall ball")
         assertTrue(stationNames.all { name -> rows.any { it.optString("name") == name } })
