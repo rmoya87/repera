@@ -167,9 +167,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onWodTimerAction = ::changeWodTimer,
                 onWodTimerTick = ::refreshWodTimer,
                 onStartRoutine = { id -> runWorkoutAction { startRoutine(id) } },
-                onCreateRoutine = { title, format, entries, minutes, rounds, schedule, interval, work, rest ->
+                onCreateRoutine = { title, format, entries, minutes, rounds, schedule, interval, work, rest, ladder ->
                     runWorkoutAction { createRoutine(title, format, entries, minutes, rounds,
-                        schedule, interval, work, rest) }
+                        schedule, interval, work, rest, ladder) }
                 },
                 onAddWodTemplate = { templateId ->
                     val template = dev.repera.domain.CatalogWods.template(templateId)

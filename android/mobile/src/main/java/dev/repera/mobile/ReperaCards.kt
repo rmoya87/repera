@@ -597,7 +597,7 @@ internal fun RoutineCreatorCard(
     aliases: Map<String, String>,
     busy: Boolean,
     onSave: (String, String, List<RoutineDraftEntry>, Int, Int,
-        RoutineSchedule, Int, Int, Int) -> Unit
+        RoutineSchedule, Int, Int, Int, List<Int>?) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var kind by remember { mutableStateOf("strength") }
@@ -610,6 +610,7 @@ internal fun RoutineCreatorCard(
     var interval by remember { mutableStateOf("60") }
     var workSeconds by remember { mutableStateOf("20") }
     var restSeconds by remember { mutableStateOf("10") }
+    var ladderText by remember { mutableStateOf("21-15-9") }
     var planning by remember { mutableStateOf("library") }
     var specificDate by remember { mutableStateOf(LocalDate.now().toString()) }
     var weekday by remember { mutableStateOf(1) }
@@ -647,24 +648,32 @@ internal fun RoutineCreatorCard(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf("strength" to "Fuerza", "amrap" to "AMRAP",
                     "forTime" to "For Time", "emom" to "EMOM", "tabata" to "Tabata",
-                    "circuit" to "Circuito").forEach { option ->
+                    "circuit" to "Circuito", "chipper" to "Chipper", "afap" to "AFAP",
+                    "ladder" to "Ladder", "deathBy" to "Muerte por",
+                    "partner" to "Partner", "roundsForQuality" to "RFQ",
+                    "maxEffort" to "Max effort").forEach { option ->
                         FilterChip(
                             selected = kind == option.first,
                             onClick = {
                                 kind = option.first
                                 chosen.clear()
+                                if (option.first == "deathBy") cap = "30"
                             },
                             label = { Text(option.second) }
                         )
                     }
             }
             if (kind != "strength") {
-                OutlinedTextField(
-                    value = cap, onValueChange = { cap = it.filter(Char::isDigit) },
-                    label = { Text("Límite (minutos)") },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true
-                )
-                if (kind in setOf("forTime", "emom", "tabata", "circuit")) {
+                if (kind in setOf("amrap", "forTime", "chipper", "ladder", "deathBy",
+                    "partner", "maxEffort")) {
+                    OutlinedTextField(
+                        value = cap, onValueChange = { cap = it.filter(Char::isDigit) },
+                        label = { Text("Límite (minutos)") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                }
+                if (kind in setOf("forTime", "emom", "tabata", "circuit", "partner",
+                    "roundsForQuality")) {
                     OutlinedTextField(
                         value = rounds,
                         onValueChange = { rounds = it.filter(Char::isDigit) },
@@ -672,12 +681,21 @@ internal fun RoutineCreatorCard(
                         modifier = Modifier.fillMaxWidth(), singleLine = true
                     )
                 }
-                if (kind == "emom" || kind == "circuit") {
+                if (kind == "ladder") {
+                    OutlinedTextField(
+                        value = ladderText, onValueChange = { ladderText = it.take(60) },
+                        label = { Text("Escalera de reps (p. ej. 21-15-9)") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    )
+                }
+                if (kind in setOf("emom", "circuit", "deathBy")) {
                     OutlinedTextField(value = interval,
                         onValueChange = { interval = it.filter(Char::isDigit) },
-                        label = { Text(if (kind == "circuit")
-                            "Duración por estación (segundos)"
-                            else "Duración del intervalo (segundos)") },
+                        label = { Text(when (kind) {
+                            "circuit" -> "Duración por estación (segundos)"
+                            "deathBy" -> "Cada (segundos, 60 = EMOM)"
+                            else -> "Duración del intervalo (segundos)"
+                        }) },
                         singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
                 if (kind == "tabata") {
@@ -786,10 +804,18 @@ internal fun RoutineCreatorCard(
             val parsedClock = if (clockTime.isBlank()) null else
                 runCatching { LocalTime.parse(clockTime) }.getOrNull()
             val validClock = planning == "library" || clockTime.isBlank() || parsedClock != null
-            val validCap = cap.toIntOrNull()?.let { it in 1..180 } == true
-            val validRounds = kind !in setOf("forTime", "emom", "tabata", "circuit") ||
+            val ladderScheme = if (kind != "ladder") null else
+                ladderText.split('-', '·', ',', ' ', '/').mapNotNull { it.trim().toIntOrNull() }
+            val validLadder = kind != "ladder" ||
+                (ladderScheme != null && ladderScheme.size in 2..12 &&
+                    ladderScheme.all { it in 1..1000 })
+            val validCap = kind in setOf("afap", "roundsForQuality", "emom", "tabata",
+                "circuit") ||
+                cap.toIntOrNull()?.let { it in 1..180 } == true
+            val validRounds = kind !in setOf("forTime", "emom", "tabata", "circuit",
+                "partner", "roundsForQuality") ||
                 rounds.toIntOrNull()?.let { it in 1..100 } == true
-            val validIntervals = (kind !in setOf("emom", "circuit") ||
+            val validIntervals = (kind !in setOf("emom", "circuit", "deathBy") ||
                 interval.toIntOrNull()?.let { it in 15..600 } == true) &&
                 (kind != "tabata" ||
                     (workSeconds.toIntOrNull()?.let { it in 5..600 } == true &&
@@ -800,7 +826,8 @@ internal fun RoutineCreatorCard(
             Button(
                 enabled = !busy && title.trim().isNotEmpty() &&
                     title.trim().length <= 100 && chosen.isNotEmpty() &&
-                    (kind == "strength" || (validCap && validRounds && validIntervals)) &&
+                    (kind == "strength" || (validCap && validRounds && validIntervals &&
+                        validLadder)) &&
                     validDate && validClock,
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
@@ -817,7 +844,7 @@ internal fun RoutineCreatorCard(
                             }
                         ),
                         interval.toIntOrNull() ?: 60, workSeconds.toIntOrNull() ?: 20,
-                        restSeconds.toIntOrNull() ?: 10)
+                        restSeconds.toIntOrNull() ?: 10, ladderScheme)
                 }
             ) { Text("Guardar rutina") }
         }

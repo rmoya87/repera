@@ -69,7 +69,7 @@ internal fun CreateTab(
     status: String?,
     overview: StateOverview?,
     onCreateRoutine: (String, String, List<RoutineDraftEntry>, Int, Int,
-        RoutineSchedule, Int, Int, Int) -> Unit,
+        RoutineSchedule, Int, Int, Int, List<Int>?) -> Unit,
     onAddWodTemplate: (String) -> Unit,
     onInitializeLocal: () -> Unit,
     onImportJson: () -> Unit,

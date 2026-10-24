@@ -68,7 +68,7 @@ fun ReperaMobileScreen(
     onWodTimerTick: () -> Unit,
     onStartRoutine: (String) -> Unit,
     onCreateRoutine: (String, String, List<RoutineDraftEntry>, Int, Int,
-        RoutineSchedule, Int, Int, Int) -> Unit,
+        RoutineSchedule, Int, Int, Int, List<Int>?) -> Unit,
     onAddWodTemplate: (String) -> Unit,
     onWodScore: (Int?, Int?, Int?) -> Unit,
     onWodMovement: (Int, Int, Int, Double?) -> Unit,

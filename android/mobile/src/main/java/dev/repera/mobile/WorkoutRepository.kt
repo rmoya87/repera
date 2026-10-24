@@ -41,12 +41,22 @@ class WorkoutRepository(context: Context, googleId: String) {
         schedule: RoutineSchedule = RoutineSchedule(),
         emomIntervalSeconds: Int = 60,
         workSeconds: Int = 20,
-        restSeconds: Int = 10
+        restSeconds: Int = 10,
+        ladderScheme: List<Int>? = null
     ): String {
         val cleaned = title.trim()
         require(cleaned.isNotBlank() && cleaned.length <= 100) { "Escribe un título válido" }
-        require(format in setOf("strength", "amrap", "forTime", "emom", "tabata", "circuit")) {
+        // buyInCashOut queda fuera: su estructura seccionada (buy-in / trabajo /
+        // cash-out) no cabe en un único bloque plano sin perder fidelidad con iOS.
+        require(format in setOf("strength", "amrap", "forTime", "emom", "tabata",
+            "circuit", "chipper", "afap", "ladder", "deathBy", "partner",
+            "roundsForQuality", "maxEffort")) {
             "Tipo de rutina no permitido"
+        }
+        require(format != "ladder" ||
+            (ladderScheme != null && ladderScheme.size in 2..12 &&
+                ladderScheme.all { it in 1..1000 })) {
+            "La escalera necesita un esquema tipo 21-15-9"
         }
         require(entries.isNotEmpty()) { "Añade al menos un ejercicio" }
         require(entries.map { it.exerciseId }.distinct().size == entries.size) {
@@ -75,11 +85,8 @@ class WorkoutRepository(context: Context, googleId: String) {
             .put("id", UUID.randomUUID().toString())
             .put("title", when (format) {
                 "strength" -> "Fuerza"
-                "amrap" -> "AMRAP"
-                "forTime" -> "For Time"
-                "emom" -> "EMOM"
-                "tabata" -> "Tabata"
-                else -> "Circuito"
+                else -> dev.repera.domain.WodFormat.fromWire(format)?.displayName
+                    ?: "Circuito"
             })
             .put("kind", if (format == "strength") "strength" else "wod")
         if (format == "strength") {
@@ -123,6 +130,8 @@ class WorkoutRepository(context: Context, googleId: String) {
                     "meters" -> item.put("distanceMeters", entry.quantity)
                     else -> item.put("reps", entry.quantity)
                 }
+                if (format == "ladder")
+                    item.put("repScheme", JSONArray(ladderScheme))
                 movements.put(item)
             }
             block.put("movements", movements)
@@ -132,9 +141,10 @@ class WorkoutRepository(context: Context, googleId: String) {
                     "tabata" -> (((workSeconds + restSeconds).toLong() * rounds + 59L) / 60L).toInt()
                     else -> timeCapMinutes
                 })
-            if (format in setOf("forTime", "emom", "tabata", "circuit"))
+            if (format in setOf("forTime", "emom", "tabata", "circuit", "partner",
+                "roundsForQuality"))
                 block.put("rounds", rounds)
-            if (format == "emom" || format == "circuit")
+            if (format in setOf("emom", "circuit", "deathBy"))
                 block.put("emomIntervalSeconds", emomIntervalSeconds)
             if (format == "tabata") block.put("workSeconds", workSeconds)
                 .put("restSeconds", restSeconds)
