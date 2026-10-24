@@ -40,6 +40,25 @@ class ProgressSnapshotInstrumentedTest {
             .put("loggedSets", JSONArray().put(set))
     }
 
+    @Test fun esfuerzoModeChangesDataNotOnlySelector() {
+        // Dos series de pecho: una suave (RIR 4) y una dura (RIR 0.5).
+        // Fatiga (todas) debe contar ambas; Esfuerzo (hardOnly) solo la dura.
+        val entry = strengthEntry(100.0, 5, 4.0)
+        val hard = strengthEntry(100.0, 5, 0.5)
+        val state = JSONObject()
+            .put("workouts", JSONArray().put(session(now, 40) {
+                put("exercises", JSONArray().put(entry).put(hard))
+            }))
+            .put("bodyWeights", JSONArray())
+        val snap = ProgressSnapshotBuilder.build(state, ProgressTimeRange.WEEK,
+            now = now, zone = zone)
+        assertEquals(2.0, snap.muscleLoadAll["chest"] ?: 0.0, 0.001)
+        assertEquals(1.0, snap.muscleLoadHard["chest"] ?: 0.0, 0.001)
+        assertTrue((snap.muscleFatigueAll["chest"] ?: 0.0) >
+            (snap.muscleFatigueHard["chest"] ?: 0.0))
+        assertTrue(snap.hasHardSets)
+    }
+
     @Test fun fullArchiveFeedsRecordsStreakAndSummary() {
         val state = JSONObject()
             .put("workouts", JSONArray()

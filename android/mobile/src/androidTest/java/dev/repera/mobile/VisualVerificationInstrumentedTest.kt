@@ -330,11 +330,21 @@ class VisualVerificationInstrumentedTest {
             "quadriceps" to 0.9, "gluteal" to 0.3, "biceps" to 0.2,
             "triceps" to 0.2, "abs" to 0.1
         )
+        // Modo Esfuerzo con datos DISTINTOS (subconjunto de series duras), para
+        // que la captura ejercite el cambio real de datos y no solo el selector.
+        val loadHard = mapOf(
+            "chest" to 4.0, "upper-back" to 2.0, "quadriceps" to 3.0,
+            "gluteal" to 1.0, "triceps" to 2.0
+        )
+        val fatigueHard = mapOf(
+            "chest" to 0.9, "upper-back" to 0.2, "quadriceps" to 0.4,
+            "triceps" to 0.05
+        )
         brandContent {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 MuscleBalanceCard(
-                    loadAll = load, loadHard = load,
-                    fatigueAll = fatigue, fatigueHard = fatigue,
+                    loadAll = load, loadHard = loadHard,
+                    fatigueAll = fatigue, fatigueHard = fatigueHard,
                     hasHardSets = true)
             }
         }
@@ -372,10 +382,29 @@ class VisualVerificationInstrumentedTest {
                 "(el contenedor existe pero no se dibuja nada)",
             distintos > 500)
         save("progreso_equilibrio_muscular", compose.onRoot().captureToImage())
+        val capturaFatiga = compose.onRoot().captureToImage().asAndroidBitmap()
         // Segundo modo: Esfuerzo (series duras), paridad del segmented iOS.
         compose.onNodeWithText("Esfuerzo").performClick()
         compose.waitForIdle()
         save("progreso_equilibrio_muscular_esfuerzo", compose.onRoot().captureToImage())
+        // Gate de datos reales: con maps distintos por modo, las dos capturas
+        // deben diferir en píxeles (si el selector dejara de cambiar los datos,
+        // las imágenes serían idénticas y este gate fallaría).
+        val capturaEsfuerzo = compose.onRoot().captureToImage().asAndroidBitmap()
+        var diffs = 0
+        var yy = 0
+        while (yy < minOf(capturaFatiga.height, capturaEsfuerzo.height)) {
+            var xx = 0
+            while (xx < minOf(capturaFatiga.width, capturaEsfuerzo.width)) {
+                if (colorDist(capturaFatiga.getPixel(xx, yy),
+                        capturaEsfuerzo.getPixel(xx, yy)) > 24) diffs++
+                xx += 5
+            }
+            yy += 5
+        }
+        org.junit.Assert.assertTrue(
+            "Fatiga y Esfuerzo dibujan lo mismo con datos distintos: solo $diffs píxeles",
+            diffs > 500)
     }
 
     private fun estadoSinteticoOverview(): StateOverview {
