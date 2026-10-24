@@ -1962,6 +1962,9 @@ public enum CatalogSpanish {
             "Si mareas, reduce reps y usa asistencia de manos.",
         ],
         "Pistol squat": [
+            "De pie a una pierna, la otra extendida al frente y brazos adelante.",
+            "Baja con control hasta la mitad; talon pegado y rodilla alineada.",
+            "Fondo: muslo sobre la pantorrilla y pierna libre estirada; sube sin apoyar.",
             "A una pierna: baja a squat profundo con la otra pierna extendida al frente; sube sin apoyar.",
             "Talón pegado; rodilla alineada; brazos al frente para equilibrar.",
             "Error típico: colapso de rodilla o talón que se levanta. Usa agarre a soporte.",

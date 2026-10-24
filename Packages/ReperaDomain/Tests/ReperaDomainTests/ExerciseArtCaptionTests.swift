@@ -47,6 +47,7 @@ final class ExerciseArtCaptionTests: XCTestCase {
             "Goblet squat": 3,
             "Thruster mancuernas": 3,
             "Thruster kettlebell": 3,
+            "Pistol squat": 3,
             "Box jump over": 3,
         ]
         for (name, count) in expected {
