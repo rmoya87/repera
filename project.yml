@@ -129,6 +129,11 @@ targets:
         ReperaSupabaseURL: https://uvzgujlrqohreoucirms.supabase.co
         ReperaSupabasePublishableKey: sb_publishable_uY9c82Ur7VK4VOo9n2zCEg_PmywmLbA
         UILaunchStoryboardName: LaunchScreen
+        # Native BGAppRefreshTask (system-scheduled, never a foreground spinner).
+        BGTaskSchedulerPermittedIdentifiers:
+          - com.app.repera.catalog.refresh
+        UIBackgroundModes:
+          - fetch
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
