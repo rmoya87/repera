@@ -51,6 +51,7 @@ final class ExerciseArtCaptionTests: XCTestCase {
             "Ball slam": 3,
             "Broad jump": 3,
             "Jumping squat": 3,
+            "Snatch mancuerna": 3,
             "Box jump over": 3,
         ]
         for (name, count) in expected {

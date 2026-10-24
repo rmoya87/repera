@@ -1120,6 +1120,9 @@ public enum CatalogSpanish {
             "Si no puedes la secuencia, entrena por partes: push-up + renegade row, luego squat clean thruster.",
         ],
         "Snatch mancuerna": [
+            "Bisagra: mancuerna en el suelo entre los pies, espalda plana.",
+            "Extension de cadera y tiron: la mancuerna sube pegada al cuerpo.",
+            "Recibe a bloqueo overhead, de pie y estable.",
             "Mancuerna entre pies; tirón de cadera y recibe overhead a un brazo (power o squat) con bloqueo.",
             "La mancuerna viaja cerca del cuerpo; puño cerrado y hombro activo arriba.",
             "Baja a hombro o suelo con control; cambia de mano según serie.",
