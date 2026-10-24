@@ -4,9 +4,19 @@
 
 ## Estado y alcance
 
-Código preparado para OAuth gestionado por Supabase Auth, autorización web y conexión desde las fichas de Repera en los directorios. **No equivale a una integración publicada ni a un despliegue de producción.** Los proveedores se crean desactivados, sin client IDs ni URLs inventadas. La app muestra disponibilidad pendiente hasta configurar una ficha real. No se envían prompts ni credenciales en conversaciones; no se utiliza la suscripción del asistente desde un chat embebido.
+Código preparado para OAuth gestionado por Supabase Auth, autorización web y conexión desde las fichas de Repera en los directorios. **Backend desplegado; integración pública todavía pendiente.** Los proveedores se crean desactivados, sin client IDs ni URLs inventadas. La app muestra disponibilidad pendiente hasta configurar una ficha real. No se envían prompts ni credenciales en conversaciones; no se utiliza la suscripción del asistente desde un chat embebido.
 
 El usuario abre **Ajustes → Datos → Conecta tu IA**, elige ChatGPT o Claude, abre la ficha publicada, conecta Repera y autoriza con la misma cuenta Apple/Google de la app. La web informa de la identidad conectada y permite acceso de consulta o consulta + planificación. Los cambios de historial y ejercicios personalizados mantienen aprobación nativa. Los PAT existentes continúan en Configuración manual.
+
+## Despliegue comprobado — 2026-10-24
+
+En producción (`uvzgujlrqohreoucirms`) se ha aplicado `ai_oauth_connections` con versión remota `20261024164612` (archivo local `20261024162744_ai_oauth_connections.sql`; misma migración, no reaplicar). Funciones ACTIVE: `repera-mcp` v18, `repera-ai-tokens` v3 y `repera-ai-connect` v1, todas con autenticación propia.
+
+Verificación HTTP real: catálogo y metadata 200; MCP sin credenciales 401 con desafío OAuth; autorización y emisión de PAT sin sesión 401. Los proveedores permanecen desactivados, sin client IDs ni fichas públicas.
+
+Pendiente: subir `web/ai/` a IONOS (`/ai/` devuelve 404), configurar el hook y OAuth Server (discovery devuelve `feature_disabled`), registrar los clientes, probar el flujo completo y publicar las fichas. El acceso al panel de Supabase terminó con `OAuth state has expired`; no se cambiaron ajustes de Auth. El despliegue del backend no publica una nueva versión de iOS.
+
+El asesor de seguridad señala RLS sin políticas en `ai_oauth_providers`: es intencional, accesible únicamente desde el backend con service role. También informa incidencias ajenas a este cambio en la vista `training_exercise_catalog`, la RPC `search_discoverable_organizations` y la protección de contraseñas filtradas; no se alteran en este despliegue.
 
 ## Componentes
 
