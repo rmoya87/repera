@@ -280,10 +280,22 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
             return .machineWork
         }
 
-        // Dominadas / muscle-up / HSPU: permiten lastre o déficit (no solo reps).
+        // Un burpee con obstáculo o dominada final no se anota como levantamiento.
+        if n.contains("burpee") { return .repsOnly }
+
+        // Dominadas / muscle-up / HSPU permiten anotar lastre o déficit.
         if isPullOrMuscleUp(name: n) || isHSPU(name: n) {
             return .loadAndReps
         }
+
+        // Cajón, anillas, barra fija, pared, GHD… son aparatos de apoyo, no
+        // carga externa en kg. Un montaje compuesto con KB, DB o barra sí carga.
+        let externalLoad = ["kettlebell", "mancuerna", "dumbbell", "barbell", "barra,", "disco",
+                            "saco", "lastre", "trineo", "yoke", "polea"].contains { eq.contains($0) }
+        let support = ["cajon", "step", "anillas", "barra de dominadas", "barra fija",
+                       "cuerda de trepa", "pegboard", "paralelas", "pared", "banco",
+                       "rueda abdominal", "ghd", "plataforma elevada"].contains { eq.contains($0) }
+        if support && !externalLoad { return .repsOnly }
 
         if eq.contains("peso corporal")
             || eq.isEmpty && (target.contains("cardiovascular") || group == "cardio") {
