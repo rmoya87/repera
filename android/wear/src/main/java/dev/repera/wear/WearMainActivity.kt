@@ -1,6 +1,8 @@
 package dev.repera.wear
 
 import android.os.Bundle
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -53,6 +55,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var weightInput by mutableStateOf<Double?>(null)
     private var rirInput by mutableStateOf<Double?>(null)
     private var finishedSummary by mutableStateOf<FinishedSummary?>(null)
+    private var restRemaining by mutableStateOf(0)
+    private var restJob: kotlinx.coroutines.Job? = null
     private var confirmDiscardPending by mutableStateOf(false)
     private var pendingCount by mutableStateOf(0)
     private var sendStatus by mutableStateOf<String?>(null)
@@ -155,6 +159,14 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                             textAlign = TextAlign.Center,
                                             style = MaterialTheme.typography.labelSmall)
                                     } else {
+                                    if (restRemaining > 0) {
+                                        Text("Descanso: ${restRemaining}s",
+                                            style = MaterialTheme.typography.titleLarge)
+                                        TextButton(onClick = { skipRest() }) {
+                                            Text("Saltar descanso",
+                                                style = MaterialTheme.typography.labelSmall)
+                                        }
+                                    }
                                     Text("Registrar serie", style = MaterialTheme.typography.titleMedium)
                                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                                         verticalAlignment = Alignment.CenterVertically) {
@@ -322,7 +334,27 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             return
         }
         sendStatus = "Serie guardada en el reloj; esperando confirmación"
+        if (session.restSeconds > 0 &&
+            session.recordedSets + 1 < session.plannedWorkSets) {
+            startRest(session.restSeconds)
+        }
         resendPending()
+    }
+
+    private fun startRest(seconds: Int) {
+        restJob?.cancel()
+        restJob = lifecycleScope.launch {
+            restRemaining = seconds
+            while (restRemaining > 0) {
+                kotlinx.coroutines.delay(1000)
+                restRemaining -= 1
+            }
+        }
+    }
+
+    private fun skipRest() {
+        restJob?.cancel()
+        restRemaining = 0
     }
 
     private fun resendPending() {
@@ -397,6 +429,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         visibleSession = null
         syncProblem = false
         showingCachedSession = false
+        skipRest()
     }
 }
 
@@ -413,7 +446,9 @@ data class WatchSessionSummary(
     val prescribedWeightKg: Double?,
     val wodFormatLabel: String?,
     val globalScore: Boolean,
-    val wodMovements: List<String>
+    val wodMovements: List<String>,
+    val plannedWorkSets: Int = 0,
+    val restSeconds: Int = 0
 ) {
     companion object {
         fun fromJson(session: JSONObject): WatchSessionSummary {
@@ -478,7 +513,10 @@ data class WatchSessionSummary(
                 }?.getDouble("targetWeightKg"),
                 wodFormatLabel = wodFormat?.displayName,
                 globalScore = globalScore,
-                wodMovements = movementLines
+                wodMovements = movementLines,
+                plannedWorkSets = plan?.length() ?: 0,
+                restSeconds = exercise.optInt("restSeconds",
+                    exercise.optInt("blockRestSeconds", 0))
             )
         }
     }
