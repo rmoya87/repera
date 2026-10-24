@@ -646,6 +646,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         }
                     }
                 },
+                // endActiveSession(save: false) iOS: borra la sesión en curso
+                // sin guardarla y detiene la captura de ubicación.
+                onDiscardSession = {
+                    StrengthRestService.cancel(this)
+                    locationTracker.stopRouteTracking()
+                    runWorkoutAction { discardActiveSession() }
+                },
                 onImportJson = { importJson.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                 onImportCsv = { importCsv.launch(arrayOf("text/*", "text/comma-separated-values", "application/octet-stream")) },
                 onExportJson = { exportJson.launch("repera-entrenamientos.json") },

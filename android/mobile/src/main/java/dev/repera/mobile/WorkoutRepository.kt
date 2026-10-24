@@ -1823,6 +1823,16 @@ class WorkoutRepository(context: Context, googleId: String) {
         exercise.put("completedReps", total)
     }
 
+    /** Descartar la sesión activa SIN guardarla (endActiveSession(save: false)
+     *  iOS): se borra la sesión en curso y no aparece en el historial. */
+    @Synchronized fun discardActiveSession(): Boolean {
+        val state = loadOrNull() ?: return false
+        if (state.isNull("activeSession")) return false
+        state.remove("activeSession")
+        save(state)
+        return true
+    }
+
     /** Pin de inicio (gym/sitio) sobre la sesión ACTIVA (capturePin iOS). */
     @Synchronized fun attachLocationPin(sessionId: String, pin: dev.repera.domain.WorkoutLocationPin) {
         val state = loadOrNull() ?: return

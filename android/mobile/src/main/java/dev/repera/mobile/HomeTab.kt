@@ -88,6 +88,7 @@ internal fun HomeTab(
     onDeleteSet: (String) -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit,
+    onDiscardSession: () -> Unit = {},
     onInitializeLocal: () -> Unit,
     onImportJson: () -> Unit,
     onDriveSync: () -> Unit,
@@ -180,6 +181,7 @@ internal fun HomeTab(
                             onReviseMovement = onReviseWodMovement,
                             onDeleteMovement = onDeleteWodMovement,
                             onFinish = onFinish,
+                            onDiscard = onDiscardSession,
                             onOpenClock = onOpenClock
                         )
                     } else {
@@ -192,7 +194,8 @@ internal fun HomeTab(
                             onReviseSet = onReviseSet,
                             onDeleteSet = onDeleteSet,
                             onNext = onNext,
-                            onFinish = onFinish
+                            onFinish = onFinish,
+                            onDiscard = onDiscardSession
                         )
                     }
                 }

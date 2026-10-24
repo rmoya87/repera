@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -82,6 +83,7 @@ internal fun ActiveWorkoutCard(
     onDeleteSet: (String) -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit,
+    onDiscard: () -> Unit = {},
     onLogDropSet: (Int, Double?, List<Pair<Int, Double?>>) -> Unit = { _, _, _ -> },
     onLogRestPauseSet: (List<Pair<Int, Int>>, Double?) -> Unit = { _, _ -> }
 ) {
@@ -404,6 +406,26 @@ internal fun ActiveWorkoutCard(
                 Text(if (active.index + 1 == active.total) "Terminar último ejercicio" else "Siguiente ejercicio")
             }
             TextButton(onClick = onFinish, enabled = !busy) { Text("Finalizar entrenamiento") }
+            // Descartar sin guardar (endActiveSession(save: false) iOS, con confirmación).
+            var confirmDiscard by remember(active.id) { mutableStateOf(false) }
+            TextButton(onClick = { confirmDiscard = true }, enabled = !busy) {
+                Text("Descartar entreno", color = MaterialTheme.colorScheme.error)
+            }
+            if (confirmDiscard) {
+                AlertDialog(
+                    onDismissRequest = { confirmDiscard = false },
+                    confirmButton = {
+                        TextButton(onClick = { confirmDiscard = false; onDiscard() }) {
+                            Text("Descartar", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { confirmDiscard = false }) { Text("Cancelar") }
+                    },
+                    title = { Text("Descartar entreno en curso") },
+                    text = { Text("Se borra la sesión en curso sin guardarla. No aparecerá en el historial.") }
+                )
+            }
         }
     }
 }
@@ -423,7 +445,8 @@ internal fun WodScoreCard(
     onReviseMovement: (String, Int, Double?) -> Unit,
     onDeleteMovement: (String) -> Unit,
     onFinish: () -> Unit,
-    onOpenClock: () -> Unit
+    onOpenClock: () -> Unit,
+    onDiscard: () -> Unit = {}
 ) {
     val wod = active.wod ?: return
     val spec = WodClockSpec(
@@ -640,6 +663,26 @@ internal fun WodScoreCard(
             ) { Text("Guardar resultado y continuar") }
             TextButton(onClick = onFinish, enabled = !busy) {
                 Text("Finalizar sin añadir otro resultado")
+            }
+            // Descartar sin guardar (endActiveSession(save: false) iOS).
+            var confirmDiscard by remember(active.id) { mutableStateOf(false) }
+            TextButton(onClick = { confirmDiscard = true }, enabled = !busy) {
+                Text("Descartar entreno", color = MaterialTheme.colorScheme.error)
+            }
+            if (confirmDiscard) {
+                AlertDialog(
+                    onDismissRequest = { confirmDiscard = false },
+                    confirmButton = {
+                        TextButton(onClick = { confirmDiscard = false; onDiscard() }) {
+                            Text("Descartar", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { confirmDiscard = false }) { Text("Cancelar") }
+                    },
+                    title = { Text("Descartar entreno en curso") },
+                    text = { Text("Se borra la sesión en curso sin guardarla. No aparecerá en el historial.") }
+                )
             }
         }
     }

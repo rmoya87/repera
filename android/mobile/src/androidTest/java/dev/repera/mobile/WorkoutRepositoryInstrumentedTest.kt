@@ -434,4 +434,44 @@ class WorkoutRepositoryInstrumentedTest {
             .getJSONArray("loggedSets").getJSONObject(0)
         assertEquals("calories", logged.getString("quantityUnit"))
     }
+
+    @Test fun discardActiveSessionRemueveLaSesionSinGuardarla() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val user = UUID.randomUUID().toString()
+        val exerciseId = UUID.randomUUID().toString()
+        val routineId = UUID.randomUUID().toString()
+        val exercise = JSONObject()
+            .put("id", exerciseId).put("name", "Remo")
+            .put("muscleGroup", "Espalda").put("isCustom", true)
+            .put("secondaryMuscles", JSONArray()).put("instructions", JSONArray())
+            .put("primaryRegions", JSONArray()).put("secondaryRegions", JSONArray())
+            .put("isFavorite", false)
+        val sets = JSONArray().put(
+            JSONObject().put("id", UUID.randomUUID().toString()).put("targetReps", 8))
+        val block = JSONObject().put("id", UUID.randomUUID().toString())
+            .put("kind", "strength").put("title", "Bloque")
+            .put("exercises", JSONArray().put(
+                JSONObject().put("id", UUID.randomUUID().toString())
+                    .put("exerciseId", exerciseId).put("plannedSets", sets)))
+        val routine = JSONObject().put("id", routineId).put("title", "Espalda")
+            .put("blocks", JSONArray().put(block)).put("progression", "off")
+            .put("isFavorite", false)
+        val state = JSONObject().put("settings", JSONObject())
+            .put("exercises", JSONArray().put(exercise))
+            .put("routines", JSONArray().put(routine))
+            .put("workouts", JSONArray()).put("bodyWeights", JSONArray())
+            .put("favoriteTimers", JSONArray()).put("exerciseLoadPrefs", JSONObject())
+            .put("syncRevision", 0).put("lastWriterDeviceId", "")
+            .put("updatedAt", "2026-10-24T00:00:00Z")
+        LocalSnapshotStore(ctx, user).write(state.toString().toByteArray())
+        val repo = WorkoutRepository(ctx, user)
+        repo.startStrengthRoutine(routineId)
+        // endActiveSession(save: false) iOS: se borra y NO aparece en el historial.
+        org.junit.Assert.assertTrue(repo.discardActiveSession())
+        org.junit.Assert.assertFalse(repo.discardActiveSession())
+        val raw = String(LocalSnapshotStore(ctx, user).read()!!)
+        val root = JSONObject(raw)
+        org.junit.Assert.assertTrue(root.isNull("activeSession"))
+        org.junit.Assert.assertEquals(0, root.getJSONArray("workouts").length())
+    }
 }
