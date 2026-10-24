@@ -5,13 +5,11 @@ on:
     branches: [main]
     paths:
       - "Apps/Repera/Resources/Assets.xcassets/MascotHero.imageset/**"
-      - "Apps/Repera/Resources/Assets.xcassets/MascotLaunchBarbell.imageset/**"
       - "Apps/Repera/Resources/Assets.xcassets/MascotRunning.imageset/**"
       - ".github/workflows/validate-splash-alpha.yml"
   pull_request:
     paths:
       - "Apps/Repera/Resources/Assets.xcassets/MascotHero.imageset/**"
-      - "Apps/Repera/Resources/Assets.xcassets/MascotLaunchBarbell.imageset/**"
       - "Apps/Repera/Resources/Assets.xcassets/MascotRunning.imageset/**"
       - ".github/workflows/validate-splash-alpha.yml"
 
@@ -29,7 +27,7 @@ jobs:
           from PIL import Image
           from pathlib import Path
           root = Path("Apps/Repera/Resources/Assets.xcassets")
-          for name, filename in [("MascotHero", "mascot-hero.png"), ("MascotRunning", "mascot-running.png"), ("MascotLaunchBarbell", "mascot-launch-barbell.png")]:
+          for name, filename in [("MascotHero", "mascot-hero.png"), ("MascotRunning", "mascot-running.png")]:
               folder = root / f"{name}.imageset"
               cfg = json.loads((folder/"Contents.json").read_text())
               assert cfg["images"][0]["filename"] == filename
@@ -43,15 +41,15 @@ jobs:
               assert np.mean(alpha>245)>0.16, f"{name}: missing solid mascot"
               for px,py in ((12,12),(w-13,12),(12,h-13),(w-13,h-13)):
                   assert alpha[py,px]<10, f"{name}: background is not transparent at {(px,py)}"
-              if name in ("MascotHero", "MascotLaunchBarbell"):
+              if name=="MascotHero":
                   for px,py in ((444,381),(606,412),(515,440)):
                       assert alpha[py,px]==255, f"Transparent facial detail {(px,py)}"
-              if name=="MascotLaunchBarbell":
+              if name=="MascotHero":
                   yy,xx=np.ogrid[:h,:w]
                   for cx,cy,rx,ry in ((445,379,23,39),(607,411,23,38)):
                       pupil=((xx-cx)**2/rx**2+(yy-cy)**2/ry**2)<0.82
                       assert np.min(alpha[pupil])==255, f"An eye still contains transparent pixels: {(cx,cy)}"
                   assert np.min(alpha[405:447,480:556])>=245, "Smile skin contains transparent pixels"
           launch=Path("Apps/Repera/Resources/LaunchScreen.storyboard").read_text()
-          assert 'image="MascotLaunchBarbell"' in launch, "Native launch must use fixed alpha asset"
+          assert 'image="MascotHero"' in launch, "Native launch must use fixed alpha asset"
           PY
