@@ -439,10 +439,11 @@ private struct LaunchBarbellSplashView: UIViewRepresentable {
         mascot.translatesAutoresizingMaskIntoConstraints = false
         canvas.addSubview(mascot)
         NSLayoutConstraint.activate([
-            mascot.leadingAnchor.constraint(equalTo: canvas.leadingAnchor),
-            mascot.trailingAnchor.constraint(equalTo: canvas.trailingAnchor),
-            mascot.topAnchor.constraint(equalTo: canvas.topAnchor),
-            mascot.bottomAnchor.constraint(equalTo: canvas.bottomAnchor)
+            mascot.centerXAnchor.constraint(equalTo: canvas.centerXAnchor),
+            mascot.centerYAnchor.constraint(equalTo: canvas.centerYAnchor),
+            // Match the iOS @3x image footprint without stretching on rotation.
+            mascot.widthAnchor.constraint(equalTo: canvas.widthAnchor, multiplier: 0.72),
+            mascot.heightAnchor.constraint(equalTo: canvas.heightAnchor, multiplier: 0.70)
         ])
         return canvas
     }
