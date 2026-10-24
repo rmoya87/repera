@@ -71,6 +71,9 @@ import dev.repera.domain.WodClockSpec
 import java.time.LocalDate
 import java.time.LocalTime
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
@@ -1558,7 +1561,55 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
             val minAlt = analysis.profile.minOf { it.altitudeMeters }
             val maxAlt = analysis.profile.maxOf { it.altitudeMeters }
             val maxDist = analysis.profile.last().distanceKm
-            Canvas(modifier = Modifier.fillMaxWidth().height(96.dp)) {
+            // Scrub táctil (paridad chartXSelection iOS): arrastrar o tocar
+            // selecciona el punto más cercano del perfil y muestra su
+            // altitud/distancia con regla discontinua y punto marcador.
+            var selectedDistance by remember { mutableStateOf<Double?>(null) }
+            val picked = selectedDistance?.let { sel ->
+                analysis.profile.minByOrNull {
+                    kotlin.math.abs(it.distanceKm - sel) }
+            }
+            Row(modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Perfil del recorrido",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    if (picked != null) "%.0f m · %.2f km".format(
+                        picked.altitudeMeters, picked.distanceKm)
+                    else "↑ ${analysis.ascentMeters.toInt()} m",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (picked != null) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Canvas(modifier = Modifier.fillMaxWidth().height(96.dp)
+                .pointerInput(analysis.profile) {
+                    fun select(x: Float) {
+                        val span = maxDist.coerceAtLeast(0.001)
+                        selectedDistance = (x / size.width.toFloat())
+                            .coerceIn(0f, 1f) * span
+                    }
+                    detectTapGestures(
+                        onTap = { select(it.x) },
+                        onLongPress = { selectedDistance = null }
+                    )
+                }
+                .pointerInput(analysis.profile) {
+                    detectDragGestures(
+                        onDragStart = { start ->
+                            val span = maxDist.coerceAtLeast(0.001)
+                            selectedDistance = (start.x / size.width.toFloat())
+                                .coerceIn(0f, 1f) * span
+                        },
+                        onDrag = { change, _ ->
+                            val span = maxDist.coerceAtLeast(0.001)
+                            selectedDistance = (change.position.x /
+                                size.width.toFloat()).coerceIn(0f, 1f) * span
+                            change.consume()
+                        },
+                        onDragEnd = { selectedDistance = null }
+                    )
+                }) {
                 val spanAlt = (maxAlt - minAlt).coerceAtLeast(1.0)
                 val spanDist = maxDist.coerceAtLeast(0.001)
                 val path = androidx.compose.ui.graphics.Path()
@@ -1570,8 +1621,25 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
                 }
                 drawPath(path, color = BodyMapPalette.fill(3),
                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4f))
+                if (picked != null) {
+                    val px = (picked.distanceKm / spanDist).toFloat() * size.width
+                    val py = size.height -
+                        (((picked.altitudeMeters - minAlt) / spanAlt).toFloat() *
+                            size.height)
+                    // Regla discontinua (iOS RuleMark dash [3,3]).
+                    drawLine(
+                        color = androidx.compose.ui.graphics.Color(0x73FFFFFF),
+                        start = androidx.compose.ui.geometry.Offset(px, 0f),
+                        end = androidx.compose.ui.geometry.Offset(px, size.height),
+                        strokeWidth = 2f,
+                        pathEffect = androidx.compose.ui.graphics.PathEffect
+                            .dashPathEffect(floatArrayOf(8f, 8f))
+                    )
+                    drawCircle(color = BodyMapPalette.fill(3), radius = 9f,
+                        center = androidx.compose.ui.geometry.Offset(px, py))
+                }
             }
-            Text("Altitud ${minAlt.toInt()}–${maxAlt.toInt()} m sobre la distancia",
+            Text("Altitud ${minAlt.toInt()}–${maxAlt.toInt()} m sobre la distancia · toca o arrastra para inspeccionar",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
