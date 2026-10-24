@@ -55,6 +55,7 @@ enum ExerciseCategorySymbols {
         if e.contains("balon") || e.contains("ball") { return "basketball" }
         if e.contains("ski") || e.contains("esqui") { return "figure.skiing.crosscountry" }
         if e.contains("remo") || e.contains("rowerg") { return "figure.rower" }
+        if e.contains("cinta de correr") || e.contains("treadmill") { return "figure.run" }
         if e.contains("bicicleta") || e.contains("bike") { return "bicycle" }
         if e.contains("ghd") { return "figure.core.training" }
         if e.contains("pegboard") { return "circle.grid.3x3" }
