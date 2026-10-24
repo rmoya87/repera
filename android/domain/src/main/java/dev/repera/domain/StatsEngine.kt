@@ -14,6 +14,8 @@ data class StatsSet(
     val quantityUnit: String? = null,
     val deficitCm: Double? = null,
     val isWarmup: Boolean = false,
+    val rir: Double? = null,
+    val durationSeconds: Int? = null,
     val drops: List<Pair<Int, Double?>> = emptyList()
 ) {
     /** Volumen en kg (LoggedSet.volumeKg, Models.swift:728). */

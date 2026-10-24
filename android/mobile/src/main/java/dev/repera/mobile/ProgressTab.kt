@@ -56,6 +56,9 @@ import dev.repera.domain.WodClock
 import dev.repera.domain.WodClockSpec
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import dev.repera.domain.MuscleTaxonomy
+import dev.repera.domain.ProgressTimeRange
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.LaunchedEffect
@@ -80,6 +83,8 @@ internal fun ProgressTab(
     // Deliberately limited to the recent archive loaded by StateOverview.
     // It must never be presented as complete lifetime or billing-gated analytics.
     val recent = overview?.history.orEmpty()
+    var selectedRange by rememberSaveable { mutableStateOf(ProgressTimeRange.WEEK.wire) }
+    val snapshot = overview?.progressByRange?.get(selectedRange)
     val today = LocalDate.now()
     val weekStart = today.minusDays((today.dayOfWeek.value - 1).toLong())
     LazyColumn(
@@ -103,6 +108,124 @@ internal fun ProgressTab(
                     Text("El total semanal usa todo el historial local. " +
                         "Los detalles de abajo muestran las últimas 20 sesiones.",
                         style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+                ProgressTimeRange.entries.forEach { range ->
+                    FilterChip(
+                        selected = selectedRange == range.wire,
+                        onClick = { selectedRange = range.wire },
+                        label = { Text(range.title) }
+                    )
+                }
+            }
+        }
+        if (snapshot != null) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Resumen · " + snapshot.range.subtitleLabel,
+                            style = MaterialTheme.typography.titleLarge)
+                        val s = snapshot.summary
+                        Text("${s.sessionCount} sesiones · " +
+                            "${formatVolume(s.volumeKg)} movidos")
+                        s.averageMinutes?.let {
+                            Text("Duración media: ${it.toInt()} min")
+                        }
+                        if (s.totalKcal > 0)
+                            Text("Energía activa: ${s.totalKcal.toInt()} kcal")
+                        s.averageCardioMinutes?.let {
+                            Text("Cardio medio: ${it.toInt()} min")
+                        }
+                        snapshot.previousSummary?.let { prev ->
+                            val delta = s.sessionCount - prev.sessionCount
+                            val sign = if (delta >= 0) "+" else ""
+                            Text("Periodo anterior: ${prev.sessionCount} sesiones " +
+                                "($sign$delta)", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Constancia", style = MaterialTheme.typography.titleMedium)
+                        Text("${snapshot.streak} semanas seguidas entrenando")
+                        Text("${snapshot.monthSessions} sesiones este mes",
+                            style = MaterialTheme.typography.bodyMedium)
+                        if (snapshot.mobilitySessions > 0) {
+                            Text("Movilidad: ${snapshot.mobilitySessions} sesiones · " +
+                                "${snapshot.mobilitySeconds / 60} min",
+                                style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
+            if (snapshot.records.isNotEmpty()) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Récords del periodo",
+                                style = MaterialTheme.typography.titleMedium)
+                            snapshot.records.take(5).forEach { record ->
+                                val date = java.time.Instant.ofEpochMilli(record.epochMillis)
+                                    .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                                    .format(DateTimeFormatter.ISO_LOCAL_DATE)
+                                Text("${record.exerciseName}: " +
+                                    "${formatWeight(record.weightKg)} kg × ${record.reps} " +
+                                    "(1RM est. ${formatWeight(record.estimatedOneRM)} kg) · $date",
+                                    style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                }
+            }
+            if (snapshot.muscleStatuses.isNotEmpty()) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Fatiga por músculo",
+                                style = MaterialTheme.typography.titleMedium)
+                            snapshot.muscleStatuses.take(8).forEach { status ->
+                                Text("${MuscleTaxonomy.displayName(status.name)} · " +
+                                    status.state.label,
+                                    style = MaterialTheme.typography.bodyMedium)
+                                LinearProgressIndicator(
+                                    progress = {
+                                        (status.score / 1.5).coerceIn(0.0, 1.0).toFloat() },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = brandGreen
+                                )
+                            }
+                            Text("El estímulo decae con la vida media de cada músculo; " +
+                                "orienta la recuperación, no la reemplaza.",
+                                style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+            if (snapshot.weightPoints.isNotEmpty()) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Peso corporal", style = MaterialTheme.typography.titleMedium)
+                            val last = snapshot.weightPoints.last()
+                            Text("Último: ${formatWeight(last.value)} kg (${last.day})")
+                            snapshot.weightDelta30d?.let { delta ->
+                                val sign = if (delta >= 0) "+" else ""
+                                Text("Cambio 30 días: $sign${formatWeight(delta)} kg",
+                                    style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -147,3 +270,12 @@ internal fun ProgressTab(
         }
     }
 }
+
+
+private fun formatVolume(volumeKg: Double): String = when {
+    volumeKg >= 1000 -> "%.1f t".format(volumeKg / 1000)
+    else -> "${volumeKg.toInt()} kg"
+}
+
+private fun formatWeight(value: Double): String =
+    if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)

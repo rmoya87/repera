@@ -634,6 +634,7 @@ data class StateOverview(
     val exerciseProgress: Map<String, ExerciseProgressSummary> = emptyMap(),
     val weeklyDayTotals: List<Int> = emptyList(),
     val weeklyMuscleGroups: List<MuscleWorkloadMetrics.GroupCount> = emptyList(),
+    val progressByRange: Map<String, ProgressSnapshotData> = emptyMap(),
     val exerciseSessions: Map<String, List<ExerciseSessionHistory.Visit>> = emptyMap()
 ) {
     companion object {
@@ -874,7 +875,10 @@ data class StateOverview(
                 weeklyDayTotals = weeklyDayTotals.toList(),
                 weeklyMuscleGroups = MuscleWorkloadMetrics.weekly(
                     json.getJSONArray("workouts"), today, ZoneId.systemDefault()),
-                exerciseSessions = ExerciseSessionHistory.fromArchive(json.getJSONArray("workouts"))
+                exerciseSessions = ExerciseSessionHistory.fromArchive(json.getJSONArray("workouts")),
+                progressByRange = dev.repera.domain.ProgressTimeRange.entries.associate { range ->
+                    range.wire to ProgressSnapshotBuilder.build(json, range)
+                }
             )
         }
     }
