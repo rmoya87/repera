@@ -17,6 +17,7 @@ final class RemoteExerciseCatalogStore {
         var primaryMuscles: [String]?
         var secondaryMuscles: [String]?
         var equipment: [String]?
+        var equipmentOverride: String?
         var nativeCatalogId: String?
         var description: String?
         var instructions: [String]?
@@ -28,6 +29,7 @@ final class RemoteExerciseCatalogStore {
         enum CodingKeys: String, CodingKey {
             case name, category, aliases, equipment, description, instructions
             case displayNameEn = "display_name_en"
+            case equipmentOverride = "equipment_override"
             case primaryMuscles = "primary_muscles"
             case secondaryMuscles = "secondary_muscles"
             case nativeCatalogId = "native_catalog_id"
@@ -214,15 +216,18 @@ final class RemoteExerciseCatalogStore {
             let primary = remote.primaryMuscles ?? []
             let secondary = remote.secondaryMuscles ?? []
             let resolvedGroup = remote.muscleGroup
-                ?? old?.muscleGroup
-                ?? MuscleTaxonomy.libraryMuscleGroup(primaries: primary, target: primary.first)
+                ?? (primary.isEmpty
+                    ? (old?.muscleGroup ?? "Custom")
+                    : MuscleTaxonomy.libraryMuscleGroup(primaries: primary, target: primary.first))
             // Conservar textos del seed hasta que se hayan trasladado al servidor.
             // Una descripción publicada reemplaza inmediatamente la embebida.
             let description = remote.description ?? old?.detailDescription
             let instructions = (remote.instructions?.isEmpty == false)
                 ? remote.instructions! : (old?.instructions ?? [])
-            let equipment = (remote.equipment?.isEmpty == false)
-                ? remote.equipment!.joined(separator: ", ") : old?.equipment
+            let equipment = remote.equipmentOverride
+                ?? old?.equipment
+                ?? (remote.equipment?.isEmpty == false
+                    ? remote.equipment!.joined(separator: ", ") : nil)
             let sport = remote.sportTag
                 ?? (remote.category == "Fuerza" ? nil : remote.category)
             let archived = saved.tombstones.contains(key) || !remote.isActive
@@ -233,8 +238,8 @@ final class RemoteExerciseCatalogStore {
                 equipment: equipment,
                 isCustom: false,
                 catalogId: remote.nativeCatalogId ?? old?.catalogId,
-                targetMuscle: old?.targetMuscle ?? primary.first,
-                secondaryMuscles: old?.secondaryMuscles.isEmpty == false ? old!.secondaryMuscles : secondary,
+                targetMuscle: primary.first ?? old?.targetMuscle,
+                secondaryMuscles: secondary.isEmpty ? (old?.secondaryMuscles ?? []) : secondary,
                 bodyPart: remote.bodyPart ?? old?.bodyPart,
                 detailDescription: description,
                 instructions: instructions,
