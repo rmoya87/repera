@@ -12,7 +12,11 @@ public enum ExerciseEquipmentGroup {
 
     public static func category(name: String, equipment: String?) -> String {
         let n = normalized(name)
-        let e = normalized(equipment ?? "")
+        // Para varios aparatos simultáneos, agrupar por el principal (primer chip)
+        // y mostrar todos en la ficha. Evita que «Barra, Banco» se ordene como Banco.
+        let primary = (equipment ?? "").split(separator: ",", maxSplits: 1).first
+            .map(String.init) ?? ""
+        let e = normalized(primary)
         func named(_ parts: [String]) -> Bool { parts.contains { n.contains($0) } }
         func equipped(_ parts: [String]) -> Bool { parts.contains { e.contains($0) } }
 
