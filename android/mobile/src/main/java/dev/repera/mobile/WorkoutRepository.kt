@@ -972,6 +972,63 @@ class WorkoutRepository(context: Context, googleId: String) {
         return summarize(session)
     }
 
+    /** Espejo de ReperaStore.deleteRoutine: elimina la plantilla y su
+     *  presencia en la rotación; los entrenos ya registrados no se tocan. */
+    @Synchronized fun deleteRoutine(id: String) {
+        val state = requireState()
+        val routines = state.getJSONArray("routines")
+        val index = (0 until routines.length()).firstOrNull {
+            routines.getJSONObject(it).optString("id") == id
+        } ?: error("Rutina no encontrada")
+        routines.remove(index)
+        state.optJSONObject("rotation")?.let { rotation ->
+            val ids = rotation.optJSONArray("routineIds")
+            if (ids != null) {
+                val kept = JSONArray()
+                for (i in 0 until ids.length()) {
+                    if (ids.optString(i) != id) kept.put(ids.get(i))
+                }
+                if (kept.length() == 0) state.remove("rotation")
+                else rotation.put("routineIds", kept)
+            }
+        }
+        save(state)
+    }
+
+    /** Renombra y/o reprograma una rutina existente conservando sus bloques. */
+    @Synchronized fun updateRoutineDetails(
+        id: String,
+        title: String,
+        schedule: RoutineSchedule
+    ) {
+        val cleaned = title.trim()
+        require(cleaned.isNotBlank() && cleaned.length <= 100) { "Escribe un título válido" }
+        require(schedule.scheduledDate == null || schedule.weekday == null) {
+            "Un entreno no puede ser semanal y de fecha concreta a la vez"
+        }
+        require(schedule.weekday == null || schedule.weekday in 1..7)
+        require(schedule.timeMinutes == null || schedule.timeMinutes in 0..1439)
+        val state = requireState()
+        val routines = state.getJSONArray("routines")
+        val routine = (0 until routines.length())
+            .map { routines.getJSONObject(it) }
+            .firstOrNull { it.optString("id") == id } ?: error("Rutina no encontrada")
+        routine.put("title", cleaned)
+        routine.remove("scheduledDate")
+        routine.remove("weekday")
+        routine.remove("scheduledTimeMinutes")
+        val scheduledDay = schedule.scheduledDate?.let { LocalDate.parse(it) }
+        if (scheduledDay != null) {
+            routine.put("scheduledDate", scheduledDay.atStartOfDay(ZoneId.systemDefault())
+                .toInstant().toString())
+        } else if (schedule.weekday != null) {
+            routine.put("weekday", schedule.weekday)
+        }
+        if (schedule.timeMinutes != null)
+            routine.put("scheduledTimeMinutes", schedule.timeMinutes)
+        save(state)
+    }
+
     /**
      * Edita una serie registrada de un entreno TERMINADO. Las series
      * registradas son la fuente de verdad (principio CompletedWorkoutEditing

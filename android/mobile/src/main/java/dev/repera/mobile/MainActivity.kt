@@ -167,6 +167,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onWodTimerAction = ::changeWodTimer,
                 onWodTimerTick = ::refreshWodTimer,
                 onStartRoutine = { id -> runWorkoutAction { startRoutine(id) } },
+                onEditRoutine = { id, title, schedule ->
+                    runWorkoutAction { updateRoutineDetails(id, title, schedule) }
+                },
+                onDeleteRoutine = { id -> runWorkoutAction { deleteRoutine(id) } },
                 onCreateRoutine = { title, format, entries, minutes, rounds, schedule, interval, work, rest, ladder ->
                     runWorkoutAction { createRoutine(title, format, entries, minutes, rounds,
                         schedule, interval, work, rest, ladder) }

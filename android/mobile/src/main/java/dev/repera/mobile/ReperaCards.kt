@@ -641,8 +641,24 @@ internal fun ScheduledRoutineCard(
     routine: RoutineEntry,
     busy: Boolean,
     canStart: Boolean,
-    onStart: (String) -> Unit
+    onStart: (String) -> Unit,
+    onEdit: (String, String, RoutineSchedule) -> Unit = { _, _, _ -> },
+    onDelete: (String) -> Unit = {}
 ) {
+    var editing by remember(routine.id) { mutableStateOf(false) }
+    var confirmingDelete by remember(routine.id) { mutableStateOf(false) }
+    var editTitle by remember(routine.id) { mutableStateOf(routine.title) }
+    var editPlanning by remember(routine.id) {
+        mutableStateOf(if (routine.scheduledDate != null) "date"
+            else if (routine.weekday != null) "weekly" else "library")
+    }
+    var editDate by remember(routine.id) {
+        mutableStateOf(routine.scheduledDate?.take(10) ?: LocalDate.now().toString())
+    }
+    var editWeekday by remember(routine.id) { mutableStateOf(routine.weekday ?: 1) }
+    var editClock by remember(routine.id) {
+        mutableStateOf(routine.timeMinutes?.let { "%02d:%02d".format(it / 60, it % 60) } ?: "")
+    }
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -655,10 +671,78 @@ internal fun ScheduledRoutineCard(
             val hour = routine.timeMinutes?.let { "%02d:%02d".format(it / 60, it % 60) }
             Text(label + (hour?.let { " · $it" } ?: ""),
                 style = MaterialTheme.typography.bodyMedium)
-            TextButton(
-                onClick = { onStart(routine.id) },
-                enabled = !busy && canStart && routine.supported
-            ) { Text(if (routine.supported) "Empezar entrenamiento" else "Formato pendiente") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(
+                    onClick = { onStart(routine.id) },
+                    enabled = !busy && canStart && routine.supported
+                ) { Text(if (routine.supported) "Empezar" else "Formato pendiente") }
+                TextButton(onClick = {
+                    editing = !editing
+                    confirmingDelete = false
+                }, enabled = !busy) { Text(if (editing) "Cerrar" else "Editar") }
+                TextButton(onClick = { confirmingDelete = !confirmingDelete },
+                    enabled = !busy) { Text("Borrar") }
+            }
+            if (confirmingDelete) {
+                Text("¿Borrar la rutina? Los entrenos ya registrados se conservan.",
+                    style = MaterialTheme.typography.bodyMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = {
+                        confirmingDelete = false
+                        onDelete(routine.id)
+                    }, enabled = !busy) { Text("Confirmar borrado") }
+                    TextButton(onClick = { confirmingDelete = false }) { Text("Cancelar") }
+                }
+            }
+            if (editing) {
+                OutlinedTextField(
+                    value = editTitle, onValueChange = { editTitle = it.take(100) },
+                    label = { Text("Nombre") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth())
+                Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("library" to "Sin fecha", "date" to "Día concreto",
+                        "weekly" to "Semanal").forEach { option ->
+                        FilterChip(selected = editPlanning == option.first,
+                            onClick = { editPlanning = option.first },
+                            label = { Text(option.second) })
+                    }
+                }
+                if (editPlanning == "date") OutlinedTextField(
+                    value = editDate, onValueChange = { editDate = it.take(10) },
+                    label = { Text("Fecha (AAAA-MM-DD)") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth())
+                if (editPlanning == "weekly") Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    listOf("L", "M", "X", "J", "V", "S", "D").forEachIndexed { index, day ->
+                        FilterChip(selected = editWeekday == index + 1,
+                            onClick = { editWeekday = index + 1 },
+                            label = { Text(day) })
+                    }
+                }
+                if (editPlanning != "library") OutlinedTextField(
+                    value = editClock, onValueChange = { editClock = it.take(5) },
+                    label = { Text("Hora opcional (HH:mm)") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth())
+                val validDate = editPlanning != "date" ||
+                    runCatching { LocalDate.parse(editDate) }.isSuccess
+                val parsedClock = if (editClock.isBlank()) null else
+                    runCatching { LocalTime.parse(editClock) }.getOrNull()
+                val validClock = editPlanning == "library" || editClock.isBlank() ||
+                    parsedClock != null
+                TextButton(
+                    enabled = !busy && editTitle.trim().isNotEmpty() && validDate && validClock,
+                    onClick = {
+                        onEdit(routine.id, editTitle, RoutineSchedule(
+                            scheduledDate = if (editPlanning == "date") editDate else null,
+                            weekday = if (editPlanning == "weekly") editWeekday else null,
+                            timeMinutes = if (editPlanning == "library") null else
+                                parsedClock?.let { it.hour * 60 + it.minute }
+                        ))
+                        editing = false
+                    }) { Text("Guardar cambios") }
+            }
         }
     }
 }

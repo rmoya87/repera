@@ -70,6 +70,8 @@ internal fun DiaryTab(
     overview: StateOverview?,
     activeWorkout: ActiveWorkout?,
     onStartRoutine: (String) -> Unit,
+    onEditRoutine: (String, String, RoutineSchedule) -> Unit,
+    onDeleteRoutine: (String) -> Unit,
     onInitializeLocal: () -> Unit,
     onImportJson: () -> Unit,
     onDriveSync: () -> Unit,
@@ -110,33 +112,33 @@ internal fun DiaryTab(
                 style = MaterialTheme.typography.bodyMedium)
         }
         items(todays, key = { "today:" + it.id }) { routine ->
-            ScheduledRoutineCard(routine, busy, activeWorkout == null) {
-                onStartRoutine(it); onNavigateHome()
-            }
+            ScheduledRoutineCard(routine, busy, activeWorkout == null,
+                onStart = { onStartRoutine(it); onNavigateHome() },
+                onEdit = onEditRoutine, onDelete = onDeleteRoutine)
         }
         if (dated.isNotEmpty()) item {
             Text("Entrenamientos por fecha", style = MaterialTheme.typography.titleLarge)
         }
         items(dated, key = { "date:" + it.id }) { routine ->
-            ScheduledRoutineCard(routine, busy, activeWorkout == null) {
-                onStartRoutine(it); onNavigateHome()
-            }
+            ScheduledRoutineCard(routine, busy, activeWorkout == null,
+                onStart = { onStartRoutine(it); onNavigateHome() },
+                onEdit = onEditRoutine, onDelete = onDeleteRoutine)
         }
         if (weekly.isNotEmpty()) item {
             Text("Programación semanal", style = MaterialTheme.typography.titleLarge)
         }
         items(weekly, key = { "week:" + it.id }) { routine ->
-            ScheduledRoutineCard(routine, busy, activeWorkout == null) {
-                onStartRoutine(it); onNavigateHome()
-            }
+            ScheduledRoutineCard(routine, busy, activeWorkout == null,
+                onStart = { onStartRoutine(it); onNavigateHome() },
+                onEdit = onEditRoutine, onDelete = onDeleteRoutine)
         }
         if (library.isNotEmpty()) item {
             Text("Biblioteca sin fecha", style = MaterialTheme.typography.titleLarge)
         }
         items(library, key = { "library:" + it.id }) { routine ->
-            ScheduledRoutineCard(routine, busy, activeWorkout == null) {
-                onStartRoutine(it); onNavigateHome()
-            }
+            ScheduledRoutineCard(routine, busy, activeWorkout == null,
+                onStart = { onStartRoutine(it); onNavigateHome() },
+                onEdit = onEditRoutine, onDelete = onDeleteRoutine)
         }
         item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
         item {
