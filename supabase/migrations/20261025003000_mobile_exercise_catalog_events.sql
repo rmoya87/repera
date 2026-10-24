@@ -25,6 +25,9 @@ create index if not exists mobile_catalog_events_key_idx
 alter table public.mobile_exercise_catalog_events enable row level security;
 revoke all on table public.mobile_exercise_catalog_events from public, anon, authenticated;
 grant select on table public.mobile_exercise_catalog_events to authenticated;
+-- Las escrituras editoriales pueden realizarse mediante un backend con service_role.
+grant insert on table public.mobile_exercise_catalog_events to service_role;
+grant usage, select on sequence public.mobile_exercise_catalog_events_id_seq to service_role;
 drop policy if exists mobile_catalog_events_authenticated_read on public.mobile_exercise_catalog_events;
 create policy mobile_catalog_events_authenticated_read
   on public.mobile_exercise_catalog_events for select to authenticated using (true);
@@ -84,6 +87,8 @@ $function$;
 
 revoke all on function public.repera_emit_mobile_catalog_event(text) from public, anon, authenticated;
 revoke all on function public.repera_mobile_catalog_change_trigger() from public, anon, authenticated;
+grant execute on function public.repera_emit_mobile_catalog_event(text) to service_role;
+grant execute on function public.repera_mobile_catalog_change_trigger() to service_role;
 
 drop trigger if exists repera_mobile_catalog_business_changed on public.business_exercise_catalog;
 create trigger repera_mobile_catalog_business_changed
@@ -115,4 +120,5 @@ select b.catalog_key, 'upsert', jsonb_build_object(
 )
 from public.business_exercise_catalog b
 left join public.training_exercise_metadata m on m.catalog_key = b.catalog_key
+where not exists (select 1 from public.mobile_exercise_catalog_events limit 1)
 order by b.catalog_key;
