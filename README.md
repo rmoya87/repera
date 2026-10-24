@@ -4,7 +4,7 @@ App nativa de entrenamiento (**iPhone + Apple Watch**), **local-first + iCloud**
 
 Última actualización: 2026-10-24 (Google Sign-In nativo y bienvenida promocional).
 
-El acceso Google usa `GoogleSignIn` / `GoogleSignInSwift` 10.1.0. Los identificadores públicos del cliente OAuth **iOS** de `com.app.repera`, su esquema de retorno y el cliente Web del backend están configurados en `Configs/GoogleSignIn.xcconfig`. Regenerar XcodeGen antes de compilar. Configuración y validación pendiente en [docs/GOOGLE_AUTH_IOS.md](docs/GOOGLE_AUTH_IOS.md).
+El acceso Google usa el SDK oficial `GoogleSignIn` 10.1.0. Su botón tiene presentación SwiftUI adaptada al de Apple: contenido centrado, sin sombra y esquinas redondeadas; la autenticación sigue siendo del SDK. Los identificadores públicos del cliente OAuth **iOS** de `com.app.repera`, su esquema de retorno y el cliente Web del backend están configurados en `Configs/GoogleSignIn.xcconfig`. Regenerar XcodeGen antes de compilar. Configuración y validación pendiente en [docs/GOOGLE_AUTH_IOS.md](docs/GOOGLE_AUTH_IOS.md).
 
 Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (solo dominio/UX; no se copia código).
 
@@ -50,7 +50,7 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 ## Arranque rápido en Mac (doble clic)
 
 - [`Repera-Business.command`](Repera-Business.command): abre por defecto el **panel profesional conectado a Supabase**, con login real y datos autorizados por RLS; requiere Python 3 y mantiene abierta una ventana Terminal. Para la demo aislada con datos ficticios, ejecuta `./Repera-Business.command --demo` o abre `/console/?demo=1`. El modo conectado todavía requiere validación E2E antes de usarse en producción.
-- [`Repera-Xcode.command`](Repera-Xcode.command): **regenera el proyecto, valida sus fuentes y resuelve los paquetes Swift antes de abrir Xcode**, incluidos `GoogleSignIn` y `GoogleSignInSwift`. Si la resolución falla, muestra el error y no abre el proyecto a medias. Úsalo al actualizar el repositorio.
+- [`Repera-Xcode.command`](Repera-Xcode.command): **regenera el proyecto, valida sus fuentes y resuelve los paquetes Swift antes de abrir Xcode**, incluido `GoogleSignIn`. Si la resolución falla, muestra el error y no abre el proyecto a medias. Úsalo al actualizar el repositorio.
 - [`Repera-iOS.command`](Repera-iOS.command): intenta compilar y lanzar la app en Simulator; regenera y valida el proyecto antes de compilar; requiere macOS, Xcode con iOS 27, XcodeGen y un simulador compatible.
 - Ambos lanzadores están en la raíz del repositorio; si clonas por Git, se conserva el permiso de ejecución. No se ha generado todavía una aplicación macOS firmada ni un paquete iOS listo para distribución.
 

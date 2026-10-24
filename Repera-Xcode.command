@@ -57,7 +57,7 @@ echo "Regenerando la pertenencia de archivos y paquetes en Xcode..."
 xcodegen generate --spec "$ROOT/project.yml"
 python3 scripts/check_xcode_sources.py
 
-echo "Resolviendo paquetes Swift (incluidos GoogleSignIn y GoogleSignInSwift)..."
+echo "Resolviendo paquetes Swift (incluido GoogleSignIn)..."
 xcodebuild -resolvePackageDependencies -project "$ROOT/Repera.xcodeproj" -scheme Repera
 
 echo "Abriendo Repera.xcodeproj en Xcode..."

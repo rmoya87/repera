@@ -1,8 +1,8 @@
 # Inicio de sesión Google · Repera iOS
 
-Última actualización: 2026-10-24 (SDK oficial Google Sign-In).
+Última actualización: 2026-10-24 (presentación del botón alineada con Apple, autenticación Google Sign-In).
 
-Repera utiliza `GoogleSignIn` y `GoogleSignInSwift` **10.1.0** mediante Swift Package Manager. El botón es `GoogleSignInButton` del SDK, en estilo `.wide`, con los recursos, localización y estados que proporciona Google. No se dibuja una G ni se distribuyen fuentes propias para imitarlo.
+Repera utiliza el SDK oficial `GoogleSignIn` **10.1.0** mediante Swift Package Manager para autenticar y vincular cuentas. La presentación solicitada para el botón se implementa en SwiftUI: contenido centrado, sin sombra, mismo ancho y alto mínimo de 52 pt que Apple y esquinas continuas de 12 pt. El botón llama al mismo flujo del SDK. La G multicolor oficial se incorpora sin modificar desde `https://developers.google.com/static/identity/images/g-logo.png`; no se incluyen fuentes propias. Se retira el componente visual `GoogleSignInSwift`, que fija la sombra y la alineación, manteniendo el SDK de autenticación.
 
 ## Configuración necesaria
 
@@ -34,7 +34,7 @@ Repera utiliza `GoogleSignIn` y `GoogleSignInSwift` **10.1.0** mediante Swift Pa
 
 ## Validación
 
-Si Xcode muestra `No such module GoogleSignIn` o `Unable to resolve module dependency: GoogleSignInSwift`, comprobar primero la generación y la resolución de paquetes del proyecto local: ambos productos ya figuran en `project.yml`. El lanzador resuelve sus dependencias de forma explícita y se detiene si falla la descarga. No eliminar los imports del SDK ni volver al botón imitado para ocultar el problema.
+Si Xcode muestra `No such module GoogleSignIn`, comprobar primero la generación y la resolución de paquetes del proyecto local: el producto figura en `project.yml`. El lanzador resuelve sus dependencias de forma explícita y se detiene si falla la descarga. El antiguo import `GoogleSignInSwift` se ha retirado al adaptar el diseño del botón; los imports de `GoogleSignIn` en autenticación y app se conservan.
 
 Las comprobaciones estáticas protegen el uso del SDK, las dependencias y variables de configuración, el nonce, la vinculación y el propietario local. No sustituyen una compilación ni una prueba interactiva.
 

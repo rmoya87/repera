@@ -1,4 +1,3 @@
-import GoogleSignInSwift
 import ReperaDomain
 import SwiftUI
 import UIKit
@@ -79,6 +78,24 @@ private struct OnboardingSignInStep: View {
         colorScheme == .dark ? .black : .white
     }
 
+    private var googleButtonBackground: Color {
+        colorScheme == .dark
+            ? Color(red: 19 / 255, green: 19 / 255, blue: 20 / 255)
+            : .white
+    }
+
+    private var googleButtonForeground: Color {
+        colorScheme == .dark
+            ? Color(red: 227 / 255, green: 227 / 255, blue: 227 / 255)
+            : Color(red: 31 / 255, green: 31 / 255, blue: 31 / 255)
+    }
+
+    private var googleButtonBorder: Color {
+        colorScheme == .dark
+            ? Color(red: 142 / 255, green: 145 / 255, blue: 143 / 255)
+            : Color(red: 116 / 255, green: 119 / 255, blue: 117 / 255)
+    }
+
     var body: some View {
         GeometryReader { geometry in
             ScrollView {
@@ -150,23 +167,41 @@ private struct OnboardingSignInStep: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
+                .frame(minHeight: 52)
                 .foregroundStyle(appleButtonForeground)
                 .background(appleButtonBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
+            .buttonStyle(.plain)
             .disabled(busy)
             .accessibilityLabel("Iniciar sesión con Apple")
 
             VStack(spacing: 8) {
-                // The SDK owns the logo, localized title, font and pressed state.
-                GoogleSignInButton(
-                    scheme: colorScheme == .dark ? .dark : .light,
-                    style: .wide,
-                    state: busy ? .disabled : .normal
-                ) {
+                // Presentation matches Apple; signInGoogle still calls Google's SDK.
+                Button {
                     Task { await signInGoogle() }
+                } label: {
+                    HStack(spacing: 10) {
+                        Image("GoogleSignInLogo")
+                            .renderingMode(.original)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 20, height: 20)
+                            .accessibilityHidden(true)
+                        Text("Iniciar sesión con Google")
+                            .font(.system(size: 17, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .frame(minHeight: 52)
+                    .foregroundStyle(googleButtonForeground)
+                    .background(googleButtonBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(googleButtonBorder, lineWidth: 1)
+                    }
+                    .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 4)
+                .buttonStyle(.plain)
                 .disabled(busy)
                 .accessibilityLabel("Iniciar sesión con Google")
 
