@@ -498,6 +498,28 @@ class WorkoutRepositoryInstrumentedTest {
         assertEquals(0, blocks.getJSONObject(0).getJSONArray("exercises").length())
     }
 
+    @Test fun createAndEditRoutineKeepScheduledDateAsPlainCalendarDate() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val user = UUID.randomUUID().toString()
+        CatalogBootstrap.initializeEmptyAccount(ctx, user)
+        val repo = WorkoutRepository(ctx, user)
+        val id = repo.createRoutineFromScan(
+            "Entreno fecha pura",
+            listOf(dev.repera.domain.RoutineBlock.strength("Bloque 1")),
+            RoutineSchedule(scheduledDate = "2026-10-26"))
+        // Edición: renombrar y reprogramar conservando bloques; la fecha debe
+        // seguir siendo "yyyy-MM-dd" y no un instant, y sin weekday residual.
+        repo.updateRoutineDetails(id, "Entreno fecha pura 2",
+            RoutineSchedule(scheduledDate = "2026-10-28", timeMinutes = 465))
+        val state = JSONObject(String(LocalSnapshotStore(ctx, user).read()!!))
+        val routine = (0 until state.getJSONArray("routines").length())
+            .map { state.getJSONArray("routines").getJSONObject(it) }
+            .single { it.getString("id") == id }
+        assertEquals("2026-10-28", routine.getString("scheduledDate"))
+        assertFalse(routine.has("weekday"))
+        assertEquals(465, routine.getInt("scheduledTimeMinutes"))
+    }
+
     @Test fun dayPlusDraftPersistenceOnlyOnExplicitSave() {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
         val user = UUID.randomUUID().toString()

@@ -1500,8 +1500,7 @@ class WorkoutRepository(context: Context, googleId: String) {
         routine.remove("scheduledTimeMinutes")
         val scheduledDay = schedule.scheduledDate?.let { LocalDate.parse(it) }
         if (scheduledDay != null) {
-            routine.put("scheduledDate", scheduledDay.atStartOfDay(ZoneId.systemDefault())
-                .toInstant().toString())
+            routine.put("scheduledDate", scheduledDay.toString())
         } else if (schedule.weekday != null) {
             routine.put("weekday", schedule.weekday)
         }
