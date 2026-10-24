@@ -6,7 +6,7 @@ on:
     paths:
       - "Apps/Repera/Resources/Assets.xcassets/MascotHero.imageset/**"
       - "Apps/Repera/Resources/Assets.xcassets/MascotRunning.imageset/**"
-      - "Apps/Repera/Resources/Assets.xcassets/ReperaNativeBarbell.imageset/**"
+      - "Apps/Repera/Resources/Assets.xcassets/ReperaBarbellLaunch.imageset/**"
       - "Apps/Repera/Resources/LaunchHeroOpaque.png"
       - "Apps/Repera/Resources/Info.plist"
       - "Apps/Repera/Resources/Info.plist"
@@ -34,31 +34,36 @@ jobs:
           from PIL import Image
           root=Path("Apps/Repera/Resources")
           assets=root/"Assets.xcassets"
-          manifest=json.loads((assets/"ReperaNativeBarbell.imageset/Contents.json").read_text())
-          assert manifest["images"][0]=={"filename":"repera-native-barbell.png","idiom":"universal","scale":"3x"}
-          image=assets/"ReperaNativeBarbell.imageset/repera-native-barbell.png"
+          manifest=json.loads((assets/"ReperaBarbellLaunch.imageset/Contents.json").read_text())
+          assert manifest["images"][0]=={"filename":"repera-barbell-launch.png","idiom":"universal","scale":"3x"}
+          image=assets/"ReperaBarbellLaunch.imageset/repera-barbell-launch.png"
           with Image.open(image) as im:
               assert im.mode=="RGB" and im.size==(1024,1024)
               assert im.getpixel((0,0))==(48,209,88), "Launch background color wrong"
               for x,y in ((445,379),(607,411),(518,445)):
                   assert max(im.getpixel((x,y)))<115, f"Eye/mouth is transparent or green at {(x,y)}"
-          colors=json.loads((assets/"LaunchBackground.colorset/Contents.json").read_text())
+          colors=json.loads((assets/"LaunchReperaGreen.colorset/Contents.json").read_text())
           rgb=colors["colors"][0]["color"]["components"]
           assert tuple(round(float(rgb[k])*255) for k in ("red","green","blue"))==(48,209,88)
           props=plistlib.loads((root/"Info.plist").read_bytes())
           assert "UILaunchStoryboardName" not in props
           assert props["UILaunchScreen"]=={
-              "UIImageName":"ReperaNativeBarbell",
-              "UIColorName":"LaunchBackground",
+              "UIImageName":"ReperaBarbellLaunch",
+              "UIColorName":"LaunchReperaGreen",
               "UIImageRespectsSafeAreaInsets":True
           }
           config=Path("project.yml").read_text()
           assert "UILaunchStoryboardName:" not in config
-          assert "UIImageName: ReperaNativeBarbell" in config
-          assert "UIColorName: LaunchBackground" in config
+          assert "UIImageName: ReperaBarbellLaunch" in config
+          assert "UIColorName: LaunchReperaGreen" in config
           assert "path: Apps/Repera/Resources/ReperaLaunchBundle.storyboard" not in config
           assert "path: Apps/Repera/Resources/LaunchHeroOpaque.png" not in config
+          direct=Path("Apps/Repera/Resources/ReperaStartupBarbell.png")
+          assert direct.read_bytes()==image.read_bytes(), "First SwiftUI splash differs from native artwork"
           runner=Path("Apps/Repera/Sources/ReperaApp.swift").read_text()
+          assert 'launchMascotStage == 0' in runner
+          assert 'LaunchBarbellSplashView()' in runner
+          assert 'UIImage(named: "MascotRunning")' in runner
           assert 'UIImage(named: "MascotRunning")' in runner
           print("PASS: native launch from asset catalog; hero opaque; runner unchanged")
           PY

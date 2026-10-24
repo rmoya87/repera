@@ -309,3 +309,8 @@ Las operaciones remotas `update_workout`, `delete_workout` y CRUD de ejercicios 
 Última actualización: 2026-10-24.
 
 Se incorpora el soporte de OAuth gestionado por Supabase, consentimiento web y aislamiento de credenciales MCP, manteniendo los PAT manuales. La UI **Conecta tu IA** ofrece Claude con instrucciones copiables para añadir una conexión personalizada OAuth (sin tokens en el chat). ChatGPT permanece pendiente de su ficha publicada. La integración no está publicada por el hecho de integrar este código. Arquitectura, pruebas, despliegue y presentación a revisión: [OAUTH_CONNECTIONS.md](OAUTH_CONNECTIONS.md).
+
+
+## Pantalla de lanzamiento con mascota (iOS 27)
+
+La primera fase nativa usa `UILaunchScreen` con imagen `ReperaBarbellLaunch` y color `LaunchReperaGreen` = `#30D158`. La ilustración muestra la misma mascota de Repera sosteniendo una barra con discos; los ojos y la boca son opacos. Para evitar la pantalla oscura o verde vacía procedente de snapshots nativos en caché, el primer fotograma de SwiftUI repite el personaje con `LaunchBarbellSplashView` y una copia en el bundle `ReperaStartupBarbell.png`, visible brevemente antes de `MascotRunning` y de la pantalla de Inicio. El `WindowGroup` mantiene un `ZStack` raíz estable mientras progresa el arranque, para que la hidratación de sesión no se reinicie al cambiar de mascota. El modo de pruebas UI omite el intro. Ambos recursos nuevos se validan en CI y los storyboards antiguos no forman parte del target generado.

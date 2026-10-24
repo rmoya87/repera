@@ -51,6 +51,8 @@ targets:
       # XcodeGen 2.46 + objectVersion 77 omite `resources:`; hay que declarar assets a mano.
       - path: Apps/Repera/Resources/Assets.xcassets
         buildPhase: resources
+      - path: Apps/Repera/Resources/ReperaStartupBarbell.png
+        buildPhase: resources
       - path: Apps/Repera/Resources/ExerciseArt
         buildPhase: resources
         type: folder
@@ -125,8 +127,8 @@ targets:
         ReperaSupabaseURL: https://uvzgujlrqohreoucirms.supabase.co
         ReperaSupabasePublishableKey: sb_publishable_uY9c82Ur7VK4VOo9n2zCEg_PmywmLbA
         UILaunchScreen:
-          UIColorName: LaunchBackground
-          UIImageName: ReperaNativeBarbell
+          UIColorName: LaunchReperaGreen
+          UIImageName: ReperaBarbellLaunch
           UIImageRespectsSafeAreaInsets: true
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

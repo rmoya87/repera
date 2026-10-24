@@ -83,9 +83,9 @@
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
-		<string>LaunchBackground</string>
+		<string>LaunchReperaGreen</string>
 		<key>UIImageName</key>
-		<string>ReperaNativeBarbell</string>
+		<string>ReperaBarbellLaunch</string>
 		<key>UIImageRespectsSafeAreaInsets</key>
 		<true/>
 	</dict>

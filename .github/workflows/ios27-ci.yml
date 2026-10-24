@@ -151,8 +151,8 @@ jobs:
           with open(sys.argv[1],"rb") as f: info=plistlib.load(f)
           config=info.get("UILaunchScreen")
           assert isinstance(config,dict), f"Missing UILaunchScreen in built app: {list(info)}"
-          assert config.get("UIImageName")=="ReperaNativeBarbell", config
-          assert config.get("UIColorName")=="LaunchBackground", config
+          assert config.get("UIImageName")=="ReperaBarbellLaunch", config
+          assert config.get("UIColorName")=="LaunchReperaGreen", config
           assert config.get("UIImageRespectsSafeAreaInsets") is True, config
           assert not info.get("UILaunchStoryboardName"), "Legacy storyboard setting must not override UILaunchScreen"
           print("PASS: built Info.plist uses storyboard-free native launch screen")
@@ -163,10 +163,16 @@ jobs:
           import json,sys
           with open(sys.argv[1],encoding="utf-8") as f: entries=json.load(f)
           names={e.get("Name") for e in entries if isinstance(e,dict)}
-          missing={"ReperaNativeBarbell","LaunchBackground"}-names
+          missing={"ReperaBarbellLaunch","LaunchReperaGreen"}-names
           assert not missing, f"UILaunchScreen resources missing from compiled Assets.car: {missing}"
           print("PASS: both launch image and green background compiled into Assets.car")
           PY
+          test -f "$APP/ReperaStartupBarbell.png" || {
+            echo "::error::SwiftUI first launch frame PNG absent from Repera.app"; exit 1;
+          }
+          cmp Apps/Repera/Resources/ReperaStartupBarbell.png "$APP/ReperaStartupBarbell.png" || {
+            echo "::error::Bundled first-frame barbell PNG differs from source"; exit 1;
+          }
 
       - name: Build ReperaWatch (watchOS 27 Simulator)
         shell: bash
