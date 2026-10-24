@@ -1974,6 +1974,9 @@ public enum CatalogSpanish {
             "Excelente para adductor y movilidad. No fuerces dolor de rodilla.",
         ],
         "Air squat": [
+            "De pie, pies al ancho de hombros y brazos al frente para equilibrar.",
+            "Baja con control: cadera atrás y rodillas sobre la línea de los pies.",
+            "Abajo: cadera bajo la rótula, talones pegados; empuja el suelo para subir.",
             "Pies al ancho de hombros, puntas ligeramente afuera; brazos al frente para equilibrar.",
             "Inhala, bracea y baja hasta que la cresta ilíaca pase bajo la rótula (paralelo o más).",
             "Rodillas siguen la línea de los pies; talones pegados al suelo; pecho alto.",
