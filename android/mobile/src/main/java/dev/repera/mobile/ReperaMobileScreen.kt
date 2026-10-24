@@ -93,6 +93,12 @@ fun ReperaMobileScreen(
     sharingByCenter: Map<String, Boolean>,
     sharingUpdating: Boolean,
     onSetSharing: (String, Boolean) -> Unit,
+    aiPrograms: List<AITrainingProgramsStore.Program>?,
+    aiProgramsLoading: Boolean,
+    aiProgramsUpdatingId: String?,
+    aiProgramsError: String?,
+    onAIProgramsRefresh: () -> Unit,
+    onAIProgramStatus: (AITrainingProgramsStore.Program, String) -> Unit,
     aiConnected: Boolean,
     aiTokens: List<AIAccessStore.TokenInfo>?,
     aiBusy: Boolean,
@@ -243,6 +249,8 @@ fun ReperaMobileScreen(
                 }
                 composable("diario") {
                     DiaryTab(
+                        aiPrograms = aiPrograms ?: emptyList(),
+                        onOpenAIPrograms = { navController.navigate("programas-ia") },
                         busy = busy,
                         syncing = syncing,
                         status = status,
@@ -360,6 +368,18 @@ fun ReperaMobileScreen(
                     SettingsTab(onOpenAIAccess = {
                         navController.navigate("acceso-ia")
                     })
+                }
+                composable("programas-ia") {
+                    LaunchedEffect(Unit) { onAIProgramsRefresh() }
+                    AIProgramsScreen(
+                        connected = aiConnected,
+                        loading = aiProgramsLoading,
+                        programs = aiPrograms,
+                        updatingId = aiProgramsUpdatingId,
+                        errorMessage = aiProgramsError,
+                        onRefresh = onAIProgramsRefresh,
+                        onChangeStatus = onAIProgramStatus
+                    )
                 }
                 composable("acceso-ia") {
                     // iOS .task: recuperar tokens + cambios al entrar.

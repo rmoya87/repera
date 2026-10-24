@@ -97,6 +97,48 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         syncWorkoutMirror()
         syncAITrainingContext()
         refreshSharing()
+        refreshAIPrograms()
+    }
+
+    // ---- Programas IA (port AITrainingProgramsView) ----
+    private var aiPrograms by mutableStateOf<List<AITrainingProgramsStore.Program>?>(
+        null)
+    private var aiProgramsLoading by mutableStateOf(false)
+    private var aiProgramsUpdatingId by mutableStateOf<String?>(null)
+    private var aiProgramsError by mutableStateOf<String?>(null)
+
+    private fun refreshAIPrograms() {
+        val session = verifiedSupabase ?: return
+        if (aiProgramsLoading) return
+        aiProgramsLoading = true
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                AITrainingProgramsStore().refresh(session)
+            }
+            when (result) {
+                is AITrainingProgramsStore.LoadResult.Loaded -> {
+                    aiPrograms = result.programs; aiProgramsError = null
+                }
+                is AITrainingProgramsStore.LoadResult.Failed ->
+                    aiProgramsError = result.message
+            }
+            aiProgramsLoading = false
+        }
+    }
+
+    private fun changeAIProgramStatus(program: AITrainingProgramsStore.Program,
+                                      status: String) {
+        val session = verifiedSupabase ?: return
+        if (aiProgramsUpdatingId != null) return
+        aiProgramsUpdatingId = program.id
+        lifecycleScope.launch {
+            val failure = withContext(Dispatchers.IO) {
+                AITrainingProgramsStore().changeStatus(session, program, status)
+            }
+            if (failure != null) aiProgramsError = failure
+            aiProgramsUpdatingId = null
+            refreshAIPrograms()
+        }
     }
 
     // ---- Compartir resultados por centro (athlete_workout_sharing) ----
@@ -150,6 +192,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var aiInboxConflicts by mutableStateOf<List<String>>(emptyList())
 
     private fun clearAIAccessState() {
+        aiPrograms = null; aiProgramsLoading = false
+        aiProgramsUpdatingId = null; aiProgramsError = null
         sharingByCenter = emptyMap(); sharingUpdating = false
         aiTokens = null; aiBusy = false; aiError = null; aiSuccess = null
         aiCreatedToken = null; aiChanges = emptyList(); aiChangeBusy = false
@@ -422,6 +466,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 sharingByCenter = sharingByCenter,
                 sharingUpdating = sharingUpdating,
                 onSetSharing = ::setSharing,
+                aiPrograms = aiPrograms,
+                aiProgramsLoading = aiProgramsLoading,
+                aiProgramsUpdatingId = aiProgramsUpdatingId,
+                aiProgramsError = aiProgramsError,
+                onAIProgramsRefresh = ::refreshAIPrograms,
+                onAIProgramStatus = ::changeAIProgramStatus,
                 aiConnected = verifiedSupabase != null,
                 aiTokens = aiTokens,
                 aiBusy = aiBusy,

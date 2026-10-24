@@ -1,5 +1,7 @@
 package dev.repera.mobile
 
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.Icons
@@ -64,6 +66,8 @@ import kotlinx.coroutines.delay
 
 @Composable
 internal fun DiaryTab(
+    aiPrograms: List<AITrainingProgramsStore.Program> = emptyList(),
+    onOpenAIPrograms: () -> Unit = {},
     busy: Boolean,
     syncing: Boolean,
     status: String?,
@@ -102,6 +106,27 @@ internal fun DiaryTab(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { Text("Diario", style = MaterialTheme.typography.headlineMedium) }
+        // Programas IA (paridad PlanView iOS): entrada cuando el asistente ha
+        // propuesto algún programa mult semana.
+        if (aiPrograms.isNotEmpty()) {
+            items(aiPrograms.take(3), key = { "programa-" + it.id }) { program ->
+                Card(modifier = Modifier.fillMaxWidth()
+                    .clickable(onClick = onOpenAIPrograms)) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(program.title,
+                                style = MaterialTheme.typography.titleSmall)
+                            Text("${program.durationWeeks} semanas · " +
+                                program.startDate + " · " + program.statusLabel,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme
+                                    .onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
         item { CountCard("Rutinas", overview?.routines, overview != null) }
         item {
             WeekCalendarStrip(day) { chosen -> diaryDateIso = chosen.toString() }
