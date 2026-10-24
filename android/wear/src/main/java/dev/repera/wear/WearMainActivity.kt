@@ -578,6 +578,12 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         if (summary != null) {
             // Persist only a validated session; a malformed update cannot corrupt recovery.
             sessionCache.edit().putString("snapshot", raw).apply()
+            // Borrador prellenado con la prescripción, como el setDraft de watchOS.
+            if (visibleSession?.sessionId != summary.sessionId ||
+                visibleSession?.exerciseIndex != summary.exerciseIndex) {
+                summary.prescribedReps?.let { repsInput = it }
+                summary.prescribedWeightKg?.let { weightInput = it }
+            }
             if (visibleSession?.sessionId != summary.sessionId ||
                 visibleSession?.exerciseIndex != summary.exerciseIndex) {
                 repsInput = summary.prescribedReps ?: 0
