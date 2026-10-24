@@ -64,6 +64,42 @@ internal object CatalogRefreshMigration {
                 }
             }
         }
+        // Dedupe por nombre canónico: una importación Apple puede traer una entrada
+        // con el mismo nombre que una del seed y distinto UUID. Sobrevive el id
+        // referenciado por rutinas/entrenos; si ninguno lo está, el no-seed (el
+        // importado). Jamás se elimina un id referenciado ni una entrada custom.
+        val seedIds = (0 until seed.length()).map { seed.getJSONObject(it).getString("id") }.toSet()
+        val referenced = mutableSetOf<String>()
+        for (section in listOf("routines", "workouts")) {
+            val arr = state.optJSONArray(section) ?: continue
+            collectExerciseIds(arr, referenced)
+        }
+        val groups = mutableMapOf<String, MutableList<Int>>()
+        for (i in 0 until catalog.length()) {
+            val item = catalog.getJSONObject(i)
+            if (item.optBoolean("isCustom")) continue
+            val key = dev.repera.domain.ExerciseAliasSearch.normalize(item.optString("name"))
+            if (key.isNotEmpty()) groups.getOrPut(key) { mutableListOf() }.add(i)
+        }
+        val toRemove = sortedSetOf<Int>()
+        for ((_, idxs) in groups) {
+            if (idxs.size < 2) continue
+            val ids = idxs.map { catalog.getJSONObject(it).getString("id") }
+            val referencedIds = ids.filter { it in referenced }
+            val survivor = when {
+                referencedIds.size == 1 -> referencedIds.single()
+                referencedIds.size > 1 -> continue  // ambos referenciados: no tocar nada
+                else -> ids.firstOrNull { it !in seedIds } ?: continue
+            }
+            for ((pos, id) in ids.withIndex()) {
+                if (id != survivor && id !in referenced) toRemove.add(idxs[pos])
+            }
+        }
+        for (i in toRemove.reversed()) {
+            catalog.remove(i)
+            changed = true
+        }
+
         if (!changed) return false
 
         val untouched = state.optInt("syncRevision", -1) == 0 &&
@@ -82,5 +118,15 @@ internal object CatalogRefreshMigration {
         }
         store.write(state.toString().toByteArray(Charsets.UTF_8))
         return true
+    }
+    private fun collectExerciseIds(node: org.json.JSONArray, into: MutableSet<String>) {
+        for (i in 0 until node.length()) {
+            val item = node.optJSONObject(i) ?: continue
+            item.optString("exerciseId").takeIf { it.isNotBlank() }?.let(into::add)
+            for (key in item.keys()) {
+                val child = item.optJSONArray(key)
+                if (child != null) collectExerciseIds(child, into)
+            }
+        }
     }
 }

@@ -52,11 +52,13 @@ class HyroxCatalogInstrumentedTest {
             .put("isCustom", false))
         state.put("syncRevision", 4).put("updatedAt", "2026-10-23T12:00:00Z")
         local.write(state.toString().toByteArray())
-        // La estación importada desde Apple (sin catalogId) se detecta por nombre
-        // canónico y conserva su UUID; el resto del catálogo ya venía sembrado.
-        assertFalse(MobilityCatalogMigration.ensure(context, account))
+        // La estación importada desde Apple (sin catalogId) colisiona por nombre con
+        // la del seed: el refresco deduplica conservando el UUID importado (las
+        // referencias del historial importado siguen resolviendo).
+        MobilityCatalogMigration.ensure(context, account)
+        assertTrue(CatalogRefreshMigration.ensure(context, account))
         val catalog = JSONObject(String(local.read()!!)).getJSONArray("exercises")
-        assertEquals(289, catalog.length())
+        assertEquals(288, catalog.length())
         val same = (0 until catalog.length()).map { catalog.getJSONObject(it) }
             .filter { it.optString("name") == "Burpee Broad Jump" }
         assertEquals(1, same.size)

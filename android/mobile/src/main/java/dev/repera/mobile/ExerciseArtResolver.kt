@@ -1,34 +1,56 @@
 package dev.repera.mobile
 
+import dev.repera.domain.CrossFitGlossary
 import dev.repera.domain.ExerciseAliasSearch
+import dev.repera.domain.SportExerciseNames
 
 /**
- * Resolution of exercise names to bundled art stems, following the iOS
- * ExerciseArt chain for catalog browsing: exact nameMap hit, alias-table hit
- * (the same EN↔ES assets the search uses), normalized-key match and finally
- * the longest contained key. Mobility never falls back to fuzzy reuse.
- * Board-noise cleanup (CrossFitGlossary.canonicalName) belongs to the scanner
- * phase and is deliberately not reproduced here.
+ * Resolution of exercise names to bundled art stems, port of the current iOS
+ * ExerciseArt chain (origin/main): exact nameMap hit → SportExerciseNames
+ * legacy ES alias → CrossFitGlossary.canonicalName → cleanMovementLabel →
+ * normalized-key equality over those needles → longest contained key.
+ * Mobility only matches its own art exactly (or via legacy alias), never
+ * fuzzy; "bbjo"/burpee-box-over variants share art_cf_burpee_box as in iOS.
  */
 internal object ExerciseArtResolver {
 
     fun heroFor(name: String, isMobility: Boolean, aliases: Map<String, String>): String? {
-        ExerciseArtData.nameMap[name]?.let { return accepted(it) }
-        aliases[ExerciseAliasSearch.normalize(name)]
-            ?.let { ExerciseArtData.nameMap[it] }
-            ?.let { return accepted(it) }
-        if (isMobility) return null
-        val needle = ExerciseAliasSearch.normalize(name)
-        if (needle.isEmpty()) return null
-        for ((key, base) in ExerciseArtData.nameMap) {
-            if (ExerciseAliasSearch.normalize(key) == needle) return accepted(base)
+        if (isMobility) {
+            ExerciseArtData.nameMap[name]?.let { return accepted(it) }
+            val legacyMob = SportExerciseNames.spanishAlias(name) ?: name
+            if (legacyMob != name) ExerciseArtData.nameMap[legacyMob]?.let { return accepted(it) }
+            return null
         }
-        if (needle.length < 3) return null
+        val normalizedName = CrossFitGlossary.normalize(name)
+        if (normalizedName == "bbjo" || (normalizedName.contains("burpee") &&
+                normalizedName.contains("box") &&
+                (normalizedName.contains("over") || normalizedName.contains("jump")))) {
+            accepted("art_cf_burpee_box")?.let { return it }
+        }
+        ExerciseArtData.nameMap[name]?.let { return accepted(it) }
+        val legacy = SportExerciseNames.spanishAlias(name) ?: name
+        ExerciseArtData.nameMap[legacy]?.let { return accepted(it) }
+        val canonical = CrossFitGlossary.canonicalName(legacy)
+        ExerciseArtData.nameMap[canonical]?.let { return accepted(it) }
+        val cleaned = CrossFitGlossary.cleanMovementLabel(legacy)
+        if (cleaned != name) ExerciseArtData.nameMap[cleaned]?.let { return accepted(it) }
+        val needles = listOf(name, legacy, canonical, cleaned)
+            .map { CrossFitGlossary.normalize(it) }.filter { it.isNotEmpty() }.toSet()
+        for (needle in needles) {
+            for ((key, base) in ExerciseArtData.nameMap) {
+                if (CrossFitGlossary.normalize(key) == needle) {
+                    accepted(base)?.let { return it }
+                }
+            }
+        }
+        val haystack = CrossFitGlossary.normalize(
+            listOf(cleaned, canonical, legacy, name).firstOrNull { it.isNotEmpty() } ?: name)
+        if (haystack.length < 3) return null
         var best: Pair<Int, String>? = null
         for ((key, base) in ExerciseArtData.nameMap) {
-            val nk = ExerciseAliasSearch.normalize(key)
+            val nk = CrossFitGlossary.normalize(key)
             if (nk.length < 3) continue
-            if (!needle.contains(nk) && !nk.contains(needle)) continue
+            if (!haystack.contains(nk) && !nk.contains(haystack)) continue
             val hit = accepted(base) ?: continue
             if (best == null || nk.length > best!!.first) best = nk.length to hit
         }

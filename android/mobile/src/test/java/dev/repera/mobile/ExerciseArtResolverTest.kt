@@ -1,6 +1,7 @@
 package dev.repera.mobile
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -13,10 +14,23 @@ class ExerciseArtResolverTest {
             ExerciseArtResolver.heroFor("Press banca", isMobility = false, aliases = noAliases))
     }
 
-    @Test fun aliasTableResolvesEnglishNameToSpanishHero() {
+    @Test fun legacyAliasResolvesEnglishSportNameToSpanishHero() {
+        // Cadena iOS: "Snatch" → SportExerciseNames.spanishAlias → "Arrancada" → nameMap.
+        assertEquals("art_cf_arrancada",
+            ExerciseArtResolver.heroFor("Snatch", isMobility = false, aliases = noAliases))
+    }
+
+    @Test fun jerkDipAndDriveHasNoArtYetLikeIos() {
+        // Entrada nueva del catálogo iOS sin stem propio ni clave nameMap alcanzable;
+        // iOS tampoco resuelve arte para ella (hueco compartido, no regresión Android).
+        assertNull(ExerciseArtResolver.heroFor("Jerk Dip and Drive", false, emptyMap()))
+    }
+
+    @Test fun genericEnglishNameWithoutLegacyAliasDoesNotResolve() {
+        // iOS no consulta la tabla de alias de búsqueda para el arte: "bench press"
+        // sin entrada legacy queda sin héroe (paridad con ExerciseArt.swift).
         val aliases = mapOf("bench press" to "Press banca")
-        assertEquals("art_press_banca",
-            ExerciseArtResolver.heroFor("bench press", isMobility = false, aliases = aliases))
+        assertNull(ExerciseArtResolver.heroFor("bench press", isMobility = false, aliases = aliases))
     }
 
     @Test fun normalizedKeyMatchIgnoresCaseAndDiacritics() {
@@ -62,5 +76,13 @@ class ExerciseArtResolverTest {
         assertTrue(stems.isNotEmpty())
         assertTrue(stems.all { it.matches(Regex("art_[a-z0-9_]+")) })
         assertEquals(stems.size, stems.toSet().size + (stems.size - stems.toSet().size))
+    }
+
+    @Test fun canonicalEnglishHalteroNamesResolveViaLegacyChain() {
+        for (name in listOf("Snatch", "Hang Snatch", "Clean and Jerk", "Squat Jerk",
+                "Snatch High Pull", "Clean High Pull", "Clean Deadlift",
+                "Block Power Snatch", "Block Power Clean", "Snatch-Grip Push Press")) {
+            assertNotNull(name + " sin hero", ExerciseArtResolver.heroFor(name, false, emptyMap()))
+        }
     }
 }

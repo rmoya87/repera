@@ -4,6 +4,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONArray
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -53,9 +54,20 @@ class ExerciseDetailInstrumentedTest {
             }
         }
         // Paridad con iOS: "Remo pliométrico en anillas pies elevados" tampoco
-        // resuelve arte en el nameMap de ExerciseArt.swift; el resto debe resolver.
-        assertEquals(listOf("Remo pliométrico en anillas pies elevados"), missing)
+        // resuelve arte en el nameMap de ExerciseArt.swift. Las entradas con nombre
+        // canónico inglés deben resolver vía SportExerciseNames.spanishAlias como
+        // hace ExerciseArt.swift (cadena exacto→legacy→canónico→contenida).
+        assertEquals(
+            // Huecos compartidos con iOS: ninguno resuelve en el nameMap actual de
+            // ExerciseArt.swift (Jerk Dip and Drive es alta reciente sin arte aún).
+            listOf("Jerk Dip and Drive", "Remo pliométrico en anillas pies elevados"), missing)
         assertEquals(370, total)  // 288 del seed unificado + 82 de mobility_seed (cobertura de arte)
+        for (critical in listOf("Snatch", "Hang Snatch", "Clean and Jerk", "Squat Jerk",
+                "Snatch High Pull", "Clean High Pull", "Clean Deadlift",
+                "Block Power Snatch", "Block Power Clean", "Snatch-Grip Push Press")) {
+            assertNotNull(critical + " debe resolver arte vía alias legacy",
+                ExerciseArtResolver.heroFor(critical, false, aliases))
+        }
     }
 
     @Test
