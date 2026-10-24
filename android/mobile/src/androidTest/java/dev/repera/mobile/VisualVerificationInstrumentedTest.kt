@@ -80,6 +80,29 @@ class VisualVerificationInstrumentedTest {
             "espalda sin músculos: ${paths.back.musclePaths.keys}",
             paths.back.musclePaths.size >= 8)
         org.junit.Assert.assertTrue("sin cabeza", paths.front.inertPaths.containsKey("head"))
+
+        // Rasterizado DIRECTO con android.graphics (sin Compose): discrimina
+        // entre "rutas vacías en dispositivo" y "fallo del dibujo Compose".
+        // Pinta todos los músculos del frente en rojo y cuenta píxeles.
+        val bmp = android.graphics.Bitmap.createBitmap(800, 1400, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bmp)
+        val paint = android.graphics.Paint().apply {
+            color = android.graphics.Color.RED
+            style = android.graphics.Paint.Style.FILL
+        }
+        var rutasPintadas = 0
+        for (lista in paths.front.musclePaths.values) for (ruta in lista) {
+            canvas.drawPath(ruta, paint); rutasPintadas++
+        }
+        var rojos = 0
+        for (yy in 0 until bmp.height step 4) for (xx in 0 until bmp.width step 4) {
+            if (android.graphics.Color.red(bmp.getPixel(xx, yy)) > 200 &&
+                android.graphics.Color.green(bmp.getPixel(xx, yy)) < 80) rojos++
+        }
+        android.util.Log.i("BodyMap", "raster directo: $rutasPintadas rutas, $rojos píxeles rojos (stride 4)")
+        org.junit.Assert.assertTrue(
+            "rutas del frente NO rasterizan en dispositivo ($rutasPintadas rutas, $rojos píxeles)",
+            rojos > 200)
     }
 
     private fun save(name: String, bitmap: ImageBitmap) {
