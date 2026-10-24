@@ -52,3 +52,4 @@ reference/
 # Web: no versionar zips de subida manual a hosting
 web/*.zip
 web/Archivo.zip
+**/.kotlin/

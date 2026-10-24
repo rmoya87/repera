@@ -40,6 +40,9 @@ import java.security.SecureRandom
  * verification and Google provider setup must be completed before business login.
  */
 class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListener {
+    private companion object {
+        const val SESSION_REFRESH_MARGIN_SECONDS = 60L
+    }
     private val wearMessages by lazy { Wearable.getMessageClient(this) }
     private data class GoogleProfile(
         val uniqueId: String, val email: String, val displayName: String
@@ -55,6 +58,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var todayHealth by mutableStateOf<TodayHealth?>(null)
     private val credentialManager by lazy { CredentialManager.create(this) }
     private var verifiedSupabase: SupabaseIdentity.Session? = null
+    private val sessionStore by lazy { SessionStore(this) }
 
     private val requestHealthPermissions = registerForActivityResult(
         PermissionController.createRequestPermissionResultContract()
@@ -147,6 +151,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        restoreStoredSession()
         setContent {
             ReperaMobileScreen(
                 isAuthenticated = profile != null,
@@ -250,6 +255,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 }
                 if (result.isSuccess) {
                     sendWearAck(event.sourceNodeId, id, "saved")
+                    DriveSyncWorker.syncNow(this@MainActivity)
                     status = null
                 } else {
                     sendWearAck(event.sourceNodeId, id, "rejected")
@@ -265,6 +271,71 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val body = JSONObject().put("id", id).put("status", result)
             .toString().toByteArray(Charsets.UTF_8)
         wearMessages.sendMessage(node, "/repera/log-set-ack", body)
+    }
+
+    /**
+     * Restores a durable session on process start: uses the stored access token
+     * while valid, rotates it through Supabase Auth when expired, and clears the
+     * store when the refresh token is no longer accepted. Only a refresh round
+     * trip decides validity; the stored access token is never trusted blindly.
+     */
+    private fun restoreStoredSession() {
+        val stored = sessionStore.load() ?: return
+        if (busy) return
+        busy = true
+        lifecycleScope.launch {
+            try {
+                val session = withContext(Dispatchers.IO) {
+                    if (stored.expiresWithin(SESSION_REFRESH_MARGIN_SECONDS)) {
+                        SupabaseIdentity().refresh(stored.refreshToken)
+                    } else {
+                        SupabaseIdentity.Session(
+                            userId = stored.userId,
+                            accessToken = stored.accessToken,
+                            refreshToken = stored.refreshToken,
+                            expiresIn = stored.expiresAtEpochSeconds - System.currentTimeMillis() / 1000,
+                            issuedAtEpochSeconds = System.currentTimeMillis() / 1000
+                        )
+                    }
+                }
+                verifiedSupabase = session
+                sessionStore.save(
+                    SessionStore.StoredSession(
+                        uniqueId = stored.uniqueId,
+                        email = stored.email,
+                        displayName = stored.displayName,
+                        userId = session.userId,
+                        accessToken = session.accessToken,
+                        refreshToken = session.refreshToken,
+                        expiresAtEpochSeconds = session.expiresAtEpochSeconds
+                    )
+                )
+                profile = GoogleProfile(stored.uniqueId, stored.email, stored.displayName)
+                DriveSyncWorker.schedulePeriodic(this@MainActivity)
+                reloadFor(stored.uniqueId)
+            } catch (_: Exception) {
+                // Expired or revoked refresh token: back to the login screen.
+                sessionStore.clear()
+                verifiedSupabase = null
+                profile = null
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    private fun persistSession(session: SupabaseIdentity.Session, signedIn: GoogleProfile) {
+        sessionStore.save(
+            SessionStore.StoredSession(
+                uniqueId = signedIn.uniqueId,
+                email = signedIn.email,
+                displayName = signedIn.displayName,
+                userId = session.userId,
+                accessToken = session.accessToken,
+                refreshToken = session.refreshToken,
+                expiresAtEpochSeconds = session.expiresAtEpochSeconds
+            )
+        )
     }
 
     private fun signInWithGoogle() {
@@ -295,11 +366,14 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     SupabaseIdentity().signInWithGoogle(google.idToken, nonce)
                 }
                 verifiedSupabase = session
-                profile = GoogleProfile(
+                val signedIn = GoogleProfile(
                     uniqueId = id,
                     email = google.email ?: "",
                     displayName = google.displayName ?: "Deportista"
                 )
+                profile = signedIn
+                persistSession(session, signedIn)
+                DriveSyncWorker.schedulePeriodic(this@MainActivity)
                 reloadFor(id)
                 status = if (snapshot == null) "No hay datos locales. Sincroniza Google Drive." else null
             } catch (error: Exception) {
@@ -458,6 +532,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     WorkoutRepository(this@MainActivity, signedIn.uniqueId).action()
                 }
                 reloadFor(signedIn.uniqueId)
+                DriveSyncWorker.syncNow(this@MainActivity)
                 status = null
             } catch (error: Exception) {
                 status = error.localizedMessage ?: "No se pudo guardar el entrenamiento"
@@ -500,6 +575,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 // UI still returns to login; existing account files stay isolated.
             } finally {
                 verifiedSupabase = null
+                sessionStore.clear()
                 // Data Layer is best effort: a disconnected watch must never prevent
                 // clearing the authenticated phone UI and its in-memory state.
                 withContext(Dispatchers.IO) {

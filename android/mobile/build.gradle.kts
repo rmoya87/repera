@@ -38,9 +38,13 @@ dependencies {
     implementation("com.google.android.libraries.identity.googleid:googleid:1.2.1")
     implementation("com.google.android.gms:play-services-auth:22.0.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.11.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
+    implementation("androidx.navigation:navigation-compose:2.10.2")
+    implementation("androidx.work:work-runtime-ktx:2.12.0")
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
     implementation("com.squareup.okhttp3:okhttp:5.5.0")
     implementation("androidx.health.connect:connect-client:1.1.0")
+    testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test:runner:1.7.0")
 }
