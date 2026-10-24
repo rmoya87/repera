@@ -143,60 +143,135 @@ class HealthConnectReader(private val context: Context) {
         )
     }
 
-    /** Serie temporal de FC de una sesión (epoch ms → lpm) para la curva
-     *  del detalle (extras.heartRateSeries iOS). Vacía sin permiso o datos. */
-    suspend fun readSessionHeartSeries(startEpochMs: Long, endEpochMs: Long): List<Pair<Long, Int>> {
-        if (!available() || endEpochMs <= startEpochMs) return emptyList()
+    /** Evidencia cruda de Salud para la ventana de una sesión, SIN elegir
+     *  orígenes: candidatos de sesión de ejercicio (ventana ±45 min, como la
+     *  consulta expandida de overlappingWorkout iOS), muestras de FC con su
+     *  origen y kcal con su origen. La decisión la toma SessionHealthMatcher
+     *  (reglas portadas de Apple); aquí solo se lee. */
+    private suspend fun readSessionCandidates(startEpochMs: Long, endEpochMs: Long): List<dev.repera.domain.SessionHealthMatcher.CandidateSession> {
         val client = HealthConnectClient.getOrCreate(context)
         val granted = client.permissionController.getGrantedPermissions()
-        if (!granted.contains(HealthPermission.getReadPermission(HeartRateRecord::class)))
+        if (!granted.contains(HealthPermission.getReadPermission(ExerciseSessionRecord::class)))
             return emptyList()
+        val lo = Instant.ofEpochMilli(startEpochMs - dev.repera.domain.SessionHealthMatcher.QUERY_SLACK_MS)
+        val hi = Instant.ofEpochMilli(endEpochMs + dev.repera.domain.SessionHealthMatcher.QUERY_SLACK_MS)
         val response = client.readRecords(ReadRecordsRequest(
-            HeartRateRecord::class,
-            TimeRangeFilter.between(Instant.ofEpochMilli(startEpochMs),
-                Instant.ofEpochMilli(endEpochMs))))
-        // Misma deduplicación por origen que readSessionSample.
-        return (response.records
-            .groupBy { it.metadata.dataOrigin.packageName }
-            .maxByOrNull { it.value.sumOf { r -> r.samples.size } }
-            ?.value ?: emptyList()).flatMap { record ->
-            record.samples.map { it.time.toEpochMilli() to it.beatsPerMinute.toInt() }
-        }.sortedBy { it.first }
+            ExerciseSessionRecord::class, TimeRangeFilter.between(lo, hi)))
+        return response.records.map {
+            dev.repera.domain.SessionHealthMatcher.CandidateSession(
+                id = it.metadata.id,
+                startEpochMs = it.startTime.toEpochMilli(),
+                endEpochMs = it.endTime.toEpochMilli(),
+                packageName = it.metadata.dataOrigin.packageName
+            )
+        }
     }
 
-    /** Muestra de cardio de UNA sesión (HealthKitStore.sessionHealthExtras
-     *  iOS): serie de FC y kcal activas dentro de la ventana del entreno.
-     *  Requiere permisos ya concedidos; sin permiso devuelve muestra vacía. */
-    suspend fun readSessionSample(startEpochMs: Long, endEpochMs: Long): dev.repera.domain.SessionCardioSample {
-        if (!available() || endEpochMs <= startEpochMs) return dev.repera.domain.SessionCardioSample()
+    private suspend fun readSessionEvidence(startEpochMs: Long, endEpochMs: Long): SessionEvidence {
         val client = HealthConnectClient.getOrCreate(context)
         val granted = client.permissionController.getGrantedPermissions()
         val start = Instant.ofEpochMilli(startEpochMs)
         val end = Instant.ofEpochMilli(endEpochMs)
-        var bpm: List<Double> = emptyList()
+        var heart = emptyList<dev.repera.domain.SessionHealthMatcher.HeartSample>()
         if (granted.contains(HealthPermission.getReadPermission(HeartRateRecord::class))) {
             val response = client.readRecords(ReadRecordsRequest(
                 HeartRateRecord::class, TimeRangeFilter.between(start, end)))
-            // Health Connect NO deduplica entre orígenes: si teléfono y reloj
-            // escriben la misma sesión, sumar todo duplica. Se usa solo el
-            // origen dominante (más muestras), documentado como aproximación;
-            // iOS delega la deduplicación en HealthKit.
-            bpm = response.records
-                .groupBy { it.metadata.dataOrigin.packageName }
-                .maxByOrNull { it.value.sumOf { r -> r.samples.size } }
-                ?.value?.flatMap { it.samples }
-                ?.map { it.beatsPerMinute.toDouble() } ?: emptyList()
+            heart = response.records.flatMap { record ->
+                record.samples.map {
+                    dev.repera.domain.SessionHealthMatcher.HeartSample(
+                        epochMs = it.time.toEpochMilli(),
+                        bpm = it.beatsPerMinute.toInt(),
+                        originPackage = record.metadata.dataOrigin.packageName
+                    )
+                }
+            }
         }
-        var kcal: Double? = null
+        var kcal = emptyList<KcalSample>()
         if (granted.contains(HealthPermission.getReadPermission(
                 ActiveCaloriesBurnedRecord::class))) {
             val response = client.readRecords(ReadRecordsRequest(
                 ActiveCaloriesBurnedRecord::class, TimeRangeFilter.between(start, end)))
-            val total = response.records
-                .groupBy { it.metadata.dataOrigin.packageName }
-                .maxByOrNull { it.value.size }
-                ?.value?.sumOf { it.energy.inKilocalories } ?: 0.0
-            if (total > 0) kcal = total
+            kcal = response.records.map {
+                KcalSample(it.startTime.toEpochMilli(), it.endTime.toEpochMilli(),
+                    it.energy.inKilocalories, it.metadata.dataOrigin.packageName)
+            }
+        }
+        return SessionEvidence(heart, kcal)
+    }
+
+    private data class KcalSample(val startMs: Long, val endMs: Long,
+                                  val kcal: Double, val originPackage: String)
+    private data class SessionEvidence(
+        val heart: List<dev.repera.domain.SessionHealthMatcher.HeartSample>,
+        val kcal: List<KcalSample>)
+
+    /** Rango efectivo de lectura: el de la sesión de Salud asociada si la hay
+     *  (rangeStart/rangeEnd de sessionHealthExtras iOS), si no la ventana del
+     *  entreno. Ambigüedad ⇒ null (no se lee nada). */
+    private suspend fun effectiveRange(startEpochMs: Long, endEpochMs: Long): Pair<Long, Long>? {
+        val candidates = readSessionCandidates(startEpochMs, endEpochMs)
+        return when (val a = dev.repera.domain.SessionHealthMatcher.associate(
+            startEpochMs, endEpochMs, candidates, context.packageName)) {
+            is dev.repera.domain.SessionHealthMatcher.Association.Matched ->
+                a.session.startEpochMs to a.session.endEpochMs
+            dev.repera.domain.SessionHealthMatcher.Association.Ambiguous -> null
+            dev.repera.domain.SessionHealthMatcher.Association.None ->
+                startEpochMs to endEpochMs
+        }
+    }
+
+    /** Serie temporal de FC de una sesión (epoch ms → lpm) para la curva
+     *  del detalle (extras.heartRateSeries iOS). Fusiona TODOS los orígenes
+     *  con dedup de duplicados exactos (SessionHealthMatcher); si la señal es
+     *  contradictoria entre orígenes devuelve vacío (ni curva ni refinado). */
+    suspend fun readSessionHeartSeries(startEpochMs: Long, endEpochMs: Long): List<Pair<Long, Int>> {
+        if (!available() || endEpochMs <= startEpochMs) return emptyList()
+        val range = effectiveRange(startEpochMs, endEpochMs) ?: return emptyList()
+        val evidence = readSessionEvidence(range.first, range.second)
+        return when (val merged = dev.repera.domain.SessionHealthMatcher
+            .mergeHeartRate(evidence.heart)) {
+            is dev.repera.domain.SessionHealthMatcher.HeartMerge.Merged -> merged.series
+            else -> emptyList()
+        }
+    }
+
+    /** Muestra de cardio de UNA sesión (HealthKitStore.sessionHealthExtras
+     *  iOS). Reglas portadas de Apple:
+     *  - Asociación: un único ExerciseSessionRecord plausible (umbrales de
+     *    overlappingWorkout: ≥70% de la sesión, ≥60% del candidato, regla del
+     *    85% entre fuentes). Ambigüedad ⇒ muestra vacía: no se refina nada y
+     *    la nota existente se conserva.
+     *  - FC: fusión de todos los orígenes con dedup; señal contradictoria ⇒
+     *    vacío.
+     *  - kcal: SOLO del origen de la sesión asociada y dentro de su rango
+     *    (workout.statistics iOS); sin asociación no hay kcal. */
+    suspend fun readSessionSample(startEpochMs: Long, endEpochMs: Long): dev.repera.domain.SessionCardioSample {
+        if (!available() || endEpochMs <= startEpochMs) return dev.repera.domain.SessionCardioSample()
+        val candidates = readSessionCandidates(startEpochMs, endEpochMs)
+        val association = dev.repera.domain.SessionHealthMatcher.associate(
+            startEpochMs, endEpochMs, candidates, context.packageName)
+        if (association == dev.repera.domain.SessionHealthMatcher.Association.Ambiguous) {
+            return dev.repera.domain.SessionCardioSample()
+        }
+        // Con sesión asociada se lee en SU rango (rangeStart/rangeEnd iOS).
+        val rangeStart = (association as? dev.repera.domain.SessionHealthMatcher
+            .Association.Matched)?.session?.startEpochMs ?: startEpochMs
+        val rangeEnd = (association as? dev.repera.domain.SessionHealthMatcher
+            .Association.Matched)?.session?.endEpochMs ?: endEpochMs
+        val evidence = readSessionEvidence(rangeStart, rangeEnd)
+        val bpm: List<Double> = when (val merged = dev.repera.domain.SessionHealthMatcher
+            .mergeHeartRate(evidence.heart)) {
+            is dev.repera.domain.SessionHealthMatcher.HeartMerge.Merged ->
+                merged.series.map { it.second.toDouble() }
+            else -> emptyList()
+        }
+        val kcal: Double? = (association as? dev.repera.domain.SessionHealthMatcher
+            .Association.Matched)?.let { matched ->
+            evidence.kcal.filter {
+                it.originPackage == matched.session.packageName &&
+                    it.startMs >= matched.session.startEpochMs &&
+                    it.endMs <= matched.session.endEpochMs
+            }.sumOf { it.kcal }.takeIf { it > 0 }
         }
         return dev.repera.domain.SessionCardioSample(
             averageHeartRateBpm = bpm.takeIf { it.isNotEmpty() }?.average(),
