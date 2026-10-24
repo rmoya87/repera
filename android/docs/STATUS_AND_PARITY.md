@@ -348,21 +348,27 @@ ruta en el detalle del entreno (componente de mapa por elegir).
 ## Gaps detectados en la auditoría de capacidades (24/10 21:25)
 
 Contrastados contra `Apps/Repera/Sources` y `Packages/ReperaDomain` de main;
-ninguno aparecía en las auditorías del 23/10. Estado: ABIERTOS.
+ninguno aparecía en las auditorías del 23/10.
 
-- **Sustitución de ejercicio** (`SubstitutePickerSheet` 68 líneas + dominio
-  `ExerciseSubstitutes`): «Cambiar ejercicio» por otro del mismo músculo
-  durante la sesión. En Android no existe ni el dominio ni la UI.
-- **Resumen pre-inicio / gestión de sesión** (`SessionPreviewView` 205):
-  tarjeta del plan antes de dar al Play + gestión de la sesión en curso.
-- **Heatmap de actividad** (`ActivityHeatmapView` 488): tiempo/volumen por
-  día, franja horizontal en periodos cortos y rejilla semanal en largos,
-  con muestras externas de Salud (Android ya tiene `ExternalDaySample` en
-  `HealthConnectReader`/`ProgressSnapshot` como base).
+- **Sustitución de ejercicio**: iOS tiene `ExerciseSubstitutes` (dominio) y
+  `SubstitutePickerSheet`, pero SIN call sites — su propia ARCHITECTURE.md lo
+  declara «UI de cambio no expuesta». Portado el dominio a Android con tests
+  (24/10): **paridad alcanzada**; no hay UI que portar hasta que iOS la
+  active. NO es un gap.
+- **Resumen pre-inicio / gestión de sesión** (`SessionPreviewView` 205,
+  usada por `RootTabView`): tarjeta del plan antes de dar al Play + gestión
+  de la sesión en curso. Estado: ABIERTO.
+- **Heatmap de actividad** (`ActivityHeatmapView` 488, usada por
+  `StatsView`): tiempo/volumen por día, franja horizontal en periodos cortos
+  y rejilla semanal en largos, con muestras externas de Salud (Android ya
+  tiene `ExternalDaySample` en `HealthConnectReader`/`ProgressSnapshot` como
+  base). Estado: ABIERTO.
 - **Ruta cardio y análisis** (`CardioRouteComponents` 570 + dominio
-  `CardioRouteAnalysis`): gráficas cardio/altitud con selección táctil y
-  análisis de la ruta (HealthKit en iOS). Relacionado con el sub-gap de
-  mapa de ruta de la sección de ubicación.
+  `CardioRouteAnalysis` 147, usados por `HistoryView`): gráficas
+  cardio/altitud con selección táctil, análisis de ruta y mapa
+  `HealthWorkoutRouteMap` (HealthKit en iOS). Relacionado con el sub-gap de
+  mapa de ruta de la sección de ubicación. Estado: ABIERTO.
 - **ReperaSessionMatchIndex** (91): índice temporal interno para emparejar
   sesiones Repera ↔ Salud sin escaneos O(H×G); relevante cuando se porte el
-  emparejado de sesiones con Salud (no es superficie de usuario).
+  emparejado de sesiones con Salud (no es superficie de usuario). Estado:
+  ABIERTO (baja prioridad).
