@@ -57,6 +57,23 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var finishedSummary by mutableStateOf<FinishedSummary?>(null)
     private var restRemaining by mutableStateOf(0)
     private var restJob: kotlinx.coroutines.Job? = null
+    private var health by mutableStateOf<Pair<Int?, Double?>?>(null)
+    private val healthSession by lazy {
+        WearHealthSession(this).apply {
+            onUpdate = { runOnUiThread {
+                health = heartRateBpm to energyKcal
+            } }
+        }
+    }
+
+    private val sensorPermissions = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts
+            .RequestMultiplePermissions()
+    ) { grants ->
+        if (grants[android.Manifest.permission.BODY_SENSORS] == true) {
+            lifecycleScope.launch { runCatching { healthSession.start() } }
+        }
+    }
     private var confirmDiscardPending by mutableStateOf(false)
     private var pendingCount by mutableStateOf(0)
     private var sendStatus by mutableStateOf<String?>(null)
@@ -126,6 +143,14 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 }
                                 Text(session.title, textAlign = TextAlign.Center,
                                     style = MaterialTheme.typography.labelMedium)
+                                health?.let { (bpm, kcal) ->
+                                    Text(
+                                        listOfNotNull(
+                                            bpm?.let { "$it ppm" },
+                                            kcal?.let { "${it.toInt()} kcal" }
+                                        ).joinToString(" · "),
+                                        style = MaterialTheme.typography.labelSmall)
+                                }
                                 Spacer(Modifier.height(6.dp))
                                 if (session.wodFormatLabel != null) {
                                     Text(session.wodFormatLabel,
@@ -409,6 +434,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             resendPending()
             showingCachedSession = false
             syncProblem = false
+            ensureHealthRecording()
         } else {
             syncProblem = true
             // Keep the last valid summary but never claim the corrupted update succeeded.
@@ -430,6 +456,22 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         syncProblem = false
         showingCachedSession = false
         skipRest()
+        lifecycleScope.launch { runCatching { healthSession.stop() } }
+        health = null
+    }
+
+    private fun ensureHealthRecording() {
+        if (healthSession.recording) return
+        val granted = androidx.core.content.ContextCompat.checkSelfPermission(
+            this, android.Manifest.permission.BODY_SENSORS
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            lifecycleScope.launch { runCatching { healthSession.start() } }
+        } else {
+            sensorPermissions.launch(arrayOf(
+                android.Manifest.permission.BODY_SENSORS,
+                android.Manifest.permission.ACTIVITY_RECOGNITION))
+        }
     }
 }
 

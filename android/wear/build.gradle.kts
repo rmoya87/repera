@@ -26,4 +26,5 @@ dependencies {
     implementation("androidx.wear.compose:compose-material3:1.7.1")
     implementation("androidx.wear.compose:compose-foundation:1.7.1")
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
+    implementation("androidx.health:health-services-client:1.1.0")
 }
