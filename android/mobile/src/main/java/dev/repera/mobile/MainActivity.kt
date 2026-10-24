@@ -26,6 +26,15 @@ import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.Wearable
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.layout.Box
+import dev.repera.mobile.monetization.FreeUsageStore
+import dev.repera.mobile.monetization.LocalSubscriptions
+import dev.repera.mobile.monetization.PaywallMode
+import dev.repera.mobile.monetization.PaywallScreen
+import dev.repera.mobile.monetization.SubscriptionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -66,6 +75,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var centerSubmitting by mutableStateOf(false)
     private var centerError by mutableStateOf<String?>(null)
     private val sessionStore by lazy { SessionStore(this) }
+    /** Estado comercial (Pro/Gratis) + cuotas + paywall. Port del entorno iOS. */
+    private val subscriptions by lazy {
+        SubscriptionManager(
+            freeUsage = FreeUsageStore.forAccount(java.io.File(filesDir, "monetization"))
+        )
+    }
     /** Espejo Supabase de entrenos terminados (port BusinessWorkoutSyncStore). */
     private fun syncWorkoutMirror() {
         val session = verifiedSupabase ?: return
@@ -442,7 +457,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         restoreStoredSession()
+        lifecycleScope.launch { subscriptions.start() }
         setContent {
+            CompositionLocalProvider(LocalSubscriptions provides subscriptions) {
             ReperaMobileScreen(
                 isAuthenticated = profile != null,
                 displayName = profile?.displayName,
@@ -609,6 +626,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             // al terminar una sesión con valoración verificable.
             pendingReview?.let { review ->
                 SessionReviewSheet(review) { pendingReview = null }
+            }
+            if (subscriptions.paywall.isPresented) {
+                @OptIn(ExperimentalMaterial3Api::class)
+                ModalBottomSheet(onDismissRequest = { subscriptions.dismissPaywall() }) {
+                    PaywallScreen(subscriptions = subscriptions, mode = PaywallMode.SHEET)
+                }
+            }
             }
         }
     }
