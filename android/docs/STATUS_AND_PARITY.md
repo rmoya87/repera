@@ -374,11 +374,15 @@ ninguno aparecía en las auditorías del 23/10.
   paleta `BodyMapPalette.fill(level)` (Android: alfa escalado del primario →
   corregido a la paleta de marca el 24/10, pendiente CI).
 - **Ruta cardio y análisis** (`CardioRouteComponents` 570 + dominio
-  `CardioRouteAnalysis` 147, usados por `HistoryView`): gráficas
-  cardio/altitud con selección táctil, análisis de ruta y mapa
-  `HealthWorkoutRouteMap` (HealthKit en iOS). Relacionado con el sub-gap de
-  mapa de ruta de la sección de ubicación. Estado: ABIERTO.
+  `CardioRouteAnalysis` 147, usados por `HistoryView`): PORTADO 24/10 el
+  análisis (dominio 1:1 con 5 tests: distancia haversine, desnivel con
+  referencia estable, perfil de altitud, splits por km) y la sección Ruta
+  del detalle del historial (resumen + perfil + splits). Sub-gaps ABIERTOS:
+  mapa nativo de la ruta (`HealthWorkoutRouteMap`, componente por elegir en
+  la investigación autorizada), selección táctil sobre las gráficas y la
+  curva de FC de la sesión (requiere el emparejado Salud↔sesión).
 - **ReperaSessionMatchIndex** (91): índice temporal interno para emparejar
-  sesiones Repera ↔ Salud sin escaneos O(H×G); relevante cuando se porte el
-  emparejado de sesiones con Salud (no es superficie de usuario). Estado:
-  ABIERTO (baja prioridad).
+  sesiones Repera ↔ Salud sin escaneos O(H×G); pertenece a la familia del
+  emparejado Salud↔sesión, que en Android aún no existe como función (sin
+  curva de FC por sesión ni enriquecimiento con Salud). Estado: ABIERTO,
+  pendiente de esa función (baja prioridad mientras no haya superficie).
