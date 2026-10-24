@@ -132,12 +132,14 @@ internal class RemoteExerciseCatalog(private val context: Context) {
         val catalog = state.getJSONArray("exercises")
         val byId = mutableMapOf<String, JSONObject>()
         val byName = mutableMapOf<String, JSONObject>()
+        val byCanonical = mutableMapOf<String, JSONObject>()
         val byNativeId = mutableMapOf<String, JSONObject>()
         for (i in 0 until catalog.length()) {
             val item = catalog.getJSONObject(i)
             if (item.optBoolean("isCustom")) continue
             byId[item.optString("id")] = item
             byName[normalize(item.optString("name"))] = item
+            byCanonical[normalize(dev.repera.domain.SportExerciseNames.canonicalName(item.optString("name")))] = item
             item.optString("catalogId").takeIf { it.isNotBlank() }?.let {
                 byNativeId[it] = item
             }
@@ -152,6 +154,7 @@ internal class RemoteExerciseCatalog(private val context: Context) {
             val current = byId[ids.optString(key)]
                 ?: byNativeId[nativeID]
                 ?: byName[normalize(originalName)]
+                ?: byCanonical[normalize(dev.repera.domain.SportExerciseNames.canonicalName(originalName))]
                 ?: byName[normalize(publishedName)]
             val id = current?.optString("id")?.takeIf { it.isNotBlank() }
                 ?: ids.optString(key).takeIf { it.isNotBlank() }
@@ -201,6 +204,7 @@ internal class RemoteExerciseCatalog(private val context: Context) {
             }
             byId[id] = exercise
             byName[normalize(publishedName)] = exercise
+            byCanonical[normalize(dev.repera.domain.SportExerciseNames.canonicalName(publishedName))] = exercise
             if (nativeID.isNotBlank()) byNativeId[nativeID] = exercise
         }
         // Cache the resolved legacy UUID mapping before publishing private state.
