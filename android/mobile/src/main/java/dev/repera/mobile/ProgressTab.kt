@@ -208,6 +208,15 @@ internal fun ProgressTab(
             overview?.chartsByRange?.get(selectedRange)?.let { charts ->
                 item { ProgressChartsCard(charts) }
             }
+            if (snapshot.heatmapTime.isNotEmpty()) {
+                item { HeatmapCard("Constancia (minutos por día)",
+                    snapshot.heatmapTime) }
+            }
+            if (snapshot.heatmapVolume.isNotEmpty()) {
+                item { HeatmapCard("Volumen (kg por día)",
+                    snapshot.heatmapVolume) }
+            }
+
             if (snapshot.records.isNotEmpty()) {
                 item {
                     Card(modifier = Modifier.fillMaxWidth()) {

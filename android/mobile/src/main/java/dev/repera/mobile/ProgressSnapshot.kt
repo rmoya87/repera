@@ -39,6 +39,8 @@ data class ProgressSnapshotData(
     val hasHardSets: Boolean,
     /** Día → nivel 0…4 por minutos (cuartiles del periodo). */
     val heatmapTime: List<Pair<LocalDate, Int>>,
+    /** Día → nivel 0…4 por volumen en kg (cuartiles del periodo). */
+    val heatmapVolume: List<Pair<LocalDate, Int>>,
     val cardioSeries: List<ProgressDayPoint>,
     val weeklyVolume: List<Pair<LocalDate, Double>>,
     val weeklySessions: List<Pair<LocalDate, Int>>,
@@ -248,16 +250,22 @@ object ProgressSnapshotBuilder {
         val activity = StatsEngine.dailyActivity(filtered, filteredExternal, zone)
         val thresholds = StatsEngine.heatmapThresholds(
             activity.values.map { it.minutes })
+        val volumeThresholds = StatsEngine.heatmapThresholds(
+            activity.values.map { it.volumeKg })
         val start = range.startDate(now, monday)
-        val heatmap = generateSequence(start) { it.plusDays(1) }
+        val days = generateSequence(start) { it.plusDays(1) }
             .takeWhile { !it.isAfter(now) }
-            .take(370)
-            .map { day ->
-                val row: DayActivityContribution? = activity[day]
-                day to StatsEngine.heatmapLevel(
-                    row?.minutes ?: 0.0, row != null, thresholds)
-            }
-            .toList()
+            .take(370).toList()
+        val heatmap = days.map { day ->
+            val row: DayActivityContribution? = activity[day]
+            day to StatsEngine.heatmapLevel(
+                row?.minutes ?: 0.0, row != null, thresholds)
+        }
+        val heatmapVolume = days.map { day ->
+            val row: DayActivityContribution? = activity[day]
+            day to StatsEngine.heatmapLevel(
+                row?.volumeKg ?: 0.0, row != null, volumeThresholds)
+        }
 
         val cardioRaw = StatsEngine.dailyMetricSeries(filtered, filteredExternal,
             "cardioMinutes", range, monday, now, zone)
@@ -329,6 +337,7 @@ object ProgressSnapshotBuilder {
             muscleStatuses = statuses,
             hasHardSets = hasHardSets,
             heatmapTime = heatmap,
+            heatmapVolume = heatmapVolume,
             cardioSeries = cardioSeries,
             weeklyVolume = StatsEngine.weeklyVolumeSeries(
                 workouts, 8, now, zone, monday),

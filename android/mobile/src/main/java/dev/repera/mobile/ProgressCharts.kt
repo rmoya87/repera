@@ -95,3 +95,50 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts) {
         }
     }
 }
+
+/** Mapa de calor por semanas (columnas) y días (filas), niveles 0-4. */
+@Composable
+internal fun HeatmapCard(title: String, levels: List<Pair<java.time.LocalDate, Int>>) {
+    if (levels.isEmpty()) return
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Text(title, style = MaterialTheme.typography.titleLarge)
+            val base = MaterialTheme.colorScheme.primary
+            val empty = MaterialTheme.colorScheme.surfaceVariant
+            Canvas(modifier = Modifier
+                .fillMaxWidth()
+                .height(118.dp)
+                .padding(top = 8.dp)) {
+                val first = levels.first().first
+                // Semana que empieza en lunes, como iOS.
+                val offset = first.dayOfWeek.value - 1
+                val totalCells = levels.size + offset
+                val weeks = (totalCells + 6) / 7
+                val cw = size.width / weeks
+                val ch = size.height / 7
+                val gap = minOf(cw, ch) * 0.16f
+                levels.forEachIndexed { i, (day, level) ->
+                    val cell = offset + i
+                    val col = cell / 7
+                    val row = cell % 7
+                    val color = when (level) {
+                        0 -> empty
+                        1 -> base.copy(alpha = 0.25f)
+                        2 -> base.copy(alpha = 0.45f)
+                        3 -> base.copy(alpha = 0.7f)
+                        else -> base
+                    }
+                    drawRoundRect(
+                        color = color,
+                        topLeft = Offset(col * cw + gap / 2, row * ch + gap / 2),
+                        size = androidx.compose.ui.geometry.Size(
+                            cw - gap, ch - gap),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f)
+                    )
+                }
+            }
+            Text("Intensidad por cuartiles del periodo",
+                style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
