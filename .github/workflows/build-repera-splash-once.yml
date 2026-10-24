@@ -1,0 +1,57 @@
+name: Build corrected Repera launch mascots (one-time)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/build-repera-splash-once.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install image processing dependencies
+        run: python -m pip install --disable-pip-version-check pillow numpy opencv-python-headless
+      - name: Download runner pose reference
+        run: |
+          curl --fail --location --silent --show-error --retry 3 "https://at.adobe.com/xC4TcaWuxmqAAQm8" --output /tmp/repera-running-source.png
+          python - <<'PY'
+          from PIL import Image
+          p = '/tmp/repera-running-source.png'
+          i = Image.open(p)
+          i.verify()
+          print('Runner source image verified', p)
+          PY
+      - name: Correct authentic barbell artwork and generate matching runner
+        run: python scripts/build_repera_splash_assets.py --running-source /tmp/repera-running-source.png
+      - name: Verify both asset catalogs and transparency
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from PIL import Image
+          root = Path('Apps/Repera/Resources/Assets.xcassets')
+          for name, filename in [('MascotHero', 'mascot-hero.png'), ('MascotRunning', 'mascot-running.png')]:
+              directory = root / (name + '.imageset')
+              data = json.loads((directory/'Contents.json').read_text())
+              assert data['images'][0]['filename'] == filename
+              im = Image.open(directory/filename).convert('RGBA')
+              assert im.getpixel((0,0))[3] == 0
+              print(name, im.size, 'validated')
+          PY
+      - name: Publish final image assets and remove one-time workflow
+        run: |
+          git add Apps/Repera/Resources/Assets.xcassets/MascotHero.imageset/mascot-hero.png Apps/Repera/Resources/Assets.xcassets/MascotRunning.imageset
+          git rm .github/workflows/build-repera-splash-once.yml
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Fix splash transparency and use authentic Repera head on running mascot"
+          git push origin HEAD:main
