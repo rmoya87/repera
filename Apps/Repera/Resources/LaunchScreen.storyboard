@@ -15,19 +15,19 @@
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <!-- Imagen opaca RGB integrada con fondo corporativo y muñeco; fondo de la vista idéntico. -->
+                            <!-- Primera imagen nativa: una sola ilustración RGB opaca con muñeco y #30D158, a pantalla completa. -->
                             <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="ReperaNativeOpaqueHero" translatesAutoresizingMaskIntoConstraints="NO" id="Mascot-Splash">
-                                <rect key="frame" x="71.22" y="204.48" width="250.56" height="443.04"/>
+                                <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                             </imageView>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
                         <!-- Verde corporativo OG.accent / #30D158, también en modo oscuro. -->
                         <color key="backgroundColor" red="0.1882352941" green="0.8196078431" blue="0.3450980392" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
-                            <constraint firstItem="Mascot-Splash" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="mascot-center-x"/>
-                            <constraint firstItem="Mascot-Splash" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="mascot-center-y"/>
-                            <constraint firstItem="Mascot-Splash" firstAttribute="width" secondItem="Ze5-6b-2t3" secondAttribute="width" multiplier="0.72" id="mascot-width"/>
-                            <constraint firstItem="Mascot-Splash" firstAttribute="height" secondItem="Ze5-6b-2t3" secondAttribute="height" multiplier="0.70" id="mascot-height"/>
+                            <constraint firstItem="Mascot-Splash" firstAttribute="leading" secondItem="Ze5-6b-2t3" secondAttribute="leading" id="mascot-leading"/>
+                            <constraint firstItem="Mascot-Splash" firstAttribute="trailing" secondItem="Ze5-6b-2t3" secondAttribute="trailing" id="mascot-trailing"/>
+                            <constraint firstItem="Mascot-Splash" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top" id="mascot-top"/>
+                            <constraint firstItem="Mascot-Splash" firstAttribute="bottom" secondItem="Ze5-6b-2t3" secondAttribute="bottom" id="mascot-bottom"/>
                         </constraints>
                     </view>
                 </viewController>
