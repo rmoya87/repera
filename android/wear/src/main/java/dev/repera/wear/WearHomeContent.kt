@@ -15,7 +15,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
+import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.Button
+import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.TextButton
@@ -72,245 +75,259 @@ internal fun WearHomeContent(
     callbacks: WearHomeCallbacks,
     modifier: Modifier = Modifier
 ) {
-Column(
-        modifier = modifier
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text("repera", style = MaterialTheme.typography.titleMedium)
-                            Spacer(Modifier.height(6.dp))
-                            val session = state.session
-                            if (session == null) {
-                                val finishedNow = state.finishedSummary
-                                if (finishedNow != null) {
-                                    Text("Sesión completada",
-                                        style = MaterialTheme.typography.titleMedium)
-                                    Text(finishedNow.title, textAlign = TextAlign.Center,
-                                        style = MaterialTheme.typography.labelMedium)
-                                    Text("${finishedNow.minutes} min · " +
-                                        "${finishedNow.exercises} ejercicios · " +
-                                        "${finishedNow.sets} series",
-                                        textAlign = TextAlign.Center,
-                                        style = MaterialTheme.typography.labelSmall)
-                                    Button(onClick = { callbacks.onDismissFinished(finishedNow) }) { Text("Cerrar") }
-                                } else {
-                                val plan = state.todayPlan
-                                if (plan != null) {
-                                    Text("Entreno de hoy",
-                                        style = MaterialTheme.typography.titleMedium)
-                                    Text(plan.optString("title"),
-                                        textAlign = TextAlign.Center,
-                                        style = MaterialTheme.typography.labelMedium)
-                                    Text("${plan.optJSONArray("exercises")?.length() ?: 0} ejercicios",
-                                        style = MaterialTheme.typography.labelSmall)
-                                    Button(onClick = { callbacks.onStartTodayPlan() }) {
-                                        Text("Empezar")
-                                    }
-                                } else {
-                                Text(if (state.syncProblem) "No se pudo leer la sesión del teléfono" else "Sin entrenamiento recibido",
-                                    textAlign = TextAlign.Center)
-                                }
-                                }
-                            } else {
-                                if (state.showingCachedSession) {
-                                    Text("Última sesión recibida · sin conexión confirmada",
-                                        textAlign = TextAlign.Center,
-                                        style = MaterialTheme.typography.labelSmall)
-                                }
-                                Text(session.title, textAlign = TextAlign.Center,
-                                    style = MaterialTheme.typography.labelMedium)
-                                state.health?.let { (bpm, kcal) ->
-                                    Text(
-                                        listOfNotNull(
-                                            bpm?.let { "$it ppm" },
-                                            kcal?.let { "${it.toInt()} kcal" }
-                                        ).joinToString(" · "),
-                                        style = MaterialTheme.typography.labelSmall)
-                                }
-                                Spacer(Modifier.height(6.dp))
-                                if (session.wodFormatLabel != null) {
-                                    Text(session.wodFormatLabel,
-                                        style = MaterialTheme.typography.titleMedium)
-                                    session.wodMovements.forEach { movement ->
-                                        Text(movement, textAlign = TextAlign.Center,
-                                            style = MaterialTheme.typography.labelSmall)
-                                    }
-                                    state.wodTimerJson?.let { timer ->
-                                        val spec = dev.repera.domain.WodClockSpec(
-                                            format = dev.repera.domain.WodFormat
-                                                .fromWire(timer.optString("format"))
-                                                ?: return@let,
-                                            blockTimeCapMinutes = timer.optInt("timeCapMinutes")
-                                                .takeIf { timer.has("timeCapMinutes") &&
-                                                    !timer.isNull("timeCapMinutes") },
-                                            intervalSeconds = timer.optInt("intervalSeconds")
-                                                .takeIf { timer.has("intervalSeconds") &&
-                                                    !timer.isNull("intervalSeconds") },
-                                            rounds = timer.optInt("rounds")
-                                                .takeIf { timer.has("rounds") &&
-                                                    !timer.isNull("rounds") },
-                                            workSeconds = timer.optInt("workSeconds")
-                                                .takeIf { timer.has("workSeconds") &&
-                                                    !timer.isNull("workSeconds") },
-                                            restSeconds = timer.optInt("restSeconds")
-                                                .takeIf { timer.has("restSeconds") &&
-                                                    !timer.isNull("restSeconds") },
-                                            restBetweenRoundsSeconds = timer
-                                                .optInt("restBetweenRoundsSeconds")
-                                                .takeIf { timer.has("restBetweenRoundsSeconds") &&
-                                                    !timer.isNull("restBetweenRoundsSeconds") }
-                                        )
-                                        val face = dev.repera.domain.WodClock.face(
-                                            spec, state.wodTickSeconds)
-                                        val mins = face.primarySeconds / 60
-                                        val secs = face.primarySeconds % 60
-                                        Text("%d:%02d".format(mins, secs),
-                                            style = MaterialTheme.typography.displayMedium)
-                                        face.label?.let {
-                                            Text(it,
-                                                style = MaterialTheme.typography.labelSmall)
-                                        }
-                                    }
-                                    Button(onClick = { callbacks.onTogglePause() }) {
-                                        Text(if (state.sessionPaused) "Reanudar" else "Pausar")
-                                    }
-                                    if (session.globalScore) {
-                                        Text("Resultado por bloque en el teléfono",
-                                            textAlign = TextAlign.Center,
-                                            style = MaterialTheme.typography.labelSmall)
-                                    } else {
-                                        Text("${session.recordedSets} series registradas",
-                                            style = MaterialTheme.typography.labelSmall)
-                                    }
-                                } else {
-                                    Text(session.exerciseName,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        textAlign = TextAlign.Center)
-                                    Text("Ejercicio ${session.exerciseIndex}/${session.exerciseCount}")
-                                    if (session.prescribedReps != null) {
-                                        Text("${session.prescribedReps} reps" +
-                                            (session.prescribedWeightKg?.let { " · $it kg" } ?: ""),
-                                            style = MaterialTheme.typography.titleLarge)
-                                    }
-                                    Text("${session.recordedSets} series registradas",
-                                        style = MaterialTheme.typography.labelSmall)
-                                    Button(onClick = { callbacks.onTogglePause() }) {
-                                        Text(if (state.sessionPaused) "Reanudar" else "Pausar")
-                                    }
-                                    TextButton(onClick = { callbacks.onFinishSession(session) }) {
-                                        Text("Terminar sesión",
-                                            style = MaterialTheme.typography.labelSmall)
-                                    }
-                                    if (!session.canLogOnWatch) {
-                                        Text("Este ejercicio solo se registra en el móvil",
-                                            textAlign = TextAlign.Center,
-                                            style = MaterialTheme.typography.labelSmall)
-                                    } else {
-                                    if (state.restRemaining > 0) {
-                                        Text("Descanso: ${state.restRemaining}s",
-                                            style = MaterialTheme.typography.titleLarge)
-                                        TextButton(onClick = { callbacks.onSkipRest() }) {
-                                            Text("Saltar descanso",
-                                                style = MaterialTheme.typography.labelSmall)
-                                        }
-                                    }
-                                    Text("Registrar serie", style = MaterialTheme.typography.titleMedium)
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        verticalAlignment = Alignment.CenterVertically) {
-                                        Button(onClick = { callbacks.onRepsMinus() }) {
-                                            Text("−")
-                                        }
-                                        Text("${state.repsInput} reps", style = MaterialTheme.typography.titleMedium)
-                                        Button(onClick = { callbacks.onRepsPlus() }) {
-                                            Text("+")
-                                        }
-                                    }
-                                    if (session.allowsWeight) {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                            verticalAlignment = Alignment.CenterVertically) {
-                                            Button(onClick = { callbacks.onWeightDelta(-0.5) }) { Text("−") }
-                                            Text("${state.weightInput ?: 0.0} kg",
-                                                style = MaterialTheme.typography.titleMedium)
-                                            Button(onClick = { callbacks.onWeightDelta(0.5) }) { Text("+") }
-                                        }
-                                    }
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        verticalAlignment = Alignment.CenterVertically) {
-                                        Button(onClick = { callbacks.onRirMinus() }) { Text("−") }
-                                        Text(state.rirInput?.let { "RIR ${it.toInt()}" } ?: "RIR —",
-                                            style = MaterialTheme.typography.titleMedium)
-                                        Button(onClick = { callbacks.onRirPlus() }) { Text("+") }
-                                    }
-                                    TextButton(onClick = { callbacks.onRirClear() }) {
-                                        Text("Sin RIR", style = MaterialTheme.typography.labelSmall)
-                                    }
-                                    if (session.inputMode == "repsAndTime") {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                            verticalAlignment = Alignment.CenterVertically) {
-                                            Button(onClick = { callbacks.onDurationDelta(-5) }) { Text("−") }
-                                            Text("${state.durationInput} s",
-                                                style = MaterialTheme.typography.titleMedium)
-                                            Button(onClick = { callbacks.onDurationDelta(5) }) {
-                                                Text("+")
-                                            }
-                                        }
-                                    }
-                                    if (session.inputMode == "machineWork") {
-                                        val label = when (state.unitInput) {
-                                            "calories" -> "kcal"
-                                            "meters" -> "m"
-                                            else -> "reps"
-                                        }
-                                        Button(onClick = { callbacks.onCycleUnit() }) { Text("Unidad: $label") }
-                                    }
-                                    if (session.inputMode == "hspuDeficit") {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                            verticalAlignment = Alignment.CenterVertically) {
-                                            Button(onClick = { callbacks.onDeficitDelta(-1) }) { Text("−") }
-                                            Text("${state.deficitInput} cm",
-                                                style = MaterialTheme.typography.titleMedium)
-                                            Button(onClick = { callbacks.onDeficitDelta(1) }) {
-                                                Text("+")
-                                            }
-                                        }
-                                    }
-                                    Button(onClick = { callbacks.onQueueSet(session) },
-                                        enabled = state.repsInput > 0,
-                                        modifier = Modifier.fillMaxWidth()) {
-                                        Text("Confirmar serie")
-                                    }
-                                    }
-                                }
-                            }
-                            if (state.pendingCount > 0) {
-                                Text(if (state.pendingCount == 1)
-                                    "1 serie pendiente de confirmar"
-                                else
-                                    "${state.pendingCount} series pendientes de confirmar",
-                                    style = MaterialTheme.typography.labelSmall)
-                                Button(onClick = { callbacks.onResendPending() },
-                                    modifier = Modifier.fillMaxWidth()) {
-                                    Text("Reintentar sincronización")
-                                }
-                                if (state.confirmDiscardPending) {
-                                    Text("Descartar las series no sincronizadas?",
-                                        textAlign = TextAlign.Center,
-                                        style = MaterialTheme.typography.labelSmall)
-                                    Button(onClick = { callbacks.onDiscardPending() }) { Text("Sí, descartar") }
-                                    Button(onClick = { callbacks.onDiscardConfirm(false) }) {
-                                        Text("Cancelar")
-                                    }
-                                } else {
-                                    Button(onClick = { callbacks.onDiscardConfirm(true) }) {
-                                        Text("Descartar pendientes")
-                                    }
-                                }
-                            }
-                            state.sendStatus?.let {
-                                Text(it, style = MaterialTheme.typography.labelSmall,
-                                    textAlign = TextAlign.Center)
+    // Viewport redondo: TransformingLazyColumn aplica el padding del primer/
+    // último item para centrar en el círculo y la transformación (escala) de
+    // cada item según su posición, para que cabecera y controles no queden
+    // recortados ni fuera del borde curvo.
+    TransformingLazyColumn(
+        state = rememberTransformingLazyColumnState(),
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        item { Text("repera", style = MaterialTheme.typography.titleMedium) }
+        val session = state.session
+        if (session == null) {
+            val finishedNow = state.finishedSummary
+            if (finishedNow != null) {
+                item { Text("Sesión completada",
+                    style = MaterialTheme.typography.titleMedium) }
+                item { Text(finishedNow.title, textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelMedium) }
+                item { Text("${finishedNow.minutes} min · " +
+                    "${finishedNow.exercises} ejercicios · ${finishedNow.sets} series",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall) }
+                item { Button(onClick = { callbacks.onDismissFinished(finishedNow) }) {
+                    Text("Cerrar") } }
+            } else {
+                val plan = state.todayPlan
+                if (plan != null) {
+                    item { Text("Entreno de hoy",
+                        style = MaterialTheme.typography.titleMedium) }
+                    item { Text(plan.optString("title"), textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.labelMedium) }
+                    item { Text("${plan.optJSONArray("exercises")?.length() ?: 0} ejercicios",
+                        style = MaterialTheme.typography.labelSmall) }
+                    item { Button(onClick = { callbacks.onStartTodayPlan() }) {
+                        Text("Empezar") } }
+                } else {
+                    item { Text(if (state.syncProblem)
+                        "No se pudo leer la sesión del teléfono"
+                        else "Sin entrenamiento recibido",
+                        textAlign = TextAlign.Center) }
+                }
+            }
+        } else {
+            if (state.showingCachedSession) {
+                item { Text("Última sesión recibida · sin conexión confirmada",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall) }
+            }
+            item { Text(session.title, textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.labelMedium) }
+            state.health?.let { (bpm, kcal) ->
+                val text = listOfNotNull(
+                    bpm?.let { "$it ppm" },
+                    kcal?.let { "${it.toInt()} kcal" }
+                ).joinToString(" · ")
+                if (text.isNotEmpty()) {
+                    item { Text(text, style = MaterialTheme.typography.labelSmall) }
+                }
+            }
+            if (session.wodFormatLabel != null) {
+                item { Text(session.wodFormatLabel,
+                    style = MaterialTheme.typography.titleMedium) }
+                session.wodMovements.forEach { movement ->
+                    item { Text(movement, textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.labelSmall) }
+                }
+                state.wodTimerJson?.let { timer ->
+                    val spec = dev.repera.domain.WodClockSpec(
+                        format = dev.repera.domain.WodFormat
+                            .fromWire(timer.optString("format"))
+                            ?: return@let,
+                        blockTimeCapMinutes = timer.optInt("timeCapMinutes")
+                            .takeIf { timer.has("timeCapMinutes") &&
+                                !timer.isNull("timeCapMinutes") },
+                        intervalSeconds = timer.optInt("intervalSeconds")
+                            .takeIf { timer.has("intervalSeconds") &&
+                                !timer.isNull("intervalSeconds") },
+                        rounds = timer.optInt("rounds")
+                            .takeIf { timer.has("rounds") && !timer.isNull("rounds") },
+                        workSeconds = timer.optInt("workSeconds")
+                            .takeIf { timer.has("workSeconds") &&
+                                !timer.isNull("workSeconds") },
+                        restSeconds = timer.optInt("restSeconds")
+                            .takeIf { timer.has("restSeconds") &&
+                                !timer.isNull("restSeconds") },
+                        restBetweenRoundsSeconds = timer.optInt("restBetweenRoundsSeconds")
+                            .takeIf { timer.has("restBetweenRoundsSeconds") &&
+                                !timer.isNull("restBetweenRoundsSeconds") }
+                    )
+                    val face = dev.repera.domain.WodClock.face(
+                        spec, state.wodTickSeconds)
+                    val mins = face.primarySeconds / 60
+                    val secs = face.primarySeconds % 60
+                    item { Text("%d:%02d".format(mins, secs),
+                        style = MaterialTheme.typography.displayMedium) }
+                    face.label?.let { label ->
+                        item { Text(label, style = MaterialTheme.typography.labelSmall) }
+                    }
+                }
+                item { Button(onClick = { callbacks.onTogglePause() }) {
+                    Text(if (state.sessionPaused) "Reanudar" else "Pausar") } }
+                item { Text(if (session.globalScore)
+                    "Resultado por bloque en el teléfono"
+                    else "${session.recordedSets} series registradas",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall) }
+            } else {
+                item { Text(session.exerciseName,
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center) }
+                item { Text("Ejercicio ${session.exerciseIndex}/${session.exerciseCount}",
+                    style = MaterialTheme.typography.labelSmall) }
+                if (session.prescribedReps != null) {
+                    item { Text("${session.prescribedReps} reps" +
+                        (session.prescribedWeightKg?.let { " · $it kg" } ?: ""),
+                        style = MaterialTheme.typography.titleLarge) }
+                }
+                item { Text("${session.recordedSets} series registradas",
+                    style = MaterialTheme.typography.labelSmall) }
+                item { Button(onClick = { callbacks.onTogglePause() }) {
+                    Text(if (state.sessionPaused) "Reanudar" else "Pausar") } }
+                item {
+                    TextButton(onClick = { callbacks.onFinishSession(session) },
+                        modifier = Modifier.fillMaxWidth()) {
+                        Text("Terminar sesión",
+                            style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                if (!session.canLogOnWatch) {
+                    item { Text("Este ejercicio solo se registra en el móvil",
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.labelSmall) }
+                } else {
+                    if (state.restRemaining > 0) {
+                        item { Text("Descanso: ${state.restRemaining}s",
+                            style = MaterialTheme.typography.titleLarge) }
+                        item { TextButton(onClick = { callbacks.onSkipRest() },
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text("Saltar descanso",
+                                style = MaterialTheme.typography.labelSmall) } }
+                    }
+                    item { Text("Registrar serie",
+                        style = MaterialTheme.typography.titleMedium) }
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { callbacks.onRepsMinus() }) {
+                                Text("−") }
+                            Text("${state.repsInput} reps",
+                                style = MaterialTheme.typography.titleMedium)
+                            IconButton(onClick = { callbacks.onRepsPlus() }) {
+                                Text("+") }
+                        }
+                    }
+                    if (session.allowsWeight) {
+                        item {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = { callbacks.onWeightDelta(-0.5) }) {
+                                    Text("−") }
+                                Text("${state.weightInput ?: 0.0} kg",
+                                    style = MaterialTheme.typography.titleMedium)
+                                IconButton(onClick = { callbacks.onWeightDelta(0.5) }) {
+                                    Text("+") }
                             }
                         }
+                    }
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { callbacks.onRirMinus() }) { Text("−") }
+                            Text(state.rirInput?.let { "RIR ${it.toInt()}" } ?: "RIR —",
+                                style = MaterialTheme.typography.titleMedium)
+                            IconButton(onClick = { callbacks.onRirPlus() }) { Text("+") }
+                        }
+                    }
+                    item {
+                        TextButton(onClick = { callbacks.onRirClear() },
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text("Sin RIR", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                    if (session.inputMode == "repsAndTime") {
+                        item {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = { callbacks.onDurationDelta(-5) }) {
+                                    Text("−") }
+                                Text("${state.durationInput} s",
+                                    style = MaterialTheme.typography.titleMedium)
+                                IconButton(onClick = { callbacks.onDurationDelta(5) }) {
+                                    Text("+") }
+                            }
+                        }
+                    }
+                    if (session.inputMode == "machineWork") {
+                        val label = when (state.unitInput) {
+                            "calories" -> "kcal"
+                            "meters" -> "m"
+                            else -> "reps"
+                        }
+                        item { Button(onClick = { callbacks.onCycleUnit() }) {
+                            Text("Unidad: $label") } }
+                    }
+                    if (session.inputMode == "hspuDeficit") {
+                        item {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = { callbacks.onDeficitDelta(-1) }) {
+                                    Text("−") }
+                                Text("${state.deficitInput} cm",
+                                    style = MaterialTheme.typography.titleMedium)
+                                IconButton(onClick = { callbacks.onDeficitDelta(1) }) {
+                                    Text("+") }
+                            }
+                        }
+                    }
+                    item {
+                        Button(onClick = { callbacks.onQueueSet(session) },
+                            enabled = state.repsInput > 0,
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text("Confirmar serie")
+                        }
+                    }
+                }
+            }
+        }
+        if (state.pendingCount > 0) {
+            item { Text(if (state.pendingCount == 1)
+                "1 serie pendiente de confirmar"
+            else
+                "${state.pendingCount} series pendientes de confirmar",
+                style = MaterialTheme.typography.labelSmall) }
+            item { Button(onClick = { callbacks.onResendPending() },
+                modifier = Modifier.fillMaxWidth()) {
+                Text("Reintentar sincronización") } }
+            if (state.confirmDiscardPending) {
+                item { Text("Descartar las series no sincronizadas?",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall) }
+                item { Button(onClick = { callbacks.onDiscardPending() }) {
+                    Text("Sí, descartar") } }
+                item { Button(onClick = { callbacks.onDiscardConfirm(false) }) {
+                    Text("Cancelar") } }
+            } else {
+                item { Button(onClick = { callbacks.onDiscardConfirm(true) }) {
+                    Text("Descartar pendientes") } }
+            }
+        }
+        state.sendStatus?.let {
+            item { Text(it, style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.Center) }
+        }
+    }
 }
