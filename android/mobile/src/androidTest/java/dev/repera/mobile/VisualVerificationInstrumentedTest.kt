@@ -4,10 +4,19 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
@@ -58,6 +67,18 @@ class VisualVerificationInstrumentedTest {
         android.util.Log.i("VisualVerification", "guardada en MediaStore: $uri")
     }
 
+    // Tema real de la app (ReperaMobileScreen): solo se sobreescribe primary.
+    // Capturar con MaterialTheme a pelo dibuja la paleta Material por defecto
+    // (lavanda) y NO representa la app.
+    private fun brandContent(content: @Composable () -> Unit) {
+        compose.setContent {
+            MaterialTheme(colorScheme = lightColorScheme(
+                primary = brandGreen, onPrimary = Color.Black)) {
+                Surface(modifier = Modifier.fillMaxSize()) { content() }
+            }
+        }
+    }
+
     private fun fixtureCharts(): ProgressPreparedCharts {
         val today = LocalDate.now()
         val hr = (13L downTo 0).map {
@@ -80,10 +101,8 @@ class VisualVerificationInstrumentedTest {
     @Test
     fun capturaGraficasActividadYPulso() {
         val charts = fixtureCharts()
-        compose.setContent {
-            MaterialTheme {
-                ProgressChartsCard(charts)
-            }
+        brandContent {
+            ProgressChartsCard(charts)
         }
         compose.waitForIdle()
         save("progreso_actividad_pulso", compose.onRoot().captureToImage())
@@ -98,12 +117,10 @@ class VisualVerificationInstrumentedTest {
         val volume = (69L downTo 0).map {
             today.minusDays(it) to ((it * 3) % 5).toInt()
         }
-        compose.setContent {
-            MaterialTheme {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    HeatmapCard("Constancia (minutos por día)", time)
-                    HeatmapCard("Volumen (kg por día)", volume)
-                }
+        brandContent {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                HeatmapCard("Constancia (minutos por día)", time)
+                HeatmapCard("Volumen (kg por día)", volume)
             }
         }
         compose.waitForIdle()
@@ -119,11 +136,29 @@ class VisualVerificationInstrumentedTest {
         val cardio = (13L downTo 0).map {
             ProgressDayPoint(today.minusDays(it), 12.0 + (it % 5) * 9)
         }
-        compose.setContent {
-            MaterialTheme {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    DayPointLineChart(weight)
-                    DayPointLineChart(cardio)
+        // Misma estructura de tarjeta con título/unidades que ProgressTab:
+        // la gráfica aislada no lleva título ni ejes y no es capturable como UX.
+        brandContent {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Card(modifier = Modifier.fillMaxWidth().padding(18.dp)) {
+                    Column(modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Cardio", style = MaterialTheme.typography.titleMedium)
+                        Text("${cardio.sumOf { it.value }.toInt()} min en el rango",
+                            style = MaterialTheme.typography.bodyMedium)
+                        DayPointLineChart(cardio)
+                    }
+                }
+                Card(modifier = Modifier.fillMaxWidth().padding(18.dp)) {
+                    Column(modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Peso corporal",
+                            style = MaterialTheme.typography.titleMedium)
+                        val last = weight.last()
+                        Text("Último: ${"%.1f".format(last.value)} kg (${last.day})",
+                            style = MaterialTheme.typography.bodyMedium)
+                        DayPointLineChart(weight)
+                    }
                 }
             }
         }
