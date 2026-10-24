@@ -94,7 +94,7 @@ jobs:
             '          launch=Path("Apps/Repera/Resources/ReperaLaunchOpaque.storyboard").read_text()',
             '          opaque = np.asarray(Image.open(root/"ReperaLaunchHeroOpaque.imageset/repera-launch-hero-opaque.png").convert("RGB"))\n'
             '          assert tuple(opaque[0,0]) == (48,209,88), "Opaque launch background differs from Repera brand green"\n'
-            '          for px,py in ((445,379),(607,411),(518,435)):\n'
+            '          for px,py in ((445,379),(607,411),(518,445)):\n'
             '              assert int(max(opaque[py,px])) < 115, f"Facial feature is green or erased: {(px,py)}"\n'
             '          launch=Path("Apps/Repera/Resources/ReperaLaunchOpaque.storyboard").read_text()'
           )
@@ -115,7 +115,7 @@ jobs:
           img=Image.open(asset/"repera-launch-hero-opaque.png")
           assert img.mode=="RGB", f"Expected no alpha whatsoever: {img.mode}"
           assert img.getpixel((0,0))==(48,209,88)
-          for pt in ((445,379),(607,411),(518,435)):
+          for pt in ((445,379),(607,411),(518,445)):
               assert max(img.getpixel(pt))<115, f"Pupils/smile not solid dark: {pt}"
           storyboard=ElementTree.parse(base/"ReperaLaunchOpaque.storyboard")
           assert len(storyboard.findall('.//imageView[@image="ReperaLaunchHeroOpaque"]'))==1
