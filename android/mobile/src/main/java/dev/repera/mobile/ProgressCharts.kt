@@ -13,7 +13,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import dev.repera.domain.ProgressPreparedCharts
 
 /** Gráficas de Progreso (pulso y calorías) a partir de las series
@@ -144,28 +156,110 @@ internal fun HeatmapCard(title: String, levels: List<Pair<java.time.LocalDate, I
 }
 
 /** Gráfica de línea simple para series de puntos día→valor. */
+/**
+ * Serie temporal por día con ejes legibles (paridad iOS ProgressTrendCards):
+ * - eje X: fecha del primer, punto medio y último día (localizadas es-ES);
+ * - eje Y: valor mínimo y máximo del rango;
+ * - tocar o arrastrar muestra fecha y valor del punto más cercano, como la
+ *   RuleMark + annotation de Swift Charts;
+ * - contentDescription resume rango de fechas y valores para TalkBack.
+ */
 @Composable
 internal fun DayPointLineChart(
     points: List<dev.repera.domain.ProgressDayPoint>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    valueFormat: (Double) -> String = { formatWeight(it) }
 ) {
     if (points.isEmpty()) return
     val line = MaterialTheme.colorScheme.primary
-    Canvas(modifier = modifier.fillMaxWidth().height(100.dp)) {
-        val minV = points.minOf { it.value }
-        val maxV = points.maxOf { it.value }
-        val span = (maxV - minV).coerceAtLeast(1e-9)
-        fun x(i: Int) = if (points.size == 1) size.width / 2f
-            else i * size.width / (points.size - 1)
-        fun y(v: Double) =
-            size.height - ((v - minV) / span * size.height * 0.85f).toFloat() - size.height * 0.075f
-        val path = Path()
-        points.forEachIndexed { i, p ->
-            if (i == 0) path.moveTo(x(i), y(p.value))
-            else path.lineTo(x(i), y(p.value))
+    var selected by remember(points) { mutableStateOf<Int?>(null) }
+    val minV = points.minOf { it.value }
+    val maxV = points.maxOf { it.value }
+    val span = (maxV - minV).coerceAtLeast(1e-9)
+    val firstDay = points.first().day
+    val midDay = points[points.size / 2].day
+    val lastDay = points.last().day
+    val shortFormatter = java.time.format.DateTimeFormatter
+        .ofPattern("d MMM", java.util.Locale("es", "ES"))
+    val description = "Gráfica de ${firstDay.format(reperaDayFormatter)} a " +
+        "${lastDay.format(reperaDayFormatter)}; " +
+        "valores entre ${valueFormat(minV)} y ${valueFormat(maxV)}; " +
+        "último punto ${valueFormat(points.last().value)}"
+    Column(modifier = modifier.fillMaxWidth()
+        .semantics(mergeDescendants = true) {
+            contentDescription = description
+        }) {
+        selected?.let { i ->
+            Text("${points[i].day.format(reperaDayFormatter)}: " +
+                valueFormat(points[i].value),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary)
         }
-        drawPath(path, color = line, style = Stroke(width = 4f))
-        drawCircle(color = line, radius = 6f,
-            center = Offset(x(points.size - 1), y(points.last().value)))
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Text(valueFormat(maxV),
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier
+                    .align(androidx.compose.ui.Alignment.Top)
+                    .padding(end = 4.dp))
+            Canvas(modifier = Modifier
+                .weight(1f)
+                .height(100.dp)
+                .pointerInput(points) {
+                    detectTapGestures { offset ->
+                        val idx = if (points.size == 1) 0
+                        else ((offset.x / size.width) * (points.size - 1))
+                            .roundToInt().coerceIn(0, points.size - 1)
+                        selected = if (selected == idx) null else idx
+                    }
+                }
+                .pointerInput(points) {
+                    detectHorizontalDragGestures { change, _ ->
+                        change.consume()
+                        val idx = if (points.size == 1) 0
+                        else ((change.position.x / size.width) * (points.size - 1))
+                            .roundToInt().coerceIn(0, points.size - 1)
+                        selected = idx
+                    }
+                }) {
+                fun x(i: Int) = if (points.size == 1) size.width / 2f
+                    else i * size.width / (points.size - 1)
+                fun y(v: Double) =
+                    size.height - ((v - minV) / span * size.height * 0.85f)
+                        .toFloat() - size.height * 0.075f
+                val path = Path()
+                points.forEachIndexed { i, p ->
+                    if (i == 0) path.moveTo(x(i), y(p.value))
+                    else path.lineTo(x(i), y(p.value))
+                }
+                drawPath(path, color = line, style = Stroke(width = 4f))
+                drawCircle(color = line, radius = 6f,
+                    center = Offset(x(points.size - 1), y(points.last().value)))
+                selected?.let { i ->
+                    drawLine(
+                        color = line.copy(alpha = 0.5f),
+                        start = Offset(x(i), 0f),
+                        end = Offset(x(i), size.height),
+                        strokeWidth = 2f
+                    )
+                    drawCircle(color = line, radius = 8f,
+                        center = Offset(x(i), y(points[i].value)))
+                }
+            }
+        }
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Text(valueFormat(minV),
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(end = 4.dp, top = 2.dp))
+            Row(modifier = Modifier.weight(1f)) {
+                Text(firstDay.format(shortFormatter),
+                    style = MaterialTheme.typography.labelSmall)
+                Spacer(modifier = Modifier.weight(1f))
+                Text(midDay.format(shortFormatter),
+                    style = MaterialTheme.typography.labelSmall)
+                Spacer(modifier = Modifier.weight(1f))
+                Text(lastDay.format(shortFormatter),
+                    style = MaterialTheme.typography.labelSmall)
+            }
+        }
     }
 }

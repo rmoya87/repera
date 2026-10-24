@@ -155,7 +155,8 @@ class VisualVerificationInstrumentedTest {
                         Text("Peso corporal",
                             style = MaterialTheme.typography.titleMedium)
                         val last = weight.last()
-                        Text("Último: ${"%.1f".format(last.value)} kg (${last.day})",
+                        Text("Último: ${formatWeight(last.value)} kg " +
+                                "(${last.day.format(reperaDayFormatter)})",
                             style = MaterialTheme.typography.bodyMedium)
                         DayPointLineChart(weight)
                     }

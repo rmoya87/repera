@@ -245,7 +245,7 @@ internal fun ProgressTab(
                             snapshot.records.take(5).forEach { record ->
                                 val date = java.time.Instant.ofEpochMilli(record.epochMillis)
                                     .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                                    .format(DateTimeFormatter.ISO_LOCAL_DATE)
+                                    .format(reperaDayFormatter)
                                 Text("${record.exerciseName}: " +
                                     "${formatWeight(record.weightKg)} kg × ${record.reps} " +
                                     "(1RM est. ${formatWeight(record.estimatedOneRM)} kg) · $date",
@@ -367,5 +367,5 @@ private fun formatVolume(volumeKg: Double): String = when {
     else -> "${volumeKg.toInt()} kg"
 }
 
-private fun formatWeight(value: Double): String =
+internal fun formatWeight(value: Double): String =
     if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
