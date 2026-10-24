@@ -396,6 +396,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     val bytes = contentResolver.openInputStream(uri)?.use { input ->
                         input.readBytes()
                     } ?: error("No se pudo abrir el archivo")
+                    // El JSON exportado por Apple cumple este contrato
+                    // (workouts/routines/exercises + syncRevision); validar
+                    // antes de reemplazar el estado vacío.
+                    LocalSnapshotStore.validate(bytes)
                     store.write(bytes)
                 }
                 reloadFor(signedIn.uniqueId)
