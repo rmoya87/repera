@@ -371,6 +371,7 @@ struct ReperaApp: App {
         // Apple Salud puede sincronizar el HKWorkout después de WatchConnectivity.
         await store.reconcileWatchHealthMetrics()
         await store.syncBodyWeightWithHealth()
+        AutomaticHealthWorkoutReconciler.schedule(store: store)
         LaunchWarmup.markLaunchHealthWarmFinished()
 
         let needsProgressive = health.healthNeedsRefresh || !health.hasProgressiveCache
@@ -396,6 +397,7 @@ struct ReperaApp: App {
         health.startObservingHealthChanges()
         await health.refreshToday()
         await store.syncBodyWeightWithHealth()
+        AutomaticHealthWorkoutReconciler.schedule(store: store)
         guard forceProgressiveIfNeeded else { return }
         if health.healthNeedsRefresh || !health.hasProgressiveCache {
             await health.refreshRecentExternalActivities(
@@ -433,6 +435,28 @@ private struct LaunchSplashView: UIViewRepresentable {
     func updateUIView(_ uiView: UIView, context: Context) {}
 }
 
+
+/// Restores the HealthKit retry path previously available only through the
+/// manual sync button. Runs silently, only with existing write permission.
+@MainActor
+private enum AutomaticHealthWorkoutReconciler {
+    private static var isRunning = false
+    private static var lastAttempt: Date?
+
+    static func schedule(store: ReperaStore) {
+        guard HealthKitStore.shared.canWriteWorkouts, !isRunning else { return }
+        if let lastAttempt, Date().timeIntervalSince(lastAttempt) < 3600 { return }
+        guard store.state.workouts.contains(where: {
+            $0.startedAt != nil && $0.finishedAt != nil && $0.healthKitWorkoutUUID == nil
+        }) else { return }
+        isRunning = true
+        lastAttempt = Date()
+        Task(priority: .utility) {
+            _ = await store.syncMissingWorkoutsToHealth()
+            isRunning = false
+        }
+    }
+}
 
 private enum CatalogBackgroundRefreshScheduler {
     static let identifier = "com.app.repera.catalog.refresh"
