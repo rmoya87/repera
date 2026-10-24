@@ -16,7 +16,11 @@ Verificación HTTP real: catálogo y metadata 200; MCP sin credenciales 401 con 
 
 Web publicada en IONOS: `https://repera.app/ai/` y `console/src/core/config.js`. HTML, JS, CSS y configuración devuelven 200 y coinciden con el repositorio; CSP aplicada y página comprobada en navegador.
 
-Pendiente: guardar el hook y activar OAuth Server, registrar los clientes, probar el flujo completo y publicar las fichas. Acceso a Supabase recuperado: no existe un hook anterior y hay clave pública ES256. El formulario selecciona `repera_oauth.access_token_hook`, pero la revisión automática bloqueó guardarlo hasta recibir autorización explícita para cambiar la emisión de tokens. No se modificaron ajustes de Auth. El despliegue del backend no publica una nueva versión de iOS.
+Con autorización explícita del propietario, se ha habilitado `repera_oauth.access_token_hook` y activado OAuth Server. Site URL: `https://repera.app`; Authorization Path: `/ai/`; registro dinámico desactivado. Se conserva `repera://auth/callback` y se añade `https://repera.app/ai/**` a los retornos permitidos. El Site URL anterior era `http://localhost:3000`.
+
+Discovery OAuth devuelve 200, issuer esperado, PKCE S256 y endpoints de autorización/token; JWKS publica ES256. Comprobación SQL del hook en producción con entradas sintéticas: sesión nativa sin cambios, token delegado con role `repera_mcp` y audiencia MCP; `authenticator` no es miembro de `repera_mcp`. Esto no sustituye la prueba de login y refresh real.
+
+Pendiente: registrar los clientes, probar el flujo completo y publicar las fichas. OpenAI Platform permite entrar, pero bloquea crear/subir plugins hasta verificar la identidad del desarrollador; iniciar esa verificación requiere autorización adicional por poder solicitar documentos oficiales. Claude solicita un CAPTCHA durante el acceso a su portal. No se han creado clientes ni enviado fichas a revisión. El despliegue del backend no publica una nueva versión de iOS.
 
 El asesor de seguridad señala RLS sin políticas en `ai_oauth_providers`: es intencional, accesible únicamente desde el backend con service role. También informa incidencias ajenas a este cambio en la vista `training_exercise_catalog`, la RPC `search_discoverable_organizations` y la protección de contraseñas filtradas; no se alteran en este despliegue.
 
