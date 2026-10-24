@@ -76,9 +76,13 @@ private struct AIConnectionProvider: Decodable, Identifiable {
         self.setup = setup
     }
 
-    var claudeClientID: UUID? {
-        guard id == "claude", setup?.kind == "claude_prompt" else { return nil }
+    var oauthClientID: UUID? {
+        guard setup?.kind == "claude_prompt" || setup?.kind == "oauth" else { return nil }
         return setup?.clientID
+    }
+    var claudeClientID: UUID? {
+        guard id == "claude" else { return nil }
+        return oauthClientID
     }
 
     var isAvailable: Bool { claudeClientID != nil || connectionURL != nil }
@@ -156,6 +160,8 @@ struct AIAccessView: View {
     @State private var showManualAccess = false
     @State private var selectedInstructions: AIConnectionProvider?
     @State private var launchMessage: String?
+    @State private var disconnectingProvider: AIConnectionProvider?
+    @State private var showInstructions = false
 
     @Environment(BusinessAuthStore.self) private var auth
     @Environment(ReperaStore.self) private var store
@@ -267,6 +273,38 @@ struct AIAccessView: View {
             await changeRequests.refresh(store:store)
         }
         .ogPinnedTransparentNav("Conecta tu IA")
+        .sheet(isPresented: $showInstructions) {
+            NavigationStack {
+                Form {
+                    ForEach(providers) { provider in
+                        Section(provider.name) {
+                            Text(AIProviderLaunch.instructions(for: provider))
+                                .font(.footnote).textSelection(.enabled)
+                            Button("Copiar instrucciones de \(provider.name)") {
+                                UIPasteboard.general.string = AIProviderLaunch.instructions(for: provider)
+                            }
+                        }
+                    }
+                }
+                .navigationTitle("Instrucciones")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Cerrar") { showInstructions = false } } }
+            }
+        }
+        .confirmationDialog("Desconectar asistente", isPresented: Binding(
+            get: { disconnectingProvider != nil },
+            set: { if !$0 { disconnectingProvider = nil } }
+        )) {
+            if let provider = disconnectingProvider, let token = connectedToken(for: provider) {
+                Button("Desconectar \(provider.name)", role: .destructive) {
+                    disconnectingProvider = nil
+                    Task { await revoke(token) }
+                }
+            }
+            Button("Cancelar", role: .cancel) { disconnectingProvider = nil }
+        } message: {
+            Text("Se revocará el acceso del asistente a tu cuenta de Repera.")
+        }
         .sheet(item: $selectedInstructions) { provider in
             NavigationStack {
                 Form {
@@ -279,8 +317,9 @@ struct AIAccessView: View {
                         }
                     } header: { Text("Instrucciones para \(provider.name)") }
                     Section {
-                        Label(connectionVerified(for: provider) ? "Conexión comprobada" : "Pendiente de comprobar",
-                              systemImage: connectionVerified(for: provider) ? "checkmark.circle" : "clock")
+                        if connectionVerified(for: provider) {
+                            Label("Conexión comprobada", systemImage: "checkmark.circle")
+                        }
                     }
                 }
                 .navigationTitle(provider.name)
@@ -372,7 +411,11 @@ struct AIAccessView: View {
                 .foregroundStyle(OG.label2)
             ForEach(providers) { provider in
                 Button {
-                    launch(provider)
+                    if connectionVerified(for: provider) {
+                        disconnectingProvider = provider
+                    } else {
+                        launch(provider)
+                    }
                 } label: {
                     HStack(spacing: 12) {
                         if provider.id == "chatgpt" {
@@ -386,7 +429,7 @@ struct AIAccessView: View {
                                 .frame(width: 24)
                         }
                         Spacer(minLength: 0)
-                        Text("Continuar con \(provider.name)").fontWeight(.semibold)
+                        Text(connectionVerified(for: provider) ? "\(provider.name) conectado" : "Continuar con \(provider.name)").fontWeight(.semibold)
                         Spacer(minLength: 0)
                         Color.clear.frame(width: 24, height: 1)
                     }
@@ -406,25 +449,18 @@ struct AIAccessView: View {
             if let launchMessage {
                 Text(launchMessage).font(.footnote).foregroundStyle(.secondary)
             }
-            DisclosureGroup("Ver instrucciones") {
-                ForEach(providers) { provider in
-                    Button("Ver instrucciones de \(provider.name)") {
-                        selectedInstructions = provider
-                    }
-                }
-            }
-            ForEach(providers) { provider in
-                Label("\(provider.name): \(connectionVerified(for: provider) ? "conexión comprobada" : "pendiente de comprobar")",
-                      systemImage: connectionVerified(for: provider) ? "checkmark.circle" : "clock")
-                    .font(.footnote)
-                    .foregroundStyle(connectionVerified(for: provider) ? Color.green : Color.secondary)
-            }
+            Button("Ver instrucciones") { showInstructions = true }
+                .buttonStyle(.borderless)
         } header: { Text("Elige tu asistente") }
     }
 
     private func connectionVerified(for provider: AIConnectionProvider) -> Bool {
-        guard let clientID = provider.claudeClientID else { return false }
-        return tokens.contains { $0.oauthClientID == clientID && $0.hasConnected }
+        connectedToken(for: provider) != nil
+    }
+
+    private func connectedToken(for provider: AIConnectionProvider) -> AIAccessTokenInfo? {
+        guard let clientID = provider.oauthClientID else { return nil }
+        return tokens.first { $0.oauthClientID == clientID && $0.hasConnected }
     }
 
     private func launch(_ provider: AIConnectionProvider) {
