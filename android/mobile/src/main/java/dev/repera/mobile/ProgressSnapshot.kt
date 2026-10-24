@@ -2,6 +2,7 @@ package dev.repera.mobile
 
 import dev.repera.domain.DayActivityContribution
 import dev.repera.domain.ExternalDaySample
+import dev.repera.domain.MuscleLoadEngine
 import dev.repera.domain.MuscleMapEngine
 import dev.repera.domain.MuscleStatus
 import dev.repera.domain.MuscleStimulusExercise
@@ -37,6 +38,14 @@ data class ProgressSnapshotData(
     val records: List<PersonalRecord>,
     val muscleStatuses: List<MuscleStatus>,
     val hasHardSets: Boolean,
+    /** Series efectivas por músculo del periodo, todas (port preparedLoadAll iOS). */
+    val muscleLoadAll: Map<String, Double>,
+    /** Series efectivas duras (RIR) por músculo del periodo (preparedLoadHard iOS). */
+    val muscleLoadHard: Map<String, Double>,
+    /** Fatiga retenida por músculo, todas las series (preparedFatigueAll iOS). */
+    val muscleFatigueAll: Map<String, Double>,
+    /** Fatiga retenida solo series duras (preparedFatigueHard iOS). */
+    val muscleFatigueHard: Map<String, Double>,
     /** Día → nivel 0…4 por minutos (cuartiles del periodo). */
     val heatmapTime: List<Pair<LocalDate, Int>>,
     /** Día → nivel 0…4 por volumen en kg (cuartiles del periodo). */
@@ -232,12 +241,20 @@ object ProgressSnapshotBuilder {
 
         val records = StatsEngine.personalRecords(filtered)
 
+        val externalInRange = externalStimuli.filter { stimulus ->
+            range.contains(
+                Instant.ofEpochMilli(stimulus.epochMillis).atZone(zone).toLocalDate(),
+                now, monday)
+        }
         val statuses = MuscleMapEngine.statuses(
-            filteredStimuli, externalStimuli.filter { stimulus ->
-                range.contains(
-                    Instant.ofEpochMilli(stimulus.epochMillis).atZone(zone).toLocalDate(),
-                    now, monday)
-            }, hardOnly = false, nowMillis = nowMillis)
+            filteredStimuli, externalInRange, hardOnly = false, nowMillis = nowMillis)
+        // Mapas preparados para la tarjeta Equilibrio muscular (port iOS ProgressSnapshot).
+        val loadAll = MuscleLoadEngine.load(filteredStimuli, externalInRange, hardOnly = false)
+        val loadHard = MuscleLoadEngine.load(filteredStimuli, externalInRange, hardOnly = true)
+        val fatigueAll = MuscleMapEngine.retainedLoad(filteredStimuli, externalInRange,
+            hardOnly = false, nowMillis = nowMillis)
+        val fatigueHard = MuscleMapEngine.retainedLoad(filteredStimuli, externalInRange,
+            hardOnly = true, nowMillis = nowMillis)
         val hasHardSets = filteredStimuli.any { stimulus ->
             stimulus.exercises.any { entry ->
                 entry.sportTag != "Movilidad" && entry.sets.any {
@@ -336,6 +353,10 @@ object ProgressSnapshotBuilder {
             records = records,
             muscleStatuses = statuses,
             hasHardSets = hasHardSets,
+            muscleLoadAll = loadAll,
+            muscleLoadHard = loadHard,
+            muscleFatigueAll = fatigueAll,
+            muscleFatigueHard = fatigueHard,
             heatmapTime = heatmap,
             heatmapVolume = heatmapVolume,
             cardioSeries = cardioSeries,

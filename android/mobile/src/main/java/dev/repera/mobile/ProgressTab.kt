@@ -257,27 +257,12 @@ internal fun ProgressTab(
             }
             if (snapshot.muscleStatuses.isNotEmpty()) {
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("Fatiga por músculo",
-                                style = MaterialTheme.typography.titleMedium)
-                            snapshot.muscleStatuses.take(8).forEach { status ->
-                                Text("${MuscleTaxonomy.displayName(status.name)} · " +
-                                    status.state.label,
-                                    style = MaterialTheme.typography.bodyMedium)
-                                LinearProgressIndicator(
-                                    progress = {
-                                        (status.score / 1.5).coerceIn(0.0, 1.0).toFloat() },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    color = brandGreen
-                                )
-                            }
-                            Text("El estímulo decae con la vida media de cada músculo; " +
-                                "orienta la recuperación, no la reemplaza.",
-                                style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
+                    MuscleBalanceCard(
+                        loadAll = snapshot.muscleLoadAll,
+                        loadHard = snapshot.muscleLoadHard,
+                        fatigueAll = snapshot.muscleFatigueAll,
+                        fatigueHard = snapshot.muscleFatigueHard,
+                        hasHardSets = snapshot.hasHardSets)
                 }
             }
             if (snapshot.weightPoints.isNotEmpty()) {

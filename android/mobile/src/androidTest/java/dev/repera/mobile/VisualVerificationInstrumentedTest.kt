@@ -233,6 +233,32 @@ class VisualVerificationInstrumentedTest {
         save("progreso_peso_cardio", compose.onRoot().captureToImage())
     }
 
+    @Test
+    fun capturaEquilibrioMuscular() {
+        // Carga/fatiga sintéticas sobre los slugs del BodyMap (frente y espalda).
+        val load = mapOf(
+            "chest" to 12.0, "upper-back" to 9.0, "deltoids" to 6.0,
+            "quadriceps" to 10.0, "hamstring" to 4.0, "gluteal" to 7.0,
+            "biceps" to 5.0, "triceps" to 5.0, "abs" to 3.0, "calves" to 2.0
+        )
+        val fatigue = mapOf(
+            "chest" to 1.2, "upper-back" to 0.7, "deltoids" to 0.45,
+            "quadriceps" to 0.9, "gluteal" to 0.3, "biceps" to 0.2,
+            "triceps" to 0.2, "abs" to 0.1
+        )
+        brandContent {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                MuscleBalanceCard(
+                    loadAll = load, loadHard = load,
+                    fatigueAll = fatigue, fatigueHard = fatigue,
+                    hasHardSets = true)
+            }
+        }
+        compose.waitForIdle()
+        compose.waitUntil(5_000) { true }
+        save("progreso_equilibrio_muscular", compose.onRoot().captureToImage())
+    }
+
     private fun estadoSinteticoOverview(): StateOverview {
         val today = LocalDate.now()
         fun exercise(id: String, name: String, muscle: String, equipment: String?) =
