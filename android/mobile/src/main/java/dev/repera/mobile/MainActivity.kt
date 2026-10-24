@@ -40,6 +40,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.security.SecureRandom
 
@@ -1472,10 +1473,17 @@ data class StateOverview(
                             block.optString("kind") == "strength" ||
                                 WodSessionAssembler.supports(block)
                         }
+                    // Acepta fecha pura "yyyy-MM-dd" (formato actual) e instant
+                    // ISO (snapshots escritos antes del fix de fecha).
                     val day = item.optString("scheduledDate").takeIf { it.isNotBlank() }
-                        ?.let { value -> runCatching {
-                            Instant.parse(value).atZone(ZoneId.systemDefault()).toLocalDate().toString()
-                        }.getOrNull() }
+                        ?.let { value ->
+                            runCatching {
+                                Instant.parse(value).atZone(ZoneId.systemDefault())
+                                    .toLocalDate().toString()
+                            }.getOrNull()
+                                ?: runCatching { LocalDate.parse(value.take(10)).toString() }
+                                    .getOrNull()
+                        }
                     val blockInfos = blocks?.let { array ->
                         (0 until array.length()).map { bi ->
                             val block = array.getJSONObject(bi)

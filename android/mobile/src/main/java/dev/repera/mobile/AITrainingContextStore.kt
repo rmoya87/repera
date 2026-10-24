@@ -123,10 +123,12 @@ class AITrainingContextStore(
                     .takeIf { it.isNotBlank() }
                 val weekday = routine.optIntOrNull("weekday")
                 if (scheduledRaw == null && weekday == null) continue
+                // Fecha pura "yyyy-MM-dd" (actual) o instant ISO (snapshots antiguos).
                 val scheduledDay = scheduledRaw?.let {
                     runCatching {
                         Instant.parse(it).atZone(zone).toLocalDate()
                     }.getOrNull()
+                        ?: runCatching { LocalDate.parse(it.take(10)) }.getOrNull()
                 }
                 if (scheduledRaw != null && (scheduledDay == null ||
                         scheduledDay.isBefore(today) ||
