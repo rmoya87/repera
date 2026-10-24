@@ -66,6 +66,60 @@ class WorkoutRepositoryInstrumentedTest {
             .getJSONArray("exercises").getJSONObject(0).getJSONArray("loggedSets").length())
     }
 
+    @Test fun csvStrongHevyImportCreatesWorkoutsAndCustomExercises() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val user = UUID.randomUUID().toString()
+        val bench = JSONObject().put("id", "ex-bench").put("name", "Press banca")
+            .put("muscleGroup", "Pecho").put("isCustom", false)
+            .put("secondaryMuscles", JSONArray()).put("instructions", JSONArray())
+            .put("primaryRegions", JSONArray()).put("secondaryRegions", JSONArray())
+            .put("isFavorite", false)
+        val state = JSONObject().put("settings", JSONObject())
+            .put("exercises", JSONArray().put(bench))
+            .put("routines", JSONArray()).put("workouts", JSONArray())
+            .put("bodyWeights", JSONArray())
+            .put("favoriteTimers", JSONArray()).put("exerciseLoadPrefs", JSONObject())
+            .put("syncRevision", 0).put("lastWriterDeviceId", "")
+            .put("updatedAt", "2026-10-23T00:00:00Z")
+        LocalSnapshotStore(ctx, user).write(state.toString().toByteArray())
+        val repo = WorkoutRepository(ctx, user)
+        val csv = """
+            Date,Workout Name,Exercise Name,Set Order,Weight,Reps,Seconds
+            2026-10-20 18:00:00,Empuje,Bench Press (Barbell),1,80,10,0
+            2026-10-20 18:00:00,Empuje,Bench Press (Barbell),2,80,8,0
+            2026-10-20 18:00:00,Empuje,Shoulder Fly Machine,1,25,12,0
+        """.trimIndent()
+        val summary = repo.importCSV(csv)
+        assertEquals("strong", summary.source)
+        assertEquals(1, summary.workouts)
+        assertEquals(3, summary.matchedSets)
+        assertEquals(1, summary.createdExercises)
+        val saved = JSONObject(String(LocalSnapshotStore(ctx, user).read()!!))
+        val exercises = saved.getJSONArray("exercises")
+        assertEquals(2, exercises.length())
+        val created = (0 until exercises.length())
+            .map { exercises.getJSONObject(it) }
+            .first { it.getString("name") == "Shoulder Fly Machine" }
+        assertEquals("Pecho", created.getString("muscleGroup"))
+        assertTrue(created.getBoolean("isCustom"))
+        val workouts = saved.getJSONArray("workouts")
+        assertEquals(1, workouts.length())
+        val workout = workouts.getJSONObject(0)
+        assertEquals("Empuje", workout.getString("title"))
+        assertEquals("finished", workout.getString("phase"))
+        val entries = workout.getJSONArray("exercises")
+        assertEquals(2, entries.length())
+        val benchEntry = (0 until entries.length())
+            .map { entries.getJSONObject(it) }
+            .first { it.getJSONObject("exercise").getString("id") == "ex-bench" }
+        assertEquals(18, benchEntry.getInt("completedReps"))
+        assertEquals(2, benchEntry.getJSONArray("loggedSets").length())
+        val first = benchEntry.getJSONArray("loggedSets").getJSONObject(0)
+        assertEquals(10, first.getInt("reps"))
+        assertEquals(80.0, first.getDouble("weightKg"), 0.0)
+        assertEquals("work", first.getString("phase"))
+    }
+
     @Test fun recoveredMirrorWorkoutsMergeOnlyUnknownFinishedIdsSorted() {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
         val user = UUID.randomUUID().toString()

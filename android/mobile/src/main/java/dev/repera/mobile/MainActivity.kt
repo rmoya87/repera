@@ -351,6 +351,35 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
     }
 
+    private val importCsv = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri == null) return@registerForActivityResult
+        val signedIn = profile ?: return@registerForActivityResult
+        busy = true
+        lifecycleScope.launch {
+            try {
+                val summary = withContext(Dispatchers.IO) {
+                    val bytes = contentResolver.openInputStream(uri)?.use { input ->
+                        input.readBytes()
+                    } ?: error("No se pudo abrir el archivo")
+                    // iOS acepta UTF-8 con repliegue a ISO-Latin-1.
+                    val text = runCatching {
+                        String(bytes, Charsets.UTF_8)
+                    }.getOrElse { String(bytes, Charsets.ISO_8859_1) }
+                    WorkoutRepository(this@MainActivity, signedIn.uniqueId)
+                        .importCSV(text)
+                }
+                reloadFor(signedIn.uniqueId)
+                status = "CSV importado: " + summary.label
+            } catch (error: Exception) {
+                status = "Importación CSV no realizada: " + error.localizedMessage
+            } finally {
+                busy = false
+            }
+        }
+    }
+
     private val importJson = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
@@ -559,6 +588,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     runWorkoutAction { finish() }
                 },
                 onImportJson = { importJson.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                onImportCsv = { importCsv.launch(arrayOf("text/*", "text/comma-separated-values", "application/octet-stream")) },
                 onExportJson = { exportJson.launch("repera-entrenamientos.json") },
                 onGoogleSignIn = ::signInWithGoogle,
                 onDriveSync = ::authorizeDrive,

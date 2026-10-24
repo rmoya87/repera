@@ -26,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -137,6 +138,7 @@ fun ReperaMobileScreen(
     onNext: () -> Unit,
     onFinish: () -> Unit,
     onImportJson: () -> Unit,
+    onImportCsv: () -> Unit,
     onExportJson: () -> Unit,
     onGoogleSignIn: () -> Unit,
     onDriveSync: () -> Unit,
@@ -365,9 +367,14 @@ fun ReperaMobileScreen(
                     )
                 }
                 composable("ajustes") {
-                    SettingsTab(onOpenAIAccess = {
-                        navController.navigate("acceso-ia")
-                    })
+                    SettingsTab(
+                        busy = busy,
+                        onOpenAIAccess = {
+                            navController.navigate("acceso-ia")
+                        },
+                        onImportJson = onImportJson,
+                        onImportCsv = onImportCsv
+                    )
                 }
                 composable("programas-ia") {
                     LaunchedEffect(Unit) { onAIProgramsRefresh() }
@@ -451,7 +458,12 @@ fun ReperaMobileScreen(
  *  ubicación de iOS en SettingsView). El resto de ajustes de iOS aún no
  *  tiene pantalla Android. */
 @Composable
-private fun SettingsTab(onOpenAIAccess: () -> Unit) {
+private fun SettingsTab(
+    busy: Boolean,
+    onOpenAIAccess: () -> Unit,
+    onImportJson: () -> Unit,
+    onImportCsv: () -> Unit
+) {
     Column(modifier = Modifier.fillMaxSize().padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Ajustes", style = MaterialTheme.typography.titleLarge)
@@ -465,6 +477,15 @@ private fun SettingsTab(onOpenAIAccess: () -> Unit) {
                 modifier = Modifier.weight(1f))
             Icon(imageVector = Icons.Outlined.KeyboardArrowRight,
                 contentDescription = null)
+        }
+        // Misma sección Datos de iOS: traspaso del JSON de Apple y CSV.
+        OutlinedButton(onClick = onImportJson, enabled = !busy,
+            modifier = Modifier.fillMaxWidth()) {
+            Text("Importar JSON (traspaso desde Apple)")
+        }
+        OutlinedButton(onClick = onImportCsv, enabled = !busy,
+            modifier = Modifier.fillMaxWidth()) {
+            Text("Importar CSV Strong/Hevy")
         }
     }
 }

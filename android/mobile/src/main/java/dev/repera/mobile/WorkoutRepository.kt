@@ -1502,6 +1502,93 @@ class WorkoutRepository(context: Context, googleId: String) {
      * dispositivo no conoce (segundo dispositivo). Sólo IDs nuevos con
      * finishedAt; ordena por finishedAt/startedAt descendente.
      */
+    data class CSVImportSummary(
+        val source: String,
+        val workouts: Int,
+        val matchedSets: Int,
+        val createdExercises: Int,
+        val skippedRows: Int
+    ) {
+        val label: String
+            get() = "$source: $workouts entrenos, $matchedSets series" +
+                (if (createdExercises > 0) ", $createdExercises ejercicios nuevos"
+                else "")
+    }
+
+    /**
+     * Importa un histórico CSV de Strong/Hevy (port de ReperaStore.importCSV
+     * + WorkoutCSVImporter.swift): crea ejercicios libres para los nombres no
+     * reconocidos y añade los entrenos como sesiones terminadas.
+     */
+    @Synchronized fun importCSV(text: String): CSVImportSummary {
+        val state = requireState()
+        val catalog = state.getJSONArray("exercises")
+        val existing = (0 until catalog.length()).map {
+            val e = catalog.getJSONObject(it)
+            e.getString("id") to e.optString("name")
+        }
+        val result = dev.repera.domain.WorkoutCSVImporter.parse(text, existing)
+        for (exercise in result.createdExercises) {
+            catalog.put(JSONObject()
+                .put("id", exercise.id)
+                .put("name", exercise.name)
+                .put("muscleGroup", exercise.muscleGroup)
+                .put("isCustom", true)
+                .put("secondaryMuscles", JSONArray())
+                .put("instructions", JSONArray())
+                .put("primaryRegions", JSONArray())
+                .put("secondaryRegions", JSONArray())
+                .put("isFavorite", false))
+        }
+        val byId = (0 until catalog.length()).associate {
+            val e = catalog.getJSONObject(it)
+            e.getString("id") to e
+        }
+        val workouts = state.getJSONArray("workouts")
+        for (workout in result.workouts) {
+            val whenIso = java.time.Instant.ofEpochSecond(
+                workout.epochSeconds).toString()
+            val entries = JSONArray()
+            for (item in workout.exercises) {
+                val movement = byId[item.exercise.id] ?: continue
+                val sets = JSONArray()
+                for (set in item.sets) {
+                    val row = JSONObject()
+                        .put("id", UUID.randomUUID().toString())
+                        .put("reps", set.reps)
+                        .put("completedAt", java.time.Instant.ofEpochSecond(
+                            set.epochSeconds).toString())
+                        .put("phase", "work")
+                        .put("toFailure", false)
+                        .put("quantityUnit", "reps")
+                    set.weightKg?.let { row.put("weightKg", it) }
+                    sets.put(row)
+                }
+                entries.put(JSONObject()
+                    .put("id", UUID.randomUUID().toString())
+                    .put("exercise", JSONObject(movement.toString()))
+                    .put("plannedSets", JSONArray())
+                    .put("loggedSets", sets)
+                    .put("completedReps", item.sets.sumOf { it.reps })
+                    .put("isCompleted", true))
+            }
+            workouts.put(JSONObject()
+                .put("id", UUID.randomUUID().toString())
+                .put("title", workout.title)
+                .put("startedAt", whenIso)
+                .put("finishedAt", whenIso)
+                .put("phase", "finished")
+                .put("exercises", entries))
+        }
+        save(state)
+        return CSVImportSummary(
+            source = result.source.name.lowercase(),
+            workouts = result.workouts.size,
+            matchedSets = result.matchedSets,
+            createdExercises = result.createdExercises.size,
+            skippedRows = result.skippedRows)
+    }
+
     @Synchronized fun mergeRecoveredWorkoutsFromSupabase(
         recovered: List<JSONObject>): Int {
         if (recovered.isEmpty()) return 0
