@@ -100,23 +100,37 @@ def restore_weights(rgb, alpha, sx, sy):
         [(743, 314), (800, 286), (871, 309), (884, 379), (819, 422), (754, 395)],
         [(861, 347), (935, 357), (998, 396), (998, 494), (951, 545), (877, 504)],
     ]
-    dark_visible = ((alpha > 180) &
-                    (rgb.max(axis=2) < 135) &
-                    (rgb.min(axis=2) < 115)).astype(np.uint8)
-    close = cv2.morphologyEx(dark_visible,
-                            cv2.MORPH_CLOSE,
-                            cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31)))
-    nearby_dark = cv2.dilate(close,
-                             cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21)))
+    # Build a smooth matte FROM the actual opaque equipment pixels. The
+    # previous dilation expanded outside the weights, producing jagged black
+    # halos on a vivid green launch screen. A contour hull stays tied to the
+    # real disc silhouette and never paints an arbitrary bounding polygon.
+    dark_visible = ((alpha > 190) &
+                    (rgb.max(axis=2) < 142) &
+                    (rgb.min(axis=2) < 125)).astype(np.uint8)
     for polygon in regions:
-        local = np.zeros((h, w), dtype=np.uint8)
-        poly = np.rint(np.asarray(polygon) * [sx, sy]).astype(np.int32)
-        cv2.fillPoly(local, [poly], 255)
-        # Fill opaque dark elements and the small pierced holes around them.
-        affected = (local > 0) & (nearby_dark > 0) & (alpha < 250)
-        # Ink belongs only to previously transparent/partly-transparent pixels.
-        rgb[affected] = (58, 56, 55)
-        alpha[affected] = 255
+        region = np.zeros((h, w), dtype=np.uint8)
+        cv2.fillPoly(region,
+                     [np.rint(np.asarray(polygon) * [sx,sy]).astype(np.int32)],
+                     255)
+        near = dark_visible * (region > 0).astype(np.uint8)
+        contours, _ = cv2.findContours(near, cv2.RETR_EXTERNAL,
+                                        cv2.CHAIN_APPROX_SIMPLE)
+        for cnt in contours:
+            if cv2.contourArea(cnt) < (180 * sx * sy):
+                continue
+            hull = cv2.convexHull(cnt)
+            repaired_plate = np.zeros((h,w),dtype=np.uint8)
+            cv2.fillConvexPoly(repaired_plate, hull, 255)
+            # 3-pixel inset protects anti-aliased exterior against expansion.
+            inset = cv2.erode(
+                repaired_plate,
+                cv2.getStructuringElement(cv2.MORPH_ELLIPSE,
+                                          (max(3,round(5*sx)//2*2+1),
+                                           max(3,round(5*sy)//2*2+1)))
+            )
+            affected = (inset > 0) & (alpha < 245)
+            rgb[affected] = (55, 53, 52)
+            alpha[affected] = 255
 
 
 def main():
