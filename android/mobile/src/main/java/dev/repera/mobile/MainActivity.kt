@@ -1256,15 +1256,34 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private fun refreshCatalogSilently(accountId: String) {
         val now = System.currentTimeMillis()
         if (catalogRefreshRunning || now - lastCatalogCheckAt < 60_000L) return
-        val session = sessionStore.load()
-        if (session == null || session.uniqueId != accountId || session.expiresWithin(90)) return
+        val saved = sessionStore.load()
+        if (saved == null || saved.uniqueId != accountId) return
         lastCatalogCheckAt = now
         catalogRefreshRunning = true
         lifecycleScope.launch {
             try {
+                // The foreground may refresh an expired encrypted session without
+                // presenting an interactive Google prompt. Headless workers never do.
+                val (token, rotatedSession) = withContext(Dispatchers.IO) {
+                    val current = sessionStore.load()
+                    check(current != null && current.uniqueId == accountId)
+                    if (current.expiresWithin(90)) {
+                        val rotated = SupabaseIdentity().refresh(current.refreshToken)
+                        sessionStore.save(current.copy(
+                            userId = rotated.userId,
+                            accessToken = rotated.accessToken,
+                            refreshToken = rotated.refreshToken,
+                            expiresAtEpochSeconds = rotated.expiresAtEpochSeconds
+                        ))
+                        rotated.accessToken to rotated
+                    } else current.accessToken to null
+                }
+                if (rotatedSession != null && profile?.uniqueId == accountId) {
+                    verifiedSupabase = rotatedSession
+                }
                 val changed = withContext(Dispatchers.IO) {
                     val feed = RemoteExerciseCatalog(this@MainActivity)
-                    val updated = feed.refresh(session.accessToken)
+                    val updated = feed.refresh(token)
                     if (updated) {
                         // Incoming events are already durable in the feed cache.
                         feed.applyToAccount(accountId)
