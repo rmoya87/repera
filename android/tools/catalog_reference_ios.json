@@ -1,6 +1,6 @@
 {
  "provenance": {
-  "source": "rmoya87/repera origin/main e1621b8",
+  "source": "rmoya87/repera main e579bbc",
   "files": [
    "Packages/ReperaDomain/Sources/ReperaDomain/Catalog.swift",
    "CatalogEnrichment.swift",
@@ -13,7 +13,7 @@
    "SportExerciseNames.swift"
   ],
   "generated_by": "android/tools/extract_catalog.py --git-ref origin/main",
-  "frozen_at": "2026-10-24"
+  "frozen_at": "2026-10-25"
  },
  "entries": [
   {
@@ -1714,13 +1714,18 @@
    "name": "Snatch",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Snatch completo: del suelo a overhead en sentadilla.",
+   "detailDescription": "Arrancada completa: del suelo a overhead en un tiempo, recepción en squat.",
    "equipment": "Barra",
    "instructions": [
-    "Agarre ancho, espalda plana.",
-    "Primera y segunda tirada; métete bajo la barra.",
-    "Recibe en OHS y párate.",
-    "Barra sobre el mediopié."
+    "Setup: barra sobre mediopié, AGARRE ANCHO de snatch, espalda plana.",
+    "Tirón: extiende cadera y rodillas; barra sube pegada con agarre ancho.",
+    "Bloquea overhead de pie, brazos extendidos, agarre ancho.",
+    "Setup: barra sobre mediopié, agarre ancho, cadera sobre rodillas, espalda plana.",
+    "Primer tirón: empuja el suelo hasta rodillas con la barra pegada; torso aún inclinado.",
+    "Segundo tirón: extiende cadera/rodillas/tobillos; los brazos terminan el encogimiento.",
+    "Pasa bajo la barra a squat overhead (o power) y bloquea; levántate a pie.",
+    "Error típico: tirar temprano de brazos o alejar la barra del cuerpo.",
+    "Aprende con stick y hang snatch; movilidad overhead y de tobillo suelen limitar."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -1781,12 +1786,15 @@
    "name": "Power Snatch",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Power snatch: recepción overhead sin sentadilla profunda.",
+   "detailDescription": "Arrancada recibida en semi-flexión (power), no squat profundo.",
    "equipment": "Barra",
    "instructions": [
-    "Salida de arrancada.",
-    "Extiende y recibe en media sentadilla overhead.",
-    "Bloquea y párate."
+    "Desde suelo: primer tirón controlado, segundo tirón explosivo, recepción en cuarto/medio squat (cadera sobre rodillas).",
+    "Agarre ancho de arrancada; barra cerca del cuerpo; brazos largos hasta el encogimiento.",
+    "Recibe con brazos bloqueados overhead y párate.",
+    "Error típico: recepción demasiado profunda (ya no es power) o brazos que tiran pronto.",
+    "Estándar power: cadera por encima de la rodilla al atrapar. Progresión a arrancada completa cuando el power sea sólido.",
+    "Inhala antes del tirón; exhala al estabilizar arriba."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -1810,12 +1818,15 @@
    "name": "Hang Snatch",
    "muscleGroup": "Isquios",
    "catalogId": null,
-   "detailDescription": "Hang snatch: parte desde los muslos hasta overhead.",
+   "detailDescription": "Arrancada desde hang (barra en muslos).",
    "equipment": "Barra",
    "instructions": [
-    "Barra en muslos.",
-    "Hinge, extiende y recibe overhead.",
-    "Párate bloqueado."
+    "Levanta la barra a hang (típicamente sobre rodillas): bisagra, espalda tensa, hombros sobre la barra, brazos largos.",
+    "Desde hang, extiende cadera y rodillas con fuerza (triple extensión); barra pegada a los muslos.",
+    "Encoge y tira codos altos; pasa bajo la barra a recepción overhead en sentadilla completa.",
+    "Bloquea brazos, estabiliza y levántate. Baja a hang o suelo según la serie.",
+    "Error típico: flexionar brazos pronto o ‘colar’ sin extensión completa. Salta vertical antes de tirar bajo.",
+    "Estándar: recepción estable overhead con cadera bajo rodillas. Empieza ligero desde hang alto."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -1839,11 +1850,15 @@
    "name": "Hang Squat Snatch",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Hang squat snatch: recepción en sentadilla profunda desde colgado.",
+   "detailDescription": "Hang snatch recibida en squat profundo.",
    "equipment": "Barra",
    "instructions": [
-    "Desde muslos, tira y siéntate bajo la barra.",
-    "OHS completo y párate."
+    "Hang + recepción en overhead squat completa (no power). Misma mecánica de extensión y tirón bajo.",
+    "Mantén pecho alto en el fondo overhead; hombros activos ‘empujando’ la barra al techo.",
+    "Pies a ancho de sentadilla al recibir; mira al frente.",
+    "Levántate con control hasta de pie con barra bloqueada.",
+    "Error típico: cortar profundidad o perder el equilibrio adelante. Usa OHS ligeros como preparación.",
+    "Si no llegas al fondo, trabaja movilidad de tobillo/hombro y drop snatch."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -1899,12 +1914,15 @@
    "name": "Muscle Snatch",
    "muscleGroup": "Hombros",
    "catalogId": null,
-   "detailDescription": "Muscle snatch: sin flexion de rodillas al recibir; tira y press.",
+   "detailDescription": "Muscle snatch: tirón continuo sin sentadilla bajo la barra.",
    "equipment": "Barra",
    "instructions": [
-    "Tirada alta con agarre ancho.",
-    "Sin meterse bajo: gira y press a overhead.",
-    "Codos bloqueados."
+    "Desde suelo o hang, tira la barra a overhead SIN flexionarte bajo ella: casi un press alto con impulso de piernas.",
+    "Extiende cadera, encoge y ‘barre’ la barra arriba con brazos; pies quietos o apenas se mueven.",
+    "Bloquea overhead de pie; no hay squat de recepción.",
+    "Error típico: colarte en semi-sentadilla (ya no es muscular). Usa carga ligera.",
+    "Sirve para enseñar trayectoria cercana y fuerza de tirón. No es el estándar de competición de snatch.",
+    "Si no puedes, haz snatch-grip high pull + press."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -1928,12 +1946,15 @@
    "name": "Block Snatch",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Snatch desde bloques a altura de rodilla o muslo.",
+   "detailDescription": "Arrancada con barra elevada en bloques.",
    "equipment": "Barra",
    "instructions": [
-    "Barra sobre bloques.",
-    "Tensión previa y tira como arrancada.",
-    "Recibe según variante (power o squat)."
+    "Barra sobre bloques a la altura elegida (rodilla/mid-thigh). Pies bajo barra, espalda tensa, hombros sobre la carga.",
+    "Empuja el suelo y completa el segundo/tercer tirón sin el primer tirón completo del suelo.",
+    "Recibe overhead (power o squat según programación) y levántate.",
+    "Baja la barra a los bloques con control; no la sueltes de golpe.",
+    "Error típico: inclinarte demasiado o perder contacto barra–muslo. Mantén dorsal activo.",
+    "Ideal para reforzar la zona débil del tirón. Carga submáxima al aprender."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -1957,12 +1978,15 @@
    "name": "Pause Snatch",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Pause snatch: pausa en la rodilla o en el bolsillo antes de la tirada.",
+   "detailDescription": "Arrancada con pausa en posición (rodilla/muslo) según indicación.",
    "equipment": "Barra",
    "instructions": [
-    "Sube hasta el punto de pausa.",
-    "Mantén 1–2 s con tensión.",
-    "Completa la arrancada."
+    "Desde suelo o hang, haz una pausa deliberada en el punto técnico (rodilla o mid-thigh) 1–2 s.",
+    "Mantén espalda tensa y hombros sobre la barra durante la pausa; no redondees.",
+    "Tras la pausa, completa extensión explosiva y recepción overhead.",
+    "La pausa enseña posiciones; carga moderada (técnica > kilos).",
+    "Error típico: ‘saltar’ la pausa o rebotar. Reloj interno estricto.",
+    "Úsala para corregir segundo tirón flojo o despegue prematuro."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -1986,12 +2010,15 @@
    "name": "Snatch Balance",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Snatch balance: desde nuca, dip y siéntate bajo la barra overhead.",
+   "detailDescription": "OHS desde soportes o drop a squat overhead (snatch balance).",
    "equipment": "Barra",
    "instructions": [
-    "Barra en espalda alta, agarre de arrancada.",
-    "Dip corto y empuja bajo la barra a OHS.",
-    "Párate."
+    "Barra en espalda o desde press a overhead; pies a ancho de squat; baja a OHS manteniendo barra alineada sobre mediopié.",
+    "Empuja la barra ‘al techo’ con hombros activos; torso vertical.",
+    "Sube y baja en el fondo sin perder el equilibrio; pausa opcional abajo.",
+    "Error típico: barra delante de la cabeza o talones que se levantan.",
+    "Trabaja movilidad de hombro/tobillo. Carga ligera, reps técnicas.",
+    "Transfiere a recepción de arrancada: misma postura overhead."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2075,12 +2102,15 @@
    "name": "Split Snatch",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Split snatch: recepción overhead en tijera.",
+   "detailDescription": "Recepción de arrancada en split (tijera).",
    "equipment": "Barra",
    "instructions": [
-    "Tirada de arrancada.",
-    "Recibe en split con brazos bloqueados.",
-    "Recupera pies."
+    "Tirón de arrancada completo; en la recepción abre en zancada (split) en vez de squat simétrico.",
+    "Un pie adelante, otro atrás; barra bloqueada overhead; torso vertical.",
+    "Recupera pies al ancho de hombros y párate con la barra arriba.",
+    "Error típico: split demasiado estrecho o rodilla delantera que se pasa de la punta del pie en exceso.",
+    "Practica el split sin carga (overhead lunges) antes de cargar.",
+    "Útil si la movilidad de squat overhead limita; no sustituye el trabajo de OHS."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2103,12 +2133,15 @@
    "name": "Snatch Pull",
    "muscleGroup": "Espalda",
    "catalogId": null,
-   "detailDescription": "Snatch pull: extensión completa sin girar bajo la barra.",
+   "detailDescription": "Tirón de arrancada sin recepción overhead.",
    "equipment": "Barra",
    "instructions": [
-    "Salida de arrancada.",
-    "Extiende cadera y encoge sin recibir.",
-    "Baja controlado."
+    "Como arrancada pero sin recepción overhead: extiende y encoge con barra ancha; la barra sube alto y baja.",
+    "Espalda tensa; barra cerca; brazos largos hasta el shrug.",
+    "Error típico: convertir en remo. Es un salto vertical con barra.",
+    "Entrena fuerza del pull. Carga > snatch técnico a menudo, pero con forma.",
+    "No hace falta squat bajo. Controla la bajada.",
+    "Estándar: triple extensión clara + barra alta cerca del cuerpo."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2133,12 +2166,15 @@
    "name": "Snatch-Grip Deadlift",
    "muscleGroup": "Isquios",
    "catalogId": null,
-   "detailDescription": "Deadlift con agarre ancho de arrancada.",
+   "detailDescription": "Peso muerto con agarre ancho de arrancada.",
    "equipment": "Barra",
    "instructions": [
-    "Agarre snatch, espalda plana.",
-    "Levanta como peso muerto hasta extensión.",
-    "Baja con control."
+    "Agarre ancho de snatch; peso muerto con espalda tensa hasta de pie; barra cerca de las piernas.",
+    "Hombros sobre la barra más tiempo que en un DL convencional; no redondees.",
+    "Baja con control por la misma trayectoria.",
+    "Error típico: tirar con los brazos o separar la barra de las piernas.",
+    "Entrena posición de arrancada. Carga < snatch max habitualmente.",
+    "Estándar: extensión completa de cadera arriba, espalda neutra."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2162,12 +2198,18 @@
    "name": "Clean",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Clean completo: del suelo a rack en sentadilla frontal.",
+   "detailDescription": "Cargada completa a rack frontal en squat.",
    "equipment": "Barra",
    "instructions": [
-    "Barra sobre mediopié.",
-    "Tirada y métete a front squat.",
-    "Párate con codos altos."
+    "Setup: barra sobre mediopié, agarre de clean.",
+    "Recibe en front squat: barra delante del cuello, codos altos, cadera baja.",
+    "Párate en rack frontal bloqueado.",
+    "Setup: agarre al ancho de hombros, barra sobre mediopié, espalda tensa.",
+    "Tirón con barra cerca; extiende cadera y encoge hacia el rack frontal.",
+    "Recibe en squat (o power) con codos altos; párate a extensión completa.",
+    "Baja o suelta la barra según el contexto.",
+    "Error típico: codos bajos en la recepción o profundidad incompleta.",
+    "Si el rack se cae, no subas kilos: trabaja movilidad de front rack."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2195,12 +2237,15 @@
    "name": "Power Clean",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Power clean: recepción sin paralelo.",
+   "detailDescription": "Cargada recibida en power.",
    "equipment": "Barra",
    "instructions": [
-    "Misma salida.",
-    "Recibe en media sentadilla.",
-    "Párate bloqueado."
+    "Clean desde suelo o hang con recepción en cuarto/medio squat (cadera sobre rodillas), barra en rack frontal.",
+    "Tirón vertical, codos rápidos alrededor de la barra; párate.",
+    "Error típico: press de brazos o recepción con torso desplomado.",
+    "Estándar power: cadera sobre rodilla al atrapar. Puente a clean completo después.",
+    "Inhala antes del tirón; exhala al fijar el rack.",
+    "Si los codos no suben, aligera y haz tall cleans."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2226,12 +2271,18 @@
    "name": "Hang Clean",
    "muscleGroup": "Isquios",
    "catalogId": null,
-   "detailDescription": "Hang clean desde muslos a rack.",
+   "detailDescription": "Cargada colgante: ejecuta el movimiento con rango completo, core firme y control.",
    "equipment": "Barra",
    "instructions": [
-    "Barra en muslos, bisagra ligera.",
-    "Extiende cadera y tira la barra arriba.",
-    "Recibe en rack frontal y párate."
+    "Barra en muslos, bisagra ligera, espalda plana.",
+    "Extiende cadera y tira: barra sube pegada al cuerpo.",
+    "Recibe en rack frontal (barra delante del cuello, codos altos) y párate.",
+    "Barra en hang (muslos): espalda plana, brazos largos, abdomen firme.",
+    "Bisagra ligera y tirón: extiende cadera hacia rack frontal.",
+    "Recibe con codos altos y párate a extensión completa.",
+    "Devuelve la barra al hang con control.",
+    "Error típico: hang demasiado alto o recepción con torso desplomado.",
+    "El hang enseña el segundo tirón: barra pegada al cuerpo."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2256,11 +2307,15 @@
    "name": "Hang Squat Clean",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Hang squat clean: recepción en front squat profundo.",
+   "detailDescription": "Hang clean a squat profundo.",
    "equipment": "Barra",
    "instructions": [
-    "Desde colgado, tira y siéntate a front squat.",
-    "Párate."
+    "Desde hang, clean completo a squat frontal (cadera bajo rodillas) con barra en rack, codos altos.",
+    "Extensión completa antes de tirar bajo; recibe y levántate a front squat.",
+    "Error típico: power clean disfrazado (no bajas) o codos bajos en el rack.",
+    "Pausa en hang para fijar postura. Carga técnica primero.",
+    "Estándar: recepción en squat completo + de pie con barra en rack.",
+    "Si el rack duele, trabaja movilidad de muñeca/hombro y front squat."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2316,12 +2371,15 @@
    "name": "Muscle Clean",
    "muscleGroup": "Espalda",
    "catalogId": null,
-   "detailDescription": "Muscle clean: sin flexión al recibir; tira y gira a rack.",
+   "detailDescription": "Muscle clean sin sentadilla bajo la barra.",
    "equipment": "Barra",
    "instructions": [
-    "Tirada alta.",
-    "Gira codos a rack sin sentarte.",
-    "Párate erguido."
+    "Tira la barra a rack frontal SIN sentarte bajo ella: impulso de piernas + encogimiento + codos altos.",
+    "Pies casi fijos; termina de pie en rack.",
+    "Error típico: colarte en squat. Usa poco peso.",
+    "Entrena trayectoria y velocidad de codos. No reemplaza el clean completo.",
+    "Si no llega al rack, haz high pull + front squat por separado.",
+    "Mantén la barra cerca del cuerpo todo el recorrido."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2345,12 +2403,15 @@
    "name": "Block Clean",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Clean desde bloques (rodilla o muslo).",
+   "detailDescription": "Cargada desde bloques.",
    "equipment": "Barra",
    "instructions": [
-    "Barra en bloques.",
-    "Tira y recibe power o squat.",
-    "Párate."
+    "Barra en bloques; organiza espalda y hombros sobre la carga; tirón y recepción en rack.",
+    "Enfoca la porción del pull que entrenas (mid-thigh → extensión).",
+    "Baja a bloques con control.",
+    "Error típico: empezar con cadera demasiado alta o redondear.",
+    "Carga submáxima al aprender la posición de bloques.",
+    "Útil cuando el primer tirón del suelo es el limitante."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2372,11 +2433,15 @@
    "name": "Pause Clean",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Pause clean: pausa en rodilla o bolsillo.",
+   "detailDescription": "Cargada con pausa técnica.",
    "equipment": "Barra",
    "instructions": [
-    "Pausa 1–2 s en el punto elegido.",
-    "Completa la cargada."
+    "Pausa 1–2 s en la posición marcada (suelo, rodilla o hang) manteniendo espalda tensa.",
+    "Completa el tirón y la recepción en rack (power o squat).",
+    "La pausa corrige despegue y posición de hombros sobre la barra.",
+    "Error típico: acortar la pausa bajo fatiga. Sé estricto con el tiempo.",
+    "Carga moderada. Combina con tirones de cargada.",
+    "Si redondeas en la pausa, baja kilos."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2431,12 +2496,15 @@
    "name": "Clean Pull",
    "muscleGroup": "Espalda",
    "catalogId": null,
-   "detailDescription": "Clean pull: extensión sin recibir en rack.",
+   "detailDescription": "Tirón de clean sin recepción en rack.",
    "equipment": "Barra",
    "instructions": [
-    "Salida de cargada.",
-    "Extiende y encoge sin girar.",
-    "Baja."
+    "Igual que el clean pull: DL + extensión explosiva + shrug, sin rack.",
+    "Barra cerca; espalda neutra; termina alto de pie.",
+    "Error típico: remo de codos temprano. Brazos largos.",
+    "Sirve para sobrecargar el tirón. Baja la barra con control.",
+    "Combina con tall cleans. Exhala en la extensión.",
+    "Estándar: extensión completa y barra que sigue subiendo tras la cadera."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2460,12 +2528,15 @@
    "name": "Clean and Press",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Clean & press: cargada + press estricto (sin jerk).",
+   "detailDescription": "Clean + press estricto.",
    "equipment": "Barra",
    "instructions": [
-    "Cargada a rack.",
-    "Press estricto overhead.",
-    "Baja a hombros o suelo."
+    "Clean a rack frontal; sin pausa larga, press estricto a overhead (sin dip de piernas).",
+    "Bloquea arriba con torso firme; baja a rack o suelo según el WOD.",
+    "Error típico: convertir el press en push press sin querer. Piernas quietas en el press.",
+    "Si el press falla, baja la carga del clean o haz push press programado.",
+    "Estándar: rack sólido + bloqueo overhead completo.",
+    "Respira: exhala al press."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2490,12 +2561,18 @@
    "name": "Clean and Jerk",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Clean & jerk completo.",
+   "detailDescription": "Cargada y envión: ejecuta el movimiento con rango completo, core firme y control.",
    "equipment": "Barra",
    "instructions": [
-    "Cargada a rack.",
-    "Dip-drive y envión.",
-    "Bloquea y recupera pies."
+    "Rack frontal tras la cargada, de pie.",
+    "Dip-drive: flexión corta y empuje.",
+    "Bloquea overhead y recupera pies.",
+    "Cargada a rack frontal estable; recompón la respiración si hace falta.",
+    "Dip corto vertical, drive y jerk (split o power) a overhead.",
+    "Bloquea con brazos extendidos; recupera los pies en línea y demuestra control.",
+    "Baja a hombros o suelo según la norma.",
+    "Error típico: dip hacia delante o recepción con pies inestables.",
+    "Entrena push press y footwork de jerk aparte del clean."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2651,12 +2728,15 @@
    "name": "Jerk Balance",
    "muscleGroup": "Hombros",
    "catalogId": null,
-   "detailDescription": "Jerk balance: práctica de recepción en split desde nuca o rack.",
+   "detailDescription": "Jerk balance / práctica de recepción overhead.",
    "equipment": "Barra",
    "instructions": [
-    "Barra en nuca o rack.",
-    "Dip y entra al split overhead.",
-    "Recupera."
+    "Desde rack frontal o espalda, dip corto y drive; recibe en split o power con brazos bloqueados overhead.",
+    "Enfócate en el dip-drive vertical y el bloqueo rápido, no en el peso máximo.",
+    "Pies firmes; recupera a posición de pie.",
+    "Error típico: press-out (brazos no bloquean al recibir) o dip hacia adelante.",
+    "Drill: jerk balance con pausas. Si no bloqueas, baja carga.",
+    "Estándar: recepción estable sin press-out."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2712,12 +2792,15 @@
    "name": "Behind-the-Neck Press",
    "muscleGroup": "Hombros",
    "catalogId": null,
-   "detailDescription": "Press desde la nuca (movilidad de hombro requerida).",
+   "detailDescription": "Press desde nuca (movilidad de hombro requerida).",
    "equipment": "Barra",
    "instructions": [
-    "Barra en espalda alta.",
-    "Press overhead sin arch excesivo.",
-    "Baja a nuca."
+    "Barra detrás de la nuca (agarre ancho cómodo); press a overhead y baja detrás de la cabeza.",
+    "Solo con buena movilidad; torso firme; no fuerces dolor de hombro.",
+    "Error típico: arquear lumbar para ‘acabar’ la rep.",
+    "Alternativa más segura: press frontal / push press.",
+    "Carga moderada. Si pinza, abandona la variante.",
+    "Estándar: bloqueo arriba y control detrás de nuca abajo."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2741,12 +2824,15 @@
    "name": "Behind-the-Neck Jerk",
    "muscleGroup": "Hombros",
    "catalogId": null,
-   "detailDescription": "Jerk desde la nuca.",
+   "detailDescription": "Jerk desde nuca.",
    "equipment": "Barra",
    "instructions": [
-    "Barra en nuca.",
-    "Dip-drive y recibe overhead.",
-    "Recupera."
+    "Barra en espalda alta (detrás de nuca); dip corto, drive y recibe overhead (split o power).",
+    "Movilidad de hombro exigente: solo si tienes OHS cómodo.",
+    "Bloquea arriba y recupera pies.",
+    "Error típico: press-out o dolor anterior de hombro. Abandona si pinza.",
+    "Alternativa más segura: jerk desde frontal. Carga moderada.",
+    "Estándar: bloqueo overhead estable desde detrás de nuca."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2870,12 +2956,15 @@
    "name": "Pause Front Squat",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Front squat con pausa abajo; fuerza y posición de rack.",
+   "detailDescription": "Front squat con pausa abajo.",
    "equipment": "Barra",
    "instructions": [
-    "Front squat.",
-    "Pausa 2–3 s abajo.",
-    "Levántate sin rebotar."
+    "Front squat; pausa 1–3 s en el fondo con codos altos y torso vertical; luego sube.",
+    "No rebotes; mantén tensión en la pausa.",
+    "Error típico: codos que caen en la pausa o perder el aire. Bracea antes de bajar.",
+    "Carga menor que el front squat normal. Excelente para fuerza en el hoyo.",
+    "Estándar: profundidad legal + pausa completa + stand.",
+    "Si el rack duele, usa crossed-arm o straps de clean."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2932,12 +3021,15 @@
    "name": "Snatch High Pull",
    "muscleGroup": "Espalda",
    "catalogId": null,
-   "detailDescription": "Snatch high pull: tirón con agarre ancho y codos altos tras la extensión.",
+   "detailDescription": "Variante del snatch pull con agarre amplio que añade un tirón alto de codos después de la extensión completa de piernas y cadera. No incluye recepción de la barra.",
    "equipment": "Barra",
    "instructions": [
-    "Agarre ancho con barra junto al cuerpo.",
-    "Extiende piernas y cadera antes de elevar codos.",
-    "Regresa la barra controlada sin recibirla."
+    "Sitúa la barra sobre el mediopié con agarre amplio de arrancada, hombros ligeramente por delante y el tronco firme antes de iniciar el movimiento.",
+    "Realiza la primera tirada manteniendo la barra próxima a las piernas y sostén una trayectoria equilibrada durante la extensión progresiva de rodillas y cadera.",
+    "Extiende completamente piernas y cadera antes de permitir la subida de los codos; no conviertas el inicio en un remo de brazos desde el suelo.",
+    "Lleva los codos altos y hacia los lados con la barra cerca del cuerpo, sin intentar introducirte debajo ni estabilizarla overhead.",
+    "Desciende de forma controlada, recupera la posición de salida y utiliza una carga que te permita repetir el patrón sin acelerar a costa de perder técnica.",
+    "Error típico: flexionar los brazos demasiado pronto o alejar la barra del cuerpo. Progresión: domina primero el tirón de arrancada sin tirón alto."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2963,12 +3055,15 @@
    "name": "Clean High Pull",
    "muscleGroup": "Espalda",
    "catalogId": null,
-   "detailDescription": "Clean high pull: derivado de cargada con extensión completa y codos altos.",
+   "detailDescription": "Derivado de la cargada con tirón alto de codos tras la extensión de cadera y rodillas. Desarrolla la trayectoria y velocidad del tirón sin realizar la recepción en rack.",
    "equipment": "Barra",
    "instructions": [
-    "Prepara agarre de cargada.",
-    "Extiende cadera y piernas con barra pegada al cuerpo.",
-    "Eleva codos tras la extensión sin girar al rack."
+    "Adopta la salida de cargada con agarre algo más ancho que los hombros, barra sobre mediopié, espalda activa y presión uniforme de ambos pies.",
+    "Eleva la barra manteniéndola junto al cuerpo, con hombros y cadera coordinados durante la primera tirada hasta superar las rodillas.",
+    "Extiende con fuerza rodillas y cadera y termina la extensión antes de añadir un tirón de codos altos; evita encoger el tronco hacia atrás.",
+    "Eleva los codos manteniendo la barra cerca de la línea del cuerpo, sin girar las muñecas para recibirla en rack frontal.",
+    "Baja la barra de manera controlada y repite con una carga que permita conservar la altura y la velocidad prescritas en todas las repeticiones.",
+    "Error típico: intentar subir la barra a fuerza de bíceps desde el suelo. Progresión: tirón de cargada clásico antes de añadir el tirón alto."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -2993,12 +3088,15 @@
    "name": "Clean Deadlift",
    "muscleGroup": "Isquios",
    "catalogId": null,
-   "detailDescription": "Clean deadlift: primera tirada en posiciones de cargada, sin buscar recepción.",
+   "detailDescription": "Peso muerto específico con salida, agarre y posiciones del primer tirón de cargada. La finalidad es reforzar la salida y el control postural, no realizar una cargada.",
    "equipment": "Barra",
    "instructions": [
-    "Sitúa la barra sobre el mediopié y usa agarre de cargada.",
-    "Extiende rodillas sin perder posición dorsal.",
-    "Termina erguido y baja sin colapsar el tronco."
+    "Coloca los pies bajo las caderas y la barra sobre el mediopié; utiliza agarre de cargada y prepara un tronco firme con la espalda neutra.",
+    "Antes de despegar, crea tensión sobre la barra y empuja el suelo con toda la planta para iniciar la subida sin que la cadera se dispare hacia arriba.",
+    "Supera las rodillas manteniendo hombros por delante de la barra y el recorrido cerca de las piernas, tal como harías en el primer tirón de cargada.",
+    "Finaliza de pie por extensión de cadera y rodillas sin encogimiento excesivo, salto ni giro de codos; no existe recepción en rack.",
+    "Desciende sin perder postura y restablece la posición de salida; trabaja con cargas acordes al objetivo técnico y nunca persigas un máximo sin control.",
+    "Error típico: convertirlo en un peso muerto convencional cambiando la posición inicial y el ángulo del tronco. Progresión: variantes desde bloques."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -3024,12 +3122,15 @@
    "name": "Squat Jerk",
    "muscleGroup": "Hombros",
    "catalogId": null,
-   "detailDescription": "Squat jerk: envío de barra por encima de la cabeza y recepción en sentadilla profunda.",
+   "detailDescription": "Variante del jerk con impulso vertical y recepción de la barra en sentadilla overhead profunda. Exige buena movilidad y estabilidad; no es la misma recepción que push jerk.",
    "equipment": "Barra",
    "instructions": [
-    "Desde rack frontal, dip vertical y drive.",
-    "Recibe overhead en sentadilla con hombros activos.",
-    "Recupera hasta extensión sin perder la línea de barra."
+    "Parte con la barra estable en rack frontal y el abdomen activo; confirma que tienes la movilidad necesaria para una sentadilla profunda con brazos overhead.",
+    "Realiza una flexión corta y vertical de rodillas con talones apoyados, manteniendo el torso erguido antes de impulsar la barra con las piernas.",
+    "Empuja la barra hacia arriba y desciende activamente debajo de ella, llevando los codos al bloqueo y los hombros a una posición estable.",
+    "Recibe en una sentadilla overhead profunda con el peso equilibrado entre ambos pies, controlando la barra sobre el centro de apoyo.",
+    "Extiende las piernas hasta quedar erguido con los brazos bloqueados, estabiliza la barra y bájala únicamente cuando la recepción esté controlada.",
+    "Error típico: empujar la barra hacia delante o perder estabilidad al descender. Si falta movilidad, practica primero jerk convencional y overhead squat."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -3055,12 +3156,15 @@
    "name": "Jerk Dip and Drive",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Jerk dip and drive: trabajo de descenso vertical y extensión explosiva sin recepción overhead.",
+   "detailDescription": "Drill de envión sin recepción final overhead: practicas una flexión vertical corta y una extensión explosiva manteniendo equilibrio y trayectoria de la barra.",
    "equipment": "Barra",
    "instructions": [
-    "Coloca la barra en rack frontal y el tronco vertical.",
-    "Realiza dip corto con talones apoyados.",
-    "Empuja contra el suelo extendiendo piernas antes de volver a controlar la barra."
+    "Coloca la barra en rack frontal con codos cómodos, pies bajo las caderas y tronco vertical; mira al frente antes de comenzar la secuencia.",
+    "Flexiona rodillas unos pocos centímetros sin mover el pecho hacia delante ni levantar los talones: es un dip vertical y equilibrado.",
+    "Desde el fondo del dip, empuja el suelo y extiende con intención explosiva tobillos, rodillas y cadera manteniendo la barra próxima a su línea vertical.",
+    "Permite que la barra se eleve por el impulso, pero no la recibas overhead: este ejercicio aísla el inicio del envión y su trayectoria.",
+    "Amortigua la barra en rack con control, restablece tu posición y practica varias repeticiones limpias antes de aumentar la carga.",
+    "Error típico: inclinar el tronco o adelantar las rodillas perdiendo equilibrio. Progresión: dip estático, dip y drive, y después jerk."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -3086,12 +3190,15 @@
    "name": "Block Power Snatch",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Block power snatch: arrancada desde bloques y recepción por encima del paralelo.",
+   "detailDescription": "Arrancada que comienza con la barra sobre bloques y se recibe arriba de la paralela. Se diferencia de la arrancada desde bloques con recepción profunda.",
    "equipment": "Barra",
    "instructions": [
-    "Ajusta los bloques a la altura prevista.",
-    "Extiende y acelera con barra cerca del cuerpo.",
-    "Recibe overhead alto y estabiliza antes de bajar."
+    "Sitúa la barra en bloques estables a la altura prescrita; coloca agarre amplio de arrancada y verifica que el espacio de recepción está despejado.",
+    "Adopta la postura de inicio con hombros activos y barra cerca del cuerpo sin golpear los bloques durante el primer impulso.",
+    "Empuja fuerte contra el suelo y extiende cadera y piernas manteniendo el recorrido cercano, evitando tirar prematuramente de brazos.",
+    "Recibe la barra overhead con brazos bloqueados por encima del paralelo, amortiguando con rodillas flexionadas y hombros activos.",
+    "Termina erguido, estabiliza overhead y devuelve la barra de forma segura a bloques; adapta la altura de salida al propósito de la sesión.",
+    "Error típico: recibir en sentadilla profunda, lo que lo convertiría en otra variante. Progresión: domina primero la arrancada de potencia básica."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -3117,12 +3224,15 @@
    "name": "Block Power Clean",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Block power clean: cargada desde bloques y recepción alta en rack frontal.",
+   "detailDescription": "Cargada desde bloques sólidos que termina en rack frontal por encima del paralelo. Se diferencia de la cargada desde bloques con recepción profunda.",
    "equipment": "Barra",
    "instructions": [
-    "Prepara la barra sobre bloques sólidos.",
-    "Extiende y tira sin alejar la barra.",
-    "Recibe sobre el paralelo con codos rápidos y estabiliza."
+    "Coloca la barra sobre bloques sólidos a la altura indicada y adopta agarre de cargada con el tronco firme y los pies preparados para recibir.",
+    "Extiende rodillas y cadera sin separar la barra del cuerpo, manteniendo presión sobre el suelo antes del tramo explosivo.",
+    "Tras completar la extensión, gira los codos con rapidez y guía la barra al rack frontal en vez de levantarla solo con los brazos.",
+    "Recibe la cargada en una flexión de rodillas por encima del paralelo y estabiliza la barra cerca de la clavícula con el pecho erguido.",
+    "Recupera la posición erguida, baja o devuelve la barra a los bloques con control y repite respetando la altura de salida programada.",
+    "Error típico: recibir por debajo del paralelo o alejar la barra. Progresión: consolidar la cargada de potencia desde el suelo antes de usar bloques."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -3147,12 +3257,15 @@
    "name": "Snatch-Grip Push Press",
    "muscleGroup": "Hombros",
    "catalogId": null,
-   "detailDescription": "Snatch-grip push press: press con impulso desde la nuca y agarre amplio.",
+   "detailDescription": "Press con impulso de piernas, agarre ancho de arrancada y barra situada en la espalda alta. La estabilidad overhead y la movilidad de hombro condicionan la carga.",
    "equipment": "Barra",
    "instructions": [
-    "Barra en trapecios y agarre ancho seguro.",
-    "Dip-drive vertical y bloqueo overhead.",
-    "Regresa a nuca con control y sin forzar el hombro."
+    "Sitúa la barra en la espalda alta con agarre ancho de arrancada, muñecas cómodas y hombros capaces de alcanzar bloqueo overhead sin compensar la espalda.",
+    "Flexiona rodillas ligeramente con torso vertical y talones apoyados, sin convertir el dip en una sentadilla profunda.",
+    "Extiende piernas y cadera con fuerza y transmite el impulso a la barra, manteniendo el recorrido controlado desde la nuca.",
+    "Termina extendiendo los codos y estabiliza la barra sobre el centro del cuerpo, con abdomen firme y hombros activos.",
+    "Baja la barra de manera controlada a la parte alta de la espalda y repite sin forzar un rango que genere dolor o pérdida de estabilidad.",
+    "Error típico: arquear demasiado la zona lumbar o soltar el control al bajar. Progresión: usa una pica y confirma movilidad antes de añadir carga."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -4623,6 +4736,9 @@
    "detailDescription": "Sentadilla a una pierna (pistol).",
    "equipment": "Peso corporal",
    "instructions": [
+    "De pie a una pierna, la otra extendida al frente y brazos adelante.",
+    "Baja con control hasta la mitad; talon pegado y rodilla alineada.",
+    "Fondo: muslo sobre la pantorrilla y pierna libre estirada; sube sin apoyar.",
     "A una pierna: baja a squat profundo con la otra pierna extendida al frente; sube sin apoyar.",
     "Talón pegado; rodilla alineada; brazos al frente para equilibrar.",
     "Error típico: colapso de rodilla o talón que se levanta. Usa agarre a soporte.",
@@ -4717,6 +4833,9 @@
    "detailDescription": "Sentadilla sin carga.",
    "equipment": "Peso corporal",
    "instructions": [
+    "De pie, pies al ancho de hombros y brazos al frente para equilibrar.",
+    "Baja con control: cadera atrás y rodillas sobre la línea de los pies.",
+    "Abajo: cadera bajo la rótula, talones pegados; empuja el suelo para subir.",
     "Pies al ancho de hombros, puntas ligeramente afuera; brazos al frente para equilibrar.",
     "Inhala, bracea y baja hasta que la cresta ilíaca pase bajo la rótula (paralelo o más).",
     "Rodillas siguen la línea de los pies; talones pegados al suelo; pecho alto.",
@@ -4748,6 +4867,9 @@
    "detailDescription": "Sentadilla con salto.",
    "equipment": "Peso corporal",
    "instructions": [
+    "Squat profundo: carga abajo con pecho alto y brazos atras.",
+    "Salto: extension completa de cadera, rodillas y tobillos en el aire.",
+    "Aterriza suave en media sentadilla y enlaza la siguiente.",
     "Squat completo o a paralelo; extiende explosivo y salta; aterriza suave y baja otra vez.",
     "Pecho alto; rodillas alineadas; no dejes que choquen al aterrizar.",
     "Error típico: cortar profundidad o aterrizar con talones duros.",
@@ -4779,6 +4901,9 @@
    "detailDescription": "Zancada con salto alterno.",
    "equipment": "Peso corporal",
    "instructions": [
+    "Zancada profunda con la pierna derecha adelante: rodilla trasera cerca del suelo sin apoyar, torso alto.",
+    "Salta y cambia las piernas en el aire.",
+    "Aterriza suave en la zancada contraria: la pierna izquierda queda adelante.",
     "Desde zancada, salta e intercambia piernas en el aire; aterriza en zancada del otro lado.",
     "Torso alto; aterrizaje suave; rodilla trasera cerca del suelo.",
     "Error típico: aterrizaje rígido o rodilla que se va adentro.",
@@ -5137,12 +5262,18 @@
    "name": "Dumbbell Thruster",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Thruster con un par de mancuernas en rack.",
+   "detailDescription": "Thruster con mancuernas en rack frontal.",
    "equipment": "Mancuernas",
    "instructions": [
-    "Mancuernas en hombros.",
-    "Squat y press.",
-    "Baja a rack."
+    "De pie, mancuernas en rack sobre los hombros, pecho alto.",
+    "Squat profundo con talones abajo y mancuernas en rack.",
+    "Al subir, press a bloqueo con las mancuernas sobre la cabeza.",
+    "Mancuernas en rack a hombros; squat profundo; al subir press a bloqueo overhead.",
+    "Muñecas neutras o palmas al frente; torso alto.",
+    "Error típico: arco lumbar al press o cortar profundidad.",
+    "Útil cuando la barra no es opción. Exhala al subir.",
+    "Si el press falla, baja peso o haz push press + squat separados.",
+    "Estándar: squat legal + mancuernas bloqueadas arriba."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -5166,12 +5297,18 @@
    "name": "Kettlebell Thruster",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Thruster con una o dos KB en rack.",
+   "detailDescription": "Thruster con una o dos kettlebells en rack.",
    "equipment": "Kettlebell",
    "instructions": [
-    "KB en rack frontal.",
-    "Squat y press overhead.",
-    "Repite."
+    "De pie, kettlebell en rack a la altura del hombro, codo pegado.",
+    "Squat profundo con talones abajo y kettlebell en rack.",
+    "Al subir, press a bloqueo con la kettlebell sobre la cabeza.",
+    "KB en rack (una o dos); squat completo; al subir enlaza press a overhead hasta bloqueo.",
+    "Codos y antebrazos organizan el rack; talones abajo en el fondo.",
+    "Error típico: press antes de extender cadera. Primero piernas, luego brazos.",
+    "Baja a rack y squat de nuevo. Exhala al press.",
+    "Progresión: goblet squat + press por separado → thruster.",
+    "Estándar: profundidad de squat + lockout overhead."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -5401,12 +5538,18 @@
    "name": "Burpee Box Jump",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Burpee + salto al cajón.",
+   "detailDescription": "Burpee completo terminado en salto al cajón.",
    "equipment": "Cajón",
    "instructions": [
-    "Burpee completo.",
-    "Salta al cajón y extiende cadera.",
-    "Baja."
+    "Fondo del burpee: pecho y muslos al suelo frente al cajon.",
+    "Salta y aterriza sobre el cajon en media sentadilla.",
+    "Bipedestacion completa arriba: cadera y rodillas extendidas.",
+    "Burpee completo (pecho al suelo) frente al cajón; luego salto o step-up al cajón y extensión de cadera arriba.",
+    "Baja del cajón con control (step-down si hace falta) y repite.",
+    "Error típico: no extender cadera sobre el cajón o saltar sin terminar el burpee.",
+    "Elige altura que permita aterrizaje seguro. Inhala en el suelo, exhala al subir al box.",
+    "Si el salto falla, step-up mantiene el estímulo con menos impacto.",
+    "Estándar: pecho/muslos abajo + bipedestación sobre el cajón."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -5500,12 +5643,18 @@
    "name": "Box Jump",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Box jump con extensión de cadera.",
+   "detailDescription": "Salto al cajón: ejecuta el movimiento con rango completo, core firme y control.",
    "equipment": "Cajón",
    "instructions": [
-    "Salta al cajón.",
-    "Extiende cadera arriba.",
-    "Baja o step-down."
+    "Pies firmes frente al cajón, carga de piernas.",
+    "Salta: rodillas arriba, sobre el cajón en el aire.",
+    "De pie sobre el cajón, cadera extendida.",
+    "Pies al ancho de cadera; flexiona cargando brazos atrás.",
+    "Salta al cajón; aterriza con ambos pies completos y cadera extendida arriba.",
+    "Baja paso a paso o salta abajo según el WOD; absorbe suave.",
+    "Altura que permita aterrizaje silencioso y estable.",
+    "Error típico: media planta en el cajón o rodillas que colapsan.",
+    "Progresión: step-up → cajón bajo → altura objetivo."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -5529,12 +5678,15 @@
    "name": "Box Step-Up",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "Subida al cajón sin salto.",
+   "detailDescription": "Subida al cajón paso a paso.",
    "equipment": "Cajón",
    "instructions": [
-    "Pie completo en el cajón.",
-    "Extiende cadera.",
-    "Baja y cambia."
+    "Pie completo sobre el cajón; empuja con la pierna de arriba (no impulsos excesivos del suelo).",
+    "Extiende cadera arriba; baja con control y alterna.",
+    "Error típico: empujar casi solo con la pierna de abajo. Carga la pierna del box.",
+    "Altura que permita control. Mancuernas opcionales a los lados.",
+    "Progresión a box jump. Si duele la rodilla, baja altura.",
+    "Estándar: bipedestación completa sobre el cajón cada rep."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -5594,6 +5746,9 @@
    "detailDescription": "Salto horizontal a máxima distancia.",
    "equipment": "Peso corporal",
    "instructions": [
+    "Carga: bisagra atras, brazos atras, listo para saltar.",
+    "Vuelo: extension completa, brazos adelante.",
+    "Aterrizaje suave con rodillas flexionadas y pecho alto.",
     "Pies al ancho de cadera; bisagra ligera, brazos atrás; salta lo más lejos posible aterrizando suave.",
     "Extiende cadera/rodillas/tobillos; brazos adelante en el vuelo.",
     "Aterriza con rodillas blandas, pecho alto; párate estable antes de la siguiente.",
@@ -5688,12 +5843,18 @@
    "name": "Kettlebell Swing",
    "muscleGroup": "Glúteos",
    "catalogId": null,
-   "detailDescription": "Swing ruso a altura de ojos.",
+   "detailDescription": "Swing ruso: bisagra hasta altura de pecho/ojos.",
    "equipment": "Kettlebell",
    "instructions": [
-    "Hinge.",
-    "Extiende cadera; KB flota a ojos.",
-    "No presses con brazos."
+    "Bisagra: KB atrás entre las piernas, cadera cargada y espalda neutra.",
+    "Snap de cadera: extiende con fuerza; la KB sube a la altura de la cadera.",
+    "Arriba: KB a pecho/hombros con el cuerpo en plancha vertical, glúteos apretados.",
+    "Bisagra: KB entre piernas; extiende cadera con fuerza hasta que la KB llegue a altura de pecho/hombros (ruso).",
+    "Brazos relajados; aprieta glúteos arriba; no hiperestes lumbar.",
+    "Inhala en la bisagra, exhala al snap de cadera.",
+    "Error típico: squat-swing o levantar con hombros. Piensa ‘empuja el suelo y cierra cadera’.",
+    "Progresión: deadlift KB → swing ruso → americano.",
+    "Estándar ruso: KB a pecho/ojos con cadera extendida."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -5719,12 +5880,15 @@
    "name": "American Kettlebell Swing",
    "muscleGroup": "Glúteos",
    "catalogId": null,
-   "detailDescription": "Swing hasta overhead.",
+   "detailDescription": "Swing hasta overhead completo.",
    "equipment": "Kettlebell",
    "instructions": [
-    "Misma cadera.",
-    "KB termina overhead.",
-    "Baja en arco."
+    "KB swing hasta overhead (brazos alineados con la cabeza); bisagra de cadera, no squat.",
+    "Arriba: KB sobre la cabeza con hombros activos; abajo: KB pasa entre piernas con espalda neutra.",
+    "Error típico: press de hombros o lumbar arqueada arriba. La cadera lanza; los brazos dirigen.",
+    "Más exigente que el ruso (a pecho). Empieza con ruso si eres nuevo.",
+    "Estándar americano: KB claramente overhead cada rep.",
+    "Exhala al subir."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -5748,12 +5912,18 @@
    "name": "Kettlebell Snatch",
    "muscleGroup": "Glúteos",
    "catalogId": null,
-   "detailDescription": "KB snatch a bloqueo overhead.",
+   "detailDescription": "Snatch kettlebell: ejecuta el movimiento con rango completo, core firme y control.",
    "equipment": "Kettlebell",
    "instructions": [
-    "Swing alto.",
-    "Pasa la mano y recibe overhead.",
-    "Baja."
+    "KB entre los pies, bisagra de cadera.",
+    "Extiende y guía la KB cerca del cuerpo.",
+    "Bloquea overhead a brazo extendido.",
+    "KB entre los pies; bisagra y hike pass atrás.",
+    "Extiende cadera y guía la KB cerca del cuerpo hasta overhead.",
+    "Bloquea el brazo con hombro activo; KB sobre el antebrazo.",
+    "Baja a hang o swing; cambia de mano si se pide.",
+    "Error típico: press lento desde el hombro o arco lumbar al bloquear.",
+    "Aprende swing y clean de KB antes del snatch."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -5778,12 +5948,18 @@
    "name": "Kettlebell Clean",
    "muscleGroup": "Glúteos",
    "catalogId": null,
-   "detailDescription": "KB clean a rack.",
+   "detailDescription": "Kettlebell a rack frontal.",
    "equipment": "Kettlebell",
    "instructions": [
-    "Swing corto.",
-    "Recibe en rack sin golpear la muñeca.",
-    "Baja o press."
+    "Bisagra: kettlebell en el suelo entre los pies, espalda plana.",
+    "Extension de cadera y tiron pegado al cuerpo.",
+    "Rack estable: codo pegado, campana apoyada suave en el antebrazo.",
+    "KB entre pies o ligeramente delante; bisagra, agarra el mango, extiende cadera y guía la KB a rack (codo pegado, mango en pecho).",
+    "No golpees el antebrazo: ‘enrosca’ la mano alrededor del mango en la recepción.",
+    "Párate estable en rack; baja a swing o suelo con control.",
+    "Error típico: curlar con el brazo o chocar el antebrazo. Cadera genera el impulso.",
+    "Empieza con KB ligera. Alterna lados o haz doble KB si está programado.",
+    "Estándar: KB estable en rack, torso alto."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -5846,6 +6022,9 @@
    "detailDescription": "Sentadilla con KB/DB pegada al pecho.",
    "equipment": "Kettlebell",
    "instructions": [
+    "De pie, KB vertical junto al pecho con codos abajo y adentro.",
+    "Baja con control: pecho alto, rodillas sobre la línea de los pies, talones abajo.",
+    "Abajo: mantén los talones apoyados y los codos entre las rodillas; empuja el suelo para subir.",
     "Sujeta una KB o mancuerna vertical junto al pecho (codos abajo/adentro); pies al ancho de squat.",
     "Baja a profundidad cómoda con pecho alto y codos entre rodillas; talones abajo.",
     "Empuja el suelo y sube a extensión completa; la carga actúa como contrapeso.",
@@ -5914,6 +6093,12 @@
    "detailDescription": "Remo + flexión + clean y press con mancuernas.",
    "equipment": "Mancuernas",
    "instructions": [
+    "Plancha alta con manos en las mancuernas y cuerpo en linea.",
+    "Flexion completa hasta el pecho cerca del suelo.",
+    "Remo a un lado con la cadera cuadrada; repite al otro lado.",
+    "Salta los pies adelante y clean: mancuernas a los hombros.",
+    "Thruster: baja en squat con las mancuernas en los hombros.",
+    "Al subir, press a bloqueo overhead.",
     "Mancuernas al ancho de hombros; plancha con agarre en los mangos, cuerpo en línea.",
     "Flexión de pecho (push-up) completa; luego remo a cada lado con cadera cuadrada (sin rotar).",
     "Salta o pasa pies adelante, clean a hombros y thruster: squat + press a bloqueo overhead.",
@@ -5945,11 +6130,18 @@
    "name": "Dumbbell Snatch",
    "muscleGroup": "Glúteos",
    "catalogId": null,
-   "detailDescription": "DB snatch alterno u a un brazo.",
+   "detailDescription": "Arrancada con mancuerna a overhead en un tiempo.",
    "equipment": "Mancuernas",
    "instructions": [
-    "DB del suelo a overhead en un movimiento.",
-    "Cambia de mano si el WOD lo pide."
+    "Bisagra: mancuerna en el suelo entre los pies, espalda plana.",
+    "Extension de cadera y tiron: la mancuerna sube pegada al cuerpo.",
+    "Recibe a bloqueo overhead, de pie y estable.",
+    "Mancuerna entre pies; tirón de cadera y recibe overhead a un brazo (power o squat) con bloqueo.",
+    "La mancuerna viaja cerca del cuerpo; puño cerrado y hombro activo arriba.",
+    "Baja a hombro o suelo con control; cambia de mano según serie.",
+    "Error típico: press muscular sin extensión de cadera, o hombro sin packing arriba.",
+    "Empieza ligero. Progresión: hang DB snatch → suelo.",
+    "Estándar: bloqueo overhead estable a un brazo."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -5973,12 +6165,15 @@
    "name": "Dumbbell Clean",
    "muscleGroup": "Piernas",
    "catalogId": null,
-   "detailDescription": "DB clean a rack (una o dos).",
+   "detailDescription": "Cargada de mancuerna(s) a hombros.",
    "equipment": "Mancuernas",
    "instructions": [
-    "Tira DBs a hombros.",
-    "Recibe en rack.",
-    "Párate."
+    "Mancuerna(s) entre pies; tirón de cadera y recepción en rack a hombros (una o dos manos).",
+    "Codos altos o neutros según agarre; piernas absorben la carga.",
+    "Párate y baja con control.",
+    "Error típico: remo de brazo sin extensión de cadera.",
+    "Progresión: hang DB clean → desde suelo. Si no, goblet clean a pecho.",
+    "Mantén la mancuerna cerca del cuerpo."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6041,6 +6236,9 @@
    "detailDescription": "Golpea el balón al suelo desde overhead.",
    "equipment": "Slam Ball",
    "instructions": [
+    "De pie, balon al pecho con ambas manos y core firme.",
+    "Sube el balon a extension completa sobre la cabeza.",
+    "Golpea el balon contra el suelo con bisagra de cadera y brazos.",
     "Medball a la altura del pecho o overhead; pies al ancho de hombros, core firme.",
     "Extiende a overhead (si el estándar lo pide) y golpea el balón al suelo con fuerza de cadera y brazos.",
     "Agarra el bote o recoge y repite; no redondees la lumbar al recoger.",
@@ -6197,11 +6395,15 @@
    "name": "Double-Under",
    "muscleGroup": "Cardio",
    "catalogId": null,
-   "detailDescription": "Double unders.",
+   "detailDescription": "Double unders: la comba pasa dos veces por salto.",
    "equipment": "Comba",
    "instructions": [
-    "Muñecas rápidas, salto bajo.",
-    "Dos pasos de comba por salto."
+    "Comba ligera; muñecas generan el giro doble por cada salto; saltos bajos y rebotes de antepié.",
+    "Mirada al frente; codos cerca del cuerpo; no abracees con los hombros.",
+    "Ritmo: un salto, dos giros. Empieza con singles rápidos → singles altos → dobles.",
+    "Error típico: saltar demasiado alto o girar con los brazos enteros.",
+    "Si fallas, practica el ‘penguin tap’ o singles con mayor cadencia.",
+    "Estándar: cada rep = dos pasos de comba bajo los pies por salto."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6225,11 +6427,15 @@
    "name": "Single-Under",
    "muscleGroup": "Cardio",
    "catalogId": null,
-   "detailDescription": "Single unders.",
+   "detailDescription": "Single unders: un paso de comba por salto.",
    "equipment": "Comba",
    "instructions": [
-    "Un paso por salto.",
-    "Ritmo constante."
+    "Un giro de comba por salto; rebotes bajos de antepié; muñecas hacen el trabajo.",
+    "Codos cerca; mirada al frente; ritmo constante.",
+    "Error típico: saltar demasiado alto o girar con hombros.",
+    "Base para dobles. Practica 30–60 s sin fallo.",
+    "Si fallas, salta sin comba a tempo y luego añade la comba.",
+    "Estándar: cada salto = un paso de comba."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6254,9 +6460,12 @@
    "detailDescription": "Triple unders: tres pasos de comba por salto.",
    "equipment": "Comba",
    "instructions": [
-    "Salto más alto que en dobles.",
-    "Tres rotaciones por salto.",
-    "Muñecas muy rápidas."
+    "Tres giros de comba por un salto; muñecas muy rápidas; salto un poco más alto que en dobles.",
+    "Relaja hombros; antepié; mirá al frente.",
+    "Error típico: tensar todo el brazo. Solo muñecas.",
+    "Progresión: dobles sólidos → intentos de triples con singles de recuperación.",
+    "Volumen bajo al aprender. Parar antes de fallar por fatiga de gemelos.",
+    "Estándar: tres pasos de comba bajo los pies por salto."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6581,7 +6790,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Lleva la barbilla hacia el pecho sin levantar los hombros.",
-    "Vuelve despacio al centro."
+    "Vuelve despacio al centro.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6602,7 +6815,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Eleva la mirada suavemente sin comprimir la nuca.",
-    "Regresa a neutro con control."
+    "Regresa a neutro con control.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6623,7 +6840,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Mira despacio por encima de un hombro.",
-    "Vuelve al centro y alterna sin rebotes."
+    "Vuelve al centro y alterna sin rebotes.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6644,7 +6865,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Acerca una oreja al hombro sin elevarlo.",
-    "Alterna los lados despacio."
+    "Alterna los lados despacio.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6665,7 +6890,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Desliza la barbilla hacia atrás sin bajar la mirada.",
-    "Suelta lentamente."
+    "Suelta lentamente.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6686,7 +6915,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Dibuja un círculo pequeño y continuo.",
-    "Cambia el sentido sin forzar el rango."
+    "Cambia el sentido sin forzar el rango.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6707,7 +6940,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Eleva hombros y llévalos hacia atrás y abajo.",
-    "Invierte el sentido con el tronco estable."
+    "Invierte el sentido con el tronco estable.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6728,7 +6965,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Dibuja un círculo con brazo extendido y tronco quieto.",
-    "Alterna sentidos y lados lentamente."
+    "Alterna sentidos y lados lentamente.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6749,7 +6990,11 @@
    "equipment": "Pica",
    "instructions": [
     "Lleva la pica de delante hacia atrás por encima de la cabeza.",
-    "Abre el agarre cuanto necesites y evita forzar."
+    "Abre el agarre cuanto necesites y evita forzar.",
+    "Antes de empezar, prepara Pica en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6770,7 +7015,11 @@
    "equipment": "Pared",
    "instructions": [
     "Apoya espalda y brazos en la pared.",
-    "Desliza los brazos arriba sin arquear lumbares."
+    "Desliza los brazos arriba sin arquear lumbares.",
+    "Antes de empezar, prepara Pared en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6791,7 +7040,11 @@
    "equipment": "Pared",
    "instructions": [
     "Coloca espalda contra la pared y codos flexionados.",
-    "Abre y eleva los brazos sin despegar la pelvis."
+    "Abre y eleva los brazos sin despegar la pelvis.",
+    "Antes de empezar, prepara Pared en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6812,7 +7065,11 @@
    "equipment": "Banda elástica",
    "instructions": [
     "Mantén el codo pegado al costado.",
-    "Gira el antebrazo hacia fuera sin mover el tronco."
+    "Gira el antebrazo hacia fuera sin mover el tronco.",
+    "Antes de empezar, prepara Banda elástica en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6833,7 +7090,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Mueve el antebrazo hacia dentro con el codo estable.",
-    "Evita girar el tronco para compensar."
+    "Evita girar el tronco para compensar.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6854,7 +7115,11 @@
    "equipment": "Banco",
    "instructions": [
     "Apoya los codos en un banco y desciende el pecho.",
-    "Mantén abdomen activo para proteger lumbares."
+    "Mantén abdomen activo para proteger lumbares.",
+    "Antes de empezar, prepara Banco en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6875,7 +7140,11 @@
    "equipment": "Marco de puerta",
    "instructions": [
     "Apoya el antebrazo en un marco.",
-    "Da un paso corto adelante sin provocar dolor."
+    "Da un paso corto adelante sin provocar dolor.",
+    "Antes de empezar, prepara Marco de puerta en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6896,7 +7165,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Lleva un brazo por delante del pecho.",
-    "Acércalo con el otro brazo sin subir el hombro."
+    "Acércalo con el otro brazo sin subir el hombro.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6917,7 +7190,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Sube los hombros sin inclinar el cuello.",
-    "Bájalos lentamente sin balanceos."
+    "Bájalos lentamente sin balanceos.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6938,7 +7215,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Separa los omóplatos empujando hacia delante.",
-    "Vuelve acercándolos sin arquear la espalda."
+    "Vuelve acercándolos sin arquear la espalda.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6959,7 +7240,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Mantén los codos extendidos.",
-    "Acerca y separa los omóplatos controlando el tronco."
+    "Acerca y separa los omóplatos controlando el tronco.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -6980,7 +7265,11 @@
    "equipment": "Barra de dominadas",
    "instructions": [
     "Agarra una barra y transfiere peso poco a poco.",
-    "Sal de la posición de forma controlada."
+    "Sal de la posición de forma controlada.",
+    "Antes de empezar, prepara Barra de dominadas en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7001,7 +7290,11 @@
    "equipment": "Barra de dominadas",
    "instructions": [
     "Desde el colgado activa los hombros alejándolos de las orejas.",
-    "Relaja parcialmente sin perder el agarre."
+    "Relaja parcialmente sin perder el agarre.",
+    "Antes de empezar, prepara Barra de dominadas en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7022,7 +7315,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "En cuadrupedia redondea la espalda metiendo barbilla.",
-    "Invierte la curva despacio en un rango cómodo."
+    "Invierte la curva despacio en un rango cómodo.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7043,7 +7340,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Lleva una mano detrás de la cabeza.",
-    "Gira el codo hacia arriba sin mover las caderas."
+    "Gira el codo hacia arriba sin mover las caderas.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7064,7 +7365,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Desliza un brazo por debajo del cuerpo.",
-    "Vuelve y abre el brazo hacia el techo."
+    "Vuelve y abre el brazo hacia el techo.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7085,7 +7390,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Flexiona las rodillas y fija la pelvis.",
-    "Abre el brazo superior siguiendo la mano con la mirada."
+    "Abre el brazo superior siguiendo la mano con la mirada.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7106,7 +7415,11 @@
    "equipment": "Rodillo",
    "instructions": [
     "Coloca el rodillo bajo la zona dorsal.",
-    "Extiende el tórax con cabeza apoyada en las manos."
+    "Extiende el tórax con cabeza apoyada en las manos.",
+    "Antes de empezar, prepara Rodillo en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7127,7 +7440,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Siéntate alto con pelvis fija.",
-    "Gira la caja torácica sin tirar del cuello."
+    "Gira la caja torácica sin tirar del cuello.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7148,7 +7465,11 @@
    "equipment": "Pared",
    "instructions": [
     "Sitúate de lado junto a una pared.",
-    "Abre el brazo siguiendo un arco sin arquear lumbares."
+    "Abre el brazo siguiendo un arco sin arquear lumbares.",
+    "Antes de empezar, prepara Pared en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7169,7 +7490,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Desciende vértebra a vértebra con rodillas suaves.",
-    "Vuelve lentamente a la posición erguida."
+    "Vuelve lentamente a la posición erguida.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7190,7 +7515,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Túmbate boca abajo y apoya antebrazos.",
-    "Eleva el pecho sin forzar la zona lumbar."
+    "Eleva el pecho sin forzar la zona lumbar.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7211,7 +7540,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Lleva la cadera hacia los talones.",
-    "Alarga los brazos mientras respiras tranquilo."
+    "Alarga los brazos mientras respiras tranquilo.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7232,7 +7565,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Desde la postura del niño camina las manos a un lado.",
-    "Mantén la pelvis atrás y alterna."
+    "Mantén la pelvis atrás y alterna.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7253,7 +7590,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Eleva un brazo e inclínate al lado contrario.",
-    "Evita girar el pecho y alterna."
+    "Evita girar el pecho y alterna.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7274,7 +7615,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Con apoyo estable eleva la rodilla y dibuja un círculo.",
-    "Evita que la pelvis gire."
+    "Evita que la pelvis gire.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7295,7 +7640,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Siéntate con rodillas a noventa grados.",
-    "Pasa ambas rodillas al otro lado sin impulso."
+    "Pasa ambas rodillas al otro lado sin impulso.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7316,7 +7665,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Coloca las piernas en 90/90.",
-    "Inclínate desde caderas hacia la espinilla delantera."
+    "Inclínate desde caderas hacia la espinilla delantera.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7337,7 +7690,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Mantén el tronco vertical en 90/90.",
-    "Eleva ligeramente la rodilla trasera sin apoyarte en manos."
+    "Eleva ligeramente la rodilla trasera sin apoyarte en manos.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7358,7 +7715,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Coloca una rodilla abajo y adelanta el otro pie.",
-    "Activa glúteo y lleva pelvis adelante suavemente."
+    "Activa glúteo y lleva pelvis adelante suavemente.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7379,7 +7740,11 @@
    "equipment": "Pared",
    "instructions": [
     "Apoya la espinilla posterior contra pared o banco.",
-    "Eleva el tronco manteniendo glúteo activo."
+    "Eleva el tronco manteniendo glúteo activo.",
+    "Antes de empezar, prepara Pared en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7400,7 +7765,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Cruza un tobillo sobre la rodilla opuesta.",
-    "Acerca la pierna de apoyo al pecho."
+    "Acerca la pierna de apoyo al pecho.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7421,7 +7790,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Lleva una pierna flexionada delante y la otra atrás.",
-    "Apoya el peso evitando molestias en la rodilla."
+    "Apoya el peso evitando molestias en la rodilla.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7442,7 +7815,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Apoya antebrazos con rodillas separadas.",
-    "Lleva caderas atrás sin perder estabilidad."
+    "Lleva caderas atrás sin perder estabilidad.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7463,7 +7840,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Extiende una pierna lateral desde cuadrupedia.",
-    "Lleva caderas atrás y vuelve con control."
+    "Lleva caderas atrás y vuelve con control.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7484,7 +7865,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Junta las plantas de los pies sentado.",
-    "Deja descender rodillas sin empujarlas."
+    "Deja descender rodillas sin empujarlas.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7505,7 +7890,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Flexiona una rodilla hacia un lado en posición amplia.",
-    "Alterna sin perder equilibrio."
+    "Alterna sin perder equilibrio.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7526,7 +7915,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Desciende a sentadilla profunda con talones apoyados.",
-    "Respira y separa ligeramente las rodillas."
+    "Respira y separa ligeramente las rodillas.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7547,7 +7940,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Desde abajo desplaza suavemente el peso entre pies.",
-    "Mantén rodillas alineadas y evita rebotes."
+    "Mantén rodillas alineadas y evita rebotes.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7568,7 +7965,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Con apoyo levanta una rodilla sin inclinar la espalda.",
-    "Baja lentamente y alterna."
+    "Baja lentamente y alterna.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7589,7 +7990,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Lleva una pierna atrás con abdomen firme.",
-    "Vuelve sin arquear las lumbares."
+    "Vuelve sin arquear las lumbares.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7610,7 +8015,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Siéntate con pies separados y rodillas flexionadas.",
-    "Deja caer una rodilla hacia dentro sin girar la pelvis."
+    "Deja caer una rodilla hacia dentro sin girar la pelvis.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7631,7 +8040,11 @@
    "equipment": "Pared",
    "instructions": [
     "Coloca un pie delante de la pared.",
-    "Acerca la rodilla al muro sin levantar el talón."
+    "Acerca la rodilla al muro sin levantar el talón.",
+    "Antes de empezar, prepara Pared en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7652,7 +8065,11 @@
    "equipment": "Banda elástica",
    "instructions": [
     "Ancla una banda alrededor del tobillo.",
-    "Lleva rodilla adelante conservando talón apoyado."
+    "Lleva rodilla adelante conservando talón apoyado.",
+    "Antes de empezar, prepara Banda elástica en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7673,7 +8090,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Levanta el pie del suelo.",
-    "Dibuja círculos lentos en ambos sentidos."
+    "Dibuja círculos lentos en ambos sentidos.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7694,7 +8115,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Dibuja un círculo lento con el pie.",
-    "Evita girar la pierna durante el movimiento."
+    "Evita girar la pierna durante el movimiento.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7715,7 +8140,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Aleja los dedos de la tibia apuntando el pie.",
-    "Regresa lentamente."
+    "Regresa lentamente.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7736,7 +8165,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Gira suavemente la planta hacia dentro.",
-    "Muévela luego hacia fuera sin girar la pierna."
+    "Muévela luego hacia fuera sin girar la pierna.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7757,7 +8190,11 @@
    "equipment": "Pared",
    "instructions": [
     "Apóyate en la pared con talones en suelo.",
-    "Eleva la punta de los pies y baja lento."
+    "Eleva la punta de los pies y baja lento.",
+    "Antes de empezar, prepara Pared en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7778,7 +8215,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "En zancada avanza rodilla sobre dedos del pie.",
-    "Vuelve sin despegar el talón."
+    "Vuelve sin despegar el talón.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7799,7 +8240,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Agárrate a soporte estable y lleva talón al glúteo.",
-    "Extiende lentamente."
+    "Extiende lentamente.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7820,7 +8265,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Sujeta el empeine detrás del cuerpo.",
-    "Acerca el talón manteniendo pelvis neutra."
+    "Acerca el talón manteniendo pelvis neutra.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7841,7 +8290,11 @@
    "equipment": "Pared",
    "instructions": [
     "Apoya manos en pared y lleva pierna atrás.",
-    "Presiona talón hacia el suelo."
+    "Presiona talón hacia el suelo.",
+    "Antes de empezar, prepara Pared en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7862,7 +8315,11 @@
    "equipment": "Pared",
    "instructions": [
     "Flexiona la rodilla adelantada manteniendo talón apoyado.",
-    "Evita que el arco del pie colapse."
+    "Evita que el arco del pie colapse.",
+    "Antes de empezar, prepara Pared en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7883,7 +8340,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Empuja glúteos atrás con rodillas suaves.",
-    "Extiende caderas conservando columna neutra."
+    "Extiende caderas conservando columna neutra.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7904,7 +8365,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Estira una pierna delante con talón apoyado.",
-    "Lleva la cadera atrás y vuelve."
+    "Lleva la cadera atrás y vuelve.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7925,7 +8390,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Sentado extiende lentamente rodilla y mueve el tobillo.",
-    "Vuelve si aparecen molestias."
+    "Vuelve si aparecen molestias.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7946,7 +8415,11 @@
    "equipment": "Pica",
    "instructions": [
     "Apoya pica en espalda y flexiona desde caderas.",
-    "Conserva contacto en cabeza espalda y sacro."
+    "Conserva contacto en cabeza espalda y sacro.",
+    "Antes de empezar, prepara Pica en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7967,7 +8440,11 @@
    "equipment": "Banda elástica",
    "instructions": [
     "Túmbate y coloca banda alrededor del pie.",
-    "Eleva la pierna manteniendo la pelvis apoyada."
+    "Eleva la pierna manteniendo la pelvis apoyada.",
+    "Antes de empezar, prepara Banda elástica en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -7988,7 +8465,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Forma una V invertida apoyando manos y pies.",
-    "Flexiona alternativamente las rodillas."
+    "Flexiona alternativamente las rodillas.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -8009,7 +8490,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Apoya las palmas con dedos hacia delante.",
-    "Desplaza ligeramente hombros sobre manos."
+    "Desplaza ligeramente hombros sobre manos.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -8030,7 +8515,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Extiende el brazo y lleva dedos hacia abajo.",
-    "Alterna sin forzar articulación."
+    "Alterna sin forzar articulación.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -8051,7 +8540,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Deja los brazos quietos y cierra los puños.",
-    "Dibuja círculos en ambos sentidos."
+    "Dibuja círculos en ambos sentidos.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -8072,7 +8565,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Flexiona un codo a noventa grados.",
-    "Gira palma arriba y abajo con hombro inmóvil."
+    "Gira palma arriba y abajo con hombro inmóvil.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -8093,7 +8590,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Flexiona el codo cerca del cuerpo.",
-    "Extiéndelo lentamente sin impulso."
+    "Extiéndelo lentamente sin impulso.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -8114,7 +8615,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Lleva la mano hacia el hombro sin elevarlo.",
-    "Extiende lento."
+    "Extiende lento.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -8161,7 +8666,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Coloca el pie junto a la mano del mismo lado.",
-    "Abre el pecho y gira hacia la pierna adelantada."
+    "Abre el pecho y gira hacia la pierna adelantada.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -8208,7 +8717,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Siéntate con rodillas abiertas y talones delante.",
-    "Gira el pecho alternando lados."
+    "Gira el pecho alternando lados.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -8229,7 +8742,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Túmbate con pies apoyados y eleva pelvis lentamente.",
-    "Desciende vértebra a vértebra."
+    "Desciende vértebra a vértebra.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -8250,7 +8767,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Túmbate con rodillas y caderas a noventa grados.",
-    "Inspira abriendo costillas y exhala suavemente."
+    "Inspira abriendo costillas y exhala suavemente.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -8271,7 +8792,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "Boca arriba deja caer las rodillas juntas a un lado.",
-    "Vuelve al centro y alterna."
+    "Vuelve al centro y alterna.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,
@@ -8292,7 +8817,11 @@
    "equipment": "Peso corporal",
    "instructions": [
     "En cuadrupedia lleva caderas hacia talones.",
-    "Vuelve adelante sin balanceos."
+    "Vuelve adelante sin balanceos.",
+    "Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.",
+    "Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.",
+    "Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.",
+    "Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio."
    ],
    "isCustom": false,
    "isFavorite": false,

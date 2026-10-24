@@ -182,11 +182,18 @@ def canonical_name(name):
 def display_name(name, sport):
     if sport in ('CrossFit', 'Halterofilia'): return canonical_name(name)
     return name
+original_en_es = parse_dict(sen, 'originalEnglishAliases')
+# englishToSpanish de iOS: originalEnglishAliases sobrescrito por el inverso de
+# legacySpanishToEnglish (SportExerciseNames.swift); spanishAlias consulta la
+# versión con clave normalizada y devuelve el valor SIN normalizar.
+english_to_spanish = dict(original_en_es)
+for es, en in legacy_es_en.items():
+    english_to_spanish[en] = es
+norm_en_es = {fold(k): v for k, v in english_to_spanish.items()}
 def spanish_alias(name):
-    en = norm_es_en.get(fold(name))
-    if en: return name
-    for k, v in norm_es_en.items():
-        if fold(v) == fold(name): return k
+    alias = norm_en_es.get(fold(name))
+    if alias: return alias
+    if norm_es_en.get(fold(name)): return name
     return None
 
 cs = swift('CatalogSpanish.swift')
@@ -246,6 +253,25 @@ body_by_group = {'Hombros':'shoulders','Espalda':'back','Pecho':'chest','Core':'
                  'Glúteos':'upper legs','Piernas':'upper legs','Isquios':'upper legs',
                  'Gemelos':'lower legs'}
 mov_names = {}
+MOV_STATIC_HOLD = {'mobility-14','mobility-15','mobility-16','mobility-20','mobility-21',
+    'mobility-30','mobility-31','mobility-32','mobility-36','mobility-38','mobility-39',
+    'mobility-40','mobility-41','mobility-42','mobility-44','mobility-46','mobility-60',
+    'mobility-61','mobility-62','mobility-67','mobility-70','mobility-80'}
+def mov_detailed_instructions(catalog_id, equip, steps):
+    """Réplica de CatalogMovilidad.detailedInstructions (main + setup/breath/control/adapt)."""
+    static_hold = catalog_id in MOV_STATIC_HOLD
+    if equip != 'Peso corporal':
+        setup = ('Antes de empezar, prepara ' + (equip or 'el material') +
+            ' en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.')
+    else:
+        setup = ('Sitúate sobre una superficie estable y busca una posición equilibrada. Antes de ampliar el recorrido, comprueba que puedes activar el tronco y respirar sin tensión excesiva.')
+    main = list(steps[:2])
+    breath = ('Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.' if static_hold else
+        'Inhala para preparar el movimiento y exhala durante la fase más exigente. Alterna recorridos lentos y continuos; evita tirones, rebotes y movimientos hechos por inercia.')
+    control = ('Error típico: buscar más amplitud girando el tronco, arqueando la espalda o perdiendo la alineación articular. Reduce el rango y prioriza la calidad de cada repetición.')
+    adapt = ('Progresión: comienza con intervalos cortos de 15 a 30 segundos y aumenta solo si mantienes la postura estable. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio.' if static_hold else
+        'Progresión: comienza con pocas repeticiones y un recorrido cómodo. Aumenta gradualmente la amplitud, nunca la velocidad. Si hay dolor, hormigueo o mareo, interrumpe el ejercicio.')
+    return main + [setup, breath, control, adapt]
 for b in blocks(mov, 'move'):
     a = parse_args(b)
     if '_name' not in a or 'key' not in a: continue
@@ -254,9 +280,11 @@ for b in blocks(mov, 'move'):
     desc = desc + ' Ejercicio de movilidad controlada para ' + group.lower() + \
         '. Ajusta la amplitud a tus posibilidades, sin convertir el estiramiento en una competición ni aumentar la carga.'
     target = a.get('target')
+    catalog_id = 'mobility-' + str(a['key'])
     rows.append(dict(name=a['_name'], group=group, equip=a.get('equipment'),
-        catalogId='mobility-' + str(a['key']), target=target, secondary=[],
-        body=body_by_group.get(group, 'lower arms'), desc=desc, steps=a.get('steps') or [],
+        catalogId=catalog_id, target=target, secondary=[],
+        body=body_by_group.get(group, 'lower arms'), desc=desc,
+        steps=mov_detailed_instructions(catalog_id, a.get('equipment'), a.get('steps') or []),
         prim=[target] if target else [], sec=[], sport='Movilidad'))
     mov_names[a['_name']] = True
 
