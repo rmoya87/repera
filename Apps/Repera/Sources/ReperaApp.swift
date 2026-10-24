@@ -436,6 +436,8 @@ private enum CatalogBackgroundRefreshScheduler {
     static func schedule() {
         let request = BGAppRefreshTaskRequest(identifier: identifier)
         request.earliestBeginDate = Date(timeIntervalSinceNow: 4 * 60 * 60)
+        // Keep a single pending native request for this identifier.
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
         do {
             try BGTaskScheduler.shared.submit(request)
         } catch {
@@ -445,10 +447,10 @@ private enum CatalogBackgroundRefreshScheduler {
 
     @MainActor
     static func runHeadless() async {
-        schedule() // Re-arm for the next system-selected opportunity.
         guard !Task.isCancelled else { return }
         let auth = BusinessAuthStore.shared
         guard auth.hasCachedSupabaseSession || auth.hasPriorSupabaseBinding else { return }
+        schedule() // Re-arm only when an authenticated session may be restored.
         if !auth.isConnected {
             await auth.restoreSession() // Keychain; never show an interactive sign-in.
         }
