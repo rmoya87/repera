@@ -96,6 +96,44 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         syncAITrainingInbox()
         syncWorkoutMirror()
         syncAITrainingContext()
+        refreshSharing()
+    }
+
+    // ---- Compartir resultados por centro (athlete_workout_sharing) ----
+    private var sharingByCenter by mutableStateOf<Map<String, Boolean>>(
+        emptyMap())
+    private var sharingUpdating by mutableStateOf(false)
+
+    private fun refreshSharing() {
+        val session = verifiedSupabase ?: return
+        lifecycleScope.launch {
+            val map = withContext(Dispatchers.IO) {
+                runCatching {
+                    WorkoutMirrorStore(this@MainActivity, session.userId)
+                        .refreshSharing(session)
+                }.getOrNull()
+            }
+            if (map != null) sharingByCenter = map
+        }
+    }
+
+    private fun setSharing(orgId: String, enabled: Boolean) {
+        val session = verifiedSupabase ?: return
+        if (sharingUpdating) return
+        sharingUpdating = true
+        val linked = centerSnapshot?.athleteCenterIds ?: emptySet()
+        lifecycleScope.launch {
+            val failure = withContext(Dispatchers.IO) {
+                WorkoutMirrorStore(this@MainActivity, session.userId)
+                    .setSharing(session, orgId, enabled, linked)
+            }
+            if (failure == null) {
+                sharingByCenter = sharingByCenter + (orgId to enabled)
+            } else {
+                centerError = failure
+            }
+            sharingUpdating = false
+        }
     }
 
     // ---- Acceso IA (port AIAccessView): tokens + cambios + bandeja ----
@@ -112,6 +150,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var aiInboxConflicts by mutableStateOf<List<String>>(emptyList())
 
     private fun clearAIAccessState() {
+        sharingByCenter = emptyMap(); sharingUpdating = false
         aiTokens = null; aiBusy = false; aiError = null; aiSuccess = null
         aiCreatedToken = null; aiChanges = emptyList(); aiChangeBusy = false
         aiChangeError = null; aiInboxPending = 0; aiInboxConflicts = emptyList()
@@ -380,6 +419,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onCenterCancel = { booking ->
                     centerAction { s -> cancel(s, booking) }
                 },
+                sharingByCenter = sharingByCenter,
+                sharingUpdating = sharingUpdating,
+                onSetSharing = ::setSharing,
                 aiConnected = verifiedSupabase != null,
                 aiTokens = aiTokens,
                 aiBusy = aiBusy,

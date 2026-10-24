@@ -3,6 +3,7 @@ package dev.repera.mobile
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -16,6 +17,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -46,7 +48,10 @@ internal fun CenterTab(
     onRefresh: () -> Unit,
     onAccept: (BusinessCenterStore.Invitation) -> Unit,
     onBook: (BusinessCenterStore.Occurrence, BusinessCenterStore.Pass) -> Unit,
-    onCancel: (BusinessCenterStore.Booking) -> Unit
+    onCancel: (BusinessCenterStore.Booking) -> Unit,
+    sharingByCenter: Map<String, Boolean> = emptyMap(),
+    sharingUpdating: Boolean = false,
+    onSetSharing: (String, Boolean) -> Unit = { _, _ -> }
 ) {
     var section by remember { mutableStateOf("class") }
     var pendingCancellation by remember {
@@ -126,6 +131,35 @@ internal fun CenterTab(
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Text(center.name, modifier = Modifier.padding(16.dp),
                         style = MaterialTheme.typography.titleSmall)
+                }
+            }
+            // Privacidad (paridad iOS BusinessCenterViews): consentimiento
+            // independiente y revocable por centro, OFF por defecto.
+            val linked = centers.filter {
+                snapshot?.athleteCenterIds?.contains(it.id) == true
+            }
+            if (linked.isNotEmpty()) {
+                item { Text("Privacidad",
+                    style = MaterialTheme.typography.titleMedium) }
+                items(linked) { center ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Compartir resultados",
+                                    style = MaterialTheme.typography.titleSmall)
+                                Text("Series, repeticiones y marcas con " +
+                                    (center.name.ifBlank { "el centro" }) +
+                                    ". Puedes desactivarlo.",
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                            Switch(
+                                checked = sharingByCenter[center.id] == true,
+                                onCheckedChange = {
+                                    onSetSharing(center.id, it) },
+                                enabled = !sharingUpdating)
+                        }
+                    }
                 }
             }
         }

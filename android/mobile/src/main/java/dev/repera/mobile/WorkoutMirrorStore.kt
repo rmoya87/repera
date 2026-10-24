@@ -238,6 +238,62 @@ class WorkoutMirrorStore(
         }
     }
 
+    /** Consentimiento independiente y revocable por centro (iOS
+     *  refreshSharing): qué centros vinculados pueden leer resultados. */
+    fun refreshSharing(session: SupabaseIdentity.Session): Map<String, Boolean> {
+        val url = BuildConfig.SUPABASE_URL + "/rest/v1/athlete_workout_sharing" +
+            "?select=org_id,enabled&athlete_id=eq.$userId"
+        val request = Request.Builder().url(url)
+            .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
+            .header("Authorization", "Bearer " + session.accessToken)
+            .get().build()
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful)
+                throw IllegalStateException("HTTP " + response.code)
+            val rows = JSONArray(response.body?.string().orEmpty())
+            val map = mutableMapOf<String, Boolean>()
+            for (i in 0 until rows.length()) {
+                val row = rows.getJSONObject(i)
+                map[row.getString("org_id")] = row.optBoolean("enabled", false)
+            }
+            return map
+        }
+    }
+
+    /** iOS setSharing: exige estar vinculado y activo en el centro. */
+    fun setSharing(session: SupabaseIdentity.Session, orgId: String,
+                   enabled: Boolean, athleteCenterIds: Set<String>): String? {
+        if (!athleteCenterIds.contains(orgId)) {
+            return "Debes estar vinculado y activo en el centro para " +
+                "compartir tus resultados."
+        }
+        val row = JSONObject()
+            .put("athlete_id", userId)
+            .put("org_id", orgId)
+            .put("enabled", enabled)
+            .put("updated_at", Instant.now().toString())
+        val url = BuildConfig.SUPABASE_URL +
+            "/rest/v1/athlete_workout_sharing?on_conflict=athlete_id,org_id"
+        val request = Request.Builder().url(url)
+            .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
+            .header("Authorization", "Bearer " + session.accessToken)
+            .header("Content-Type", "application/json")
+            .header("Prefer", "resolution=merge-duplicates")
+            .post(JSONArray().put(row).toString()
+                .toRequestBody("application/json".toMediaType()))
+            .build()
+        return try {
+            http.newCall(request).execute().use { response ->
+                if (response.isSuccessful) null
+                else "No se ha podido cambiar el permiso de compartir " +
+                    "resultados: HTTP " + response.code
+            }
+        } catch (error: Exception) {
+            "No se ha podido cambiar el permiso de compartir resultados: " +
+                (error.localizedMessage ?: "")
+        }
+    }
+
     companion object {
         private const val KEY_FINGERPRINTS = "fingerprints"
         private const val KEY_DELETED = "deleted"
