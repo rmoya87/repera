@@ -36,6 +36,10 @@ public enum ExerciseEquipmentGroup {
             return "Bicicletas y Air Bikes"
         }
 
+        if named(["cinta / carrera", "treadmill"]) || equipped(["cinta de correr", "treadmill"]) {
+            return "Cintas de correr"
+        }
+
         // Balones distintos: Wall Ball ≠ Slam Ball ≠ balón medicinal genérico.
         if named(["wall ball", "wallball", "wall-ball", "lanzamiento de balon a pared"]) ||
             equipped(["wall ball", "wallball"]) {
