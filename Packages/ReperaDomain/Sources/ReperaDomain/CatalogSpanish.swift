@@ -1032,6 +1032,9 @@ public enum CatalogSpanish {
             "Si no puedes, gateo con rodillas apoyadas y luego eleva.",
         ],
         "Swing kettlebell": [
+            "Bisagra: KB atrás entre las piernas, cadera cargada y espalda neutra.",
+            "Snap de cadera: extiende con fuerza; la KB sube a la altura de la cadera.",
+            "Arriba: KB a pecho/hombros con el cuerpo en plancha vertical, glúteos apretados.",
             "Bisagra: KB entre piernas; extiende cadera con fuerza hasta que la KB llegue a altura de pecho/hombros (ruso).",
             "Brazos relajados; aprieta glúteos arriba; no hiperestes lumbar.",
             "Inhala en la bisagra, exhala al snap de cadera.",

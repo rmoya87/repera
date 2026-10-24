@@ -43,6 +43,7 @@ final class ExerciseArtCaptionTests: XCTestCase {
             "Fondos en paralelas": 2,
             "Burpee pull-up": 3,
             "Air squat": 3,
+            "Swing kettlebell": 3,
             "Box jump over": 3,
         ]
         for (name, count) in expected {
