@@ -155,14 +155,12 @@ class VisualVerificationInstrumentedTest {
     fun capturaRelojWodApaisado() {
         val (active, timer) = wodClockFixture()
         brandContent {
-            // Caja 840x400 dp: fuerza la rama apaisada (ancho > alto) para
-            // capturar el layout landscape sin rotar el emulador.
-            // requiredSize ignora las restricciones del padre: con size() el
-            // ancho quedaba coaccionado al de la pantalla y la captura salía
-            // idéntica a la vertical (detectado por md5 idéntico en CI).
+            // Caja 400x200 dp (proporción landscape): fuerza la rama apaisada
+            // (ancho > alto) SIN exceder la ventana del emulador: 840dp quedaba
+            // recortado a los 411dp visibles y las cifras LED salían cortadas.
             androidx.compose.foundation.layout.Box(
                 modifier = Modifier
-                    .requiredSize(840.dp, 400.dp)
+                    .requiredSize(400.dp, 200.dp)
                     .testTag("wod_landscape_capture")
             ) {
                 WodClockScreen(active, false, timer, {}, {}, {}, requestNotificationPermission = false)
@@ -282,11 +280,22 @@ class VisualVerificationInstrumentedTest {
         }
         compose.waitForIdle()
         // BodyMapView carga BodyPaths.json de assets en Dispatchers.Default:
-        // waitForIdle NO lo espera. Esperar al nodo cargado de forma
-        // determinista (la captura anterior mostraba el Spacer de 220dp).
+        // waitForIdle NO lo espera. Precarga determinista desde el contexto
+        // de la app bajo test y espera al nodo; si no aparece, FALLO (la
+        // captura anterior mostraba el Spacer de 220dp y nadie lo detectó).
+        val appContext = androidx.test.platform.app.InstrumentationRegistry
+            .getInstrumentation().targetContext
+        kotlinx.coroutines.runBlocking {
+            org.junit.Assert.assertNotNull(
+                "BodyPaths.json debe cargar desde assets del target",
+                CompiledBodyPaths.shared(appContext))
+        }
         compose.waitUntil(10_000) {
             compose.onAllNodesWithTag("body_map_loaded").fetchSemanticsNodes().isNotEmpty()
         }
+        org.junit.Assert.assertTrue(
+            "El mapa corporal no apareció tras la espera (placeholder de 220dp)",
+            compose.onAllNodesWithTag("body_map_loaded").fetchSemanticsNodes().isNotEmpty())
         compose.waitForIdle()
         save("progreso_equilibrio_muscular", compose.onRoot().captureToImage())
         // Segundo modo: Esfuerzo (series duras), paridad del segmented iOS.
