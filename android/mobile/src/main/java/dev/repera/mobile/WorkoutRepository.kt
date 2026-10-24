@@ -1473,6 +1473,160 @@ class WorkoutRepository(context: Context, googleId: String) {
         save(state)
     }
 
+    // --- Cambios propuestos por la IA (AIChangeRequestStore) ---
+
+    /** Parche de una serie propuesto por la IA y consentido por el deportista. */
+    data class AISetPatch(
+        val exerciseEntryId: String,
+        val loggedSetId: String,
+        val reps: Int? = null,
+        val weightKg: Double? = null,
+        val rir: Double? = null,
+        val clearWeight: Boolean = false,
+        val clearRir: Boolean = false
+    )
+
+    /** Entrenos terminados (copia) para validar el objetivo de un cambio IA. */
+    @Synchronized fun finishedWorkoutsSnapshot(): List<JSONObject> {
+        val state = requireState()
+        val archive = state.optJSONArray("workouts") ?: JSONArray()
+        return (0 until archive.length())
+            .map { archive.getJSONObject(it) }
+            .filter { !it.isNull("finishedAt") }
+            .map { JSONObject(it.toString()) }
+    }
+
+    /**
+     * Aplica un cambio IA consentido (port del update_workout de
+     * AIChangeRequestStore.decide): título + parches de series. Las series
+     * drop/rest-pause no se tocan si el parche cambia reps (igual que iOS).
+     */
+    @Synchronized fun applyAIWorkoutPatch(
+        workoutId: String, title: String?, setChanges: List<AISetPatch>
+    ) {
+        val state = requireState()
+        val workout = findWorkout(state, workoutId)
+        if (title != null) workout.put("title", title)
+        for (patch in setChanges) {
+            val exercise = findSessionExercise(workout, patch.exerciseEntryId)
+            val logged = exercise.optJSONArray("loggedSets")
+                ?: error("Una serie ya no coincide con el entrenamiento actual.")
+            val index = (0 until logged.length()).firstOrNull {
+                logged.getJSONObject(it).optString("id") == patch.loggedSetId
+            } ?: error("Una serie ya no coincide con el entrenamiento actual.")
+            val set = logged.getJSONObject(index)
+            if (patch.reps != null) {
+                val drops = set.optJSONArray("drops")
+                val clusters = set.optJSONArray("clusters")
+                check((drops == null || drops.length() == 0) &&
+                    (clusters == null || clusters.length() == 0)) {
+                    "Las series drop/rest-pause deben editarse manualmente."
+                }
+                set.put("reps", patch.reps)
+            }
+            if (patch.weightKg != null) set.put("weightKg", patch.weightKg)
+            if (patch.clearWeight) set.remove("weightKg")
+            if (patch.rir != null) {
+                set.put("rir", patch.rir)
+                set.put("toFailure", false)
+            }
+            if (patch.clearRir) {
+                set.remove("rir")
+                set.put("toFailure", false)
+            }
+        }
+        val exercises = workout.optJSONArray("exercises")
+        if (exercises != null) {
+            for (i in 0 until exercises.length()) {
+                recomputeCompletedReps(exercises.getJSONObject(i))
+            }
+        }
+        save(state)
+    }
+
+    /** Elimina un entreno registrado (solo tras consentimiento explícito). */
+    @Synchronized fun deleteWorkout(id: String) {
+        val state = requireState()
+        val archive = state.getJSONArray("workouts")
+        val index = (0 until archive.length()).firstOrNull {
+            archive.getJSONObject(it).optString("id") == id
+        } ?: error("Entreno no encontrado")
+        archive.remove(index)
+        save(state)
+    }
+
+    /** Ejercicios personalizados actuales (copia) para el espejo IA. */
+    @Synchronized fun customExercisesSnapshot(): List<JSONObject> {
+        val state = requireState()
+        val catalog = state.optJSONArray("exercises") ?: JSONArray()
+        return (0 until catalog.length())
+            .map { catalog.getJSONObject(it) }
+            .filter { it.optBoolean("isCustom") }
+            .map { JSONObject(it.toString()) }
+    }
+
+    /** Crea ejercicio personalizado con id fijado (la IA propone, el
+     * deportista consiente). Devuelve false si el id ya existe. */
+    @Synchronized fun addCustomExercise(
+        id: String, name: String, muscleGroup: String,
+        equipment: String? = null, targetMuscle: String? = null,
+        secondaryMuscles: List<String> = emptyList()
+    ): Boolean {
+        val state = requireState()
+        val catalog = state.getJSONArray("exercises")
+        for (i in 0 until catalog.length()) {
+            if (catalog.getJSONObject(i).optString("id") == id) return false
+        }
+        catalog.put(JSONObject()
+            .put("id", id)
+            .put("name", name)
+            .put("muscleGroup", muscleGroup)
+            .put("equipment", equipment ?: JSONObject.NULL)
+            .put("targetMuscle", targetMuscle ?: "")
+            .put("secondaryMuscles", JSONArray(secondaryMuscles))
+            .put("isCustom", true))
+        save(state)
+        return true
+    }
+
+    /** Edita un ejercicio personalizado; false si no existe o no es custom. */
+    @Synchronized fun updateCustomExercise(
+        id: String, name: String, muscleGroup: String,
+        equipment: String? = null, targetMuscle: String? = null,
+        secondaryMuscles: List<String> = emptyList()
+    ): Boolean {
+        val state = requireState()
+        val catalog = state.getJSONArray("exercises")
+        for (i in 0 until catalog.length()) {
+            val exercise = catalog.getJSONObject(i)
+            if (exercise.optString("id") != id) continue
+            if (!exercise.optBoolean("isCustom")) return false
+            exercise.put("name", name)
+            exercise.put("muscleGroup", muscleGroup)
+            exercise.put("equipment", equipment ?: JSONObject.NULL)
+            exercise.put("targetMuscle", targetMuscle ?: "")
+            exercise.put("secondaryMuscles", JSONArray(secondaryMuscles))
+            save(state)
+            return true
+        }
+        return false
+    }
+
+    /** Elimina un ejercicio personalizado; false si no existe o no es custom. */
+    @Synchronized fun deleteCustomExercise(id: String): Boolean {
+        val state = requireState()
+        val catalog = state.getJSONArray("exercises")
+        for (i in 0 until catalog.length()) {
+            val exercise = catalog.getJSONObject(i)
+            if (exercise.optString("id") != id) continue
+            if (!exercise.optBoolean("isCustom")) return false
+            catalog.remove(i)
+            save(state)
+            return true
+        }
+        return false
+    }
+
     /** Borra una serie registrada de un entreno terminado, sin tocar el resto. */
     @Synchronized fun deleteFinishedSet(workoutId: String, entryId: String, setId: String) {
         val state = requireState()
