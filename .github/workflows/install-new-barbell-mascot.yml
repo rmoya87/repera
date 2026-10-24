@@ -1,0 +1,58 @@
+name: Install Repera barbell launch artwork
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/install-new-barbell-mascot.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish-launch-artwork:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --disable-pip-version-check pillow
+      - name: Get brand new Repera mascot with a single barbell
+        run: |
+          set -euo pipefail
+          asset="Apps/Repera/Resources/Assets.xcassets/ReperaNativeBarbell.imageset"
+          mkdir -p "$asset"
+          curl --fail --location --silent --show-error --retry 3 "https://at.adobe.com/54JiDDAGVa2BFCzt" -o "$asset/repera-native-barbell.png"
+          cp "$asset/repera-native-barbell.png" Apps/Repera/Resources/ReperaStartupBarbell.png
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from PIL import Image
+          folder=Path('Apps/Repera/Resources/Assets.xcassets/ReperaNativeBarbell.imageset')
+          path=folder/'repera-native-barbell.png'
+          with Image.open(path) as im:
+              im.verify()
+          with Image.open(path) as im:
+              assert im.mode=='RGBA', f'Unexpected mode {im.mode}'
+              assert im.width>700 and im.height>1200, im.size
+              assert im.getpixel((0,0))[3] == 0
+              assert im.getpixel((im.width//2,im.height//2))[3] > 240, 'Barbell figure missing'
+              print('Launch illustration:',im.size,im.mode)
+          cfg={'images':[{'filename':path.name,'idiom':'universal','scale':'3x'}],
+               'info':{'author':'xcode','version':1}}
+          (folder/'Contents.json').write_text(json.dumps(cfg,indent=2)+'\n')
+          assert (Path('Apps/Repera/Resources/ReperaStartupBarbell.png').read_bytes()
+                  == path.read_bytes())
+          PY
+      - name: Commit images only, no workflow edits
+        run: |
+          git add Apps/Repera/Resources/Assets.xcassets/ReperaNativeBarbell.imageset Apps/Repera/Resources/ReperaStartupBarbell.png
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Install new overhead barbell mascot on native and SwiftUI launch"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
