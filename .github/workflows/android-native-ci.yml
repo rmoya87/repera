@@ -55,11 +55,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Cobertura de ejecución real: minSdk 30 y las dos imágenes de
-        # sistema más recientes publicadas. NO existe imagen android-37
-        # (Android 17) en el repositorio de SDK a 24/10/2026
-        # (sdkmanager --channel=3 --list): la ejecución sobre API 37
-        # queda bloqueada por Google hasta que se publique la imagen.
+        # Cobertura de ejecución real en teléfono: minSdk 30, API 35 y
+        # API 36.1 (imágenes estables publicadas). Android 17 (API 37)
+        # tiene su propio job con la imagen canary verificada (ver
+        # android-instrumented-android17): la imagen
+        # system-images;android-canary-20261007 reporta
+        # ro.build.version.sdk_full=37.2 en su build.prop.
         api: ['30', '35', '36.1']
     permissions:
       contents: read
@@ -116,6 +117,131 @@ jobs:
           path: |
             android/mobile/build/outputs/androidTest-results/**
             android/mobile/build/reports/androidTests/**
+            android/wear/build/outputs/androidTest-results/**
+            android/wear/build/reports/androidTests/**
+          if-no-files-found: ignore
+  android-instrumented-android17:
+    name: Phone integration tests on Android 17 (API 37.2 canary)
+    needs: android-native
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        uses: android-actions/setup-android@v4
+      - name: Android 17 compile SDK
+        run: sdkmanager --channel=3 'platforms;android-37.0' 'build-tools;36.0.0'
+      - name: Gradle 9.6
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run instrumented tests on Android 17 (API 37.2)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          # La imagen android-canary-20261007 reporta
+          # ro.build.version.sdk=37 / sdk_full=37.2 (build.prop de la
+          # imagen, verificado 24/10/2026): es la imagen publicada de
+          # Android 17. Fijada por fecha para que un salto del canal
+          # CANARY a otra versión mayor falle en voz alta.
+          api-level: CANARY
+          system-image-api-level: canary-20261007
+          target: google_apis_ps16k
+          channel: canary
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: adb shell getprop ro.build.version.sdk_full; gradle -p android :mobile:connectedDebugAndroidTest --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; ls -laR android/screenshots/ || true; exit $TEST_EXIT
+      - name: Upload visual verification screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-visual-screenshots-api37
+          path: android/screenshots/**
+          if-no-files-found: ignore
+      - name: Upload instrumentation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-instrumentation-results-api37
+          path: |
+            android/mobile/build/outputs/androidTest-results/**
+            android/mobile/build/reports/androidTests/**
+          if-no-files-found: ignore
+
+  wear-instrumented:
+    name: Wear integration tests on Wear OS images
+    needs: android-native
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # Imágenes Wear OS publicadas: 35 = Wear OS 5.1 (preview),
+        # 36.1 = Wear OS 6.1 (android-wear-signed).
+        include:
+          - api: '35'
+            target: android-wear
+            label: 'Wear OS 5.1 (API 35)'
+          - api: '36.1'
+            target: android-wear-signed
+            label: 'Wear OS 6.1 (API 36.1)'
+    steps:
+      - uses: actions/checkout@v4
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        uses: android-actions/setup-android@v4
+      - name: Android 17 compile SDK
+        run: sdkmanager --channel=3 'platforms;android-37.0' 'build-tools;36.0.0'
+      - name: Gradle 9.6
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run wear instrumented tests on ${{ matrix.label }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: ${{ matrix.target }}
+          channel: canary
+          arch: x86_64
+          profile: wearos_small_round
+          disable-animations: true
+          script: gradle -p android :wear:connectedDebugAndroidTest --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots-wear; adb pull /sdcard/Pictures/ReperaVerification android/screenshots-wear/ || true; ls -laR android/screenshots-wear/ || true; exit $TEST_EXIT
+      - name: Upload wear visual verification screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wear-visual-screenshots-${{ matrix.api }}
+          path: android/screenshots-wear/**
+          if-no-files-found: ignore
+      - name: Upload wear instrumentation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wear-instrumentation-results-${{ matrix.api }}
+          path: |
             android/wear/build/outputs/androidTest-results/**
             android/wear/build/reports/androidTests/**
           if-no-files-found: ignore
