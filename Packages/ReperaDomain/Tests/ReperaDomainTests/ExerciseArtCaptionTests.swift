@@ -90,4 +90,49 @@ final class ExerciseArtCaptionTests: XCTestCase {
             }
         }
     }
+    /// La compuerta del carrusel consulta `CatalogSpanish.instructions(forName:)`
+    /// con el nombre SEMBRADO (CrossFit/Halterofilia siembran el canonico ingles
+    /// via `SportExerciseNames.displayName`; Gimnasia conserva el nombre tal cual).
+    /// Este test parte de las filas reales del catalogo para que ningun carrusel
+    /// dependa de una clave que la UI no puede alcanzar (p. ej. probar
+    /// "Snatch mancuerna" cuando la ficha recibe "Dumbbell Snatch" y confia en
+    /// el puente `SportExerciseNames.spanishAlias`).
+    func testCarouselCaptionsResolveFromSeededExerciseNames() {
+        let expected: [(catalog: String, sport: String, frames: Int)] = [
+            ("Snatch mancuerna", "CrossFit", 3),
+            ("Swing kettlebell", "CrossFit", 3),
+            ("Thruster mancuernas", "CrossFit", 3),
+            ("Thruster kettlebell", "CrossFit", 3),
+            ("Clean kettlebell", "CrossFit", 3),
+            ("Burpee al cajón", "CrossFit", 3),
+            ("Man maker", "CrossFit", 6),
+            ("Ball slam", "CrossFit", 3),
+            ("Broad jump", "CrossFit", 3),
+            ("Goblet squat", "CrossFit", 3),
+            ("Pistol squat", "Gimnasia", 3),
+            ("Air squat", "Gimnasia", 3),
+            ("Jumping squat", "Gimnasia", 3),
+            ("Jumping lunge", "Gimnasia", 3),
+        ]
+        let rows = CatalogCrossFit.rows + CatalogGimnasia.rows
+        for (catalogName, sport, frames) in expected {
+            let seededName = SportExerciseNames.displayName(catalogName, sport: sport)
+            guard let row = rows.first(where: { $0.name == seededName }) else {
+                XCTFail("Falta la fila sembrada en el catalogo: \(catalogName) -> \(seededName)")
+                continue
+            }
+            let captions = CatalogSpanish.instructions(forName: row.name)
+            XCTAssertGreaterThanOrEqual(
+                captions?.count ?? 0,
+                frames,
+                "La UI no alcanza las captions de fase desde el nombre sembrado \(row.name) (catalogo: \(catalogName))"
+            )
+            XCTAssertGreaterThanOrEqual(
+                (captions?.count ?? 0) - frames,
+                4,
+                "Faltan pasos de coaching tras las fases: \(row.name)"
+            )
+        }
+    }
+
 }
