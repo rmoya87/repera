@@ -5,7 +5,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Press banca",
             muscleGroup: "Pecho",
-            equipment: "Barra",
+            equipment: "Barra, Banco",
             catalogId: "0025",
             target: "pectorals",
             secondaryMuscles: ["triceps", "shoulders"],
@@ -18,7 +18,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Press banca inclinada",
             muscleGroup: "Pecho",
-            equipment: "Barra",
+            equipment: "Barra, Banco",
             catalogId: "0048",
             target: "pectorals",
             secondaryMuscles: ["triceps", "shoulders"],
@@ -31,7 +31,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Press mancuernas",
             muscleGroup: "Pecho",
-            equipment: "Mancuernas",
+            equipment: "Mancuernas, Banco",
             catalogId: "0289",
             target: "pectorals",
             secondaryMuscles: ["triceps", "shoulders"],
@@ -44,7 +44,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Aperturas",
             muscleGroup: "Pecho",
-            equipment: "Mancuernas",
+            equipment: "Mancuernas, Banco",
             catalogId: "4200",
             target: "pectorals",
             secondaryMuscles: ["shoulders", "biceps"],
@@ -57,7 +57,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Fondos",
             muscleGroup: "Pecho",
-            equipment: "Peso corporal",
+            equipment: "Paralelas",
             catalogId: "1442",
             target: "pectorals",
             secondaryMuscles: ["triceps", "shoulders", "core"],
@@ -70,7 +70,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Dominadas",
             muscleGroup: "Espalda",
-            equipment: "Peso corporal",
+            equipment: "Barra de dominadas",
             catalogId: "3487",
             target: "lats",
             secondaryMuscles: ["biceps", "upper back", "forearms"],
@@ -317,7 +317,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Fondos en banco",
             muscleGroup: "Tríceps",
-            equipment: "Peso corporal",
+            equipment: "Banco",
             catalogId: "1399",
             target: "triceps",
             secondaryMuscles: ["chest", "shoulders"],
@@ -343,7 +343,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Press cerrado",
             muscleGroup: "Tríceps",
-            equipment: "Barra",
+            equipment: "Barra, Banco",
             catalogId: "1327",
             target: "triceps",
             secondaryMuscles: ["chest", "shoulders"],
@@ -395,7 +395,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Hip thrust",
             muscleGroup: "Glúteos",
-            equipment: "Barra",
+            equipment: "Barra, Banco",
             catalogId: "2072",
             target: "glutes",
             secondaryMuscles: ["hamstrings", "core"],
@@ -460,7 +460,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Pullover",
             muscleGroup: "Espalda",
-            equipment: "Mancuernas",
+            equipment: "Mancuernas, Banco",
             catalogId: "8750",
             target: "lats",
             secondaryMuscles: ["chest", "triceps", "core"],
@@ -525,7 +525,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Press banca declinado",
             muscleGroup: "Pecho",
-            equipment: "Barra",
+            equipment: "Barra, Banco",
             catalogId: "0753",
             target: "pectorals",
             secondaryMuscles: ["triceps", "shoulders"],
@@ -577,7 +577,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Sentadilla búlgara",
             muscleGroup: "Piernas",
-            equipment: "Mancuernas",
+            equipment: "Mancuernas, Banco",
             catalogId: "3716",
             target: "quads",
             secondaryMuscles: ["glutes", "hamstrings", "core"],
@@ -590,7 +590,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Curl predicador",
             muscleGroup: "Bíceps",
-            equipment: "Barra",
+            equipment: "Barra, Banco predicador",
             catalogId: "2348",
             target: "biceps",
             secondaryMuscles: ["forearms", "brachialis"],
@@ -629,7 +629,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Ab wheel",
             muscleGroup: "Core",
-            equipment: "Peso corporal",
+            equipment: "Rueda abdominal",
             catalogId: "4979",
             target: "abs",
             secondaryMuscles: ["lats", "shoulders", "hip flexors"],
@@ -655,7 +655,7 @@ enum CatalogEnrichment {
         EnrichedSeed(
             name: "Remo invertido",
             muscleGroup: "Espalda",
-            equipment: "Peso corporal",
+            equipment: "Barra fija",
             catalogId: "3388",
             target: "upper back",
             secondaryMuscles: ["lats", "biceps", "core"],
