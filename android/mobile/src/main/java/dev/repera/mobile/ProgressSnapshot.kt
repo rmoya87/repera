@@ -47,7 +47,10 @@ data class ProgressSnapshotData(
     val weightPoints: List<ProgressDayPoint>,
     val weightDelta30d: Double?,
     val monthSessions: Int,
-    val filteredWorkouts: Int
+    val filteredWorkouts: Int,
+    val averageHeartRate: Double? = null,
+    val previousAverageHeartRate: Double? = null,
+    val externalSessions: Int = 0
 )
 
 object ProgressSnapshotBuilder {
@@ -170,11 +173,16 @@ object ProgressSnapshotBuilder {
         now: LocalDate = LocalDate.now(),
         zone: ZoneId = ZoneId.systemDefault(),
         nowMillis: Long = System.currentTimeMillis(),
-        monday: Boolean = true
+        monday: Boolean = true,
+        health: HealthSamples? = null
     ): ProgressSnapshotData {
         val (workouts, stimuli) = adapt(state, zone)
+        val externalSamples = health?.daySamples.orEmpty()
+        val externalStimuli = health?.stimuli.orEmpty()
 
         val filtered = StatsEngine.filterWorkouts(workouts, range, monday, now, zone)
+        val filteredExternal = StatsEngine.filterExternal(
+            externalSamples, range, monday, now, zone)
         val filteredStimuli = stimuli.filter { stimulus ->
             range.contains(
                 Instant.ofEpochMilli(stimulus.epochMillis).atZone(zone).toLocalDate(),
@@ -182,23 +190,43 @@ object ProgressSnapshotBuilder {
         }
 
         val summary = StatsEngine.progressHealthSummary(
-            workouts, emptyList(), range, monday, now, zone)
+            workouts, externalSamples, range, monday, now, zone)
         val previousSummary = StatsEngine.progressHealthSummary(
             StatsEngine.filterWorkoutsInPreviousPeriod(
                 workouts, range, monday, now, zone),
-            emptyList(), range, monday, now, zone,
+            StatsEngine.filterExternal(externalSamples, range, monday, now, zone)
+                .filter {
+                    range.containsInPreviousPeriod(
+                        Instant.ofEpochMilli(it.epochMillis).atZone(zone).toLocalDate(),
+                        now, monday)
+                },
+            range, monday, now, zone,
             applyRangeFilter = false)
 
         val dates = workouts.map { it.epochMillis }
-        val streak = StatsEngine.consecutiveWeekStreak(dates, emptyList(),
+        val externalDates = externalSamples.map { it.epochMillis }
+        val streak = StatsEngine.consecutiveWeekStreak(dates, externalDates,
             monday, now, zone)
-        val previousStreak = StatsEngine.consecutiveWeekStreak(dates, emptyList(),
+        val previousStreak = StatsEngine.consecutiveWeekStreak(dates, externalDates,
             monday, now.minusDays(7), zone)
+
+        val averageHeartRate = health?.heartRateDays
+            ?.filter { range.contains(it.date, now, monday) }
+            ?.takeIf { it.isNotEmpty() }
+            ?.map { it.avgBpm }?.average()
+        val previousAverageHeartRate = health?.heartRateDays
+            ?.filter { range.containsInPreviousPeriod(it.date, now, monday) }
+            ?.takeIf { it.isNotEmpty() }
+            ?.map { it.avgBpm }?.average()
 
         val records = StatsEngine.personalRecords(filtered)
 
         val statuses = MuscleMapEngine.statuses(
-            filteredStimuli, emptyList(), hardOnly = false, nowMillis = nowMillis)
+            filteredStimuli, externalStimuli.filter { stimulus ->
+                range.contains(
+                    Instant.ofEpochMilli(stimulus.epochMillis).atZone(zone).toLocalDate(),
+                    now, monday)
+            }, hardOnly = false, nowMillis = nowMillis)
         val hasHardSets = filteredStimuli.any { stimulus ->
             stimulus.exercises.any { entry ->
                 entry.sportTag != "Movilidad" && entry.sets.any {
@@ -208,7 +236,7 @@ object ProgressSnapshotBuilder {
             }
         }
 
-        val activity = StatsEngine.dailyActivity(filtered, emptyList(), zone)
+        val activity = StatsEngine.dailyActivity(filtered, filteredExternal, zone)
         val thresholds = StatsEngine.heatmapThresholds(
             activity.values.map { it.minutes })
         val start = range.startDate(now, monday)
@@ -222,7 +250,7 @@ object ProgressSnapshotBuilder {
             }
             .toList()
 
-        val cardioRaw = StatsEngine.dailyMetricSeries(filtered, emptyList(),
+        val cardioRaw = StatsEngine.dailyMetricSeries(filtered, filteredExternal,
             "cardioMinutes", range, monday, now, zone)
         val cardioSeries = StatsEngine.averagedSeries(cardioRaw,
             StatsEngine.granularityForChart(range), monday)
@@ -302,8 +330,11 @@ object ProgressSnapshotBuilder {
             weightPoints = weightPoints,
             weightDelta30d = weightDelta,
             monthSessions = StatsEngine.workoutsThisMonth(
-                workouts, emptyList(), now, zone),
-            filteredWorkouts = filtered.size
+                workouts, externalDates, now, zone),
+            filteredWorkouts = filtered.size,
+            averageHeartRate = averageHeartRate,
+            previousAverageHeartRate = previousAverageHeartRate,
+            externalSessions = filteredExternal.size
         )
     }
 }

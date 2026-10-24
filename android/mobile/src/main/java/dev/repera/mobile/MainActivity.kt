@@ -56,6 +56,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var activeWorkout by mutableStateOf<ActiveWorkout?>(null)
     private var wodTimer by mutableStateOf<WodTimerState?>(null)
     private var todayHealth by mutableStateOf<TodayHealth?>(null)
+    private var healthSamples by mutableStateOf<HealthSamples?>(null)
     private val credentialManager by lazy { CredentialManager.create(this) }
     private var verifiedSupabase: SupabaseIdentity.Session? = null
     private val sessionStore by lazy { SessionStore(this) }
@@ -434,9 +435,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private fun loadHealthToday() {
         lifecycleScope.launch {
             try {
-                todayHealth = withContext(Dispatchers.IO) {
-                    HealthConnectReader(this@MainActivity).readToday()
+                val reader = HealthConnectReader(this@MainActivity)
+                todayHealth = withContext(Dispatchers.IO) { reader.readToday() }
+                // Ventana amplia: cubre el rango más largo de Progreso (370).
+                healthSamples = withContext(Dispatchers.IO) {
+                    runCatching { reader.readSamples(370) }.getOrNull()
                 }
+                profile?.let { reloadFor(it.uniqueId) }
                 status = null
             } catch (error: Exception) {
                 todayHealth = null
@@ -493,7 +498,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 val result = withContext(Dispatchers.IO) {
                     val store = LocalSnapshotStore(this@MainActivity, signedIn.uniqueId)
                     val outcome = DriveSnapshotService(oneTimeToken, store).synchronize()
-                    outcome to StateOverview.fromBytes(store.read())
+                    outcome to StateOverview.fromBytes(store.read(), healthSamples)
                 }
                 reloadFor(signedIn.uniqueId)
                 status = when (result.first) {
@@ -518,7 +523,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             val store = LocalSnapshotStore(this@MainActivity, id)
             MobilityCatalogMigration.ensure(this@MainActivity, id)
             val bytes = store.read()
-            Triple(StateOverview.fromBytes(bytes), WorkoutRepository(this@MainActivity, id).active(), bytes)
+            Triple(StateOverview.fromBytes(bytes, healthSamples), WorkoutRepository(this@MainActivity, id).active(), bytes)
         }
         snapshot = overview
         activeWorkout = active
@@ -638,7 +643,7 @@ data class StateOverview(
     val exerciseSessions: Map<String, List<ExerciseSessionHistory.Visit>> = emptyMap()
 ) {
     companion object {
-        fun fromBytes(bytes: ByteArray?): StateOverview? {
+        fun fromBytes(bytes: ByteArray?, health: HealthSamples? = null): StateOverview? {
             if (bytes == null) return null
             LocalSnapshotStore.validate(bytes)
             val json = JSONObject(String(bytes, Charsets.UTF_8))
@@ -877,7 +882,7 @@ data class StateOverview(
                     json.getJSONArray("workouts"), today, ZoneId.systemDefault()),
                 exerciseSessions = ExerciseSessionHistory.fromArchive(json.getJSONArray("workouts")),
                 progressByRange = dev.repera.domain.ProgressTimeRange.entries.associate { range ->
-                    range.wire to ProgressSnapshotBuilder.build(json, range)
+                    range.wire to ProgressSnapshotBuilder.build(json, range, health = health)
                 }
             )
         }
