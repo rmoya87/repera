@@ -80,25 +80,6 @@ jobs:
           plist.write_text(plist_text)
           assert plistlib.loads(plist.read_bytes())["UILaunchStoryboardName"]=="ReperaLaunchOpaque"
 
-          test=Path(".github/workflows/validate-splash-alpha.yml")
-          checks=test.read_text()
-          checks=checks.replace('      - "Apps/Repera/Resources/Assets.xcassets/MascotHero.imageset/**"',
-              '      - "Apps/Repera/Resources/Assets.xcassets/ReperaLaunchHeroOpaque.imageset/**"\n'
-              '      - "Apps/Repera/Resources/Assets.xcassets/MascotHero.imageset/**"')
-          checks=checks.replace('Path("Apps/Repera/Resources/LaunchScreen.storyboard")',
-                                'Path("Apps/Repera/Resources/ReperaLaunchOpaque.storyboard")')
-          checks=checks.replace("assert 'image=\"MascotHero\"' in launch",
-                                "assert 'image=\"ReperaLaunchHeroOpaque\"' in launch")
-          # Regressions: assert there is literally no alpha channel in this image.
-          checks=checks.replace(
-            '          launch=Path("Apps/Repera/Resources/ReperaLaunchOpaque.storyboard").read_text()',
-            '          opaque = np.asarray(Image.open(root/"ReperaLaunchHeroOpaque.imageset/repera-launch-hero-opaque.png").convert("RGB"))\n'
-            '          assert tuple(opaque[0,0]) == (48,209,88), "Opaque launch background differs from Repera brand green"\n'
-            '          for px,py in ((445,379),(607,411),(518,445)):\n'
-            '              assert int(max(opaque[py,px])) < 115, f"Facial feature is green or erased: {(px,py)}"\n'
-            '          launch=Path("Apps/Repera/Resources/ReperaLaunchOpaque.storyboard").read_text()'
-          )
-          test.write_text(checks)
           print("Generated an RGB PNG without alpha and a new native launch storyboard.")
           PY
       - name: Validate PNG opacity, face colors and iOS launch target
@@ -133,7 +114,6 @@ jobs:
                   Apps/Repera/Resources/ReperaLaunchOpaque.storyboard \
                   Apps/Repera/Resources/LaunchScreen.storyboard \
                   Apps/Repera/Resources/Info.plist project.yml \
-                  .github/workflows/validate-splash-alpha.yml
           git rm .github/workflows/rebuild-opaque-native-launch-once.yml
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Fix cached transparent iOS launch: opaque Repera mascot and new launch storyboard"
           git pull --rebase origin main
