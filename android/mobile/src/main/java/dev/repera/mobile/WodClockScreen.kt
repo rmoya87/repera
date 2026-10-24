@@ -52,7 +52,11 @@ internal fun WodClockScreen(
     timer: WodTimerState?,
     onTimerAction: (String) -> Unit,
     onTimerTick: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    // En tests instrumentados de captura no hay interacción con diálogos del
+    // sistema: se desactiva la petición de permiso para poder componer la
+    // pantalla aislada. En la app permanece activada (valor por defecto).
+    requestNotificationPermission: Boolean = true
 ) {
     val wod = active.wod ?: return
     val context = LocalContext.current
@@ -75,7 +79,7 @@ internal fun WodClockScreen(
         ActivityResultContracts.RequestPermission()
     ) { }
     LaunchedEffect(Unit) {
-        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(
+        if (requestNotificationPermission && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(
                 context, Manifest.permission.POST_NOTIFICATIONS
             ) != PackageManager.PERMISSION_GRANTED
         ) {

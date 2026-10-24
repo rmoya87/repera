@@ -139,7 +139,7 @@ class VisualVerificationInstrumentedTest {
     fun capturaRelojWodVertical() {
         val (active, timer) = wodClockFixture()
         brandContent {
-            WodClockScreen(active, false, timer, {}, {}, {})
+            WodClockScreen(active, false, timer, {}, {}, {}, requestNotificationPermission = false)
         }
         compose.waitForIdle()
         save("reloj_wod_vertical", compose.onRoot().captureToImage())
@@ -154,7 +154,7 @@ class VisualVerificationInstrumentedTest {
             androidx.compose.foundation.layout.Box(
                 modifier = Modifier.size(840.dp, 400.dp)
             ) {
-                WodClockScreen(active, false, timer, {}, {}, {})
+                WodClockScreen(active, false, timer, {}, {}, {}, requestNotificationPermission = false)
             }
         }
         compose.waitForIdle()
