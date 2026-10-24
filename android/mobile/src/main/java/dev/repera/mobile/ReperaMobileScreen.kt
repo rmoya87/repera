@@ -73,6 +73,7 @@ fun ReperaMobileScreen(
     onCreateRoutine: (String, String, List<RoutineDraftEntry>, Int, Int,
         RoutineSchedule, Int, Int, Int, List<Int>?) -> Unit,
     onAddWodTemplate: (String) -> Unit,
+    onCreateRoutineFromScan: (String, List<dev.repera.domain.RoutineBlock>) -> Unit,
     onWodScore: (Int?, Int?, Int?) -> Unit,
     onWodMovement: (Int, Int, Int, Double?) -> Unit,
     onCompleteWodBlock: () -> Unit,
@@ -220,11 +221,23 @@ fun ReperaMobileScreen(
                         overview = overview,
                         onCreateRoutine = onCreateRoutine,
                         onAddWodTemplate = onAddWodTemplate,
+                        onOpenBoardScan = { navController.navigate("escaner") },
                         onInitializeLocal = onInitializeLocal,
                         onImportJson = onImportJson,
                         onDriveSync = onDriveSync,
                         onExportJson = onExportJson,
                         onSignOut = onSignOut
+                    )
+                }
+                composable("escaner") {
+                    BoardScanScreen(
+                        busy = busy,
+                        overview = overview,
+                        onConfirm = { title, blocks ->
+                            onCreateRoutineFromScan(title, blocks)
+                            navController.popBackStack()
+                        },
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable("progreso") {

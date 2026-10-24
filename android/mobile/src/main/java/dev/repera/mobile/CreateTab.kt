@@ -71,6 +71,7 @@ internal fun CreateTab(
     onCreateRoutine: (String, String, List<RoutineDraftEntry>, Int, Int,
         RoutineSchedule, Int, Int, Int, List<Int>?) -> Unit,
     onAddWodTemplate: (String) -> Unit,
+    onOpenBoardScan: () -> Unit,
     onInitializeLocal: () -> Unit,
     onImportJson: () -> Unit,
     onDriveSync: () -> Unit,
@@ -94,6 +95,20 @@ internal fun CreateTab(
                     busy = busy,
                     onSave = onCreateRoutine
                 )
+            }
+        }
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Importar pizarra", style = MaterialTheme.typography.titleMedium)
+                    Text("Fotografía la pizarra del box y Repera crea la rutina por ti.")
+                    OutlinedButton(onClick = onOpenBoardScan,
+                        enabled = !busy && overview != null,
+                        modifier = Modifier.fillMaxWidth()) {
+                        Text("Escanear pizarra")
+                    }
+                }
             }
         }
         item {

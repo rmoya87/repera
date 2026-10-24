@@ -188,6 +188,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     runWorkoutAction { createRoutine(title, format, entries, minutes, rounds,
                         schedule, interval, work, rest, ladder) }
                 },
+                onCreateRoutineFromScan = { title, blocks ->
+                    runWorkoutAction { createRoutineFromScan(title, blocks) }
+                },
                 onAddWodTemplate = { templateId ->
                     val template = dev.repera.domain.CatalogWods.template(templateId)
                     if (template != null) runWorkoutAction { createWodRoutine(template) }
