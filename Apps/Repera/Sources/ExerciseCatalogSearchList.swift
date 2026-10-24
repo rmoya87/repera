@@ -38,6 +38,7 @@ private enum ExercisePickerFilter: Hashable, Sendable {
 
 /// Lista + `.searchable` compartida: índice/ranking off-main, filas ligeras, prefetch viewport.
 struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
+    @Environment(ReperaStore.self) private var store
     let exercises: [Exercise]
     var prompt: String = "Buscar ejercicio"
     var subtitle: (ExerciseSearch.Document) -> String = { doc in
@@ -171,7 +172,7 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
     }
 
     private var catalogToken: String {
-        "\(exercises.count)|\(exercises.first?.id.uuidString ?? "")|\(exercises.last?.id.uuidString ?? "")"
+        "\(store.catalogEpoch)|\(exercises.count)|\(exercises.first?.id.uuidString ?? "")|\(exercises.last?.id.uuidString ?? "")"
     }
 
     private func rebuildIndex() async {
