@@ -34,9 +34,8 @@ internal class RemoteExerciseCatalog(private val context: Context) {
     private val http = OkHttpClient.Builder().callTimeout(25, TimeUnit.SECONDS).build()
 
     private fun readCache(): JSONObject = runCatching {
-        if (cache.baseFile.exists())
-            cache.openRead().use { JSONObject(String(it.readBytes(), Charsets.UTF_8)) }
-        else JSONObject()
+        // AtomicFile.openRead recovers an interrupted .bak write if necessary.
+        cache.openRead().use { JSONObject(String(it.readBytes(), Charsets.UTF_8)) }
     }.getOrDefault(JSONObject())
         .apply {
             if (!has("entries")) put("entries", JSONObject())
