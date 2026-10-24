@@ -85,4 +85,25 @@ class ExerciseArtResolverTest {
             assertNotNull(name + " sin hero", ExerciseArtResolver.heroFor(name, false, emptyMap()))
         }
     }
+
+    @Test fun carouselRequiresEnoughPhaseCaptions_iosGate() {
+        val exists = setOf("art_cf_manmaker", "art_cf_manmaker_1", "art_cf_manmaker_2",
+            "art_cf_manmaker_3", "art_cf_manmaker_4", "art_cf_manmaker_5", "art_cf_manmaker_6")
+        // Con captions suficientes: carrusel numerado.
+        val frames = ExerciseArtResolver.framesFor("Man maker", "art_cf_manmaker",
+            captionCount = 12) { it in exists }
+        assertEquals(6, frames.size)
+        assertEquals("art_cf_manmaker_1", frames.first())
+        // Con menos captions que fases: degrada a hero (imageNames iOS).
+        val degraded = ExerciseArtResolver.framesFor("Man maker", "art_cf_manmaker",
+            captionCount = 3) { it in exists }
+        assertEquals(listOf("art_cf_manmaker"), degraded)
+    }
+
+    @Test fun carouselWithoutNumberedFramesKeepsHero() {
+        val exists = setOf("art_cf_pistol")
+        val frames = ExerciseArtResolver.framesFor("Pistol squat", "art_cf_pistol",
+            captionCount = 9) { it in exists }
+        assertEquals(listOf("art_cf_pistol"), frames)
+    }
 }

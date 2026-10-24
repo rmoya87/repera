@@ -66,10 +66,13 @@ internal object ExerciseArtResolver {
      *
      * @param exists asset-existence probe, e.g. assets list("exercise-art").
      */
-    fun framesFor(name: String, hero: String, exists: (String) -> Boolean): List<String> {
+    fun framesFor(name: String, hero: String, captionCount: Int = Int.MAX_VALUE,
+                  exists: (String) -> Boolean): List<String> {
         if (name in ExerciseArtData.staticHoldExercises) return listOf(hero)
         if (hero in ExerciseArtData.quarantinedSequences) return listOf(hero)
         val numbered = (1..8).asSequence().map { "${hero}_$it" }.takeWhile { exists(it) }.toList()
+        // iOS: el carrusel exige captions de fase suficientes; si no, hero solo.
+        if (numbered.size >= 2 && captionCount < numbered.size) return listOf(hero)
         return if (numbered.size >= 2) numbered else listOf(hero)
     }
 

@@ -4751,6 +4751,9 @@
   "detailDescription": "Sentadilla a una pierna (pistol).",
   "equipment": "Peso corporal",
   "instructions": [
+   "De pie a una pierna, la otra extendida al frente y brazos adelante.",
+   "Baja con control hasta la mitad; talon pegado y rodilla alineada.",
+   "Fondo: muslo sobre la pantorrilla y pierna libre estirada; sube sin apoyar.",
    "A una pierna: baja a squat profundo con la otra pierna extendida al frente; sube sin apoyar.",
    "Talón pegado; rodilla alineada; brazos al frente para equilibrar.",
    "Error típico: colapso de rodilla o talón que se levanta. Usa agarre a soporte.",
@@ -4848,6 +4851,9 @@
   "detailDescription": "Sentadilla sin carga.",
   "equipment": "Peso corporal",
   "instructions": [
+   "De pie, pies al ancho de hombros y brazos al frente para equilibrar.",
+   "Baja con control: cadera atrás y rodillas sobre la línea de los pies.",
+   "Abajo: cadera bajo la rótula, talones pegados; empuja el suelo para subir.",
    "Pies al ancho de hombros, puntas ligeramente afuera; brazos al frente para equilibrar.",
    "Inhala, bracea y baja hasta que la cresta ilíaca pase bajo la rótula (paralelo o más).",
    "Rodillas siguen la línea de los pies; talones pegados al suelo; pecho alto.",
@@ -4880,6 +4886,9 @@
   "detailDescription": "Sentadilla con salto.",
   "equipment": "Peso corporal",
   "instructions": [
+   "Squat profundo: carga abajo con pecho alto y brazos atras.",
+   "Salto: extension completa de cadera, rodillas y tobillos en el aire.",
+   "Aterriza suave en media sentadilla y enlaza la siguiente.",
    "Squat completo o a paralelo; extiende explosivo y salta; aterriza suave y baja otra vez.",
    "Pecho alto; rodillas alineadas; no dejes que choquen al aterrizar.",
    "Error típico: cortar profundidad o aterrizar con talones duros.",
@@ -4912,6 +4921,9 @@
   "detailDescription": "Zancada con salto alterno.",
   "equipment": "Peso corporal",
   "instructions": [
+   "Zancada profunda con la pierna derecha adelante: rodilla trasera cerca del suelo sin apoyar, torso alto.",
+   "Salta y cambia las piernas en el aire.",
+   "Aterriza suave en la zancada contraria: la pierna izquierda queda adelante.",
    "Desde zancada, salta e intercambia piernas en el aire; aterriza en zancada del otro lado.",
    "Torso alto; aterrizaje suave; rodilla trasera cerca del suelo.",
    "Error típico: aterrizaje rígido o rodilla que se va adentro.",
@@ -5752,6 +5764,9 @@
   "detailDescription": "Salto horizontal a máxima distancia.",
   "equipment": "Peso corporal",
   "instructions": [
+   "Carga: bisagra atras, brazos atras, listo para saltar.",
+   "Vuelo: extension completa, brazos adelante.",
+   "Aterrizaje suave con rodillas flexionadas y pecho alto.",
    "Pies al ancho de cadera; bisagra ligera, brazos atrás; salta lo más lejos posible aterrizando suave.",
    "Extiende cadera/rodillas/tobillos; brazos adelante en el vuelo.",
    "Aterriza con rodillas blandas, pecho alto; párate estable antes de la siguiente.",
@@ -6012,6 +6027,9 @@
   "detailDescription": "Sentadilla con KB/DB pegada al pecho.",
   "equipment": "Kettlebell",
   "instructions": [
+   "De pie, KB vertical junto al pecho con codos abajo y adentro.",
+   "Baja con control: pecho alto, rodillas sobre la línea de los pies, talones abajo.",
+   "Abajo: mantén los talones apoyados y los codos entre las rodillas; empuja el suelo para subir.",
    "Sujeta una KB o mancuerna vertical junto al pecho (codos abajo/adentro); pies al ancho de squat.",
    "Baja a profundidad cómoda con pecho alto y codos entre rodillas; talones abajo.",
    "Empuja el suelo y sube a extensión completa; la carga actúa como contrapeso.",
@@ -6082,6 +6100,12 @@
   "detailDescription": "Remo + flexión + clean y press con mancuernas.",
   "equipment": "Mancuernas",
   "instructions": [
+   "Plancha alta con manos en las mancuernas y cuerpo en linea.",
+   "Flexion completa hasta el pecho cerca del suelo.",
+   "Remo a un lado con la cadera cuadrada; repite al otro lado.",
+   "Salta los pies adelante y clean: mancuernas a los hombros.",
+   "Thruster: baja en squat con las mancuernas en los hombros.",
+   "Al subir, press a bloqueo overhead.",
    "Mancuernas al ancho de hombros; plancha con agarre en los mangos, cuerpo en línea.",
    "Flexión de pecho (push-up) completa; luego remo a cada lado con cadera cuadrada (sin rotar).",
    "Salta o pasa pies adelante, clean a hombros y thruster: squat + press a bloqueo overhead.",
@@ -6213,6 +6237,9 @@
   "detailDescription": "Golpea el balón al suelo desde overhead.",
   "equipment": "Slam Ball",
   "instructions": [
+   "De pie, balon al pecho con ambas manos y core firme.",
+   "Sube el balon a extension completa sobre la cabeza.",
+   "Golpea el balon contra el suelo con bisagra de cadera y brazos.",
    "Medball a la altura del pecho o overhead; pies al ancho de hombros, core firme.",
    "Extiende a overhead (si el estándar lo pide) y golpea el balón al suelo con fuerza de cadera y brazos.",
    "Agarra el bote o recoge y repite; no redondees la lumbar al recoger.",

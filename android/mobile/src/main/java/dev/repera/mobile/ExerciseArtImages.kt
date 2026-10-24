@@ -22,10 +22,10 @@ internal object ExerciseArtImages {
             .toSet()
 
     fun carouselStems(context: Context, name: String, isMobility: Boolean,
-                      aliases: Map<String, String>): List<String> {
+                      aliases: Map<String, String>, captionCount: Int): List<String> {
         val stems = availableStems(context)
         val hero = ExerciseArtResolver.heroFor(name, isMobility, aliases) ?: return emptyList()
-        return ExerciseArtResolver.framesFor(name, hero) { it in stems }
+        return ExerciseArtResolver.framesFor(name, hero, captionCount) { it in stems }
             .filter { it in stems }
     }
 

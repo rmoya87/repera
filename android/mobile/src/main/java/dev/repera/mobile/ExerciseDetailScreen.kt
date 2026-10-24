@@ -66,7 +66,8 @@ internal fun ExerciseDetailScreen(
     val priorSessionAppearance = appearancePair?.second
     val isMobility = entry.sportTag == "Movilidad"
     val frames = remember(entry.id) {
-        ExerciseArtImages.carouselStems(context, entry.name, isMobility, aliases)
+        ExerciseArtImages.carouselStems(context, entry.name, isMobility, aliases,
+            captionCount = entry.instructions.count { it.isNotBlank() })
     }
     LazyColumn(
         modifier = modifier.fillMaxSize(),

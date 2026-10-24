@@ -73,8 +73,20 @@ class ExerciseDetailInstrumentedTest {
     @Test
     fun carouselUsesNumberedStepsWhenBundled() {
         val stems = ExerciseArtImages.availableStems(context)
+        // captionCount real del seed (puerta de captions iOS: captions >= fases).
+        val entries = seed("catalog_seed.json")
+        var captionCount = 0
+        for (i in 0 until entries.length()) {
+            val e = entries.getJSONObject(i)
+            if (e.getString("name") == "Press banca") {
+                val ins = e.optJSONArray("instructions")
+                captionCount = (0 until (ins?.length() ?: 0)).count {
+                    ins!!.getString(it).isNotBlank()
+                }
+            }
+        }
         val frames = ExerciseArtImages.carouselStems(
-            context, "Press banca", false, ExerciseSearchAssets.load(context))
+            context, "Press banca", false, ExerciseSearchAssets.load(context), captionCount)
         assertEquals(
             stems.filter { it.startsWith("art_press_banca_") }.sorted().take(8),
             frames.filter { it != "art_press_banca" })
