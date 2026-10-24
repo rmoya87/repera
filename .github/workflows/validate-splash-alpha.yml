@@ -38,10 +38,15 @@ jobs:
           assert manifest["images"][0]=={"filename":"repera-barbell-launch.png","idiom":"universal","scale":"3x"}
           image=assets/"ReperaBarbellLaunch.imageset/repera-barbell-launch.png"
           with Image.open(image) as im:
-              assert im.mode=="RGB" and im.size==(1024,1024)
-              assert im.getpixel((0,0))==(48,209,88), "Launch background color wrong"
-              for x,y in ((445,379),(607,411),(518,445)):
-                  assert max(im.getpixel((x,y)))<115, f"Eye/mouth is transparent or green at {(x,y)}"
+              # Art has a transparent exterior. The native background is the
+              # separate brand-green color asset, and eyes/mouth are opaque.
+              assert im.mode=="RGBA" and im.width>=800 and im.height>=1600, im.size
+              assert im.getpixel((0,0))[3]==0
+              assert im.getpixel((im.width//2,im.height//2))[3]>=245
+              face=im.crop((260,830,600,1040))
+              dark=sum(1 for r,g,b,a in face.getdata()
+                       if a>=245 and max(r,g,b)<105)
+              assert dark>500, f"Opaque dark eyes/mouth missing: only {dark} pixels"
           colors=json.loads((assets/"LaunchReperaGreen.colorset/Contents.json").read_text())
           rgb=colors["colors"][0]["color"]["components"]
           assert tuple(round(float(rgb[k])*255) for k in ("red","green","blue"))==(48,209,88)
@@ -64,6 +69,5 @@ jobs:
           assert 'launchMascotStage == 0' in runner
           assert 'LaunchBarbellSplashView()' in runner
           assert 'UIImage(named: "MascotRunning")' in runner
-          assert 'UIImage(named: "MascotRunning")' in runner
-          print("PASS: native launch from asset catalog; hero opaque; runner unchanged")
+          print("PASS: brand-green launch image has opaque facial features; runner unchanged")
           PY
