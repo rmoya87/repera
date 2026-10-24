@@ -56,9 +56,8 @@ import dev.repera.mobile.monetization.SubscriptionManager
 /**
  * Wizard obligatorio de primer acceso. Port 1:1 de OnboardingFlowView.swift:
  * signIn → permissions → choosePlan (flowVersion 2) → done.
- * DIVERGENCIA documentada: iOS tiene fila «Ubicación» (pin del gym y ruta en
- * entrenos outdoor, WorkoutLocationTracker); Android aún NO tiene esa
- * capacidad, así que la fila se omite hasta portarla (matriz de paridad).
+ * Fila «Ubicación» incluida: la función existe (WorkoutLocationTracker
+ * portado: pin del gym + ruta GPS outdoor).
  */
 @Composable
 fun OnboardingFlow(
@@ -179,6 +178,7 @@ private fun OnboardingPermissionsStep(store: OnboardingStore) {
     val context = LocalContext.current
     var notificationsGranted by remember { mutableStateOf(notificationsGranted(context)) }
     var healthGranted by remember { mutableStateOf<Boolean?>(null) }
+    var locationGranted by remember { mutableStateOf(locationGranted(context)) }
     var showUI by remember { mutableStateOf(false) }
 
     suspend fun refreshHealth() {
@@ -192,13 +192,16 @@ private fun OnboardingPermissionsStep(store: OnboardingStore) {
     val healthLauncher = rememberLauncherForActivityResult(
         PermissionController.createRequestPermissionResultContract()
     ) { granted -> healthGranted = granted.containsAll(HealthConnectReader.permissions) }
+    val locationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { locationGranted = locationGranted(context) }
 
     // Comprobación inicial: si ya está todo concedido, avanzar sin mostrar
     // la pantalla (iOS evita el flash del paso de permisos).
     LaunchedEffect(Unit) {
         refreshHealth()
         val granted = healthGranted
-        if (notificationsGranted && granted == true) {
+        if (notificationsGranted && granted == true && locationGranted) {
             store.finishPermissions()
         } else if (granted != null) {
             showUI = true
@@ -211,6 +214,7 @@ private fun OnboardingPermissionsStep(store: OnboardingStore) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 notificationsGranted = notificationsGranted(context)
+                locationGranted = locationGranted(context)
                 scope.launch { refreshHealth() }
             }
         }
@@ -268,6 +272,19 @@ private fun OnboardingPermissionsStep(store: OnboardingStore) {
             statusText = if (healthDone) "Conectado" else "Pendiente",
             isDone = healthDone,
             onAllow = { healthLauncher.launch(HealthConnectReader.permissions) }
+        )
+        Spacer(Modifier.height(12.dp))
+        PermissionRow(
+            title = "Ubicación",
+            subtitle = "Pin del gym y ruta en entrenos outdoor",
+            symbol = "📍",
+            statusText = if (locationGranted) "Permitida" else "Pendiente",
+            isDone = locationGranted,
+            onAllow = {
+                locationLauncher.launch(arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION))
+            }
         )
 
         Spacer(Modifier.height(24.dp))
@@ -351,6 +368,12 @@ private fun PermissionRow(
         }
     }
 }
+
+private fun locationGranted(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+        PackageManager.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+        PackageManager.PERMISSION_GRANTED
 
 private fun notificationsGranted(context: Context): Boolean =
     Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(

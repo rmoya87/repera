@@ -1823,6 +1823,71 @@ class WorkoutRepository(context: Context, googleId: String) {
         exercise.put("completedReps", total)
     }
 
+    /** Pin de inicio (gym/sitio) sobre la sesión ACTIVA (capturePin iOS). */
+    @Synchronized fun attachLocationPin(sessionId: String, pin: dev.repera.domain.WorkoutLocationPin) {
+        val state = loadOrNull() ?: return
+        val session = state.optJSONObject("activeSession") ?: return
+        if (session.optString("id") != sessionId) return
+        session.put("locationPin", JSONObject()
+            .put("latitude", pin.latitude)
+            .put("longitude", pin.longitude)
+            .put("recordedAtEpochMs", pin.recordedAtEpochMs)
+            .apply {
+                pin.name?.let { put("name", it) }
+                pin.mapItemIdentifier?.let { put("mapItemIdentifier", it) }
+                pin.pointOfInterestCategory?.let { put("pointOfInterestCategory", it) }
+            })
+        save(state)
+    }
+
+    /** Ruta GPS al terminar (stopRouteTracking iOS): vale con la sesión aún
+     *  activa o ya archivada en el historial. */
+    @Synchronized fun attachRoutePoints(sessionId: String, points: List<dev.repera.domain.WorkoutRoutePoint>) {
+        val state = loadOrNull() ?: return
+        val active = state.optJSONObject("activeSession")
+            ?.takeIf { it.optString("id") == sessionId }
+        val target = active ?: run {
+            val archive = state.optJSONArray("workouts") ?: return
+            (0 until archive.length()).map { archive.getJSONObject(it) }
+                .firstOrNull { it.optString("id") == sessionId } ?: return
+        }
+        val array = JSONArray()
+        for (point in points) {
+            array.put(JSONObject()
+                .put("id", point.id)
+                .put("latitude", point.latitude)
+                .put("longitude", point.longitude)
+                .put("recordedAtEpochMs", point.recordedAtEpochMs)
+                .apply {
+                    point.speedMps?.let { put("speedMps", it) }
+                    point.altitudeMeters?.let { put("altitudeMeters", it) }
+                })
+        }
+        target.put("routePoints", array)
+        save(state)
+    }
+
+    /** Datos de la sesión activa para la heurística outdoor
+     *  (shouldTrackRoute iOS: título + exercises.map(\.exercise.name)). */
+    data class ActiveSessionOutdoorInfo(
+        val sessionId: String, val title: String, val exerciseNames: List<String>)
+
+    @Synchronized fun activeSessionOutdoorInfo(): ActiveSessionOutdoorInfo? {
+        val state = loadOrNull() ?: return null
+        val session = state.optJSONObject("activeSession") ?: return null
+        val names = mutableListOf<String>()
+        val exercises = session.optJSONArray("exercises") ?: JSONArray()
+        for (i in 0 until exercises.length()) {
+            val name = exercises.optJSONObject(i)
+                ?.optJSONObject("exercise")?.optString("name").orEmpty()
+            if (name.isNotEmpty()) names += name
+        }
+        return ActiveSessionOutdoorInfo(
+            sessionId = session.optString("id"),
+            title = session.optString("title"),
+            exerciseNames = names)
+    }
+
     private fun finishInPlace(state: JSONObject, session: JSONObject) {
         check(session.optString("phase") != "finished")
         val exercises = session.getJSONArray("exercises")

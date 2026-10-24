@@ -77,6 +77,14 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private val sessionStore by lazy { SessionStore(this) }
     /** Wizard obligatorio de primer acceso (port OnboardingStore iOS). */
     private val onboarding by lazy { OnboardingStore.create(this) }
+    /** Pin de gym + ruta GPS outdoor (port WorkoutLocationTracker iOS). */
+    private val locationTracker by lazy { WorkoutLocationTracker(this) }
+    /** Petición de ubicación al dar Play (ensureWhenInUseAuthorized iOS). */
+    private val requestLocationPermissions = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        if (grants.values.any { it }) beginLocationCapture()
+    }
     /** Estado comercial (Pro/Gratis) + cuotas + paywall. Port del entorno iOS. */
     private val subscriptions by lazy {
         SubscriptionManager(
@@ -493,7 +501,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 wodTimer = wodTimer,
                 onWodTimerAction = ::changeWodTimer,
                 onWodTimerTick = ::refreshWodTimer,
-                onStartRoutine = { id -> runWorkoutAction { startRoutine(id) } },
+                onStartRoutine = { id ->
+                    runWorkoutAction(onSuccess = { beginLocationCapture() }) { startRoutine(id) }
+                },
                 onEditRoutine = { id, title, schedule ->
                     runWorkoutAction { updateRoutineDetails(id, title, schedule) }
                 },
@@ -571,7 +581,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onDeleteWodMovement = { id ->
                     runWorkoutAction { deleteWodMovementSet(id) }
                 },
-                onQuickLog = { id -> runWorkoutAction { startQuickLog(id) } },
+                onQuickLog = { id ->
+                    runWorkoutAction(onSuccess = { beginLocationCapture() }) { startQuickLog(id) }
+                },
                 onInitializeLocal = ::initializeLocalCatalog,
                 onLogSet = { quantity, weight, rir, warmup, unit, duration, deficit ->
                     val rest = currentRestInfo()
@@ -625,7 +637,14 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onNext = { runWorkoutAction { next() } },
                 onFinish = {
                     StrengthRestService.cancel(this)
-                    runWorkoutAction { finish() }
+                    val finishedSessionId = activeWorkout?.id
+                    val route = locationTracker.stopRouteTracking()
+                    runWorkoutAction {
+                        finish()
+                        if (finishedSessionId != null && route.isNotEmpty()) {
+                            attachRoutePoints(finishedSessionId, route)
+                        }
+                    }
                 },
                 onImportJson = { importJson.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                 onImportCsv = { importCsv.launch(arrayOf("text/*", "text/comma-separated-values", "application/octet-stream")) },
@@ -677,7 +696,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                             val repo = WorkoutRepository(this@MainActivity, signedIn.uniqueId)
                             if (repo.active()?.id == sessionId) {
                                 StrengthRestService.cancel(this@MainActivity)
+                                val route = locationTracker.stopRouteTracking()
                                 repo.finish()
+                                if (route.isNotEmpty()) repo.attachRoutePoints(sessionId, route)
                                 true
                             } else false
                         }.getOrDefault(false)
@@ -1149,6 +1170,30 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }.onFailure { status = "Cronómetro: " + (it.localizedMessage ?: "error al guardar") }
         WearActiveSessionBridge.publishWodTimer(this, active.id, active.index,
             active.wod, wodTimer)
+    }
+
+    /** Tras iniciar sesión (ReperaStore.start iOS): pide el permiso si falta,
+     *  captura el pin de inicio (timeout suave, nunca bloquea el Play) y
+     *  arranca la ruta GPS si el entreno parece outdoor. */
+    private fun beginLocationCapture() {
+        if (!locationTracker.isAuthorized) {
+            requestLocationPermissions.launch(arrayOf(
+                android.Manifest.permission.ACCESS_FINE_LOCATION,
+                android.Manifest.permission.ACCESS_COARSE_LOCATION))
+            return
+        }
+        val signedIn = profile ?: return
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                val repo = WorkoutRepository(this@MainActivity, signedIn.uniqueId)
+                val info = repo.activeSessionOutdoorInfo() ?: return@withContext
+                val pin = locationTracker.capturePin()
+                if (pin != null) repo.attachLocationPin(info.sessionId, pin)
+                if (locationTracker.shouldTrackRoute(info.title, info.exerciseNames)) {
+                    locationTracker.startRouteTracking(info.sessionId)
+                }
+            }
+        }
     }
 
     private fun runWorkoutAction(onSuccess: (() -> Unit)? = null,
