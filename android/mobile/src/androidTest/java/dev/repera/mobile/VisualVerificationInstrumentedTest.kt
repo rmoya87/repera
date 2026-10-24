@@ -36,12 +36,22 @@ class VisualVerificationInstrumentedTest {
     val compose = createComposeRule()
 
     private fun save(name: String, bitmap: ImageBitmap) {
+        // MediaStore (Pictures): visible para `adb pull` en CI; Android/data está
+        // filtrado por scoped storage incluso para shell/root en el emulador.
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
-        val dir = File(ctx.externalCacheDir, "screenshots").apply { mkdirs() }
-        android.util.Log.i("VisualVerification", "guardando en ${File(dir, "$name.png").absolutePath}")
-        File(dir, "$name.png").outputStream().use { out ->
+        val values = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, "$name.png")
+            put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png")
+            put(android.provider.MediaStore.Images.Media.RELATIVE_PATH,
+                "Pictures/ReperaVerification")
+        }
+        val uri = ctx.contentResolver.insert(
+            android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+            ?: error("MediaStore no aceptó la captura $name")
+        ctx.contentResolver.openOutputStream(uri)!!.use { out ->
             bitmap.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, out)
         }
+        android.util.Log.i("VisualVerification", "guardada en MediaStore: $uri")
     }
 
     private fun fixtureCharts(): ProgressPreparedCharts {
