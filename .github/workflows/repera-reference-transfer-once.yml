@@ -1,0 +1,32 @@
+name: Transfer Repera original mascot for precise pose edit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/repera-reference-transfer-once.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Fetch original Repera character before alpha changes
+        run: |
+          git fetch --depth=50 origin c045bd03569a73db0fe244d8beadeff80fddf2b6
+          git show c045bd03569a73db0fe244d8beadeff80fddf2b6:Apps/Repera/Resources/Assets.xcassets/MascotHero.imageset/mascot-hero.png > /tmp/original-hero.png
+          test "$(wc -c < /tmp/original-hero.png)" -eq 866312
+      - name: Upload exact original image to image-editing workspace
+        run: |
+          curl --fail --show-error --silent --location --request PUT --header "Content-Type: image/png" --data-binary @/tmp/original-hero.png "https://at.adobe.com/rLMtatu0yuG2Fxfq"
+      - name: Remove temporary workflow
+        run: |
+          git rm .github/workflows/repera-reference-transfer-once.yml
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Remove temporary original artwork transfer workflow"
+          git push origin HEAD:main
