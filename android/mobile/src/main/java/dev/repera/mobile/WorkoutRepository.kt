@@ -93,9 +93,9 @@ class WorkoutRepository(context: Context, googleId: String) {
             .put("progression", "off")
             .put("isFavorite", false)
         if (scheduledDay != null) {
-            // Swift Routine.scheduledDate stores the user's calendar start-of-day as a Date.
-            nativeRoutine.put("scheduledDate", scheduledDay.atStartOfDay(ZoneId.systemDefault())
-                .toInstant().toString())
+            // Convención del snapshot: fecha concreta "yyyy-MM-dd" (AITrainingContextStore,
+            // AITrainingInbox y DiaryTab comparan contra LocalDate.toString()).
+            nativeRoutine.put("scheduledDate", scheduledDay.toString())
         } else if (schedule.weekday != null) {
             nativeRoutine.put("weekday", schedule.weekday)
         }
@@ -236,8 +236,7 @@ class WorkoutRepository(context: Context, googleId: String) {
             .put("progression", "off")
             .put("isFavorite", false)
         if (scheduledDay != null) {
-            nativeRoutine.put("scheduledDate", scheduledDay.atStartOfDay(ZoneId.systemDefault())
-                .toInstant().toString())
+            nativeRoutine.put("scheduledDate", scheduledDay.toString())
         } else if (schedule.weekday != null) {
             nativeRoutine.put("weekday", schedule.weekday)
         }
@@ -384,8 +383,7 @@ class WorkoutRepository(context: Context, googleId: String) {
             .put("progression", "off")
             .put("isFavorite", false)
         if (schedule.scheduledDate != null) {
-            nativeRoutine.put("scheduledDate", LocalDate.parse(schedule.scheduledDate)
-                .atStartOfDay(ZoneId.systemDefault()).toInstant().toString())
+            nativeRoutine.put("scheduledDate", LocalDate.parse(schedule.scheduledDate).toString())
         } else if (schedule.weekday != null) {
             nativeRoutine.put("weekday", schedule.weekday)
         }
@@ -574,8 +572,7 @@ class WorkoutRepository(context: Context, googleId: String) {
             .put("isFavorite", false)
         val scheduledDay = schedule.scheduledDate?.let { LocalDate.parse(it) }
         if (scheduledDay != null) {
-            nativeRoutine.put("scheduledDate", scheduledDay.atStartOfDay(ZoneId.systemDefault())
-                .toInstant().toString())
+            nativeRoutine.put("scheduledDate", scheduledDay.toString())
         } else if (schedule.weekday != null) {
             nativeRoutine.put("weekday", schedule.weekday)
         }

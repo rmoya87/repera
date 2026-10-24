@@ -5,7 +5,8 @@ import dev.repera.domain.ExerciseAliasSearch
 /** Curated discovery tags; never rewrite or replace iOS sportTag with Hyrox. */
 object ExerciseCatalogFilters {
     private val hyrox = setOf(
-        "skierg", "remo maquina", "carrera", "cinta carrera",
+        // iOS renamed "Carrera" to "Run" in the seed; both kept for older snapshots.
+        "skierg", "remo maquina", "carrera", "cinta carrera", "run",
         "sled push", "sled pull", "farmer carry", "farmer walk",
         "burpee broad jump", "sandbag lunges", "wall ball"
     )
