@@ -164,7 +164,7 @@ final class RemoteExerciseCatalogStore {
             if apply(saved: &working, to: store) {
                 store.bumpCatalogEpoch()
                 store.persistLocalOnly(immediate: true)
-                store.pushActiveToWatch(immediate: true)
+                store.notifyCatalogChangedForWatch()
             }
             snapshot = working
             try saveThrowing(working)
