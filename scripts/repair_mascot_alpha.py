@@ -2,7 +2,7 @@
 """Repair transparent enclosed details in the original Repera PNG mascot.
 
 No regeneration, resizing or alteration of the outer transparent silhouette.
-Only wholly enclosed small alpha gaps (eyes, mouth, headband details) may be
+Only wholly enclosed alpha gaps (including larger eyes and mouth) may be
 filled, using the majority colour of surrounding fully opaque pixels.
 """
 from collections import Counter, deque
@@ -55,7 +55,7 @@ def repair(file_path: Path, write: bool) -> tuple[int, int]:
 
     changed = 0
     features = 0
-    max_area = max(25, total // 100)
+    max_area = max(25, total // 8)
     for start in range(total):
         if alpha[start] > 24 or visited[start]:
             continue
@@ -79,9 +79,9 @@ def repair(file_path: Path, write: bool) -> tuple[int, int]:
                 elif alpha[n] >= 225:
                     colors[tuple(rgba[4 * n:4 * n + 3])] += 1
 
-        # Larger voids may be intended anatomy (space between arms/legs).
+        # Exterior-connected gaps remain transparent; enclosed facial features should be opaque.
         if not (3 <= len(component) <= max_area and
-                right - left < width * .24 and bottom - top < height * .24 and colors):
+                right - left < width * .70 and bottom - top < height * .70 and colors):
             continue
         fill = colors.most_common(1)[0][0]
         # Avoid painting see-through gaps with arbitrary pale background hues.
