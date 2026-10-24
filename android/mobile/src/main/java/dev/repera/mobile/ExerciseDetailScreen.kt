@@ -61,7 +61,7 @@ internal fun ExerciseDetailScreen(
     ) {
         item {
             TextButton(onClick = onBack) { Text("‹ Ejercicios") }
-            Text(entry.name, style = MaterialTheme.typography.headlineMedium)
+            Text(entry.displayName, style = MaterialTheme.typography.headlineMedium)
         }
         item {
             ExerciseEvolutionSection(entry = entry, exerciseSeries = exerciseSeries)

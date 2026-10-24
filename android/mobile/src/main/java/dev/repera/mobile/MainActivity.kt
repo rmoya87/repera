@@ -1113,7 +1113,12 @@ data class ExerciseEntry(
     val detailDescription: String? = null,
     val instructions: List<String> = emptyList(),
     val isCustom: Boolean = false
-)
+) {
+    /** Nombre visible como en Apple: SportExerciseNames.displayName canoniza
+     * CrossFit/Halterofilia al inglés sin tocar el nombre persistido ni el ID. */
+    val displayName: String
+        get() = dev.repera.domain.SportExerciseNames.displayName(name, sportTag)
+}
 
 data class WorkoutHistoryEntry(
     val id: String,

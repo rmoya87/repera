@@ -135,7 +135,7 @@ internal fun ExercisesTab(
         items(entries, key = { it.id }) { entry ->
             Card(modifier = Modifier.fillMaxWidth().clickable { onOpenExercise(entry.id) }) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(entry.name, style = MaterialTheme.typography.titleMedium)
+                    Text(entry.displayName, style = MaterialTheme.typography.titleMedium)
                     val progress = overview?.exerciseProgress?.get(entry.id)
                     var showHistory by remember(entry.id) { mutableStateOf(false) }
                     var showAllSessions by remember(entry.id) { mutableStateOf(false) }
