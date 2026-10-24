@@ -1,0 +1,40 @@
+name: Repair Repera launch mascot alpha
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/repair-launch-mascot.yml"
+      - "scripts/repair_mascot_alpha.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix-launch-mascot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install Pillow
+      - name: Fill only enclosed alpha holes on splash mascot
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from scripts.repair_mascot_alpha import repair
+          path = Path("Apps/Repera/Resources/Assets.xcassets/MascotWelcome.imageset/mascot-welcome.png")
+          features, pixels = repair(path, True)
+          print(f"Repaired {features} transparent enclosed areas / {pixels} pixels")
+          PY
+      - name: Commit corrected launch mascot, if modified
+        run: |
+          git add Apps/Repera/Resources/Assets.xcassets/MascotWelcome.imageset/mascot-welcome.png
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Fix transparent enclosed details in launch mascot"
+            git push origin HEAD:main
+          fi
