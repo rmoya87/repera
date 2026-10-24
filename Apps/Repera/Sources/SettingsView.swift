@@ -683,6 +683,7 @@ struct SettingsView: View {
         // Reconciliar iCloud primero para no reintroducir una copia anterior
         // justo después de enlazar en Salud el UUID del entrenamiento.
         await store.refreshFromiCloud()
+        RemoteExerciseCatalogStore.shared.restoreCached(to: store)
         // Salud no depende de que haya funcionado iCloud ni Supabase.
         let pendingHealthWorkouts = await store.syncMissingWorkoutsToHealth()
         let healthPendingDescription = pendingHealthWorkouts > 0
@@ -707,6 +708,7 @@ struct SettingsView: View {
             avatarJPEG: store.state.settings.profileAvatarJPEG
         )
         await businessData.refresh()
+        await RemoteExerciseCatalogStore.shared.refresh(store: store, force: true)
         // App launch, foreground handlers and Realtime can trigger the same
         // stores concurrently. Wait for the in-flight tasks instead of
         // incorrectly reporting an operation as failed due to an active sync.
@@ -744,6 +746,9 @@ struct SettingsView: View {
         }
         if !customExercisesSynced {
             incomplete.append("catálogo privado de ejercicios pendiente de envío")
+        }
+        if let catalogError = RemoteExerciseCatalogStore.shared.lastErrorMessage {
+            incomplete.append("catálogo público de ejercicios: " + catalogError)
         }
         if let profileError = businessAuth.profileMigrationErrorMessage {
             incomplete.append(profileError)
