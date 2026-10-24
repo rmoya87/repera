@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import dev.repera.mobile.monetization.LocalSubscriptions
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -65,6 +66,13 @@ internal fun DayPlusSheet(
             DayPlusDivider()
             DayPlusRow("▣", "Escanear pizarra o TV", "Cámara o galería",
                 "day_plus_scan", onScanBoard)
+            // Caption de cuota gratuita, paridad DayPlusSheet iOS
+            // (subscriptions.policy.boardScanUsageCaption; solo plan Gratis).
+            LocalSubscriptions.current?.policy?.boardScanUsageCaption?.let { caption ->
+                Text(caption, fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp, top = 2.dp))
+            }
             Spacer(modifier = Modifier.padding(bottom = 24.dp))
         }
     }
