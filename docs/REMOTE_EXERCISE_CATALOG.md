@@ -26,6 +26,7 @@ Con una sesión administrativa autorizada y un canal seguro de escritura a base 
 
 - Para corregir metadatos: actualizar `training_exercise_metadata`. Para el nombre, disciplina y campos de la ficha: actualizar `business_exercise_catalog`.
 - Para publicar un ejercicio nuevo: insertar en **ambas** tablas con la **misma clave inmutable** `catalog_key`, nombre y categoría, principales/secundarios, equipo y, preferentemente, `mobile_description` y `mobile_instructions`. No crear dos claves para la misma variante. El trigger emite el cambio al instante.
+- Para corregir **material** sin perder especificidad del seed: editar `business_exercise_catalog.mobile_equipment` (cadena visible, por ejemplo `Barra, Banco`). El equipo genérico de `training_exercise_metadata.equipment` se usa como respaldo para ejercicios nuevos, pero no sustituye material local más preciso mientras no haya una corrección explícita.
 - Para retirar un ejercicio: cambiar `business_exercise_catalog.is_active` a `false`. No reutilizar su clave en otro movimiento. Para rehabilitarlo volver a `true` (genera nueva revisión).
 - Las instrucciones existentes del catálogo Swift se utilizan como respaldo mientras `mobile_description` / `mobile_instructions` sean NULL/vacías. Conviene trasladarlas gradualmente y verificar su fidelidad antes de dejar de empaquetar un seed.
 - Se requiere revisión anatómica editorial; los metadatos antiguos representan el catálogo de Repera y no están verificados clínicamente.
@@ -33,9 +34,10 @@ Con una sesión administrativa autorizada y un canal seguro de escritura a base 
 ## Despliegue y pruebas
 
 1. Ejecutar migración SQL antes de distribuir la nueva aplicación. Verificar que la cuenta autenticada puede hacer SELECT del feed y que `anon` no puede. Comprobar 287 fichas iniciales o el recuento vigente antes del deploy.
-2. iPhone con historial y favoritos: comprobar que el primer fetch no cambia UUID, que corregir nombre/material/instrucciones refleja el cambio y que los récords se conservan.
+2. La cola de eventos serializa transacciones antes de asignar IDs, para que una transacción tardía no quede por debajo de un cursor ya confirmado. Las páginas no se saltan cambios concurrentes confirmados.
+3. iPhone con historial y favoritos: comprobar que el primer fetch no cambia UUID, que corregir nombre/material/instrucciones refleja el cambio y que los récords se conservan.
 3. Probar sin conexión, reinstalación, segunda apertura sin cambios (una consulta ligera), actualización de más de 150 registros, renombrado de una clave estable, archivado y reactivación.
 4. Probar iCloud restaurado de otro dispositivo (la caché remota debe prevalecer), inicio sin cuenta, cambio de sesión y fallo de Supabase.
-5. Regenerar XcodeGen por el nuevo archivo Swift. Ejecutar `swift test` en ReperaDomain, compilar iOS/watchOS, hacer QA en iPhone y Apple Watch reales. No asumir compilación ni E2E con base de datos por el mero hecho de fusionar la rama.
+6. Regenerar XcodeGen por el nuevo archivo Swift. Ejecutar `swift test` en ReperaDomain, compilar iOS/watchOS, hacer QA en iPhone y Apple Watch reales. No asumir compilación ni E2E con base de datos por el mero hecho de fusionar la rama.
 
 **Paridad Android/Wear:** la rama Android se mantiene separada. La API SQL de eventos es consumible por Android, pero no se declara integrada hasta disponer de su propia caché y pruebas. El Watch no consulta el catálogo completo en la nube: mantiene su flujo nativo mediante WatchConnectivity desde el iPhone.
