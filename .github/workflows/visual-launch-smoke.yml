@@ -1,0 +1,126 @@
+name: Visual native launch smoke test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/visual-launch-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  capture-first-frames:
+    runs-on: xcode-27
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Build actual Repera app with iOS 27
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode_27.app/Contents/Developer
+          if ! command -v xcodegen >/dev/null 2>&1; then brew install xcodegen; fi
+          xcodegen generate --spec project.yml
+          xcodebuild -project Repera.xcodeproj -scheme Repera -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/ReperaVisualBuild" CODE_SIGNING_ALLOWED=NO \
+            build > "$RUNNER_TEMP/repera-launch-build.log" 2>&1 || {
+              tail -120 "$RUNNER_TEMP/repera-launch-build.log"
+              exit 1
+            }
+      - name: Record cold launch screen on iOS 27 simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST="$(xcrun simctl list devices available -j | python3 -c '
+          import json,sys
+          d=json.load(sys.stdin)["devices"]
+          choices=[x for rt,devices in d.items() if "iOS-27" in rt for x in devices
+                   if x.get("isAvailable", True) and x["name"].startswith("iPhone")]
+          print(choices[0]["udid"] if choices else "")
+          ')"
+          test -n "$DEST" || { echo "::error::Missing iOS 27 simulator"; exit 1; }
+          STATE="$(xcrun simctl list devices -j | python3 -c 'import json,sys; data=json.load(sys.stdin)["devices"]; print(next((x.get("state") for devices in data.values() for x in devices if x.get("udid")==sys.argv[1]),""))' "$DEST")"
+          if [ "$STATE" != "Booted" ]; then xcrun simctl boot "$DEST"; fi
+          xcrun simctl bootstatus "$DEST" -b
+          APP="$RUNNER_TEMP/ReperaVisualBuild/Build/Products/Debug-iphonesimulator/Repera.app"
+          test -d "$APP"
+          xcrun simctl uninstall "$DEST" com.app.repera || true
+          xcrun simctl install "$DEST" "$APP"
+          xcrun simctl ui "$DEST" appearance light || true
+          # Native launcher frames must be captured BEFORE SwiftUI begins.
+          MOV="$RUNNER_TEMP/repera-launch-recording.mp4"
+          xcrun simctl io "$DEST" recordVideo --codec=h264 --force "$MOV" > "$RUNNER_TEMP/sim-video.log" 2>&1 &
+          PID=$!
+          sleep 0.65
+          xcrun simctl launch "$DEST" com.app.repera || true
+          sleep 4
+          kill -INT "$PID" || true
+          wait "$PID" || true
+          test -s "$MOV" || { cat "$RUNNER_TEMP/sim-video.log"; exit 1; }
+          echo "MOV=$MOV" >> "$GITHUB_ENV"
+      - name: Produce contact sheet and inspect real pixels
+        shell: bash
+        run: |
+          python3 -m pip install --disable-pip-version-check opencv-python-headless pillow numpy
+          python3 - <<'PY'
+          from pathlib import Path
+          import cv2,numpy as np
+          from PIL import Image, ImageOps, ImageDraw
+          import os
+          video=Path(os.environ["MOV"])
+          cap=cv2.VideoCapture(str(video))
+          fps=cap.get(cv2.CAP_PROP_FPS) or 30
+          count=int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+          assert count > 8, f"No video frames: {count}"
+          times=[0.0, .15,.30,.45,.60,.80,1.0,1.3,1.7,2.2,2.8,3.5]
+          frames=[]
+          for t in times:
+              cap.set(cv2.CAP_PROP_POS_MSEC,t*1000)
+              ok,frame=cap.read()
+              if not ok: continue
+              img=Image.fromarray(cv2.cvtColor(frame,cv2.COLOR_BGR2RGB))
+              frames.append((t,img))
+          assert len(frames)>=5, f"Insufficient video samples: {len(frames)}"
+          w,h=225,488
+          contact=Image.new("RGB",(w*4,h*3),(255,255,255))
+          draw=ImageDraw.Draw(contact)
+          greens=[]
+          for i,(t,img) in enumerate(frames[:12]):
+              thumbnail=ImageOps.contain(img,(w,h-25))
+              x,y=i%4*w,i//4*h
+              contact.paste(thumbnail,(x+(w-thumbnail.width)//2,y+25))
+              draw.text((x+8,y+5),f"{t:.2f} s",fill=(20,20,20))
+              arr=np.asarray(img.resize((150,320)))
+              green=np.mean((arr[:,:,1]>145)&(arr[:,:,0]<105)&(arr[:,:,2]<145))
+              greens.append((t,round(float(green),3)))
+          out=Path("docs/assets/repera-native-launch-simulator.png")
+          out.parent.mkdir(parents=True,exist_ok=True)
+          contact.save(out,optimize=True)
+          print("Captured live launch screenshots:",greens)
+          print("Evidence saved at",out)
+          if all(g < .05 for _,g in greens[1:]):
+              raise SystemExit("FAIL: No brand-green frame observed in simulator startup")
+          PY
+      - name: Upload launch video and contact sheet
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repera-native-launch-visual-proof
+          path: |
+            docs/assets/repera-native-launch-simulator.png
+            ${{ runner.temp }}/repera-launch-recording.mp4
+            ${{ runner.temp }}/repera-launch-build.log
+          if-no-files-found: ignore
+      - name: Publish contact sheet for review
+        if: success()
+        shell: bash
+        run: |
+          git add docs/assets/repera-native-launch-simulator.png
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Record actual simulator startup frames [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
