@@ -290,3 +290,27 @@ jobs:
             android/wear/build/outputs/androidTest-results/**
             android/wear/build/reports/androidTests/**
           if-no-files-found: ignore
+      - name: Reporte obligatorio de validación Wear (${{ matrix.label }})
+        if: always()
+        env:
+          LEG_EXPERIMENTAL: ${{ matrix.experimental || false }}
+          LEG_API: ${{ matrix.api }}
+          LEG_LABEL: ${{ matrix.label }}
+        run: |
+          X=$(ls android/wear/build/outputs/androidTest-results/connected/debug/TEST-*.xml 2>/dev/null | head -1)
+          N=0
+          if [ -n "$X" ]; then N=$(grep -o 'tests="[0-9]*"' "$X" | head -1 | grep -o '[0-9]*'); fi
+          {
+            echo "### Wear ${{ matrix.label }} — resultado de validación"
+            echo "- tests ejecutados: ${N}"
+            if [ "$N" -lt 1 ]; then
+              echo "- **NO VALIDADO**: 0 tests ejecutados (boot/timeout/fallo de harness). No interpretar el workflow verde como validación."
+            elif [ "$LEG_EXPERIMENTAL" = "true" ]; then
+              echo "- **NO VALIDADO (experimental)**: la pata corre con continue-on-error; revisar resultado antes de declarar soporte."
+            else
+              echo "- Ejecutado; revisar fallos individuales arriba."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          # El guardián de conteo manda también en la pata experimental:
+          # con 0 tests el paso falla aunque continue-on-error absorba el job.
+          if [ "$N" -lt 1 ]; then exit 1; fi

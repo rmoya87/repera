@@ -260,6 +260,15 @@ El CI debe comprobarse en el HEAD actual; sus ejecuciones anteriores no
 certifican commits más recientes.
 
 
+## Inspección real pendiente de la cobertura UI sintética (25/10/2026)
+
+Los tests de UI preparados (EditorUiInstrumentedTest, SplashMapInstrumentedTest,
+HealthConnectInstrumentedTest, AccountScopingInstrumentedTest) están COMPILADOS,
+no ejecutados: compilación y gate local no sustituyen ejecución en emulador ni
+inspección de píxeles. Aunque futuros gates automáticos pasen en CI, queda
+pendiente la revisión real de mapa/splash/editor y gestos (capturas + lectura
+visual) antes de declarar esas pantallas validadas.
+
 ## Wear OS 6.1 (API 36.1) — estado y siguiente intento controlado (25/10/2026)
 
 - La pata 36.1 del job `wear-instrumented` se retiró tras dos timeouts de
