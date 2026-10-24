@@ -1,6 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.58.0';
-import { projectURL, uuidPattern, validDirectoryURL } from '../_shared/ai-oauth.ts';
+import { projectURL, uuidPattern, connectionCatalogEntry } from '../_shared/ai-oauth.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -26,10 +26,9 @@ Deno.serve(async request => {
   const action = new URL(request.url).pathname.split('/').pop();
   try {
     if (request.method === 'GET' && action === 'catalog') {
-      const { data, error } = await db.from('ai_oauth_providers').select('id,name,enabled,directory_url');
+      const { data, error } = await db.from('ai_oauth_providers').select('id,name,enabled,client_id,directory_url');
       if (error) return reply(503, { error: 'No se pueden cargar las conexiones. Inténtalo de nuevo.' });
-      return reply(200, { providers: (data ?? []).map(p => ({ id: p.id, name: p.name,
-        directoryURL: p.enabled ? validDirectoryURL(p.id, p.directory_url) : null })) });
+      return reply(200, { providers: (data ?? []).map(connectionCatalogEntry) });
     }
     if (request.method !== 'POST') return reply(405, { error: 'Método no permitido' });
     if (request.headers.has('origin') && request.headers.get('origin') !== site) return reply(403, { error: 'Origen no permitido' });

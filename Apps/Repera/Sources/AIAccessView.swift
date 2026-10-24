@@ -67,6 +67,21 @@ private struct AIConnectionProvider: Decodable, Identifiable {
     let id: String
     let name: String
     let directoryURL: String?
+    let setup: AIConnectionSetup?
+
+    init(id: String, name: String, directoryURL: String?, setup: AIConnectionSetup? = nil) {
+        self.id = id
+        self.name = name
+        self.directoryURL = directoryURL
+        self.setup = setup
+    }
+
+    var claudeClientID: UUID? {
+        guard id == "claude", setup?.kind == "claude_prompt" else { return nil }
+        return setup?.clientID
+    }
+
+    var isAvailable: Bool { claudeClientID != nil || connectionURL != nil }
 
     var connectionURL: URL? {
         guard let directoryURL, let url = URL(string: directoryURL),
@@ -76,8 +91,129 @@ private struct AIConnectionProvider: Decodable, Identifiable {
         return hosts.contains(url.host ?? "") ? url : nil
     }
 }
+private struct AIConnectionSetup: Decodable {
+    let kind: String
+    let clientID: UUID
+}
 private struct AIConnectionCatalog: Decodable {
     let providers: [AIConnectionProvider]
+}
+
+private struct AIClaudeConnectionView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    let clientID: UUID
+    let isConnected: Bool
+    @State private var feedback: String?
+
+    private let mcpURL = "https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-mcp"
+    private let claudeURL = URL(string: "https://claude.ai/")!
+    private let connectorsURL = URL(string: "https://claude.ai/customize/connectors")!
+
+    private var prompt: String {
+        """
+        Quiero conectar mi cuenta de Repera (https://repera.app) contigo para consultar mis entrenamientos y preparar sesiones. Guíame en español, con un paso breve cada vez.
+
+        Si ya tienes disponible la herramienta de Repera get_mcp_access_info, úsala para comprobar la conexión. Si funciona, confírmalo y pregúntame qué quiero hacer. No modifiques ni leas mi historial para esta comprobación.
+
+        Si Repera no está conectada, no basta con leer su web ni este mensaje. Si no tienes una herramienta para añadir el conector, indícame cómo hacerlo una sola vez en https://claude.ai/customize/connectors: Añadir → Personalizado → Web (o «Añadir conector personalizado», según la versión).
+
+        Estos son los datos públicos para el formulario:
+        Nombre: Repera
+        URL del servidor MCP: \(mcpURL)
+        Autenticación: OAuth / Iniciar sesión ahora (Sign in now).
+        Cliente OAuth: Usar tu propio cliente (Use your own OAuth client).
+        ID de cliente OAuth: \(clientID.uuidString.lowercased())
+        Secreto del cliente: dejar vacío. Es un cliente público con PKCE, sin secreto.
+
+        No elijas registro automático ni la identidad publicada de Claude: este servidor usa el cliente indicado. Si la pantalla muestra opciones avanzadas, el ID de cliente va ahí. Al añadirlo, debo iniciar sesión en Repera con la misma cuenta Apple o Google que uso en la app y revisar los permisos. No me pidas contraseñas, tokens ni claves en esta conversación.
+
+        Si mi cuenta gratuita indica que ya tengo un conector personalizado, explícame ese límite sin quitar nada ni contratar ningún plan por mí. Si alguna opción no aparece, pídeme el texto de la pantalla y no inventes una conexión.
+
+        Cuando termine, indícame que active Repera en esta conversación (o abra una nueva si hace falta). Confirma la conexión solo cuando get_mcp_access_info responda correctamente; si falla, explícame el paso pendiente. No crees ni cambies entrenamientos hasta que te lo pida.
+        """
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Text("Pega las instrucciones en Claude y te acompañará paso a paso. Solo tendrás que añadir Repera la primera vez.")
+                        .foregroundStyle(OG.label2)
+                    Button {
+                        copy(prompt, message: "Instrucciones copiadas. Pégalas en el chat de Claude.")
+                        open(claudeURL)
+                    } label: {
+                        Label("Copiar instrucciones y abrir Claude", systemImage: "text.bubble")
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(OG.accent)
+                    Button("Copiar solo las instrucciones") {
+                        copy(prompt, message: "Instrucciones copiadas.")
+                    }
+                    .buttonStyle(.borderless)
+                    if let feedback {
+                        Text(feedback).font(.footnote).accessibilityAddTraits(.updatesFrequently)
+                    }
+                } header: { Text("Conéctalo con ayuda de Claude") }
+                Section {
+                    DisclosureGroup("Ver los pasos de conexión") {
+                        Text("1. En Claude, abre Conectores y añade un conector personalizado con el nombre Repera.")
+                        Button("Abrir Conectores de Claude") { open(connectorsURL) }
+                        Text("2. Pega esta dirección en «URL del servidor».")
+                        copyRow("URL del servidor", value: mcpURL)
+                        Text("3. Elige «Iniciar sesión ahora» y «Usar tu propio cliente OAuth». Copia este código en «ID de cliente». Deja «Secreto del cliente» vacío.")
+                        copyRow("ID de cliente", value: clientID.uuidString.lowercased())
+                        Text("4. Añade el conector y autoriza con la misma cuenta Apple o Google de Repera. Vuelve al chat y pide a Claude que compruebe la conexión.")
+                    }
+                    DisclosureGroup("Ver las instrucciones para Claude") {
+                        Text(prompt).font(.footnote).textSelection(.enabled)
+                    }
+                    Text("Las instrucciones solo incluyen datos públicos. El acceso a tu cuenta se autoriza al iniciar sesión en Repera.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+                Section {
+                    Label(isConnected ? "Claude ya ha accedido a Repera" : "Pendiente de comprobar en Claude",
+                          systemImage: isConnected ? "checkmark.circle" : "clock")
+                        .foregroundStyle(isConnected ? Color.green : Color.secondary)
+                    Text("La conexión se confirma cuando Claude consigue comunicarse con Repera.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("Conectar Claude")
+            .navigationBarTitleDisplayMode(.inline)
+            .ogTransparentNav()
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Cerrar") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func copyRow(_ title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(value).font(.footnote.monospaced()).textSelection(.enabled)
+            Button("Copiar \(title.lowercased())") { copy(value, message: "\(title) copiado.") }
+                .buttonStyle(.borderless)
+        }
+        .padding(.vertical, 6)
+    }
+
+    private func copy(_ value: String, message: String) {
+        UIPasteboard.general.string = value
+        feedback = message
+    }
+
+    private func open(_ url: URL) {
+        openURL(url) { accepted in
+            if !accepted { feedback = "No se pudo abrir Claude. Abre claude.ai en tu navegador; las instrucciones siguen copiadas." }
+        }
+    }
 }
 
 struct AIAccessView: View {
@@ -90,6 +226,7 @@ struct AIAccessView: View {
     @State private var catalogError: String?
     @State private var catalogLoading = true
     @State private var showManualAccess = false
+    @State private var claudeSetupProvider: AIConnectionProvider?
 
     @Environment(BusinessAuthStore.self) private var auth
     @Environment(ReperaStore.self) private var store
@@ -201,6 +338,14 @@ struct AIAccessView: View {
             await changeRequests.refresh(store:store)
         }
         .ogPinnedTransparentNav("Conecta tu IA")
+        .sheet(item: $claudeSetupProvider) { provider in
+            if let clientID = provider.claudeClientID {
+                AIClaudeConnectionView(
+                    clientID: clientID,
+                    isConnected: tokens.contains { $0.oauthClientID == clientID && $0.hasConnected }
+                )
+            }
+        }
         .sheet(isPresented: Binding(
             get: { createdToken != nil },
             set: { if !$0 { createdToken = nil } }
@@ -269,6 +414,7 @@ struct AIAccessView: View {
                 }
             } else {
                 tokens=[]
+                claudeSetupProvider = nil
                 changeRequests.clearSession()
             }
         }
@@ -281,22 +427,29 @@ struct AIAccessView: View {
             ForEach(providers) { provider in
                 VStack(alignment: .leading, spacing: 6) {
                     Button {
-                        if let url = provider.connectionURL { openURL(url) }
+                        if provider.claudeClientID != nil {
+                            claudeSetupProvider = provider
+                        } else if let url = provider.connectionURL {
+                            openURL(url)
+                        }
                     } label: {
                         HStack {
                             Text("Conectar con \(provider.name)").fontWeight(.semibold)
                             Spacer()
-                            Image(systemName: "arrow.up.right")
+                            Image(systemName: provider.claudeClientID != nil ? "text.bubble" : "arrow.up.right")
                         }
                         .foregroundStyle(.black)
                         .padding(12)
                         .background(OG.accent, in: RoundedRectangle(cornerRadius: 12))
                     }
                     .buttonStyle(.plain)
-                    .disabled(provider.connectionURL == nil || !auth.isConnected || catalogLoading)
-                    .opacity(provider.connectionURL == nil || !auth.isConnected || catalogLoading ? 0.45 : 1)
-                    if provider.connectionURL == nil && !catalogLoading && catalogError == nil {
-                        Text("Disponible cuando se publique la integración.")
+                    .disabled(!provider.isAvailable || !auth.isConnected || catalogLoading)
+                    .opacity(!provider.isAvailable || !auth.isConnected || catalogLoading ? 0.45 : 1)
+                    if provider.claudeClientID != nil {
+                        Text("Copia las instrucciones y deja que Claude te guíe.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else if !provider.isAvailable && !catalogLoading && catalogError == nil {
+                        Text(provider.id == "claude" ? "Estamos preparando la conexión con Claude." : "Disponible cuando se publique la integración.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -311,7 +464,7 @@ struct AIAccessView: View {
                 Text("Inicia sesión en Repera para conectar tu asistente.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
-            Text("Se abrirá tu asistente para autorizar Repera. No tendrás que copiar claves. Puedes desconectarlo cuando quieras.")
+            Text("Autoriza el acceso con la misma cuenta Apple o Google que usas en Repera. Puedes desconectar tu asistente cuando quieras.")
                 .font(.footnote).foregroundStyle(.secondary)
         } header: { Text("Elige tu asistente") }
     }

@@ -140,7 +140,7 @@ Reimplementación Swift propia. openGym es AGPL — no se incorpora su código a
 
 ## Acceso IA y recepción automática
 
-Ajustes → Conecta tu IA presenta los asistentes disponibles y las conexiones; los tokens personales quedan en Configuración manual. La vinculación OAuth abre el asistente y requiere autorización de Repera en la web; sus botones permanecen deshabilitados hasta publicar las fichas reales. Los entrenamientos que un asistente envía mediante el MCP aparecen en Inicio/Diario automáticamente mientras la app está abierta y se avisan con una tarjeta breve, gracias a la suscripción Realtime protegida por RLS del usuario. El botón «Sincronizar ahora» de Cuenta también recupera planes pendientes; si iOS suspende/cierra la app, se incorporan al volver al primer plano. **No hay notificaciones push cuando la app está cerrada**. Detalles y checklist en [docs/MCP_PLAN.md](docs/MCP_PLAN.md).
+Ajustes → Conecta tu IA presenta los asistentes disponibles y las conexiones; los tokens personales quedan en Configuración manual. La vinculación OAuth requiere autorización de Repera en la web. Claude ofrece instrucciones copiables para configurar el conector una vez con un ID público, sin claves personales; ChatGPT permanece deshabilitado hasta publicar su ficha real. Los entrenamientos que un asistente envía mediante el MCP aparecen en Inicio/Diario automáticamente mientras la app está abierta y se avisan con una tarjeta breve, gracias a la suscripción Realtime protegida por RLS del usuario. El botón «Sincronizar ahora» de Cuenta también recupera planes pendientes; si iOS suspende/cierra la app, se incorporan al volver al primer plano. **No hay notificaciones push cuando la app está cerrada**. Detalles y checklist en [docs/MCP_PLAN.md](docs/MCP_PLAN.md).
 
 
 ## Coach deportivo IA
@@ -169,4 +169,4 @@ Desde Acceso IA se pueden aprobar o rechazar propuestas de cambio de entrenamien
 
 Última actualización: 2026-10-24.
 
-Se incorpora el soporte de OAuth gestionado por Supabase, consentimiento web y aislamiento de credenciales MCP, manteniendo los PAT manuales. La nueva UI **Conecta tu IA** no activa ChatGPT/Claude hasta disponer de las fichas publicadas. La integración no está publicada por el hecho de integrar este código. Arquitectura, pruebas, despliegue y presentación a revisión: [docs/OAUTH_CONNECTIONS.md](docs/OAUTH_CONNECTIONS.md).
+Se incorpora el soporte de OAuth gestionado por Supabase, consentimiento web y aislamiento de credenciales MCP, manteniendo los PAT manuales. La UI **Conecta tu IA** ofrece Claude con instrucciones copiables para añadir una conexión personalizada OAuth (sin tokens en el chat). ChatGPT permanece pendiente de su ficha publicada. La integración no está publicada por el hecho de integrar este código. Arquitectura, pruebas, despliegue y presentación a revisión: [docs/OAUTH_CONNECTIONS.md](docs/OAUTH_CONNECTIONS.md).

@@ -43,3 +43,18 @@ export function validDirectoryURL(provider: string, value: unknown): string | nu
     return url.href;
   } catch { return null; }
 }
+
+export function connectionCatalogEntry(provider: {
+  id: string; name: string; enabled: boolean; client_id: string | null; directory_url: string | null;
+}) {
+  // This is a public OAuth client identifier, never a bearer token or a secret.
+  // Claude's manually configured client must use PKCE and token auth "none".
+  const canGuideClaude = provider.id === 'claude' && provider.enabled &&
+    typeof provider.client_id === 'string' && uuidPattern.test(provider.client_id);
+  return {
+    id: provider.id,
+    name: provider.name,
+    directoryURL: provider.enabled ? validDirectoryURL(provider.id, provider.directory_url) : null,
+    setup: canGuideClaude ? { kind: 'claude_prompt', clientID: provider.client_id } : null,
+  };
+}

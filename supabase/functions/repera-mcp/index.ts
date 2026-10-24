@@ -145,7 +145,8 @@ Deno.serve(async (request) => {
   const bearer = /^Bearer ([^\s]+)$/.exec(request.headers.get("authorization") ?? "")?.[1];
   if (!bearer || bearer.length > 8192) return fail(401, "Conecta tu cuenta de Repera");
   let authenticatedToken: { id: string; owner_id: string; expires_at: string | null; scopes: string[] } | null = null;
-  if (/^rep_ai_[A-Za-z0-9_-]{43}$/.test(bearer)) {
+  const isPersonalToken = /^rep_ai_[A-Za-z0-9_-]{43}$/.test(bearer);
+  if (isPersonalToken) {
     const hash = await sha256(bearer);
     const { data, error } = await db.from("ai_access_tokens")
       .select("id,owner_id,expires_at,scopes")
@@ -256,15 +257,16 @@ Deno.serve(async (request) => {
     registerAthleteChangeTools(server,db,ownerId,token.id,canWrite);
     if (canWrite) registerMutationTools(server, db, ownerId);
     server.registerTool("get_mcp_access_info", {
-      description:"Display the current personal token's permission scopes, expiry and revocation instructions. No credential contents are exposed.",
+      title:"Comprobar conexión con Repera",
+      description:"Check the authenticated Repera connection, permission scopes, expiry and disconnection instructions. No credential contents or workout data are exposed. Use this read-only tool to verify that setup succeeded.",
       inputSchema:z.strictObject({}),annotations:{readOnlyHint:true},
     },async()=>reply({
       token_id:token.id,
       scopes:token.scopes ?? ["training:read","training:write"],
       expires_at:token.expires_at ?? null,
       expires:token.expires_at!=null,
-      revoke_in:"Repera iOS → Ajustes → Acceso IA → Revocar token",
-      protocol:"Personal HTTPS Bearer token (PAT), not OAuth. Do not forward to third parties.",
+      revoke_in:"Repera iOS → Ajustes → Datos → Conecta tu IA → Mis conexiones → Desconectar",
+      protocol:isPersonalToken ? "Personal HTTPS Bearer token (PAT). Do not forward to third parties." : "OAuth with user consent and PKCE. Managed by your assistant; do not request or share tokens in chat.",
       date_semantics:"scheduledDate is athlete-local date. If scheduledTimeMinutes is given, scheduledTimeZone (IANA) and scheduledUtcOffsetMinutes (UTC east-positive) are required; scheduled_at resolves an exact instant including DST.",
     }));
     server.registerTool("get_hyrox_training_reference", {
