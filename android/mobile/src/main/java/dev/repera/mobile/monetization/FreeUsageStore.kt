@@ -11,8 +11,13 @@ import org.json.JSONObject
 
 /**
  * Persistencia local-first de cuotas gratuitas (fuera del JSON deportivo).
- * Port 1:1 de FreeUsageStore.swift (archivo por cuenta; la sincronización
- * iCloud de iOS no tiene equivalente aún: queda como gap documentado).
+ * Port 1:1 de FreeUsageStore.swift: UN archivo local por dispositivo
+ * (iOS usa Application Support/Repera/free_usage.json, sin clave de cuenta)
+ * y NO concede nada: solo registra consumo. Gap real frente a iOS: la
+ * sincronización iCloud best-effort entre dispositivos del mismo Apple ID
+ * no tiene equivalente Android todavía (Drive/backend: autorización
+ * pendiente, sin activar). Cambiar de cuenta en el mismo dispositivo NO
+ * reinicia la cuota, igual que en iOS.
  */
 class FreeUsageStore(private val file: File) {
     var state by mutableStateOf(FreeUsageState())

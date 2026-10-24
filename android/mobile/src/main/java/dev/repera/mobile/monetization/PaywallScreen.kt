@@ -54,8 +54,6 @@ enum class PaywallMode { SHEET, ONBOARDING }
 
 /**
  * Paywall Repera Pro. Port 1:1 de PaywallView.swift (modos sheet/onboarding).
- * Divergencia documentada: iOS muestra la mascota ReperaMascot en onboarding;
- * Android aún no tiene asset de mascota y usa el icono de marca en ambos modos.
  */
 @Composable
 fun PaywallScreen(
@@ -156,14 +154,19 @@ private fun PaywallHeader(mode: PaywallMode, context: PaywallContext) {
         modifier = Modifier.padding(top = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // iOS: ReperaMascot(.hero) en onboarding, SF Symbol en sheet.
-        // Android no tiene aún asset de mascota: icono de marca en ambos.
-        Icon(
-            Icons.Default.FitnessCenter,
-            contentDescription = null,
-            tint = brandGreen,
-            modifier = Modifier.size(if (mode == PaywallMode.ONBOARDING) 72.dp else 36.dp)
-        )
+        // Paridad iOS: mascota hero en onboarding, icono de marca en sheet.
+        if (mode == PaywallMode.ONBOARDING) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                dev.repera.mobile.ReperaMascot(dev.repera.mobile.ReperaMascotPose.HERO, maxHeight = 160.dp)
+            }
+        } else {
+            Icon(
+                Icons.Default.FitnessCenter,
+                contentDescription = null,
+                tint = brandGreen,
+                modifier = Modifier.size(36.dp)
+            )
+        }
         Text(
             context.headline,
             fontSize = 28.sp,

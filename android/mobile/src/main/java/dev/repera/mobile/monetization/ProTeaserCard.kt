@@ -37,9 +37,10 @@ enum class ProTeaserAppearance(val imageOnLeft: Boolean) {
 }
 
 /**
- * Banner Repera Pro. Port estructural de ProTeaserCard.swift.
- * Divergencia documentada: iOS compone escenas con la mascota ReperaMascot;
- * Android no tiene aún assets de mascota y usa iconos de marca en su lugar.
+ * Banner Repera Pro. Port de ProTeaserCard.swift con la mascota real
+ * (assets iOS reutilizados): progress=hero, activity=watch, recovery=welcome,
+ * evolution=permissions. Simplificación documentada: sin las rotaciones ni
+ * símbolos decorativos exteriores de iOS.
  */
 @Composable
 fun ProTeaserCard(
@@ -122,18 +123,17 @@ fun ProTeaserCard(
 
 @Composable
 private fun TeaserScene(appearance: ProTeaserAppearance) {
-    val icon = when (appearance) {
-        ProTeaserAppearance.PROGRESS -> Icons.Default.FitnessCenter
-        ProTeaserAppearance.ACTIVITY -> Icons.Default.Air
-        ProTeaserAppearance.RECOVERY -> Icons.Default.Bedtime
-        ProTeaserAppearance.EVOLUTION -> Icons.AutoMirrored.Filled.TrendingUp
+    val pose = when (appearance) {
+        ProTeaserAppearance.PROGRESS -> dev.repera.mobile.ReperaMascotPose.HERO
+        ProTeaserAppearance.ACTIVITY -> dev.repera.mobile.ReperaMascotPose.WATCH
+        ProTeaserAppearance.RECOVERY -> dev.repera.mobile.ReperaMascotPose.WELCOME
+        ProTeaserAppearance.EVOLUTION -> dev.repera.mobile.ReperaMascotPose.PERMISSIONS
     }
-    Box(modifier = Modifier.size(width = 96.dp, height = 148.dp)) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.6f),
-            modifier = Modifier.align(Alignment.Center).size(56.dp)
+    Box(modifier = Modifier.size(width = 110.dp, height = 148.dp)) {
+        dev.repera.mobile.ReperaMascot(
+            pose = pose,
+            maxHeight = 148.dp,
+            modifier = Modifier.align(Alignment.Center)
         )
     }
 }
