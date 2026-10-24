@@ -529,6 +529,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         thisAppearance to prior
                     }
                 },
+                loadGuideProvider = { exerciseId, targetReps, targetRir ->
+                    val uid = profile?.uniqueId
+                    val bytes = uid?.let { LocalSnapshotStore(this, it).read() }
+                    if (bytes == null) null else ExerciseLoadGuide.guide(
+                        org.json.JSONObject(String(bytes, Charsets.UTF_8)),
+                        exerciseId, targetReps, targetRir)
+                },
                 todayHealth = todayHealth,
                 onHealthConnect = ::connectHealth,
                 activeWorkout = activeWorkout,

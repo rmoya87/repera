@@ -1,0 +1,174 @@
+package dev.repera.mobile
+
+import dev.repera.domain.LoadSuggestion
+import org.json.JSONArray
+import org.json.JSONObject
+
+/**
+ * Guía de carga del editor/registro de series (port 1:1 de
+ * ExerciseLoadGuideCard.swift iOS): última sesión de trabajo del ejercicio
+ * + kg sugeridos para el RIR objetivo. Solo lectura del snapshot.
+ */
+data class LoadGuideSet(
+    val weightKg: Double?,
+    val reps: Int,
+    val rir: Double?,
+    val durationSeconds: Int?,
+    val unit: String?
+)
+
+data class LoadGuideLastSession(
+    val sessionId: String,
+    val dateEpochMillis: Long,
+    val sets: List<LoadGuideSet>
+) {
+    /** Serie top = la de mayor peso (iOS topSet). */
+    val topSet: LoadGuideSet? get() = sets.maxByOrNull { it.weightKg ?: 0.0 }
+}
+
+data class LoadGuide(
+    val lastSession: LoadGuideLastSession?,
+    val suggestedKg: Double?,
+    /** "1RM" (testeado), "e1RM" (estimado del historial) o "última". */
+    val suggestionSource: String?,
+    val assumedRir: Boolean,
+    val targetReps: Int,
+    val effectiveRir: Double
+)
+
+object ExerciseLoadGuide {
+
+    private const val DEFAULT_INCREMENT_KG = 2.5
+    private const val DEFAULT_RIR = 2.0
+
+    /** Última sesión con series de trabajo (más reciente primero).
+     *  Port de StatsEngine.lastWorkingSession (iOS). */
+    fun lastWorkingSession(
+        exerciseId: String,
+        workouts: List<JSONObject>,
+        catalog: JSONArray? = null
+    ): LoadGuideLastSession? {
+        val anchorName: String? = catalog?.let { array ->
+            (0 until array.length()).map { array.getJSONObject(it) }
+                .firstOrNull { it.optString("id") == exerciseId }
+                ?.optString("name")
+        }
+        val sorted = workouts.sortedByDescending { ExerciseSessionAppearances.epochOf(it) }
+        for (session in sorted) {
+            val finished = session.optString("phase") == "finished" ||
+                session.optString("finishedAt").isNotBlank()
+            if (!finished) continue
+            val entry = ExerciseSessionAppearances.matchEntry(session, exerciseId, anchorName)
+                ?: continue
+            val work = WorkoutHistorySets.effectiveWorkSets(session, entry)
+            if (work.isEmpty()) continue
+            return LoadGuideLastSession(
+                sessionId = session.optString("id"),
+                dateEpochMillis = ExerciseSessionAppearances.epochOf(session),
+                sets = work.map { s ->
+                    LoadGuideSet(
+                        weightKg = s.weightKg,
+                        reps = s.reps,
+                        rir = s.rir,
+                        durationSeconds = s.durationSeconds,
+                        unit = s.unit
+                    )
+                }
+            )
+        }
+        return null
+    }
+
+    /** Mejor e1RM del historial (Epley, mismas reglas que
+     *  StatsEngine.estimatedOneRM: solo reps con peso > 0). */
+    fun estimatedOneRM(
+        exerciseId: String,
+        workouts: List<JSONObject>,
+        catalog: JSONArray? = null
+    ): Double? {
+        val anchorName: String? = catalog?.let { array ->
+            (0 until array.length()).map { array.getJSONObject(it) }
+                .firstOrNull { it.optString("id") == exerciseId }
+                ?.optString("name")
+        }
+        var best = 0.0
+        for (session in workouts) {
+            val entry = ExerciseSessionAppearances.matchEntry(session, exerciseId, anchorName)
+                ?: continue
+            for (set in WorkoutHistorySets.effectiveWorkSets(session, entry)) {
+                val w = set.weightKg ?: continue
+                if (w <= 0 || set.unit != "reps" || set.reps <= 0) continue
+                val e1 = w * (1 + set.reps / 30.0)
+                if (e1 > best) best = e1
+            }
+        }
+        return if (best > 0) best else null
+    }
+
+    /** Guía completa para el ejercicio (port de la lógica de
+     *  ExerciseLoadGuideCard.body iOS). */
+    fun guide(
+        root: JSONObject,
+        exerciseId: String,
+        targetReps: Int,
+        targetRir: Double?
+    ): LoadGuide {
+        val workouts = root.optJSONArray("workouts")?.let { array ->
+            (0 until array.length()).map { array.getJSONObject(it) }
+        } ?: emptyList()
+        val catalog = root.optJSONArray("exercises")
+        val last = lastWorkingSession(exerciseId, workouts, catalog)
+
+        val prefs = root.optJSONObject("exerciseLoadPrefs")
+            ?.optJSONObject(exerciseId)
+        val tested = prefs?.takeIf {
+            it.has("testedOneRMKg") && !it.isNull("testedOneRMKg")
+        }?.getDouble("testedOneRMKg")?.takeIf { it > 0 }
+
+        val increment = root.optJSONObject("settings")
+            ?.takeIf { it.has("weightIncrementKg") && !it.isNull("weightIncrementKg") }
+            ?.getDouble("weightIncrementKg")?.takeIf { it > 0 }
+            ?: DEFAULT_INCREMENT_KG
+
+        val reps = maxOf(1, targetReps)
+        val effectiveRir = targetRir ?: DEFAULT_RIR
+
+        var kg: Double? = null
+        var source: String? = null
+        val oneRM = tested ?: estimatedOneRM(exerciseId, workouts, catalog)
+            ?.takeIf { it > 0 }
+        if (oneRM != null) {
+            val w = LoadSuggestion.weightKg(oneRM, reps, effectiveRir, roundTo = increment)
+            if (w > 0) {
+                kg = w
+                source = if (tested != null) "1RM" else "e1RM"
+            }
+        }
+        if (kg == null) {
+            val lastSet = last?.topSet?.takeIf { (it.weightKg ?: 0.0) > 0 }
+                ?: last?.sets?.lastOrNull()?.takeIf { (it.weightKg ?: 0.0) > 0 }
+            if (lastSet != null) {
+                val w = LoadSuggestion.weightKgFromLastSet(
+                    lastWeightKg = lastSet.weightKg!!,
+                    lastReps = lastSet.reps,
+                    lastRir = lastSet.rir,
+                    targetReps = reps,
+                    targetRir = effectiveRir,
+                    roundTo = increment
+                )
+                if (w > 0) {
+                    kg = w
+                    source = "última"
+                }
+            }
+        }
+        return LoadGuide(
+            lastSession = last,
+            suggestedKg = kg,
+            suggestionSource = source,
+            assumedRir = targetRir == null,
+            targetReps = reps,
+            effectiveRir = effectiveRir
+        )
+    }
+}

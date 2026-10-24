@@ -98,6 +98,8 @@ internal fun HomeTab(
     onDeleteFinishedSet: (String, String, String) -> Unit,
     onDeleteWorkout: (String) -> Unit = {},
     onOpenExerciseFromSession: (String, String, String) -> Unit = { _, _, _ -> },
+    loadGuideProvider: (exerciseId: String, targetReps: Int, targetRir: Double?) ->
+        LoadGuide? = { _, _, _ -> null },
     onNavigateCreate: () -> Unit,
     onDeleteRoutine: (String) -> Unit = {},
     onOpenClock: () -> Unit,
@@ -217,7 +219,8 @@ internal fun HomeTab(
                             onDeleteSet = onDeleteSet,
                             onNext = onNext,
                             onFinish = onFinish,
-                            onDiscard = onDiscardSession
+                            onDiscard = onDiscardSession,
+                            loadGuideProvider = loadGuideProvider
                         )
                     }
                 }

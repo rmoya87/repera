@@ -31,14 +31,14 @@ data class SessionAppearance(
 
 object ExerciseSessionAppearances {
 
-    private fun epochOf(session: JSONObject): Long {
+    internal fun epochOf(session: JSONObject): Long {
         val raw = session.optString("finishedAt").takeIf { it.isNotBlank() }
             ?: session.optString("startedAt").takeIf { it.isNotBlank() }
             ?: return 0L
         return runCatching { Instant.parse(raw).toEpochMilli() }.getOrDefault(0L)
     }
 
-    private fun matchEntry(session: JSONObject, exerciseId: String,
+    internal fun matchEntry(session: JSONObject, exerciseId: String,
                            anchorName: String?): JSONObject? {
         val exercises = session.optJSONArray("exercises") ?: return null
         return (0 until exercises.length())

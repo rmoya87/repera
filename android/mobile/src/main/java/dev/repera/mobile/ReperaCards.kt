@@ -71,10 +71,13 @@ import dev.repera.domain.WodClockSpec
 import java.time.LocalDate
 import java.time.LocalTime
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
-
 
 internal val brandGreen = Color(0xFF30D158)
 
@@ -89,7 +92,9 @@ internal fun ActiveWorkoutCard(
     onFinish: () -> Unit,
     onDiscard: () -> Unit = {},
     onLogDropSet: (Int, Double?, List<Pair<Int, Double?>>) -> Unit = { _, _, _ -> },
-    onLogRestPauseSet: (List<Pair<Int, Int>>, Double?) -> Unit = { _, _ -> }
+    onLogRestPauseSet: (List<Pair<Int, Int>>, Double?) -> Unit = { _, _ -> },
+    loadGuideProvider: (exerciseId: String, targetReps: Int, targetRir: Double?) ->
+        LoadGuide? = { _, _, _ -> null }
 ) {
     var technique by remember(active.id, active.index, active.completedSets) {
         mutableStateOf("normal")
@@ -162,6 +167,24 @@ internal fun ActiveWorkoutCard(
             Text("Ejercicio ${active.index + 1}/${active.total}: ${active.exerciseName}",
                 style = MaterialTheme.typography.titleMedium)
             Text("${active.completedSets} series registradas")
+            // Guía de carga (port de ExerciseLoadGuideCard iOS): última sesión
+            // + carga sugerida para el RIR objetivo. Solo con peso en reps
+            // (loggingStyle loadAndReps en iOS). iOS la muestra en el editor
+            // de series del plan; en Android el plan no tiene editor por
+            // ejercicio, así que vive en el registro en vivo, donde se teclea
+            // el peso. targetRir: las series planificadas Android aún no
+            // guardan RIR objetivo, así que siempre es «asumido» (RIR 2).
+            if (active.allowsWeight && active.catalogExerciseId.isNotBlank() &&
+                active.quantityUnit == "reps") {
+                val guide = remember(active.id, active.index, active.completedSets) {
+                    loadGuideProvider(active.catalogExerciseId,
+                        active.prescribedQuantity ?: 8, null)
+                }
+                if (guide != null) LoadGuideSection(guide) { kg ->
+                    weight = if (kg % 1.0 == 0.0) kg.toInt().toString()
+                        else kg.toString()
+                }
+            }
             active.sets.forEachIndexed { index, set ->
                 Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween) {
@@ -433,7 +456,6 @@ internal fun ActiveWorkoutCard(
         }
     }
 }
-
 
 /** Inline score editor like the iPhone Play review, no modal or imaginary movement sets. */
 @Composable
@@ -1122,7 +1144,6 @@ internal fun RoutineCreatorCard(
     }
 }
 
-
 /** Drill-down stays inside the workout, preserving the back-to-summary behaviour. */
 /** Accessible Material 3 bars; absent sessions remain zero, not fabricated activity. */
 @Composable
@@ -1590,3 +1611,118 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
         }
     }
 }
+
+/** Guía de carga (port 1:1 del body de ExerciseLoadGuideCard iOS). */
+@Composable
+private fun LoadGuideSection(guide: LoadGuide, onApply: (Double) -> Unit) {
+    val last = guide.lastSession
+    if (last == null && guide.suggestedKg == null) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth()) {
+            Text("↻", style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.primary)
+            Column {
+                Text("Sin historial aún", style = MaterialTheme.typography.titleSmall)
+                Text("Tras la primera vez verás aquí pesos y una sugerencia para tu RIR.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth()) {
+        if (last != null) {
+            Row(modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("ÚLTIMA VEZ", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(loadGuideShortDate(last.dateEpochMillis),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            val topId = last.topSet
+            last.sets.forEachIndexed { index, set ->
+                val isTop = set === topId
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("${index + 1}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isTop) MaterialTheme.colorScheme.onPrimary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .size(22.dp)
+                            .background(
+                                if (isTop) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.surfaceVariant,
+                                CircleShape)
+                            .wrapContentSize(Alignment.Center))
+                    Text(loadGuideSetLine(set),
+                        style = if (isTop) MaterialTheme.typography.titleMedium
+                            else MaterialTheme.typography.bodyMedium,
+                        color = if (isTop) MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f))
+                    if (isTop) {
+                        Text("TOP", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .background(MaterialTheme.colorScheme.primary
+                                    .copy(alpha = 0.15f), RoundedCornerShape(50))
+                                .padding(horizontal = 6.dp, vertical = 3.dp))
+                    }
+                }
+            }
+        }
+        if (guide.suggestedKg != null) {
+            if (last != null) HorizontalDivider()
+            Text("CARGA SUGERIDA", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(loadGuideKgLabel(guide.suggestedKg) + " kg",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.primary)
+                    Text(loadGuideCaption(guide),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Button(onClick = { onApply(guide.suggestedKg) }) {
+                    Text("Aplicar")
+                }
+            }
+        }
+    }
+}
+
+private fun loadGuideShortDate(epochMillis: Long): String {
+    if (epochMillis <= 0) return ""
+    val fmt = java.time.format.DateTimeFormatter.ofPattern("d MMM",
+        java.util.Locale("es", "ES"))
+    return java.time.Instant.ofEpochMilli(epochMillis)
+        .atZone(java.time.ZoneId.systemDefault()).format(fmt)
+}
+
+/** kg con 0-1 decimales (iOS fractionLength(0...1)). */
+private fun loadGuideKgLabel(kg: Double): String =
+    if (kg % 1.0 == 0.0) kg.toInt().toString() else "%.1f".format(java.util.Locale.US, kg)
+
+/** %g recortado como C/Swift (aprendizaje: Java %g conserva ceros). */
+private fun loadGuideG(v: Double): String =
+    if (v % 1.0 == 0.0) v.toInt().toString() else "%.2f".format(java.util.Locale.US, v)
+        .trimEnd('0').trimEnd('.')
+
+private fun loadGuideCaption(guide: LoadGuide): String {
+    val rir = "RIR " + loadGuideG(guide.effectiveRir) +
+        (if (guide.assumedRir) " (asumido)" else "")
+    return "${guide.targetReps} reps · $rir · ${guide.suggestionSource}"
+}
+
+/** Línea de serie (misma forma que SetSummaryLine.displayLine). */
+private fun loadGuideSetLine(set: LoadGuideSet): String =
+    dev.repera.domain.SetSummaryLine.displayLine(
+        reps = set.reps, quantityUnit = set.unit,
+        weightKg = set.weightKg, durationSeconds = set.durationSeconds)
+
