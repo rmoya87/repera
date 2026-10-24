@@ -5,11 +5,13 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -100,38 +102,44 @@ internal fun WodClockScreen(
         lastRestLabel = restLabel
     }
     val isRest = restLabel != null
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
-            TextButton(onClick = onBack) { Text("Volver") }
-        }
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(active.title, style = MaterialTheme.typography.titleLarge)
-            Text(
-                "%d:%02d".format(face.primarySeconds / 60, face.primarySeconds % 60),
-                fontSize = 96.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (isRest) brandGreen else Color.Unspecified
-            )
-            face.label?.let { label ->
-                Text(label, style = MaterialTheme.typography.headlineSmall)
+    // Layout adaptativo en paridad con BlockTimerScreen (iOS): en apaisado
+    // (ancho > alto) el reloj y los controles van en una fila centrada con
+    // los controles en horizontal bajo el reloj; en vertical, columna con
+    // controles apilados. El tamaño de dígito se calcula como en iOS:
+    // min(tope 165/138, ancho disponible / 2.76, alto * 0.36/0.235).
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+        val landscape = maxWidth > maxHeight
+        val clockFont = minOf(
+            if (landscape) 165f else 138f,
+            maxWidth.value / 2.76f,
+            maxHeight.value * if (landscape) 0.36f else 0.235f
+        ).sp
+        @Composable
+        fun ClockBlock() {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    "%d:%02d".format(face.primarySeconds / 60, face.primarySeconds % 60),
+                    fontSize = clockFont,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isRest) brandGreen else Color.Unspecified
+                )
+                face.label?.let { label ->
+                    Text(label, style = MaterialTheme.typography.headlineSmall)
+                }
+                Text(wod.title + " · " +
+                    (WodFormat.fromWire(wod.format)?.displayName ?: wod.format),
+                    style = MaterialTheme.typography.bodyMedium)
             }
-            Text(wod.title + " · " +
-                (WodFormat.fromWire(wod.format)?.displayName ?: wod.format),
-                style = MaterialTheme.typography.bodyMedium)
         }
-        Row(modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        @Composable
+        fun PrimaryButton(modifier: Modifier = Modifier) {
             Button(
                 onClick = { onTimerAction(if (timer?.running == true) "pause" else "start") },
                 enabled = !busy && !face.finishedIntervals,
-                modifier = Modifier.weight(1f),
+                modifier = modifier,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = brandGreen, contentColor = Color.Black
                 )
@@ -139,11 +147,75 @@ internal fun WodClockScreen(
                 Text(if (timer?.running == true) "Pausar"
                     else if (elapsedClock > 0) "Reanudar" else "Iniciar")
             }
+        }
+        @Composable
+        fun ResetButton(modifier: Modifier = Modifier) {
             OutlinedButton(
                 onClick = { onTimerAction("reset") },
                 enabled = !busy,
-                modifier = Modifier.weight(1f)
+                modifier = modifier
             ) { Text("Reiniciar") }
+        }
+        @Composable
+        fun TopBar(showTitle: Boolean) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onBack) { Text("Volver") }
+                if (showTitle) {
+                    Text(
+                        active.title,
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+            }
+        }
+        if (landscape) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                TopBar(showTitle = true)
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    ClockBlock()
+                    Row(
+                        modifier = Modifier.widthIn(max = 500.dp)
+                            .fillMaxWidth().padding(top = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        PrimaryButton(Modifier.weight(1f))
+                        ResetButton(Modifier.weight(1f))
+                    }
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                TopBar(showTitle = false)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(active.title, style = MaterialTheme.typography.titleLarge)
+                    ClockBlock()
+                }
+                // En vertical los controles se apilan a ancho completo,
+                // como en BlockTimerScreen (iOS).
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    PrimaryButton(Modifier.fillMaxWidth())
+                    ResetButton(Modifier.fillMaxWidth())
+                }
+            }
         }
     }
 }
