@@ -24,8 +24,7 @@ private enum ExerciseSortMode: String, CaseIterable, Identifiable, Sendable {
     var selectedIcon: String {
         switch self {
         case .alphabetical: return "a.circle.fill"
-        case .muscle: return "lungs.fill"
-        case .equipment: return "dumbbell.fill"
+        case .muscle, .equipment: return icon
         }
     }
 }
