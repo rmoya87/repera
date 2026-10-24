@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -150,7 +151,7 @@ internal fun BodyMapView(
         Spacer(modifier.height(220.dp).fillMaxWidth())
         return
     }
-    Row(modifier.height(220.dp).fillMaxWidth()) {
+    Row(modifier.height(220.dp).fillMaxWidth().testTag("body_map_loaded")) {
         BodySilhouetteView(paths.front, levels, selected, onSelect, Modifier.weight(1f))
         Spacer(Modifier.width(4.dp))
         BodySilhouetteView(paths.back, levels, selected, onSelect, Modifier.weight(1f))

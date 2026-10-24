@@ -18,6 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
@@ -278,8 +281,18 @@ class VisualVerificationInstrumentedTest {
             }
         }
         compose.waitForIdle()
-        compose.waitUntil(5_000) { true }
+        // BodyMapView carga BodyPaths.json de assets en Dispatchers.Default:
+        // waitForIdle NO lo espera. Esperar al nodo cargado de forma
+        // determinista (la captura anterior mostraba el Spacer de 220dp).
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("body_map_loaded").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.waitForIdle()
         save("progreso_equilibrio_muscular", compose.onRoot().captureToImage())
+        // Segundo modo: Esfuerzo (series duras), paridad del segmented iOS.
+        compose.onNodeWithText("Esfuerzo").performClick()
+        compose.waitForIdle()
+        save("progreso_equilibrio_muscular_esfuerzo", compose.onRoot().captureToImage())
     }
 
     private fun estadoSinteticoOverview(): StateOverview {
