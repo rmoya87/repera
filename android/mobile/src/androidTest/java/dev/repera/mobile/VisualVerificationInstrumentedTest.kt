@@ -121,15 +121,15 @@ class VisualVerificationInstrumentedTest {
             prescribedQuantity = null, prescribedWeightKg = null,
             allowsWeight = false, sets = emptyList(),
             wod = WodExecution(
-                format = "amrap", capture = "total_reps", expectsRounds = false,
-                title = "Fran",
+                format = "emom", capture = "PER_MOVEMENT_SETS", expectsRounds = true,
+                title = "EMOM 10",
                 movements = listOf(
                     WodMovementSummary(
                         id = "m1", name = "Thruster", isRest = false,
-                        reps = 21, repScheme = listOf(21, 15, 9),
+                        reps = 12, repScheme = emptyList(),
                         calories = null, meters = null, restSeconds = null)
                 ),
-                timeCapMinutes = 12
+                intervalSeconds = 60, rounds = 10
             )
         )
         val timer = WodTimerState(elapsedMillis = 485_000L, running = false)
