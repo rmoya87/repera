@@ -318,3 +318,25 @@ visual del reloj WOD apaisado y del mapa muscular se corrigieron tras
 detectar en inspección que el apaisado era byte-idéntico al vertical
 (constraints coaccionados) y que el mapa capturaba el placeholder de
 carga asíncrona; su verificación visual queda pendiente del próximo run.
+
+## Ubicación: pin de gym y ruta outdoor (gap abierto, 24/10/2026)
+
+iOS tiene `WorkoutLocationTracker` (210 líneas): pin al empezar la sesión
+(`capturePin` con timeout suave de 4s, no bloquea el Play), ruta GPS para
+entrenos outdoor (heurística `shouldTrackRoute` por título/ejercicios:
+correr/bici/caminar/trail/outdoor/ski/skate/remo outdoor), buffer con filtro
+de distancia mínima 8 m, máximo 400 puntos con downsample uniforme, y tipos
+de dominio `WorkoutSession.locationPin` / `routePoints` (Codable, sync
+incluido). Consumidores iOS: `ReperaStore` (start/finish sesión),
+`PlaceSearchSheet` (búsqueda de gym), onboarding (fila Ubicación).
+
+Android: NO existe nada de esto — ni tipos de dominio, ni tracker, ni
+consumidores, ni dependencia de localización. Port planificado dentro del
+alcance autorizado: (1) tipos de dominio + persistencia/sync; (2) tracker
+con `LocationManager` (fused provider, sin nueva dependencia Google Play
+Services); (3) cableado en inicio/fin de sesión con la misma heurística;
+(4) fila Ubicación en el onboarding SOLO cuando la función exista (permiso
+con función); (5) verificación con ubicación SIMULADA de emulador, nunca
+ubicaciones reales del usuario sin autorización. Renderizado del mapa de la
+ruta en el detalle del entreno: sub-gap aparte (iOS usa MapKit; Android
+necesita decisión de componente de mapa).
