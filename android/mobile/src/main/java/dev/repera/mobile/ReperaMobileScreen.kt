@@ -282,11 +282,17 @@ fun ReperaMobileScreen(
                         onCreateRoutine = onCreateRoutine,
                         onAddWodTemplate = onAddWodTemplate,
                         onOpenBoardScan = { navController.navigate("escaner") },
+                        onOpenTimer = { navController.navigate("temporizador") },
                         onInitializeLocal = onInitializeLocal,
                         onImportJson = onImportJson,
                         onDriveSync = onDriveSync,
                         onExportJson = onExportJson,
                         onSignOut = onSignOut
+                    )
+                }
+                composable("temporizador") {
+                    StandaloneTimerScreen(
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable("escaner") {

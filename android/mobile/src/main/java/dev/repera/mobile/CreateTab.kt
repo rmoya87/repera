@@ -72,6 +72,7 @@ internal fun CreateTab(
         RoutineSchedule, Int, Int, Int, List<Int>?) -> Unit,
     onAddWodTemplate: (String) -> Unit,
     onOpenBoardScan: () -> Unit,
+    onOpenTimer: () -> Unit,
     onInitializeLocal: () -> Unit,
     onImportJson: () -> Unit,
     onDriveSync: () -> Unit,
@@ -95,6 +96,20 @@ internal fun CreateTab(
                     busy = busy,
                     onSave = onCreateRoutine
                 )
+            }
+        }
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Temporizador", style = MaterialTheme.typography.titleMedium)
+                    Text("Cronómetro, cuenta atrás o intervalos con reloj LED " +
+                        "a pantalla completa. Guarda tus configuraciones favoritas.")
+                    OutlinedButton(onClick = onOpenTimer,
+                        modifier = Modifier.fillMaxWidth()) {
+                        Text("Abrir temporizador")
+                    }
+                }
             }
         }
         item {

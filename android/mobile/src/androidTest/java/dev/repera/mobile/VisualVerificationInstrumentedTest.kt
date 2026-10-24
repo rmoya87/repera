@@ -153,6 +153,28 @@ class VisualVerificationInstrumentedTest {
     }
 
     @Test
+    fun capturaTemporizadorConfigYRelojLed() {
+        brandContent { StandaloneTimerScreen(onBack = {}) }
+        compose.waitForIdle()
+        save("temporizador_config", compose.onRoot().captureToImage())
+
+        brandContent {
+            StandaloneClock(
+                title = "Temporizador",
+                subtitle = "Trabajar",
+                roundNumber = 2,
+                totalRounds = 5,
+                displaySeconds = 75,
+                running = true,
+                onPrimary = {},
+                onClose = {}
+            )
+        }
+        compose.waitForIdle()
+        save("temporizador_reloj_led", compose.onRoot().captureToImage())
+    }
+
+    @Test
     fun capturaHeatmaps() {
         val today = LocalDate.now()
         val time = (69L downTo 0).map {
