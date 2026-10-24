@@ -1,0 +1,58 @@
+name: Finalize two matching Repera splash images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/build-repera-splash-once.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --disable-pip-version-check pillow numpy opencv-python-headless
+      - name: Download clean running body
+        run: |
+          curl --fail --location --silent --show-error --retry 3 "https://at.adobe.com/xC4TcaWuxmqAAQm8" --output /tmp/repera-running-source.png
+          python - <<'PY'
+          from PIL import Image
+          with Image.open('/tmp/repera-running-source.png') as im:
+              im.verify()
+          PY
+      - name: Fix original eyes mouth and preserve character identity in running pose
+        run: python scripts/build_repera_splash_assets.py --running-source /tmp/repera-running-source.png
+      - name: Validate source and images
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from PIL import Image
+          root = Path('Apps/Repera/Resources/Assets.xcassets')
+          for name, filename in [('MascotHero', 'mascot-hero.png'), ('MascotRunning', 'mascot-running.png')]:
+              path = root / (name + '.imageset')
+              cfg = json.loads((path/'Contents.json').read_text())
+              assert cfg['images'][0]['filename'] == filename
+              with Image.open(path / filename) as im:
+                  im = im.convert('RGBA')
+                  assert im.getpixel((0,0))[3] == 0
+                  if name == 'MascotHero':
+                      for point in [(444,379),(606,411),(515,455)]:
+                          assert im.getpixel(point)[3] == 255, f'Transparent internal feature at {point}'
+                  print(name, im.size, 'valid; exterior transparent and facial features opaque')
+          PY
+      - name: Commit fixed PNG assets, remove one-time workflow
+        run: |
+          git add Apps/Repera/Resources/Assets.xcassets/MascotHero.imageset/mascot-hero.png Apps/Repera/Resources/Assets.xcassets/MascotRunning.imageset
+          git rm .github/workflows/build-repera-splash-once.yml
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Finish opaque original mascot and consistent running splash pose"
+          git push origin HEAD:main
