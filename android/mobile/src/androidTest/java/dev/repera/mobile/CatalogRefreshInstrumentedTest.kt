@@ -127,4 +127,59 @@ class CatalogRefreshInstrumentedTest {
         // La entrada de catálogo original reaparece con su nombre canónico por id:
         // el refresh actualiza por id, y como el usuario la marcó custom, se respeta.
     }
+
+    @Test fun dedupeTransfersFavoritesAndLoadPrefsAndNeverDropsReferencedIds() {
+        val account = UUID.randomUUID().toString()
+        CatalogBootstrap.initializeEmptyAccount(context, account)
+        val store = LocalSnapshotStore(context, account)
+        val state = JSONObject(String(store.read()!!))
+        val catalog = state.getJSONArray("exercises")
+        val seedEntry = byName(catalog, "Burpee Broad Jump")!!
+        val seedId = seedEntry.getString("id")
+        // Entrada importada con otro id, favorita y con prefs de carga.
+        val importedId = UUID.randomUUID().toString()
+        catalog.put(JSONObject(seedEntry.toString())
+            .put("id", importedId).put("isFavorite", true).put("catalogId", JSONObject.NULL))
+        state.put("exerciseLoadPrefs", JSONObject().put(importedId, JSONObject().put("lastKg", 24)))
+        state.put("syncRevision", 5).put("updatedAt", "2026-10-22T08:00:00Z")
+        store.write(state.toString().toByteArray())
+
+        assertTrue(CatalogRefreshMigration.ensure(context, account))
+        val after = exercises(store)
+        val survivors = (0 until after.length()).map { after.getJSONObject(it) }
+            .filter { it.optString("name") == "Burpee Broad Jump" }
+        assertEquals(1, survivors.size)
+        assertEquals(importedId, survivors.single().getString("id"))
+        assertTrue(survivors.single().getBoolean("isFavorite"))
+        val prefs = JSONObject(String(store.read()!!)).getJSONObject("exerciseLoadPrefs")
+        assertTrue(prefs.has(importedId))
+        assertFalse(prefs.has(seedId))
+
+        // Caso ambos referenciados: se conservan ambos ids, sin reconciliar a la fuerza.
+        val account2 = UUID.randomUUID().toString()
+        CatalogBootstrap.initializeEmptyAccount(context, account2)
+        val store2 = LocalSnapshotStore(context, account2)
+        val state2 = JSONObject(String(store2.read()!!))
+        val catalog2 = state2.getJSONArray("exercises")
+        val seedEntry2 = byName(catalog2, "Sandbag Lunges")!!
+        val seedId2 = seedEntry2.getString("id")
+        val importedId2 = UUID.randomUUID().toString()
+        catalog2.put(JSONObject(seedEntry2.toString())
+            .put("id", importedId2).put("catalogId", JSONObject.NULL))
+        val workout = JSONObject().put("id", UUID.randomUUID().toString())
+            .put("title", "Sesión").put("phase", "finished")
+            .put("exercises", JSONArray().put(JSONObject().put("exerciseId", seedId2))
+                .put(JSONObject().put("exerciseId", importedId2)))
+        state2.put("workouts", JSONArray().put(workout))
+        state2.put("syncRevision", 9).put("updatedAt", "2026-10-22T08:00:00Z")
+        store2.write(state2.toString().toByteArray())
+
+        CatalogRefreshMigration.ensure(context, account2)
+        val after2 = exercises(store2)
+        val both = (0 until after2.length()).map { after2.getJSONObject(it) }
+            .filter { it.optString("name") == "Sandbag Lunges" }
+        assertEquals(2, both.size)  // ambos referenciados: no se toca nada
+        val keptIds = both.map { it.getString("id") }.toSet()
+        assertEquals(setOf(seedId2, importedId2), keptIds)
+    }
 }

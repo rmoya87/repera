@@ -94,6 +94,30 @@ internal object CatalogRefreshMigration {
             for ((pos, id) in ids.withIndex()) {
                 if (id != survivor && id !in referenced) toRemove.add(idxs[pos])
             }
+            // Trasladar vínculos del perdedor al superviviente antes de borrar:
+            // - isFavorite vive EN la entrada: se conserva si alguno lo tenía.
+            // - exerciseLoadPrefs (clave = exerciseId) se re-etiqueta al id superviviente.
+            val survivorEntry = catalog.getJSONObject(
+                idxs[ids.indexOf(survivor)])
+            var favorite = survivorEntry.optBoolean("isFavorite")
+            for ((pos, id) in ids.withIndex()) {
+                if (id == survivor || id in referenced) continue
+                if (catalog.getJSONObject(idxs[pos]).optBoolean("isFavorite")) favorite = true
+            }
+            if (favorite != survivorEntry.optBoolean("isFavorite")) {
+                survivorEntry.put("isFavorite", favorite)
+                changed = true
+            }
+            val loadPrefs = state.optJSONObject("exerciseLoadPrefs")
+            if (loadPrefs != null) {
+                for (id in ids) {
+                    if (id == survivor || id in referenced) continue
+                    val pref = loadPrefs.opt(id) ?: continue
+                    if (!loadPrefs.has(survivor)) loadPrefs.put(survivor, pref)
+                    loadPrefs.remove(id)
+                    changed = true
+                }
+            }
         }
         for (i in toRemove.reversed()) {
             catalog.remove(i)
