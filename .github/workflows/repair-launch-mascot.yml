@@ -27,13 +27,15 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           from scripts.repair_mascot_alpha import repair
-          path = Path("Apps/Repera/Resources/Assets.xcassets/MascotWelcome.imageset/mascot-welcome.png")
-          features, pixels = repair(path, True)
-          print(f"Repaired {features} transparent enclosed areas / {pixels} pixels")
+          for name in ("MascotWelcome", "MascotHero"):
+            filename = "mascot-welcome.png" if name == "MascotWelcome" else "mascot-hero.png"
+            path = Path(f"Apps/Repera/Resources/Assets.xcassets/{name}.imageset/{filename}")
+            features, pixels = repair(path, True)
+            print(f"{name}: repaired {features} enclosed areas / {pixels} pixels")
           PY
       - name: Commit corrected launch mascot, if modified
         run: |
-          git add Apps/Repera/Resources/Assets.xcassets/MascotWelcome.imageset/mascot-welcome.png
+          git add Apps/Repera/Resources/Assets.xcassets/MascotWelcome.imageset/mascot-welcome.png Apps/Repera/Resources/Assets.xcassets/MascotHero.imageset/mascot-hero.png
           if ! git diff --cached --quiet; then
             git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Fix transparent enclosed details in launch mascot"
             git push origin HEAD:main
