@@ -37,7 +37,7 @@ Con una sesión administrativa autorizada y un canal seguro de escritura a base 
 
 ## Despliegue y pruebas
 
-1. Ejecutar migración SQL antes de distribuir la nueva aplicación. Verificar que la cuenta autenticada puede hacer SELECT del feed y que `anon` no puede. Comprobar 287 fichas iniciales o el recuento vigente antes del deploy.
+1. Ejecutar migración SQL antes de distribuir la nueva aplicación. Verificar que la cuenta autenticada puede hacer SELECT del feed y que `anon` no puede. Comprobar 288 fichas editoriales vigentes o el recuento vigente antes del deploy.
 2. La cola de eventos serializa transacciones antes de asignar IDs, para que una transacción tardía no quede por debajo de un cursor ya confirmado. Las páginas no se saltan cambios concurrentes confirmados.
 3. iPhone con historial y favoritos: comprobar que el primer fetch no cambia UUID, que corregir nombre/material/instrucciones refleja el cambio y que los récords se conservan.
 3. Probar sin conexión, reinstalación, segunda apertura sin cambios (una consulta ligera), actualización de más de 150 registros, renombrado de una clave estable, archivado y reactivación.
@@ -45,3 +45,5 @@ Con una sesión administrativa autorizada y un canal seguro de escritura a base 
 6. Regenerar XcodeGen por el nuevo archivo Swift. Ejecutar `swift test` en ReperaDomain, compilar iOS/watchOS, hacer QA en iPhone y Apple Watch reales. No asumir compilación ni E2E con base de datos por el mero hecho de fusionar la rama.
 
 **Paridad Android/Wear:** la rama Android se mantiene separada. La API SQL de eventos es consumible por Android, pero no se declara integrada hasta disponer de su propia caché y pruebas. El Watch no consulta el catálogo completo en la nube: mantiene su flujo nativo mediante WatchConnectivity desde el iPhone.
+
+**Paridad de catálogo (25/10/2026):** la variante *Fondos en anillas kipping* se ha incorporado a Supabase con instrucciones, material y músculos. La fuente editorial contiene ahora 288 ejercicios distintos, igual que el seed Android. El mapeo iOS/Android mediante `SportExerciseNames.canonicalName` evita duplicar fichas si el seed usa nombres ingleses y Supabase publica los nombres originales españoles.
