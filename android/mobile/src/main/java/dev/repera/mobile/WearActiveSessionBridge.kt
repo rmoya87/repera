@@ -81,6 +81,20 @@ object WearActiveSessionBridge {
         Wearable.getDataClient(context).putDataItem(request)
     }
 
+    /**
+     * Plan del día (sesión montada, sin persistir) para ejecución autónoma
+     * offline del reloj: equivale al todayPlan que el iPhone envía por
+     * WatchConnectivity. null limpia el plan en el reloj.
+     */
+    fun publishTodayPlan(context: Context, plan: JSONObject?) {
+        val request = PutDataMapRequest.create("/repera/today-plan").apply {
+            dataMap.putByteArray("plan",
+                plan?.toString()?.toByteArray(Charsets.UTF_8) ?: byteArrayOf())
+            dataMap.putLong("updatedAtMillis", System.currentTimeMillis())
+        }.asPutDataRequest().setUrgent()
+        Wearable.getDataClient(context).putDataItem(request)
+    }
+
     /** Explicit account logout: revoke cached identity and pending commands on the watch. */
     fun signOut(context: Context) = publish(context, null, signedOut = true)
 }

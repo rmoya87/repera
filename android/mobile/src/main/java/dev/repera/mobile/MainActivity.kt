@@ -277,6 +277,30 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     }
 
     override fun onMessageReceived(event: MessageEvent) {
+        if (event.path == "/repera/session-finish") {
+            val sessionId = runCatching {
+                JSONObject(String(event.data, Charsets.UTF_8)).optString("sessionId")
+            }.getOrNull().orEmpty()
+            if (sessionId.isBlank()) return
+            runOnUiThread {
+                val signedIn = profile
+                if (signedIn == null || verifiedSupabase == null || busy) return@runOnUiThread
+                lifecycleScope.launch {
+                    val finished = withContext(Dispatchers.IO) {
+                        runCatching {
+                            val repo = WorkoutRepository(this@MainActivity, signedIn.uniqueId)
+                            if (repo.active()?.id == sessionId) {
+                                StrengthRestService.cancel(this@MainActivity)
+                                repo.finish()
+                                true
+                            } else false
+                        }.getOrDefault(false)
+                    }
+                    if (finished) reloadFor(signedIn.uniqueId)
+                }
+            }
+            return
+        }
         if (event.path == "/repera/session-pause") {
             val paused = runCatching {
                 JSONObject(String(event.data, Charsets.UTF_8)).optBoolean("paused", true)
@@ -318,6 +342,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 .takeIf { it in setOf("reps", "calories", "meters") }
             val deficit = if (payload.has("deficitCm") && !payload.isNull("deficitCm"))
                 payload.optInt("deficitCm") else null
+            val sessionPayload = payload.optJSONObject("session")
             if (sessionId.isBlank() || exerciseIndex < 0 || quantity !in 1..10000 ||
                 (weight != null && (!weight.isFinite() || weight < 0)) ||
                 (rir != null && (!rir.isFinite() || rir < 0 || rir > 5)) ||
@@ -337,7 +362,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         WorkoutRepository(this@MainActivity, signedIn.uniqueId).logWearSet(
                             sessionId, exerciseIndex, id, quantity, weight, rir,
                             durationSeconds = duration, quantityUnit = unit,
-                            deficitCm = deficit
+                            deficitCm = deficit, sessionPayload = sessionPayload
                         )
                         wearRest?.let { (name, seconds) ->
                             StrengthRestService.start(this@MainActivity, name, seconds)
@@ -616,6 +641,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         // must not make a saved training action appear to have failed.
         withContext(Dispatchers.IO) {
             runCatching { WearActiveSessionBridge.publish(this@MainActivity, bytes) }
+            runCatching {
+                val plan = WorkoutRepository(this@MainActivity, id).todayPlanSession()
+                WearActiveSessionBridge.publishTodayPlan(this@MainActivity, plan)
+            }
         }
     }
 

@@ -18,7 +18,8 @@ internal class WearPendingSetStore(context: Context) {
                               rir: Double? = null,
                               durationSeconds: Int? = null,
                               quantityUnit: String? = null,
-                              deficitCm: Int? = null): String {
+                              deficitCm: Int? = null,
+                              sessionJson: String? = null): String {
         require(sessionId.isNotBlank() && exerciseIndex >= 0 && quantity in 1..10000)
         require(weightKg == null || (weightKg.isFinite() && weightKg >= 0))
         require(rir == null || (rir.isFinite() && rir in 0.0..5.0))
@@ -35,6 +36,7 @@ internal class WearPendingSetStore(context: Context) {
         if (durationSeconds != null) command.put("durationSeconds", durationSeconds)
         if (quantityUnit != null) command.put("quantityUnit", quantityUnit)
         if (deficitCm != null) command.put("deficitCm", deficitCm)
+        if (sessionJson != null) command.put("session", JSONObject(sessionJson))
         values.put(command)
         check(prefs.edit().putString("outbox", values.toString()).commit())
         return id

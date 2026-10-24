@@ -445,6 +445,14 @@ class WorkoutRepository(context: Context, googleId: String) {
         val routines = state.getJSONArray("routines")
         val routine = (0 until routines.length()).map { routines.getJSONObject(it) }
             .firstOrNull { it.optString("id") == id } ?: error("Rutina no encontrada")
+        val session = assembleSession(state, routine)
+        state.put("activeSession", session)
+        save(state)
+        return summarize(session)
+    }
+
+    /** Monta el JSON de sesión de una rutina sin persistirlo (plan del día). */
+    private fun assembleSession(state: JSONObject, routine: JSONObject): JSONObject {
         val blocks = routine.optJSONArray("blocks") ?: JSONArray()
         require(blocks.length() > 0) { "Esta rutina no tiene bloques" }
         // Refuse unsupported formats atomically before touching the local document.
@@ -526,10 +534,10 @@ class WorkoutRepository(context: Context, googleId: String) {
             }
         }
         require(planned.length() > 0) { "La rutina no contiene ejercicios ejecutables" }
-        val session = JSONObject()
+        return JSONObject()
             .put("id", UUID.randomUUID().toString())
             .put("title", routine.getString("title"))
-            .put("routineId", id)
+            .put("routineId", routine.getString("id"))
             .put("exercises", planned)
             .put("currentIndex", 0)
             .put("phase", "ready")
@@ -537,9 +545,6 @@ class WorkoutRepository(context: Context, googleId: String) {
             .put("wodResults", JSONArray())
             .put("routineBlocks", JSONArray(blocks.toString()))
             .put("routePoints", JSONArray())
-        state.put("activeSession", session)
-        save(state)
-        return summarize(session)
     }
 
     /**
@@ -1083,6 +1088,44 @@ class WorkoutRepository(context: Context, googleId: String) {
     }
 
     /**
+     * Plan del día para el reloj: la primera rutina programada para hoy montada
+     * como sesión (sin persistir). null si no hay rutina de hoy o hay sesión
+     * activa. Equivale al todayPlan que el iPhone envía al Apple Watch.
+     */
+    @Synchronized fun todayPlanSession(today: LocalDate = LocalDate.now()): JSONObject? {
+        val state = loadOrNull() ?: return null
+        if (!state.isNull("activeSession")) return null
+        val routines = state.optJSONArray("routines") ?: return null
+        val routine = (0 until routines.length()).map { routines.getJSONObject(it) }
+            .firstOrNull { routine ->
+                val scheduled = routine.optString("scheduledDate")
+                    .takeIf { it.isNotBlank() && it != "null" }
+                    ?.take(10)
+                scheduled == today.toString() ||
+                    (scheduled == null &&
+                        routine.optInt("weekday", -1) == today.dayOfWeek.value)
+            } ?: return null
+        return runCatching { assembleSession(state, routine) }.getOrNull()
+    }
+
+    /**
+     * Adopta una sesión iniciada en el reloj (ejecución autónoma offline):
+     * idempotente por id; rechaza si hay otra sesión activa distinta.
+     */
+    @Synchronized fun adoptWearSession(sessionJson: JSONObject): Boolean {
+        val id = sessionJson.optString("id")
+        val exercises = sessionJson.optJSONArray("exercises")
+        if (id.isBlank() || exercises == null || exercises.length() == 0) return false
+        if (sessionJson.optInt("currentIndex") !in 0 until exercises.length()) return false
+        val state = loadOrNull() ?: return false
+        val active = state.optJSONObject("activeSession")
+        if (active != null) return active.optString("id") == id
+        state.put("activeSession", JSONObject(sessionJson.toString()))
+        save(state)
+        return true
+    }
+
+    /**
      * Apply a wearable action idempotently. Reject mismatched sessions/indices and
      * preserve original set ID so a lost acknowledgement cannot duplicate the set.
      * Called only after the phone has a verified signed-in account.
@@ -1091,7 +1134,8 @@ class WorkoutRepository(context: Context, googleId: String) {
         sessionId: String, exerciseIndex: Int, setId: String, quantity: Int,
         weightKg: Double?, rir: Double? = null,
         durationSeconds: Int? = null, quantityUnit: String? = null,
-        deficitCm: Int? = null
+        deficitCm: Int? = null,
+        sessionPayload: JSONObject? = null
     ): Boolean {
         require(sessionId.isNotBlank() && setId.isNotBlank() && exerciseIndex >= 0)
         require(quantity > 0 && quantity <= 10000)
@@ -1111,6 +1155,12 @@ class WorkoutRepository(context: Context, googleId: String) {
         }
         val history = state.optJSONArray("workouts") ?: JSONArray()
         if ((0 until history.length()).any { containsId(history.getJSONObject(it)) }) return true
+        if (state.optJSONObject("activeSession")?.optString("id") != sessionId &&
+            sessionPayload != null) {
+            check(adoptWearSession(sessionPayload)) {
+                "La sesión del reloj ya no es la activa"
+            }
+        }
         val active = requireActive(state)
         check(active.optString("id") == sessionId) { "La sesión del reloj ya no es la activa" }
         check(active.optInt("currentIndex") == exerciseIndex) {

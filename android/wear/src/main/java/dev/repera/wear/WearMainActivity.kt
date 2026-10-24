@@ -70,6 +70,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private val repCounter = dev.repera.domain.MotionRepCounter()
     private var motionSensor: Sensor? = null
     private var sensorManager: SensorManager? = null
+    private var todayPlanJson by mutableStateOf<JSONObject?>(null)
+    private var watchStartedSession by mutableStateOf(false)
     private var wodTickSeconds by mutableStateOf(0)
     private var wodTickJob: kotlinx.coroutines.Job? = null
     private var restJob: kotlinx.coroutines.Job? = null
@@ -114,6 +116,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 sessionCache.edit().remove("snapshot").apply()
             }
         }
+        sessionCache.getString("todayPlan", null)?.let { cached ->
+            todayPlanJson = runCatching { JSONObject(cached) }.getOrNull()
+        }
+        watchStartedSession = sessionCache.getBoolean("watchStarted", false)
         sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
         motionSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
         setContent {
@@ -150,8 +156,22 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                         finishedSummary = null
                                     }) { Text("Cerrar") }
                                 } else {
+                                val plan = todayPlanJson
+                                if (plan != null) {
+                                    Text("Entreno de hoy",
+                                        style = MaterialTheme.typography.titleMedium)
+                                    Text(plan.optString("title"),
+                                        textAlign = TextAlign.Center,
+                                        style = MaterialTheme.typography.labelMedium)
+                                    Text("${plan.optJSONArray("exercises")?.length() ?: 0} ejercicios",
+                                        style = MaterialTheme.typography.labelSmall)
+                                    Button(onClick = { startTodayPlan() }) {
+                                        Text("Empezar")
+                                    }
+                                } else {
                                 Text(if (syncProblem) "No se pudo leer la sesión del teléfono" else "Sin entrenamiento recibido",
                                     textAlign = TextAlign.Center)
+                                }
                                 }
                             } else {
                                 if (showingCachedSession) {
@@ -238,6 +258,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                         style = MaterialTheme.typography.labelSmall)
                                     Button(onClick = { togglePause() }) {
                                         Text(if (sessionPaused) "Reanudar" else "Pausar")
+                                    }
+                                    TextButton(onClick = { finishSessionFromWatch(session) }) {
+                                        Text("Terminar sesión",
+                                            style = MaterialTheme.typography.labelSmall)
                                     }
                                     if (!session.canLogOnWatch) {
                                         Text("Este ejercicio solo se registra en el móvil",
@@ -419,6 +443,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                             .getByteArray("timer")
                         runOnUiThread { showWodTimer(bytes) }
                     }
+                    if (item.uri.path == "/repera/today-plan") {
+                        val bytes = DataMapItem.fromDataItem(item).dataMap
+                            .getByteArray("plan")
+                        runOnUiThread { showTodayPlan(bytes) }
+                    }
                 }
             } finally {
                 items.release()
@@ -446,6 +475,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 val bytes = DataMapItem.fromDataItem(event.dataItem).dataMap
                     .getByteArray("timer")
                 runOnUiThread { showWodTimer(bytes) }
+            }
+            if (event.dataItem.uri.path == "/repera/today-plan") {
+                val bytes = DataMapItem.fromDataItem(event.dataItem).dataMap
+                    .getByteArray("plan")
+                runOnUiThread { showTodayPlan(bytes) }
             }
         }
     }
@@ -498,6 +532,58 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
 
+    private fun showTodayPlan(bytes: ByteArray?) {
+        val parsed = bytes?.takeIf { it.isNotEmpty() }?.let {
+            runCatching { JSONObject(String(it, Charsets.UTF_8)) }.getOrNull()
+        }
+        todayPlanJson = parsed
+        if (parsed != null) {
+            sessionCache.edit().putString("todayPlan", parsed.toString()).apply()
+        } else {
+            sessionCache.edit().remove("todayPlan").apply()
+        }
+    }
+
+    /**
+     * Ejecución autónoma offline: el reloj arranca el plan del día sin sesión
+     * activa en el teléfono (startToday de watchOS). Las series se encolan con
+     * la sesión adjunta y el teléfono la adopta al reconciliar.
+     */
+    private fun startTodayPlan() {
+        val plan = todayPlanJson ?: return
+        val summary = runCatching { WatchSessionSummary.fromJson(plan) }.getOrNull()
+            ?: return
+        visibleSession = summary
+        showingCachedSession = false
+        watchStartedSession = true
+        repCounter.reset()
+        sessionCache.edit()
+            .putString("snapshot", plan.toString())
+            .putBoolean("watchStarted", true)
+            .remove("todayPlan")
+            .apply()
+        todayPlanJson = null
+        ensureHealthRecording()
+    }
+
+    /** Terminar la sesión desde el reloj (mismo resultado que finish en iOS). */
+    private fun finishSessionFromWatch(session: WatchSessionSummary) {
+        val payload = JSONObject().put("sessionId", session.sessionId)
+            .toString().toByteArray(Charsets.UTF_8)
+        Wearable.getNodeClient(this).connectedNodes
+            .addOnSuccessListener { nodes ->
+                if (nodes.isEmpty()) {
+                    sendStatus = "Sin teléfono: la sesión sigue activa en el reloj"
+                    return@addOnSuccessListener
+                }
+                nodes.forEach { node ->
+                    Wearable.getMessageClient(this)
+                        .sendMessage(node.id, "/repera/session-finish", payload)
+                }
+                sendStatus = "Terminando sesión en el teléfono…"
+            }
+    }
+
     private fun showWodTimer(bytes: ByteArray?) {
         wodTickJob?.cancel()
         val parsed = bytes?.takeIf { it.isNotEmpty() }?.let {
@@ -531,7 +617,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 quantityUnit = if (session.inputMode == "machineWork")
                     unitInput else null,
                 deficitCm = if (session.inputMode == "hspuDeficit")
-                    deficitInput else null)
+                    deficitInput else null,
+                sessionJson = if (watchStartedSession)
+                    sessionCache.getString("snapshot", null) else null)
             pendingCount = pendingStore.count()
         }
         if (queued.isFailure) {
@@ -632,6 +720,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         if (summary != null) {
             // Persist only a validated session; a malformed update cannot corrupt recovery.
             sessionCache.edit().putString("snapshot", raw).apply()
+            if (watchStartedSession && !showingCachedSession) {
+                // El teléfono ya adoptó la sesión iniciada en el reloj.
+                watchStartedSession = false
+                sessionCache.edit().remove("watchStarted").apply()
+            }
             // Borrador prellenado con la prescripción, como el setDraft de watchOS.
             if (visibleSession?.sessionId != summary.sessionId ||
                 visibleSession?.exerciseIndex != summary.exerciseIndex) {
@@ -657,6 +750,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 
     private fun clearSession(erasePending: Boolean) {
         sessionPaused = false
+        watchStartedSession = false
+        sessionCache.edit().remove("watchStarted").apply()
         sessionCache.edit().remove("snapshot").apply()
         val outboxCleared = if (erasePending) runCatching {
             pendingStore.clear()
