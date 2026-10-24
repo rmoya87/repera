@@ -7,6 +7,7 @@ on:
       - "Apps/Repera/Resources/Assets.xcassets/MascotHero.imageset/**"
       - "Apps/Repera/Resources/Assets.xcassets/MascotRunning.imageset/**"
       - "Apps/Repera/Resources/Assets.xcassets/ReperaLaunchHeroOpaque.imageset/**"
+      - "Apps/Repera/Resources/LaunchHeroOpaque.png"
       - "Apps/Repera/Resources/ReperaLaunchOpaque.storyboard"
       - "Apps/Repera/Resources/Info.plist"
       - "project.yml"
@@ -46,15 +47,18 @@ jobs:
               for point in ((445,379),(607,411),(518,445)):
                   pixel=im.getpixel(point)
                   assert max(pixel)<115, f"Eye or smile became green at {point}: {pixel}"
+          raw = root/"LaunchHeroOpaque.png"
+          assert raw.read_bytes()==(native/"repera-launch-hero-opaque.png").read_bytes(), "Bundle PNG diverged"
           native_story=root/"ReperaLaunchOpaque.storyboard"
           tree=ElementTree.parse(native_story)
-          assert len(tree.findall('.//imageView[@image="ReperaLaunchHeroOpaque"]'))==1
-          assert len(tree.findall('.//resources/image[@name="ReperaLaunchHeroOpaque"]'))==1
+          assert len(tree.findall('.//imageView[@image="LaunchHeroOpaque.png"]'))==1
+          assert len(tree.findall('.//resources/image[@name="LaunchHeroOpaque.png"]'))==1
           assert not (root/"LaunchScreen.storyboard").exists(), "Old storyboard still present"
           plist=plistlib.loads((root/"Info.plist").read_bytes())
           assert plist["UILaunchStoryboardName"]=="ReperaLaunchOpaque"
           project=Path("project.yml").read_text()
           assert "path: Apps/Repera/Resources/ReperaLaunchOpaque.storyboard" in project
+          assert "path: Apps/Repera/Resources/LaunchHeroOpaque.png" in project
           assert "UILaunchStoryboardName: ReperaLaunchOpaque" in project
           # Preserve the second splash's runner.
           app=Path("Apps/Repera/Sources/ReperaApp.swift").read_text()

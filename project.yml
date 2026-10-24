@@ -56,6 +56,9 @@ targets:
         type: folder
       - path: Apps/Repera/Resources/ReperaLaunchOpaque.storyboard
         buildPhase: resources
+      # PNG directo en el bundle: el Launch Screen se renderiza ANTES de que Assets.car este preparado.
+      - path: Apps/Repera/Resources/LaunchHeroOpaque.png
+        buildPhase: resources
       - path: Apps/Repera/Resources/BodyPaths.json
         buildPhase: resources
     resources: []

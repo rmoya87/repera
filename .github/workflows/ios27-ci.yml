@@ -139,34 +139,34 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/ReperaDerivedData" \
             CODE_SIGNING_ALLOWED=NO build 2>&1 | tee "$RUNNER_TEMP/repera-ios-build.log"
-      - name: Verify native launch image is compiled into Repera.app
+      - name: Verify native launch PNG and storyboard packaged in Repera.app
         shell: bash
         run: |
           set -euo pipefail
           APP="$RUNNER_TEMP/ReperaDerivedData/Build/Products/Debug-iphonesimulator/Repera.app"
-          test -d "$APP" || { echo "::error::Repera.app is missing"; exit 1; }
-          test -f "$APP/Assets.car" || { echo "::error::Asset catalog not included"; exit 1; }
+          test -d "$APP" || { echo "::error::Repera.app missing"; exit 1; }
+          test -f "$APP/LaunchHeroOpaque.png" || {
+            echo "::error::Raw native launch PNG missing from app bundle"; exit 1;
+          }
           test -d "$APP/ReperaLaunchOpaque.storyboardc" || {
-            echo "::error::Opaque native launch storyboard not in installed app"
-            exit 1
+            echo "::error::ReperaLaunchOpaque.storyboardc missing"; exit 1;
           }
           ACTUAL="$(/usr/libexec/PlistBuddy -c 'Print :UILaunchStoryboardName' "$APP/Info.plist")"
           test "$ACTUAL" = "ReperaLaunchOpaque" || {
-            echo "::error::Wrong packaged UILaunchStoryboardName: $ACTUAL"
-            exit 1
+            echo "::error::Incorrect UILaunchStoryboardName: $ACTUAL"; exit 1;
           }
-          ASSETUTIL="$(xcrun --find assetutil)"
-          "$ASSETUTIL" --info "$APP/Assets.car" > "$RUNNER_TEMP/repera-compiled-assets.json"
-          python3 - "$RUNNER_TEMP/repera-compiled-assets.json" <<'PY'
-          import json,sys
-          with open(sys.argv[1], encoding="utf-8") as handle:
-              compiled=json.load(handle)
-          names={entry.get("Name") for entry in compiled}
-          assert "ReperaLaunchHeroOpaque" in names, (
-              "ReperaLaunchHeroOpaque not bundled in Assets.car; "
-              "launch would render only the green background"
-          )
-          print("PASS: compiled opaque mascot, storyboard and launch Info.plist")
+          cmp Apps/Repera/Resources/LaunchHeroOpaque.png "$APP/LaunchHeroOpaque.png" || {
+            echo "::error::Packaged launch PNG differs from checked-in original"; exit 1;
+          }
+          python3 - <<'PY'
+          import pathlib,struct
+          im=pathlib.Path("Apps/Repera/Resources/LaunchHeroOpaque.png").read_bytes()
+          assert im[:8] == b"\\x89PNG\\r\\n\\x1a\\n"
+          w,h=struct.unpack(">II",im[16:24])
+          assert (w,h)==(1024,1024)
+          color_type=im[25]
+          assert color_type==2, f"Native launch must use opaque RGB PNG; got color type {color_type}"
+          print("PASS: opaque native splash directly bundled and storyboard registered")
           PY
 
       - name: Build ReperaWatch (watchOS 27 Simulator)
