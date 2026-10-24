@@ -12,6 +12,27 @@ final class ExerciseEquipmentAuditTests: XCTestCase {
         return result
     }
 
+    func testEntireBuiltInCatalogHasExplicitEquipment() {
+        let exercises = catalog
+        XCTAssertEqual(exercises.count, 288)
+        XCTAssertTrue(exercises.allSatisfy {
+            $0.equipment?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        }, "Todos los ejercicios de fábrica deben indicar su material, incluso Peso corporal")
+    }
+
+    func testCardioMachinesAndBandDoNotAskForKilograms() {
+        for name in ["Cinta / carrera", "Bici estática", "Remo máquina"] {
+            let item = exercise(name)
+            XCTAssertNotNil(item.equipment, name)
+            XCTAssertEqual(item.loggingStyle, .machineWork, name)
+            XCTAssertEqual(item.loadField, .none, name)
+        }
+        let band = exercise("Paso lateral con banda")
+        XCTAssertEqual(band.equipment, "Banda elástica")
+        XCTAssertEqual(band.loggingStyle, .repsOnly)
+        XCTAssertEqual(band.loadField, .none)
+    }
+
     func testBoxMovementsDeclareAnActualBox() {
         for name in ["Box jump over", "Burpee box jump over", "Burpee Box Jump",
                      "Box Jump", "Box Step-Up"] {
