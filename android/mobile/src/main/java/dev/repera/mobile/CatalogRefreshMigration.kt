@@ -48,6 +48,8 @@ internal object CatalogRefreshMigration {
                 continue
             }
             if (existing.optBoolean("isCustom")) continue
+            // Supabase es la fuente editorial: el seed nunca puede deshacer su última revisión.
+            if (existing.optString("_remoteCatalogKey").isNotBlank()) continue
             for (field in CATALOG_FIELDS) {
                 val seedValue = seedEntry.opt(field)
                 if (seedValue == null || seedValue == JSONObject.NULL) continue
