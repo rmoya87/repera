@@ -18,11 +18,13 @@ gap) / SUSTITUIDO (infra Apple-only con equivalente Android ya elegido).
 | 1 | `PlaceSearchSheet` (685) | Búsqueda de lugares para el pin de gym | Opciones sin coste nuevo investigadas: `android.location.Geocoder` (plataforma, sin key ni facturación; requiere backend de Play services, con límites de tasa y disponibilidad variable) y OSM/Nominatim (política de uso estricta: 1 req/s, no producción masiva). Google Places queda como opción de pago solo si las anteriores no bastan; decisión pendiente |
 | 2 | `HealthWorkoutRouteMap` (en `CardioRouteComponents`) | Mapa nativo de la ruta en el detalle del historial | Elección de componente de mapa (investigación técnica autorizada, sin coste) |
 | 3 | Emparejado Salud↔sesión: `SessionCardioEffort` (218), `ReperaSessionMatchIndex` (91), curva FC de sesión, `refineSessionReviewWithHealth` | Curva de FC por sesión, nota ajustada por esfuerzo cardio, índice temporal | Lectura de sesiones de ejercicio en Health Connect + matching temporal |
-| 4 | `DayPlusSheet` (598) | Menú «＋» de un día: alta de entreno suelto con fecha (`DayEditorView` one-off), favoritos, temporizador y escaneo para ese día | Ninguna externa; el modelo ya soporta `scheduledDate` |
-| 5 | `LoadSuggestion` (109) + `ExerciseLoadGuideCard` (207) | Guía/sugerencia de carga en el detalle del ejercicio | Ninguna |
+| ~~4~~ | `DayPlusSheet` (598) | CERRADO 24/10: hoja con alta one-off (a3edd12), borrador puro con persistencia SOLO en Guardar (8789bc7, sustituye al diseño con reconcile retirado por inseguro), caption de cuota (bce299e), temporizadores favoritos en hub (3b5df6f) | Prueba: fixtures instrumentados (ciclo de vida del borrador: vacía preexistente intacta, cancelar con contenido sin persistir, guardar explícito; store de timers roundtrip) + gates locales; pendiente ejecución integrada CI |
+| 5 | `LoadSuggestion` (109) + `ExerciseLoadGuideCard` (207) | PARCIAL: dominio portado (4418f5d: parseo %1RM, Epley inverso, estimación desde última serie; 4 tests de dominio). SIGUE ABIERTA la tarjeta UI `ExerciseLoadGuideCard` en el detalle del ejercicio (sin referencias en mobile a 24/10 22:52) | Ninguna |
 | 6 | `ExerciseSessionAppearance` (206) + `ExerciseThisSessionCard` (135) | Tarjeta «cómo apareció este ejercicio en sesiones concretas» (comparativas) | Ninguna |
 | 7 | `ExerciseEquipmentGroup` (133) | Ordenación de biblioteca por grupo de material (presentación) | Ninguna |
 | 8 | Selección táctil en gráficas cardio (de `CardioRouteComponents`) | Scrub con dedo sobre altitud/FC | Junto con #2 |
+
+Verificado 24/10 22:52 contra fuentes Android (grep de cada pieza): #3 (SessionCardioEffort / ReperaSessionMatchIndex / curva FC / refineSessionReviewWithHealth), #6 (ExerciseSessionAppearance / ExerciseThisSessionCard), #7 (orden por equipo) y #8 (scrub táctil) NO tienen NINGUNA referencia en `android/` — siguen GAP confirmado. #1 PlaceSearch: opciones sin coste documentadas, decisión pendiente en main. #2 mapa nativo de ruta: investigación técnica en curso.
 
 ## FIDELIDAD (existe; presentación/UX distinta)
 
@@ -37,7 +39,7 @@ gap) / SUSTITUIDO (infra Apple-only con equivalente Android ya elegido).
 
 | Pieza | Estado |
 |-------|--------|
-| Mapa muscular (draw) | Causa raíz en logcat (`draw size=487×0`): `weight(1f)` en Row no fija altura; `fillMaxHeight()` aplicado. Pendiente: gate de píxeles en el run sobre 1320b1b |
+| Mapa muscular (draw) | CERRADO con evidencia: gate de píxeles VERDE en run 40127550912 (todos los API); capturas api35 inspeccionadas y aceptadas por main 22:23 (cuerpo coloreado en Esfuerzo y Fatiga; leyenda compartida confirmada correcta contra MuscleBalanceCard.swift) |
 | Ubicación (pin + ruta) | Portada completa 24/10 (dominio+tracker+wiring+permisos+onboarding); pendiente CI con ubicación simulada |
 | Descartar sesión | `endActiveSession(save:false)` portado 24/10; pendiente CI |
 
@@ -50,7 +52,7 @@ gap) / SUSTITUIDO (infra Apple-only con equivalente Android ya elegido).
   portada, emparejado con sesiones abierto como gap #3).
 - Sync entre dispositivos: iCloud best-effort de iOS sin equivalente Android
   (requeriría backend; no autorizado).
-- Sincronización de arte final desde main definitiva (re-sync abierto).
+- Sincronización de arte: lote @045fc5a9 (920b8b67 WGS f2 + 6239bd8a BBJ f3/captions) verificado COMPLETO por hash sha256 (489 raíz + 488 thumbs idénticos) y captions WGS/Inchworm idénticas en catalog_seed.json. ABIERTA al lote futuro del agente de arte (nuevos carruseles air squat/kettlebell swing…): re-verificar contra el main vigente al cierre; no declarar assets futuros como completos.
 - API 36.1: en el run 40124402423 el emulador no completó el arranque con un
   crash nativo de surfaceflinger (hecho del run; causa no probada). Wear OS
   6.1: sin ejecución validada (timeouts de arranque en CI).
