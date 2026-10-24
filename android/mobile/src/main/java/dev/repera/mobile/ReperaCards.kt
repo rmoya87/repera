@@ -1485,7 +1485,7 @@ internal fun AccountSyncCard(
     onExportJson: () -> Unit,
     onSignOut: () -> Unit
 ) {
-    Text("Cuenta y sincronización", style = MaterialTheme.typography.titleMedium)
+    Text("Cuenta", style = MaterialTheme.typography.titleMedium)
     // Entrada a Repera Pro desde ajustes (paridad SettingsView iOS,
     // contexto settings). Pro activo muestra enlace de gestión.
     val subscriptions = dev.repera.mobile.monetization.LocalSubscriptions.current
@@ -1504,16 +1504,6 @@ internal fun AccountSyncCard(
             }) { Text("Conocer Repera Pro") }
         }
     }
-    Button(
-        onClick = onDriveSync, enabled = !busy,
-        modifier = Modifier.fillMaxWidth(),
-        colors = ButtonDefaults.buttonColors(containerColor = brandGreen, contentColor = Color.Black)
-    ) {
-        if (syncing) CircularProgressIndicator(
-            modifier = Modifier.padding(end = 8.dp))
-        Text(if (syncing) "Sincronizando…" else "Sincronizar con Google Drive")
-    }
-    if (status != null) Text(status)
     if (overview != null) {
         OutlinedButton(onClick = onExportJson, enabled = !busy,
             modifier = Modifier.fillMaxWidth()) {
