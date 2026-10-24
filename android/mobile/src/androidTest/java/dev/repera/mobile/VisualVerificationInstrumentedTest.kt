@@ -353,7 +353,82 @@ class VisualVerificationInstrumentedTest {
     }
 
     @Test
-    fun capturaAccesoIAConTemaRepera() {
+    fun capturaPaywallSheetConPlanes() {
+        // Paywall modo sheet con catálogo sintético (anual con ahorro +
+        // mensual con trial). Verificación visual de la UI de monetización.
+        val manager = fakeSubscriptionManager()
+        brandContent {
+            dev.repera.mobile.monetization.PaywallScreen(
+                subscriptions = manager,
+                mode = dev.repera.mobile.monetization.PaywallMode.SHEET
+            )
+        }
+        compose.waitForIdle()
+        save("paywall_sheet", compose.onRoot().captureToImage())
+    }
+
+    @Test
+    fun capturaPaywallOnboardingConMascota() {
+        // Modo onboarding: mascota hero real (asset iOS reutilizado).
+        val manager = fakeSubscriptionManager()
+        brandContent {
+            dev.repera.mobile.monetization.PaywallScreen(
+                subscriptions = manager,
+                mode = dev.repera.mobile.monetization.PaywallMode.ONBOARDING
+            )
+        }
+        compose.waitForIdle()
+        save("paywall_onboarding", compose.onRoot().captureToImage())
+    }
+
+    private fun fakeSubscriptionManager(): dev.repera.mobile.monetization.SubscriptionManager {
+        val provider = object : dev.repera.mobile.monetization.EntitlementProvider {
+            override val isConfigured: Boolean get() = true
+            override suspend fun refresh() = dev.repera.domain.monetization.CommercialSnapshot(
+                status = dev.repera.domain.monetization.SubscriptionStatus.FREE,
+                isConfigured = true
+            )
+            override suspend fun purchase(productID: String) = refresh()
+            override suspend fun restore() = refresh()
+            override suspend fun offerings() = dev.repera.mobile.monetization.CommercialOfferings(
+                packages = listOf(
+                    dev.repera.mobile.monetization.CommercialPackageInfo(
+                        productID = dev.repera.mobile.monetization.CommercialConfig.ANNUAL_PRODUCT_ID,
+                        localizedPrice = "59,99 €",
+                        localizedTitle = "Repera Pro Anual",
+                        localizedDescription = "12 meses",
+                        isAnnual = true,
+                        introductoryOfferSummary = null,
+                        hasFreeTrial = false,
+                        priceValue = 59.99,
+                        currencyCode = "EUR"
+                    ),
+                    dev.repera.mobile.monetization.CommercialPackageInfo(
+                        productID = dev.repera.mobile.monetization.CommercialConfig.MONTHLY_PRODUCT_ID,
+                        localizedPrice = "7,99 €",
+                        localizedTitle = "Repera Pro Mensual",
+                        localizedDescription = "1 mes",
+                        isAnnual = false,
+                        introductoryOfferSummary = "7 días de prueba gratis",
+                        hasFreeTrial = true,
+                        priceValue = 7.99,
+                        currencyCode = "EUR"
+                    )
+                )
+            )
+        }
+        val dir = androidx.test.platform.app.InstrumentationRegistry
+            .getInstrumentation().targetContext.filesDir
+        return dev.repera.mobile.monetization.SubscriptionManager(
+            provider = provider,
+            freeUsage = dev.repera.mobile.monetization.FreeUsageStore.forAccount(
+                java.io.File(dir, "test_freeusage")
+            )
+        )
+    }
+
+    @Test
+        fun capturaAccesoIAConTemaRepera() {
         // Pantalla Acceso IA con datos sintéticos: tokens, cambio pendiente
         // y estado de bandeja, con el tema de marca.
         val tokens = listOf(
