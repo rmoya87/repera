@@ -27,6 +27,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -165,7 +166,10 @@ fun ReperaMobileScreen(
                         onDriveSync = onDriveSync,
                         onExportJson = onExportJson,
                         onSignOut = onSignOut,
-                        onNavigateCreate = { navigateTab("crear") }
+                        onNavigateCreate = { navigateTab("crear") },
+                        onOpenClock = {
+                            if (activeWorkout?.wod != null) navController.navigate("reloj")
+                        }
                     )
                 }
                 composable("diario") {
@@ -210,6 +214,21 @@ fun ReperaMobileScreen(
                         onExportJson = onExportJson,
                         onSignOut = onSignOut
                     )
+                }
+                composable("reloj") {
+                    val clockWorkout = activeWorkout
+                    if (clockWorkout?.wod != null) {
+                        WodClockScreen(
+                            active = clockWorkout,
+                            busy = busy,
+                            timer = wodTimer,
+                            onTimerAction = onWodTimerAction,
+                            onTimerTick = onWodTimerTick,
+                            onBack = { navController.popBackStack() }
+                        )
+                    } else {
+                        LaunchedEffect(Unit) { navController.popBackStack() }
+                    }
                 }
                 composable("ejercicios") {
                     ExercisesTab(

@@ -336,7 +336,8 @@ internal fun WodScoreCard(
     onCompleteBlock: () -> Unit,
     onReviseMovement: (String, Int, Double?) -> Unit,
     onDeleteMovement: (String) -> Unit,
-    onFinish: () -> Unit
+    onFinish: () -> Unit,
+    onOpenClock: () -> Unit
 ) {
     val wod = active.wod ?: return
     val spec = WodClockSpec(
@@ -416,6 +417,9 @@ internal fun WodScoreCard(
                 }
                 OutlinedButton(onClick = { onTimerAction("reset") }, enabled = !busy) {
                     Text("Reiniciar")
+                }
+                TextButton(onClick = onOpenClock) {
+                    Text("Pantalla completa")
                 }
             }
             Text(wod.title + " · " +

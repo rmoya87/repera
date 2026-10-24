@@ -92,6 +92,7 @@ internal fun HomeTab(
     onExportJson: () -> Unit,
     onSignOut: () -> Unit,
     onNavigateCreate: () -> Unit,
+    onOpenClock: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var homeDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
@@ -174,7 +175,8 @@ internal fun HomeTab(
                             onCompleteBlock = onCompleteWodBlock,
                             onReviseMovement = onReviseWodMovement,
                             onDeleteMovement = onDeleteWodMovement,
-                            onFinish = onFinish
+                            onFinish = onFinish,
+                            onOpenClock = onOpenClock
                         )
                     } else {
                         ActiveWorkoutCard(
