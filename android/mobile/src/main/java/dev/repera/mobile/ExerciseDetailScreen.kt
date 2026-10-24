@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import dev.repera.mobile.monetization.LocalSubscriptions
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -64,7 +65,27 @@ internal fun ExerciseDetailScreen(
             Text(entry.displayName, style = MaterialTheme.typography.headlineMedium)
         }
         item {
-            ExerciseEvolutionSection(entry = entry, exerciseSeries = exerciseSeries)
+            // Paridad iOS FreeExerciseSummaryCard: la evolución completa es Pro;
+            // Gratis ve el teaser que abre el paywall con contexto exerciseEvolution.
+            val subscriptions = LocalSubscriptions.current
+            val evolutionAllowed = subscriptions
+                ?.decision(dev.repera.domain.monetization.ReperaFeature.EXERCISE_EVOLUTION)
+                ?.allowed ?: true
+            if (evolutionAllowed) {
+                ExerciseEvolutionSection(entry = entry, exerciseSeries = exerciseSeries)
+            } else {
+                dev.repera.mobile.monetization.ProTeaserCard(
+                    title = "Tu evolución",
+                    bodyText = "Consulta todas tus marcas, compara tus entrenamientos y descubre cómo has progresado con este ejercicio.",
+                    cta = "Ver con Repera Pro",
+                    appearance = dev.repera.mobile.monetization.ProTeaserAppearance.EVOLUTION
+                ) {
+                    subscriptions?.presentPaywall(
+                        dev.repera.domain.monetization.PaywallContext.EXERCISE_EVOLUTION,
+                        feature = dev.repera.domain.monetization.ReperaFeature.EXERCISE_EVOLUTION
+                    )
+                }
+            }
         }
         if (frames.size <= 1) {
             item { ArtImage(frames.firstOrNull(), entry.name, Modifier.fillMaxWidth().aspectRatio(4f / 3f)) }
