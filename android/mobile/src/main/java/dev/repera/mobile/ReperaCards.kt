@@ -3,6 +3,7 @@ package dev.repera.mobile
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.AddCircleOutline
@@ -1214,7 +1215,8 @@ internal fun WorkoutHistoryCard(
     busy: Boolean = false,
     onReviseFinishedSet: (String, String, String, Int, Double?, Int?) -> Unit =
         { _, _, _, _, _, _ -> },
-    onDeleteFinishedSet: (String, String, String) -> Unit = { _, _, _ -> }
+    onDeleteFinishedSet: (String, String, String) -> Unit = { _, _, _ -> },
+    onDeleteWorkout: (String) -> Unit = {}
 ) {
     var expanded by remember(workout.id) { mutableStateOf(false) }
     var selectedMovement by remember(workout.id) { mutableStateOf<Int?>(null) }
@@ -1222,12 +1224,38 @@ internal fun WorkoutHistoryCard(
     var editQuantity by remember(workout.id) { mutableStateOf("") }
     var editWeight by remember(workout.id) { mutableStateOf("") }
     var editDuration by remember(workout.id) { mutableStateOf("") }
+    // iOS: borrar registro completo solo tras confirmación explícita
+    // (OGConfirmSheet «¿Eliminar registro?»); nunca directo.
+    var pendingDelete by remember(workout.id) { mutableStateOf(false) }
+    if (pendingDelete) {
+        AlertDialog(
+            onDismissRequest = { pendingDelete = false },
+            title = { Text("¿Eliminar registro?") },
+            text = { Text("Se borrará «" + workout.title + "». No se puede deshacer.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingDelete = false
+                    onDeleteWorkout(workout.id)
+                }, enabled = !busy) { Text("Eliminar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = false }) { Text("Cancelar") }
+            }
+        )
+    }
     Card(modifier = Modifier.fillMaxWidth().animateContentSize()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
-            Text(workout.title, style = MaterialTheme.typography.titleMedium)
+            Row(modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(workout.title, style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f))
+                IconButton(onClick = { pendingDelete = true }, enabled = !busy) {
+                    Icon(Icons.Default.Delete, contentDescription = "Eliminar registro")
+                }
+            }
             if (workout.startedAt.isNotBlank()) {
                 Text(workout.startedAt, style = MaterialTheme.typography.labelMedium)
             }

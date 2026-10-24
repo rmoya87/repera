@@ -96,6 +96,7 @@ internal fun HomeTab(
     onSignOut: () -> Unit,
     onReviseFinishedSet: (String, String, String, Int, Double?, Int?) -> Unit,
     onDeleteFinishedSet: (String, String, String) -> Unit,
+    onDeleteWorkout: (String) -> Unit = {},
     onNavigateCreate: () -> Unit,
     onDeleteRoutine: (String) -> Unit = {},
     onOpenClock: () -> Unit,
@@ -234,7 +235,8 @@ internal fun HomeTab(
         if (workouts.isEmpty()) item { Text("Todavía no hay sesiones registradas") }
         items(workouts, key = { it.id }) { workout ->
             WorkoutHistoryCard(workout, busy,
-                        onReviseFinishedSet, onDeleteFinishedSet)
+                        onReviseFinishedSet, onDeleteFinishedSet,
+                        onDeleteWorkout)
         }
         item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
         item {

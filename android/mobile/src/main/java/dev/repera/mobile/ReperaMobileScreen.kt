@@ -137,6 +137,7 @@ fun ReperaMobileScreen(
     exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
         List<ExerciseProgressPoint> = { _, _, _ -> emptyList() },
     onDeleteFinishedSet: (String, String, String) -> Unit,
+    onDeleteWorkout: (String) -> Unit,
     onLogBodyWeight: (Double) -> Unit,
     onSetRoutineProgression: (String, String) -> Unit,
     onSetRoutineFavorite: (String, Boolean) -> Unit,
@@ -243,6 +244,7 @@ fun ReperaMobileScreen(
                         onDeleteSet = onDeleteSet,
                         onReviseFinishedSet = onReviseFinishedSet,
                         onDeleteFinishedSet = onDeleteFinishedSet,
+                        onDeleteWorkout = onDeleteWorkout,
                         onNext = onNext,
                         onFinish = onFinish,
                         onDiscardSession = onDiscardSession,

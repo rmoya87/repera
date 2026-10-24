@@ -629,6 +629,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onDeleteFinishedSet = { workoutId, entryId, setId ->
                     runWorkoutAction { deleteFinishedSet(workoutId, entryId, setId) }
                 },
+                onDeleteWorkout = { workoutId ->
+                    runWorkoutAction { deleteWorkout(workoutId) }
+                },
                 onLogBodyWeight = { kg ->
                     runWorkoutAction { logBodyWeight(kg) }
                 },

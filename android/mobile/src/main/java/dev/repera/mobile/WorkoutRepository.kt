@@ -22,6 +22,8 @@ import java.util.UUID
  */
 class WorkoutRepository(context: Context, googleId: String) {
     private val local = LocalSnapshotStore(context, googleId)
+    // Espejo remoto: noteDeleted solo toca SharedPreferences (outbox), sin red.
+    private val mirror = WorkoutMirrorStore(context, googleId)
     private val prefs = context.getSharedPreferences("repera.local.writer", Context.MODE_PRIVATE)
     private val writerId: String by lazy {
         prefs.getString("writerId", null) ?: UUID.randomUUID().toString().also {
@@ -1739,6 +1741,9 @@ class WorkoutRepository(context: Context, googleId: String) {
 
     /** Elimina un entreno registrado (solo tras consentimiento explícito). */
     @Synchronized fun deleteWorkout(id: String) {
+        // Tombstone ANTES de borrar (paridad ReperaStore.deleteWorkout iOS): el
+        // espejo no debe resucitar el registro en el próximo sync.
+        mirror.noteDeleted(id)
         val state = requireState()
         val archive = state.getJSONArray("workouts")
         val index = (0 until archive.length()).firstOrNull {

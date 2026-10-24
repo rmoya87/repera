@@ -320,6 +320,44 @@ class WorkoutRepositoryInstrumentedTest {
         assertEquals(6, score.getInt("totalReps"))
     }
 
+    /** Borrado de registro completo con fixtures: el tombstone del espejo se
+     *  escribe ANTES de quitar el workout, para que el sync no lo resucite
+     *  (paridad ReperaStore.deleteWorkout + BusinessWorkoutSyncStore iOS).
+     *  Solo datos de fixture; nunca datos reales. */
+    @Test fun deleteWorkoutTombstonesBeforeRemovingTheRecord() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val user = UUID.randomUUID().toString()
+        CatalogBootstrap.initializeEmptyAccount(ctx, user)
+        val store = LocalSnapshotStore(ctx, user)
+        val catalog = JSONObject(String(store.read()!!)).getJSONArray("exercises")
+        val movementId = catalog.getJSONObject(0).getString("id")
+        val repo = WorkoutRepository(ctx, user)
+        val routineId = repo.createRoutine("Fuerza borrable", "strength",
+            listOf(RoutineDraftEntry(movementId, 8, sets = 2, weightKg = 40.0)))
+        repo.startRoutine(routineId)
+        repo.logCurrentSet(8, 40.0)
+        repo.finish()
+        val before = JSONObject(String(store.read()!!))
+        val workouts = before.getJSONArray("workouts")
+        assertEquals(1, workouts.length())
+        val workoutId = workouts.getJSONObject(0).getString("id")
+
+        WorkoutRepository(ctx, user).deleteWorkout(workoutId)
+
+        val after = JSONObject(String(store.read()!!))
+        assertEquals(0, after.getJSONArray("workouts").length())
+        // Tombstone persistente en el outbox del espejo (SharedPreferences).
+        val prefs = ctx.getSharedPreferences("repera.mirror." + user, 0)
+        assertTrue(prefs.getStringSet("deleted", emptySet())!!.contains(workoutId))
+        // Borrar de nuevo debe fallar como «no encontrado», nunca borrar de más.
+        try {
+            WorkoutRepository(ctx, user).deleteWorkout(workoutId)
+            org.junit.Assert.fail("debía fallar: entreno ya borrado")
+        } catch (expected: IllegalStateException) {
+            assertTrue(expected.message!!.contains("Entreno no encontrado"))
+        }
+    }
+
     @Test fun warmupDoesNotConsumePrescribedWorkAndRirIsSaved() {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
         val user = UUID.randomUUID().toString()
