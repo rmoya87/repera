@@ -139,34 +139,33 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/ReperaDerivedData" \
             CODE_SIGNING_ALLOWED=NO build 2>&1 | tee "$RUNNER_TEMP/repera-ios-build.log"
-      - name: Verify native launch PNG and storyboard packaged in Repera.app
+      - name: Verify native UILaunchScreen image in compiled Repera.app
         shell: bash
         run: |
           set -euo pipefail
           APP="$RUNNER_TEMP/ReperaDerivedData/Build/Products/Debug-iphonesimulator/Repera.app"
-          test -d "$APP" || { echo "::error::Repera.app missing"; exit 1; }
-          test -f "$APP/LaunchHeroOpaque.png" || {
-            echo "::error::Raw native launch PNG missing from app bundle"; exit 1;
-          }
-          test -d "$APP/ReperaLaunchBundle.storyboardc" || {
-            echo "::error::ReperaLaunchBundle.storyboardc missing"; exit 1;
-          }
-          ACTUAL="$(/usr/libexec/PlistBuddy -c 'Print :UILaunchStoryboardName' "$APP/Info.plist")"
-          test "$ACTUAL" = "ReperaLaunchBundle" || {
-            echo "::error::Incorrect UILaunchStoryboardName: $ACTUAL"; exit 1;
-          }
-          cmp Apps/Repera/Resources/LaunchHeroOpaque.png "$APP/LaunchHeroOpaque.png" || {
-            echo "::error::Packaged launch PNG differs from checked-in original"; exit 1;
-          }
-          python3 - <<'PY'
-          import pathlib,struct
-          im=pathlib.Path("Apps/Repera/Resources/LaunchHeroOpaque.png").read_bytes()
-          assert im[:8] == bytes((137,80,78,71,13,10,26,10))
-          w,h=struct.unpack(">II",im[16:24])
-          assert (w,h)==(1024,1024)
-          color_type=im[25]
-          assert color_type==2, f"Native launch must use opaque RGB PNG; got color type {color_type}"
-          print("PASS: opaque native splash directly bundled and storyboard registered")
+          test -f "$APP/Info.plist" || { echo "::error::App plist missing"; exit 1; }
+          test -f "$APP/Assets.car" || { echo "::error::Compiled asset catalog missing"; exit 1; }
+          python3 - "$APP/Info.plist" <<'PY'
+          import plistlib,sys
+          with open(sys.argv[1],"rb") as f: info=plistlib.load(f)
+          config=info.get("UILaunchScreen")
+          assert isinstance(config,dict), f"Missing UILaunchScreen in built app: {list(info)}"
+          assert config.get("UIImageName")=="ReperaNativeBarbell", config
+          assert config.get("UIColorName")=="LaunchBackground", config
+          assert config.get("UIImageRespectsSafeAreaInsets") is True, config
+          assert not info.get("UILaunchStoryboardName"), "Legacy storyboard setting must not override UILaunchScreen"
+          print("PASS: built Info.plist uses storyboard-free native launch screen")
+          PY
+          xcrun --find assetutil
+          xcrun assetutil --info "$APP/Assets.car" > "$RUNNER_TEMP/repera-launch-assets.json"
+          python3 - "$RUNNER_TEMP/repera-launch-assets.json" <<'PY'
+          import json,sys
+          with open(sys.argv[1],encoding="utf-8") as f: entries=json.load(f)
+          names={e.get("Name") for e in entries if isinstance(e,dict)}
+          missing={"ReperaNativeBarbell","LaunchBackground"}-names
+          assert not missing, f"UILaunchScreen resources missing from compiled Assets.car: {missing}"
+          print("PASS: both launch image and green background compiled into Assets.car")
           PY
 
       - name: Build ReperaWatch (watchOS 27 Simulator)
