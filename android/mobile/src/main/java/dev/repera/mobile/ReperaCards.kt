@@ -72,8 +72,22 @@ internal fun ActiveWorkoutCard(
     onReviseSet: (String, Int, Double?, String?, Int?, Int?) -> Unit,
     onDeleteSet: (String) -> Unit,
     onNext: () -> Unit,
-    onFinish: () -> Unit
+    onFinish: () -> Unit,
+    onLogDropSet: (Int, Double?, List<Pair<Int, Double?>>) -> Unit = { _, _, _ -> },
+    onLogRestPauseSet: (List<Pair<Int, Int>>, Double?) -> Unit = { _, _ -> }
 ) {
+    var technique by remember(active.id, active.index, active.completedSets) {
+        mutableStateOf("normal")
+    }
+    var dropsText by remember(active.id, active.index, active.completedSets) {
+        mutableStateOf("")
+    }
+    var clustersText by remember(active.id, active.index, active.completedSets) {
+        mutableStateOf("")
+    }
+    var clusterRest by remember(active.id, active.index, active.completedSets) {
+        mutableStateOf("15")
+    }
     var quantity by remember(active.id, active.index, active.completedSets) {
         mutableStateOf(active.prescribedQuantity?.toString() ?: "")
     }
@@ -299,19 +313,82 @@ internal fun ActiveWorkoutCard(
                 Checkbox(checked = warmup, onCheckedChange = { warmup = it }, enabled = !busy)
                 Text("Serie de calentamiento", modifier = Modifier.padding(top = 12.dp))
             }
+            if (!active.durationInput && !warmup) {
+                Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("normal" to "Normal", "dropset" to "Dropset",
+                        "restpause" to "Rest-pause").forEach { option ->
+                        FilterChip(selected = technique == option.first,
+                            onClick = { technique = option.first },
+                            label = { Text(option.second) })
+                    }
+                }
+                if (technique == "dropset") {
+                    OutlinedTextField(
+                        value = dropsText,
+                        onValueChange = { dropsText = it.take(80) },
+                        label = { Text("Caídas: reps x kg (p. ej. 8x45, 6x40)") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+                if (technique == "restpause") {
+                    OutlinedTextField(
+                        value = clustersText,
+                        onValueChange = { clustersText = it.take(40) },
+                        label = { Text("Mini-series en reps (p. ej. 8+5+3)") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(
+                        value = clusterRest,
+                        onValueChange = { clusterRest = it.filter(Char::isDigit) },
+                        label = { Text("Descanso entre mini-series (s)") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+            }
+            val parsedDrops = if (technique != "dropset") emptyList() else
+                dropsText.split(',', ';', '·').mapNotNull { raw ->
+                    val piece = raw.trim().lowercase()
+                    if (piece.isEmpty()) return@mapNotNull null
+                    val parts = piece.split('x', '×')
+                    val reps = parts.getOrNull(0)?.trim()?.toIntOrNull()
+                        ?: return@mapNotNull null
+                    val weight = parts.getOrNull(1)?.trim()?.replace(',', '.')
+                        ?.toDoubleOrNull()
+                    reps to weight
+                }
+            val restSecondsValue = clusterRest.toIntOrNull()
+            val parsedClusters = if (technique != "restpause") emptyList() else
+                clustersText.split('+', ',', ' ').mapNotNull { it.trim().toIntOrNull() }
+                    .map { it to (restSecondsValue ?: 15) }
+            val validTechnique = when (technique) {
+                "dropset" -> parsedDrops.isNotEmpty() && parsedDrops.size <= 5 &&
+                    parsedDrops.all { it.first in 1..10000 &&
+                        (it.second == null || it.second!! >= 0) }
+                "restpause" -> parsedClusters.size in 2..8 &&
+                    parsedClusters.all { it.first in 1..10000 } &&
+                    restSecondsValue != null && restSecondsValue in 1..600
+                else -> true
+            }
             Button(
                 onClick = {
-                    if (parsedQuantity != null) onLogSet(
-                        parsedQuantity,
-                        if (active.allowsWeight) parsedWeight else null,
-                        if (active.durationInput) null else parsedRir,
-                        if (active.durationInput) false else warmup,
-                        unit,
-                        parsedDuration,
-                        if (active.allowsDeficit) deficit.toIntOrNull() else null
-                    )
+                    if (parsedQuantity != null) when (technique) {
+                        "dropset" -> onLogDropSet(
+                            parsedQuantity,
+                            if (active.allowsWeight) parsedWeight else null,
+                            parsedDrops)
+                        "restpause" -> onLogRestPauseSet(
+                            parsedClusters,
+                            if (active.allowsWeight) parsedWeight else null)
+                        else -> onLogSet(
+                            parsedQuantity,
+                            if (active.allowsWeight) parsedWeight else null,
+                            if (active.durationInput) null else parsedRir,
+                            if (active.durationInput) false else warmup,
+                            unit,
+                            parsedDuration,
+                            if (active.allowsDeficit) deficit.toIntOrNull() else null
+                        )
+                    }
                 },
-                enabled = !busy && valid,
+                enabled = !busy && valid && validTechnique,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Registrar serie") }
             OutlinedButton(onClick = onNext, enabled = !busy, modifier = Modifier.fillMaxWidth()) {

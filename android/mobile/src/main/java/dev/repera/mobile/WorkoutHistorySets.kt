@@ -79,7 +79,9 @@ internal object WorkoutHistorySets {
                 durationSeconds = set.optInt("durationSeconds").takeIf {
                     set.has("durationSeconds") && it > 0
                 },
-                warmup = set.optString("phase", "work") == "warmup"
+                warmup = set.optString("phase", "work") == "warmup",
+                drops = setDrops(set),
+                clusters = setClusters(set)
             )
         }
         val finished = workout.optString("phase") == "finished" ||
@@ -132,7 +134,9 @@ internal object WorkoutHistorySets {
                 durationSeconds = set.optInt("durationSeconds").takeIf {
                     set.has("durationSeconds") && it > 0
                 },
-                warmup = set.optString("phase", "work") == "warmup"
+                warmup = set.optString("phase", "work") == "warmup",
+                drops = setDrops(set),
+                clusters = setClusters(set)
             )
         }
     }
@@ -155,7 +159,9 @@ internal object WorkoutHistorySets {
     }
 
     private fun line(reps: Int, quantityUnit: String, weight: Double?, deficitCm: Int?,
-                     rir: Double?, durationSeconds: Int?, warmup: Boolean): String = buildString {
+                     rir: Double?, durationSeconds: Int?, warmup: Boolean,
+                     drops: List<Pair<Int, Double?>> = emptyList(),
+                     clusters: List<Pair<Int, Int>> = emptyList()): String = buildString {
         if (warmup) append("Calentamiento · ")
         append("$reps $quantityUnit")
         if (weight != null) append(" · $weight kg")
@@ -163,5 +169,27 @@ internal object WorkoutHistorySets {
         if (rir != null) append(" · RIR $rir")
         if (durationSeconds != null)
             append(" · ${durationSeconds / 60}:${(durationSeconds % 60).toString().padStart(2, '0')}")
+        drops.forEach { (dropReps, dropWeight) ->
+            append(" + $dropReps")
+            if (dropWeight != null) append("×$dropWeight kg")
+        }
+        if (clusters.isNotEmpty())
+            append(" · rest-pause " + clusters.joinToString("+") { it.first.toString() })
     }
+
+    private fun setDrops(set: JSONObject): List<Pair<Int, Double?>> =
+        set.optJSONArray("drops")?.let { array ->
+            (0 until array.length()).map { i ->
+                val drop = array.getJSONObject(i)
+                drop.optInt("reps") to valueOrNull(drop, "weightKg")
+            }
+        }.orEmpty()
+
+    private fun setClusters(set: JSONObject): List<Pair<Int, Int>> =
+        set.optJSONArray("clusters")?.let { array ->
+            (0 until array.length()).map { i ->
+                val cluster = array.getJSONObject(i)
+                cluster.optInt("reps") to cluster.optInt("restSeconds")
+            }
+        }.orEmpty()
 }

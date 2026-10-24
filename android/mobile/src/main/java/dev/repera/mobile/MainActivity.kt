@@ -196,6 +196,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     runWorkoutAction { logCurrentSet(quantity, weight, rir, warmup,
                         quantityUnit = unit, durationSeconds = duration, deficitCm = deficit) }
                 },
+                onLogDropSet = { quantity, weight, drops ->
+                    runWorkoutAction { logDropSet(quantity, weight, drops) }
+                },
+                onLogRestPauseSet = { clusters, weight ->
+                    runWorkoutAction { logRestPauseSet(clusters, weight) }
+                },
                 onReviseSet = { id, quantity, weight, unit, duration, deficit ->
                     runWorkoutAction { reviseCurrentSet(id, quantity, weight, unit, duration, deficit) }
                 },

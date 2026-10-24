@@ -475,6 +475,120 @@ class WorkoutRepository(context: Context, googleId: String) {
         return summarize(session)
     }
 
+    /**
+     * Dropset: serie principal + caídas (reps y peso opcional por caída).
+     * Espejo de LoggedSet.kind = .dropset en iOS; completedReps suma la serie
+     * madre y todas las caídas, como CompletedWorkoutEditing/completedReps.
+     */
+    @Synchronized fun logDropSet(
+        quantity: Int, weightKg: Double?,
+        drops: List<Pair<Int, Double?>>
+    ): ActiveWorkout {
+        require(quantity in 1..10000) { "Cantidad inválida" }
+        require(weightKg == null || (weightKg.isFinite() && weightKg >= 0)) { "Peso inválido" }
+        require(drops.size in 1..5) { "La dropset necesita entre 1 y 5 caídas" }
+        drops.forEach { (reps, weight) ->
+            require(reps in 1..10000) { "Repeticiones de caída inválidas" }
+            require(weight == null || (weight.isFinite() && weight >= 0)) { "Peso de caída inválido" }
+        }
+        val state = requireState()
+        val session = requireActive(state)
+        val exercise = session.getJSONArray("exercises")
+            .getJSONObject(session.getInt("currentIndex"))
+        check(exercise.optString("blockKind") != "wod") { "Los scores WOD se registran por bloque" }
+        val movement = exercise.getJSONObject("exercise")
+        val inputMode = inputMode(movement)
+        check(inputMode in setOf(ExerciseInputMode.LOAD_REPS, ExerciseInputMode.REPS_ONLY,
+            ExerciseInputMode.HSPU_DEFICIT)) {
+            "Las dropsets solo aplican a ejercicios de fuerza"
+        }
+        check(!exercise.optBoolean("isCompleted")) { "Ejercicio ya completado" }
+        check(inputMode(movement).showsWeight ||
+            (weightKg == null && drops.all { it.second == null })) {
+            "Este ejercicio no registra peso"
+        }
+        val set = JSONObject()
+            .put("id", UUID.randomUUID().toString())
+            .put("reps", quantity)
+            .put("completedAt", nowISO8601())
+            .put("phase", "work")
+            .put("kind", "dropset")
+            .put("toFailure", false)
+            .put("clusters", JSONArray())
+            .put("quantityUnit", "reps")
+        if (weightKg != null) set.put("weightKg", weightKg)
+        val dropArray = JSONArray()
+        drops.forEach { (reps, weight) ->
+            val segment = JSONObject()
+                .put("id", UUID.randomUUID().toString())
+                .put("reps", reps)
+            if (weight != null) segment.put("weightKg", weight)
+            dropArray.put(segment)
+        }
+        set.put("drops", dropArray)
+        exercise.getJSONArray("loggedSets").put(set)
+        exercise.put("completedReps",
+            exercise.optInt("completedReps") + quantity + drops.sumOf { it.first })
+        session.put("phase", "counting")
+        save(state)
+        return summarize(session)
+    }
+
+    /**
+     * Rest-pause: mini-series con microdescansos. Espejo de kind = .restpause:
+     * las reps de la serie madre son la SUMA de los clusters.
+     */
+    @Synchronized fun logRestPauseSet(
+        clusters: List<Pair<Int, Int>>,
+        weightKg: Double? = null
+    ): ActiveWorkout {
+        require(clusters.size in 2..8) { "El rest-pause necesita al menos 2 mini-series" }
+        clusters.forEach { (reps, rest) ->
+            require(reps in 1..10000) { "Repeticiones de mini-serie inválidas" }
+            require(rest in 1..600) { "Descanso de mini-serie inválido" }
+        }
+        require(weightKg == null || (weightKg.isFinite() && weightKg >= 0)) { "Peso inválido" }
+        val state = requireState()
+        val session = requireActive(state)
+        val exercise = session.getJSONArray("exercises")
+            .getJSONObject(session.getInt("currentIndex"))
+        check(exercise.optString("blockKind") != "wod") { "Los scores WOD se registran por bloque" }
+        val movement = exercise.getJSONObject("exercise")
+        val inputMode = inputMode(movement)
+        check(inputMode in setOf(ExerciseInputMode.LOAD_REPS, ExerciseInputMode.REPS_ONLY,
+            ExerciseInputMode.HSPU_DEFICIT)) {
+            "El rest-pause solo aplica a ejercicios de fuerza"
+        }
+        check(!exercise.optBoolean("isCompleted")) { "Ejercicio ya completado" }
+        check(inputMode(movement).showsWeight || weightKg == null) {
+            "Este ejercicio no registra peso"
+        }
+        val totalReps = clusters.sumOf { it.first }
+        val set = JSONObject()
+            .put("id", UUID.randomUUID().toString())
+            .put("reps", totalReps)
+            .put("completedAt", nowISO8601())
+            .put("phase", "work")
+            .put("kind", "restpause")
+            .put("toFailure", false)
+            .put("drops", JSONArray())
+            .put("quantityUnit", "reps")
+        if (weightKg != null) set.put("weightKg", weightKg)
+        val clusterArray = JSONArray()
+        clusters.forEach { (reps, rest) ->
+            clusterArray.put(JSONObject()
+                .put("id", UUID.randomUUID().toString())
+                .put("reps", reps)
+                .put("restSeconds", rest))
+        }
+        set.put("clusters", clusterArray)
+        exercise.getJSONArray("loggedSets").put(set)
+        exercise.put("completedReps", exercise.optInt("completedReps") + totalReps)
+        session.put("phase", "counting")
+        save(state)
+        return summarize(session)
+    }
+
     @Synchronized fun next(): ActiveWorkout? {
         val state = requireState()
         val session = requireActive(state)
