@@ -46,6 +46,25 @@ class WearSetReconciliationInstrumentedTest {
             .getJSONObject(0).getJSONArray("loggedSets").length())
     }
 
+    @Test fun wearSetCarriesRirFromTheWatch() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val user = UUID.randomUUID().toString()
+        val exerciseId = UUID.randomUUID().toString()
+        val exercise = JSONObject().put("id", exerciseId).put("name", "Peso muerto")
+            .put("equipment", "Barra").put("muscleGroup", "Espalda")
+        val state = JSONObject().put("exercises", JSONArray().put(exercise))
+            .put("workouts", JSONArray()).put("routines", JSONArray())
+            .put("syncRevision", 0)
+        LocalSnapshotStore(ctx, user).write(state.toString().toByteArray(Charsets.UTF_8))
+        val repo = WorkoutRepository(ctx, user)
+        val active = repo.startQuickLog(exerciseId)
+        assertTrue(repo.logWearSet(active.id, active.index,
+            UUID.randomUUID().toString(), 5, 140.0, rir = 1.5))
+        val saved = WorkoutRepository(ctx, user).active()!!.sets.single()
+        assertEquals(1.5, saved.rir!!, 0.001)
+        repo.finish()
+    }
+
     @Test fun staleWatchSessionCannotWriteToAnotherActiveWorkout() {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
         val user = UUID.randomUUID().toString()

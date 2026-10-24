@@ -26,6 +26,7 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.Button
+import androidx.wear.compose.material3.TextButton
 import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.DataClient
@@ -50,6 +51,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private val pendingStore by lazy { WearPendingSetStore(this) }
     private var repsInput by mutableStateOf(0)
     private var weightInput by mutableStateOf<Double?>(null)
+    private var rirInput by mutableStateOf<Double?>(null)
     private var confirmDiscardPending by mutableStateOf(false)
     private var pendingCount by mutableStateOf(0)
     private var sendStatus by mutableStateOf<String?>(null)
@@ -159,6 +161,20 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                                     .coerceAtMost(2000.0)
                                             }) { Text("+") }
                                         }
+                                    }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        Button(onClick = {
+                                            rirInput = ((rirInput ?: 3.0) - 1).coerceAtLeast(0.0)
+                                        }) { Text("−") }
+                                        Text(rirInput?.let { "RIR ${it.toInt()}" } ?: "RIR —",
+                                            style = MaterialTheme.typography.titleMedium)
+                                        Button(onClick = {
+                                            rirInput = ((rirInput ?: 1.0) + 1).coerceAtMost(5.0)
+                                        }) { Text("+") }
+                                    }
+                                    TextButton(onClick = { rirInput = null }) {
+                                        Text("Sin RIR", style = MaterialTheme.typography.labelSmall)
                                     }
                                     Button(onClick = { queueSet(session) },
                                         enabled = repsInput > 0,
@@ -280,7 +296,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             repsInput !in 1..10000) return
         val queued = runCatching {
             pendingStore.append(session.sessionId, session.exerciseIndex - 1,
-                repsInput, weightInput)
+                repsInput, weightInput, rirInput)
             pendingCount = pendingStore.count()
         }
         if (queued.isFailure) {
