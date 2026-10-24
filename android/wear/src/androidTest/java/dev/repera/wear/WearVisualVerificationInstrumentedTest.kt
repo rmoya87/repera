@@ -110,6 +110,9 @@ class WearVisualVerificationInstrumentedTest {
         // registro): coincidencias exactas para no ambiguar el matcher.
         compose.onNodeWithText("5 reps · 100.0 kg").assertExists()
         compose.onAllNodesWithText("WearHomeState(", substring = true).assertCountEquals(0)
+        // Posición inicial (cabecera + Pausar) y posición desplazada
+        // (controles inferiores): el cierre exige ambas.
+        save("wear_sesion_fuerza_inicio", compose.onRoot().captureToImage())
         // Todos los controles alcanzables con scroll en el viewport redondo.
         scrollHastaTexto("Registrar serie")
         compose.onNodeWithText("Registrar serie").assertIsDisplayed()
