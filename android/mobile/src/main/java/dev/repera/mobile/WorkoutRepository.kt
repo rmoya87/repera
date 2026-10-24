@@ -263,6 +263,89 @@ class WorkoutRepository(context: Context, googleId: String) {
         save(state)
     }
 
+    /**
+     * Fusiona el peso de Salud con el local (syncBodyWeight de iOS):
+     * una entrada por día, gana la muestra más reciente; si Salud es más
+     * nueva (o mismo instante con kg distinto) actualiza la local con
+     * source "health". Devuelve los días solo locales para escribirlos
+     * en Salud después.
+     */
+    @Synchronized fun mergeHealthBodyWeights(
+        samples: List<Pair<Long, Double>>
+    ): List<Pair<Long, Double>> {
+        val state = requireState()
+        val weights = state.optJSONArray("bodyWeights")
+            ?: JSONArray().also { state.put("bodyWeights", it) }
+        val zone = ZoneId.systemDefault()
+        // Una muestra por día: la más reciente.
+        val byDay = mutableMapOf<String, Pair<Long, Double>>()
+        for ((millis, kg) in samples) {
+            if (!(kg.isFinite() && kg > 0)) continue
+            val day = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate().toString()
+            val existing = byDay[day]
+            if (existing == null || millis > existing.first) byDay[day] = millis to kg
+        }
+        var changed = false
+        for ((day, sample) in byDay) {
+            var foundIndex = -1
+            var foundMillis = 0L
+            var foundKg = 0.0
+            for (i in 0 until weights.length()) {
+                val entry = weights.optJSONObject(i) ?: continue
+                if (entry.optString("date").take(10) == day) {
+                    foundIndex = i
+                    foundMillis = runCatching {
+                        Instant.parse(entry.optString("date")).toEpochMilli()
+                    }.getOrDefault(0L)
+                    foundKg = entry.optDouble("weightKg")
+                    break
+                }
+            }
+            if (foundIndex >= 0) {
+                if (sample.first > foundMillis ||
+                    (kotlin.math.abs(sample.first - foundMillis) < 1000 &&
+                        kotlin.math.abs(sample.second - foundKg) >= 0.05)) {
+                    val entry = weights.getJSONObject(foundIndex)
+                    entry.put("date", Instant.ofEpochMilli(sample.first).toString())
+                    entry.put("weightKg", sample.second)
+                    entry.put("source", "health")
+                    changed = true
+                }
+            } else {
+                weights.put(JSONObject()
+                    .put("id", UUID.randomUUID().toString())
+                    .put("date", Instant.ofEpochMilli(sample.first).toString())
+                    .put("weightKg", sample.second)
+                    .put("source", "health"))
+                changed = true
+            }
+        }
+        // Orden descendente como iOS tras la fusión.
+        if (changed) {
+            val sorted = (0 until weights.length())
+                .map { weights.getJSONObject(it) }
+                .sortedByDescending { runCatching {
+                    Instant.parse(it.optString("date")).toEpochMilli()
+                }.getOrDefault(0L) }
+            while (weights.length() > 0) weights.remove(0)
+            sorted.forEach { weights.put(it) }
+            save(state)
+        }
+        // Días solo en Repera → Salud.
+        val localOnly = mutableListOf<Pair<Long, Double>>()
+        for (i in 0 until weights.length()) {
+            val entry = weights.optJSONObject(i) ?: continue
+            val day = entry.optString("date").take(10)
+            if (byDay.containsKey(day)) continue
+            val millis = runCatching {
+                Instant.parse(entry.optString("date")).toEpochMilli()
+            }.getOrNull() ?: continue
+            val kg = entry.optDouble("weightKg")
+            if (kg > 0) localOnly.add(millis to kg)
+        }
+        return localOnly
+    }
+
     @Synchronized fun deleteBodyWeight(id: String) {
         val state = requireState()
         val weights = state.optJSONArray("bodyWeights") ?: return

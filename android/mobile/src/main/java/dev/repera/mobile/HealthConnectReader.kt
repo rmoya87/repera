@@ -9,6 +9,7 @@ import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
+import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
@@ -53,7 +54,9 @@ class HealthConnectReader(private val context: Context) {
             HealthPermission.getReadPermission(SleepSessionRecord::class),
             HealthPermission.getReadPermission(
                 HeartRateVariabilityRmssdRecord::class),
-            HealthPermission.getReadPermission(RestingHeartRateRecord::class)
+            HealthPermission.getReadPermission(RestingHeartRateRecord::class),
+            HealthPermission.getReadPermission(WeightRecord::class),
+            HealthPermission.getWritePermission(WeightRecord::class)
         )
 
         /** Health Connect EXERCISE_TYPE_* → claves de HealthMuscleMapper
@@ -309,5 +312,38 @@ class HealthConnectReader(private val context: Context) {
                     30.0..130.0, beforeMorning = true))
         }
         return RecoveryRead(nights = nights, vitals = vitals)
+    }
+
+    /** Muestras de peso corporal, más reciente primero
+     *  (fetchAllBodyMassSamples de iOS). */
+    suspend fun readBodyMass(): List<Pair<Long, Double>> {
+        check(available()) { "Health Connect no está disponible en este dispositivo" }
+        val client = HealthConnectClient.getOrCreate(context)
+        val granted = client.permissionController.getGrantedPermissions()
+        if (!granted.contains(HealthPermission.getReadPermission(
+                WeightRecord::class))) return emptyList()
+        val response = client.readRecords(ReadRecordsRequest(
+            WeightRecord::class,
+            TimeRangeFilter.between(Instant.EPOCH, Instant.now())))
+        return response.records.map {
+            it.time.toEpochMilli() to it.weight.inKilograms
+        }.sortedByDescending { it.first }
+    }
+
+    /** Escribe un peso en Salud (saveBodyMass de iOS). */
+    suspend fun saveBodyMass(kg: Double, epochMillis: Long) {
+        check(available()) { "Health Connect no está disponible en este dispositivo" }
+        val client = HealthConnectClient.getOrCreate(context)
+        val granted = client.permissionController.getGrantedPermissions()
+        require(granted.contains(HealthPermission.getWritePermission(
+            WeightRecord::class))) { "Falta el permiso de escritura de peso" }
+        val instant = Instant.ofEpochMilli(epochMillis)
+        val offset = ZoneId.systemDefault().rules.getOffset(instant)
+        client.insertRecords(listOf(WeightRecord(
+            time = instant, zoneOffset = offset,
+            weight = androidx.health.connect.client.units.Mass.kilograms(kg),
+            metadata = androidx.health.connect.client.records.metadata
+                .Metadata.manualEntry()
+        )))
     }
 }

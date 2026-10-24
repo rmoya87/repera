@@ -451,6 +451,21 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 recoveryRead = withContext(Dispatchers.IO) {
                     runCatching { reader.readRecovery(45) }.getOrNull()
                 }
+                // Sincronización bidireccional de peso como iOS:
+                // Salud → local y días solo locales → Salud.
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        val samples = reader.readBodyMass()
+                        if (samples.isNotEmpty()) {
+                            val repo = WorkoutRepository(
+                                this@MainActivity, profile?.uniqueId ?: return@runCatching)
+                            val localOnly = repo.mergeHealthBodyWeights(samples)
+                            localOnly.forEach { (millis, kg) ->
+                                runCatching { reader.saveBodyMass(kg, millis) }
+                            }
+                        }
+                    }
+                }
                 profile?.let { reloadFor(it.uniqueId) }
                 status = null
             } catch (error: Exception) {
