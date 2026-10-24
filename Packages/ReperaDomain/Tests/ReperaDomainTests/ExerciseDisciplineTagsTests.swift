@@ -32,7 +32,7 @@ final class ExerciseDisciplineTagsTests: XCTestCase {
     func testGymnasticMovementsAlsoAppearInCrossFitWithoutCloning() {
         check("Toes to bar", includes: ["Gimnasia", "CrossFit"])
         check("Muscle-up barra", includes: ["Gimnasia", "CrossFit"])
-        check("Box Jump Over", includes: ["CrossFit", "Gimnasia"])
+        check("Box jump over", includes: ["CrossFit", "Gimnasia"])
         check("Burpee", includes: ["CrossFit", "Gimnasia"])
 
         let gymnastics = Catalog.seed().filter { $0.sportTag == "Gimnasia" }
