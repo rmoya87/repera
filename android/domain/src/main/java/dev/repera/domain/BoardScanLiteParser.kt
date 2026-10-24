@@ -1,0 +1,516 @@
+package dev.repera.domain
+
+import java.util.Locale
+
+/**
+ * Parser mínimo de pizarra: cabeceras + líneas tipadas vía
+ * CrossFitGlossary.parseMovementLine. Port 1:1 de BoardScanLiteParser.swift
+ * (ReperaDomain). Sin parser pesado / hilos / IA. Objetivo: nunca bloquear.
+ */
+object BoardScanLiteParser {
+
+    data class Output(
+        val blocks: List<RoutineBlock>,
+        val lines: List<BoardImportLine>
+    )
+
+    private class Current(
+        var header: String,
+        val format: WODFormat,
+        val cap: Int?,
+        val rounds: Int?,
+        val interval: Int?,
+        val body: MutableList<String>
+    )
+
+    fun parse(ocrText: String, catalog: List<CatalogExercise> = emptyList(),
+              searchAliases: Map<String, String> = emptyMap()): Output {
+        val rawLines = normalizeOCRNoise(ocrText)
+            .split('\n')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+
+        val blocks = mutableListOf<RoutineBlock>()
+        var sectionTitle: String? = null
+        var intervalDescription: String? = null
+        var current: Current? = null
+
+        fun flush() {
+            val cur = current ?: return
+            val structured = structuredIntervalComplex(
+                cur.header, cur.body, cur.interval, cur.cap, cur.rounds, catalog, searchAliases
+            ) ?: structuredStrength(
+                cur.header, cur.body, cur.interval, cur.cap, cur.rounds, catalog
+            )
+            if (structured != null) {
+                blocks.add(structured)
+                current = null
+                return
+            }
+            val block = RoutineBlock.wod(
+                format = cur.format,
+                title = if (cur.header.isEmpty()) cur.format.raw else cur.header
+            )
+            block.timeCapMinutes = cur.cap
+            // El TC pertenece al bloque entero; no crear rondas por defecto.
+            block.rounds = if (cur.format == WODFormat.FOR_TIME) cur.rounds
+                else (cur.rounds ?: block.rounds)
+            if (cur.format == WODFormat.EMOM) {
+                block.emomIntervalSeconds = cur.interval ?: 60
+            }
+            block.movements = cur.body.filter { line ->
+                val upper = line.uppercase(Locale.ROOT)
+                !upper.contains("CAP: 4 INTERVALOS") &&
+                    !upper.startsWith("REALIZA AMBOS") &&
+                    !upper.startsWith("NO TOUCH")
+            }.map { movement(it, searchAliases) }
+            capture("(?i)(\\d+)\\s*MIN\\s*ON.*?(\\d+)\\s*MIN\\s*OFF", cur.header)?.let { values ->
+                if (values.size == 2) {
+                    val work = values[0].toIntOrNull()
+                    val rest = values[1].toIntOrNull()
+                    if (work != null && rest != null) {
+                        block.workSeconds = work * 60
+                        block.restSeconds = rest * 60
+                    }
+                }
+            }
+            // 'REST BTWN' describe el descanso *entre* pasadas, no un ejercicio
+            // extra al final de la última. Se preserva la anotación original.
+            if (cur.format == WODFormat.FOR_TIME) {
+                val toRemove = mutableListOf<Int>()
+                for (position in cur.body.indices.reversed()) {
+                    val upper = cur.body[position].uppercase(Locale.ROOT)
+                    if (upper.contains("BTWN") || upper.contains("BETWEEN") ||
+                        upper.contains("ENTRE RONDAS")) {
+                        if (position in block.movements.indices &&
+                            block.movements[position].isRest) {
+                            block.restBetweenRoundsSeconds =
+                                block.movements[position].restSeconds
+                            toRemove.add(position)
+                        }
+                    }
+                }
+                if (toRemove.isNotEmpty()) {
+                    block.movements = block.movements
+                        .filterIndexed { index, _ -> index !in toRemove }
+                }
+                if (block.restBetweenRoundsSeconds == null) {
+                    block.movements.firstOrNull { it.isRest }?.let {
+                        block.restBetweenRoundsSeconds = it.restSeconds
+                    }
+                }
+            }
+            block.wodNotes = (listOf(cur.header) + cur.body).joinToString("\n")
+            block.deriveEmomRoundsIfNeeded()
+            blocks.add(block)
+            current = null
+        }
+
+        for (line in rawLines) {
+            val upper = line.uppercase(Locale.ROOT)
+            if (upper == "METCON" || upper.startsWith("WEIGHTLIFTING") ||
+                upper == "PULLING STRENGTH & POWER") {
+                flush()
+                sectionTitle = line
+                continue
+            }
+            if (upper.contains("INTERVALOS DE") && upper.contains("ON") &&
+                upper.contains("OFF")) {
+                intervalDescription = line
+                continue
+            }
+            val header = detectHeader(line)
+            if (header != null) {
+                flush()
+                val title = listOfNotNull(sectionTitle, intervalDescription, header.title)
+                    .joinToString(" · ")
+                current = Current(title, header.format, header.cap, header.rounds,
+                    header.interval, mutableListOf())
+                sectionTitle = null
+                intervalDescription = null
+            } else if (isQualityAnnotation(line)) {
+                // Vision puede separar «EMOM 9' @FOR QUALITY» en @FOR + QUALITY.
+                val cur = current
+                if (cur != null && !cur.header.uppercase(Locale.ROOT).contains("QUALITY")) {
+                    cur.header = if (cur.header.uppercase(Locale.ROOT).endsWith("@FOR"))
+                        cur.header + " QUALITY" else cur.header + " · FOR QUALITY"
+                }
+            } else if (current != null) {
+                current!!.body.add(line)
+            } else {
+                current = Current("Añadir entreno", WODFormat.CHIPPER, null, null, null,
+                    mutableListOf(line))
+            }
+        }
+        flush()
+
+        var outBlocks: List<RoutineBlock> = blocks
+        if (outBlocks.isEmpty() && rawLines.isNotEmpty()) {
+            val block = RoutineBlock.wod(format = WODFormat.CHIPPER, title = "Añadir entreno")
+            block.movements = rawLines.map { movement(it, searchAliases) }
+            block.wodNotes = ocrText
+            outBlocks = listOf(block)
+        }
+
+        // Match catálogo por nombre canónico.
+        if (catalog.isNotEmpty()) {
+            val index = mutableMapOf<String, CatalogExercise>()
+            for (ex in catalog) index.putIfAbsent(norm(ex.name), ex)
+            outBlocks = outBlocks.map { block ->
+                block.movements = block.movements.map { move ->
+                    if (move.isRest) return@map move
+                    val canonical = SportExerciseNames.canonicalName(
+                        CrossFitGlossary.canonicalName(move.name, searchAliases)
+                    )
+                    val keys = listOf(norm(move.name), norm(canonical))
+                    val ex = keys.firstNotNullOfOrNull { index[it] }
+                    if (ex != null) {
+                        move.copy(exerciseId = ex.id, name = ex.name)
+                    } else if (canonical != move.name) {
+                        move.copy(name = canonical)
+                    } else move
+                }
+                // Un único movimiento, una onda de 4 series y «Every 2'×4»:
+                // registrarlo como fuerza editable (no como EMOM de estaciones).
+                val titleUpper = block.title.uppercase(Locale.ROOT)
+                val interval = block.emomIntervalSeconds
+                val move = block.movements.singleOrNull()
+                if (block.wodFormat == WODFormat.EMOM &&
+                    (titleUpper.startsWith("EVERY ") || titleUpper.startsWith("CADA ")) &&
+                    interval != null && interval > 0 &&
+                    move != null && !move.isRest &&
+                    move.exerciseId != null &&
+                    move.repScheme != null && move.repScheme.size == block.rounds) {
+                    val rir = rpeMidpointRIR(move.notes)
+                    val sets = move.repScheme.map {
+                        PlannedSet(targetReps = it, targetWeightKg = move.weightMaleKg,
+                            targetRir = rir)
+                    }
+                    val strength = RoutineBlock.strength(
+                        title = block.title,
+                        exercises = listOf(RoutineExercise(
+                            exerciseId = move.exerciseId, plannedSets = sets))
+                    )
+                    strength.emomIntervalSeconds = interval
+                    strength.timeCapMinutes = block.timeCapMinutes
+                    strength.wodNotes = block.wodNotes
+                    return@map strength
+                }
+                block
+            }
+        }
+
+        val byExerciseID = catalog.associate { it.id to it.name }
+        val lines: List<BoardImportLine> = outBlocks.flatMap { block ->
+            if (block.kind == RoutineBlockKind.STRENGTH) {
+                block.exercises.map { ex ->
+                    BoardImportLine(
+                        raw = block.wodNotes ?: "",
+                        matchedExerciseId = ex.exerciseId,
+                        matchedName = byExerciseID[ex.exerciseId],
+                        sets = ex.plannedSets.size,
+                        reps = ex.plannedSets.firstOrNull()?.targetReps ?: 1
+                    )
+                }
+            } else {
+                block.movements.filter { !it.isRest }.map { move ->
+                    BoardImportLine(
+                        raw = move.summaryLine,
+                        matchedExerciseId = move.exerciseId,
+                        matchedName = move.name,
+                        sets = 1,
+                        reps = move.reps ?: move.repScheme?.firstOrNull() ?: 1
+                    )
+                }
+            }
+        }
+
+        return Output(blocks = outBlocks, lines = lines)
+    }
+
+    // MARK: - Internals
+
+    private class Header(
+        val title: String,
+        val format: WODFormat,
+        val cap: Int?,
+        val rounds: Int? = null,
+        val interval: Int? = null
+    )
+
+    /** Vision a menudo pega tokens (`4RFf`, `8BOB`) o lee T→F (`RFF`). */
+    fun normalizeOCRNoise(text: String): String = text
+        .replace("’", "'").replace("′", "'").replace("‘", "'")
+        .replace("×", "X")
+        // 4RFf / 4RFF / 4RFT → "4 RFT"
+        .replace(Regex("(\\d+)\\s*RF[TF]\\b", RegexOption.IGNORE_CASE), "$1 RFT")
+        // TC12 / TC12? → TC 12
+        .replace(Regex("\\bTC\\s*[:=]?\\s*(\\d+)", RegexOption.IGNORE_CASE), "TC $1")
+        // 10BBJO / 10BBJ0 (Vision confunde O y 0) → "10 BBJO"
+        .replace(Regex("(\\d+)\\s*BBJ[O0]\\b", RegexOption.IGNORE_CASE), "$1 BBJO")
+        // 8BOB / 8BFB → "8 BOB"
+        .replace(Regex("(\\d+)(BOB|BFB)\\b", RegexOption.IGNORE_CASE), "$1 $2")
+        // EVERY2'X4 → EVERY 2' X 4
+        .replace(Regex("\\b(EVERY|CADA)\\s*(\\d+)\\s*'?\\s*X\\s*(\\d+)\\b",
+            RegexOption.IGNORE_CASE), "$1 $2' X $3")
+
+    /** Metadatos breves de calidad, incluso cuando el OCR corta «@FOR QUALITY». */
+    fun isQualityAnnotation(line: String): Boolean {
+        val normalized = line.uppercase(Locale.ROOT)
+            .trim()
+            .trim(' ', '@', ':', '.', '-')
+            .replace(Regex("\\s+"), " ")
+        return setOf("QUALITY", "FOR QUALITY", "FQ", "RFQ", "FOR").contains(normalized)
+    }
+
+    private fun detectHeader(line: String): Header? {
+        val upper = line.uppercase(Locale.ROOT)
+            .replace("’", "'").replace("′", "'").replace("×", "X")
+
+        if (Regex("^\\d+\\s+ROUNDS?\\s+(?:FOR\\s+QUALITY|RFQ)\\b").containsMatchIn(upper)) {
+            return Header(line, WODFormat.ROUNDS_FOR_QUALITY, null, rounds = firstInt(upper))
+        }
+        capture("(?i)^EVERY\\s+(\\d+)\\s*S\\s+FOR\\s+(\\d+)\\s*MIN", line)?.let { values ->
+            if (values.size == 2) {
+                val seconds = values[0].toIntOrNull()
+                val minutes = values[1].toIntOrNull()
+                if (seconds != null && minutes != null) {
+                    val rounds = capture("(?i)\\((\\d+)\\s*(?:SERIES|RONDAS?)\\)", line)
+                        ?.firstOrNull()?.toIntOrNull()
+                    return Header(line, WODFormat.EMOM, minutes, rounds, seconds)
+                }
+            }
+        }
+        if (upper.startsWith("EMOM")) {
+            val mins = firstInt(upper) ?: 10
+            return Header(line, WODFormat.EMOM, mins)
+        }
+        if (upper.startsWith("AMRAP")) {
+            val mins = firstInt(upper) ?: 10
+            return Header(line, WODFormat.AMRAP, mins)
+        }
+        // 4 RFT (TC 12') — también OCR «4RFf(TC 12?» (T leída como F).
+        val rftMatch = Regex("^\\d+\\s*RF[TF]\\b").find(upper)
+        if (rftMatch != null || upper.startsWith("RFT") || upper.startsWith("RFF") ||
+            upper.contains("FOR TIME")) {
+            // El número de TC 14' es un límite de TIEMPO del bloque completo.
+            val rounds = rftMatch?.let { firstInt(it.value) }
+                ?: Regex("^\\s*(\\d+)\\s+ROUNDS?\\b").find(upper)
+                    ?.let { firstInt(it.value) }
+            val timeCap = Regex("(?:TC|TIME\\s*CAP|CAP)\\s*[:=]?\\s*\\d+").find(upper)
+                ?.let { firstInt(it.value) }
+            val altCap = capture("(?i)(\\d+)\\s*MIN\\s*CAP", line)
+                ?.firstOrNull()?.toIntOrNull()
+            val title = if (rftMatch != null)
+                line.replace(Regex("(\\d+)\\s*RF[TF]\\b", RegexOption.IGNORE_CASE), "$1 RFT")
+            else line
+            return Header(title, WODFormat.FOR_TIME, timeCap ?: altCap, rounds)
+        }
+        if (upper.contains("TABATA")) {
+            return Header(line, WODFormat.TABATA, null)
+        }
+        // Every 90" x 6 (segundos), Every 2' x 4 (minutos), o Every 2 x 4.
+        capture("(?i)^(?:EVERY|CADA)\\s+(\\d+)\\s*(\"|''?|S\\b|SEC(?:ONDS?)?\\b|MIN(?:UTES?)?\\b)?\\s*X\\s*(\\d+)\\b",
+            line)?.let { fields ->
+            if (fields.size == 2 || fields.size == 3) {
+                val amount = fields[0].toIntOrNull()
+                val count = fields.last().toIntOrNull()
+                if (amount != null && count != null && amount > 0 && count > 0 && count <= 200) {
+                    val unit = if (fields.size == 3) fields[1].uppercase(Locale.ROOT) else ""
+                    val isSeconds = unit == "\"" || unit == "S" || unit.startsWith("SEC")
+                    val intervalSeconds = if (isSeconds) amount else amount * 60
+                    return Header(
+                        line, WODFormat.EMOM,
+                        cap = (intervalSeconds * count + 59) / 60,
+                        rounds = count, interval = intervalSeconds
+                    )
+                }
+            }
+        }
+        if (upper.startsWith("EVERY") || upper.startsWith("CADA")) {
+            val value = firstInt(upper) ?: 1
+            if (upper.contains("SEC") || upper.contains("\"")) {
+                return Header(line, WODFormat.EMOM, null, interval = value)
+            }
+            return Header(line, WODFormat.EMOM, null, interval = value * 60)
+        }
+        return null
+    }
+
+    private fun capture(pattern: String, from: String): List<String>? {
+        val regex = Regex(pattern)
+        val match = regex.find(from) ?: return null
+        return match.groups.drop(1).mapNotNull { it?.value }
+    }
+
+    /** Complejo de halterofilia por ronda: cada movimiento se repite en CADA
+     * intervalo, p.ej. 90" × 6. No es un circuito de estaciones alternas. */
+    private fun structuredIntervalComplex(
+        header: String, lines: List<String>, interval: Int?,
+        cap: Int?, rounds: Int?, catalog: List<CatalogExercise>,
+        searchAliases: Map<String, String>
+    ): RoutineBlock? {
+        val headerUpper = header.uppercase(Locale.ROOT)
+        if (!(headerUpper.startsWith("EVERY") || headerUpper.startsWith("CADA")) ||
+            !header.contains("@") ||
+            interval == null || interval <= 0 ||
+            rounds == null || rounds !in 2..30 ||
+            lines.size < 2) return null
+
+        val index = mutableMapOf<String, CatalogExercise>()
+        for (ex in catalog) index.putIfAbsent(norm(ex.name), ex)
+        val rir = rpeMidpointRIR(header)
+        val items = mutableListOf<RoutineExercise>()
+        for (line in lines) {
+            val move = movement(line, searchAliases)
+            if (move.isRest || move.reps != 1 || move.repScheme != null ||
+                move.distanceMeters != null || move.calories != null) return null
+            val canonical = SportExerciseNames.canonicalName(
+                CrossFitGlossary.canonicalName(move.name, searchAliases)
+            )
+            val exercise = index[norm(canonical)] ?: index[norm(move.name)] ?: return null
+            val sets = (0 until rounds).map {
+                PlannedSet(targetReps = 1, targetWeightKg = move.weightMaleKg, targetRir = rir)
+            }
+            items.add(RoutineExercise(exerciseId = exercise.id, plannedSets = sets))
+        }
+        val block = RoutineBlock.strength(title = header, exercises = items)
+        block.emomIntervalSeconds = interval
+        block.timeCapMinutes = cap
+        block.wodNotes = (listOf(header) + lines).joinToString("\n")
+        return block
+    }
+
+    private fun structuredStrength(
+        header: String, lines: List<String>, interval: Int?,
+        cap: Int?, rounds: Int?, catalog: List<CatalogExercise>
+    ): RoutineBlock? {
+        if (lines.any {
+                val u = it.uppercase(Locale.ROOT)
+                u.contains("SQUAT SNATCH") && u.contains("SETS")
+            }) {
+            val plan = mutableMapOf<Int, PlannedSet>()
+            for (line in lines) {
+                val fields = capture(
+                    "(?i)SETS?\\s*(\\d+)\\s*[-–]\\s*(\\d+)\\s*:\\s*(\\d+)\\s+SQUAT\\s+SNATCH\\s*#?\\s*>?\\s*(\\d+)\\s*%",
+                    line) ?: continue
+                if (fields.size != 4) continue
+                val start = fields[0].toIntOrNull() ?: continue
+                val end = fields[1].toIntOrNull() ?: continue
+                val reps = fields[2].toIntOrNull() ?: continue
+                val percent = fields[3].toDoubleOrNull() ?: continue
+                if (start <= 0 || end > 30 || start > end) continue
+                for (index in start..end) {
+                    plan[index] = PlannedSet(
+                        targetReps = reps, targetPercent1RM = percent,
+                        targetPercent1RMIsMinimum = line.contains("#>")
+                    )
+                }
+            }
+            val expected = rounds ?: plan.size
+            val exercise = catalog.firstOrNull {
+                ExerciseEquivalence.sameName(it.name, "Arrancada")
+            }
+            if (expected <= 0 || plan.size != expected || exercise == null) return null
+            val sets = (1..expected).mapNotNull { plan[it] }
+            if (sets.size != expected) return null
+            val block = RoutineBlock.strength(
+                title = header,
+                exercises = listOf(RoutineExercise(exerciseId = exercise.id, plannedSets = sets))
+            )
+            block.emomIntervalSeconds = interval
+            block.timeCapMinutes = cap
+            block.wodNotes = (listOf(header) + lines).joinToString("\n")
+            return block
+        }
+        val a = lines.firstOrNull { it.uppercase(Locale.ROOT).startsWith("A:") }
+        val b = lines.firstOrNull { it.uppercase(Locale.ROOT).startsWith("B:") }
+        if (a == null || b == null || rounds == null || rounds <= 0 || rounds > 30) return null
+        val left = capture("(?i)^A:\\s*(\\d+)\\s+(.+)$", a)
+        val right = capture("(?i)^B:\\s*(\\d+)\\s+(.+)$", b)
+        if (left == null || right == null || left.size != 2 || right.size != 2) return null
+        val lReps = left[0].toIntOrNull() ?: return null
+        val rReps = right[0].toIntOrNull() ?: return null
+        val pull = catalog.firstOrNull {
+            CrossFitGlossary.normalize(it.name) == CrossFitGlossary.normalize("Dominadas lastradas")
+        } ?: return null
+        val row = catalog.firstOrNull {
+            CrossFitGlossary.normalize(it.name) ==
+                CrossFitGlossary.normalize("Remo pliométrico en anillas pies elevados")
+        } ?: return null
+        val percent = capture("#\\s*(\\d+)\\s*%", left[1])?.firstOrNull()?.toDoubleOrNull()
+        val block = RoutineBlock.strength(title = header, exercises = listOf(
+            RoutineExercise(exerciseId = pull.id,
+                plannedSets = (0 until rounds).map {
+                    PlannedSet(targetReps = lReps, targetPercent1RM = percent)
+                }),
+            RoutineExercise(exerciseId = row.id,
+                plannedSets = (0 until rounds).map {
+                    PlannedSet(targetReps = rReps)
+                })
+        ))
+        block.emomIntervalSeconds = interval
+        block.timeCapMinutes = cap
+        block.wodNotes = (listOf(header) + lines).joinToString("\n")
+        return block
+    }
+
+    /** RPE 6–8 es un rango de esfuerzo: punto medio RPE 7 (≈ RIR 3) editable. */
+    private fun rpeMidpointRIR(notes: String?): Double? {
+        if (notes == null) return null
+        val match = Regex("(?:RPE|@)\\s*(\\d+(?:[.,]\\d+)?)\\s*[-–]\\s*(\\d+(?:[.,]\\d+)?)")
+            .find(notes) ?: return null
+        val numbers = match.value.split(Regex("[^0-9.,]+"))
+            .mapNotNull { it.replace(",", ".").toDoubleOrNull() }
+        if (numbers.size != 2) return null
+        return Effort.toRIR((numbers[0] + numbers[1]) / 2, "rpe")
+    }
+
+    private fun movement(line: String, searchAliases: Map<String, String>): WODMovement {
+        var working = line
+        val notes = mutableListOf<String>()
+        Regex("@\\s*\\d+(?:[.,]\\d+)?\\s*[-–]\\s*\\d+(?:[.,]\\d+)?").find(working)?.let { rpe ->
+            notes.add("RPE " + rpe.value.replace("@", "").trim())
+            working = working.removeRange(rpe.range)
+        }
+        // Alternativas de escala "3 BMU / 6 C2B / 9 Pull-ups" o "40 DU / 80 SU".
+        // El slash con espacios NO representa carga H/M.
+        var scaleAlternative: String? = null
+        val caloriePair = Regex("^\\s*\\d+\\s*/\\s*\\d+\\s*CALS?(?:ORIES)?\\b",
+            RegexOption.IGNORE_CASE).containsMatchIn(working)
+        // «20 / 16 CAL» sigue siendo objetivo H/M aunque OCR añada espacios.
+        val alternatives = if (caloriePair) listOf(working) else working.split(" / ")
+        if (alternatives.size >= 2) {
+            working = alternatives[0].trim()
+            scaleAlternative = alternatives.drop(1)
+                .joinToString(" / ") { CrossFitGlossary.expand(it.trim()) }
+        }
+        val parsed = CrossFitGlossary.parseMovementLine(working, searchAliases)
+        if (parsed.isRest) {
+            return WODMovement(name = "REST", isRest = true, restSeconds = parsed.restSeconds)
+        }
+        val allNotes = notes + listOfNotNull(parsed.equipmentNote)
+        return WODMovement(
+            name = parsed.name,
+            reps = parsed.reps,
+            repScheme = parsed.repScheme,
+            distanceMeters = parsed.distanceMeters,
+            calories = parsed.calories,
+            weightMaleKg = parsed.weightMaleKg,
+            weightFemaleKg = parsed.weightFemaleKg,
+            scaleAlternative = scaleAlternative,
+            notes = if (allNotes.isEmpty()) null else allNotes.joinToString(" · ")
+        )
+    }
+
+    private fun firstInt(text: String): Int? {
+        val digits = StringBuilder()
+        for (ch in text) {
+            if (ch.isDigit()) digits.append(ch)
+            else if (digits.isNotEmpty()) break
+        }
+        return digits.toString().toIntOrNull()
+    }
+
+    private fun norm(s: String): String = CrossFitGlossary.normalize(s)
+}
