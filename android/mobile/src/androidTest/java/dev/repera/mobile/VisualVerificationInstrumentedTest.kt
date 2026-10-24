@@ -38,6 +38,7 @@ class VisualVerificationInstrumentedTest {
     private fun save(name: String, bitmap: ImageBitmap) {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
         val dir = File(ctx.externalCacheDir, "screenshots").apply { mkdirs() }
+        android.util.Log.i("VisualVerification", "guardando en ${File(dir, "$name.png").absolutePath}")
         File(dir, "$name.png").outputStream().use { out ->
             bitmap.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, out)
         }
