@@ -58,6 +58,43 @@ class MobilityCatalogInstrumentedTest {
         assertEquals(288, StateOverview.fromBytes(store.read())!!.exercises)
     }
 
+    @Test fun importedIosHyroxStationWithoutCatalogIdDedupesByCanonicalName() {
+        // Fixture: snapshot de una instalación que importó el catálogo iOS, donde
+        // CatalogHyrox.sportRow lleva catalogId=nil. La migración NO debe crear
+        // una segunda estación con UUID v3: deduplica por nombre canónico y
+        // conserva el id importado (las referencias del historial quedan intactas).
+        val account = UUID.randomUUID().toString()
+        CatalogBootstrap.initializeEmptyAccount(context, account)
+        val store = LocalSnapshotStore(context, account)
+        val existing = JSONObject(String(store.read()!!))
+        val catalog = existing.getJSONArray("exercises")
+        for (i in catalog.length() - 1 downTo 0) {
+            val cid = catalog.getJSONObject(i).optString("catalogId")
+            if (cid.startsWith("mobility-") || cid.startsWith("hyrox-")) catalog.remove(i)
+        }
+        assertEquals(196, catalog.length())
+        val importedId = UUID.randomUUID().toString()
+        catalog.put(JSONObject()
+            .put("id", importedId).put("name", "Burpee Broad Jump")
+            .put("isCustom", false).put("muscleGroup", "Piernas")
+            .put("sportTag", "HYROX").put("equipment", "Peso corporal")
+            .put("instructions", JSONArray()))
+        store.write(existing.toString().toByteArray())
+        assertTrue(MobilityCatalogMigration.ensure(context, account))
+        val migrated = JSONObject(String(store.read()!!))
+        val exercises = migrated.getJSONArray("exercises")
+        val broad = (0 until exercises.length()).map { exercises.getJSONObject(it) }
+            .filter { it.optString("name") == "Burpee Broad Jump" }
+        assertEquals("la estación importada no debe duplicarse", 1, broad.size)
+        assertEquals(importedId, broad[0].getString("id"))
+        assertEquals(196 + 82 + 1, exercises.length())
+        val sandbag = (0 until exercises.length()).map { exercises.getJSONObject(it) }
+            .first { it.optString("name") == "Sandbag Lunges" }
+        assertEquals(UUID.nameUUIDFromBytes(
+            "repera:catalog:hyrox-sandbag-lunges".toByteArray(Charsets.UTF_8)).toString(),
+            sandbag.getString("id"))
+    }
+
     @Test fun migrationOfExistingWorkoutsNeverRewritesAthleteHistoryOrCustomExercises() {
         val account = UUID.randomUUID().toString()
         CatalogBootstrap.initializeEmptyAccount(context, account)

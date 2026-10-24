@@ -260,6 +260,23 @@ El CI debe comprobarse en el HEAD actual; sus ejecuciones anteriores no
 certifican commits más recientes.
 
 
+## Corrección del extractor de catálogo y etiquetas de equipo (25/10/2026)
+
+- `extract_catalog.py` replica ahora `SportExerciseNames.spanishAlias` con la
+  tabla `englishToSpanish` completa (originales + inverso de legacy) y el
+  detalle de `CatalogMovilidad.detailedInstructions`; 127 fichas pasan a
+  coincidir con lo que iOS muestra (captions y descripciones curadas).
+- `equipment` de «Colgado pasivo/activo» se alinea con Apple
+  («Barra de dominadas»); la agrupación de filtros y las búsquedas siguen
+  funcionando por normalización de subcadena, y el modo de registro no cambia
+  (Movilidad ⇒ REPS_AND_TIME).
+- Los `catalogId` `hyrox-*` son internos de Android: iOS emite `nil` en
+  `CatalogHyrox.sportRow`, y Android los conserva para derivar UUID v3
+  deterministas entre dispositivos y para deduplicar por `catalogId` o nombre
+  canónico al migrar catálogos importados de iOS. No es una diferencia de
+  experiencia; es identidad estable de datos (cubierto por
+  `importedIosHyroxStationWithoutCatalogIdDedupesByCanonicalName`).
+
 ## Revisión después de los merges de movilidad y HYROX (23/10/2026)
 
 - El branch incorpora mediante `d8961ad` los 39 commits de movilidad de `main`,
