@@ -474,4 +474,27 @@ class WorkoutRepositoryInstrumentedTest {
         org.junit.Assert.assertTrue(root.isNull("activeSession"))
         org.junit.Assert.assertEquals(0, root.getJSONArray("workouts").length())
     }
+
+    @Test fun dayPlusCreatesOneOffRoutineWithScheduledDateAndEmptyStrengthBlock() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val user = UUID.randomUUID().toString()
+        CatalogBootstrap.initializeEmptyAccount(ctx, user)
+        val repo = WorkoutRepository(ctx, user)
+        // Port DayPlusSheet iOS: alta de entreno suelto para un día concreto con
+        // un bloque de fuerza vacío que el editor rellena después.
+        val id = repo.createRoutineFromScan(
+            "Entreno · lunes",
+            listOf(dev.repera.domain.RoutineBlock.strength("Bloque 1")),
+            RoutineSchedule(scheduledDate = "2026-10-26"))
+        assertTrue(id.isNotBlank())
+        val state = JSONObject(String(LocalSnapshotStore(ctx, user).read()!!))
+        val routines = state.getJSONArray("routines")
+        val created = (0 until routines.length()).map { routines.getJSONObject(it) }
+            .single { it.getString("id") == id }
+        assertEquals("2026-10-26", created.getString("scheduledDate"))
+        assertEquals(JSONObject.NULL, created.opt("weekday") ?: JSONObject.NULL)
+        val blocks = created.getJSONArray("blocks")
+        assertEquals(1, blocks.length())
+        assertEquals(0, blocks.getJSONObject(0).getJSONArray("exercises").length())
+    }
 }

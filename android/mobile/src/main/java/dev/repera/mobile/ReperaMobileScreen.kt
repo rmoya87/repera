@@ -82,6 +82,7 @@ fun ReperaMobileScreen(
         RoutineSchedule, Int, Int, Int, List<Int>?) -> Unit,
     onAddWodTemplate: (String) -> Unit,
     onCreateRoutineFromScan: (String, List<dev.repera.domain.RoutineBlock>) -> Unit,
+    onCreateOneOffRoutine: (String, String, (String) -> Unit) -> Unit = { _, _, _ -> },
     centerConnected: Boolean,
     centerLoading: Boolean,
     centerSubmitting: Boolean,
@@ -276,7 +277,15 @@ fun ReperaMobileScreen(
                         onDriveSync = onDriveSync,
                         onExportJson = onExportJson,
                         onSignOut = onSignOut,
-                        onNavigateHome = { navigateTab("inicio") }
+                        onNavigateHome = { navigateTab("inicio") },
+                        onDayPlusCreate = { dayIso, dayName ->
+                            onCreateOneOffRoutine(dayIso, dayName) { newId ->
+                                navController.navigate("rutina/$newId")
+                            }
+                        },
+                        onDayPlusFavorites = { navController.navigate("favoritos") },
+                        onDayPlusTimer = { navController.navigate("temporizador") },
+                        onDayPlusScan = { navController.navigate("escaner") }
                     )
                 }
                 composable("crear") {
@@ -294,6 +303,15 @@ fun ReperaMobileScreen(
                         onDriveSync = onDriveSync,
                         onExportJson = onExportJson,
                         onSignOut = onSignOut
+                    )
+                }
+                composable("favoritos") {
+                    FavoritesHubScreen(
+                        overview = overview,
+                        busy = busy,
+                        activeWorkout = activeWorkout,
+                        onStartRoutine = onStartRoutine,
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable("temporizador") {

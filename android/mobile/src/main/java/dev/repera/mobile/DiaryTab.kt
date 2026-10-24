@@ -49,6 +49,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
@@ -85,9 +86,14 @@ internal fun DiaryTab(
     onExportJson: () -> Unit,
     onSignOut: () -> Unit,
     onNavigateHome: () -> Unit,
+    onDayPlusCreate: (String, String) -> Unit = { _, _ -> },
+    onDayPlusFavorites: () -> Unit = {},
+    onDayPlusTimer: () -> Unit = {},
+    onDayPlusScan: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var diaryDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    var showDayPlus by rememberSaveable { mutableStateOf(false) }
     val routines = overview?.routineEntries.orEmpty()
     val day = LocalDate.parse(diaryDateIso)
     val todays = routines.filter {
@@ -106,7 +112,18 @@ internal fun DiaryTab(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Text("Diario", style = MaterialTheme.typography.headlineMedium) }
+        item {
+            Row(modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("Diario", style = MaterialTheme.typography.headlineMedium)
+                // Menú «＋» del día seleccionado (paridad DayPlusSheet iOS).
+                TextButton(onClick = { showDayPlus = true },
+                    modifier = Modifier.testTag("day_plus_open")) {
+                    Text("＋ Añadir")
+                }
+            }
+        }
         // Programas IA (paridad PlanView iOS): entrada cuando el asistente ha
         // propuesto algún programa mult semana.
         if (aiPrograms.isNotEmpty()) {
@@ -200,5 +217,18 @@ internal fun DiaryTab(
         item {
             AccountSyncCard(busy, syncing, status, overview, onDriveSync, onExportJson, onSignOut)
         }
+    }
+    if (showDayPlus) {
+        val dayName = day.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL,
+            java.util.Locale("es")).replaceFirstChar { it.uppercase() }
+        DayPlusSheet(
+            dayName = dayName,
+            favoriteRoutines = routines.count { it.isFavorite },
+            favoriteTimers = overview?.favoriteTimerCount ?: 0,
+            onCreateWorkout = { showDayPlus = false; onDayPlusCreate(diaryDateIso, dayName) },
+            onOpenFavorites = { showDayPlus = false; onDayPlusFavorites() },
+            onOpenTimer = { showDayPlus = false; onDayPlusTimer() },
+            onScanBoard = { showDayPlus = false; onDayPlusScan() },
+            onDismiss = { showDayPlus = false })
     }
 }

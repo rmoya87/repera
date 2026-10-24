@@ -518,6 +518,15 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onCreateRoutineFromScan = { title, blocks ->
                     runWorkoutAction { createRoutineFromScan(title, blocks) }
                 },
+                onCreateOneOffRoutine = { dayIso, dayName, onCreated ->
+                    var createdId: String? = null
+                    runWorkoutAction(onSuccess = { createdId?.let(onCreated) }) {
+                        createdId = createRoutineFromScan(
+                            "Entreno · " + dayName,
+                            listOf(dev.repera.domain.RoutineBlock.strength("Bloque 1")),
+                            RoutineSchedule(scheduledDate = dayIso))
+                    }
+                },
                 centerConnected = verifiedSupabase != null,
                 centerLoading = centerLoading,
                 centerSubmitting = centerSubmitting,
@@ -1316,6 +1325,7 @@ data class StateOverview(
     val progressByRange: Map<String, ProgressSnapshotData> = emptyMap(),
     val exerciseSessions: Map<String, List<ExerciseSessionHistory.Visit>> = emptyMap(),
     val recovery: RecoveryState? = null,
+    val favoriteTimerCount: Int = 0,
     val chartsByRange: Map<String, dev.repera.domain.ProgressPreparedCharts> = emptyMap()
 ) {
     companion object {
@@ -1599,6 +1609,7 @@ data class StateOverview(
             }
             return StateOverview(
                 recovery = recoveryState,
+                favoriteTimerCount = json.optJSONArray("favoriteTimers")?.length() ?: 0,
                 workouts = workoutTitles.size,
                 workoutsThisWeek = workoutsThisWeek,
                 routines = routineEntries.size,
