@@ -126,6 +126,7 @@ final class RemoteExerciseCatalogStore {
         defer { isRefreshing = false }
 
         do {
+            try Task.checkCancellation()
             // Una sola fila para determinar si hay cambios.
             let versions: [Version] = try await client
                 .from("mobile_exercise_catalog_events")
@@ -145,6 +146,7 @@ final class RemoteExerciseCatalogStore {
 
             // Ventana cerrada por `head`: cambios concurrentes se recogerán después.
             while working.revision < head {
+                try Task.checkCancellation()
                 let events: [Event] = try await client
                     .from("mobile_exercise_catalog_events")
                     .select("id,catalog_key,operation,payload")
@@ -181,6 +183,7 @@ final class RemoteExerciseCatalogStore {
 
             // Guardar el feed completo antes de actualizar la UI: nunca avanzar
             // el cursor solo en memoria y perder actualizaciones tras un cierre.
+            try Task.checkCancellation()
             try await disk.write(working)
             snapshot = working
             if let store, await apply(saved: &working, to: store) {
