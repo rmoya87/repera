@@ -888,6 +888,9 @@ public enum CatalogSpanish {
             "En series largas prioriza profundidad y bloqueo consistentes sobre la velocidad.",
         ],
         "Thruster mancuernas": [
+            "De pie, mancuernas en rack sobre los hombros, pecho alto.",
+            "Squat profundo con talones abajo y mancuernas en rack.",
+            "Al subir, press a bloqueo con las mancuernas sobre la cabeza.",
             "Mancuernas en rack a hombros; squat profundo; al subir press a bloqueo overhead.",
             "Muñecas neutras o palmas al frente; torso alto.",
             "Error típico: arco lumbar al press o cortar profundidad.",
