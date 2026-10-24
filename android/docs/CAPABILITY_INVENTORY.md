@@ -124,3 +124,5 @@ internas cubiertas por el arranque Android.
 - Píxeles: capturas `ReperaVerification` con gate de píxeles reales (el gate
   del mapa demostró detectar un Canvas vacío; reloj apaisado validado por
   inspección de la captura 2400×1080).
+
+> Nota catálogo (24/10): las 288 entradas de iOS NO eran 92 ausentes funcionales: 84 ya llegaban por MobilityCatalogMigration (82 Movilidad + 2 Hyrox, UUID v3 determinista); solo 8 eran genuinamente nuevas (halterofilia). El seed unificado preserva los 196 ids históricos (153 mismo nombre + 43 canonicalizadas vía SportExerciseNames) y comparte el esquema v3 con la migración. Extractor y verificación reproducible en android/tools/. CatalogRefreshMigration refresca campos y renombres en snapshots antiguos sin tocar historial (ids intactos).

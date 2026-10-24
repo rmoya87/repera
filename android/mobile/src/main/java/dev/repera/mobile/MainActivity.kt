@@ -1124,6 +1124,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val (overview, active, bytes) = withContext(Dispatchers.IO) {
             val store = LocalSnapshotStore(this@MainActivity, id)
             MobilityCatalogMigration.ensure(this@MainActivity, id)
+            CatalogRefreshMigration.ensure(this@MainActivity, id)
             val repository = WorkoutRepository(this@MainActivity, id)
             // Recalcula notas persistidas si subió la fórmula (iOS v11).
             runCatching { repository.refreshSessionReviewsIfNeeded() }
