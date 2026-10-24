@@ -1,5 +1,7 @@
 package dev.repera.mobile
 
+import android.net.Uri
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -83,7 +85,7 @@ fun ReperaMobileScreen(
         RoutineSchedule, Int, Int, Int, List<Int>?) -> Unit,
     onAddWodTemplate: (String) -> Unit,
     onCreateRoutineFromScan: (String, List<dev.repera.domain.RoutineBlock>) -> Unit,
-    onCreateOneOffRoutine: (String, String, (String) -> Unit) -> Unit = { _, _, _ -> },
+    onSaveOneOffRoutine: (String, List<RoutineBlockDraft>, String) -> Unit = { _, _, _ -> },
     centerConnected: Boolean,
     centerLoading: Boolean,
     centerSubmitting: Boolean,
@@ -280,9 +282,12 @@ fun ReperaMobileScreen(
                         onSignOut = onSignOut,
                         onNavigateHome = { navigateTab("inicio") },
                         onDayPlusCreate = { dayIso, dayName ->
-                            onCreateOneOffRoutine(dayIso, dayName) { newId ->
-                                navController.navigate("rutina/$newId?fresh=1")
-                            }
+                            // Borrador en memoria (equivalencia iOS DayEditorView):
+                            // nada se persiste hasta Guardar; Volver no deja
+                            // rutina vacía ni consume cuota.
+                            navController.navigate(
+                                "rutina-nueva?fecha=" + dayIso + "&nombre=" +
+                                    Uri.encode("Entreno · " + dayName))
                         },
                         onDayPlusFavorites = { navController.navigate("favoritos") },
                         onDayPlusTimer = { navController.navigate("temporizador") },
@@ -444,18 +449,17 @@ fun ReperaMobileScreen(
                     )
                 }
                 composable(
-                    route = "rutina/{routineId}?fresh={fresh}",
-                    arguments = listOf(
-                        navArgument("routineId") { type = NavType.StringType },
-                        navArgument("fresh") { type = NavType.BoolType; defaultValue = false }
-                    )
+                    route = "rutina/{routineId}",
+                    arguments = listOf(navArgument("routineId") { type = NavType.StringType })
                 ) { backStackEntry ->
                     val routineId = backStackEntry.arguments?.getString("routineId").orEmpty()
-                    val freshFromDayPlus = backStackEntry.arguments?.getBoolean("fresh") ?: false
                     val routine = overview?.routineEntries?.firstOrNull { it.id == routineId }
                     if (routine == null) {
                         LaunchedEffect(Unit) { navController.popBackStack() }
                     } else {
+                        // Editor sobre borrador local (RoutineBlocksEditorScreen):
+                        // solo «Guardar» persiste; «Volver» descarta sin tocar
+                        // la rutina, igual que en iOS.
                         RoutineBlocksEditorScreen(
                             routine = routine,
                             exercises = overview?.exerciseEntries.orEmpty(),
@@ -464,26 +468,45 @@ fun ReperaMobileScreen(
                                 onReplaceRoutineBlocks(routineId, drafts)
                                 navController.popBackStack()
                             },
-                            onBack = {
-                                // Equivalencia iOS (borrador en memoria + Guardar):
-                                // salir sin guardar de una rutina one-off recién
-                                // creada y aún vacía no deja artefactos.
-                                if (freshFromDayPlus &&
-                                    routine.blocks.all { it.entries.isEmpty() }) {
-                                    onDeleteRoutine(routineId)
-                                }
-                                navController.popBackStack()
-                            }
+                            onBack = { navController.popBackStack() }
                         )
-                        // Mismo criterio para el botón físico/gesto de atrás.
-                        BackHandler(enabled = !busy) {
-                            if (freshFromDayPlus &&
-                                routine.blocks.all { it.entries.isEmpty() }) {
-                                onDeleteRoutine(routineId)
-                            }
-                            navController.popBackStack()
-                        }
                     }
+                }
+                composable(
+                    route = "rutina-nueva?fecha={fecha}&nombre={nombre}",
+                    arguments = listOf(
+                        navArgument("fecha") { type = NavType.StringType },
+                        navArgument("nombre") { type = NavType.StringType }
+                    )
+                ) { backStackEntry ->
+                    // DayPlus: alta one-off como borrador puro. La rutina no
+                    // existe en el almacén hasta «Guardar» (persistencia única
+                    // en Guardar, como DayEditorView de iOS); «Volver» —con o
+                    // sin contenido— descarta el borrador íntegro y no consume
+                    // cuota de rutinas. El identificador se reserva al abrir
+                    // para que el estado del borrador sea recuperable durante
+                    // la sesión de edición.
+                    val fecha = backStackEntry.arguments?.getString("fecha").orEmpty()
+                    val nombre = backStackEntry.arguments?.getString("nombre")
+                        .orEmpty().ifBlank { "Entreno" }
+                    val draft = remember(fecha, nombre) {
+                        RoutineEntry(
+                            id = java.util.UUID.randomUUID().toString(),
+                            title = nombre,
+                            supported = true,
+                            scheduledDate = fecha,
+                            blocks = emptyList())
+                    }
+                    RoutineBlocksEditorScreen(
+                        routine = draft,
+                        exercises = overview?.exerciseEntries.orEmpty(),
+                        busy = busy,
+                        onReplace = { drafts ->
+                            onSaveOneOffRoutine(nombre, drafts, fecha)
+                            navController.popBackStack()
+                        },
+                        onBack = { navController.popBackStack() }
+                    )
                 }
                 composable(
                     route = "ejercicio/{exerciseId}",

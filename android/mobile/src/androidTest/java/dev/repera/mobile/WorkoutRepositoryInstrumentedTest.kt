@@ -498,34 +498,62 @@ class WorkoutRepositoryInstrumentedTest {
         assertEquals(0, blocks.getJSONObject(0).getJSONArray("exercises").length())
     }
 
-    @Test fun dayPlusLifecycleCancelSaveAndProcessDeathLeaveNoEmptyArtifacts() {
+    @Test fun dayPlusDraftPersistenceOnlyOnExplicitSave() {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
         val user = UUID.randomUUID().toString()
         CatalogBootstrap.initializeEmptyAccount(ctx, user)
-        // Cancelar: alta one-off que se abandona vacía (equivale a Volver sin
-        // Guardar en iOS, donde el borrador nunca llega a persistirse).
-        val repo = WorkoutRepository(ctx, user)
-        val cancelledId = repo.createRoutineFromScan(
-            "Entreno · lunes",
-            listOf(dev.repera.domain.RoutineBlock.strength("Bloque 1")),
-            RoutineSchedule(scheduledDate = "2026-10-26"))
-        // Guardar: otra one-off que sí recibe contenido.
         val store = LocalSnapshotStore(ctx, user)
         val firstExercise = JSONObject(String(store.read()!!))
             .getJSONArray("exercises").getJSONObject(0).getString("id")
-        val savedId = repo.createRoutine("Entreno · martes", "strength",
-            listOf(RoutineDraftEntry(firstExercise, 8, sets = 3, weightKg = 40.0)),
-            schedule = RoutineSchedule(scheduledDate = "2026-10-27"))
-        // Recreación de Activity/proceso: nueva instancia del repositorio sobre
-        // el mismo snapshot (equivale a reabrir la app) y reconciliación.
+
+        // (a) Rutina vacía PREEXISTENTE (p. ej. heredada de datos antiguos):
+        // es dato legítimo del usuario y NINGUNA carga ni operación la toca.
+        val legacyEmpty = JSONObject()
+            .put("id", "legacy-empty-1")
+            .put("title", "Borrador antiguo")
+            .put("blocks", org.json.JSONArray().put(JSONObject()
+                .put("title", "Bloque 1").put("format", "strength")
+                .put("exercises", org.json.JSONArray())))
+            .put("progression", "off").put("isFavorite", false)
+        val before = JSONObject(String(store.read()!!))
+        before.getJSONArray("routines").put(legacyEmpty)
+        store.write(before.toString().toByteArray())
+        val routinesBefore = before.getJSONArray("routines").length()
+
+        // Recreación de Activity/proceso: nueva instancia del repositorio.
         val reopened = WorkoutRepository(ctx, user)
-        val removed = reopened.reconcileEmptyRoutines()
-        assertEquals(listOf(cancelledId), removed)
-        assertTrue(reopened.reconcileEmptyRoutines().isEmpty())  // idempotente
-        val state = JSONObject(String(store.read()!!))
-        val ids = (0 until state.getJSONArray("routines").length())
-            .map { state.getJSONArray("routines").getJSONObject(it).getString("id") }
-        assertTrue(savedId in ids)
-        assertTrue(cancelledId !in ids)
+        val afterReload = JSONObject(String(store.read()!!))
+        val ids = (0 until afterReload.getJSONArray("routines").length())
+            .map { afterReload.getJSONArray("routines").getJSONObject(it).getString("id") }
+        assertTrue("la vacía preexistente se conserva", "legacy-empty-1" in ids)
+        assertEquals(routinesBefore, afterReload.getJSONArray("routines").length())
+
+        // (b) Cancelar con contenido: el editor trabaja sobre borrador en
+        // memoria y cancelar NO invoca ningún método del repositorio, así que
+        // el almacén queda intacto (sin rutina nueva ni cuota consumida).
+        val discardedDraft = listOf(RoutineBlockDraft(
+            title = "Bloque 1", format = "strength",
+            entries = listOf(RoutineDraftEntry(firstExercise, 8, sets = 3))))
+        // (sin llamada alguna: el borrador se descarta en la UI)
+        val afterCancel = JSONObject(String(store.read()!!))
+        assertEquals(1, discardedDraft.size)
+        assertEquals(routinesBefore, afterCancel.getJSONArray("routines").length())
+
+        // (c) Guardar explícito: única vía de persistencia; crea exactamente
+        // una rutina con la fecha programada y el contenido del borrador.
+        val savedId = reopened.createRoutineFromDrafts(
+            "Entreno · lunes", discardedDraft,
+            RoutineSchedule(scheduledDate = "2026-10-26"))
+        val afterSave = JSONObject(String(store.read()!!))
+        val saved = (0 until afterSave.getJSONArray("routines").length())
+            .map { afterSave.getJSONArray("routines").getJSONObject(it) }
+            .first { it.getString("id") == savedId }
+        assertEquals("Entreno · lunes", saved.getString("title"))
+        assertTrue(saved.getString("scheduledDate").startsWith("2026-10-26"))
+        assertEquals(1, saved.getJSONArray("blocks").length())
+        assertEquals(routinesBefore + 1, afterSave.getJSONArray("routines").length())
+        val idsAfter = (0 until afterSave.getJSONArray("routines").length())
+            .map { afterSave.getJSONArray("routines").getJSONObject(it).getString("id") }
+        assertTrue("legacy-empty-1" in idsAfter)
     }
 }

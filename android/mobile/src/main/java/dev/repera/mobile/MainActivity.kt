@@ -518,12 +518,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onCreateRoutineFromScan = { title, blocks ->
                     runWorkoutAction { createRoutineFromScan(title, blocks) }
                 },
-                onCreateOneOffRoutine = { dayIso, dayName, onCreated ->
-                    var createdId: String? = null
-                    runWorkoutAction(onSuccess = { createdId?.let(onCreated) }) {
-                        createdId = createRoutineFromScan(
-                            "Entreno · " + dayName,
-                            listOf(dev.repera.domain.RoutineBlock.strength("Bloque 1")),
+                onSaveOneOffRoutine = { title, drafts, dayIso ->
+                    runWorkoutAction {
+                        createRoutineFromDrafts(title, drafts,
                             RoutineSchedule(scheduledDate = dayIso))
                     }
                 },
@@ -1137,7 +1134,6 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             val repository = WorkoutRepository(this@MainActivity, id)
             // Artefactos de altas one-off interrumpidas (proceso muerto antes de
             // Guardar): iOS nunca persiste rutinas con todos los bloques vacíos.
-            runCatching { repository.reconcileEmptyRoutines() }
             // Recalcula notas persistidas si subió la fórmula (iOS v11).
             runCatching { repository.refreshSessionReviewsIfNeeded() }
             val bytes = store.read()
