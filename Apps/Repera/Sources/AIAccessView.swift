@@ -418,16 +418,12 @@ struct AIAccessView: View {
                     }
                 } label: {
                     HStack(spacing: 12) {
-                        if provider.id == "chatgpt" {
-                            Image(systemName: "sparkle")
-                                .frame(width: 24)
-                        } else if provider.id == "claude" {
-                            Image(systemName: "asterisk")
-                                .frame(width: 24)
-                        } else {
-                            Image(systemName: "xmark")
-                                .frame(width: 24)
-                        }
+                        Image("AILogo" + (provider.id == "chatgpt" ? "Openai" : provider.id == "claude" ? "Claude" : "Grok"))
+                            .resizable()
+                            .renderingMode(.template)
+                            .scaledToFit()
+                            .frame(width: 22, height: 22)
+                            .accessibilityHidden(true)
                         Spacer(minLength: 0)
                         Text(connectionVerified(for: provider) ? "\(provider.name) conectado" : "Continuar con \(provider.name)").fontWeight(.semibold)
                         Spacer(minLength: 0)
