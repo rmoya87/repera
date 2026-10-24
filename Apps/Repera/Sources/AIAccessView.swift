@@ -392,7 +392,7 @@ struct AIAccessView: View {
                     HStack(spacing: 12) {
                         Image("AILogo" + (provider.id == "chatgpt" ? "Openai" : provider.id == "claude" ? "Claude" : "Grok"))
                             .resizable()
-                            .renderingMode(.template)
+                            .renderingMode(provider.id == "claude" ? .original : .template)
                             .scaledToFit()
                             .frame(width: 22, height: 22)
                             .accessibilityHidden(true)
