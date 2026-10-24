@@ -85,7 +85,7 @@ jobs:
           script: |
             gradle -p android :mobile:connectedDebugAndroidTest --no-daemon --stacktrace
             mkdir -p android/screenshots
-            adb pull /sdcard/Android/data/dev.repera.mobile.test/cache/screenshots android/screenshots/ || true
+            adb pull /sdcard/Android/data/com.app.repera.test/cache/screenshots android/screenshots/ || true
       - name: Explain failing emulator tests
         if: failure()
         run: |
