@@ -48,8 +48,10 @@ internal fun ExerciseDetailScreen(
     exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
         List<ExerciseProgressPoint> = { _, _, _ -> emptyList() },
     highlightSessionId: String? = null,
-    sessionAppearances: (exerciseId: String, highlightSessionId: String) ->
-        Pair<SessionAppearance?, SessionAppearance?> = { _, _ -> null to null },
+    highlightInstanceId: String? = null,
+    sessionAppearances: (exerciseId: String, highlightSessionId: String,
+        instanceId: String?) ->
+        Pair<SessionAppearance?, SessionAppearance?> = { _, _, _ -> null to null },
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -57,8 +59,8 @@ internal fun ExerciseDetailScreen(
     val aliases = remember(context) { ExerciseSearchAssets.load(context) }
     // Bloque «Esta sesión» (paridad ExerciseThisSessionCard iOS): solo al
     // abrir la ficha desde un entreno terminado.
-    val appearancePair = remember(entry.id, highlightSessionId) {
-        highlightSessionId?.let { sessionAppearances(entry.id, it) }
+    val appearancePair = remember(entry.id, highlightSessionId, highlightInstanceId) {
+        highlightSessionId?.let { sessionAppearances(entry.id, it, highlightInstanceId) }
     }
     val thisSessionAppearance = appearancePair?.first
     val priorSessionAppearance = appearancePair?.second

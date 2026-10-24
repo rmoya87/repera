@@ -496,7 +496,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                             .optJSONArray("workouts") ?: org.json.JSONArray(),
                         exerciseId, metric, range)
                 },
-                sessionAppearances = { exerciseId, highlightSessionId ->
+                sessionAppearances = { exerciseId, highlightSessionId, instanceId ->
                     val uid = profile?.uniqueId
                     val bytes = uid?.let { LocalSnapshotStore(this, it).read() }
                     if (bytes == null) {
@@ -511,7 +511,15 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         val highlight = all.firstOrNull {
                             it.optString("id") == highlightSessionId
                         }
-                        val thisAppearance = highlight?.let {
+                        // Scoping por instancia (iOS highlightExerciseInstanceId):
+                        // sin él, dos bloques con el mismo ejercicio mezclarían
+                        // series y scores en «Esta sesión».
+                        val scoped = highlight?.let { session ->
+                            if (instanceId.isNullOrBlank()) session
+                            else ExerciseSessionAppearances.scopedForInstance(
+                                session, instanceId)
+                        }
+                        val thisAppearance = scoped?.let {
                             ExerciseSessionAppearances.appearance(exerciseId, it, catalog)
                         }
                         val prior = ExerciseSessionAppearances.priorAppearances(

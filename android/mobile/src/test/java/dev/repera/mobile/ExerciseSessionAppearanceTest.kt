@@ -114,3 +114,52 @@ class ExerciseSessionAppearanceTest {
         assertTrue(rows.isEmpty())
     }
 }
+
+class SessionInstanceScopingTest {
+
+    private fun ex(id: String, name: String) = JSONObject()
+        .put("id", id).put("name", name)
+
+    private fun set(reps: Int, weight: Double? = null): JSONObject {
+        val s = JSONObject().put("reps", reps)
+        if (weight != null) s.put("weightKg", weight)
+        return s
+    }
+
+    /** Mismo ejercicio prescrito en DOS bloques (iOS highlightExerciseInstanceId):
+     *  la tarjeta «Esta sesión» debe mostrar SOLO la fila pulsada. */
+    @Test fun sameExerciseInTwoBlocksKeepsSelectedInstanceOnly() {
+        val entryA = JSONObject()
+            .put("id", "inst-a").put("blockId", "block-a")
+            .put("exercise", ex("thruster", "Thruster"))
+            .put("loggedSets", JSONArray().put(set(5, 40.0)).put(set(5, 40.0)))
+        val entryB = JSONObject()
+            .put("id", "inst-b").put("blockId", "block-b")
+            .put("exercise", ex("thruster", "Thruster"))
+            .put("loggedSets", JSONArray().put(set(3, 60.0)))
+        val results = JSONArray()
+            .put(JSONObject().put("id", "block-a").put("format", "amrap")
+                .put("totalReps", 100))
+            .put(JSONObject().put("id", "block-b").put("format", "forTime")
+                .put("elapsedSeconds", 300))
+        val session = JSONObject().put("id", "w1").put("title", "Doble thruster")
+            .put("phase", "finished").put("finishedAt", "2026-10-24T10:00:00Z")
+            .put("exercises", JSONArray().put(entryA).put(entryB))
+            .put("wodResults", results)
+
+        val scopedB = ExerciseSessionAppearances.scopedForInstance(session, "inst-b")!!
+        val a = ExerciseSessionAppearances.appearance("thruster", scopedB)!!
+        assertEquals(listOf("60×3"), a.setLines)
+        assertEquals("5:00", a.wodScoreLabel)
+        assertEquals("For Time / RFT", a.wodFormatName)
+
+        val scopedA = ExerciseSessionAppearances.scopedForInstance(session, "inst-a")!!
+        val b = ExerciseSessionAppearances.appearance("thruster", scopedA)!!
+        assertEquals(listOf("40×5", "40×5"), b.setLines)
+        assertEquals("100 reps", b.wodScoreLabel)
+        assertEquals("AMRAP", b.wodFormatName)
+
+        // Instancia inexistente → sin tarjeta (no mezclar).
+        assertNull(ExerciseSessionAppearances.scopedForInstance(session, "inst-x"))
+    }
+}

@@ -89,6 +89,29 @@ object ExerciseSessionAppearances {
             format.capture == ResultCapture.ELAPSED_TIME
     }
 
+    /** Sesión acotada a la instancia pulsada (iOS highlightExerciseInstanceId):
+     *  solo el entry seleccionado y los wodResults de SU bloque, para no
+     *  mezclar series ni scores de dos bloques que prescriben el mismo
+     *  ejercicio. Devuelve null si la instancia no existe en la sesión. */
+    fun scopedForInstance(session: JSONObject, instanceId: String): JSONObject? {
+        val exercises = session.optJSONArray("exercises") ?: return null
+        val selected = (0 until exercises.length())
+            .map { exercises.getJSONObject(it) }
+            .firstOrNull { it.optString("id") == instanceId } ?: return null
+        val copy = JSONObject(session.toString())
+        copy.put("exercises", JSONArray().put(selected))
+        val blockId = selected.optString("blockId").takeIf { it.isNotBlank() }
+        val results = copy.optJSONArray("wodResults") ?: JSONArray()
+        val filtered = JSONArray()
+        if (blockId != null) {
+            (0 until results.length()).map { results.getJSONObject(it) }
+                .filter { it.optString("id") == blockId }
+                .forEach { filtered.put(it) }
+        }
+        copy.put("wodResults", filtered)
+        return copy
+    }
+
     /** Aparición del ejercicio en una sesión (id / nombre). Si el bloque es un
      *  WOD de catálogo (wodTemplateId), la marca es la del WOD global. */
     fun appearance(

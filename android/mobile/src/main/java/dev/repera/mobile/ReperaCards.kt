@@ -1217,7 +1217,7 @@ internal fun WorkoutHistoryCard(
         { _, _, _, _, _, _ -> },
     onDeleteFinishedSet: (String, String, String) -> Unit = { _, _, _ -> },
     onDeleteWorkout: (String) -> Unit = {},
-    onOpenExerciseFromSession: (String, String) -> Unit = { _, _ -> }
+    onOpenExerciseFromSession: (String, String, String) -> Unit = { _, _, _ -> }
 ) {
     var expanded by remember(workout.id) { mutableStateOf(false) }
     var selectedMovement by remember(workout.id) { mutableStateOf<Int?>(null) }
@@ -1278,7 +1278,7 @@ internal fun WorkoutHistoryCard(
                         modifier = Modifier.clickable(enabled = !busy) {
                             if (exercise.catalogExerciseId.isNotBlank())
                                 onOpenExerciseFromSession(exercise.catalogExerciseId,
-                                    workout.id)
+                                    workout.id, exercise.entryId)
                         })
                     if (exercise.registered.isEmpty()) {
                         Text(if (exercise.wod && workout.results.isNotEmpty())

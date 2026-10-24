@@ -97,7 +97,7 @@ internal fun HomeTab(
     onReviseFinishedSet: (String, String, String, Int, Double?, Int?) -> Unit,
     onDeleteFinishedSet: (String, String, String) -> Unit,
     onDeleteWorkout: (String) -> Unit = {},
-    onOpenExerciseFromSession: (String, String) -> Unit = { _, _ -> },
+    onOpenExerciseFromSession: (String, String, String) -> Unit = { _, _, _ -> },
     onNavigateCreate: () -> Unit,
     onDeleteRoutine: (String) -> Unit = {},
     onOpenClock: () -> Unit,
