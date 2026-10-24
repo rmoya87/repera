@@ -1,0 +1,47 @@
+name: Validate splash transparency and facial details
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Apps/Repera/Resources/Assets.xcassets/MascotHero.imageset/**"
+      - "Apps/Repera/Resources/Assets.xcassets/MascotRunning.imageset/**"
+      - ".github/workflows/validate-splash-alpha.yml"
+  pull_request:
+    paths:
+      - "Apps/Repera/Resources/Assets.xcassets/MascotHero.imageset/**"
+      - "Apps/Repera/Resources/Assets.xcassets/MascotRunning.imageset/**"
+      - ".github/workflows/validate-splash-alpha.yml"
+
+jobs:
+  alpha:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install pillow numpy
+      - name: Verify original character and running mascot RGBA
+        run: |
+          python - <<'PY'
+          import json
+          import numpy as np
+          from PIL import Image
+          from pathlib import Path
+          root = Path("Apps/Repera/Resources/Assets.xcassets")
+          for name, filename in [("MascotHero", "mascot-hero.png"), ("MascotRunning", "mascot-running.png")]:
+              folder = root / f"{name}.imageset"
+              cfg = json.loads((folder/"Contents.json").read_text())
+              assert cfg["images"][0]["filename"] == filename
+              im = np.asarray(Image.open(folder/filename).convert("RGBA"))
+              h,w=im.shape[:2]
+              alpha=im[:,:,3]
+              pixels=np.r_[alpha[0],alpha[-1],alpha[:,0],alpha[:,-1]]
+              clear_ratio=np.mean(pixels<10)
+              print(name, "resolution", w,h,"clear_border_ratio",clear_ratio, "transparent_fraction",float(np.mean(alpha<10)))
+              assert clear_ratio>0.98, f"{name}: opaque background at edges"
+              assert np.mean(alpha>245)>0.16, f"{name}: missing solid mascot"
+              for px,py in ((12,12),(w-13,12),(12,h-13),(w-13,h-13)):
+                  assert alpha[py,px]<10, f"{name}: background is not transparent at {(px,py)}"
+              if name=="MascotHero":
+                  for px,py in ((444,381),(606,412),(515,440)):
+                      assert alpha[py,px]==255, f"Transparent facial detail {(px,py)}"
+          PY
