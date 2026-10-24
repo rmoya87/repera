@@ -16,6 +16,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -106,6 +107,49 @@ class VisualVerificationInstrumentedTest {
         }
         compose.waitForIdle()
         save("progreso_actividad_pulso", compose.onRoot().captureToImage())
+    }
+
+    @Test
+    fun capturaRelojWodVerticalYApaisado() {
+        // Reloj WOD a pantalla completa con layout adaptativo (paridad
+        // BlockTimerScreen de iOS). Cronómetro en pausa para que la captura
+        // sea estable (con running=true el LaunchedEffect de tick impediría
+        // waitForIdle).
+        val active = ActiveWorkout(
+            id = "wod-visual", title = "WOD Fran", index = 0, total = 1,
+            exerciseName = "Fran", completedSets = 0,
+            prescribedQuantity = null, prescribedWeightKg = null,
+            allowsWeight = false, sets = emptyList(),
+            wod = WodExecution(
+                format = "amrap", capture = "total_reps", expectsRounds = false,
+                title = "Fran",
+                movements = listOf(
+                    WodMovementSummary(
+                        id = "m1", name = "Thruster", isRest = false,
+                        reps = 21, repScheme = listOf(21, 15, 9),
+                        calories = null, meters = null, restSeconds = null)
+                ),
+                timeCapMinutes = 12
+            )
+        )
+        val timer = WodTimerState(elapsedMillis = 485_000L, running = false)
+        brandContent {
+            WodClockScreen(active, false, timer, {}, {}, {})
+        }
+        compose.waitForIdle()
+        save("reloj_wod_vertical", compose.onRoot().captureToImage())
+
+        brandContent {
+            // Caja 840x400 dp: fuerza la rama apaisada (ancho > alto) para
+            // capturar el layout landscape sin rotar el emulador.
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier.size(840.dp, 400.dp)
+            ) {
+                WodClockScreen(active, false, timer, {}, {}, {})
+            }
+        }
+        compose.waitForIdle()
+        save("reloj_wod_apaisado", compose.onRoot().captureToImage())
     }
 
     @Test
