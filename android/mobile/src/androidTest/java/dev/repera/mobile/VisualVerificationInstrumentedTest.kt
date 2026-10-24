@@ -109,12 +109,7 @@ class VisualVerificationInstrumentedTest {
         save("progreso_actividad_pulso", compose.onRoot().captureToImage())
     }
 
-    @Test
-    fun capturaRelojWodVerticalYApaisado() {
-        // Reloj WOD a pantalla completa con layout adaptativo (paridad
-        // BlockTimerScreen de iOS). Cronómetro en pausa para que la captura
-        // sea estable (con running=true el LaunchedEffect de tick impediría
-        // waitForIdle).
+    private fun wodClockFixture(): Pair<ActiveWorkout, WodTimerState> {
         val active = ActiveWorkout(
             id = "wod-visual", title = "WOD Fran", index = 0, total = 1,
             exerciseName = "Fran", completedSets = 0,
@@ -132,13 +127,27 @@ class VisualVerificationInstrumentedTest {
                 intervalSeconds = 60, rounds = 10
             )
         )
-        val timer = WodTimerState(elapsedMillis = 485_000L, running = false)
+        return active to WodTimerState(elapsedMillis = 485_000L, running = false)
+    }
+
+    // Reloj WOD a pantalla completa con layout adaptativo (paridad
+    // BlockTimerScreen de iOS). Cronómetro en pausa para que la captura
+    // sea estable (con running=true el LaunchedEffect de tick impediría
+    // waitForIdle). Una sola jerarquía por test: createComposeRule no
+    // admite dos setContent en el mismo test.
+    @Test
+    fun capturaRelojWodVertical() {
+        val (active, timer) = wodClockFixture()
         brandContent {
             WodClockScreen(active, false, timer, {}, {}, {})
         }
         compose.waitForIdle()
         save("reloj_wod_vertical", compose.onRoot().captureToImage())
+    }
 
+    @Test
+    fun capturaRelojWodApaisado() {
+        val (active, timer) = wodClockFixture()
         brandContent {
             // Caja 840x400 dp: fuerza la rama apaisada (ancho > alto) para
             // capturar el layout landscape sin rotar el emulador.
@@ -153,11 +162,14 @@ class VisualVerificationInstrumentedTest {
     }
 
     @Test
-    fun capturaTemporizadorConfigYRelojLed() {
+    fun capturaTemporizadorConfig() {
         brandContent { StandaloneTimerScreen(onBack = {}) }
         compose.waitForIdle()
         save("temporizador_config", compose.onRoot().captureToImage())
+    }
 
+    @Test
+    fun capturaTemporizadorRelojLed() {
         brandContent {
             StandaloneClock(
                 title = "Temporizador",

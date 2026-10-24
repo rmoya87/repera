@@ -84,6 +84,10 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - name: Free runner disk for emulator images
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL || true
+          df -h /
       - name: Run real SQLite/JSON workout persistence tests on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -99,6 +103,12 @@ jobs:
           # script en un sh -c distinto, así que un TEST_EXIT en su propia
           # línea se pierde y el paso sale verde aunque fallen los tests.
           script: gradle -p android :mobile:connectedDebugAndroidTest :wear:connectedDebugAndroidTest --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; ls -laR android/screenshots/ || true; OK=1; for f in mobile wear; do X=$(ls android/$f/build/outputs/androidTest-results/connected/debug/TEST-*.xml 2>/dev/null | head -1); if [ -z "$X" ] || ! grep -q 'tests="[1-9]' "$X"; then echo "FALLO HARNESS - 0 tests ejecutados en $f (gradle devolvió $TEST_EXIT)"; OK=0; fi; done; if [ "$OK" = 0 ]; then exit 1; fi; exit $TEST_EXIT
+      - name: Emulator storage diagnostics
+        if: failure()
+        run: |
+          adb shell df -h /data || true
+          adb shell ls -la /data/user/0/com.app.repera/files/ || true
+          adb shell ls -la /data/user/0/com.app.repera/files/users/ || true
       - name: Explain failing emulator tests
         if: failure()
         run: |
