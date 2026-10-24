@@ -14,6 +14,41 @@ import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class RemoteExerciseCatalogInstrumentedTest {
     @Test
+    fun spanishEditorialNamesReuseEnglishSeedUUIDs() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val file = File(context.filesDir, "exercise_catalog_remote_v1.json")
+        val previous = if (file.exists()) file.readBytes() else null
+        val account = "bilingual-catalog-${UUID.randomUUID()}"
+        val id = UUID.randomUUID().toString()
+        val local = LocalSnapshotStore(context, account)
+        local.write(JSONObject()
+            .put("exercises", JSONArray().put(JSONObject()
+                .put("id", id).put("name", "Snatch")
+                .put("muscleGroup", "Piernas").put("sportTag", "Halterofilia")
+                .put("isFavorite", true).put("isCustom", false)))
+            .put("workouts", JSONArray()).put("routines", JSONArray())
+            .put("syncRevision", 1).toString().toByteArray())
+        try {
+            val cache = JSONObject()
+                .put("revision", 1)
+                .put("entries", JSONObject().put("catalog:Arrancada", JSONObject()
+                    .put("name", "Arrancada")
+                    .put("category", "Halterofilia")
+                    .put("is_active", true)))
+                .put("localIDs", JSONObject())
+            file.writeText(cache.toString())
+            assertTrue(RemoteExerciseCatalog(context).applyToAccount(account))
+            val state = JSONObject(String(local.read()!!, Charsets.UTF_8))
+            val entries = state.getJSONArray("exercises")
+            assertEquals("Spanish name must not create an extra exercise", 1, entries.length())
+            assertEquals(id, entries.getJSONObject(0).getString("id"))
+            assertTrue(entries.getJSONObject(0).getBoolean("isFavorite"))
+        } finally {
+            if (previous == null) file.delete() else file.writeBytes(previous)
+        }
+    }
+
+    @Test
     fun remoteUpdateKeepsFavoriteIdentityAndArchivesWithoutDeletingHistory() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val file = File(context.filesDir, "exercise_catalog_remote_v1.json")
