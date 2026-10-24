@@ -52,6 +52,7 @@ final class ExerciseArtCaptionTests: XCTestCase {
             "Ball slam": 3,
             "Broad jump": 3,
             "Jumping lunge": 3,
+            "Burpee al cajón": 3,
             "Jumping squat": 3,
             "Snatch mancuerna": 3,
             "Clean kettlebell": 3,

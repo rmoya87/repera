@@ -948,6 +948,9 @@ public enum CatalogSpanish {
             "Respira en la plancha; no sacrifiques el rango por velocidad.",
         ],
         "Burpee al cajón": [
+            "Fondo del burpee: pecho y muslos al suelo frente al cajon.",
+            "Salta y aterriza sobre el cajon en media sentadilla.",
+            "Bipedestacion completa arriba: cadera y rodillas extendidas.",
             "Burpee completo (pecho al suelo) frente al cajón; luego salto o step-up al cajón y extensión de cadera arriba.",
             "Baja del cajón con control (step-down si hace falta) y repite.",
             "Error típico: no extender cadera sobre el cajón o saltar sin terminar el burpee.",
