@@ -899,6 +899,9 @@ public enum CatalogSpanish {
             "Estándar: squat legal + mancuernas bloqueadas arriba.",
         ],
         "Thruster kettlebell": [
+            "De pie, kettlebell en rack a la altura del hombro, codo pegado.",
+            "Squat profundo con talones abajo y kettlebell en rack.",
+            "Al subir, press a bloqueo con la kettlebell sobre la cabeza.",
             "KB en rack (una o dos); squat completo; al subir enlaza press a overhead hasta bloqueo.",
             "Codos y antebrazos organizan el rack; talones abajo en el fondo.",
             "Error típico: press antes de extender cadera. Primero piernas, luego brazos.",
