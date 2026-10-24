@@ -232,10 +232,12 @@ final class RemoteExerciseCatalogStore {
         var result = current
         var byID: [UUID: Int] = [:]
         var byName: [String: Int] = [:]
+        var byCanonical: [String: Int] = [:]
         var byCatalogID: [String: Int] = [:]
         for (i, ex) in result.enumerated() where !ex.isCustom {
             byID[ex.id] = i
             byName[Self.normalized(ex.name)] = i
+            byCanonical[Self.normalized(SportExerciseNames.canonicalName(ex.name))] = i
             if let id = ex.catalogId { byCatalogID[id] = i }
         }
 
@@ -245,6 +247,7 @@ final class RemoteExerciseCatalogStore {
             let matchedIndex = saved.localIDs[key].flatMap { byID[$0] }
                 ?? remote.nativeCatalogId.flatMap { byCatalogID[$0] }
                 ?? byName[Self.normalized(originalName)]
+                ?? byCanonical[Self.normalized(SportExerciseNames.canonicalName(originalName))]
                 ?? byName[Self.normalized(remote.name)]
             let old = matchedIndex.map { result[$0] }
             let resolvedID = old?.id ?? saved.localIDs[key] ?? Self.stableUUID(for: key)
@@ -298,6 +301,7 @@ final class RemoteExerciseCatalogStore {
             let index = matchedIndex ?? result.count - 1
             byID[resolvedID] = index
             byName[Self.normalized(remote.name)] = index
+            byCanonical[Self.normalized(SportExerciseNames.canonicalName(remote.name))] = index
             if let id = next.catalogId { byCatalogID[id] = index }
         }
         // Las bajas se conservan en la librería interna; UI/pickers las ocultan,
