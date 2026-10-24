@@ -330,13 +330,17 @@ de dominio `WorkoutSession.locationPin` / `routePoints` (Codable, sync
 incluido). Consumidores iOS: `ReperaStore` (start/finish sesión),
 `PlaceSearchSheet` (búsqueda de gym), onboarding (fila Ubicación).
 
-Android: NO existe nada de esto — ni tipos de dominio, ni tracker, ni
-consumidores, ni dependencia de localización. Port planificado dentro del
-alcance autorizado: (1) tipos de dominio + persistencia/sync; (2) tracker
-con `LocationManager` (fused provider, sin nueva dependencia Google Play
-Services); (3) cableado en inicio/fin de sesión con la misma heurística;
-(4) fila Ubicación en el onboarding SOLO cuando la función exista (permiso
-con función); (5) verificación con ubicación SIMULADA de emulador, nunca
-ubicaciones reales del usuario sin autorización. Renderizado del mapa de la
-ruta en el detalle del entreno: sub-gap aparte (iOS usa MapKit; Android
-necesita decisión de componente de mapa).
+Estado 24/10 21:20 — PORTADO en rama (pendiente de CI):
+`WorkoutLocationLogic` de dominio (heurística con plegado diacrítico +
+downsample uniforme, 5 tests JVM), `WorkoutLocationTracker` mobile con
+`LocationManager`/FUSED_PROVIDER (sin dependencia nueva), wiring en
+MainActivity (pin al iniciar con timeout 4s, ruta al terminar, también en el
+cierre desde el reloj), permisos en el manifiesto, fila Ubicación en el
+onboarding, y test instrumentado de round-trip (pin+ruta sobreviven al
+finish; el espejo Supabase sigue sin recibir ubicación, paridad con
+`BusinessWorkoutSyncStore` iOS). Pendiente de verificación: captura real con
+ubicación SIMULADA de emulador (nunca ubicaciones reales del usuario sin
+autorización). Sub-gaps abiertos: (a) `PlaceSearchSheet` — búsqueda manual
+del sitio con proveedor de lugares (iOS usa MapKit; Google Places requiere
+API key y facturación → decisión de coste/cuenta que elevar); (b) mapa de la
+ruta en el detalle del entreno (componente de mapa por elegir).
