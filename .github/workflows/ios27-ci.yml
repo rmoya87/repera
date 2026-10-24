@@ -146,14 +146,14 @@ jobs:
           APP="$RUNNER_TEMP/ReperaDerivedData/Build/Products/Debug-iphonesimulator/Repera.app"
           test -f "$APP/Info.plist" || { echo "::error::Compiled app Info.plist missing"; exit 1; }
           test -f "$APP/Assets.car" || { echo "::error::Asset catalog missing"; exit 1; }
-          test -d "$APP/ReperaNativeLaunch.storyboardc" || {
+          test -d "$APP/ReperaBarbellStartup.storyboardc" || {
             echo "::error::Native launch storyboard was not compiled"; exit 1;
           }
           python3 - "$APP/Info.plist" <<'PY'
           import plistlib,sys
           with open(sys.argv[1],"rb") as f:
               info=plistlib.load(f)
-          assert info.get("UILaunchStoryboardName")=="ReperaNativeLaunch", info.get("UILaunchStoryboardName")
+          assert info.get("UILaunchStoryboardName")=="ReperaBarbellStartup", info.get("UILaunchStoryboardName")
           assert not info.get("UILaunchScreen"), "Blank UILaunchScreen is overriding storyboard"
           print("PASS: native storyboard configured in packaged Info.plist")
           PY
@@ -162,8 +162,10 @@ jobs:
           import json,sys
           with open(sys.argv[1],encoding="utf-8") as f: entries=json.load(f)
           names={e.get("Name") for e in entries if isinstance(e,dict)}
-          assert "ReperaBarbellLaunch" in names, "Native splash mascot not in compiled Assets.car"
-          print("PASS: ReperaBarbellLaunch present in asset catalog")
+          assert "ReperaNativeOpaqueHero" in names, "Native splash mascot not in compiled Assets.car"
+          print("PASS: ReperaNativeOpaqueHero present in asset catalog")
+          # Also validate that the SwiftUI barbell image is compiled separately.
+          assert "ReperaBarbellLaunch" in names, "SwiftUI barbell mascot missing"
           PY
           test -f "$APP/ReperaStartupBarbell.png" || {
             echo "::error::SwiftUI barbell is missing from app bundle"; exit 1;

@@ -58,7 +58,7 @@ targets:
         type: folder
       # El sistema renderiza el LaunchScreen nativo mientras SwiftUI inicia.
       # El storyboard usa ReperaBarbellLaunch (Asset Catalog), mismo muñeco que SwiftUI.
-      - path: Apps/Repera/Resources/ReperaNativeLaunch.storyboard
+      - path: Apps/Repera/Resources/ReperaBarbellStartup.storyboard
         buildPhase: resources
       - path: Apps/Repera/Resources/BodyPaths.json
         buildPhase: resources
@@ -128,7 +128,7 @@ targets:
         RevenueCatPublicAPIKey: YOUR_REVENUECAT_PUBLIC_API_KEY
         ReperaSupabaseURL: https://uvzgujlrqohreoucirms.supabase.co
         ReperaSupabasePublishableKey: sb_publishable_uY9c82Ur7VK4VOo9n2zCEg_PmywmLbA
-        UILaunchStoryboardName: ReperaNativeLaunch
+        UILaunchStoryboardName: ReperaBarbellStartup
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
