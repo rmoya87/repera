@@ -12,7 +12,6 @@ struct SettingsView: View {
     @Environment(AppleAuthStore.self) private var appleAuth
     @Environment(BusinessAuthStore.self) private var businessAuth
     @Environment(BusinessDataStore.self) private var businessData
-    @Environment(BusinessWorkoutSyncStore.self) private var workoutSync
     @Environment(OnboardingStore.self) private var onboarding
     @Environment(WorkoutLocationTracker.self) private var location
     @Environment(\.openURL) private var openURL
