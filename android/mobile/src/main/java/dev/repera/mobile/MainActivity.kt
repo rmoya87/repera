@@ -529,6 +529,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         wodTimer = if (user != null && active?.wod != null)
             WodTimerStore(this, user).read(active.id, active.index)
         else null
+        WodTimerService.sync(this, active, wodTimer, user)
     }
 
     private fun changeWodTimer(action: String) {
@@ -603,6 +604,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 snapshot = null
                 activeWorkout = null
                 wodTimer = null
+                WodTimerService.sync(this@MainActivity, null, null, null)
                 todayHealth = null
                 status = null
                 busy = false

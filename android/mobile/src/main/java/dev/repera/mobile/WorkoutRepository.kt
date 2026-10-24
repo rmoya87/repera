@@ -46,8 +46,10 @@ class WorkoutRepository(context: Context, googleId: String) {
     ): String {
         val cleaned = title.trim()
         require(cleaned.isNotBlank() && cleaned.length <= 100) { "Escribe un título válido" }
-        // buyInCashOut queda fuera: su estructura seccionada (buy-in / trabajo /
-        // cash-out) no cabe en un único bloque plano sin perder fidelidad con iOS.
+        // buyInCashOut está dentro de la paridad pero PENDIENTE: necesita un
+        // editor seccionado (buy-in / trabajo / cash-out) fiel al modelo iOS,
+        // no un bloque plano. Se implementa al final de Fase 1; hasta entonces
+        // la validación lo rechaza en lugar de escribir un formato degradado.
         require(format in setOf("strength", "amrap", "forTime", "emom", "tabata",
             "circuit", "chipper", "afap", "ladder", "deathBy", "partner",
             "roundsForQuality", "maxEffort")) {

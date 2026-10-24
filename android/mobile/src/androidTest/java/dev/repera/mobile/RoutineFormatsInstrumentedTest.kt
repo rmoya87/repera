@@ -87,7 +87,9 @@ class RoutineFormatsInstrumentedTest {
         }
     }
 
-    @Test fun buyInCashOutStaysRejectedAndLadderValidates() {
+    /** buyInCashOut queda pendiente de su editor seccionado (Fase 1);
+     *  hasta entonces el repositorio lo rechaza en vez de degradar el formato. */
+    @Test fun buyInCashOutStaysRejectedUntilSectionedEditorAndLadderValidates() {
         val (repo, local) = repo()
         assertThrows(IllegalArgumentException::class.java) {
             repo.createRoutine("BICO", "buyInCashOut",

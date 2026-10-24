@@ -13,9 +13,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 
 /**
- * Posts the rest-phase cue for the WOD clock. Delivery follows the composed
- * clock screens: with the app closed there is no second-level delivery yet,
- * which a foreground service would own.
+ * Posts the rest-phase cue for the WOD clock. WodTimerService owns delivery
+ * with the screen off; composed clock screens use the same entry point while
+ * the service is not running (timer paused or app without an active WOD).
  */
 internal object RestNotifier {
     private const val CHANNEL_ID = "repera.timers"
