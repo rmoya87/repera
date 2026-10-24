@@ -248,6 +248,7 @@ fun ReperaMobileScreen(
                         onExportJson = onExportJson,
                         onSignOut = onSignOut,
                         onNavigateCreate = { navigateTab("crear") },
+                        onDeleteRoutine = onDeleteRoutine,
                         onOpenClock = {
                             if (activeWorkout?.wod != null) navController.navigate("reloj")
                         }

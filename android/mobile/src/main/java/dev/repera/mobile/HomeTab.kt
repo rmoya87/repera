@@ -97,6 +97,7 @@ internal fun HomeTab(
     onReviseFinishedSet: (String, String, String, Int, Double?, Int?) -> Unit,
     onDeleteFinishedSet: (String, String, String) -> Unit,
     onNavigateCreate: () -> Unit,
+    onDeleteRoutine: (String) -> Unit = {},
     onOpenClock: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -146,13 +147,32 @@ internal fun HomeTab(
                         Text("Sin entrenamiento programado",
                             style = MaterialTheme.typography.bodyMedium)
                     } else dayRoutines.forEach { routine ->
+                        // Tocar abre el resumen del plan (SessionPreviewView iOS);
+                        // el Play dentro de la hoja sí inicia la sesión.
+                        var preview by rememberSaveable(routine.id) { mutableStateOf(false) }
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(routine.title, style = MaterialTheme.typography.bodyLarge)
-                            TextButton(onClick = {
-                                onStartRoutine(routine.id)
-                            }, enabled = !busy && activeWorkout == null && routine.supported) {
-                                Text(if (routine.supported) "Iniciar entrenamiento"
-                                    else "Formato no disponible")
+                            TextButton(onClick = { preview = true },
+                                enabled = !busy && activeWorkout == null) {
+                                Text("Ver plan y empezar")
+                            }
+                        }
+                        if (preview) {
+                            @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+                            androidx.compose.material3.ModalBottomSheet(
+                                onDismissRequest = { preview = false }
+                            ) {
+                                SessionPreviewSheet(
+                                    routine = routine,
+                                    busy = busy,
+                                    onStart = { onStartRoutine(routine.id) },
+                                    onEdit = { onNavigateCreate() },
+                                    onDelete = {
+                                        preview = false
+                                        onDeleteRoutine(routine.id)
+                                    },
+                                    onClose = { preview = false }
+                                )
                             }
                         }
                     }
