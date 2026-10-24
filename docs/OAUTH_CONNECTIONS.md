@@ -14,7 +14,9 @@ En producción (`uvzgujlrqohreoucirms`) se ha aplicado `ai_oauth_connections` co
 
 Verificación HTTP real: catálogo y metadata 200; MCP sin credenciales 401 con desafío OAuth; autorización y emisión de PAT sin sesión 401. Los proveedores permanecen desactivados, sin client IDs ni fichas públicas.
 
-Pendiente: subir `web/ai/` a IONOS (`/ai/` devuelve 404), configurar el hook y OAuth Server (discovery devuelve `feature_disabled`), registrar los clientes, probar el flujo completo y publicar las fichas. El acceso al panel de Supabase terminó con `OAuth state has expired`; no se cambiaron ajustes de Auth. El despliegue del backend no publica una nueva versión de iOS.
+Web publicada en IONOS: `https://repera.app/ai/` y `console/src/core/config.js`. HTML, JS, CSS y configuración devuelven 200 y coinciden con el repositorio; CSP aplicada y página comprobada en navegador.
+
+Pendiente: guardar el hook y activar OAuth Server, registrar los clientes, probar el flujo completo y publicar las fichas. Acceso a Supabase recuperado: no existe un hook anterior y hay clave pública ES256. El formulario selecciona `repera_oauth.access_token_hook`, pero la revisión automática bloqueó guardarlo hasta recibir autorización explícita para cambiar la emisión de tokens. No se modificaron ajustes de Auth. El despliegue del backend no publica una nueva versión de iOS.
 
 El asesor de seguridad señala RLS sin políticas en `ai_oauth_providers`: es intencional, accesible únicamente desde el backend con service role. También informa incidencias ajenas a este cambio en la vista `training_exercise_catalog`, la RPC `search_discoverable_organizations` y la protección de contraseñas filtradas; no se alteran en este despliegue.
 
