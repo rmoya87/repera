@@ -175,7 +175,7 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
     }
 
     private func rebuildIndex() async {
-        let catalog = exercises
+        let catalog = exercises.filter { !$0.isCatalogArchived }
         let map = Dictionary(uniqueKeysWithValues: catalog.map { ($0.id, $0) })
         let built = await Task.detached(priority: .userInitiated) { () -> (index: [ExerciseSearch.Document], alpha: [ExerciseSearch.Document]) in
             let index = ExerciseSearch.makeIndex(catalog)
