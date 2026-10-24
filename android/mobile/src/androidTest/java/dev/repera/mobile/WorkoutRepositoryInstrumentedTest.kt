@@ -497,4 +497,35 @@ class WorkoutRepositoryInstrumentedTest {
         assertEquals(1, blocks.length())
         assertEquals(0, blocks.getJSONObject(0).getJSONArray("exercises").length())
     }
+
+    @Test fun dayPlusLifecycleCancelSaveAndProcessDeathLeaveNoEmptyArtifacts() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val user = UUID.randomUUID().toString()
+        CatalogBootstrap.initializeEmptyAccount(ctx, user)
+        // Cancelar: alta one-off que se abandona vacía (equivale a Volver sin
+        // Guardar en iOS, donde el borrador nunca llega a persistirse).
+        val repo = WorkoutRepository(ctx, user)
+        val cancelledId = repo.createRoutineFromScan(
+            "Entreno · lunes",
+            listOf(dev.repera.domain.RoutineBlock.strength("Bloque 1")),
+            RoutineSchedule(scheduledDate = "2026-10-26"))
+        // Guardar: otra one-off que sí recibe contenido.
+        val store = LocalSnapshotStore(ctx, user)
+        val firstExercise = JSONObject(String(store.read()!!))
+            .getJSONArray("exercises").getJSONObject(0).getString("id")
+        val savedId = repo.createRoutine("Entreno · martes", "strength",
+            listOf(RoutineDraftEntry(firstExercise, 8, sets = 3, weightKg = 40.0)),
+            schedule = RoutineSchedule(scheduledDate = "2026-10-27"))
+        // Recreación de Activity/proceso: nueva instancia del repositorio sobre
+        // el mismo snapshot (equivale a reabrir la app) y reconciliación.
+        val reopened = WorkoutRepository(ctx, user)
+        val removed = reopened.reconcileEmptyRoutines()
+        assertEquals(listOf(cancelledId), removed)
+        assertTrue(reopened.reconcileEmptyRoutines().isEmpty())  // idempotente
+        val state = JSONObject(String(store.read()!!))
+        val ids = (0 until state.getJSONArray("routines").length())
+            .map { state.getJSONArray("routines").getJSONObject(it).getString("id") }
+        assertTrue(savedId in ids)
+        assertTrue(cancelledId !in ids)
+    }
 }

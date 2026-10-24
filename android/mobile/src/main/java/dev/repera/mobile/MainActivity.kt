@@ -1135,6 +1135,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             MobilityCatalogMigration.ensure(this@MainActivity, id)
             CatalogRefreshMigration.ensure(this@MainActivity, id)
             val repository = WorkoutRepository(this@MainActivity, id)
+            // Artefactos de altas one-off interrumpidas (proceso muerto antes de
+            // Guardar): iOS nunca persiste rutinas con todos los bloques vacíos.
+            runCatching { repository.reconcileEmptyRoutines() }
             // Recalcula notas persistidas si subió la fórmula (iOS v11).
             runCatching { repository.refreshSessionReviewsIfNeeded() }
             val bytes = store.read()

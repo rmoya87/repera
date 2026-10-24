@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -280,7 +281,7 @@ fun ReperaMobileScreen(
                         onNavigateHome = { navigateTab("inicio") },
                         onDayPlusCreate = { dayIso, dayName ->
                             onCreateOneOffRoutine(dayIso, dayName) { newId ->
-                                navController.navigate("rutina/$newId")
+                                navController.navigate("rutina/$newId?fresh=1")
                             }
                         },
                         onDayPlusFavorites = { navController.navigate("favoritos") },
@@ -443,10 +444,14 @@ fun ReperaMobileScreen(
                     )
                 }
                 composable(
-                    route = "rutina/{routineId}",
-                    arguments = listOf(navArgument("routineId") { type = NavType.StringType })
+                    route = "rutina/{routineId}?fresh={fresh}",
+                    arguments = listOf(
+                        navArgument("routineId") { type = NavType.StringType },
+                        navArgument("fresh") { type = NavType.BoolType; defaultValue = false }
+                    )
                 ) { backStackEntry ->
                     val routineId = backStackEntry.arguments?.getString("routineId").orEmpty()
+                    val freshFromDayPlus = backStackEntry.arguments?.getBoolean("fresh") ?: false
                     val routine = overview?.routineEntries?.firstOrNull { it.id == routineId }
                     if (routine == null) {
                         LaunchedEffect(Unit) { navController.popBackStack() }
@@ -459,8 +464,25 @@ fun ReperaMobileScreen(
                                 onReplaceRoutineBlocks(routineId, drafts)
                                 navController.popBackStack()
                             },
-                            onBack = { navController.popBackStack() }
+                            onBack = {
+                                // Equivalencia iOS (borrador en memoria + Guardar):
+                                // salir sin guardar de una rutina one-off recién
+                                // creada y aún vacía no deja artefactos.
+                                if (freshFromDayPlus &&
+                                    routine.blocks.all { it.entries.isEmpty() }) {
+                                    onDeleteRoutine(routineId)
+                                }
+                                navController.popBackStack()
+                            }
                         )
+                        // Mismo criterio para el botón físico/gesto de atrás.
+                        BackHandler(enabled = !busy) {
+                            if (freshFromDayPlus &&
+                                routine.blocks.all { it.entries.isEmpty() }) {
+                                onDeleteRoutine(routineId)
+                            }
+                            navController.popBackStack()
+                        }
                     }
                 }
                 composable(

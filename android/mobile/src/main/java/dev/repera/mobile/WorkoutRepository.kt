@@ -1414,6 +1414,50 @@ class WorkoutRepository(context: Context, googleId: String) {
         save(state)
     }
 
+    /**
+     * Reconciliación de artefactos del menú «＋» (DayPlusSheet): una rutina cuyos
+     * bloques están todos vacíos (sin ejercicios ni movimientos) no es observable
+     * en iOS — el editor trabaja en borrador y solo «Guardar» persiste — así que
+     * solo puede provenir de una alta one-off interrumpida (cancelación con
+     * persistencia anticipada antigua o muerte del proceso). Eliminarlas deja
+     * el estado equivalente al de Apple sin tocar ninguna rutina con contenido.
+     * @return ids eliminados.
+     */
+    @Synchronized fun reconcileEmptyRoutines(): List<String> {
+        val state = requireState()
+        val routines = state.getJSONArray("routines")
+        val doomed = mutableListOf<String>()
+        for (i in 0 until routines.length()) {
+            val routine = routines.getJSONObject(i)
+            val blocks = routine.optJSONArray("blocks") ?: continue
+            val allEmpty = (0 until blocks.length()).all { b ->
+                val block = blocks.getJSONObject(b)
+                (block.optJSONArray("exercises")?.length() ?: 0) == 0 &&
+                    (block.optJSONArray("movements")?.length() ?: 0) == 0
+            }
+            if (blocks.length() > 0 && allEmpty) doomed += routine.getString("id")
+        }
+        for (id in doomed) {
+            val index = (0 until routines.length()).firstOrNull {
+                routines.getJSONObject(it).optString("id") == id
+            } ?: continue
+            routines.remove(index)
+            state.optJSONObject("rotation")?.let { rotation ->
+                val ids = rotation.optJSONArray("routineIds")
+                if (ids != null) {
+                    val kept = JSONArray()
+                    for (i in 0 until ids.length()) {
+                        if (ids.optString(i) != id) kept.put(ids.get(i))
+                    }
+                    if (kept.length() == 0) state.remove("rotation")
+                    else rotation.put("routineIds", kept)
+                }
+            }
+        }
+        if (doomed.isNotEmpty()) save(state)
+        return doomed
+    }
+
     @Synchronized fun deleteRoutine(id: String) {
         val state = requireState()
         val routines = state.getJSONArray("routines")
