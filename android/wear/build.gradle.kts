@@ -11,6 +11,7 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true }
     compileOptions {
@@ -27,4 +28,6 @@ dependencies {
     implementation("androidx.wear.compose:compose-foundation:1.7.1")
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
     implementation("androidx.health:health-services-client:1.1.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
 }

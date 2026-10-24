@@ -83,7 +83,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
-            gradle -p android :mobile:connectedDebugAndroidTest --no-daemon --stacktrace
+            gradle -p android :mobile:connectedDebugAndroidTest :wear:connectedDebugAndroidTest --no-daemon --stacktrace
             mkdir -p android/screenshots
             for f in progreso_actividad_pulso progreso_heatmaps progreso_peso_cardio; do
               adb shell run-as com.app.repera cat "/sdcard/Android/data/com.app.repera/cache/screenshots/$f.png" > "android/screenshots/$f.png" || true
