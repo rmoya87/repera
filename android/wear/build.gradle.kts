@@ -19,6 +19,17 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 }
+configurations.all {
+    // Espresso 3.5.0 (transitivo de ui-test) usa reflexión sobre
+    // InputManager.getInstance, API oculta eliminada en Android 17 (API 37):
+    // rompe cualquier test Compose en imagen API 37.2 aunque la app funcione.
+    // No usamos Espresso directamente; al excluirlo del classpath de tests
+    // el EspressoLink de Compose se desactiva y los tests corren en 30-37.2.
+    if (name.contains("androidTest", ignoreCase = true)) {
+        exclude(group = "androidx.test.espresso")
+    }
+}
+
 dependencies {
     implementation(project(":domain"))
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
@@ -35,5 +46,10 @@ dependencies {
     // visuales (sin ella: "Unable to resolve activity" en el APK de test).
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     androidTestImplementation(platform("androidx.compose:compose-bom:2026.09.00"))
+    // Espresso 3.5.0 (transitivo de ui-test-junit4) usa reflexión sobre
+    // InputManager.getInstance, API oculta eliminada en Android 17 (API 37):
+    // rompe cualquier test Compose en imagen API 37.2 aunque la app funcione.
+    // No usamos Espresso directamente; al excluirlo, el EspressoLink de
+    // Compose se desactiva solo y los tests corren en API 30-37.2.
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 }

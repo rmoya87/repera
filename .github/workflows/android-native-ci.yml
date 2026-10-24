@@ -225,6 +225,9 @@ jobs:
           api-level: ${{ matrix.api }}
           target: ${{ matrix.target }}
           channel: canary
+          # Las imágenes Wear OS arrancan más lento que las de teléfono;
+          # 600 s por defecto no bastan (timeout observado con 36.1).
+          emulator-boot-timeout: 1200
           arch: x86_64
           profile: wearos_small_round
           disable-animations: true

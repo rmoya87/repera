@@ -17,7 +17,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
@@ -51,6 +52,16 @@ class WearVisualVerificationInstrumentedTest {
         ctx.contentResolver.openOutputStream(uri)!!.use { out ->
             image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, out)
         }
+    }
+
+    // TransformingLazyColumn compone los items bajo demanda: un nodo fuera
+    // del viewport NO existe en el árbol de semántica. Hay que hacer scroll
+    // en el contenedor hasta que el item se componga (performScrollToNode),
+    // no performScrollTo sobre el texto (que exige que ya exista).
+    private fun scrollHastaTexto(texto: String) {
+        compose.onNode(hasScrollToIndexAction())
+            .performScrollToNode(androidx.compose.ui.test.hasText(texto))
+        compose.waitForIdle()
     }
 
     @Composable
@@ -100,7 +111,9 @@ class WearVisualVerificationInstrumentedTest {
         compose.onNodeWithText("5 reps · 100.0 kg").assertExists()
         compose.onAllNodesWithText("WearHomeState(", substring = true).assertCountEquals(0)
         // Todos los controles alcanzables con scroll en el viewport redondo.
-        compose.onNodeWithText("Registrar serie").performScrollTo().assertIsDisplayed()
+        scrollHastaTexto("Registrar serie")
+        compose.onNodeWithText("Registrar serie").assertIsDisplayed()
+        scrollHastaTexto("5 reps")
         compose.onNodeWithText("5 reps").assertIsDisplayed()
         save("wear_sesion_fuerza", compose.onRoot().captureToImage())
     }
@@ -130,7 +143,8 @@ class WearVisualVerificationInstrumentedTest {
         compose.waitForIdle()
         compose.onNodeWithText("Entreno de hoy", substring = true).assertExists()
         compose.onAllNodesWithText("WearHomeState(", substring = true).assertCountEquals(0)
-        compose.onNodeWithText("Reintentar sincronización").performScrollTo().assertIsDisplayed()
+        scrollHastaTexto("Reintentar sincronización")
+        compose.onNodeWithText("Reintentar sincronización").assertIsDisplayed()
         save("wear_entreno_de_hoy", compose.onRoot().captureToImage())
     }
 
