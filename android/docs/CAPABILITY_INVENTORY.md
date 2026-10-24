@@ -31,7 +31,7 @@ Verificado 24/10 22:52 contra fuentes Android (grep de cada pieza): #3 (SessionC
 | Pieza iOS | Estado Android |
 |-----------|----------------|
 | `ActivityHeatmapView` | Rejilla + cuartiles ya existían; paleta y leyenda corregidas 24/10. Abiertos: segmented picker en una tarjeta, franja en rangos cortos, etiquetas mes/día |
-| `RegisterSwipeRevealCard` + `SwipeRevealMath` | Acciones accesibles por botón; falta el gesto swipe |
+| `RegisterSwipeRevealCard` (382) + `SwipeRevealMath` (17) | PARCIAL (24/10 23:22): `SwipeRevealMath` portado 1:1 a dominio con 3 tests verdes (clampedOffset / banda de chips / umbral de apertura). SIGUEN ABIERTAS dos piezas: el gesto Compose (toda la tarjeta desliza, gesto solo fuera de la banda de chips) y la acción de borrado del REGISTRO completo — Android solo borra series sueltas (`onDeleteFinishedSet`), no existe `deleteWorkout` de sesión registrada | 3 tests de dominio |
 | `SessionPreviewView` | Hoja portada 24/10; contraste visual pendiente en CI |
 | `WorkoutClockCoordinator`/reloj | Apaisado real validado en captura 2400×1080 (run 40124402423); no implica todos los modos/tamaños/interacción |
 
