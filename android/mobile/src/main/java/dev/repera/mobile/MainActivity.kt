@@ -762,7 +762,18 @@ data class StateOverview(
                             dev.repera.domain.ExerciseInputMode.MACHINE_WORK -> "machineWork"
                             dev.repera.domain.ExerciseInputMode.REPS_AND_TIME -> "repsAndTime"
                             else -> "strength"
-                        })
+                        },
+                        equipment = ex.optString("equipment"),
+                        targetMuscle = ex.optString("targetMuscle"),
+                        secondaryMuscles = ex.optJSONArray("secondaryMuscles")?.let { arr ->
+                            (0 until arr.length()).map { arr.getString(it) }
+                        }.orEmpty(),
+                        detailDescription = ex.optString("detailDescription")
+                            .takeIf { it.isNotBlank() },
+                        instructions = ex.optJSONArray("instructions")?.let { arr ->
+                            (0 until arr.length()).map { arr.getString(it) }
+                        }.orEmpty(),
+                        isCustom = ex.optBoolean("isCustom"))
                 }.sortedBy { it.name }
             }
             return StateOverview(
@@ -799,7 +810,13 @@ data class ExerciseEntry(
     val id: String, val name: String, val supportsBasicInput: Boolean,
     val allowsWeight: Boolean, val muscleGroup: String = "",
     val sportTag: String? = null, val hyroxTraining: Boolean = false,
-    val loggingStyle: String = "strength"
+    val loggingStyle: String = "strength",
+    val equipment: String = "",
+    val targetMuscle: String = "",
+    val secondaryMuscles: List<String> = emptyList(),
+    val detailDescription: String? = null,
+    val instructions: List<String> = emptyList(),
+    val isCustom: Boolean = false
 )
 
 data class WorkoutHistoryEntry(

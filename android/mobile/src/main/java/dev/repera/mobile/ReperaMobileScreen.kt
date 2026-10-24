@@ -35,7 +35,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
+import androidx.navigation.NavType
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 
@@ -240,6 +242,9 @@ fun ReperaMobileScreen(
                         overview = overview,
                         activeWorkout = activeWorkout,
                         onQuickLog = onQuickLog,
+                        onOpenExercise = { exerciseId ->
+                            navController.navigate("ejercicio/$exerciseId")
+                        },
                         onInitializeLocal = onInitializeLocal,
                         onImportJson = onImportJson,
                         onDriveSync = onDriveSync,
@@ -247,6 +252,21 @@ fun ReperaMobileScreen(
                         onSignOut = onSignOut,
                         onNavigateHome = { navigateTab("inicio") }
                     )
+                }
+                composable(
+                    route = "ejercicio/{exerciseId}",
+                    arguments = listOf(navArgument("exerciseId") { type = NavType.StringType })
+                ) { backStackEntry ->
+                    val exerciseId = backStackEntry.arguments?.getString("exerciseId").orEmpty()
+                    val entry = overview?.exerciseEntries?.firstOrNull { it.id == exerciseId }
+                    if (entry == null) {
+                        LaunchedEffect(Unit) { navController.popBackStack() }
+                    } else {
+                        ExerciseDetailScreen(
+                            entry = entry,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
                 }
             }
         }

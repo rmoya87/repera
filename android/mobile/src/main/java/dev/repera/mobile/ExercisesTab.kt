@@ -57,6 +57,7 @@ import dev.repera.domain.WodClockSpec
 import java.time.LocalDate
 import java.time.LocalTime
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
@@ -70,6 +71,7 @@ internal fun ExercisesTab(
     overview: StateOverview?,
     activeWorkout: ActiveWorkout?,
     onQuickLog: (String) -> Unit,
+    onOpenExercise: (String) -> Unit,
     onInitializeLocal: () -> Unit,
     onImportJson: () -> Unit,
     onDriveSync: () -> Unit,
@@ -131,7 +133,7 @@ internal fun ExercisesTab(
         }
         if (entries.isEmpty()) item { Text("Sin ejercicios coincidentes") }
         items(entries, key = { it.id }) { entry ->
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Card(modifier = Modifier.fillMaxWidth().clickable { onOpenExercise(entry.id) }) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(entry.name, style = MaterialTheme.typography.titleMedium)
                     val progress = overview?.exerciseProgress?.get(entry.id)
