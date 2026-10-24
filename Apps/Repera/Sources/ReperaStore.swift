@@ -560,7 +560,7 @@ final class ReperaStore: NSObject {
     /// Borra entrenos, rutinas y peso; mantiene el catálogo de ejercicios.
     func resetUserData() {
         state = AppState(
-            exercises: Catalog.seed(),
+            exercises: state.exercises,
             routines: [],
             workouts: [],
             bodyWeights: [],
