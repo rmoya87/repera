@@ -136,6 +136,8 @@ fun ReperaMobileScreen(
     onReviseFinishedSet: (String, String, String, Int, Double?, Int?) -> Unit,
     exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
         List<ExerciseProgressPoint> = { _, _, _ -> emptyList() },
+    sessionAppearances: (exerciseId: String, highlightSessionId: String) ->
+        Pair<SessionAppearance?, SessionAppearance?> = { _, _ -> null to null },
     onDeleteFinishedSet: (String, String, String) -> Unit,
     onDeleteWorkout: (String) -> Unit,
     onLogBodyWeight: (Double) -> Unit,
@@ -245,6 +247,10 @@ fun ReperaMobileScreen(
                         onReviseFinishedSet = onReviseFinishedSet,
                         onDeleteFinishedSet = onDeleteFinishedSet,
                         onDeleteWorkout = onDeleteWorkout,
+                        onOpenExerciseFromSession = { entryId, sessionId ->
+                            navController.navigate(
+                                "ejercicio/" + entryId + "?sesion=" + sessionId)
+                        },
                         onNext = onNext,
                         onFinish = onFinish,
                         onDiscardSession = onDiscardSession,
@@ -521,10 +527,21 @@ fun ReperaMobileScreen(
                     )
                 }
                 composable(
-                    route = "ejercicio/{exerciseId}",
-                    arguments = listOf(navArgument("exerciseId") { type = NavType.StringType })
+                    // Sesión opcional: al abrir la ficha desde un entreno
+                    // terminado aparece la tarjeta «Esta sesión» (iOS).
+                    route = "ejercicio/{exerciseId}?sesion={sessionId}",
+                    arguments = listOf(
+                        navArgument("exerciseId") { type = NavType.StringType },
+                        navArgument("sessionId") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        }
+                    )
                 ) { backStackEntry ->
                     val exerciseId = backStackEntry.arguments?.getString("exerciseId").orEmpty()
+                    val highlightSessionId =
+                        backStackEntry.arguments?.getString("sessionId")
                     val entry = overview?.exerciseEntries?.firstOrNull { it.id == exerciseId }
                     if (entry == null) {
                         LaunchedEffect(Unit) { navController.popBackStack() }
@@ -532,6 +549,8 @@ fun ReperaMobileScreen(
                         ExerciseDetailScreen(
                             entry = entry,
                             exerciseSeries = exerciseSeries,
+                            highlightSessionId = highlightSessionId,
+                            sessionAppearances = sessionAppearances,
                             onBack = { navController.popBackStack() }
                         )
                     }

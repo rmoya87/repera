@@ -30,6 +30,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
@@ -46,11 +47,21 @@ internal fun ExerciseDetailScreen(
     entry: ExerciseEntry,
     exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
         List<ExerciseProgressPoint> = { _, _, _ -> emptyList() },
+    highlightSessionId: String? = null,
+    sessionAppearances: (exerciseId: String, highlightSessionId: String) ->
+        Pair<SessionAppearance?, SessionAppearance?> = { _, _ -> null to null },
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val aliases = remember(context) { ExerciseSearchAssets.load(context) }
+    // Bloque «Esta sesión» (paridad ExerciseThisSessionCard iOS): solo al
+    // abrir la ficha desde un entreno terminado.
+    val appearancePair = remember(entry.id, highlightSessionId) {
+        highlightSessionId?.let { sessionAppearances(entry.id, it) }
+    }
+    val thisSessionAppearance = appearancePair?.first
+    val priorSessionAppearance = appearancePair?.second
     val isMobility = entry.sportTag == "Movilidad"
     val frames = remember(entry.id) {
         ExerciseArtImages.carouselStems(context, entry.name, isMobility, aliases)
@@ -63,6 +74,12 @@ internal fun ExerciseDetailScreen(
         item {
             TextButton(onClick = onBack) { Text("‹ Ejercicios") }
             Text(entry.displayName, style = MaterialTheme.typography.headlineMedium)
+        }
+        if (thisSessionAppearance != null) {
+            item(key = "this-session-" + highlightSessionId) {
+                ThisSessionCard(thisAppearance = thisSessionAppearance,
+                    prior = priorSessionAppearance)
+            }
         }
         item {
             // Paridad iOS FreeExerciseSummaryCard: la evolución completa es Pro;
@@ -245,4 +262,75 @@ private fun formatPointValue(metric: ExerciseProgressMetric,
     ExerciseProgressMetric.BEST_HOLD, ExerciseProgressMetric.DURATION ->
         "${p.value.toInt()} s"
     else -> "${p.value.toInt()} ${p.quantityUnit ?: "reps"}"
+}
+
+
+/** Tarjeta «Esta sesión» (port 1:1 de ExerciseThisSessionCard iOS):
+ *  WOD de catálogo → marca global del benchmark; WOD libre / series → movimiento. */
+@Composable
+private fun ThisSessionCard(
+    thisAppearance: SessionAppearance,
+    prior: SessionAppearance?
+) {
+    val sectionTitle = if (thisAppearance.isGlobalWodScore &&
+        !thisAppearance.wodTemplateName.isNullOrBlank())
+        "Esta sesión · " + thisAppearance.wodTemplateName
+    else "Esta sesión"
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(sectionTitle, style = MaterialTheme.typography.titleSmall)
+            SessionAppearanceBlock(thisAppearance, emphasizeDate = true)
+            if (prior != null) {
+                Text(if (thisAppearance.isGlobalWodScore) "Intento anterior" else "Anterior",
+                    style = MaterialTheme.typography.labelSmall)
+                SessionAppearanceBlock(prior, emphasizeDate = false)
+            } else if (thisAppearance.isGlobalWodScore) {
+                Text("Sin intentos previos de este WOD para comparar.",
+                    style = MaterialTheme.typography.bodySmall)
+            } else if (thisAppearance.setLines.isEmpty()) {
+                Text("Sin marcas previas de este movimiento para comparar.",
+                    style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SessionAppearanceBlock(row: SessionAppearance, emphasizeDate: Boolean) {
+    val day = java.time.Instant.ofEpochMilli(row.dateEpochMillis)
+        .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+        .format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy",
+            java.util.Locale("es", "ES")))
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text(day,
+                style = if (emphasizeDate) MaterialTheme.typography.bodyMedium
+                else MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f))
+            row.wodScoreLabel?.let { score ->
+                Text(score, style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary)
+            }
+        }
+        if (row.isGlobalWodScore) {
+            row.wodFormatName?.let {
+                Text(it, style = MaterialTheme.typography.labelMedium)
+            }
+        } else {
+            if (row.wodFormatName != null) {
+                Text(row.wodFormatName, style = MaterialTheme.typography.labelMedium)
+            } else if (row.sessionTitle.isNotBlank()) {
+                Text(row.sessionTitle, style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1)
+            }
+            row.prescriptionLine?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium)
+            }
+            row.setLines.forEach { line ->
+                Text(line, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
 }

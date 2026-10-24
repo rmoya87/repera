@@ -13,7 +13,7 @@ import java.time.Instant
  * Port 1:1 de ExerciseSessionAppearance.swift (iOS) sobre el snapshot JSON;
  * presentación pura, nunca escribe en el estado.
  */
-internal data class SessionAppearance(
+data class SessionAppearance(
     val sessionId: String,
     val dateEpochMillis: Long,
     val sessionTitle: String,
@@ -29,7 +29,7 @@ internal data class SessionAppearance(
         get() = setLines.isNotEmpty() || prescriptionLine != null || wodScoreLabel != null
 }
 
-internal object ExerciseSessionAppearances {
+object ExerciseSessionAppearances {
 
     private fun epochOf(session: JSONObject): Long {
         val raw = session.optString("finishedAt").takeIf { it.isNotBlank() }

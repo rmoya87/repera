@@ -1216,7 +1216,8 @@ internal fun WorkoutHistoryCard(
     onReviseFinishedSet: (String, String, String, Int, Double?, Int?) -> Unit =
         { _, _, _, _, _, _ -> },
     onDeleteFinishedSet: (String, String, String) -> Unit = { _, _, _ -> },
-    onDeleteWorkout: (String) -> Unit = {}
+    onDeleteWorkout: (String) -> Unit = {},
+    onOpenExerciseFromSession: (String, String) -> Unit = { _, _ -> }
 ) {
     var expanded by remember(workout.id) { mutableStateOf(false) }
     var selectedMovement by remember(workout.id) { mutableStateOf<Int?>(null) }
@@ -1271,7 +1272,14 @@ internal fun WorkoutHistoryCard(
                     Text("← Volver al resumen")
                 }
                 if (exercise != null) {
-                    Text(exercise.name, style = MaterialTheme.typography.titleMedium)
+                    // Abrir la ficha con contexto de sesión (tarjeta «Esta
+                    // sesión», paridad iOS al tocar un movimiento del registro).
+                    Text(exercise.name, style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.clickable(enabled = !busy) {
+                            if (exercise.catalogExerciseId.isNotBlank())
+                                onOpenExerciseFromSession(exercise.catalogExerciseId,
+                                    workout.id)
+                        })
                     if (exercise.registered.isEmpty()) {
                         Text(if (exercise.wod && workout.results.isNotEmpty())
                             "Resultado registrado para todo el bloque WOD"

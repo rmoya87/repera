@@ -496,6 +496,31 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                             .optJSONArray("workouts") ?: org.json.JSONArray(),
                         exerciseId, metric, range)
                 },
+                sessionAppearances = { exerciseId, highlightSessionId ->
+                    val uid = profile?.uniqueId
+                    val bytes = uid?.let { LocalSnapshotStore(this, it).read() }
+                    if (bytes == null) {
+                        null to null
+                    } else {
+                        val root = org.json.JSONObject(String(bytes, Charsets.UTF_8))
+                        val workouts = root.optJSONArray("workouts")
+                            ?: org.json.JSONArray()
+                        val catalog = root.optJSONArray("exercises")
+                        val all = (0 until workouts.length())
+                            .map { workouts.getJSONObject(it) }
+                        val highlight = all.firstOrNull {
+                            it.optString("id") == highlightSessionId
+                        }
+                        val thisAppearance = highlight?.let {
+                            ExerciseSessionAppearances.appearance(exerciseId, it, catalog)
+                        }
+                        val prior = ExerciseSessionAppearances.priorAppearances(
+                            exerciseId, all, catalog,
+                            excludingSessionId = highlightSessionId, limit = 1
+                        ).firstOrNull()
+                        thisAppearance to prior
+                    }
+                },
                 todayHealth = todayHealth,
                 onHealthConnect = ::connectHealth,
                 activeWorkout = activeWorkout,
@@ -1407,6 +1432,7 @@ data class StateOverview(
                             wod = exercise.optString("blockKind") == "wod",
                             registered = WorkoutHistorySets.displayLines(session, exercise),
                             entryId = exercise.optString("id"),
+                            catalogExerciseId = movement?.optString("id") ?: "",
                             editableSets = WorkoutHistorySets.loggedSetsWithLines(exercise)
                                 .map { (setId, line) -> FinishedSetRef(setId, line) }
                         )
@@ -1734,6 +1760,9 @@ data class WorkoutHistoryMovement(
     val wod: Boolean,
     val registered: List<String>,
     val entryId: String = "",
+    /** Id de catálogo del ejercicio (para abrir su ficha); entryId es la
+     *  instancia dentro de la sesión (para editar series). */
+    val catalogExerciseId: String = "",
     val editableSets: List<FinishedSetRef> = emptyList()
 )
 

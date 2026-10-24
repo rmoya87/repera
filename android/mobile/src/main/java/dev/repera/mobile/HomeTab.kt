@@ -97,6 +97,7 @@ internal fun HomeTab(
     onReviseFinishedSet: (String, String, String, Int, Double?, Int?) -> Unit,
     onDeleteFinishedSet: (String, String, String) -> Unit,
     onDeleteWorkout: (String) -> Unit = {},
+    onOpenExerciseFromSession: (String, String) -> Unit = { _, _ -> },
     onNavigateCreate: () -> Unit,
     onDeleteRoutine: (String) -> Unit = {},
     onOpenClock: () -> Unit,
@@ -236,7 +237,7 @@ internal fun HomeTab(
         items(workouts, key = { it.id }) { workout ->
             WorkoutHistoryCard(workout, busy,
                         onReviseFinishedSet, onDeleteFinishedSet,
-                        onDeleteWorkout)
+                        onDeleteWorkout, onOpenExerciseFromSession)
         }
         item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
         item {
