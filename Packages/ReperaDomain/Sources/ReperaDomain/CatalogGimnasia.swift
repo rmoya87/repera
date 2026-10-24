@@ -120,7 +120,7 @@ enum CatalogGimnasia {
            description: "Handstand push-up contra pared.",
            instructions: ["Pino a la pared.", "Baja cabeza al suelo/placas.", "Empuja a bloqueo."],
            primaries: ["deltoids"], secondaries: ["triceps", "trapezius"]),
-        gy("HSPU deficit", equipment: "Pared, Paralelas", target: "delts",
+        gy("HSPU deficit", equipment: "Pared, Paralelas bajas", target: "delts",
            secondary: ["triceps", "core"], body: "shoulders",
            description: "HSPU con manos elevadas (paraletas/placas); más rango.",
            instructions: ["Manos en elevación.", "Cabeza por debajo del nivel de manos.", "Empuja a bloqueo."],
