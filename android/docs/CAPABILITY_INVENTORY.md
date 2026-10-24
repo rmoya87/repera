@@ -41,6 +41,13 @@ gap) / SUSTITUIDO (infra Apple-only con equivalente Android ya elegido).
 | Ubicación (pin + ruta) | Portada completa 24/10 (dominio+tracker+wiring+permisos+onboarding); pendiente CI con ubicación simulada |
 | Descartar sesión | `endActiveSession(save:false)` portado 24/10; pendiente CI |
 
+## Watch (5 ficheros): cubierto
+
+`ReperaWatchApp` → `WearMainActivity`; `WatchSessionHub`/`WatchSessionView` →
+`WearHomeContent` + pantallas de sesión; `WatchConnectivityClient` → bridge
+MessageClient; `WatchHealthKitSession` → `WearHealthSession` (Health Services).
+Tests wear verdes en CI (6/6 en API 30/35/37.2 y Wear OS 5.1 en 40124402423).
+
 ## SIN USO en iOS (no son gaps)
 
 `SubstitutePickerSheet` (dominio portado por simetría), `DebugEntitlementProvider`
