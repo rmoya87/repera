@@ -11,6 +11,8 @@ import androidx.health.services.client.data.ExerciseState
 import androidx.health.services.client.data.ExerciseType
 import androidx.health.services.client.data.ExerciseUpdate
 import androidx.health.services.client.endExercise
+import androidx.health.services.client.pauseExercise
+import androidx.health.services.client.resumeExercise
 import androidx.health.services.client.startExercise
 
 /**
@@ -27,6 +29,8 @@ class WearHealthSession(private val context: Context) {
     var energyKcal: Double? = null
         private set
     var recording: Boolean = false
+        private set
+    var paused: Boolean = false
         private set
     var onUpdate: (() -> Unit)? = null
 
@@ -70,11 +74,26 @@ class WearHealthSession(private val context: Context) {
         recording = true
     }
 
+    /** Pausa el registro (play/pausa del reloj, igual que watchOS). */
+    suspend fun pause() {
+        if (!recording || paused) return
+        runCatching { client.pauseExercise() }
+        paused = true
+    }
+
+    /** Reanuda el registro tras una pausa. */
+    suspend fun resume() {
+        if (!paused) return
+        runCatching { client.resumeExercise() }
+        paused = false
+    }
+
     /** Termina el registro conservando las últimas lecturas en pantalla. */
     suspend fun stop() {
         if (!recording) return
         runCatching { client.endExercise() }
         recording = false
+        paused = false
         onUpdate?.invoke()
     }
 }

@@ -259,6 +259,18 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     }
 
     override fun onMessageReceived(event: MessageEvent) {
+        if (event.path == "/repera/session-pause") {
+            val paused = runCatching {
+                JSONObject(String(event.data, Charsets.UTF_8)).optBoolean("paused", true)
+            }.getOrDefault(true)
+            runOnUiThread {
+                if (activeWorkout?.wod != null && !busy) {
+                    changeWodTimer(if (paused) "pause" else "start")
+                    refreshWodTimer()
+                }
+            }
+            return
+        }
         if (event.path != "/repera/log-set") return
         val payload = runCatching { JSONObject(String(event.data, Charsets.UTF_8)) }.getOrNull()
             ?: return

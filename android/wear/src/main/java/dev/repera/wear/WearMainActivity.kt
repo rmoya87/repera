@@ -59,6 +59,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var unitInput by mutableStateOf("reps")
     private var finishedSummary by mutableStateOf<FinishedSummary?>(null)
     private var restRemaining by mutableStateOf(0)
+    private var sessionPaused by mutableStateOf(false)
     private var restJob: kotlinx.coroutines.Job? = null
     private var health by mutableStateOf<Pair<Int?, Double?>?>(null)
     private val healthSession by lazy {
@@ -162,6 +163,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                         Text(movement, textAlign = TextAlign.Center,
                                             style = MaterialTheme.typography.labelSmall)
                                     }
+                                    Button(onClick = { togglePause() }) {
+                                        Text(if (sessionPaused) "Reanudar" else "Pausar")
+                                    }
                                     if (session.globalScore) {
                                         Text("Resultado por bloque en el teléfono",
                                             textAlign = TextAlign.Center,
@@ -182,6 +186,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                     }
                                     Text("${session.recordedSets} series registradas",
                                         style = MaterialTheme.typography.labelSmall)
+                                    Button(onClick = { togglePause() }) {
+                                        Text(if (sessionPaused) "Reanudar" else "Pausar")
+                                    }
                                     if (!session.canLogOnWatch) {
                                         Text("Este ejercicio solo se registra en el móvil",
                                             textAlign = TextAlign.Center,
@@ -433,6 +440,30 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         restRemaining = 0
     }
 
+    private fun togglePause() {
+        val nowPaused = !sessionPaused
+        sessionPaused = nowPaused
+        if (nowPaused) {
+            restJob?.cancel()
+        } else if (restRemaining > 0) {
+            startRest(restRemaining)
+        }
+        lifecycleScope.launch {
+            runCatching {
+                if (nowPaused) healthSession.pause() else healthSession.resume()
+            }
+        }
+        val payload = JSONObject().put("paused", nowPaused).toString()
+            .toByteArray(Charsets.UTF_8)
+        Wearable.getNodeClient(this).connectedNodes
+            .addOnSuccessListener { nodes ->
+                nodes.forEach { node ->
+                    Wearable.getMessageClient(this)
+                        .sendMessage(node.id, "/repera/session-pause", payload)
+                }
+            }
+    }
+
     private fun resendPending() {
         val commands = runCatching { pendingStore.all() }.getOrElse {
             sendStatus = "No se puede leer la cola; los datos siguen guardados"
@@ -493,6 +524,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     private fun clearSession(erasePending: Boolean) {
+        sessionPaused = false
         sessionCache.edit().remove("snapshot").apply()
         val outboxCleared = if (erasePending) runCatching {
             pendingStore.clear()
