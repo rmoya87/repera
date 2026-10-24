@@ -46,13 +46,12 @@ class WorkoutRepository(context: Context, googleId: String) {
     ): String {
         val cleaned = title.trim()
         require(cleaned.isNotBlank() && cleaned.length <= 100) { "Escribe un título válido" }
-        // buyInCashOut está dentro de la paridad pero PENDIENTE: necesita un
-        // editor seccionado (buy-in / trabajo / cash-out) fiel al modelo iOS,
-        // no un bloque plano. Se implementa al final de Fase 1; hasta entonces
-        // la validación lo rechaza en lugar de escribir un formato degradado.
+        // buyInCashOut es un formato plano más en el modelo iOS (las secciones
+        // buy-in / trabajo / cash-out se componen como BLOQUES separados de la
+        // rutina, no como estructura anidada del formato).
         require(format in setOf("strength", "amrap", "forTime", "emom", "tabata",
             "circuit", "chipper", "afap", "ladder", "deathBy", "partner",
-            "roundsForQuality", "maxEffort")) {
+            "roundsForQuality", "maxEffort", "buyInCashOut")) {
             "Tipo de rutina no permitido"
         }
         require(format != "ladder" ||
@@ -83,9 +82,42 @@ class WorkoutRepository(context: Context, googleId: String) {
             val exercise = catalog.getJSONObject(it)
             exercise.getString("id") to exercise
         }
+        val block = buildBlock(format, null, entries, byId, timeCapMinutes, rounds,
+            emomIntervalSeconds, workSeconds, restSeconds, ladderScheme)
+        val id = UUID.randomUUID().toString()
+        val nativeRoutine = JSONObject()
+            .put("id", id)
+            .put("title", cleaned)
+            .put("blocks", JSONArray().put(block))
+            .put("progression", "off")
+            .put("isFavorite", false)
+        if (scheduledDay != null) {
+            // Swift Routine.scheduledDate stores the user's calendar start-of-day as a Date.
+            nativeRoutine.put("scheduledDate", scheduledDay.atStartOfDay(ZoneId.systemDefault())
+                .toInstant().toString())
+        } else if (schedule.weekday != null) {
+            nativeRoutine.put("weekday", schedule.weekday)
+        }
+        if (schedule.timeMinutes != null)
+            nativeRoutine.put("scheduledTimeMinutes", schedule.timeMinutes)
+        state.getJSONArray("routines").put(nativeRoutine)
+        save(state)
+        return id
+    }
+
+    /** Bloque compartido por createRoutine y replaceRoutineBlocks: misma
+     *  validación y misma escritura JSON que consume iOS. */
+    private fun buildBlock(
+        format: String,
+        blockTitle: String?,
+        entries: List<RoutineDraftEntry>,
+        byId: Map<String, JSONObject>,
+        timeCapMinutes: Int, rounds: Int, emomIntervalSeconds: Int,
+        workSeconds: Int, restSeconds: Int, ladderScheme: List<Int>?
+    ): JSONObject {
         val block = JSONObject()
             .put("id", UUID.randomUUID().toString())
-            .put("title", when (format) {
+            .put("title", blockTitle?.takeIf { it.isNotBlank() } ?: when (format) {
                 "strength" -> "Fuerza"
                 else -> dev.repera.domain.WodFormat.fromWire(format)?.displayName
                     ?: "Circuito"
@@ -152,25 +184,57 @@ class WorkoutRepository(context: Context, googleId: String) {
                 .put("restSeconds", restSeconds)
             if (format == "circuit") block.put("restBetweenRoundsSeconds", restSeconds)
         }
-        val id = UUID.randomUUID().toString()
-        val nativeRoutine = JSONObject()
-            .put("id", id)
-            .put("title", cleaned)
-            .put("blocks", JSONArray().put(block))
-            .put("progression", "off")
-            .put("isFavorite", false)
-        if (scheduledDay != null) {
-            // Swift Routine.scheduledDate stores the user's calendar start-of-day as a Date.
-            nativeRoutine.put("scheduledDate", scheduledDay.atStartOfDay(ZoneId.systemDefault())
-                .toInstant().toString())
-        } else if (schedule.weekday != null) {
-            nativeRoutine.put("weekday", schedule.weekday)
+        return block
+    }
+
+    /**
+     * Editor de contenido: sustituye los bloques de una rutina existente
+     * (multi-bloque incluido: buy-in / trabajo / cash-out como bloques
+     * separados, igual que iOS). Conserva identidad, título y programación
+     * de la rutina; los entrenos ya registrados nunca se reescriben.
+     */
+    @Synchronized fun replaceRoutineBlocks(id: String, blocks: List<RoutineBlockDraft>) {
+        require(blocks.size in 1..10) { "La rutina necesita entre 1 y 10 bloques" }
+        val state = requireState()
+        val catalog = state.getJSONArray("exercises")
+        val byId = (0 until catalog.length()).associate {
+            val exercise = catalog.getJSONObject(it)
+            exercise.getString("id") to exercise
         }
-        if (schedule.timeMinutes != null)
-            nativeRoutine.put("scheduledTimeMinutes", schedule.timeMinutes)
-        state.getJSONArray("routines").put(nativeRoutine)
+        val routines = state.getJSONArray("routines")
+        val routine = (0 until routines.length())
+            .map { routines.getJSONObject(it) }
+            .firstOrNull { it.optString("id") == id } ?: error("Rutina no encontrada")
+        val array = JSONArray()
+        for (draft in blocks) {
+            require(draft.format in setOf("strength", "amrap", "forTime", "emom",
+                "tabata", "circuit", "chipper", "afap", "ladder", "deathBy", "partner",
+                "roundsForQuality", "maxEffort", "buyInCashOut")) {
+                "Tipo de bloque no permitido"
+            }
+            require(draft.entries.isNotEmpty()) { "Cada bloque necesita al menos un ejercicio" }
+            require(draft.entries.map { it.exerciseId }.distinct().size ==
+                draft.entries.size) { "No repitas el mismo ejercicio en un bloque" }
+            require(draft.timeCapMinutes in 1..180 && draft.rounds in 1..100)
+            require(draft.emomIntervalSeconds in 15..600 &&
+                draft.workSeconds in 5..600 && draft.restSeconds in 0..600)
+            if (draft.format == "emom")
+                require(draft.rounds.toLong() * draft.emomIntervalSeconds <= 10800L)
+            if (draft.format == "tabata") {
+                require(draft.rounds.toLong() * (draft.workSeconds + draft.restSeconds) <= 10800L)
+                require(draft.workSeconds + draft.restSeconds <= 600)
+            }
+            require(draft.format != "ladder" ||
+                (draft.ladderScheme != null && draft.ladderScheme.size in 2..12 &&
+                    draft.ladderScheme.all { it in 1..1000 })) {
+                "La escalera necesita un esquema tipo 21-15-9"
+            }
+            array.put(buildBlock(draft.format, draft.title, draft.entries, byId,
+                draft.timeCapMinutes, draft.rounds, draft.emomIntervalSeconds,
+                draft.workSeconds, draft.restSeconds, draft.ladderScheme))
+        }
+        routine.put("blocks", array)
         save(state)
-        return id
     }
 
     /**
@@ -1345,6 +1409,19 @@ data class WodMovementSummary(
     val calories: Int?,
     val meters: Int?,
     val restSeconds: Int?
+)
+
+/** Borrador de bloque para el editor de contenido de rutinas. */
+data class RoutineBlockDraft(
+    val title: String = "",
+    val format: String,
+    val entries: List<RoutineDraftEntry>,
+    val timeCapMinutes: Int = 12,
+    val rounds: Int = 1,
+    val emomIntervalSeconds: Int = 60,
+    val workSeconds: Int = 20,
+    val restSeconds: Int = 10,
+    val ladderScheme: List<Int>? = null
 )
 
 data class RoutineDraftEntry(

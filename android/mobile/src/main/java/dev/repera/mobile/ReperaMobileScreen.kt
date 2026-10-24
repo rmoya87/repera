@@ -69,6 +69,7 @@ fun ReperaMobileScreen(
     onStartRoutine: (String) -> Unit,
     onEditRoutine: (String, String, RoutineSchedule) -> Unit,
     onDeleteRoutine: (String) -> Unit,
+    onReplaceRoutineBlocks: (String, List<RoutineBlockDraft>) -> Unit,
     onCreateRoutine: (String, String, List<RoutineDraftEntry>, Int, Int,
         RoutineSchedule, Int, Int, Int, List<Int>?) -> Unit,
     onAddWodTemplate: (String) -> Unit,
@@ -195,6 +196,9 @@ fun ReperaMobileScreen(
                         onStartRoutine = onStartRoutine,
                         onEditRoutine = onEditRoutine,
                         onDeleteRoutine = onDeleteRoutine,
+                        onEditRoutineContent = { routineId ->
+                            navController.navigate("rutina/$routineId")
+                        },
                         onInitializeLocal = onInitializeLocal,
                         onImportJson = onImportJson,
                         onDriveSync = onDriveSync,
@@ -266,6 +270,27 @@ fun ReperaMobileScreen(
                         onSignOut = onSignOut,
                         onNavigateHome = { navigateTab("inicio") }
                     )
+                }
+                composable(
+                    route = "rutina/{routineId}",
+                    arguments = listOf(navArgument("routineId") { type = NavType.StringType })
+                ) { backStackEntry ->
+                    val routineId = backStackEntry.arguments?.getString("routineId").orEmpty()
+                    val routine = overview?.routineEntries?.firstOrNull { it.id == routineId }
+                    if (routine == null) {
+                        LaunchedEffect(Unit) { navController.popBackStack() }
+                    } else {
+                        RoutineBlocksEditorScreen(
+                            routine = routine,
+                            exercises = overview?.exerciseEntries.orEmpty(),
+                            busy = busy,
+                            onReplace = { drafts ->
+                                onReplaceRoutineBlocks(routineId, drafts)
+                                navController.popBackStack()
+                            },
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
                 }
                 composable(
                     route = "ejercicio/{exerciseId}",

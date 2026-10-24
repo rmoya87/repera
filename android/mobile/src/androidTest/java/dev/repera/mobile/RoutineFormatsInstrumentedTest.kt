@@ -87,14 +87,14 @@ class RoutineFormatsInstrumentedTest {
         }
     }
 
-    /** buyInCashOut queda pendiente de su editor seccionado (Fase 1);
-     *  hasta entonces el repositorio lo rechaza en vez de degradar el formato. */
-    @Test fun buyInCashOutStaysRejectedUntilSectionedEditorAndLadderValidates() {
+    /** buyInCashOut es un formato plano del modelo iOS: las secciones
+     *  buy-in / trabajo / cash-out se componen como bloques separados de la
+     *  rutina (editor multi-bloque), no como estructura anidada del formato. */
+    @Test fun buyInCashOutIsAcceptedAndLadderValidates() {
         val (repo, local) = repo()
-        assertThrows(IllegalArgumentException::class.java) {
-            repo.createRoutine("BICO", "buyInCashOut",
-                listOf(RoutineDraftEntry(exerciseId(local), 10)))
-        }
+        repo.createRoutine("BICO", "buyInCashOut",
+            listOf(RoutineDraftEntry(exerciseId(local), 10)))
+        assertEquals("buyInCashOut", firstBlock(local).getString("wodFormat"))
         assertThrows(IllegalArgumentException::class.java) {
             repo.createRoutine("Mala", "ladder",
                 listOf(RoutineDraftEntry(exerciseId(local), 21)),

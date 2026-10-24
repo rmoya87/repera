@@ -171,6 +171,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     runWorkoutAction { updateRoutineDetails(id, title, schedule) }
                 },
                 onDeleteRoutine = { id -> runWorkoutAction { deleteRoutine(id) } },
+                onReplaceRoutineBlocks = { id, drafts ->
+                    runWorkoutAction { replaceRoutineBlocks(id, drafts) }
+                },
                 onCreateRoutine = { title, format, entries, minutes, rounds, schedule, interval, work, rest, ladder ->
                     runWorkoutAction { createRoutine(title, format, entries, minutes, rounds,
                         schedule, interval, work, rest, ladder) }
@@ -756,12 +759,69 @@ data class StateOverview(
                         ?.let { value -> runCatching {
                             Instant.parse(value).atZone(ZoneId.systemDefault()).toLocalDate().toString()
                         }.getOrNull() }
+                    val blockInfos = blocks?.let { array ->
+                        (0 until array.length()).map { bi ->
+                            val block = array.getJSONObject(bi)
+                            val kind = block.optString("kind")
+                            val entries = if (kind == "strength") {
+                                block.optJSONArray("exercises")?.let { exs ->
+                                    (0 until exs.length()).map { ei ->
+                                        val ex = exs.getJSONObject(ei)
+                                        val planned = ex.optJSONArray("plannedSets")
+                                        val first = planned?.optJSONObject(0)
+                                        RoutineBlockEntryInfo(
+                                            exerciseId = ex.getString("exerciseId"),
+                                            name = "",
+                                            quantity = first?.optInt("targetReps")
+                                                ?.takeIf { it > 0 } ?: 8,
+                                            sets = planned?.length() ?: 1,
+                                            weightKg = if (first?.has("targetWeightKg") == true)
+                                                first.getDouble("targetWeightKg") else null
+                                        )
+                                    }
+                                }.orEmpty()
+                            } else {
+                                block.optJSONArray("movements")?.let { mv ->
+                                    (0 until mv.length()).map { mi ->
+                                        val m = mv.getJSONObject(mi)
+                                        RoutineBlockEntryInfo(
+                                            exerciseId = m.optString("exerciseId"),
+                                            name = m.optString("name"),
+                                            quantity = when {
+                                                m.has("reps") -> m.getInt("reps")
+                                                m.has("calories") -> m.getInt("calories")
+                                                m.has("distanceMeters") -> m.getInt("distanceMeters")
+                                                else -> 1
+                                            }
+                                        )
+                                    }
+                                }.orEmpty()
+                            }
+                            val scheme = block.optJSONArray("movements")?.optJSONObject(0)
+                                ?.optJSONArray("repScheme")
+                                ?.let { s -> (0 until s.length()).map { s.getInt(it) } }
+                            RoutineBlockInfo(
+                                title = block.optString("title"),
+                                format = if (kind == "strength") "strength"
+                                    else block.optString("wodFormat", "strength"),
+                                timeCapMinutes = block.optInt("timeCapMinutes", 12),
+                                rounds = block.optInt("rounds", 1),
+                                emomIntervalSeconds = block.optInt("emomIntervalSeconds", 60),
+                                workSeconds = block.optInt("workSeconds", 20),
+                                restSeconds = block.optInt("restBetweenRoundsSeconds",
+                                    block.optInt("restSeconds", 10)),
+                                ladderScheme = scheme,
+                                entries = entries
+                            )
+                        }
+                    }.orEmpty()
                     RoutineEntry(
                         id = item.getString("id"), title = item.optString("title"),
                         supported = supported, scheduledDate = day,
                         weekday = item.optInt("weekday").takeIf { item.has("weekday") && it in 1..7 },
                         timeMinutes = item.optInt("scheduledTimeMinutes")
-                            .takeIf { item.has("scheduledTimeMinutes") && it in 0..1439 }
+                            .takeIf { item.has("scheduledTimeMinutes") && it in 0..1439 },
+                        blocks = blockInfos
                     )
                 }
             }
@@ -826,7 +886,29 @@ data class RoutineEntry(
     val supported: Boolean,
     val scheduledDate: String? = null,
     val weekday: Int? = null,
-    val timeMinutes: Int? = null
+    val timeMinutes: Int? = null,
+    val blocks: List<RoutineBlockInfo> = emptyList()
+)
+
+/** Bloque de una rutina tal y como se muestra en el editor de contenido. */
+data class RoutineBlockInfo(
+    val title: String,
+    val format: String,
+    val timeCapMinutes: Int = 12,
+    val rounds: Int = 1,
+    val emomIntervalSeconds: Int = 60,
+    val workSeconds: Int = 20,
+    val restSeconds: Int = 10,
+    val ladderScheme: List<Int>? = null,
+    val entries: List<RoutineBlockEntryInfo> = emptyList()
+)
+
+data class RoutineBlockEntryInfo(
+    val exerciseId: String,
+    val name: String,
+    val quantity: Int,
+    val sets: Int = 1,
+    val weightKg: Double? = null
 )
 
 data class ExerciseEntry(

@@ -643,7 +643,8 @@ internal fun ScheduledRoutineCard(
     canStart: Boolean,
     onStart: (String) -> Unit,
     onEdit: (String, String, RoutineSchedule) -> Unit = { _, _, _ -> },
-    onDelete: (String) -> Unit = {}
+    onDelete: (String) -> Unit = {},
+    onEditContent: (String) -> Unit = {}
 ) {
     var editing by remember(routine.id) { mutableStateOf(false) }
     var confirmingDelete by remember(routine.id) { mutableStateOf(false) }
@@ -676,6 +677,8 @@ internal fun ScheduledRoutineCard(
                     onClick = { onStart(routine.id) },
                     enabled = !busy && canStart && routine.supported
                 ) { Text(if (routine.supported) "Empezar" else "Formato pendiente") }
+                TextButton(onClick = { onEditContent(routine.id) },
+                    enabled = !busy) { Text("Contenido") }
                 TextButton(onClick = {
                     editing = !editing
                     confirmingDelete = false
