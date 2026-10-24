@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
  * The refresh token keeps the session durable across process restarts;
  * callers persist it via SessionStore (Android Keystore encryption).
  */
-internal class SupabaseIdentity(
+class SupabaseIdentity(
     private val http: OkHttpClient = OkHttpClient.Builder()
         .callTimeout(20, TimeUnit.SECONDS).build()
 ) {

@@ -60,6 +60,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var recoveryRead by mutableStateOf<RecoveryRead?>(null)
     private val credentialManager by lazy { CredentialManager.create(this) }
     private var verifiedSupabase: SupabaseIdentity.Session? = null
+    private var centerSnapshot by mutableStateOf<BusinessCenterStore.Snapshot?>(null)
+    private var centerLoading by mutableStateOf(false)
+    private var centerSubmitting by mutableStateOf(false)
+    private var centerError by mutableStateOf<String?>(null)
     private val sessionStore by lazy { SessionStore(this) }
 
     private val requestHealthPermissions = registerForActivityResult(
@@ -190,6 +194,21 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 },
                 onCreateRoutineFromScan = { title, blocks ->
                     runWorkoutAction { createRoutineFromScan(title, blocks) }
+                },
+                centerConnected = verifiedSupabase != null,
+                centerLoading = centerLoading,
+                centerSubmitting = centerSubmitting,
+                centerError = centerError,
+                centerSnapshot = centerSnapshot,
+                onCenterRefresh = ::refreshCenter,
+                onCenterAccept = { invitation ->
+                    centerAction { s -> accept(s, invitation) }
+                },
+                onCenterBook = { occurrence, pass ->
+                    centerAction { s -> book(s, occurrence, pass) }
+                },
+                onCenterCancel = { booking ->
+                    centerAction { s -> cancel(s, booking) }
                 },
                 onAddWodTemplate = { templateId ->
                     val template = dev.repera.domain.CatalogWods.template(templateId)
@@ -399,6 +418,48 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
      * store when the refresh token is no longer accepted. Only a refresh round
      * trip decides validity; the stored access token is never trusted blindly.
      */
+    private fun refreshCenter() {
+        val session = verifiedSupabase ?: return
+        if (centerLoading) return
+        centerLoading = true
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                BusinessCenterStore().refresh(session)
+            }
+            when (result) {
+                is BusinessCenterStore.LoadResult.Loaded -> {
+                    centerSnapshot = result.snapshot
+                    centerError = null
+                }
+                is BusinessCenterStore.LoadResult.Failed -> {
+                    centerError = result.message
+                }
+            }
+            centerLoading = false
+        }
+    }
+
+    private fun centerAction(
+        action: BusinessCenterStore.(SupabaseIdentity.Session) -> Unit
+    ) {
+        val session = verifiedSupabase ?: return
+        if (centerSubmitting) return
+        centerSubmitting = true
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    BusinessCenterStore().action(session)
+                }
+                centerError = null
+            } catch (error: Exception) {
+                centerError = error.localizedMessage ?: "Operación no completada"
+            } finally {
+                centerSubmitting = false
+            }
+            refreshCenter()
+        }
+    }
+
     private fun restoreStoredSession() {
         val stored = sessionStore.load() ?: return
         if (busy) return
@@ -419,6 +480,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     }
                 }
                 verifiedSupabase = session
+                refreshCenter()
                 sessionStore.save(
                     SessionStore.StoredSession(
                         uniqueId = stored.uniqueId,
@@ -437,6 +499,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 // Expired or revoked refresh token: back to the login screen.
                 sessionStore.clear()
                 verifiedSupabase = null
+                centerSnapshot = null
+                centerError = null
                 profile = null
             } finally {
                 busy = false
@@ -486,6 +550,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     SupabaseIdentity().signInWithGoogle(google.idToken, nonce)
                 }
                 verifiedSupabase = session
+                refreshCenter()
                 val signedIn = GoogleProfile(
                     uniqueId = id,
                     email = google.email ?: "",
@@ -498,6 +563,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 status = if (snapshot == null) "No hay datos locales. Sincroniza Google Drive." else null
             } catch (error: Exception) {
                 verifiedSupabase = null
+                centerSnapshot = null
+                centerError = null
                 profile = null
                 snapshot = null
                 activeWorkout = null

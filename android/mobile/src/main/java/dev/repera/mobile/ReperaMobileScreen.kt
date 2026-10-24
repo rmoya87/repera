@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AddCircleOutline
+import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.Home
@@ -74,6 +75,15 @@ fun ReperaMobileScreen(
         RoutineSchedule, Int, Int, Int, List<Int>?) -> Unit,
     onAddWodTemplate: (String) -> Unit,
     onCreateRoutineFromScan: (String, List<dev.repera.domain.RoutineBlock>) -> Unit,
+    centerConnected: Boolean,
+    centerLoading: Boolean,
+    centerSubmitting: Boolean,
+    centerError: String?,
+    centerSnapshot: BusinessCenterStore.Snapshot?,
+    onCenterRefresh: () -> Unit,
+    onCenterAccept: (BusinessCenterStore.Invitation) -> Unit,
+    onCenterBook: (BusinessCenterStore.Occurrence, BusinessCenterStore.Pass) -> Unit,
+    onCenterCancel: (BusinessCenterStore.Booking) -> Unit,
     onWodScore: (Int?, Int?, Int?) -> Unit,
     onWodMovement: (Int, Int, Int, Double?) -> Unit,
     onCompleteWodBlock: () -> Unit,
@@ -132,11 +142,16 @@ fun ReperaMobileScreen(
                 restoreState = true
             }
         }
+        val centerVisible = centerSnapshot?.isLinkedOrInvited == true
+        val visibleTabs = tabs.map { tab ->
+            if (tab.route == "crear" && centerVisible)
+                TabSpec("center", "Center", Icons.Outlined.Apartment) else tab
+        }
         Scaffold(
             topBar = { TopAppBar(title = { Text("repera") }) },
             bottomBar = {
                 NavigationBar {
-                    tabs.forEach { tab ->
+                    visibleTabs.forEach { tab ->
                         NavigationBarItem(
                             selected = currentRoute == tab.route,
                             onClick = { navigateTab(tab.route) },
@@ -238,6 +253,19 @@ fun ReperaMobileScreen(
                             navController.popBackStack()
                         },
                         onBack = { navController.popBackStack() }
+                    )
+                }
+                composable("center") {
+                    CenterTab(
+                        connected = centerConnected,
+                        loading = centerLoading,
+                        submitting = centerSubmitting,
+                        errorMessage = centerError,
+                        snapshot = centerSnapshot,
+                        onRefresh = onCenterRefresh,
+                        onAccept = onCenterAccept,
+                        onBook = onCenterBook,
+                        onCancel = onCenterCancel
                     )
                 }
                 composable("progreso") {
