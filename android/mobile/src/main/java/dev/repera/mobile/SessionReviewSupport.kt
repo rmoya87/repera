@@ -39,6 +39,25 @@ object SessionReviewSupport {
         return review
     }
 
+    /** Afina la nota de una sesión terminada con la muestra de Salud
+     *  (refreshSessionReviewWithCardio iOS). Persiste dentro de la sesión y
+     *  devuelve la nota actualizada, o null si no hay nota o no cambió. */
+    fun refineWithCardio(state: JSONObject, sessionId: String,
+                         sample: dev.repera.domain.SessionCardioSample): SessionReview? {
+        val archive = state.optJSONArray("workouts") ?: return null
+        for (i in 0 until archive.length()) {
+            val session = archive.optJSONObject(i) ?: continue
+            if (session.optString("id") != sessionId) continue
+            val current = session.optJSONObject("sessionReview")
+                ?.let { SessionReviewJson.fromJson(it) } ?: return null
+            val updated = dev.repera.domain.SessionCardioEffort.apply(current, sample)
+            if (updated == current) return null
+            session.put("sessionReview", SessionReviewJson.toJson(updated))
+            return updated
+        }
+        return null
+    }
+
     /** Recalcula notas de todos los entrenos si la fórmula cambió (p. ej. equivalencias). */
     fun refreshAllIfNeeded(state: JSONObject, storedVersion: Int): Boolean {
         if (storedVersion >= FORMULA_VERSION) return false

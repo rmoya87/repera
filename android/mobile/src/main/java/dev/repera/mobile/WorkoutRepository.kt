@@ -1983,6 +1983,36 @@ class WorkoutRepository(context: Context, googleId: String) {
         save(state)
     }
 
+    /** Ventana temporal de una sesión (epoch ms inicio/fin) para leer Salud. */
+    @Synchronized fun sessionTimeRange(sessionId: String): Pair<Long, Long>? {
+        val state = loadOrNull() ?: return null
+        val archive = state.optJSONArray("workouts") ?: return null
+        for (i in 0 until archive.length()) {
+            val session = archive.optJSONObject(i) ?: continue
+            if (session.optString("id") != sessionId) continue
+            val start = runCatching { java.time.Instant.parse(
+                session.optString("startedAt")).toEpochMilli() }.getOrNull()
+            val end = runCatching { java.time.Instant.parse(
+                session.optString("finishedAt")).toEpochMilli() }.getOrNull()
+            if (start != null && end != null && end > start) return start to end
+            return null
+        }
+        return null
+    }
+
+    /** Afina la nota con la muestra de Salud (refineSessionReviewWithHealth
+     *  iOS): se aplica tras terminar, cuando la lectura de Salud llega. */
+    @Synchronized fun refineSessionReviewWithCardio(
+        sessionId: String,
+        sample: dev.repera.domain.SessionCardioSample
+    ): dev.repera.domain.SessionReview? {
+        val state = loadOrNull() ?: return null
+        val updated = SessionReviewSupport.refineWithCardio(state, sessionId, sample)
+            ?: return null
+        save(state)
+        return updated
+    }
+
     /** Valoración pendiente de mostrar tras terminar (pendingSessionReview iOS).
      *  Se consume una sola vez. */
     @Synchronized fun consumePendingReview(): Pair<String, SessionReview>? {

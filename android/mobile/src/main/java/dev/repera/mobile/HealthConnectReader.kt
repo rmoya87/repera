@@ -143,6 +143,39 @@ class HealthConnectReader(private val context: Context) {
         )
     }
 
+    /** Muestra de cardio de UNA sesión (HealthKitStore.sessionHealthExtras
+     *  iOS): serie de FC y kcal activas dentro de la ventana del entreno.
+     *  Requiere permisos ya concedidos; sin permiso devuelve muestra vacía. */
+    suspend fun readSessionSample(startEpochMs: Long, endEpochMs: Long): dev.repera.domain.SessionCardioSample {
+        if (!available() || endEpochMs <= startEpochMs) return dev.repera.domain.SessionCardioSample()
+        val client = HealthConnectClient.getOrCreate(context)
+        val granted = client.permissionController.getGrantedPermissions()
+        val start = Instant.ofEpochMilli(startEpochMs)
+        val end = Instant.ofEpochMilli(endEpochMs)
+        var bpm: List<Double> = emptyList()
+        if (granted.contains(HealthPermission.getReadPermission(HeartRateRecord::class))) {
+            val response = client.readRecords(ReadRecordsRequest(
+                HeartRateRecord::class, TimeRangeFilter.between(start, end)))
+            bpm = response.records.flatMap { it.samples }
+                .map { it.beatsPerMinute.toDouble() }
+        }
+        var kcal: Double? = null
+        if (granted.contains(HealthPermission.getReadPermission(
+                ActiveCaloriesBurnedRecord::class))) {
+            val response = client.readRecords(ReadRecordsRequest(
+                ActiveCaloriesBurnedRecord::class, TimeRangeFilter.between(start, end)))
+            val total = response.records.sumOf { it.energy.inKilocalories }
+            if (total > 0) kcal = total
+        }
+        return dev.repera.domain.SessionCardioSample(
+            averageHeartRateBpm = bpm.takeIf { it.isNotEmpty() }?.average(),
+            maxHeartRateBpm = bpm.maxOrNull(),
+            heartRateBpmSamples = bpm,
+            activeEnergyKcal = kcal,
+            durationMinutes = (endEpochMs - startEpochMs) / 60000.0
+        )
+    }
+
     /** Lecturas de los últimos `days` días para Progreso (misma ventana
      *  que ProgressTimeRange.healthFetchDayCount en iOS). */
     suspend fun readSamples(days: Int): HealthSamples {

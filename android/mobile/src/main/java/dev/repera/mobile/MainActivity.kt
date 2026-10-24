@@ -65,6 +65,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var snapshot by mutableStateOf<StateOverview?>(null)
     private var activeWorkout by mutableStateOf<ActiveWorkout?>(null)
     private var pendingReview by mutableStateOf<dev.repera.domain.SessionReview?>(null)
+    private var pendingReviewSessionId: String? = null
     private var wodTimer by mutableStateOf<WodTimerState?>(null)
     private var todayHealth by mutableStateOf<TodayHealth?>(null)
     private var healthSamples by mutableStateOf<HealthSamples?>(null)
@@ -689,7 +690,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     StrengthRestService.cancel(this)
                     val finishedSessionId = activeWorkout?.id
                     val route = locationTracker.stopRouteTracking()
-                    runWorkoutAction {
+                    runWorkoutAction(onSuccess = {
+                        finishedSessionId?.let { refineFinishedSessionWithHealth(it) }
+                    }) {
                         finish()
                         if (finishedSessionId != null && route.isNotEmpty()) {
                             attachRoutePoints(finishedSessionId, route)
@@ -760,7 +763,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                             } else false
                         }.getOrDefault(false)
                     }
-                    if (finished) reloadFor(signedIn.uniqueId)
+                    if (finished) {
+                        reloadFor(signedIn.uniqueId)
+                        refineFinishedSessionWithHealth(sessionId)
+                    }
                 }
             }
             return
@@ -1048,6 +1054,33 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
     }
 
+    /** Tras terminar una sesión: relee FC/kcal de Salud en su ventana y
+     *  afina la nota (refineSessionReviewWithHealth iOS). Sin permisos o sin
+     *  señal no toca nada. Si la hoja de valoración sigue visible con esa
+     *  sesión, la actualiza (presentIfPending iOS). */
+    private fun refineFinishedSessionWithHealth(sessionId: String) {
+        val signedIn = profile ?: return
+        val reader = HealthConnectReader(this)
+        if (!reader.available()) return
+        lifecycleScope.launch {
+            val updated = withContext(Dispatchers.IO) {
+                runCatching {
+                    if (!reader.hasPermissions()) return@runCatching null
+                    val repo = WorkoutRepository(this@MainActivity, signedIn.uniqueId)
+                    val range = repo.sessionTimeRange(sessionId) ?: return@runCatching null
+                    val sample = reader.readSessionSample(range.first, range.second)
+                    if (!sample.hasUsableSignal) return@runCatching null
+                    WorkoutRepository(this@MainActivity, signedIn.uniqueId)
+                        .refineSessionReviewWithCardio(sessionId, sample)
+                }.getOrNull()
+            }
+            if (updated != null) {
+                if (pendingReviewSessionId == sessionId) pendingReview = updated
+                reloadFor(signedIn.uniqueId)
+            }
+        }
+    }
+
     private fun connectHealth() {
         if (profile == null || busy) return
         val reader = HealthConnectReader(this)
@@ -1186,7 +1219,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         // Valoración pendiente tras terminar sesión (pendingSessionReview iOS).
         withContext(Dispatchers.IO) {
             WorkoutRepository(this@MainActivity, id).consumePendingReview()
-        }?.let { pendingReview = it.second }
+        }?.let { pendingReviewSessionId = it.first; pendingReview = it.second }
         snapshot = overview
         // Contadores que alimentan la política de límites Gratis (iOS:
         // SubscriptionManager.syncCounts). Rutinas guardadas y ejercicios
