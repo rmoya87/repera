@@ -71,6 +71,11 @@ import dev.repera.domain.WodClockSpec
 import java.time.LocalDate
 import java.time.LocalTime
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -1248,7 +1253,52 @@ internal fun WorkoutHistoryCard(
             }
         )
     }
-    Card(modifier = Modifier.fillMaxWidth().animateContentSize()) {
+    // Gesto deslizar-para-revelar (paridad RegisterSwipeRevealCard iOS, math
+    // portada en SwipeRevealMath): arrastrar a la izquierda descubre la
+    // acción de borrado; soltar más allá del 45% la deja abierta. El icono de
+    // papelera visible permanece como vía accesible equivalente.
+    val revealWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) {
+        96.dp.toPx()
+    }
+    var swipeOffset by remember(workout.id) { mutableStateOf(0f) }
+    Box(modifier = Modifier.fillMaxWidth()) {
+        if (swipeOffset < 0f) {
+            TextButton(
+                onClick = { swipeOffset = 0f; pendingDelete = true },
+                enabled = !busy,
+                modifier = Modifier.align(Alignment.CenterEnd).width(96.dp)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.errorContainer)
+            ) {
+                Text("Eliminar", color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.labelLarge)
+            }
+        }
+        Card(modifier = Modifier.fillMaxWidth().animateContentSize()
+            .offset { androidx.compose.ui.unit.IntOffset(swipeOffset.toInt(), 0) }
+            .pointerInput(workout.id, busy) {
+                if (busy) return@pointerInput
+                detectDragGestures(
+                    onDrag = { change, dragAmount ->
+                        if (kotlin.math.abs(dragAmount.x) >
+                            kotlin.math.abs(dragAmount.y)) {
+                            swipeOffset =
+                                dev.repera.domain.SwipeRevealMath.clampedOffset(
+                                    start = swipeOffset,
+                                    translation = dragAmount.x,
+                                    revealWidth = revealWidthPx)
+                            change.consume()
+                        }
+                    },
+                    onDragEnd = {
+                        swipeOffset = if (dev.repera.domain.SwipeRevealMath
+                                .shouldOpen(projected = swipeOffset,
+                                    current = swipeOffset,
+                                    revealWidth = revealWidthPx))
+                            -revealWidthPx else 0f
+                    }
+                )
+            }) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(7.dp)
@@ -1383,6 +1433,7 @@ internal fun WorkoutHistoryCard(
                 }
             }
         }
+    }
     }
 }
 
