@@ -1338,6 +1338,24 @@ internal fun AccountSyncCard(
     onSignOut: () -> Unit
 ) {
     Text("Cuenta y sincronización", style = MaterialTheme.typography.titleMedium)
+    // Entrada a Repera Pro desde ajustes (paridad SettingsView iOS,
+    // contexto settings). Pro activo muestra enlace de gestión.
+    val subscriptions = dev.repera.mobile.monetization.LocalSubscriptions.current
+    if (subscriptions != null) {
+        if (subscriptions.isPro) {
+            val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+            TextButton(onClick = {
+                uriHandler.openUri(dev.repera.mobile.monetization.CommercialConfig.MANAGE_SUBSCRIPTIONS_URL)
+            }) { Text("Repera Pro activo · Gestionar") }
+        } else {
+            TextButton(onClick = {
+                subscriptions.presentPaywall(
+                    dev.repera.domain.monetization.PaywallContext.SETTINGS,
+                    feature = null
+                )
+            }) { Text("Conocer Repera Pro") }
+        }
+    }
     Button(
         onClick = onDriveSync, enabled = !busy,
         modifier = Modifier.fillMaxWidth(),
