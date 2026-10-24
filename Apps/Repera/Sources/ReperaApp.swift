@@ -376,7 +376,7 @@ private struct LaunchSplashView: UIViewRepresentable {
         canvas.backgroundColor = UIColor(red: 48 / 255, green: 209 / 255, blue: 88 / 255, alpha: 1)
         canvas.isUserInteractionEnabled = false
 
-        let mascot = UIImageView(image: UIImage(named: "MascotWelcome"))
+        let mascot = UIImageView(image: UIImage(named: "MascotRunning"))
         mascot.contentMode = .scaleAspectFit
         mascot.clipsToBounds = true
         mascot.translatesAutoresizingMaskIntoConstraints = false
