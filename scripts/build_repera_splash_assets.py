@@ -78,17 +78,30 @@ def repair_barbell_image(image):
         rgb[gaps > 0] = fixed[gaps > 0]
         alpha[gaps > 0] = 255
 
-    # Preserve all previously opaque pixels. For missing dark pupil or smile
-    # samples, paint the missing pixels dark instead of the green background.
+    # Definitively paint the two pupils and smile as FULLY opaque, not merely
+    # fill alpha. The source PNG has partly erased RGB at those locations.
+    # Keep the same facial geometry and highlights of Repera's original face.
+    dark = (48, 41, 38)  # RGB warm dark, not a transparent pixel
     details = np.zeros((h, w), np.uint8)
-    cv2.ellipse(details, (round(444*sx), round(379*sy)), (round(27*sx), round(47*sy)), 6, 0, 360, 255, -1)
-    cv2.ellipse(details, (round(606*sx), round(412*sy)), (round(29*sx), round(46*sy)), 5, 0, 360, 255, -1)
-    cv2.ellipse(details, (round(516*sx), round(447*sy)), (round(44*sx), round(23*sy)), 0, 0, 180, 255, -1)
-    # Only paint holes reported by the original alpha; do not change opaque details.
-    original_a = np.asarray(image.convert("RGBA"))[:, :, 3]
-    missing_details = (details > 0) & (original_a < 210)
-    rgb[missing_details] = (50, 43, 39)
-    alpha[missing_details] = 255
+    for center, axes, rotation in (
+        ((444, 379), (27, 45), 6),
+        ((606, 411), (28, 43), 5),
+    ):
+        xy = (round(center[0] * sx), round(center[1] * sy))
+        ab = (round(axes[0] * sx), round(axes[1] * sy))
+        cv2.ellipse(rgb, xy, ab, rotation, 0, 360, dark, -1, cv2.LINE_AA)
+        cv2.ellipse(details, xy, ab, rotation, 0, 360, 255, -1)
+    mouth_center = (round(515 * sx), round(432 * sy))
+    mouth_axes = (round(38 * sx), round(30 * sy))
+    cv2.ellipse(rgb, mouth_center, mouth_axes, 0, 0, 180,
+                dark, round(11 * sx), cv2.LINE_AA)
+    cv2.ellipse(details, mouth_center, mouth_axes, 0, 0, 180,
+                255, round(14 * sx), cv2.LINE_AA)
+    for px, py, radius in ((453, 346, 7), (618, 380, 7)):
+        xy = (round(px * sx), round(py * sy))
+        cv2.circle(rgb, xy, round(radius * sx), (241, 235, 233), -1, cv2.LINE_AA)
+        cv2.circle(details, xy, round(radius * sx), 255, -1)
+    alpha[details > 0] = 255
 
     repaired = np.dstack([rgb, alpha])
     return Image.fromarray(repaired, "RGBA")
@@ -109,17 +122,20 @@ def running_with_original_head(running, original):
     expanded = cv2.dilate(body, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
     run[:, :, 3] = np.where(expanded > 0, run[:, :, 3], 0)
 
+    # Transfer ONLY the genuine facial/headband texture. Earlier we
+    # accidentally transferred weights and extra ear silhouettes too; those
+    # must stay out. The existing runner provides the outer head contour,
+    # ears and the running body. Feather the face/headband patch naturally.
     head_poly = np.array([
-        [477, 93], [505, 103], [547, 137], [567, 80], [596, 77],
-        [643, 133], [671, 171], [728, 207], [769, 272],
-        [788, 351], [772, 424], [735, 481], [691, 518],
-        [624, 549], [541, 564], [456, 555], [379, 536],
-        [313, 493], [277, 439], [264, 374], [272, 304],
-        [311, 236], [371, 178], [419, 150]
+        [374, 218], [432, 190], [518, 179], [625, 179],
+        [690, 202], [728, 238], [735, 275], [722, 316],
+        [721, 380], [699, 450], [649, 510], [575, 541],
+        [466, 539], [396, 516], [343, 477], [322, 420],
+        [329, 350], [324, 305], [338, 255]
     ], np.float32) * old_scale
     mask = np.zeros((oh, ow), np.uint8)
-    cv2.fillPoly(mask, [head_poly.astype(np.int32)], 255)
-    mask = cv2.GaussianBlur(mask, (9, 9), 2.2)
+    cv2.fillPoly(mask, [np.rint(head_poly).astype(np.int32)], 255)
+    mask = cv2.GaussianBlur(mask, (0, 0), 16)
     mask = (mask.astype(np.float32) * old[:, :, 3].astype(np.float32) / 255).astype(np.uint8)
 
     # Align authentic head and headband with the new running torso.
