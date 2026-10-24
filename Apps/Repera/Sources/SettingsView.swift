@@ -26,19 +26,6 @@ struct SettingsView: View {
     @State private var notificationsStatus: UNAuthorizationStatus = .notDetermined
     @State private var confirmSignOut = false
     @State private var googleLinkFeedback: String?
-    @State private var isSyncingEverything = false
-    @State private var syncIconSpinning = false
-    @State private var syncFeedback: String?
-    @AppStorage("repera.settings.lastFullSyncAt") private var lastFullSyncAt: Double = 0
-
-    private var lastSyncDateDescription: String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "es_ES")
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: Date(timeIntervalSince1970: lastFullSyncAt))
-    }
-
     var body: some View {
         @Bindable var store = store
         Form {
@@ -120,55 +107,6 @@ struct SettingsView: View {
                         photoItem = nil
                     }
                 }
-
-                Button {
-                    Task { await syncEverything() }
-                } label: {
-                    HStack(alignment: .top, spacing: 12) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.body.weight(.semibold))
-                            .frame(width: 24, height: 25)
-                            .rotationEffect(.degrees(syncIconSpinning ? 360 : 0))
-                            .animation(
-                                syncIconSpinning
-                                    ? .linear(duration: 0.85).repeatForever(autoreverses: false)
-                                    : .default,
-                                value: syncIconSpinning
-                            )
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(isSyncingEverything ? "Sincronizando…" : "Sincronizar ahora")
-                                .font(.body)
-                            if let syncFeedback {
-                                Text(syncFeedback)
-                                    .font(.caption)
-                                    .foregroundStyle(OG.red)
-                                    .multilineTextAlignment(.leading)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            } else if lastFullSyncAt > 0 {
-                                Text("Última actualización: \(lastSyncDateDescription)")
-                                    .font(.caption)
-                                    .foregroundStyle(OG.label2)
-                                    .multilineTextAlignment(.leading)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            if workoutSync.restoredBlockSnapshots > 0 {
-                                Text("\(workoutSync.restoredBlockSnapshots) entrenamientos antiguos recuperaron sus bloques originales.")
-                                    .font(.caption)
-                                    .foregroundStyle(OG.label2)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            // No presentar como fallo de sincronización la
-                            // ausencia de Rx históricos que nunca se guardaron.
-                            // Los WOD y resultados siguen sincronizados; la
-                            // completitud de esos bloques se trata en Historial.
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .layoutPriority(1)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .foregroundStyle(OG.label)
-                }
-                .disabled(isSyncingEverything)
 
                 if businessAuth.isConnected, !businessAuth.isGoogleSignedIn {
                     Button {
@@ -664,101 +602,6 @@ struct SettingsView: View {
     private func refreshNotificationsStatus() async {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         notificationsStatus = settings.authorizationStatus
-    }
-
-    /// iCloud + perfil Business (nombre/avatar) + espejo privado de entrenamientos.
-    private func syncEverything() async {
-        guard !isSyncingEverything else { return }
-        isSyncingEverything = true
-        syncIconSpinning = false
-        // Arranca la rotación en el siguiente frame para que `repeatForever` anime bien.
-        await Task.yield()
-        syncIconSpinning = true
-        defer {
-            syncIconSpinning = false
-            isSyncingEverything = false
-        }
-
-        syncFeedback = nil
-        // Reconciliar iCloud primero para no reintroducir una copia anterior
-        // justo después de enlazar en Salud el UUID del entrenamiento.
-        await store.refreshFromiCloud()
-        RemoteExerciseCatalogStore.shared.restoreCached(to: store)
-        // Salud no depende de que haya funcionado iCloud ni Supabase.
-        let pendingHealthWorkouts = await store.syncMissingWorkoutsToHealth()
-        let healthPendingDescription = pendingHealthWorkouts > 0
-            ? " · \(pendingHealthWorkouts) entrenamientos pendientes en Apple Salud"
-            : ""
-        guard store.syncPhase == .ready else {
-            syncFeedback = "No se ha confirmado iCloud." + healthPendingDescription
-            return
-        }
-        if !businessAuth.isConnected {
-            await businessAuth.restoreSession()
-            if !businessAuth.isConnected {
-                _ = businessAuth.connectFromCachedSessionIfPossible()
-            }
-        }
-        guard businessAuth.isConnected else {
-            syncFeedback = "iCloud sincronizado. La sesión de Supabase no está disponible con esta cuenta Apple; vuelve a iniciar sesión para recuperar la conexión." + healthPendingDescription
-            return
-        }
-        await businessAuth.syncPublicProfile(
-            displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName,
-            avatarJPEG: store.state.settings.profileAvatarJPEG
-        )
-        await businessData.refresh()
-        await RemoteExerciseCatalogStore.shared.refresh(store: store, force: true)
-        // App launch, foreground handlers and Realtime can trigger the same
-        // stores concurrently. Wait for the in-flight tasks instead of
-        // incorrectly reporting an operation as failed due to an active sync.
-        for _ in 0..<80 {
-            if !workoutSync.isSyncing,
-               !AITrainingInboxStore.shared.isSyncing,
-               !AITrainingContextStore.shared.isSyncing {
-                break
-            }
-            try? await Task.sleep(for: .milliseconds(150))
-        }
-        let workoutsUploaded = await workoutSync.sync(store: store)
-        let plansSynced = await AITrainingInboxStore.shared.sync(store: store)
-        let calendarSynced = await AITrainingContextStore.shared.syncCalendar(store: store)
-        let customExercisesSynced = await AIChangeRequestStore.shared.syncCustomExercises(store: store)
-        await AIChangeRequestStore.shared.refresh(store: store)
-        // Perfil público es opcional: un error al subir una foto jamás bloquea
-        // el historial deportivo. El diagnóstico se comunica en Cuenta.
-        var incomplete: [String] = []
-        if pendingHealthWorkouts > 0 {
-            incomplete.append(
-                health.canWriteWorkouts
-                    ? "\(pendingHealthWorkouts) entrenamientos pendientes en Salud"
-                    : "Autoriza la escritura de entrenamientos en Apple Salud (\(pendingHealthWorkouts) pendientes)"
-            )
-        }
-        if !workoutsUploaded {
-            incomplete.append(workoutSync.lastError ?? "entrenamientos pendientes (iCloud o Supabase no están listos)")
-        }
-        if !plansSynced {
-            incomplete.append(AITrainingInboxStore.shared.lastError ?? "propuestas de IA pendientes")
-        }
-        if !calendarSynced {
-            incomplete.append("calendario deportivo pendiente de envío")
-        }
-        if !customExercisesSynced {
-            incomplete.append("catálogo privado de ejercicios pendiente de envío")
-        }
-        if let catalogError = RemoteExerciseCatalogStore.shared.lastErrorMessage {
-            incomplete.append("catálogo público de ejercicios: " + catalogError)
-        }
-        if let profileError = businessAuth.profileMigrationErrorMessage {
-            incomplete.append(profileError)
-        }
-        if incomplete.isEmpty {
-            lastFullSyncAt = Date().timeIntervalSince1970
-            syncFeedback = nil
-        } else {
-            syncFeedback = "iCloud actualizado. Pendiente: " + incomplete.joined(separator: " · ")
-        }
     }
 
     private func permissionStatusRow(
