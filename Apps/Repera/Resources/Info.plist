@@ -80,15 +80,8 @@
 	<string>YOUR_REVENUECAT_PUBLIC_API_KEY</string>
 	<key>UIFileSharingEnabled</key>
 	<false/>
-	<key>UILaunchScreen</key>
-	<dict>
-		<key>UIColorName</key>
-		<string>LaunchReperaGreen</string>
-		<key>UIImageName</key>
-		<string>ReperaBarbellLaunch</string>
-		<key>UIImageRespectsSafeAreaInsets</key>
-		<true/>
-	</dict>
+	<key>UILaunchStoryboardName</key>
+	<string>ReperaNativeLaunch</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

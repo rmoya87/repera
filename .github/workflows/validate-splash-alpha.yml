@@ -9,7 +9,7 @@ on:
       - "Apps/Repera/Resources/Assets.xcassets/ReperaBarbellLaunch.imageset/**"
       - "Apps/Repera/Resources/LaunchHeroOpaque.png"
       - "Apps/Repera/Resources/Info.plist"
-      - "Apps/Repera/Resources/Info.plist"
+      - "Apps/Repera/Resources/ReperaNativeLaunch.storyboard"
       - "project.yml"
       - ".github/workflows/validate-splash-alpha.yml"
   pull_request:
@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python -m pip install --disable-pip-version-check pillow
-      - name: Verify storyboard-free UILaunchScreen, facial pixels and asset references
+      - name: Verify native launch storyboard uses first mascot and brand green
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -51,18 +51,22 @@ jobs:
           rgb=colors["colors"][0]["color"]["components"]
           assert tuple(round(float(rgb[k])*255) for k in ("red","green","blue"))==(48,209,88)
           props=plistlib.loads((root/"Info.plist").read_bytes())
-          assert "UILaunchStoryboardName" not in props
-          assert props["UILaunchScreen"]=={
-              "UIImageName":"ReperaBarbellLaunch",
-              "UIColorName":"LaunchReperaGreen",
-              "UIImageRespectsSafeAreaInsets":True
-          }
+          assert "UILaunchScreen" not in props, "System must not show default white UILaunchScreen"
+          assert props["UILaunchStoryboardName"]=="ReperaNativeLaunch"
+          import xml.etree.ElementTree as ET
+          storyboard=Path("Apps/Repera/Resources/ReperaNativeLaunch.storyboard")
+          tree=ET.parse(storyboard)
+          assert tree.getroot().get("launchScreen")=="YES"
+          images=tree.findall('.//imageView[@image="ReperaBarbellLaunch"]')
+          assert len(images)==1, "Launch storyboard is not drawing the barbell mascot"
+          background=tree.find('.//view/color[@key="backgroundColor"]')
+          assert background is not None and abs(float(background.get("green"))-209/255)<0.001, "Wrong launch green"
+          resources=tree.findall('.//resources/image[@name="ReperaBarbellLaunch"]')
+          assert len(resources)==1, "Launch mascot resource not declared in storyboard"
           config=Path("project.yml").read_text()
-          assert "UILaunchStoryboardName:" not in config
-          assert "UIImageName: ReperaBarbellLaunch" in config
-          assert "UIColorName: LaunchReperaGreen" in config
-          assert "path: Apps/Repera/Resources/ReperaLaunchBundle.storyboard" not in config
-          assert "path: Apps/Repera/Resources/LaunchHeroOpaque.png" not in config
+          assert "UILaunchScreen:" not in config
+          assert "UILaunchStoryboardName: ReperaNativeLaunch" in config
+          assert "path: Apps/Repera/Resources/ReperaNativeLaunch.storyboard" in config
           direct=Path("Apps/Repera/Resources/ReperaStartupBarbell.png")
           assert direct.read_bytes()==image.read_bytes(), "First SwiftUI splash differs from native artwork"
           runner=Path("Apps/Repera/Sources/ReperaApp.swift").read_text()

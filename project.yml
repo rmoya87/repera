@@ -56,8 +56,10 @@ targets:
       - path: Apps/Repera/Resources/ExerciseArt
         buildPhase: resources
         type: folder
-      # La pantalla de arranque se define en Info.plist mediante UILaunchScreen.
-      # UIImageName/UIColorName se resuelven desde Assets.xcassets; no usar storyboard ni PNG sueltos.
+      # El sistema renderiza el LaunchScreen nativo mientras SwiftUI inicia.
+      # El storyboard usa ReperaBarbellLaunch (Asset Catalog), mismo muñeco que SwiftUI.
+      - path: Apps/Repera/Resources/ReperaNativeLaunch.storyboard
+        buildPhase: resources
       - path: Apps/Repera/Resources/BodyPaths.json
         buildPhase: resources
     resources: []
@@ -126,10 +128,7 @@ targets:
         RevenueCatPublicAPIKey: YOUR_REVENUECAT_PUBLIC_API_KEY
         ReperaSupabaseURL: https://uvzgujlrqohreoucirms.supabase.co
         ReperaSupabasePublishableKey: sb_publishable_uY9c82Ur7VK4VOo9n2zCEg_PmywmLbA
-        UILaunchScreen:
-          UIColorName: LaunchReperaGreen
-          UIImageName: ReperaBarbellLaunch
-          UIImageRespectsSafeAreaInsets: true
+        UILaunchStoryboardName: ReperaNativeLaunch
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
