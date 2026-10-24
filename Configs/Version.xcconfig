@@ -2,3 +2,5 @@
 // Se actualiza al compilar desde Xcode y se conserva al regenerar con XcodeGen.
 REPERA_MARKETING_VERSION = 1.0.0
 REPERA_BUILD_NUMBER = 8
+
+#include "GoogleSignIn.xcconfig"

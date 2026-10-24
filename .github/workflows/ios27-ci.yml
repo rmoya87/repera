@@ -60,6 +60,7 @@ jobs:
         run: |
           python3 scripts/sync_versions.py --check
           python3 -m unittest discover -s tests -p 'test_sync_versions.py' -v
+          python3 -m unittest discover -s tests -p 'test_google_identity_linking_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_ai_realtime_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_ai_coach_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_ai_apple_permissions_sync_contract.py' -v

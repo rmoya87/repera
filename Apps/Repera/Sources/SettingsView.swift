@@ -176,7 +176,7 @@ struct SettingsView: View {
                             let linked = await businessAuth.linkGoogleToCurrentAccount()
                             googleLinkFeedback = linked
                                 ? "Google vinculado a esta cuenta."
-                                : (businessAuth.lastErrorMessage ?? "No se pudo vincular Google.")
+                                : businessAuth.lastErrorMessage
                         }
                     } label: {
                         Label("Vincular cuenta de Google", systemImage: "person.crop.circle.badge.plus")

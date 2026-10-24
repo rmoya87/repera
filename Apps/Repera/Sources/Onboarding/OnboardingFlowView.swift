@@ -1,3 +1,4 @@
+import GoogleSignInSwift
 import ReperaDomain
 import SwiftUI
 import UIKit
@@ -59,8 +60,15 @@ private struct OnboardingSignInStep: View {
     @Environment(AppleAuthStore.self) private var appleAuth
     @Environment(OnboardingStore.self) private var onboarding
     @Environment(\.colorScheme) private var colorScheme
-    @State private var busy = false
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @State private var signingInWith: SignInProvider?
     @State private var errorText: String?
+
+    private enum SignInProvider {
+        case apple, google
+    }
+
+    private var busy: Bool { signingInWith != nil }
 
     /// Día: botón negro / texto blanco. Noche: botón blanco / texto negro (HIG Apple SIWA).
     private var appleButtonBackground: Color {
@@ -72,18 +80,46 @@ private struct OnboardingSignInStep: View {
     }
 
     var body: some View {
+        GeometryReader { geometry in
+            ScrollView {
+                welcomeContent
+                    .frame(maxWidth: 480)
+                    .frame(minHeight: max(0, geometry.size.height - 48))
+                    .padding(.horizontal, OG.pad)
+                    .padding(.vertical, 24)
+                    .frame(maxWidth: .infinity)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        }
+        .onAppear {
+            let business = BusinessAuthStore.shared
+            let businessOK = business.isConnected
+                || business.hasCachedSupabaseSession
+                || business.hasPriorSupabaseBinding
+            if (appleAuth.isSignedIn || business.isGoogleSignedIn) && businessOK {
+                onboarding.reconcile(isSignedIn: true)
+            }
+        }
+    }
+
+    private var welcomeContent: some View {
         VStack(spacing: 24) {
             Spacer(minLength: 12)
-            ReperaMascot(pose: .welcome, maxHeight: 240)
+            ReperaMascot(pose: .welcome, maxHeight: verticalSizeClass == .compact ? 120 : 220)
             VStack(spacing: 10) {
                 Text("Bienvenido a Repera")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.largeTitle.bold())
                     .foregroundStyle(OG.label)
                     .multilineTextAlignment(.center)
-                Text("Accede con Apple o Google. Tu historial permanece protegido y la misma cuenta verificada conserva su identidad en Supabase.")
+                Text("Todo tu entrenamiento. Cada vez mejor.")
+                    .font(.headline)
+                    .foregroundStyle(OG.label)
+                    .multilineTextAlignment(.center)
+                Text("Crea tus rutinas, escanea la pizarra y registra cada serie o WOD. Supera tus marcas, sigue tu actividad y recuperación, y entrena con tu Apple Watch y la ayuda de tu entrenador o tu IA favorita.")
                     .font(.body)
                     .foregroundStyle(OG.label2)
                     .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             if store.iCloudStatus == .signedOut {
@@ -102,7 +138,7 @@ private struct OnboardingSignInStep: View {
                 Task { await signInSpanish() }
             } label: {
                 HStack(spacing: 10) {
-                    if busy {
+                    if signingInWith == .apple {
                         ProgressView()
                             .tint(appleButtonForeground)
                     } else {
@@ -120,28 +156,27 @@ private struct OnboardingSignInStep: View {
             .disabled(busy)
             .accessibilityLabel("Iniciar sesión con Apple")
 
-            Button {
-                Task { await signInGoogle() }
-            } label: {
-                HStack(spacing: 10) {
-                    if busy {
-                        ProgressView().tint(OG.label)
-                    } else {
-                        Image(systemName: "g.circle.fill")
-                            .font(.system(size: 18, weight: .semibold))
-                    }
-                    Text("Continuar con Google")
-                        .font(.system(size: 17, weight: .semibold))
+            VStack(spacing: 8) {
+                // The SDK owns the logo, localized title, font and pressed state.
+                GoogleSignInButton(
+                    scheme: colorScheme == .dark ? .dark : .light,
+                    style: .wide,
+                    state: busy ? .disabled : .normal
+                ) {
+                    Task { await signInGoogle() }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .foregroundStyle(OG.label)
-                .background(OG.surface, in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(OG.surface3))
+                .padding(.vertical, 4)
+                .disabled(busy)
+                .accessibilityLabel("Iniciar sesión con Google")
+
+                if signingInWith == .google {
+                    ProgressView("Conectando con Google…")
+                        .font(.footnote)
+                        .tint(OG.label)
+                        .foregroundStyle(OG.label2)
+                }
             }
-            .buttonStyle(.plain)
-            .disabled(busy)
-            .accessibilityLabel("Iniciar sesión con Google")
 
             if let errorText {
                 Text(errorText)
@@ -152,25 +187,17 @@ private struct OnboardingSignInStep: View {
 
             Spacer()
         }
-        .padding(.horizontal, OG.pad)
-        .onAppear {
-            let business = BusinessAuthStore.shared
-            let businessOK = business.isConnected
-                || business.hasCachedSupabaseSession
-                || business.hasPriorSupabaseBinding
-            if (appleAuth.isSignedIn || business.isGoogleSignedIn) && businessOK {
-                onboarding.reconcile(isSignedIn: true)
-            }
-        }
     }
 
     private func signInGoogle() async {
-        busy = true
-        defer { busy = false }
+        guard !busy else { return }
+        signingInWith = .google
+        defer { signingInWith = nil }
         errorText = nil
         let auth = BusinessAuthStore.shared
         guard await auth.signInWithGoogle() else {
-            errorText = auth.lastErrorMessage ?? "No se pudo acceder con Google."
+            // Closing Google's account picker is not an authentication error.
+            errorText = auth.lastErrorMessage
             return
         }
         // Mismo flujo de permisos/planes que con Apple.
@@ -182,8 +209,9 @@ private struct OnboardingSignInStep: View {
     }
 
     private func signInSpanish() async {
-        busy = true
-        defer { busy = false }
+        guard !busy else { return }
+        signingInWith = .apple
+        defer { signingInWith = nil }
         errorText = nil
         do {
             try await appleAuth.signIn()

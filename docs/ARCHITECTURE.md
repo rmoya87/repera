@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-23 (catálogo de movilidad, filtro y búsqueda bilingüe)
+Última actualización: 2026-10-24 (SDK oficial Google Sign-In y bienvenida adaptable)
 
 ## Series de movilidad (iOS)
 
@@ -143,6 +143,12 @@ La pestaña Diario prioriza **Entrenador** y conserva **Personal · Rutinas** co
 
 ## UI / design system
 
+El acceso Google usa los productos `GoogleSignIn` y `GoogleSignInSwift` del SDK oficial 10.1.0, fijado en `project.yml`. `OnboardingFlowView.swift` presenta `GoogleSignInButton` en estilo `.wide`; el SDK aporta imagen, fuente, localización y estados. No hay copias locales del logo ni fuentes de Google. La bienvenida usa scroll, texto promocional dinámico y estado local del proveedor seleccionado.
+
+`BusinessAuthStore.nativeGoogleCredentials()` configura `GIDSignIn`, selecciona el presentador de la escena activa y pide un ID token con nonce SHA-256. Solo extrae valores `Sendable` dentro del callback de Google; Supabase valida ID token, access token y nonce original mediante `signInWithIdToken`. El UUID remoto se contrasta con el dueño local antes de dar acceso. La vinculación Apple→Google usa `linkIdentityWithIdToken`, nunca un login que sustituya al usuario actual. Cerrar sesión invalida los intentos pendientes y limpia tanto Google como Supabase; cancelar el selector no muestra error. La restauración sigue usando la sesión Supabase de Keychain sin exigir otra autenticación interactiva.
+
+`ReperaApp.onOpenURL` entrega el retorno al SDK. `Configs/GoogleSignIn.xcconfig`, incluido desde `Version.xcconfig`, suministra los IDs públicos de iOS, su esquema invertido y Web (`serverClientID`). El cliente iOS y su esquema, facilitados por el propietario, ya están configurados. `Info.plist` y XcodeGen mantienen las mismas variables; hay validación antes de abrir el SDK para evitar fallos por configuración ausente. Regenerar con `xcodegen generate` al incorporar las dependencias. Pendientes la compilación y la autenticación nativa E2E.
+
 `Theme.swift` (`OG*`):
 
 - Tokens `OG*` adaptativos (día/noche según sistema), acento verde `#30d158`
@@ -208,7 +214,7 @@ Guía manual: [TESTING_GUIDE.md](TESTING_GUIDE.md).
 `BusinessDataStore.swift` es un overlay `@Observable` alimentado por Supabase SDK autenticado. `CenterView` lee Clases/Citas, bonos y reservas; `FindCenterTrainerView` / `LinkedCenterDetailView` gestionan directorio, vínculo, bono y desvinculación; `MessagesInboxView` mensajes bidireccionales. Migración `org_directory_avatar_messaging`: `avatar_url`, directorio, `request_org_athlete_link`, `leave_org_as_athlete`, `athlete_send_org_message`. No se fusiona con el JSON local ni iCloud.
 
 ## Puente de identidad iOS/Repera Business
-`BusinessAuthStore.swift` usa SDK `supabase-swift` (2.55.4 exacta). **Primer login = Apple id_token + nonce → `signInWithIdToken` Supabase**. Arranque: onboarding + (`isConnected` | refresh Keychain | binding) → `RootTabView`, aunque Apple Keychain esté vacío (p. ej. wipe histórico por `.revoked` espurio). Identidad Apple se espeja en UserDefaults; no se borra Keychain en `getCredentialState(.revoked)`. Trazas: Consola `com.app.repera` / `AuthSession` y DEBUG `🔐 AUTH`.
+`BusinessAuthStore.swift` usa SDK `supabase-swift` (2.55.4 exacta). **Primer login = ID token Apple o Google + nonce → `signInWithIdToken` Supabase**. Arranque: onboarding + (`isConnected` | refresh Keychain | binding) → `RootTabView`, aunque Apple Keychain esté vacío (p. ej. wipe histórico por `.revoked` espurio). Identidad Apple se espeja en UserDefaults; no se borra Keychain en `getCredentialState(.revoked)`. Trazas: Consola `com.app.repera` / `AuthSession` y DEBUG `🔐 AUTH`.
 
 ## Plataforma profesional (desarrollo separado dentro del monorepo)
 

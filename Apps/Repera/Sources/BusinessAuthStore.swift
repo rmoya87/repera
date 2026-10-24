@@ -1,6 +1,7 @@
 import AuthenticationServices
 import CryptoKit
 import Foundation
+import GoogleSignIn
 import Observation
 import ReperaDomain
 import Security
@@ -35,9 +36,7 @@ final class BusinessAuthStore {
         didExplicitlySignOut = false
         UserDefaults.standard.set(false, forKey: explicitSignOutKey)
     }
-    private static let googleRedirectURL = URL(string: "repera://auth/callback")!
-    @ObservationIgnored private var googleLinkSession: ASWebAuthenticationSession?
-    @ObservationIgnored private var googleLinkPresenter: GoogleOAuthPresentationAnchor?
+    @ObservationIgnored private var googleAuthAttemptID = UUID()
 
     var isGoogleSignedIn: Bool {
         UserDefaults.standard.bool(forKey: googleSignedInKey)
@@ -397,6 +396,7 @@ final class BusinessAuthStore {
             }
             rememberOwner(session.user.id)
             clearExplicitSignOutAfterVerifiedLogin()
+            GIDSignIn.sharedInstance.signOut()
             UserDefaults.standard.set(false, forKey: googleSignedInKey)
             UserDefaults.standard.set(expectedBinding, forKey: appleIdentityBindingKey)
             isConnected = true
@@ -422,10 +422,8 @@ final class BusinessAuthStore {
         }
     }
 
-    /// OAuth con Google usa ASWebAuthenticationSession del SDK Supabase, con
-    /// retorno protegido por la URL registrada en iOS y en Auth Redirect URLs.
-    /// Supabase vincula identidades automáticamente solo con email verificado.
-    /// La prueba definitiva de que es la misma persona es el UUID Supabase.
+    /// Google Sign-In obtiene un ID token ligado a un nonce nuevo; solo la
+    /// sesión validada por Supabase y el UUID propietario permiten entrar.
     @discardableResult
     func signInWithGoogle() async -> Bool {
         guard let client else {
@@ -436,17 +434,26 @@ final class BusinessAuthStore {
         isConnecting = true
         defer { isConnecting = false }
         lastErrorMessage = nil
+        let attemptID = UUID()
+        googleAuthAttemptID = attemptID
 
         // No se borra el historial local, ni el propietario anterior.
         do {
-            let session = try await client.auth.signInWithOAuth(
-                provider: .google,
-                redirectTo: Self.googleRedirectURL
-            )
+            let credentials = try await nativeGoogleCredentials()
+            guard googleAuthAttemptID == attemptID else { return false }
+            let session = try await client.auth.signInWithIdToken(credentials: credentials)
+            guard googleAuthAttemptID == attemptID else {
+                try? await client.auth.signOut()
+                GIDSignIn.sharedInstance.signOut()
+                return false
+            }
             guard isSameLocalOwner(session.user.id) else {
                 // Correo distinto/no verificado, Apple «Ocultar mi correo»,
                 // o cuentas realmente diferentes: NUNCA fusionar datos.
                 try? await client.auth.signOut()
+                GIDSignIn.sharedInstance.signOut()
+                UserDefaults.standard.set(false, forKey: googleSignedInKey)
+                BusinessDataStore.shared.clear()
                 isConnected = false
                 lastErrorMessage = "Google corresponde a otra cuenta. Entra con Apple y vincula Google desde Cuenta para usar tu historial."
                 return false
@@ -463,6 +470,8 @@ final class BusinessAuthStore {
             await BusinessDataStore.shared.refresh()
             return true
         } catch {
+            if error as? GoogleNativeSignInError == .cancelled { return false }
+            GIDSignIn.sharedInstance.signOut()
             lastErrorMessage = "No se pudo iniciar sesión con Google: \(error.localizedDescription)"
             // No afirmar éxito ni aceptar una sesión de identidad desconocida.
             return false
@@ -483,39 +492,25 @@ final class BusinessAuthStore {
         isConnecting = true
         defer { isConnecting = false }
         lastErrorMessage = nil
+        let attemptID = UUID()
+        googleAuthAttemptID = attemptID
         do {
-            // ASWebAuthenticationSession mantiene toda la autorización en el
-            // diálogo web nativo del sistema (sin Safari/Chrome externo).
-            let oauth = try await client.auth.getLinkIdentityURL(
-                provider: .google,
-                redirectTo: Self.googleRedirectURL
-            )
-            let callback = try await withCheckedThrowingContinuation { (cont: CheckedContinuation<URL, Error>) in
-                let webSession = ASWebAuthenticationSession(
-                    url: oauth.url,
-                    callbackURLScheme: "repera"
-                ) { url, error in
-                    if let url {
-                        cont.resume(returning: url)
-                    } else {
-                        cont.resume(throwing: error ?? GoogleOAuthLinkError.cancelled)
-                    }
-                }
-                let presenter = GoogleOAuthPresentationAnchor()
-                webSession.presentationContextProvider = presenter
-                googleLinkSession = webSession
-                googleLinkPresenter = presenter
-                if !webSession.start() {
-                    cont.resume(throwing: GoogleOAuthLinkError.unavailable)
-                }
+            let credentials = try await nativeGoogleCredentials()
+            guard googleAuthAttemptID == attemptID, !didExplicitlySignOut,
+                  client.auth.currentSession?.user.id == currentID else { return false }
+            // Link the verified Google token to the CURRENT authenticated user;
+            // a regular sign-in here would switch accounts instead of linking.
+            let confirmed = try await client.auth.linkIdentityWithIdToken(credentials: credentials)
+            guard googleAuthAttemptID == attemptID else {
+                try? await client.auth.signOut()
+                GIDSignIn.sharedInstance.signOut()
+                return false
             }
-            googleLinkSession = nil
-            googleLinkPresenter = nil
-            // El retorno de OAuth debe validarse por el SDK y conservar
-            // exactamente el mismo UUID antes de afirmar que se vinculó.
-            let confirmed = try await client.auth.session(from: callback)
             guard confirmed.user.id == currentID else {
                 try? await client.auth.signOut()
+                GIDSignIn.sharedInstance.signOut()
+                UserDefaults.standard.set(false, forKey: googleSignedInKey)
+                BusinessDataStore.shared.clear()
                 isConnected = false
                 lastErrorMessage = "Google no pertenece al usuario autenticado. No se han unido los perfiles."
                 return false
@@ -523,10 +518,69 @@ final class BusinessAuthStore {
             rememberOwner(currentID)
             return true
         } catch {
-            googleLinkSession = nil
-            googleLinkPresenter = nil
-            lastErrorMessage = "No se pudo vincular Google. Activa Manual Linking y permite repera://auth/callback en Supabase Auth."
+            if error as? GoogleNativeSignInError == .cancelled { return false }
+            GIDSignIn.sharedInstance.signOut()
+            lastErrorMessage = "No se pudo vincular Google: \(error.localizedDescription)"
             return false
+        }
+    }
+
+    /// Extract only Sendable credential values inside Google's main-queue
+    /// callback; never transfer a GIDGoogleUser across concurrency domains.
+    private func nativeGoogleCredentials() async throws -> OpenIDConnectCredentials {
+        guard let clientID = Bundle.main.object(forInfoDictionaryKey: "GIDClientID") as? String,
+              clientID.hasSuffix(".apps.googleusercontent.com"), !clientID.contains("$("),
+              let serverID = Bundle.main.object(forInfoDictionaryKey: "GIDServerClientID") as? String,
+              serverID.hasSuffix(".apps.googleusercontent.com"), clientID != serverID else {
+            throw GoogleNativeSignInError.configurationMissing
+        }
+        let reversedID = clientID.split(separator: ".").reversed().joined(separator: ".")
+        let urlTypes = Bundle.main.object(forInfoDictionaryKey: "CFBundleURLTypes") as? [[String: Any]] ?? []
+        let schemes = urlTypes.flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] }
+        guard schemes.contains(reversedID) else {
+            throw GoogleNativeSignInError.callbackMissing
+        }
+        let scene = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive && $0.windows.contains(where: \.isKeyWindow) }
+        guard var presenter = scene?.windows.first(where: \.isKeyWindow)?.rootViewController else {
+            throw GoogleNativeSignInError.presentationUnavailable
+        }
+        while let presented = presenter.presentedViewController, !presented.isBeingDismissed {
+            presenter = presented
+        }
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID, serverClientID: serverID)
+        let rawNonce = Self.makeNonce()
+        let hashedNonce = Self.hashedNonce(rawNonce)
+        return try await withCheckedThrowingContinuation { continuation in
+            GIDSignIn.sharedInstance.signIn(
+                withPresenting: presenter,
+                hint: nil,
+                additionalScopes: nil,
+                nonce: hashedNonce
+            ) { result, error in
+                if let error {
+                    let sdkError = error as NSError
+                    // kGIDSignInErrorCodeCanceled (-5), as defined by Google's SDK.
+                    if sdkError.domain == kGIDSignInErrorDomain, sdkError.code == -5 {
+                        continuation.resume(throwing: GoogleNativeSignInError.cancelled)
+                    } else {
+                        continuation.resume(throwing: error)
+                    }
+                    return
+                }
+                guard let user = result?.user, let idToken = user.idToken?.tokenString,
+                      !idToken.isEmpty, !user.accessToken.tokenString.isEmpty else {
+                    continuation.resume(throwing: GoogleNativeSignInError.missingToken)
+                    return
+                }
+                continuation.resume(returning: OpenIDConnectCredentials(
+                    provider: .google,
+                    idToken: idToken,
+                    accessToken: user.accessToken.tokenString,
+                    nonce: rawNonce
+                ))
+            }
         }
     }
 
@@ -660,6 +714,8 @@ final class BusinessAuthStore {
 
     /// Sign out from business platform independently of the Apple/iCloud personal store.
     func signOut() async {
+        googleAuthAttemptID = UUID()
+        GIDSignIn.sharedInstance.signOut()
         // Cierre explícito incluso si el SDK tarda en revocar su caché.
         // Se persiste para impedir restaurar una sesión tras reiniciar.
         didExplicitlySignOut = true
@@ -682,28 +738,22 @@ final class BusinessAuthStore {
     }
 }
 
-/// Presentador para el diálogo OAuth del sistema, sin ventanas inventadas.
-private final class GoogleOAuthPresentationAnchor: NSObject, ASWebAuthenticationPresentationContextProviding {
-    nonisolated func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        MainActor.assumeIsolated {
-            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-            if let window = scenes.flatMap(\.windows).first(where: \.isKeyWindow)
-                ?? scenes.flatMap(\.windows).first {
-                return window
-            }
-            preconditionFailure("Google OAuth needs a visible UIWindowScene")
-        }
-    }
-}
-
-private enum GoogleOAuthLinkError: LocalizedError {
+private enum GoogleNativeSignInError: LocalizedError, Equatable {
     case cancelled
-    case unavailable
+    case configurationMissing
+    case callbackMissing
+    case presentationUnavailable
+    case missingToken
 
     var errorDescription: String? {
         switch self {
-        case .cancelled: return "Se canceló la vinculación de Google."
-        case .unavailable: return "No se pudo abrir el acceso seguro de Google."
+        case .cancelled: return "Se canceló el acceso con Google."
+        case .configurationMissing:
+            return "Falta configurar el cliente OAuth de Google para iOS en esta versión de Repera."
+        case .callbackMissing:
+            return "Falta registrar la URL de retorno del SDK de Google en esta versión de Repera."
+        case .presentationUnavailable: return "No se pudo abrir el acceso de Google. Inténtalo de nuevo."
+        case .missingToken: return "Google no devolvió una credencial de acceso válida."
         }
     }
 }

@@ -1,0 +1,6 @@
+// Identificadores OAuth públicos, nunca un client secret.
+// Cliente de tipo iOS de Google Cloud para com.app.repera.
+REPERA_GOOGLE_IOS_CLIENT_ID = 1026054616574-537ebde8voqhs74are9ra05a0gjhjmad.apps.googleusercontent.com
+REPERA_GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.1026054616574-537ebde8voqhs74are9ra05a0gjhjmad
+// Cliente Web existente: audiencia de los ID tokens validados por Supabase.
+REPERA_GOOGLE_SERVER_CLIENT_ID = 1026054616574-qmugi1nalpar1vv0tdftv97cn6aljoji.apps.googleusercontent.com

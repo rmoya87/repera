@@ -6,6 +6,10 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>Repera</string>
+	<key>GIDClientID</key>
+	<string>$(REPERA_GOOGLE_IOS_CLIENT_ID)</string>
+	<key>GIDServerClientID</key>
+	<string>$(REPERA_GOOGLE_SERVER_CLIENT_ID)</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -13,6 +17,12 @@
 			<string>com.app.repera.auth</string>
 			<key>CFBundleURLSchemes</key>
 			<array><string>repera</string></array>
+		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.app.repera.google</string>
+			<key>CFBundleURLSchemes</key>
+			<array><string>$(REPERA_GOOGLE_REVERSED_CLIENT_ID)</string></array>
 		</dict>
 	</array>
 	<key>CFBundleExecutable</key>

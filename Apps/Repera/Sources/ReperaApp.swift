@@ -1,3 +1,4 @@
+import GoogleSignIn
 import ReperaDomain
 import SwiftUI
 import UIKit
@@ -38,6 +39,9 @@ struct ReperaApp: App {
     var body: some Scene {
         WindowGroup {
             launchRootView
+                .onOpenURL { url in
+                    GIDSignIn.sharedInstance.handle(url)
+                }
                 .environment(store)
                 .environment(subscriptions)
                 .environment(HealthKitStore.shared)

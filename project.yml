@@ -11,6 +11,7 @@ options:
 
 fileGroups:
   - Configs/Version.xcconfig
+  - Configs/GoogleSignIn.xcconfig
 
 packages:
   ReperaDomain:
@@ -21,6 +22,9 @@ packages:
   Supabase:
     url: https://github.com/supabase/supabase-swift.git
     exactVersion: 2.55.4
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS.git
+    exactVersion: 10.1.0
 
 configFiles:
   Debug: Configs/Version.xcconfig
@@ -88,6 +92,10 @@ targets:
         product: RevenueCat
       - package: Supabase
         product: Supabase
+      - package: GoogleSignIn
+        product: GoogleSignIn
+      - package: GoogleSignIn
+        product: GoogleSignInSwift
       - target: ReperaWatch
         embed: true
       - target: ReperaRestWidget
@@ -103,10 +111,15 @@ targets:
       path: Apps/Repera/Resources/Info.plist
       properties:
         CFBundleDisplayName: Repera
+        GIDClientID: "$(REPERA_GOOGLE_IOS_CLIENT_ID)"
+        GIDServerClientID: "$(REPERA_GOOGLE_SERVER_CLIENT_ID)"
         CFBundleURLTypes:
           - CFBundleURLName: com.app.repera.auth
             CFBundleURLSchemes:
               - repera
+          - CFBundleURLName: com.app.repera.google
+            CFBundleURLSchemes:
+              - "$(REPERA_GOOGLE_REVERSED_CLIENT_ID)"
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         # Clave pública RevenueCat (`appl_…`). Sustituir en ASC / xcconfig; vacío = modo gratis.

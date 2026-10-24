@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-23 (HYROX, movilidad y MCP multidisciplina)
+Última actualización: 2026-10-24 (bienvenida y SDK oficial Google Sign-In)
 
 - **Reloj de bloque (vertical y horizontal):** los dígitos LED escalan de forma exacta según ancho y ronda (HH:MM/ MM:SS sin rondas = 2,76×alto, con dos dígitos verdes de ronda = 4,22×alto), para no desbordarse a la derecha en intervalos. En retrato, miniatura de 100 pt y nombre centrados debajo del tiempo con 38 pt de separación; botones abajo. En paisaje miniatura de 112 pt y nombre en columna izquierda centrada en altura; reloj a la derecha con botones alineados en una fila. El icono del temporizador del bloque dentro de Play usa círculo Liquid Glass nativo de 44 pt.
 - **Now Playing externo:** Repera no dispone de API pública para leer el Now Playing global (Spotify, Podcasts y demás apps) ni detectar de forma fiable su estado. Se elimina la tarjeta genérica «Audio del iPhone» en ambas orientaciones en vez de mostrar un falso reproductor o iconos cuando no hay reproducción verificable. El Centro de control mantiene los controles nativos de esos servicios. Solo sería posible mostrar metadatos mediante una integración específica del proveedor o reproducción propia con permiso y datos accesibles.
@@ -207,8 +207,9 @@
 
 ## Onboarding (primer acceso y usuarios existentes)
 
-- Wizard full-screen antes de las tabs: **Apple o Google** (ambos desde Supabase; Google con `ASWebAuthenticationSession` de iOS, callback `repera://auth/callback`) → **permisos** → **Gratis o Pro** (si aún no se vieron precios).
-- Pantalla de login: fondo **blanco en modo día / negro en modo noche**; botón Apple **negro+texto blanco** de día y **blanco+texto negro** de noche; Google ofrece un segundo botón nativo con fondo de superficie.
+- Wizard full-screen antes de las tabs: **Apple o Google** (Google mediante SDK oficial iOS y token verificado por Supabase) → **permisos** → **Gratis o Pro** (si aún no se vieron precios). El retorno del SDK usa el esquema invertido del cliente OAuth iOS, recibido en `ReperaApp.onOpenURL`.
+- Pantalla de login: bienvenida «Todo tu entrenamiento. Cada vez mejor.» y presentación de rutinas, escaneo de pizarra, registro de series/WOD, marcas, actividad, recuperación, Apple Watch y ayuda del entrenador o IA. El contenido admite scroll cuando no cabe, escala con Dynamic Type y reduce la mascota en horizontal.
+- Botón Google: componente `GoogleSignInButton` del SDK oficial (`GoogleSignInSwift`, estilo `.wide`, modo claro/oscuro). Google gestiona su logotipo, fuente, texto traducido y estados; no se replica el botón en SwiftUI. El indicador de conexión se muestra fuera del componente y ambos accesos se bloquean mientras se autentica. Apple conserva su contraste día/noche. Cancelar Google vuelve al login sin error; Cuenta también usa el SDK al vincular. El cliente OAuth iOS y su esquema de retorno ya están configurados en `Configs/GoogleSignIn.xcconfig`; falta validar el recorrido nativo en un dispositivo firmado.
 - Puerta: **Apple o Google → Supabase** en el primer acceso. Luego: onboarding + (sesión viva | refresh Keychain | binding). Si Apple Keychain se vacía (p. ej. `.revoked` espurio) pero Supabase/binding siguen, se entra igual; la identidad Apple también se espeja en UserDefaults. **No** se borra Apple Keychain en `getCredentialState(.revoked)`. Trazas Consola `com.app.repera`/`AuthSession` y DEBUG `🔐 AUTH`.
 - Mascota Repera: saludo en login (`MascotWelcome`), thumbs-up en permisos (`MascotPermissions`); plan Pro usa `MascotHero` (PNG con fondo transparente). En permisos, tras conceder, el CTA pasa de «Permitir» a «Hecho».
 - Plan Pro del onboarding: precios y cargos desde StoreKit / App Store Connect (RevenueCat si hay API key).
