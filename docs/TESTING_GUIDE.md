@@ -1,8 +1,23 @@
 # Guía de pruebas — Repera
 
-Última actualización: 2026-10-22 (integración de Play, WOD y calorías verificadas de Apple Salud)
+Última actualización: 2026-10-25 (catálogo remoto incremental + pruebas anteriores)
 
 Checklist manual por feature. Preferible dispositivo real para Live Activity y Watch.
+
+## Catálogo editorial Supabase (25/10/2026)
+
+- [x] Backfill real de 287 ejercicios y cursor 1–287 en Supabase Repera, RLS de lectura authenticated, sin permiso de lectura anon.
+- [x] Pruebas SQL reversibles: corregir nombre, material y archivar `catalog:Press banca` emite eventos; `ROLLBACK` mantiene los 287 eventos originales y el ejercicio activo.
+- [ ] Con un iPhone autenticado, primera sincronización: recibir dos páginas (150 + 137) sin duplicados ni cambios de UUID ni favoritos.
+- [ ] Dos aperturas con la misma revisión: el segundo inicio lee únicamente el último ID y no vuelve a bajar 287 fichas.
+- [ ] En el panel de datos cambiar `mobile_description`, `mobile_instructions` y `mobile_equipment`: se reflejan en ficha y registro sin instalar otra versión; restaurar después el valor editorial original.
+- [ ] Añadir un movimiento con nueva `catalog_key`; verificar que aparece tras sincronizar, que tiene UUID idéntico en dos iPhone y que se puede entrenar sin perder datos.
+- [ ] Marcar `is_active=false`: desaparece de biblioteca y selector, pero rutinas, sesiones, récords y favoritos históricos conservan ID y datos. Reactivar y comprobar retorno.
+- [ ] Renombrar un ejercicio sin cambiar `catalog_key` ni UUID: no crear duplicados y conservar evolución.
+- [ ] Sin conexión: iniciar rápido, mostrar caché, seguir entrenando; reconectar para obtener únicamente los eventos pendientes.
+- [ ] Con iCloud antiguo, cerrar/reabrir y usar «Sincronizar ahora»: la copia remota corrige fichas una vez recuperada iCloud.
+- [ ] Revisar Watch activo al cambiar un ejercicio desde iPhone; probar app Watch sin conectividad con historial precargado.
+- [ ] Compilar con Xcode 27, ejecutar Swift XCTest ReperaDomain, simulador iPhone/Watch y pruebas de dispositivos reales antes de fusionar PR.
 
 ## MCP multidisciplina (23/10/2026)
 
