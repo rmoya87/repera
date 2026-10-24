@@ -17,6 +17,39 @@ el almacenamiento privado. Para dar acceso profesional a Supabase se requiere
 un proveedor Google y autenticación verificada en backend; nunca basta con el
 identificador de cuenta obtenido en el teléfono.
 
+## Catálogo Supabase dinámico y sincronización invisible (25/10/2026)
+
+`RemoteExerciseCatalogWorker.kt` usa **WorkManager** nativo con restricciones de
+conectividad y comprobación periódica oportunista (6 h, nunca exacta). Consume la
+misma tabla editorial `mobile_exercise_catalog_events` de Supabase que iOS:
+consulta solo la última revisión, después páginas de 150 eventos nuevas,
+persistidas atómicamente en una caché pública independiente del historial.
+El token de acceso se lee del `SessionStore` cifrado con Android Keystore;
+si está próximo a caducar el trabajador no intenta abrir la UI ni refrescar
+credenciales sin permiso: la autenticación del móvil se restaurará al abrir.
+
+La aplicación aplica silenciosamente la caché tras el seed local y antes de
+construir la pantalla. En primer plano comprueba la versión con corutinas en
+`Dispatchers.IO`, actualiza solo tras una descarga completa y vuelve a cargar
+la pantalla únicamente si hay cambios efectivos. Nunca crea sesiones ficticias
+ni modifica entrenos o rutinas existentes; mantiene los UUID, favoritos y
+campos personalizados. Los nuevos ejercicios usan UUID determinista calculado
+con la misma clave que iOS. Una baja editorial marca
+`isCatalogArchived=true`: los ejercicios desaparecen del selector público
+pero sus datos permanecen para el historial. El seed empaquetado no puede
+sobrescribir una corrección remota previamente publicada.
+
+Se ha retirado el botón de Google Drive «Sincronizar» y su spinner de las
+pantallas Cuenta del móvil. La copia privada existente sigue en las tareas
+WorkManager de Drive. Wear OS recibe los entrenamientos por el Data Layer
+del teléfono; no abre otra conexión Supabase ni se le delegan claves.
+
+**QA pendiente:** ejecutar Android CI, pruebas instrumentadas
+`RemoteExerciseCatalogInstrumentedTest`, migración de un historial de cliente,
+modo avión, perfiles múltiples, sincronización Android↔iOS y reloj físico.
+La periodicidad de WorkManager depende de la política de ahorro de energía
+y no se promete ejecución inmediata con la app forzada a cerrar.
+
 ## Configuración externa
 
 Google Cloud debe tener habilitados Credential Manager/Google Auth Platform, Drive API,
