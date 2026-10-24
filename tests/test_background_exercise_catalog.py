@@ -40,6 +40,13 @@ class BackgroundExerciseCatalogContracts(unittest.TestCase):
         self.assertIn("lastProbeAt", s)
         self.assertIn("store.state.syncRevision == revision", s)
 
+    def test_health_backlog_is_automatic_after_removing_sync_control(self):
+        app = source("Apps/Repera/Sources/ReperaApp.swift")
+        self.assertIn("private enum AutomaticHealthWorkoutReconciler", app)
+        self.assertIn("HealthKitStore.shared.canWriteWorkouts", app)
+        self.assertIn("store.syncMissingWorkoutsToHealth()", app)
+        self.assertIn("AutomaticHealthWorkoutReconciler.schedule(store: store)", app)
+
     def test_local_seed_and_archived_references_survive(self):
         domain = source("Packages/ReperaDomain/Sources/ReperaDomain/Models.swift")
         store = source("Apps/Repera/Sources/ReperaStore.swift")
