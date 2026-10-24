@@ -386,3 +386,24 @@ ninguno aparecía en las auditorías del 23/10.
   emparejado Salud↔sesión, que en Android aún no existe como función (sin
   curva de FC por sesión ni enriquecimiento con Salud). Estado: ABIERTO,
   pendiente de esa función (baja prioridad mientras no haya superficie).
+
+## Segunda pasada de la auditoría (24/10 21:31, inventario completo de Apps)
+
+Barrido sobre los 99 ficheros `.swift` de `Apps/Repera/Sources` contrastando
+cada concepto con Android. Además de lo ya registrado:
+
+- **`DayPlusSheet` (598)**: menú «＋» de un día concreto con alta de entreno
+  suelto (editor one-off con `scheduledDate`), acceso a favoritos,
+  temporizador independiente y escaneo de pizarra para ese día. En Android no
+  existe el alta one-off por fecha desde Inicio (el modelo `RoutineEntry` ya
+  soporta `scheduledDate`; falta la UI y el menú). Estado: ABIERTO.
+- **`RegisterSwipeRevealCard` (382)**: tarjeta de registro con gesto swipe de
+  revelado de acciones (UIKit). Las ACCIONES existen en Android como botones;
+  el gesto es un ítem de fidelidad. Estado: ABIERTO (fidelidad, no capacidad).
+- **`StartHubSheet` (376)**: contenido de la pestaña Crear en iOS; Android ya
+  tiene `CreateTab`. Cobertura de opciones a contrastar en profundidad, pero
+  no es un gap de superficie. Sin acción.
+
+Recordatorio del método: el barrido es por concepto; un «Android tiene X»
+exige contrastar contenido, no solo nombre (el heatmap era fidelidad, no
+capacidad; los sustitutos eran paridad exacta por código muerto en iOS).
