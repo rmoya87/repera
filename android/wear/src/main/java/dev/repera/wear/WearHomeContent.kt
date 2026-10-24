@@ -285,7 +285,10 @@ Column(
                                 }
                             }
                             if (state.pendingCount > 0) {
-                                Text("${state.pendingCount} series pendientes de confirmar",
+                                Text(if (state.pendingCount == 1)
+                                    "1 serie pendiente de confirmar"
+                                else
+                                    "${state.pendingCount} series pendientes de confirmar",
                                     style = MaterialTheme.typography.labelSmall)
                                 Button(onClick = { callbacks.onResendPending() },
                                     modifier = Modifier.fillMaxWidth()) {

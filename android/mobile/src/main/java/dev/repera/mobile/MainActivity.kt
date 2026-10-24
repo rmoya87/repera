@@ -1301,7 +1301,11 @@ data class StateOverview(
                     WorkoutHistoryEntry(
                         id = session.optString("id"),
                         title = session.optString("title"),
-                        startedAt = session.optString("startedAt").take(10),
+                        startedAt = runCatching {
+                            java.time.Instant.parse(session.optString("startedAt"))
+                                .atZone(java.time.ZoneId.systemDefault())
+                                .toLocalDate().format(reperaDayFormatter)
+                        }.getOrElse { session.optString("startedAt").take(10) },
                         results = results,
                         movements = movements
                     )

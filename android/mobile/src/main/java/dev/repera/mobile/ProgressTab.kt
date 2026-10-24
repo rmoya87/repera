@@ -287,7 +287,8 @@ internal fun ProgressTab(
                             verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("Peso corporal", style = MaterialTheme.typography.titleMedium)
                             val last = snapshot.weightPoints.last()
-                            Text("Último: ${formatWeight(last.value)} kg (${last.day})")
+                            Text("Último: ${formatWeight(last.value)} kg " +
+                                "(${last.day.format(reperaDayFormatter)})")
                             snapshot.weightDelta30d?.let { delta ->
                                 val sign = if (delta >= 0) "+" else ""
                                 Text("Cambio 30 días: $sign${formatWeight(delta)} kg",

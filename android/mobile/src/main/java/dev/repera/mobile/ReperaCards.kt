@@ -1073,9 +1073,12 @@ internal fun WeekTrainingBars(totals: List<Int>) {
 }
 
 /** Seven-day Material 3 date picker, saved across configuration changes. */
+// Locale española explícita: todos los textos de la app están en español
+// fijo; la fecha no puede salir en el idioma del dispositivo (Oct 24, 2026).
 internal val reperaDayFormatter: java.time.format.DateTimeFormatter =
     java.time.format.DateTimeFormatter
         .ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
+        .withLocale(java.util.Locale("es", "ES"))
 
 @Composable
 internal fun WeekCalendarStrip(selected: LocalDate, onSelect: (LocalDate) -> Unit) {
