@@ -190,7 +190,8 @@ def assert_launch_art(image, label):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--running-source", type=Path, required=True)\n    parser.add_argument("--hero-source", type=Path, default=HERO_PATH)
+    parser.add_argument("--running-source", type=Path, required=True)
+    parser.add_argument("--hero-source", type=Path, default=HERO_PATH)
     args = parser.parse_args()
     hero = repair_barbell_image(Image.open(args.hero_source))
     runner = running_with_original_head(Image.open(args.running_source), hero)
