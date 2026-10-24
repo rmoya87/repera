@@ -9,6 +9,8 @@ import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material3.Icon
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -1319,6 +1321,11 @@ internal fun WorkoutHistoryCard(
                 // Valoración verificable de la sesión (SessionReviewCard iOS en
                 // Historial; en Android el detalle vive en la tarjeta expandida).
                 workout.review?.let { SessionReviewCard(it) }
+                // Ruta GPS: distancia/desnivel/splits y perfil de altitud
+                // (CardioRouteComponents iOS; el análisis es 1:1 en dominio).
+                if (workout.routePoints.size >= 2) {
+                    CardioRouteSection(workout.routePoints)
+                }
                 workout.movements.forEachIndexed { index, movement ->
                     TextButton(
                         modifier = Modifier.fillMaxWidth(),
@@ -1465,6 +1472,79 @@ internal fun BenchmarkWodPicker(
             }
             if (results.isEmpty()) Text("Sin benchmarks coincidentes",
                 style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+/** Resumen y perfil de la ruta GPS de una sesión (CardioRouteComponents iOS).
+ *  Distancia/desnivel/splits del dominio; perfil dibujado en Canvas. El mapa
+ *  nativo de la ruta es un sub-gap pendiente de componente. */
+@Composable
+internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint>) {
+    val analysis = remember(points) {
+        dev.repera.domain.CardioRouteAnalysis.analyze(points.map {
+            dev.repera.domain.CardioRouteAnalysis.Sample(
+                epochSeconds = it.recordedAtEpochMs / 1000.0,
+                latitude = it.latitude,
+                longitude = it.longitude,
+                altitudeMeters = it.altitudeMeters
+            )
+        })
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("Ruta", style = MaterialTheme.typography.titleMedium)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Distancia", style = MaterialTheme.typography.bodyMedium)
+            Text("%.2f km".format(analysis.distanceMeters / 1000),
+                style = MaterialTheme.typography.bodyMedium)
+        }
+        if (analysis.ascentMeters > 0 || analysis.descentMeters > 0) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Desnivel", style = MaterialTheme.typography.bodyMedium)
+                Text("+%.0f m / −%.0f m".format(analysis.ascentMeters,
+                    analysis.descentMeters), style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        if (analysis.profile.size >= 2) {
+            val minAlt = analysis.profile.minOf { it.altitudeMeters }
+            val maxAlt = analysis.profile.maxOf { it.altitudeMeters }
+            val maxDist = analysis.profile.last().distanceKm
+            Canvas(modifier = Modifier.fillMaxWidth().height(96.dp)) {
+                val spanAlt = (maxAlt - minAlt).coerceAtLeast(1.0)
+                val spanDist = maxDist.coerceAtLeast(0.001)
+                val path = androidx.compose.ui.graphics.Path()
+                analysis.profile.forEachIndexed { i, p ->
+                    val x = (p.distanceKm / spanDist).toFloat() * size.width
+                    val y = size.height -
+                        (((p.altitudeMeters - minAlt) / spanAlt).toFloat() * size.height)
+                    if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                }
+                drawPath(path, color = BodyMapPalette.fill(3),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4f))
+            }
+            Text("Altitud ${minAlt.toInt()}–${maxAlt.toInt()} m sobre la distancia",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (analysis.splits.isNotEmpty()) {
+            analysis.splits.forEach { split ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Km ${split.kilometer}", style = MaterialTheme.typography.bodyMedium)
+                    val m = (split.paceSecondsPerKm / 60).toInt()
+                    val sec = (split.paceSecondsPerKm % 60).toInt()
+                    Text("%d:%02d min/km".format(m, sec),
+                        style = MaterialTheme.typography.bodyMedium)
+                }
+            }
         }
     }
 }

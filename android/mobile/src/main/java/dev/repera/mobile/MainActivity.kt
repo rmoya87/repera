@@ -1429,7 +1429,26 @@ data class StateOverview(
                                 .toLocalDate().format(reperaDayFormatter)
                         }.getOrElse { session.optString("startedAt").take(10) },
                         results = results,
-                        movements = movements
+                        movements = movements,
+                        routePoints = session.optJSONArray("routePoints")?.let { rp ->
+                            (0 until rp.length()).mapNotNull { i ->
+                                val point = rp.getJSONObject(i)
+                                val lat = point.optDouble("latitude", Double.NaN)
+                                val lon = point.optDouble("longitude", Double.NaN)
+                                if (lat.isNaN() || lon.isNaN()) null else
+                                    dev.repera.domain.WorkoutRoutePoint(
+                                        id = point.optInt("id"),
+                                        latitude = lat,
+                                        longitude = lon,
+                                        recordedAtEpochMs =
+                                            point.optLong("recordedAtEpochMs"),
+                                        speedMps = point.optDouble("speedMps")
+                                            .takeIf { !it.isNaN() },
+                                        altitudeMeters = point.optDouble("altitudeMeters")
+                                            .takeIf { !it.isNaN() }
+                                    )
+                            }
+                        } ?: emptyList()
                     )
                 }
             }
@@ -1685,7 +1704,8 @@ data class WorkoutHistoryEntry(
     val startedAt: String,
     val results: List<String>,
     val movements: List<WorkoutHistoryMovement>,
-    val review: dev.repera.domain.SessionReview? = null
+    val review: dev.repera.domain.SessionReview? = null,
+    val routePoints: List<dev.repera.domain.WorkoutRoutePoint> = emptyList()
 )
 data class WorkoutHistoryMovement(
     val name: String,
