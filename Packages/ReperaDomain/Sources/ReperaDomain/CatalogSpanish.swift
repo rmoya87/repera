@@ -2006,6 +2006,9 @@ public enum CatalogSpanish {
             "Estándar CrossFit: cadera bajo rodilla y de pie al final. Progresión: goblet → barra.",
         ],
         "Jumping squat": [
+            "Squat profundo: carga abajo con pecho alto y brazos atras.",
+            "Salto: extension completa de cadera, rodillas y tobillos en el aire.",
+            "Aterriza suave en media sentadilla y enlaza la siguiente.",
             "Squat completo o a paralelo; extiende explosivo y salta; aterriza suave y baja otra vez.",
             "Pecho alto; rodillas alineadas; no dejes que choquen al aterrizar.",
             "Error típico: cortar profundidad o aterrizar con talones duros.",
