@@ -269,7 +269,12 @@ private struct MuscleChipGlyph: View {
 
     var body: some View {
         Group {
-            if area == .unknown {
+            if muscle.trimmingCharacters(in: .whitespacesAndNewlines)
+                .caseInsensitiveCompare("Cardio") == .orderedSame {
+                // Mismo corazón que el filtro Cardio de la biblioteca.
+                Image(systemName: ExerciseCategorySymbols.discipline("Cardio"))
+                    .font(.system(size: 12, weight: .semibold))
+            } else if area == .unknown {
                 Image(systemName: ExerciseCategorySymbols.muscle)
                     .font(.system(size: 12, weight: .semibold))
             } else {
