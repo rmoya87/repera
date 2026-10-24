@@ -57,6 +57,10 @@ class ExerciseSessionAppearanceTest {
         assertEquals("12:34", a.wodScoreLabel)
         assertEquals("For Time / RFT", a.wodFormatName)
         assertEquals("fran", a.wodTemplateId)
+        // Nombre del benchmark desde la semilla de catálogo (paridad iOS:
+        // template?.name ?? session.title), no el título libre de la sesión.
+        assertEquals("Fran", a.wodTemplateName)
+        assertEquals("Fran", a.sessionTitle)
     }
 
     @Test fun emptyScoreIsNotAnAppearance() {

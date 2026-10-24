@@ -153,18 +153,20 @@ object ExerciseSessionAppearances {
                 val score = wodScoreSummaryLabel(result)
                 if (score == "—") return null
                 val title = session.optString("title")
+                // Nombre del benchmark desde el catálogo semilla (paridad iOS:
+                // template?.name ?? session.title).
+                val template = dev.repera.domain.CatalogWods.template(templateId)
                 return SessionAppearance(
                     sessionId = session.optString("id"),
                     dateEpochMillis = date,
-                    sessionTitle = title,
+                    sessionTitle = template?.name ?: title,
                     wodScoreLabel = score,
                     wodFormatName = formatDisplayName(
-                        result.optString("format").takeIf { it.isNotBlank() }
-                            ?: entry.optString("wodFormat")),
+                        result.optString("format").takeIf { it.isNotBlank() })
+                        ?: template?.format?.displayName
+                        ?: formatDisplayName(entry.optString("wodFormat")),
                     wodTemplateId = templateId,
-                    // Sin catálogo de templates en Android: nombre del WOD =
-                    // título de la sesión (fallback idéntico a iOS sin template).
-                    wodTemplateName = title,
+                    wodTemplateName = template?.name ?: title,
                     isGlobalWodScore = true
                 )
             }

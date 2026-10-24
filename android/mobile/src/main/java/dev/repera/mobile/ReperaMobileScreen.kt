@@ -225,7 +225,6 @@ fun ReperaMobileScreen(
             ) {
                 composable("inicio") {
                     HomeTab(
-                        loadGuideProvider = loadGuideProvider,
                         displayName = displayName,
                         busy = busy,
                         syncing = syncing,

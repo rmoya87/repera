@@ -2133,7 +2133,6 @@ class WorkoutRepository(context: Context, googleId: String) {
         return ActiveWorkout(
             id = session.getString("id"),
             title = session.getString("title"),
-            catalogExerciseId = current.getJSONObject("exercise").optString("id"),
             index = index,
             total = exercises.length(),
             exerciseName = current.getJSONObject("exercise").exerciseDisplayName(),
@@ -2210,9 +2209,7 @@ data class ActiveWorkout(
     val quantityUnit: String = "reps",
     val durationInput: Boolean = false,
     val cardioToggle: Boolean = false,
-    val wod: WodExecution? = null,
-    /** Id de catálogo del ejercicio actual (guía de carga / ficha). */
-    val catalogExerciseId: String = ""
+    val wod: WodExecution? = null
 )
 
 data class WodExecution(

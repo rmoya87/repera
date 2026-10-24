@@ -92,9 +92,7 @@ internal fun ActiveWorkoutCard(
     onFinish: () -> Unit,
     onDiscard: () -> Unit = {},
     onLogDropSet: (Int, Double?, List<Pair<Int, Double?>>) -> Unit = { _, _, _ -> },
-    onLogRestPauseSet: (List<Pair<Int, Int>>, Double?) -> Unit = { _, _ -> },
-    loadGuideProvider: (exerciseId: String, targetReps: Int, targetRir: Double?) ->
-        LoadGuide? = { _, _, _ -> null }
+    onLogRestPauseSet: (List<Pair<Int, Int>>, Double?) -> Unit = { _, _ -> }
 ) {
     var technique by remember(active.id, active.index, active.completedSets) {
         mutableStateOf("normal")
@@ -167,24 +165,6 @@ internal fun ActiveWorkoutCard(
             Text("Ejercicio ${active.index + 1}/${active.total}: ${active.exerciseName}",
                 style = MaterialTheme.typography.titleMedium)
             Text("${active.completedSets} series registradas")
-            // Guía de carga (port de ExerciseLoadGuideCard iOS): última sesión
-            // + carga sugerida para el RIR objetivo. Solo con peso en reps
-            // (loggingStyle loadAndReps en iOS). iOS la muestra en el editor
-            // de series del plan; en Android el plan no tiene editor por
-            // ejercicio, así que vive en el registro en vivo, donde se teclea
-            // el peso. targetRir: las series planificadas Android aún no
-            // guardan RIR objetivo, así que siempre es «asumido» (RIR 2).
-            if (active.allowsWeight && active.catalogExerciseId.isNotBlank() &&
-                active.quantityUnit == "reps") {
-                val guide = remember(active.id, active.index, active.completedSets) {
-                    loadGuideProvider(active.catalogExerciseId,
-                        active.prescribedQuantity ?: 8, null)
-                }
-                if (guide != null) LoadGuideSection(guide) { kg ->
-                    weight = if (kg % 1.0 == 0.0) kg.toInt().toString()
-                        else kg.toString()
-                }
-            }
             active.sets.forEachIndexed { index, set ->
                 Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween) {
