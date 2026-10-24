@@ -23,6 +23,17 @@ def repair(file_path: Path, write: bool) -> tuple[int, int]:
     width, height = image.size
     rgba = bytearray(image.tobytes())
     total = width * height
+    # The barbell mascot's eye/mouth cutouts are connected to tiny gaps
+    # in the source matte, so flood-fill alone cannot detect them.
+    # This ellipse lies wholly inside the face. Make face pixels fully opaque;
+    # the silhouette/background outside is never touched.
+    if file_path.name == "mascot-hero.png":
+        cx, cy, rx, ry = width * 0.51, height * 0.41, width * 0.205, height * 0.157
+        for y in range(max(0, int(cy - ry)), min(height, int(cy + ry) + 1)):
+            for x in range(max(0, int(cx - rx)), min(width, int(cx + rx) + 1)):
+                if ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 < 1:
+                    p = 4 * (y * width + x)
+                    rgba[p + 3] = 255
     alpha = rgba[3::4]
     visited = bytearray(total)
     external = deque()
