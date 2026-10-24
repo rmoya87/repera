@@ -601,6 +601,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             WodTimerStore(this, user).read(active.id, active.index)
         else null
         WodTimerService.sync(this, active, wodTimer, user)
+        WearActiveSessionBridge.publishWodTimer(this, active?.id,
+            active?.index ?: 0, active?.wod, wodTimer)
     }
 
     private fun changeWodTimer(action: String) {
@@ -610,6 +612,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         runCatching {
             wodTimer = WodTimerStore(this, user).update(active.id, active.index, action)
         }.onFailure { status = "Cronómetro: " + (it.localizedMessage ?: "error al guardar") }
+        WearActiveSessionBridge.publishWodTimer(this, active.id, active.index,
+            active.wod, wodTimer)
     }
 
     private fun runWorkoutAction(action: WorkoutRepository.() -> Unit) {

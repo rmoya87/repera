@@ -46,6 +46,41 @@ object WearActiveSessionBridge {
         Wearable.getDataClient(context).putDataItem(request)
     }
 
+    /**
+     * Estado del cronómetro WOD para la cara del reloj. `zeroAtWallMs` es el
+     * instante (reloj de pared) en el que el cronómetro marcaba 0 cuando iba
+     * en marcha; con él el reloj calcula el elapsed local sin depender de
+     * deltas de uptime entre dispositivos (la hora del reloj va sincronizada
+     * con la del teléfono). null cuando no hay bloque WOD activo.
+     */
+    fun publishWodTimer(context: Context, sessionId: String?, index: Int,
+                        execution: WodExecution?, state: WodTimerState?) {
+        val json = if (sessionId == null || execution == null || state == null) null
+        else JSONObject()
+            .put("sessionId", sessionId)
+            .put("blockIndex", index)
+            .put("format", execution.format)
+            .put("title", execution.title)
+            .put("timeCapMinutes", execution.timeCapMinutes ?: JSONObject.NULL)
+            .put("intervalSeconds", execution.intervalSeconds ?: JSONObject.NULL)
+            .put("rounds", execution.rounds ?: JSONObject.NULL)
+            .put("workSeconds", execution.workSeconds ?: JSONObject.NULL)
+            .put("restSeconds", execution.restSeconds ?: JSONObject.NULL)
+            .put("restBetweenRoundsSeconds",
+                execution.restBetweenRoundsSeconds ?: JSONObject.NULL)
+            .put("running", state.running)
+            .put("elapsedSeconds", state.elapsedSeconds)
+            .put("zeroAtWallMs", if (state.running)
+                System.currentTimeMillis() - state.elapsedSeconds * 1000L
+                else JSONObject.NULL)
+        val request = PutDataMapRequest.create("/repera/wod-timer").apply {
+            dataMap.putByteArray("timer",
+                json?.toString()?.toByteArray(Charsets.UTF_8) ?: byteArrayOf())
+            dataMap.putLong("updatedAtMillis", System.currentTimeMillis())
+        }.asPutDataRequest().setUrgent()
+        Wearable.getDataClient(context).putDataItem(request)
+    }
+
     /** Explicit account logout: revoke cached identity and pending commands on the watch. */
     fun signOut(context: Context) = publish(context, null, signedOut = true)
 }

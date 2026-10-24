@@ -60,6 +60,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var finishedSummary by mutableStateOf<FinishedSummary?>(null)
     private var restRemaining by mutableStateOf(0)
     private var sessionPaused by mutableStateOf(false)
+    private var wodTimerJson by mutableStateOf<JSONObject?>(null)
+    private var wodTickSeconds by mutableStateOf(0)
+    private var wodTickJob: kotlinx.coroutines.Job? = null
     private var restJob: kotlinx.coroutines.Job? = null
     private var health by mutableStateOf<Pair<Int?, Double?>?>(null)
     private val healthSession by lazy {
@@ -162,6 +165,42 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                     session.wodMovements.forEach { movement ->
                                         Text(movement, textAlign = TextAlign.Center,
                                             style = MaterialTheme.typography.labelSmall)
+                                    }
+                                    wodTimerJson?.let { timer ->
+                                        val spec = dev.repera.domain.WodClockSpec(
+                                            format = dev.repera.domain.WodFormat
+                                                .fromWire(timer.optString("format"))
+                                                ?: return@let,
+                                            blockTimeCapMinutes = timer.optInt("timeCapMinutes")
+                                                .takeIf { timer.has("timeCapMinutes") &&
+                                                    !timer.isNull("timeCapMinutes") },
+                                            intervalSeconds = timer.optInt("intervalSeconds")
+                                                .takeIf { timer.has("intervalSeconds") &&
+                                                    !timer.isNull("intervalSeconds") },
+                                            rounds = timer.optInt("rounds")
+                                                .takeIf { timer.has("rounds") &&
+                                                    !timer.isNull("rounds") },
+                                            workSeconds = timer.optInt("workSeconds")
+                                                .takeIf { timer.has("workSeconds") &&
+                                                    !timer.isNull("workSeconds") },
+                                            restSeconds = timer.optInt("restSeconds")
+                                                .takeIf { timer.has("restSeconds") &&
+                                                    !timer.isNull("restSeconds") },
+                                            restBetweenRoundsSeconds = timer
+                                                .optInt("restBetweenRoundsSeconds")
+                                                .takeIf { timer.has("restBetweenRoundsSeconds") &&
+                                                    !timer.isNull("restBetweenRoundsSeconds") }
+                                        )
+                                        val face = dev.repera.domain.WodClock.face(
+                                            spec, wodTickSeconds)
+                                        val mins = face.primarySeconds / 60
+                                        val secs = face.primarySeconds % 60
+                                        Text("%d:%02d".format(mins, secs),
+                                            style = MaterialTheme.typography.displayMedium)
+                                        face.label?.let {
+                                            Text(it,
+                                                style = MaterialTheme.typography.labelSmall)
+                                        }
                                     }
                                     Button(onClick = { togglePause() }) {
                                         Text(if (sessionPaused) "Reanudar" else "Pausar")
@@ -347,6 +386,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                         val signedOut = data.getBoolean("signedOut")
                         runOnUiThread { showSession(bytes, signedOut, finished) }
                     }
+                    if (item.uri.path == "/repera/wod-timer") {
+                        val bytes = DataMapItem.fromDataItem(item).dataMap
+                            .getByteArray("timer")
+                        runOnUiThread { showWodTimer(bytes) }
+                    }
                 }
             } finally {
                 items.release()
@@ -368,6 +412,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 val finished = data.getByteArray("finished")
                 val signedOut = data.getBoolean("signedOut")
                 runOnUiThread { showSession(bytes, signedOut, finished) }
+            }
+            if (event.dataItem.uri.path == "/repera/wod-timer") {
+                val bytes = DataMapItem.fromDataItem(event.dataItem).dataMap
+                    .getByteArray("timer")
+                runOnUiThread { showWodTimer(bytes) }
             }
         }
     }
@@ -394,6 +443,28 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                     "La sesión del teléfono cambió; revisa las series pendientes"
                 else -> sendStatus = "Sin conexión confirmada; las series siguen guardadas"
             }
+        }
+    }
+
+    private fun showWodTimer(bytes: ByteArray?) {
+        wodTickJob?.cancel()
+        val parsed = bytes?.takeIf { it.isNotEmpty() }?.let {
+            runCatching { JSONObject(String(it, Charsets.UTF_8)) }.getOrNull()
+        }
+        wodTimerJson = parsed
+        if (parsed == null) return
+        val running = parsed.optBoolean("running")
+        if (running && parsed.has("zeroAtWallMs") && !parsed.isNull("zeroAtWallMs")) {
+            val zeroAt = parsed.getLong("zeroAtWallMs")
+            wodTickJob = lifecycleScope.launch {
+                while (true) {
+                    wodTickSeconds = ((System.currentTimeMillis() - zeroAt) / 1000L)
+                        .coerceAtLeast(0).toInt()
+                    kotlinx.coroutines.delay(1000)
+                }
+            }
+        } else {
+            wodTickSeconds = parsed.optInt("elapsedSeconds", 0)
         }
     }
 
