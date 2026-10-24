@@ -161,6 +161,78 @@ class WorkoutRepository(context: Context, googleId: String) {
         return id
     }
 
+    /**
+     * Inserts a benchmark WOD from CatalogWods as a native routine, mirroring
+     * Swift WODTemplate.makeBlock: repeated movements stay repeated (Fran's
+     * 21-15-9), unmatched names resolve by catalog name at session assembly,
+     * and prescribed weights/notes keep the shared snapshot fidelity.
+     */
+    @Synchronized fun createWodRoutine(
+        template: dev.repera.domain.WodTemplate,
+        schedule: RoutineSchedule = RoutineSchedule()
+    ): String {
+        require(template.movements.isNotEmpty()) { "La plantilla no tiene movimientos" }
+        require(template.movements.size <= 200) { "Demasiados movimientos" }
+        require(schedule.scheduledDate == null || schedule.weekday == null) {
+            "Un entreno no puede ser semanal y de fecha concreta a la vez"
+        }
+        require(schedule.weekday == null || schedule.weekday in 1..7)
+        require(schedule.timeMinutes == null || schedule.timeMinutes in 0..1439)
+        val state = requireState()
+        val catalog = state.getJSONArray("exercises")
+        val byName = (0 until catalog.length()).associate {
+            val exercise = catalog.getJSONObject(it)
+            exercise.getString("name").lowercase() to exercise
+        }
+        val movements = JSONArray()
+        for (move in template.movements) {
+            val item = JSONObject()
+                .put("id", UUID.randomUUID().toString())
+                .put("name", move.name)
+                .put("isRest", false)
+            byName[move.name.lowercase()]?.let { item.put("exerciseId", it.getString("id")) }
+            move.reps?.let { item.put("reps", it) }
+            move.distanceMeters?.let { item.put("distanceMeters", it) }
+            move.calories?.let { item.put("calories", it) }
+            move.weightMaleKg?.let { item.put("weightMaleKg", it) }
+            move.weightFemaleKg?.let { item.put("weightFemaleKg", it) }
+            move.notes?.let { item.put("notes", it) }
+            movements.put(item)
+        }
+        val block = JSONObject()
+            .put("id", UUID.randomUUID().toString())
+            .put("title", template.name)
+            .put("kind", "wod")
+            .put("movements", movements)
+            .put("wodFormat", template.format.wireName)
+            .put("emomIntervalSeconds", template.emomIntervalSeconds ?: 60)
+            .put("wodTemplateId", template.id)
+        template.timeCapMinutes?.let { block.put("timeCapMinutes", it) }
+        template.rounds?.let { block.put("rounds", it) }
+        template.workSeconds?.let { block.put("workSeconds", it) }
+        template.restSeconds?.let { block.put("restSeconds", it) }
+        template.notes?.let { block.put("wodNotes", it) }
+        val id = UUID.randomUUID().toString()
+        val nativeRoutine = JSONObject()
+            .put("id", id)
+            .put("title", template.name)
+            .put("blocks", JSONArray().put(block))
+            .put("progression", "off")
+            .put("isFavorite", false)
+        val scheduledDay = schedule.scheduledDate?.let { LocalDate.parse(it) }
+        if (scheduledDay != null) {
+            nativeRoutine.put("scheduledDate", scheduledDay.atStartOfDay(ZoneId.systemDefault())
+                .toInstant().toString())
+        } else if (schedule.weekday != null) {
+            nativeRoutine.put("weekday", schedule.weekday)
+        }
+        if (schedule.timeMinutes != null)
+            nativeRoutine.put("scheduledTimeMinutes", schedule.timeMinutes)
+        state.getJSONArray("routines").put(nativeRoutine)
+        save(state)
+        return id
+    }
+
     @Synchronized fun active(): ActiveWorkout? {
         val state = loadOrNull() ?: return null
         return state.optJSONObject("activeSession")?.let { summarize(it) }

@@ -1001,3 +1001,54 @@ internal fun AccountSyncCard(
     }
     TextButton(onClick = onSignOut, enabled = !busy) { Text("Cerrar sesión") }
 }
+
+/** Benchmark WOD catalog picker, twin of the iPhone WODCatalogPickerView. */
+@Composable
+internal fun BenchmarkWodPicker(
+    busy: Boolean,
+    enabled: Boolean,
+    onAdd: (String) -> Unit
+) {
+    var query by rememberSaveable { mutableStateOf("") }
+    val results = remember(query) { dev.repera.domain.CatalogWods.search(query) }
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("WODs benchmark", style = MaterialTheme.typography.titleLarge)
+            Text("Girls, Heroes y Opens del catálogo Repera, con bandas de puntuación de referencia.",
+                style = MaterialTheme.typography.bodySmall)
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("Buscar benchmark") }
+            )
+            results.take(12).forEach { template ->
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(template.name + " · " + template.formatLabel +
+                        (template.typicalLabel?.let { " · $it" } ?: ""),
+                        style = MaterialTheme.typography.titleMedium)
+                    Text(template.musclesLabel, style = MaterialTheme.typography.labelSmall)
+                    Text(template.movements.joinToString(" · ") { move ->
+                        val amount = move.reps?.let { "$it reps" }
+                            ?: move.distanceMeters?.let { "$it m" }
+                            ?: move.calories?.let { "$it cal" } ?: ""
+                        (amount + " " + move.name).trim()
+                    }, style = MaterialTheme.typography.bodySmall)
+                    template.scoreBands?.let { bands ->
+                        val elite = bands.eliteMaxSeconds?.let { "élite < %d:%02d".format(it / 60, it % 60) }
+                            ?: bands.eliteMinRounds?.let { "élite ≥ ${it.toInt()} rondas" }
+                        if (elite != null) Text(elite, style = MaterialTheme.typography.labelSmall)
+                    }
+                    TextButton(onClick = { onAdd(template.id) },
+                        enabled = !busy && enabled) {
+                        Text("Añadir a mis entrenamientos")
+                    }
+                }
+            }
+            if (results.isEmpty()) Text("Sin benchmarks coincidentes",
+                style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}

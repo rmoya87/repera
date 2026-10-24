@@ -70,6 +70,7 @@ internal fun CreateTab(
     overview: StateOverview?,
     onCreateRoutine: (String, String, List<RoutineDraftEntry>, Int, Int,
         RoutineSchedule, Int, Int, Int) -> Unit,
+    onAddWodTemplate: (String) -> Unit,
     onInitializeLocal: () -> Unit,
     onImportJson: () -> Unit,
     onDriveSync: () -> Unit,
@@ -94,6 +95,10 @@ internal fun CreateTab(
                     onSave = onCreateRoutine
                 )
             }
+        }
+        item {
+            BenchmarkWodPicker(busy = busy, enabled = overview != null,
+                onAdd = onAddWodTemplate)
         }
         item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
         item {
