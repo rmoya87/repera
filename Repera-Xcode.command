@@ -47,11 +47,18 @@ if ! command -v python3 >/dev/null 2>&1; then
   echo "ERROR: Falta Python 3 para validar las fuentes del target."
   exit 1
 fi
+if ! command -v xcodebuild >/dev/null 2>&1; then
+  echo "ERROR: Falta Xcode para resolver los paquetes Swift. Selecciona Xcode con xcode-select."
+  exit 1
+fi
 
 echo "Regenerando la pertenencia de archivos y paquetes en Xcode..."
 # project.yml saves manual version changes before regeneration.
 xcodegen generate --spec "$ROOT/project.yml"
 python3 scripts/check_xcode_sources.py
+
+echo "Resolviendo paquetes Swift (incluidos GoogleSignIn y GoogleSignInSwift)..."
+xcodebuild -resolvePackageDependencies -project "$ROOT/Repera.xcodeproj" -scheme Repera
 
 echo "Abriendo Repera.xcodeproj en Xcode..."
 open "$ROOT/Repera.xcodeproj"

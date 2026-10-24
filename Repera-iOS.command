@@ -72,6 +72,9 @@ echo "Generando proyecto Xcode..."
 xcodegen generate --spec "$ROOT/project.yml"
 python3 scripts/check_xcode_sources.py
 
+echo "Resolviendo paquetes Swift (incluidos GoogleSignIn y GoogleSignInSwift)..."
+xcodebuild -resolvePackageDependencies -project "$ROOT/Repera.xcodeproj" -scheme Repera
+
 echo "Abriendo el simulador..."
 open -a Simulator
 if [[ "$(xcrun simctl list devices booted -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(" ".join(x["udid"] for z in d["devices"].values() for x in z))')" != *"$device_id"* ]]; then

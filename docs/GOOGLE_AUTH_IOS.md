@@ -11,7 +11,7 @@ Repera utiliza `GoogleSignIn` y `GoogleSignInSwift` **10.1.0** mediante Swift Pa
    - `REPERA_GOOGLE_IOS_CLIENT_ID`: identificador del cliente iOS.
    - `REPERA_GOOGLE_REVERSED_CLIENT_ID`: esquema invertido que muestra Google Cloud; por ejemplo, `com.googleusercontent.apps.123456-example` para `123456-example.apps.googleusercontent.com`.
    - `REPERA_GOOGLE_SERVER_CLIENT_ID`: ya contiene el cliente Web existente `1026054616574-qmugi1nalpar1vv0tdftv97cn6aljoji.apps.googleusercontent.com`, usado como audiencia del token para Supabase.
-3. Ejecutar `xcodegen generate` y abrir el proyecto regenerado. `Version.xcconfig` incluye la configuración; `project.yml` y `Info.plist` declaran `GIDClientID`, `GIDServerClientID` y el esquema de retorno. No copiar el cliente Android en estos valores.
+3. Cerrar Xcode y ejecutar `./Repera-Xcode.command` desde la raíz: regenera el proyecto y ejecuta `xcodebuild -resolvePackageDependencies` antes de abrirlo. `Version.xcconfig` incluye la configuración; `project.yml` y `Info.plist` declaran `GIDClientID`, `GIDServerClientID` y el esquema de retorno. No copiar el cliente Android en estos valores.
 4. En el proveedor Google de Supabase, mantener habilitado Google y comprobar que el cliente **Web** anterior figura como audiencia admitida. No desactivar la verificación del nonce.
 5. Para vincular Google desde una cuenta Apple, habilitar **Manual Linking** en Supabase Auth.
 
@@ -33,6 +33,8 @@ Repera utiliza `GoogleSignIn` y `GoogleSignInSwift` **10.1.0** mediante Swift Pa
 «Todo tu entrenamiento. Cada vez mejor.» presenta rutinas, escaneo de pizarra, registro de series y WOD, marcas, actividad, recuperación, Apple Watch y ayuda del entrenador o IA. El contenido permite scroll y Dynamic Type; la mascota reduce su altura en paisaje. El texto técnico de identidad/Supabase se ha eliminado de la bienvenida.
 
 ## Validación
+
+Si Xcode muestra `No such module GoogleSignIn` o `Unable to resolve module dependency: GoogleSignInSwift`, comprobar primero la generación y la resolución de paquetes del proyecto local: ambos productos ya figuran en `project.yml`. El lanzador resuelve sus dependencias de forma explícita y se detiene si falla la descarga. No eliminar los imports del SDK ni volver al botón imitado para ocultar el problema.
 
 Las comprobaciones estáticas protegen el uso del SDK, las dependencias y variables de configuración, el nonce, la vinculación y el propietario local. No sustituyen una compilación ni una prueba interactiva.
 

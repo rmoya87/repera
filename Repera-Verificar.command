@@ -63,6 +63,7 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
       run_check "Generacion XcodeGen" xcodegen generate --spec "$ROOT/project.yml"
       run_check "Fuentes Auth en target iOS" python3 scripts/check_xcode_sources.py
       if [[ -f "$ROOT/Repera.xcodeproj/project.pbxproj" ]]; then
+        run_check "Resolver paquetes Swift (Google y resto del SDK)" xcodebuild -resolvePackageDependencies -project "$ROOT/Repera.xcodeproj" -scheme Repera
         run_check "Build iOS 27 Simulator" xcodebuild -project Repera.xcodeproj -scheme Repera -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
         run_check "Build watchOS 27 Simulator" xcodebuild -project Repera.xcodeproj -scheme ReperaWatch -configuration Debug -destination 'generic/platform=watchOS Simulator' CODE_SIGNING_ALLOWED=NO build
       else

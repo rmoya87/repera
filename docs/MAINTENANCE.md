@@ -1,6 +1,6 @@
 # Mantenimiento de la documentación
 
-Última actualización: 2026-10-21 (sincronización de archivos Swift con el proyecto Xcode generado)
+Última actualización: 2026-10-24 (resolución de paquetes Swift tras regenerar Xcode)
 
 ## Regla de oro
 
@@ -35,6 +35,7 @@ No acumular docs obsoletas. Preferir editar y borrar a añadir páginas huérfan
 El target iOS se define en `project.yml` con el directorio `Apps/Repera/Sources`; el archivo `Repera.xcodeproj` se genera localmente y no está versionado. Si se añade un nuevo `.swift`, abrir un proyecto Xcode generado antes de ese commit puede dar errores `Cannot find type in scope` aunque el fichero exista.
 
 - Regenerar desde la raíz con `xcodegen generate` y volver a abrir `Repera.xcodeproj` cuando se añadan o eliminen archivos Swift.
+- Tras añadir paquetes como Google Sign-In, los archivos Swift pueden actualizarse por Git mientras el proyecto local sigue sin enlazar los productos nuevos. Cerrar Xcode y ejecutar `./Repera-Xcode.command`: actualiza de forma segura, regenera, valida fuentes y ejecuta `xcodebuild -resolvePackageDependencies` antes de abrir. `Repera-iOS.command` también resuelve los paquetes antes de lanzar Simulator; `Repera-Verificar.command` incluye la resolución entre sus comprobaciones. Estos pasos no borran cachés ni datos de usuario.
 - Al corregir errores que afectan a personas con proyectos ya generados, es preferible mantener componentes pequeños en un archivo **ya incluido** hasta que se regenere el proyecto. La tabla compacta de series (`OGSetFieldID`, `OGSetEntryHeader`, `OGSetEntryRow`) se encuentra en `Apps/Repera/Sources/Theme.swift` precisamente por este motivo.
 - No introducir definiciones duplicadas entre `Theme.swift` y archivos independientes: XcodeGen acabaría compilando ambas.
 
