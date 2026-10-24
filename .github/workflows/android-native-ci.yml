@@ -62,6 +62,22 @@ jobs:
         # system-images;android-canary-20261007 reporta
         # ro.build.version.sdk_full=37.2 en su build.prop.
         api: ['30', '35', '36.1']
+        include:
+          # Baseline que ejecutó 30/35 verdes (40136277749): flags por
+          # defecto. -gpu swiftshader_indirect hace que qemu exija
+          # libpulse.so.0 en el runner y ni siquiera arranca (40137591889
+          # y 40139016470); -no-audio NO la elimina (dependencia de carga).
+          - api: '30'
+            emu_opts: '-no-snapshot-save -no-boot-anim -memory 4096'
+          - api: '35'
+            emu_opts: '-no-snapshot-save -no-boot-anim -memory 4096'
+          # 36.1 nunca ha ejecutado: con gpu por defecto surfaceflinger
+          # crasheó (40124402423) y otro run quedó con usuario LOCKED;
+          # swiftshader_indirect no arranca por libpulse. Siguiente
+          # intento controlado: -gpu guest (renderizado software en el
+          # invitado, sin libs de host). Solo cambia 36.1.
+          - api: '36.1'
+            emu_opts: '-no-snapshot-save -no-boot-anim -memory 4096 -gpu guest'
     permissions:
       contents: read
     steps:
@@ -102,7 +118,7 @@ jobs:
           # API 36.1: surfaceflinger (RegionSamplingThread) ha crasheado en 2
           # runs y el boot no llega a completar dentro de la ventana; forzar
           # renderizado por software y arranque limpio sin snapshots.
-          emulator-options: -no-snapshot-save -no-boot-anim -no-audio -memory 4096 -gpu swiftshader_indirect
+          emulator-options: ${{ matrix.emu_opts }}
           # UNA sola línea: android-emulator-runner ejecuta cada línea del
           # script en un sh -c distinto, así que un TEST_EXIT en su propia
           # línea se pierde y el paso sale verde aunque fallen los tests.
