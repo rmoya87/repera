@@ -87,16 +87,17 @@ private enum BodyPartGlyphArea {
             .lowercased()
         switch key {
         case "deltoids", "deltoides", "delts", "hombros", "shoulders",
-             "trapezius", "trapezio", "trapecio", "traps":
+             "trapezius", "trapezio", "trapecio", "trapecios", "traps":
             return .shoulders
         case "biceps", "triceps", "brachialis", "brazo", "upper arms":
             return .upperArm
-        case "forearm", "forearms", "antebrazo", "antebrazos", "grip":
+        case "forearm", "forearms", "antebrazo", "antebrazos", "grip", "agarre":
             return .forearm
-        case "chest", "pecho", "pectorals", "pectoral",
+        case "chest", "pecho", "pectorals", "pectoral", "pectorales",
              "serratus", "serrato":
             return .chest
         case "upper-back", "upper back", "espalda alta", "lats",
+             "latissimus dorsi", "dorsales", "dorsal", "dorsal ancho",
              "back", "espalda", "lower-back", "lower back", "lumbar":
             return .back
         case "abs", "abdominals", "abdomen", "abdominales",
@@ -104,7 +105,8 @@ private enum BodyPartGlyphArea {
             return .core
         case "gluteal", "glutes", "gluteos", "gluteo",
              "hip-flexors", "hip flexors", "flexores de cadera",
-             "adductors", "aductores", "hips", "cadera":
+             "adductors", "aductores", "abductors", "abductores",
+             "hips", "cadera":
             return .hips
         case "quadriceps", "cuadriceps", "quads", "hamstring",
              "hamstrings", "isquios", "isquiotibiales", "muslo":
