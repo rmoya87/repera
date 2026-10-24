@@ -282,6 +282,9 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
 
         // Un burpee con obstáculo o dominada final no se anota como levantamiento.
         if n.contains("burpee") { return .repsOnly }
+        // La resistencia de una banda no es una carga expresada en kilogramos.
+        if (eq.contains("banda") || eq.contains("goma"))
+            && !eq.contains("mancuerna") && !eq.contains("barra") { return .repsOnly }
 
         // Dominadas / muscle-up / HSPU permiten anotar lastre o déficit.
         if isPullOrMuscleUp(name: n) || isHSPU(name: n) {
@@ -434,6 +437,8 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
     private static func isBikeOrSki(name n: String) -> Bool {
         n.contains("air bike") || n.contains("echo bike") || n.contains("assault")
             || n.contains("fan bike") || n.contains("wattbike")
+            || n.contains("bici estatica") || n.contains("bicicleta estatica")
+            || n.contains("bikeerg") || n.contains("bike erg")
             || n.contains("skierg") || n.contains("ski erg") || n.contains("ski-erg")
     }
 
