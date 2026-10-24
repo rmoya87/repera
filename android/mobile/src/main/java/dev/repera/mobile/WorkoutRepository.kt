@@ -193,6 +193,60 @@ class WorkoutRepository(context: Context, googleId: String) {
     }
 
     /**
+     * Rutina creada desde el escáner de pizarra: los bloques ya vienen
+     * interpretados (fuerza + WOD multi-bloque) y se escriben en el formato
+     * wire que consume iOS, sin pasar por el borrador simplificado (que
+     * perdería pesos H/M, ondas, RIR/% y descansos entre rondas).
+     * Nunca crea trabajo completado ni resultados sintéticos.
+     */
+    @Synchronized fun createRoutineFromScan(
+        title: String,
+        blocks: List<dev.repera.domain.RoutineBlock>,
+        schedule: RoutineSchedule = RoutineSchedule()
+    ): String {
+        val cleaned = title.trim()
+        require(cleaned.isNotBlank() && cleaned.length <= 100) { "Escribe un título válido" }
+        require(blocks.size in 1..10) { "La rutina necesita entre 1 y 10 bloques" }
+        require(schedule.scheduledDate == null || schedule.weekday == null) {
+            "Un entreno no puede ser semanal y de fecha concreta a la vez"
+        }
+        require(schedule.weekday == null || schedule.weekday in 1..7)
+        require(schedule.timeMinutes == null || schedule.timeMinutes in 0..1439)
+        val scheduledDay = schedule.scheduledDate?.let { LocalDate.parse(it) }
+        val state = requireState()
+        val catalog = state.getJSONArray("exercises")
+        val knownIds = (0 until catalog.length())
+            .map { catalog.getJSONObject(it).getString("id") }.toSet()
+        val array = JSONArray()
+        for (block in blocks) {
+            require(block.title.isNotBlank()) { "Cada bloque necesita un título" }
+            for (ex in block.exercises) {
+                require(ex.exerciseId in knownIds) { "Ejercicio no encontrado" }
+                require(ex.plannedSets.isNotEmpty()) { "Cada ejercicio necesita series" }
+            }
+            array.put(BoardScanImport.wireBlock(block))
+        }
+        val id = UUID.randomUUID().toString()
+        val nativeRoutine = JSONObject()
+            .put("id", id)
+            .put("title", cleaned)
+            .put("blocks", array)
+            .put("progression", "off")
+            .put("isFavorite", false)
+        if (scheduledDay != null) {
+            nativeRoutine.put("scheduledDate", scheduledDay.atStartOfDay(ZoneId.systemDefault())
+                .toInstant().toString())
+        } else if (schedule.weekday != null) {
+            nativeRoutine.put("weekday", schedule.weekday)
+        }
+        if (schedule.timeMinutes != null)
+            nativeRoutine.put("scheduledTimeMinutes", schedule.timeMinutes)
+        state.getJSONArray("routines").put(nativeRoutine)
+        save(state)
+        return id
+    }
+
+    /**
      * Editor de contenido: sustituye los bloques de una rutina existente
      * (multi-bloque incluido: buy-in / trabajo / cash-out como bloques
      * separados, igual que iOS). Conserva identidad, título y programación
