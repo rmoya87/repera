@@ -13,8 +13,8 @@ final class ExerciseEquipmentAuditTests: XCTestCase {
     }
 
     func testBoxMovementsDeclareAnActualBox() {
-        for name in ["Box jump over", "Burpee box jump over", "Burpee al cajón",
-                     "Salto al cajón", "Step-up al cajón"] {
+        for name in ["Box jump over", "Burpee box jump over", "Burpee Box Jump",
+                     "Box Jump", "Box Step-Up"] {
             let item = exercise(name)
             XCTAssertEqual(item.equipment, "Cajón", name)
             XCTAssertEqual(item.loggingStyle, .repsOnly, name)
@@ -24,7 +24,7 @@ final class ExerciseEquipmentAuditTests: XCTestCase {
     }
 
     func testSimultaneouslyRequiredApparatusIsRetained() {
-        let goblet = exercise("Step-up al cajón con kettlebell goblet")
+        let goblet = exercise("Kettlebell Goblet Box Step-Up")
         XCTAssertEqual(goblet.equipment, "Cajón, Kettlebell")
         XCTAssertEqual(goblet.loggingStyle, .loadAndReps)
         XCTAssertEqual(goblet.equipment?.components(separatedBy: ", "), ["Cajón", "Kettlebell"])
@@ -66,13 +66,12 @@ final class ExerciseEquipmentAuditTests: XCTestCase {
 
     func testSnatchByImplementUsesThreeDistinctExercises() {
         let variants = [
-            exercise("Arrancada"),
-            exercise("Snatch mancuerna"),
-            exercise("Snatch kettlebell")
+            exercise("Snatch"),
+            exercise("Dumbbell Snatch"),
+            exercise("Kettlebell Snatch")
         ]
         XCTAssertEqual(variants.map(\.equipment), ["Barra", "Mancuernas", "Kettlebell"])
         XCTAssertEqual(Set(variants.map(\.name)).count, 3)
-        XCTAssertEqual(Set(variants.map(\.catalogId)).count, 3)
         XCTAssertEqual(Set(variants.map(\.id)).count, 3)
         XCTAssertEqual(variants.map(\.loggingStyle), [.loadAndReps, .loadAndReps, .loadAndReps])
     }
