@@ -34,6 +34,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
@@ -651,7 +654,8 @@ internal fun ScheduledRoutineCard(
     onEdit: (String, String, RoutineSchedule) -> Unit = { _, _, _ -> },
     onDelete: (String) -> Unit = {},
     onEditContent: (String) -> Unit = {},
-    onSetProgression: (String, String) -> Unit = { _, _ -> }
+    onSetProgression: (String, String) -> Unit = { _, _ -> },
+    onSetFavorite: (String, Boolean) -> Unit = { _, _ -> }
 ) {
     var editing by remember(routine.id) { mutableStateOf(false) }
     var confirmingDelete by remember(routine.id) { mutableStateOf(false) }
@@ -670,7 +674,24 @@ internal fun ScheduledRoutineCard(
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(routine.title, style = MaterialTheme.typography.titleMedium)
+            Row(modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(routine.title, style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f))
+                // Estrella de favorita (paridad FavoritesHub iOS).
+                IconButton(onClick = {
+                    onSetFavorite(routine.id, !routine.isFavorite)
+                }, enabled = !busy) {
+                    Icon(
+                        if (routine.isFavorite) Icons.Default.Star
+                        else Icons.Default.StarBorder,
+                        contentDescription = if (routine.isFavorite)
+                            "Quitar de favoritas" else "Marcar como favorita",
+                        tint = if (routine.isFavorite) brandGreen
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             val label = if (routine.scheduledDate != null) routine.scheduledDate else
                 routine.weekday?.let { day ->
                     listOf("Lunes", "Martes", "Miércoles", "Jueves", "Viernes",

@@ -586,6 +586,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onSetRoutineProgression = { id, policy ->
                     runWorkoutAction { setRoutineProgression(id, policy) }
                 },
+                onSetRoutineFavorite = { id, favorite ->
+                    runWorkoutAction { setRoutineFavorite(id, favorite) }
+                },
                 onNext = { runWorkoutAction { next() } },
                 onFinish = {
                     StrengthRestService.cancel(this)
@@ -1388,7 +1391,8 @@ data class StateOverview(
                         timeMinutes = item.optInt("scheduledTimeMinutes")
                             .takeIf { item.has("scheduledTimeMinutes") && it in 0..1439 },
                         blocks = blockInfos,
-                        progression = item.optString("progression", "off")
+                        progression = item.optString("progression", "off"),
+                        isFavorite = item.optBoolean("isFavorite", false)
                     )
                 }
             }
@@ -1511,7 +1515,8 @@ data class RoutineEntry(
     val weekday: Int? = null,
     val timeMinutes: Int? = null,
     val blocks: List<RoutineBlockInfo> = emptyList(),
-    val progression: String = "off"
+    val progression: String = "off",
+    val isFavorite: Boolean = false
 )
 
 /** Bloque de una rutina tal y como se muestra en el editor de contenido. */

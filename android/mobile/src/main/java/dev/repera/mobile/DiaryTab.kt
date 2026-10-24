@@ -78,6 +78,7 @@ internal fun DiaryTab(
     onDeleteRoutine: (String) -> Unit,
     onEditRoutineContent: (String) -> Unit = {},
     onSetRoutineProgression: (String, String) -> Unit = { _, _ -> },
+    onSetRoutineFavorite: (String, Boolean) -> Unit = { _, _ -> },
     onInitializeLocal: () -> Unit,
     onImportJson: () -> Unit,
     onDriveSync: () -> Unit,
@@ -128,6 +129,22 @@ internal fun DiaryTab(
             }
         }
         item { CountCard("Rutinas", overview?.routines, overview != null) }
+        // Rutinas favoritas (paridad FavoritesHub iOS): acceso directo para
+        // iniciarlas y para quitarlas de favoritas.
+        val favoriteRoutines = routines.filter { it.isFavorite }
+        if (favoriteRoutines.isNotEmpty()) {
+            item {
+                Text("Favoritas", style = MaterialTheme.typography.titleLarge)
+            }
+            items(favoriteRoutines, key = { "fav:" + it.id }) { routine ->
+                ScheduledRoutineCard(routine, busy, activeWorkout == null,
+                    onStart = { onStartRoutine(it); onNavigateHome() },
+                    onEdit = onEditRoutine, onDelete = onDeleteRoutine,
+                    onEditContent = onEditRoutineContent,
+                    onSetProgression = onSetRoutineProgression,
+                    onSetFavorite = onSetRoutineFavorite)
+            }
+        }
         item {
             WeekCalendarStrip(day) { chosen -> diaryDateIso = chosen.toString() }
         }
@@ -143,7 +160,8 @@ internal fun DiaryTab(
                 onStart = { onStartRoutine(it); onNavigateHome() },
                 onEdit = onEditRoutine, onDelete = onDeleteRoutine,
                 onEditContent = onEditRoutineContent,
-                onSetProgression = onSetRoutineProgression)
+                onSetProgression = onSetRoutineProgression,
+                onSetFavorite = onSetRoutineFavorite)
         }
         if (dated.isNotEmpty()) item {
             Text("Entrenamientos por fecha", style = MaterialTheme.typography.titleLarge)
@@ -153,7 +171,8 @@ internal fun DiaryTab(
                 onStart = { onStartRoutine(it); onNavigateHome() },
                 onEdit = onEditRoutine, onDelete = onDeleteRoutine,
                 onEditContent = onEditRoutineContent,
-                onSetProgression = onSetRoutineProgression)
+                onSetProgression = onSetRoutineProgression,
+                onSetFavorite = onSetRoutineFavorite)
         }
         if (weekly.isNotEmpty()) item {
             Text("Programación semanal", style = MaterialTheme.typography.titleLarge)
@@ -163,7 +182,8 @@ internal fun DiaryTab(
                 onStart = { onStartRoutine(it); onNavigateHome() },
                 onEdit = onEditRoutine, onDelete = onDeleteRoutine,
                 onEditContent = onEditRoutineContent,
-                onSetProgression = onSetRoutineProgression)
+                onSetProgression = onSetRoutineProgression,
+                onSetFavorite = onSetRoutineFavorite)
         }
         if (library.isNotEmpty()) item {
             Text("Biblioteca sin fecha", style = MaterialTheme.typography.titleLarge)
@@ -173,7 +193,8 @@ internal fun DiaryTab(
                 onStart = { onStartRoutine(it); onNavigateHome() },
                 onEdit = onEditRoutine, onDelete = onDeleteRoutine,
                 onEditContent = onEditRoutineContent,
-                onSetProgression = onSetRoutineProgression)
+                onSetProgression = onSetRoutineProgression,
+                onSetFavorite = onSetRoutineFavorite)
         }
         item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
         item {

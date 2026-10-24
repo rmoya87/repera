@@ -1391,6 +1391,17 @@ class WorkoutRepository(context: Context, googleId: String) {
         save(state)
     }
 
+    /** Marca o desmarca una rutina como favorita (paridad setRoutineFavorite iOS). */
+    @Synchronized fun setRoutineFavorite(id: String, favorite: Boolean) {
+        val state = requireState()
+        val routines = state.getJSONArray("routines")
+        val routine = (0 until routines.length())
+            .map { routines.getJSONObject(it) }
+            .firstOrNull { it.optString("id") == id } ?: error("Rutina no encontrada")
+        routine.put("isFavorite", favorite)
+        save(state)
+    }
+
     @Synchronized fun deleteRoutine(id: String) {
         val state = requireState()
         val routines = state.getJSONArray("routines")

@@ -135,6 +135,7 @@ fun ReperaMobileScreen(
     onDeleteFinishedSet: (String, String, String) -> Unit,
     onLogBodyWeight: (Double) -> Unit,
     onSetRoutineProgression: (String, String) -> Unit,
+    onSetRoutineFavorite: (String, Boolean) -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit,
     onImportJson: () -> Unit,
@@ -265,6 +266,7 @@ fun ReperaMobileScreen(
                             navController.navigate("rutina/$routineId")
                         },
                         onSetRoutineProgression = onSetRoutineProgression,
+                        onSetRoutineFavorite = onSetRoutineFavorite,
                         onInitializeLocal = onInitializeLocal,
                         onImportJson = onImportJson,
                         onDriveSync = onDriveSync,
