@@ -5,7 +5,7 @@ import SwiftUI
 /// SF Symbols compartidos por los filtros de Ejercicios y las etiquetas de su ficha.
 /// Usar el mismo icono independientemente de la pantalla que muestra la disciplina.
 enum ExerciseCategorySymbols {
-    static let muscle = "lungs"
+    static let muscle = "figure.stand"
     static let equipment = "dumbbell"
 
     static func discipline(_ name: String) -> String {
@@ -68,6 +68,128 @@ enum ExerciseCategorySymbols {
         if e.contains("maquina") || e.contains("machine") { return "gearshape" }
         if e.contains("peso corporal") || e.contains("sin material") { return "figure.stand" }
         return equipment
+    }
+}
+
+/// Glifo monocromo de 16 pt inspirado en SF Symbols. Tres contornos legibles a
+/// tamaño de chip (torso, brazo y pierna) con una única zona rellena; sin
+/// miniaturas anatómicas detalladas que se volverían ilegibles.
+private enum MuscleGlyphPart {
+    case torso, arm, leg, unknown
+}
+
+private struct MuscleGlyphOutline: Shape {
+    let part: MuscleGlyphPart
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        switch part {
+        case .torso:
+            // Cuello, hombros, costados y cintura: un contorno simple.
+            path.move(to: CGPoint(x: 6, y: 1))
+            path.addLine(to: CGPoint(x: 6, y: 3))
+            path.addLine(to: CGPoint(x: 3, y: 4))
+            path.addLine(to: CGPoint(x: 2, y: 8))
+            path.move(to: CGPoint(x: 10, y: 1))
+            path.addLine(to: CGPoint(x: 10, y: 3))
+            path.addLine(to: CGPoint(x: 13, y: 4))
+            path.addLine(to: CGPoint(x: 14, y: 8))
+            path.move(to: CGPoint(x: 4, y: 5))
+            path.addLine(to: CGPoint(x: 5, y: 14))
+            path.addLine(to: CGPoint(x: 11, y: 14))
+            path.addLine(to: CGPoint(x: 12, y: 5))
+            path.move(to: CGPoint(x: 5, y: 8))
+            path.addLine(to: CGPoint(x: 11, y: 8))
+        case .arm:
+            // Brazo flexionado: hombro, brazo y antebrazo.
+            path.move(to: CGPoint(x: 5, y: 1))
+            path.addQuadCurve(to: CGPoint(x: 3, y: 5), control: CGPoint(x: 2, y: 2))
+            path.addLine(to: CGPoint(x: 4, y: 10))
+            path.addLine(to: CGPoint(x: 9, y: 15))
+            path.addLine(to: CGPoint(x: 12, y: 12))
+            path.addLine(to: CGPoint(x: 9, y: 9))
+            path.addLine(to: CGPoint(x: 9, y: 5))
+            path.addQuadCurve(to: CGPoint(x: 5, y: 1), control: CGPoint(x: 10, y: 1))
+        case .leg:
+            // Muslo, rodilla y gemelo en un único contorno.
+            path.move(to: CGPoint(x: 4, y: 1))
+            path.addLine(to: CGPoint(x: 12, y: 1))
+            path.addLine(to: CGPoint(x: 11, y: 7))
+            path.addLine(to: CGPoint(x: 10, y: 10))
+            path.addLine(to: CGPoint(x: 12, y: 15))
+            path.addLine(to: CGPoint(x: 9, y: 15))
+            path.addLine(to: CGPoint(x: 7, y: 11))
+            path.addLine(to: CGPoint(x: 8, y: 8))
+            path.addLine(to: CGPoint(x: 5, y: 6))
+            path.closeSubpath()
+        case .unknown:
+            break
+        }
+        return path.applying(CGAffineTransform(
+            scaleX: rect.width / 16, y: rect.height / 16
+        ))
+    }
+}
+
+private struct MuscleChipGlyph: View {
+    let muscle: String
+
+    private var part: MuscleGlyphPart {
+        switch MuscleTaxonomy.canonical(muscle) {
+        case "deltoids", "biceps", "triceps", "forearm": return .arm
+        case "quadriceps", "hamstring", "gluteal", "adductors",
+             "hip-flexors", "calves", "tibialis": return .leg
+        case "chest", "upper-back", "lower-back", "trapezius",
+             "serratus", "abs", "obliques": return .torso
+        default: return .unknown
+        }
+    }
+
+    /// Zona simple y claramente visible a 16 puntos, no un mapa muscular.
+    private var mark: CGRect {
+        switch MuscleTaxonomy.canonical(muscle) {
+        case "deltoids": return CGRect(x: 4, y: 2, width: 4, height: 3)
+        case "biceps": return CGRect(x: 4, y: 5, width: 3, height: 4)
+        case "triceps": return CGRect(x: 7, y: 5, width: 3, height: 4)
+        case "forearm": return CGRect(x: 8, y: 11, width: 3, height: 3)
+        case "trapezius": return CGRect(x: 6, y: 2, width: 4, height: 3)
+        case "chest": return CGRect(x: 5, y: 5, width: 6, height: 3)
+        case "upper-back": return CGRect(x: 5, y: 6, width: 6, height: 4)
+        case "serratus": return CGRect(x: 4, y: 8, width: 3, height: 3)
+        case "abs": return CGRect(x: 6, y: 9, width: 4, height: 4)
+        case "obliques": return CGRect(x: 4, y: 9, width: 3, height: 4)
+        case "lower-back": return CGRect(x: 6, y: 11, width: 4, height: 3)
+        case "gluteal": return CGRect(x: 5, y: 2, width: 6, height: 3)
+        case "hip-flexors": return CGRect(x: 6, y: 3, width: 4, height: 3)
+        case "quadriceps": return CGRect(x: 5, y: 5, width: 4, height: 4)
+        case "hamstring": return CGRect(x: 8, y: 5, width: 3, height: 4)
+        case "adductors": return CGRect(x: 7, y: 6, width: 3, height: 3)
+        case "calves": return CGRect(x: 9, y: 10, width: 3, height: 4)
+        case "tibialis": return CGRect(x: 7, y: 10, width: 3, height: 4)
+        default: return .zero
+        }
+    }
+
+    var body: some View {
+        Group {
+            if part == .unknown {
+                Image(systemName: ExerciseCategorySymbols.muscle)
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 16, height: 16)
+            } else {
+                ZStack(alignment: .topLeading) {
+                    MuscleGlyphOutline(part: part)
+                        .stroke(style: StrokeStyle(
+                            lineWidth: 1.35, lineCap: .round, lineJoin: .round
+                        ))
+                    RoundedRectangle(cornerRadius: 1, style: .continuous)
+                        .frame(width: mark.width, height: mark.height)
+                        .position(x: mark.midX, y: mark.midY)
+                }
+                .frame(width: 16, height: 16)
+            }
+        }
+        .accessibilityHidden(true)
     }
 }
 
@@ -230,7 +352,7 @@ struct ExerciseDetailView: View {
                     VStack(alignment: .leading, spacing: 14) {
                         metaRow(title: "Músculo") {
                             chipFlow {
-                                metaChip(meta.primary, icon: ExerciseCategorySymbols.muscle, emphasized: true)
+                                metaChip(meta.primary, muscle: meta.primary, emphasized: true)
                             }
                         }
 
@@ -238,7 +360,7 @@ struct ExerciseDetailView: View {
                             metaRow(title: "También") {
                                 chipFlow {
                                     ForEach(meta.secondaries, id: \.self) { label in
-                                        metaChip(label, icon: ExerciseCategorySymbols.muscle)
+                                        metaChip(label, muscle: label)
                                     }
                                 }
                             }
@@ -255,7 +377,7 @@ struct ExerciseDetailView: View {
                         }
 
                         if !meta.sports.isEmpty {
-                            metaRow(title: exercise.sportTag == "Movilidad" ? "Tipo" : "Deporte") {
+                            metaRow(title: "Disciplina") {
                                 chipFlow {
                                     ForEach(meta.sports, id: \.self) { sport in
                                         metaChip(sport, icon: ExerciseCategorySymbols.discipline(sport))
@@ -294,9 +416,16 @@ struct ExerciseDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func metaChip(_ label: String, icon: String? = nil, emphasized: Bool = false) -> some View {
+    private func metaChip(
+        _ label: String,
+        icon: String? = nil,
+        muscle: String? = nil,
+        emphasized: Bool = false
+    ) -> some View {
         HStack(spacing: 5) {
-            if let icon {
+            if let muscle {
+                MuscleChipGlyph(muscle: muscle)
+            } else if let icon {
                 Image(systemName: icon)
                     .font(.system(size: 11, weight: .semibold))
             }
@@ -321,20 +450,16 @@ struct ExerciseDetailView: View {
         let primary = LocalizedMuscle.es(exercise.targetMuscle ?? exercise.muscleGroup)
         var seen: Set<String> = [primary.lowercased()]
         var secondaries: [String] = []
-        for raw in exercise.secondaryMuscles {
+        // Solo músculos verificables: «full body», «upper legs», «cardio»,
+        // etc. son regiones genéricas, no músculos secundarios que deban
+        // aparecer con un icono anatómico. Completar desde los slugs reales.
+        for raw in exercise.secondaryMuscles + exercise.secondaryRegions {
+            guard MuscleTaxonomy.canonical(raw) != nil else { continue }
             let label = LocalizedMuscle.es(raw)
             let key = label.lowercased()
             guard !key.isEmpty, !seen.contains(key) else { continue }
             seen.insert(key)
             secondaries.append(label)
-        }
-        if let body = exercise.bodyPart, !body.isEmpty {
-            let label = LocalizedMuscle.es(body)
-            let key = label.lowercased()
-            if !seen.contains(key) {
-                seen.insert(key)
-                secondaries.insert(label, at: 0)
-            }
         }
         let equipments = (exercise.equipment ?? "")
             .split(separator: ",")
