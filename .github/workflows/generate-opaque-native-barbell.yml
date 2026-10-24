@@ -1,0 +1,57 @@
+name: Generate solid native splash mascot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/generate-opaque-native-barbell.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --disable-pip-version-check pillow
+      - name: Flatten first mascot over exact Repera green
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from PIL import Image
+          root=Path('Apps/Repera/Resources/Assets.xcassets')
+          source=root/'ReperaBarbellLaunch.imageset/repera-barbell-launch.png'
+          output=root/'ReperaNativeOpaqueHero.imageset'
+          output.mkdir(parents=True,exist_ok=True)
+          png=output/'repera-native-opaque-hero.png'
+          art=Image.open(source).convert('RGBA')
+          canvas=Image.new('RGBA',art.size,(48,209,88,255))
+          canvas.alpha_composite(art)
+          canvas.convert('RGB').save(png,optimize=True)
+          manifest={
+            'images':[{'filename':png.name,'idiom':'universal'}],
+            'info':{'author':'xcode','version':1}
+          }
+          (output/'Contents.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          with Image.open(png) as image:
+              assert image.mode=='RGB' and image.size==(850,1850)
+              assert image.getpixel((0,0))==(48,209,88)
+              face=image.crop((250,750,620,1100))
+              black=sum(1 for r,g,b in face.getdata() if max(r,g,b)<105)
+              assert black>500, 'Pupils or smile missing'
+          print('PASS: fully opaque first-frame barbell PNG with exact #30D158 background')
+          PY
+      - name: Publish opaque native image without modifying old splash
+        run: |
+          git add Apps/Repera/Resources/Assets.xcassets/ReperaNativeOpaqueHero.imageset
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Create dedicated solid green opaque launch artwork"
+          git pull --rebase origin main
+          git push origin HEAD:main
