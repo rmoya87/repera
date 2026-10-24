@@ -72,6 +72,13 @@ internal class CompiledBodyPaths(val front: CompiledBodyView, val back: Compiled
                         front = compile(male.getJSONObject("front")),
                         back = compile(male.getJSONObject("back"))
                     )
+                }.onFailure {
+                    android.util.Log.e("BodyMap", "BodyPaths.json NO cargó: ${it.javaClass.simpleName}: ${it.message}", it)
+                }.onSuccess {
+                    android.util.Log.i("BodyMap", "cargado: frente ${it.front.musclePaths.size} músculos " +
+                        "(${it.front.musclePaths.values.sumOf { l -> l.size }} rutas), espalda " +
+                        "${it.back.musclePaths.size} músculos (${it.back.musclePaths.values.sumOf { l -> l.size }} rutas), " +
+                        "cabeza=${it.front.inertPaths.containsKey("head")}, vb=${it.front.viewBox}")
                 }.getOrNull()
             }
             cached = compiled

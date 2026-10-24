@@ -26,8 +26,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -53,7 +54,33 @@ import java.time.LocalDate
 class VisualVerificationInstrumentedTest {
 
     @get:Rule
-    val compose = createComposeRule()
+    val compose = createAndroidComposeRule<androidx.activity.ComponentActivity>()
+
+    /** Distancia de color simple (RGB) para gates de píxeles. */
+    private fun colorDist(a: Int, b: Int): Int {
+        val dr = android.graphics.Color.red(a) - android.graphics.Color.red(b)
+        val dg = android.graphics.Color.green(a) - android.graphics.Color.green(b)
+        val db = android.graphics.Color.blue(a) - android.graphics.Color.blue(b)
+        return dr * dr + dg * dg + db * db
+    }
+
+    /** Prueba AISLADA del cargador (contexto target directo, sin UI): verifica
+     *  que el asset empaquetado compila a rutas dibujables. No sustituye a la
+     *  integración de producción de capturaEquilibrioMuscular. */
+    @Test
+    fun bodyMapCargaAisladaDesdeContextoApp() {
+        val appContext = InstrumentationRegistry.getInstrumentation().targetContext
+        val paths = kotlinx.coroutines.runBlocking { CompiledBodyPaths.shared(appContext) }
+        org.junit.Assert.assertNotNull("BodyPaths.json debe cargar desde el contexto de la app", paths)
+        paths!!
+        org.junit.Assert.assertTrue(
+            "frente sin músculos: ${paths.front.musclePaths.keys}",
+            paths.front.musclePaths.size >= 10)
+        org.junit.Assert.assertTrue(
+            "espalda sin músculos: ${paths.back.musclePaths.keys}",
+            paths.back.musclePaths.size >= 8)
+        org.junit.Assert.assertTrue("sin cabeza", paths.front.inertPaths.containsKey("head"))
+    }
 
     private fun save(name: String, bitmap: ImageBitmap) {
         // MediaStore (Pictures): visible para `adb pull` en CI; Android/data está
@@ -153,24 +180,34 @@ class VisualVerificationInstrumentedTest {
 
     @Test
     fun capturaRelojWodApaisado() {
+        // Orientación REAL: la app no bloquea la orientación (unspecified, como
+        // iOS que admite portrait+landscape), así que rotar la ventana debe
+        // activar la rama apaisada del reloj. Una caja forzada solo prueba un
+        // árbol de composición aislado, no la adaptación real.
+        compose.activityRule.scenario.onActivity {
+            it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        }
+        compose.waitUntil(15_000) {
+            var landscape = false
+            compose.activityRule.scenario.onActivity {
+                landscape = it.resources.configuration.orientation ==
+                    android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            }
+            landscape
+        }
         val (active, timer) = wodClockFixture()
         brandContent {
-            // Caja 400x200 dp (proporción landscape): fuerza la rama apaisada
-            // (ancho > alto) SIN exceder la ventana del emulador: 840dp quedaba
-            // recortado a los 411dp visibles y las cifras LED salían cortadas.
-            androidx.compose.foundation.layout.Box(
-                modifier = Modifier
-                    .requiredSize(400.dp, 200.dp)
-                    .testTag("wod_landscape_capture")
-            ) {
-                WodClockScreen(active, false, timer, {}, {}, {}, requestNotificationPermission = false)
-            }
+            WodClockScreen(active, false, timer, {}, {}, {}, requestNotificationPermission = false)
         }
         compose.waitForIdle()
-        save(
-            "reloj_wod_apaisado",
-            compose.onNodeWithTag("wod_landscape_capture").captureToImage()
-        )
+        val captura = compose.onRoot().captureToImage().asAndroidBitmap()
+        org.junit.Assert.assertTrue(
+            "La ventana no quedó apaisada (${'$'}{captura.width}x${'$'}{captura.height})",
+            captura.width > captura.height)
+        save("reloj_wod_apaisado", captura.asImageBitmap())
+        compose.activityRule.scenario.onActivity {
+            it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
     }
 
     @Test
@@ -279,17 +316,12 @@ class VisualVerificationInstrumentedTest {
             }
         }
         compose.waitForIdle()
-        // BodyMapView carga BodyPaths.json de assets en Dispatchers.Default:
-        // waitForIdle NO lo espera. Precarga determinista desde el contexto
-        // de la app bajo test y espera al nodo; si no aparece, FALLO (la
-        // captura anterior mostraba el Spacer de 220dp y nadie lo detectó).
-        val appContext = androidx.test.platform.app.InstrumentationRegistry
-            .getInstrumentation().targetContext
-        kotlinx.coroutines.runBlocking {
-            org.junit.Assert.assertNotNull(
-                "BodyPaths.json debe cargar desde assets del target",
-                CompiledBodyPaths.shared(appContext))
-        }
+        // Integración por la ruta de producción: la Activity del test corre en
+        // el paquete de la app (com.app.repera, visto en logcat), así que
+        // LocalContext.applicationContext es el contexto real de la app con el
+        // asset empaquetado; SIN precarga ni loader sustituido. BodyMapView
+        // carga BodyPaths.json en Dispatchers.Default: waitForIdle NO lo
+        // espera, así que esperamos al nodo y FALLAMOS si no llega.
         compose.waitUntil(10_000) {
             compose.onAllNodesWithTag("body_map_loaded").fetchSemanticsNodes().isNotEmpty()
         }
@@ -297,6 +329,25 @@ class VisualVerificationInstrumentedTest {
             "El mapa corporal no apareció tras la espera (placeholder de 220dp)",
             compose.onAllNodesWithTag("body_map_loaded").fetchSemanticsNodes().isNotEmpty())
         compose.waitForIdle()
+        // El tag marca el contenedor aunque el Canvas no dibuje nada (un
+        // Canvas vacío y el Spacer placeholder producen los mismos píxeles).
+        // Gate real: el nodo del mapa debe tener píxeles distintos del fondo.
+        val mapa = compose.onNodeWithTag("body_map_loaded").captureToImage().asAndroidBitmap()
+        val fondo = mapa.getPixel(2, 2)
+        var distintos = 0
+        var y = 0
+        while (y < mapa.height) {
+            var x = 0
+            while (x < mapa.width) {
+                if (colorDist(mapa.getPixel(x, y), fondo) > 24) distintos++
+                x += 3
+            }
+            y += 3
+        }
+        org.junit.Assert.assertTrue(
+            "Mapa corporal VACÍO: solo $distintos píxeles distintos del fondo " +
+                "(el contenedor existe pero no se dibuja nada)",
+            distintos > 500)
         save("progreso_equilibrio_muscular", compose.onRoot().captureToImage())
         // Segundo modo: Esfuerzo (series duras), paridad del segmented iOS.
         compose.onNodeWithText("Esfuerzo").performClick()
