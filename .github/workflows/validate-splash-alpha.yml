@@ -50,6 +50,11 @@ jobs:
           raw = root/"LaunchHeroOpaque.png"
           assert raw.read_bytes()==(native/"repera-launch-hero-opaque.png").read_bytes(), "Bundle PNG diverged"
           native_story=root/"ReperaLaunchBundle.storyboard"
+          # Legacy .xcodeproj files generated before the storyboard rename still
+          # reference this path. Keep a byte-identical compatibility copy.
+          compatibility=root/"ReperaLaunchOpaque.storyboard"
+          assert compatibility.is_file(), "Missing storyboard referenced by older Xcode project"
+          assert compatibility.read_bytes()==native_story.read_bytes(), "Outdated compatibility storyboard"
           tree=ElementTree.parse(native_story)
           assert len(tree.findall('.//imageView[@image="LaunchHeroOpaque.png"]'))==1
           assert len(tree.findall('.//resources/image[@name="LaunchHeroOpaque.png"]'))==1
