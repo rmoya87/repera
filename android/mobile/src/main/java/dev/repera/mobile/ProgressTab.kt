@@ -88,6 +88,7 @@ internal fun ProgressTab(
     // Deliberately limited to the recent archive loaded by StateOverview.
     // It must never be presented as complete lifetime or billing-gated analytics.
     val recent = overview?.history.orEmpty()
+    val subscriptions = LocalSubscriptions.current
     var selectedRange by rememberSaveable { mutableStateOf(ProgressTimeRange.WEEK.wire) }
     val snapshot = overview?.progressByRange?.get(selectedRange)
     val today = LocalDate.now()
@@ -124,7 +125,6 @@ internal fun ProgressTab(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                val subscriptions = LocalSubscriptions.current
                 ProgressTimeRange.entries.forEach { range ->
                     val allowed = subscriptions?.canSelectProgressRange(range)?.allowed ?: true
                     FilterChip(
@@ -271,12 +271,31 @@ internal fun ProgressTab(
             }
             if (snapshot.muscleStatuses.isNotEmpty()) {
                 item {
-                    MuscleBalanceCard(
-                        loadAll = snapshot.muscleLoadAll,
-                        loadHard = snapshot.muscleLoadHard,
-                        fatigueAll = snapshot.muscleFatigueAll,
-                        fatigueHard = snapshot.muscleFatigueHard,
-                        hasHardSets = snapshot.hasHardSets)
+                    // Análisis muscular avanzado = Pro (paridad iOS
+                    // advancedMuscleAnalysis, contexto muscleAnalysis).
+                    val muscleAllowed = subscriptions
+                        ?.decision(dev.repera.domain.monetization.ReperaFeature.ADVANCED_MUSCLE_ANALYSIS)
+                        ?.allowed ?: true
+                    if (muscleAllowed) {
+                        MuscleBalanceCard(
+                            loadAll = snapshot.muscleLoadAll,
+                            loadHard = snapshot.muscleLoadHard,
+                            fatigueAll = snapshot.muscleFatigueAll,
+                            fatigueHard = snapshot.muscleFatigueHard,
+                            hasHardSets = snapshot.hasHardSets)
+                    } else {
+                        dev.repera.mobile.monetization.ProTeaserCard(
+                            title = "Conoce tu equilibrio muscular",
+                            bodyText = "Visualiza grupos musculares y cómo se reparte tu entrenamiento.",
+                            cta = "Ver con Repera Pro",
+                            appearance = dev.repera.mobile.monetization.ProTeaserAppearance.PROGRESS
+                        ) {
+                            subscriptions?.presentPaywall(
+                                dev.repera.domain.monetization.PaywallContext.MUSCLE_ANALYSIS,
+                                feature = dev.repera.domain.monetization.ReperaFeature.ADVANCED_MUSCLE_ANALYSIS
+                            )
+                        }
+                    }
                 }
             }
             if (snapshot.weightPoints.isNotEmpty()) {
