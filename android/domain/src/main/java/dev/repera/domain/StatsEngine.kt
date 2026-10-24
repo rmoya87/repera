@@ -6,6 +6,25 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.temporal.WeekFields
 
+
+/** Resumen de historial de un ejercicio (PR, última sesión, veces…).
+ *  Port 1:1 de ExerciseHistorySummary (StatsEngine.swift iOS). */
+data class ExerciseHistorySummary(
+    val timesPerformed: Int,
+    val maxWeightKg: Double? = null,
+    val repsAtMaxWeight: Int? = null,
+    val estimatedOneRM: Double? = null,
+    val bestReps: Int? = null,
+    val bestCalories: Int? = null,
+    val bestMeters: Int? = null,
+    val bestDurationSeconds: Int? = null,
+    val lastEpochMillis: Long? = null,
+    val lastWeightKg: Double? = null,
+    val lastReps: Int? = null,
+    val lastQuantityUnit: String? = null,
+    val lastDurationSeconds: Int? = null
+)
+
 /** Tipos reducidos de entrada para las estadísticas (adaptados desde el
  *  snapshot JSON en mobile). Semántica 1:1 con StatsEngine.swift (iOS). */
 data class StatsSet(
@@ -481,4 +500,82 @@ object StatsEngine {
         }
         return from
     }
+
+    /** Resumen de historial de un ejercicio. Port de StatsEngine.history (iOS):
+     *  match por id o nombre equivalente, solo series de trabajo (sin warmup),
+     *  sesiones ordenadas de más reciente a más antigua. */
+    fun exerciseHistory(
+        exerciseId: String,
+        exerciseName: String? = null,
+        workouts: List<StatsWorkout>
+    ): ExerciseHistorySummary {
+        var maxWeight = 0.0
+        var maxWeightReps = 0
+        var bestReps = 0
+        var bestCalories = 0
+        var bestMeters = 0
+        var bestDuration = 0
+        var best1RM = 0.0
+        var times = 0
+        var lastEpoch: Long? = null
+        var lastWeight: Double? = null
+        var lastReps: Int? = null
+        var lastUnit: String? = null
+        var lastDuration: Int? = null
+
+        val sorted = workouts.sortedByDescending { it.epochMillis }
+        for (workout in sorted) {
+            val ex = workout.exercises.firstOrNull { entry ->
+                entry.exerciseId == exerciseId ||
+                    (exerciseName != null &&
+                        ExerciseEquivalence.sameName(entry.exerciseName, exerciseName))
+            } ?: continue
+            val work = ex.sets.filter { !it.isWarmup }
+            if (work.isEmpty()) continue
+            times += 1
+            if (lastEpoch == null) {
+                lastEpoch = workout.epochMillis
+                val last = work.last()
+                lastWeight = last.weightKg
+                lastReps = last.reps
+                lastUnit = last.quantityUnit ?: "reps"
+                lastDuration = last.durationSeconds
+            }
+            for (set in work) {
+                when (set.quantityUnit ?: "reps") {
+                    "calories" -> bestCalories = maxOf(bestCalories, set.reps)
+                    "meters" -> bestMeters = maxOf(bestMeters, set.reps)
+                    else -> bestReps = maxOf(bestReps, set.reps)
+                }
+                set.durationSeconds?.let { bestDuration = maxOf(bestDuration, it) }
+                val unit = set.quantityUnit ?: "reps"
+                val w = set.weightKg
+                if (unit == "reps" && w != null && w > 0) {
+                    val e1 = w * (1 + set.reps / 30.0)
+                    if (e1 > best1RM) best1RM = e1
+                    if (w > maxWeight || (kotlin.math.abs(w - maxWeight) < 0.05 &&
+                            set.reps > maxWeightReps)) {
+                        maxWeight = w
+                        maxWeightReps = set.reps
+                    }
+                }
+            }
+        }
+        return ExerciseHistorySummary(
+            timesPerformed = times,
+            maxWeightKg = if (maxWeight > 0) maxWeight else null,
+            repsAtMaxWeight = if (maxWeight > 0) maxWeightReps else null,
+            estimatedOneRM = if (best1RM > 0) best1RM else null,
+            bestReps = if (bestReps > 0) bestReps else null,
+            bestCalories = if (bestCalories > 0) bestCalories else null,
+            bestMeters = if (bestMeters > 0) bestMeters else null,
+            bestDurationSeconds = if (bestDuration > 0) bestDuration else null,
+            lastEpochMillis = lastEpoch,
+            lastWeightKg = lastWeight,
+            lastReps = lastReps,
+            lastQuantityUnit = lastUnit,
+            lastDurationSeconds = lastDuration
+        )
+    }
 }
+
