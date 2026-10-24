@@ -37,7 +37,12 @@ campos personalizados. Los nuevos ejercicios usan UUID determinista calculado
 con la misma clave que iOS. Una baja editorial marca
 `isCatalogArchived=true`: los ejercicios desaparecen del selector público
 pero sus datos permanecen para el historial. El seed empaquetado no puede
-sobrescribir una corrección remota previamente publicada.
+sobrescribir una corrección remota previamente publicada. La resolución de
+identidad bilingüe usa `SportExerciseNames.canonicalName`: se han comparado las
+288 fichas de Android contra las 288 de Supabase y no quedan altas ni faltantes.
+La variante «Fondos en anillas kipping» se publicó como ficha editorial nueva.
+Los datos publicados llegan también al Watch en la siguiente transferencia
+nativa de entrenamientos por el Data Layer.
 
 Se ha retirado el botón de Google Drive «Sincronizar» y su spinner de las
 pantallas Cuenta del móvil. La copia privada existente sigue en las tareas
