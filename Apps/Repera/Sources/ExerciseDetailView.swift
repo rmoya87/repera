@@ -74,121 +74,222 @@ enum ExerciseCategorySymbols {
 /// Glifo monocromo de 16 pt inspirado en SF Symbols. Tres contornos legibles a
 /// tamaño de chip (torso, brazo y pierna) con una única zona rellena; sin
 /// miniaturas anatómicas detalladas que se volverían ilegibles.
-private enum MuscleGlyphPart {
-    case torso, arm, leg, unknown
+/// Nueve pictogramas de partes del cuerpo, compartidos por los 18 músculos
+/// del catálogo. Contornos redondeados, sin detalle anatómico: legibles a 16 pt.
+private enum BodyPartGlyphArea {
+    case shoulders, upperArm, forearm, chest, back, core, hips, thigh, lowerLeg, unknown
+
+    /// Acepta el slug del catálogo y el nombre localizado que muestran los chips.
+    static func forMuscle(_ muscle: String) -> Self {
+        let key = muscle.trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.diacriticInsensitive, .caseInsensitive],
+                     locale: Locale(identifier: "es_ES"))
+            .lowercased()
+        switch key {
+        case "deltoids", "deltoides", "delts", "hombros", "shoulders",
+             "trapezius", "trapezio", "trapecio", "traps":
+            return .shoulders
+        case "biceps", "triceps", "brachialis", "brazo", "upper arms":
+            return .upperArm
+        case "forearm", "forearms", "antebrazo", "antebrazos", "grip":
+            return .forearm
+        case "chest", "pecho", "pectorals", "pectoral",
+             "serratus", "serrato":
+            return .chest
+        case "upper-back", "upper back", "espalda alta", "lats",
+             "back", "espalda", "lower-back", "lower back", "lumbar":
+            return .back
+        case "abs", "abdominals", "abdomen", "abdominales",
+             "obliques", "oblicuos", "core":
+            return .core
+        case "gluteal", "glutes", "gluteos", "gluteo",
+             "hip-flexors", "hip flexors", "flexores de cadera",
+             "adductors", "aductores", "hips", "cadera":
+            return .hips
+        case "quadriceps", "cuadriceps", "quads", "hamstring",
+             "hamstrings", "isquios", "isquiotibiales", "muslo":
+            return .thigh
+        case "calves", "gemelos", "soleus", "tibialis", "tibial",
+             "pantorrilla", "lower legs":
+            return .lowerLeg
+        default:
+            return .unknown
+        }
+    }
 }
 
-private struct MuscleGlyphOutline: Shape {
-    let part: MuscleGlyphPart
+/// Trazos vectoriales originales de referencia 20×20. Se dibuja la silueta
+/// y una única marca de área: igual icono para músculos de la misma zona.
+/// Evitamos imágenes añadidas al asset catalog para que Xcode no requiera
+/// regenerar el proyecto en instalaciones existentes.
+private enum BodyPartGlyphDrawing {
+    static func paths(for area: BodyPartGlyphArea) -> (outline: Path, highlight: Path) {
+        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x, y: y) }
+        var line = Path()
+        var mark = Path()
 
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        switch part {
-        case .torso:
-            // Cuello, hombros, costados y cintura: un contorno simple.
-            path.move(to: CGPoint(x: 6, y: 1))
-            path.addLine(to: CGPoint(x: 6, y: 3))
-            path.addLine(to: CGPoint(x: 3, y: 4))
-            path.addLine(to: CGPoint(x: 2, y: 8))
-            path.move(to: CGPoint(x: 10, y: 1))
-            path.addLine(to: CGPoint(x: 10, y: 3))
-            path.addLine(to: CGPoint(x: 13, y: 4))
-            path.addLine(to: CGPoint(x: 14, y: 8))
-            path.move(to: CGPoint(x: 4, y: 5))
-            path.addLine(to: CGPoint(x: 5, y: 14))
-            path.addLine(to: CGPoint(x: 11, y: 14))
-            path.addLine(to: CGPoint(x: 12, y: 5))
-            path.move(to: CGPoint(x: 5, y: 8))
-            path.addLine(to: CGPoint(x: 11, y: 8))
-        case .arm:
-            // Brazo flexionado: hombro, brazo y antebrazo.
-            path.move(to: CGPoint(x: 5, y: 1))
-            path.addQuadCurve(to: CGPoint(x: 3, y: 5), control: CGPoint(x: 2, y: 2))
-            path.addLine(to: CGPoint(x: 4, y: 10))
-            path.addLine(to: CGPoint(x: 9, y: 15))
-            path.addLine(to: CGPoint(x: 12, y: 12))
-            path.addLine(to: CGPoint(x: 9, y: 9))
-            path.addLine(to: CGPoint(x: 9, y: 5))
-            path.addQuadCurve(to: CGPoint(x: 5, y: 1), control: CGPoint(x: 10, y: 1))
-        case .leg:
-            // Muslo, rodilla y gemelo en un único contorno.
-            path.move(to: CGPoint(x: 4, y: 1))
-            path.addLine(to: CGPoint(x: 12, y: 1))
-            path.addLine(to: CGPoint(x: 11, y: 7))
-            path.addLine(to: CGPoint(x: 10, y: 10))
-            path.addLine(to: CGPoint(x: 12, y: 15))
-            path.addLine(to: CGPoint(x: 9, y: 15))
-            path.addLine(to: CGPoint(x: 7, y: 11))
-            path.addLine(to: CGPoint(x: 8, y: 8))
-            path.addLine(to: CGPoint(x: 5, y: 6))
-            path.closeSubpath()
+        switch area {
+        case .shoulders:
+            // Línea de hombros y cuello; marcas amplias en ambos deltoides.
+            line.move(to: pt(7, 2))
+            line.addQuadCurve(to: pt(6, 5), control: pt(7, 4))
+            line.addQuadCurve(to: pt(2, 7), control: pt(3, 5))
+            line.addLine(to: pt(1.5, 14))
+            line.move(to: pt(13, 2))
+            line.addQuadCurve(to: pt(14, 5), control: pt(13, 4))
+            line.addQuadCurve(to: pt(18, 7), control: pt(17, 5))
+            line.addLine(to: pt(18.5, 14))
+            line.move(to: pt(7, 5))
+            line.addQuadCurve(to: pt(13, 5), control: pt(10, 7))
+            line.move(to: pt(5, 10))
+            line.addLine(to: pt(6, 16))
+            line.move(to: pt(15, 10))
+            line.addLine(to: pt(14, 16))
+            mark.addEllipse(in: CGRect(x: 2.4, y: 6.7, width: 3.5, height: 4))
+            mark.addEllipse(in: CGRect(x: 14.1, y: 6.7, width: 3.5, height: 4))
+        case .upperArm:
+            // Brazo flexionado, icono de fuerza reconocible como pictograma.
+            line.move(to: pt(3, 12))
+            line.addQuadCurve(to: pt(4, 5), control: pt(2, 8))
+            line.addQuadCurve(to: pt(8, 3.5), control: pt(5, 2))
+            line.addQuadCurve(to: pt(10, 8), control: pt(11, 5))
+            line.addQuadCurve(to: pt(15, 6), control: pt(12, 5))
+            line.addQuadCurve(to: pt(18, 11), control: pt(19, 8))
+            line.addQuadCurve(to: pt(14, 17), control: pt(18, 16))
+            line.addQuadCurve(to: pt(3, 12), control: pt(6, 19))
+            mark.addEllipse(in: CGRect(x: 10.1, y: 8, width: 5.1, height: 4))
+        case .forearm:
+            // Brazo extendido terminado en un puño, con marca en el antebrazo.
+            line.move(to: pt(3, 2))
+            line.addLine(to: pt(6, 10))
+            line.addQuadCurve(to: pt(12, 15), control: pt(8, 13))
+            line.addLine(to: pt(15, 17))
+            line.addQuadCurve(to: pt(18, 13), control: pt(18.5, 16))
+            line.addLine(to: pt(14, 11))
+            line.addLine(to: pt(10, 9))
+            line.addLine(to: pt(8, 2))
+            mark.addEllipse(in: CGRect(x: 8, y: 9, width: 5, height: 4))
+        case .chest:
+            // Silueta frontal, pectorales amplios sin dibujos anatómicos.
+            line.move(to: pt(7, 2))
+            line.addQuadCurve(to: pt(5, 5), control: pt(7, 4))
+            line.addQuadCurve(to: pt(2, 7), control: pt(3, 5))
+            line.addLine(to: pt(1.5, 14))
+            line.move(to: pt(13, 2))
+            line.addQuadCurve(to: pt(15, 5), control: pt(13, 4))
+            line.addQuadCurve(to: pt(18, 7), control: pt(17, 5))
+            line.addLine(to: pt(18.5, 14))
+            line.move(to: pt(5, 9))
+            line.addLine(to: pt(6, 17))
+            line.move(to: pt(15, 9))
+            line.addLine(to: pt(14, 17))
+            mark.addEllipse(in: CGRect(x: 4.4, y: 6, width: 5, height: 4.7))
+            mark.addEllipse(in: CGRect(x: 10.6, y: 6, width: 5, height: 4.7))
+        case .back:
+            // Espalda vista desde atrás, columna central y dos grandes zonas.
+            line.move(to: pt(7, 2))
+            line.addQuadCurve(to: pt(3, 6), control: pt(7, 4))
+            line.addLine(to: pt(2, 14))
+            line.move(to: pt(13, 2))
+            line.addQuadCurve(to: pt(17, 6), control: pt(13, 4))
+            line.addLine(to: pt(18, 14))
+            line.move(to: pt(5, 10))
+            line.addLine(to: pt(6, 17))
+            line.move(to: pt(15, 10))
+            line.addLine(to: pt(14, 17))
+            line.move(to: pt(10, 5))
+            line.addLine(to: pt(10, 16))
+            mark.addEllipse(in: CGRect(x: 5, y: 6, width: 4.2, height: 8))
+            mark.addEllipse(in: CGRect(x: 10.8, y: 6, width: 4.2, height: 8))
+        case .core:
+            // Cintura y un bloque abdominal único, visible a tamaño reducido.
+            line.move(to: pt(4, 2))
+            line.addQuadCurve(to: pt(4, 17), control: pt(6, 9))
+            line.move(to: pt(16, 2))
+            line.addQuadCurve(to: pt(16, 17), control: pt(14, 9))
+            line.move(to: pt(6, 4))
+            line.addLine(to: pt(14, 4))
+            line.move(to: pt(6, 16))
+            line.addLine(to: pt(14, 16))
+            mark.addEllipse(in: CGRect(x: 7, y: 7, width: 6, height: 7))
+        case .hips:
+            // Cadera en forma de pelvis, sin detalle de músculos glúteos.
+            line.move(to: pt(5, 2))
+            line.addQuadCurve(to: pt(3, 10), control: pt(2, 5))
+            line.addQuadCurve(to: pt(8, 16), control: pt(4, 14))
+            line.addLine(to: pt(10, 18))
+            line.addLine(to: pt(12, 16))
+            line.addQuadCurve(to: pt(17, 10), control: pt(16, 14))
+            line.addQuadCurve(to: pt(15, 2), control: pt(18, 5))
+            line.move(to: pt(8, 12))
+            line.addQuadCurve(to: pt(12, 12), control: pt(10, 9))
+            mark.addEllipse(in: CGRect(x: 4.9, y: 7, width: 5, height: 6))
+            mark.addEllipse(in: CGRect(x: 10.1, y: 7, width: 5, height: 6))
+        case .thigh:
+            // Ambas piernas hasta la rodilla, con separación central clara.
+            line.move(to: pt(4, 2))
+            line.addLine(to: pt(3, 8))
+            line.addLine(to: pt(4, 17))
+            line.move(to: pt(16, 2))
+            line.addLine(to: pt(17, 8))
+            line.addLine(to: pt(16, 17))
+            line.move(to: pt(4, 2))
+            line.addQuadCurve(to: pt(16, 2), control: pt(10, 5))
+            line.move(to: pt(10, 8))
+            line.addLine(to: pt(8, 17))
+            line.move(to: pt(10, 8))
+            line.addLine(to: pt(12, 17))
+            mark.addEllipse(in: CGRect(x: 4.2, y: 8, width: 3.6, height: 7))
+            mark.addEllipse(in: CGRect(x: 12.2, y: 8, width: 3.6, height: 7))
+        case .lowerLeg:
+            // Gemelo / tibia + pie lateral: distinto del icono de muslo.
+            line.move(to: pt(6, 2))
+            line.addQuadCurve(to: pt(6, 10), control: pt(4, 6))
+            line.addLine(to: pt(5, 15))
+            line.addQuadCurve(to: pt(2, 18), control: pt(4, 17))
+            line.addLine(to: pt(16, 18))
+            line.addQuadCurve(to: pt(14, 15), control: pt(17, 16))
+            line.addLine(to: pt(12, 13))
+            line.addQuadCurve(to: pt(13, 2), control: pt(15, 7))
+            mark.addEllipse(in: CGRect(x: 7.1, y: 5.5, width: 4.5, height: 7))
         case .unknown:
             break
         }
-        return path.applying(CGAffineTransform(
-            scaleX: rect.width / 16, y: rect.height / 16
-        ))
+        return (line, mark)
     }
 }
 
 private struct MuscleChipGlyph: View {
     let muscle: String
+    let emphasized: Bool
 
-    private var part: MuscleGlyphPart {
-        switch MuscleTaxonomy.canonical(muscle) {
-        case "deltoids", "biceps", "triceps", "forearm": return .arm
-        case "quadriceps", "hamstring", "gluteal", "adductors",
-             "hip-flexors", "calves", "tibialis": return .leg
-        case "chest", "upper-back", "lower-back", "trapezius",
-             "serratus", "abs", "obliques": return .torso
-        default: return .unknown
-        }
-    }
-
-    /// Zona simple y claramente visible a 16 puntos, no un mapa muscular.
-    private var mark: CGRect {
-        switch MuscleTaxonomy.canonical(muscle) {
-        case "deltoids": return CGRect(x: 4, y: 2, width: 4, height: 3)
-        case "biceps": return CGRect(x: 4, y: 5, width: 3, height: 4)
-        case "triceps": return CGRect(x: 7, y: 5, width: 3, height: 4)
-        case "forearm": return CGRect(x: 8, y: 11, width: 3, height: 3)
-        case "trapezius": return CGRect(x: 6, y: 2, width: 4, height: 3)
-        case "chest": return CGRect(x: 5, y: 5, width: 6, height: 3)
-        case "upper-back": return CGRect(x: 5, y: 6, width: 6, height: 4)
-        case "serratus": return CGRect(x: 4, y: 8, width: 3, height: 3)
-        case "abs": return CGRect(x: 6, y: 9, width: 4, height: 4)
-        case "obliques": return CGRect(x: 4, y: 9, width: 3, height: 4)
-        case "lower-back": return CGRect(x: 6, y: 11, width: 4, height: 3)
-        case "gluteal": return CGRect(x: 5, y: 2, width: 6, height: 3)
-        case "hip-flexors": return CGRect(x: 6, y: 3, width: 4, height: 3)
-        case "quadriceps": return CGRect(x: 5, y: 5, width: 4, height: 4)
-        case "hamstring": return CGRect(x: 8, y: 5, width: 3, height: 4)
-        case "adductors": return CGRect(x: 7, y: 6, width: 3, height: 3)
-        case "calves": return CGRect(x: 9, y: 10, width: 3, height: 4)
-        case "tibialis": return CGRect(x: 7, y: 10, width: 3, height: 4)
-        default: return .zero
-        }
+    private var area: BodyPartGlyphArea {
+        BodyPartGlyphArea.forMuscle(muscle)
     }
 
     var body: some View {
         Group {
-            if part == .unknown {
+            if area == .unknown {
                 Image(systemName: ExerciseCategorySymbols.muscle)
                     .font(.system(size: 12, weight: .semibold))
-                    .frame(width: 16, height: 16)
             } else {
-                ZStack(alignment: .topLeading) {
-                    MuscleGlyphOutline(part: part)
-                        .stroke(style: StrokeStyle(
-                            lineWidth: 1.35, lineCap: .round, lineJoin: .round
-                        ))
-                    RoundedRectangle(cornerRadius: 1, style: .continuous)
-                        .frame(width: mark.width, height: mark.height)
-                        .position(x: mark.midX, y: mark.midY)
+                Canvas { context, size in
+                    let paths = BodyPartGlyphDrawing.paths(for: area)
+                    let scale = CGAffineTransform(
+                        scaleX: size.width / 20, y: size.height / 20
+                    )
+                    // Verde en chips neutrales; negro sobre el chip verde principal.
+                    let ink = emphasized ? OG.onAccent : OG.label
+                    let highlight = emphasized ? OG.onAccent.opacity(0.65) : OG.accent
+                    context.fill(paths.highlight.applying(scale), with: .color(highlight))
+                    context.stroke(paths.outline.applying(scale), with: .color(ink),
+                                   style: StrokeStyle(lineWidth: 1.5,
+                                                      lineCap: .round,
+                                                      lineJoin: .round))
                 }
-                .frame(width: 16, height: 16)
             }
         }
+        .frame(width: 16, height: 16)
         .accessibilityHidden(true)
     }
 }
@@ -424,7 +525,7 @@ struct ExerciseDetailView: View {
     ) -> some View {
         HStack(spacing: 5) {
             if let muscle {
-                MuscleChipGlyph(muscle: muscle)
+                MuscleChipGlyph(muscle: muscle, emphasized: emphasized)
             } else if let icon {
                 Image(systemName: icon)
                     .font(.system(size: 11, weight: .semibold))
