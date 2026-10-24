@@ -112,6 +112,31 @@ internal object WorkoutHistorySets {
         }
     }
 
+    /**
+     * Series realmente registradas con su identidad: base de la edición de
+     * entrenos terminados. Nunca incluye el fallback a series planificadas:
+     * un objetivo pendiente no es una repetición realizada.
+     */
+    fun loggedSetsWithLines(exercise: JSONObject): List<Pair<String, String>> {
+        val recorded = exercise.optJSONArray("loggedSets") ?: return emptyList()
+        return (0 until recorded.length()).map { i ->
+            val set = recorded.getJSONObject(i)
+            set.optString("id") to line(
+                reps = set.optInt("reps"),
+                quantityUnit = resolvedUnit(set, exercise),
+                weight = valueOrNull(set, "weightKg"),
+                deficitCm = set.optInt("deficitCm").takeIf {
+                    set.has("deficitCm") && !set.isNull("deficitCm")
+                },
+                rir = valueOrNull(set, "rir"),
+                durationSeconds = set.optInt("durationSeconds").takeIf {
+                    set.has("durationSeconds") && it > 0
+                },
+                warmup = set.optString("phase", "work") == "warmup"
+            )
+        }
+    }
+
     private fun valueOrNull(json: JSONObject, key: String): Double? =
         if (json.has(key) && !json.isNull(key)) json.optDouble(key)
             .takeIf { it.isFinite() } else null

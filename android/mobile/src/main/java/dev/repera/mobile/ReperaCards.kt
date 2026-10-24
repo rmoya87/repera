@@ -912,9 +912,19 @@ internal fun WeekCalendarStrip(selected: LocalDate, onSelect: (LocalDate) -> Uni
 }
 
 @Composable
-internal fun WorkoutHistoryCard(workout: WorkoutHistoryEntry) {
+internal fun WorkoutHistoryCard(
+    workout: WorkoutHistoryEntry,
+    busy: Boolean = false,
+    onReviseFinishedSet: (String, String, String, Int, Double?, Int?) -> Unit =
+        { _, _, _, _, _, _ -> },
+    onDeleteFinishedSet: (String, String, String) -> Unit = { _, _, _ -> }
+) {
     var expanded by remember(workout.id) { mutableStateOf(false) }
     var selectedMovement by remember(workout.id) { mutableStateOf<Int?>(null) }
+    var editingSetId by remember(workout.id) { mutableStateOf<String?>(null) }
+    var editQuantity by remember(workout.id) { mutableStateOf("") }
+    var editWeight by remember(workout.id) { mutableStateOf("") }
+    var editDuration by remember(workout.id) { mutableStateOf("") }
     Card(modifier = Modifier.fillMaxWidth().animateContentSize()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -944,6 +954,70 @@ internal fun WorkoutHistoryCard(workout: WorkoutHistoryEntry) {
                     } else {
                         exercise.registered.forEachIndexed { n, line ->
                             Text("Serie ${n + 1} · $line")
+                        }
+                    }
+                    if (exercise.editableSets.isNotEmpty()) {
+                        Text("Corregir series registradas",
+                            style = MaterialTheme.typography.titleSmall)
+                        exercise.editableSets.forEachIndexed { n, set ->
+                            if (editingSetId == set.setId) {
+                                OutlinedTextField(
+                                    value = editQuantity,
+                                    onValueChange = { editQuantity = it.filter(Char::isDigit) },
+                                    label = { Text("Cantidad (reps / cal / m)") },
+                                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                                OutlinedTextField(
+                                    value = editWeight,
+                                    onValueChange = { editWeight = it.take(8) },
+                                    label = { Text("Peso kg (vacío = sin peso)") },
+                                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                                OutlinedTextField(
+                                    value = editDuration,
+                                    onValueChange = { editDuration = it.filter(Char::isDigit) },
+                                    label = { Text("Duración s (opcional)") },
+                                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    val quantityValue = editQuantity.toIntOrNull()
+                                    TextButton(
+                                        enabled = !busy && quantityValue != null &&
+                                            quantityValue >= 0 &&
+                                            (editWeight.isBlank() ||
+                                                editWeight.replace(',', '.')
+                                                    .toDoubleOrNull() != null),
+                                        onClick = {
+                                            onReviseFinishedSet(
+                                                workout.id, exercise.entryId, set.setId,
+                                                quantityValue ?: 0,
+                                                editWeight.takeIf { it.isNotBlank() }
+                                                    ?.replace(',', '.')?.toDoubleOrNull(),
+                                                editDuration.toIntOrNull())
+                                            editingSetId = null
+                                        }) { Text("Guardar") }
+                                    TextButton(onClick = { editingSetId = null }) {
+                                        Text("Cancelar")
+                                    }
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Serie ${n + 1} · ${set.line}",
+                                        style = MaterialTheme.typography.bodyMedium)
+                                    Row {
+                                        TextButton(enabled = !busy, onClick = {
+                                            editingSetId = set.setId
+                                            editQuantity = ""
+                                            editWeight = ""
+                                            editDuration = ""
+                                        }) { Text("Editar") }
+                                        TextButton(enabled = !busy, onClick = {
+                                            onDeleteFinishedSet(
+                                                workout.id, exercise.entryId, set.setId)
+                                        }) { Text("Borrar") }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

@@ -856,6 +856,85 @@ class WorkoutRepository(context: Context, googleId: String) {
         return summarize(session)
     }
 
+    /**
+     * Edita una serie registrada de un entreno TERMINADO. Las series
+     * registradas son la fuente de verdad (principio CompletedWorkoutEditing
+     * de iOS): solo se corrigen cantidades, nunca se convierten objetivos
+     * pendientes en trabajo realizado.
+     */
+    @Synchronized fun reviseFinishedSet(
+        workoutId: String, entryId: String, setId: String,
+        quantity: Int, weightKg: Double?,
+        durationSeconds: Int? = null
+    ) {
+        require(quantity >= 0 && (weightKg == null || (weightKg.isFinite() && weightKg >= 0)))
+        require(durationSeconds == null || durationSeconds in 1..86400)
+        val state = requireState()
+        val workout = findWorkout(state, workoutId)
+        val exercise = findSessionExercise(workout, entryId)
+        val logged = exercise.optJSONArray("loggedSets") ?: error("Serie no encontrada")
+        val index = (0 until logged.length()).firstOrNull {
+            logged.getJSONObject(it).optString("id") == setId
+        } ?: error("Serie no encontrada")
+        val movement = exercise.getJSONObject("exercise")
+        check(supportsSimpleInput(movement)) { "Este editor no admite el tipo de movimiento" }
+        check(inputMode(movement).showsWeight || weightKg == null) {
+            "Este ejercicio no registra peso"
+        }
+        val original = logged.getJSONObject(index)
+        original.put("reps", quantity)
+        if (weightKg == null) original.remove("weightKg") else original.put("weightKg", weightKg)
+        if (durationSeconds != null) original.put("durationSeconds", durationSeconds)
+        else if (inputMode(movement) in setOf(
+                ExerciseInputMode.MACHINE_WORK, ExerciseInputMode.REPS_AND_TIME
+            )) original.remove("durationSeconds")
+        recomputeCompletedReps(exercise)
+        save(state)
+    }
+
+    /** Borra una serie registrada de un entreno terminado, sin tocar el resto. */
+    @Synchronized fun deleteFinishedSet(workoutId: String, entryId: String, setId: String) {
+        val state = requireState()
+        val workout = findWorkout(state, workoutId)
+        val exercise = findSessionExercise(workout, entryId)
+        val logged = exercise.optJSONArray("loggedSets") ?: error("Serie no encontrada")
+        val index = (0 until logged.length()).firstOrNull {
+            logged.getJSONObject(it).optString("id") == setId
+        } ?: error("Serie no encontrada")
+        logged.remove(index)
+        recomputeCompletedReps(exercise)
+        if (logged.length() == 0) exercise.put("isCompleted", false)
+        save(state)
+    }
+
+    private fun findWorkout(state: JSONObject, workoutId: String): JSONObject {
+        val archive = state.getJSONArray("workouts")
+        return (0 until archive.length())
+            .map { archive.getJSONObject(it) }
+            .firstOrNull { it.optString("id") == workoutId }
+            ?: error("Entreno no encontrado")
+    }
+
+    private fun findSessionExercise(workout: JSONObject, entryId: String): JSONObject {
+        val exercises = workout.optJSONArray("exercises") ?: error("Ejercicio no encontrado")
+        return (0 until exercises.length())
+            .map { exercises.getJSONObject(it) }
+            .firstOrNull { it.optString("id") == entryId }
+            ?: error("Ejercicio no encontrado")
+    }
+
+    private fun recomputeCompletedReps(exercise: JSONObject) {
+        val logged = exercise.optJSONArray("loggedSets") ?: return
+        val total = (0 until logged.length()).sumOf { i ->
+            val set = logged.getJSONObject(i)
+            if (set.optString("phase") == "warmup") 0 else
+                set.optInt("reps") + (set.optJSONArray("drops")?.let { drops ->
+                    (0 until drops.length()).sumOf { drops.getJSONObject(it).optInt("reps") }
+                } ?: 0)
+        }
+        exercise.put("completedReps", total)
+    }
+
     private fun finishInPlace(state: JSONObject, session: JSONObject) {
         check(session.optString("phase") != "finished")
         val exercises = session.getJSONArray("exercises")

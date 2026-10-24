@@ -73,6 +73,8 @@ internal fun ProgressTab(
     onDriveSync: () -> Unit,
     onExportJson: () -> Unit,
     onSignOut: () -> Unit,
+    onReviseFinishedSet: (String, String, String, Int, Double?, Int?) -> Unit,
+    onDeleteFinishedSet: (String, String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Deliberately limited to the recent archive loaded by StateOverview.
@@ -133,7 +135,8 @@ internal fun ProgressTab(
                 Text("Resultados recientes", style = MaterialTheme.typography.titleMedium)
             }
             items(recent, key = { "progress:" + it.id }) { workout ->
-                WorkoutHistoryCard(workout)
+                WorkoutHistoryCard(workout, busy,
+                        onReviseFinishedSet, onDeleteFinishedSet)
             }
         } else {
             item { Text("Todavía no hay entrenamientos para analizar") }

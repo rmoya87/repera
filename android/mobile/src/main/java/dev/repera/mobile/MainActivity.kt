@@ -200,6 +200,14 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     runWorkoutAction { reviseCurrentSet(id, quantity, weight, unit, duration, deficit) }
                 },
                 onDeleteSet = { id -> runWorkoutAction { deleteCurrentSet(id) } },
+                onReviseFinishedSet = { workoutId, entryId, setId, quantity, weight, duration ->
+                    runWorkoutAction {
+                        reviseFinishedSet(workoutId, entryId, setId, quantity, weight, duration)
+                    }
+                },
+                onDeleteFinishedSet = { workoutId, entryId, setId ->
+                    runWorkoutAction { deleteFinishedSet(workoutId, entryId, setId) }
+                },
                 onNext = { runWorkoutAction { next() } },
                 onFinish = { runWorkoutAction { finish() } },
                 onImportJson = { importJson.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
@@ -686,7 +694,10 @@ data class StateOverview(
                         WorkoutHistoryMovement(
                             name = movement?.optString("name") ?: "Ejercicio",
                             wod = exercise.optString("blockKind") == "wod",
-                            registered = WorkoutHistorySets.displayLines(session, exercise)
+                            registered = WorkoutHistorySets.displayLines(session, exercise),
+                            entryId = exercise.optString("id"),
+                            editableSets = WorkoutHistorySets.loggedSetsWithLines(exercise)
+                                .map { (setId, line) -> FinishedSetRef(setId, line) }
                         )
                     }
                     val wodScores = session.optJSONArray("wodResults") ?: org.json.JSONArray()
@@ -829,5 +840,13 @@ data class WorkoutHistoryEntry(
 data class WorkoutHistoryMovement(
     val name: String,
     val wod: Boolean,
-    val registered: List<String>
+    val registered: List<String>,
+    val entryId: String = "",
+    val editableSets: List<FinishedSetRef> = emptyList()
+)
+
+/** Serie registrada editable de un entreno terminado (identidad real del snapshot). */
+data class FinishedSetRef(
+    val setId: String,
+    val line: String
 )

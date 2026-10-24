@@ -91,6 +91,8 @@ internal fun HomeTab(
     onDriveSync: () -> Unit,
     onExportJson: () -> Unit,
     onSignOut: () -> Unit,
+    onReviseFinishedSet: (String, String, String, Int, Double?, Int?) -> Unit,
+    onDeleteFinishedSet: (String, String, String) -> Unit,
     onNavigateCreate: () -> Unit,
     onOpenClock: () -> Unit,
     modifier: Modifier = Modifier
@@ -204,7 +206,8 @@ internal fun HomeTab(
         val workouts = overview?.history.orEmpty()
         if (workouts.isEmpty()) item { Text("Todavía no hay sesiones registradas") }
         items(workouts, key = { it.id }) { workout ->
-            WorkoutHistoryCard(workout)
+            WorkoutHistoryCard(workout, busy,
+                        onReviseFinishedSet, onDeleteFinishedSet)
         }
         item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
         item {
