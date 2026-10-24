@@ -66,8 +66,9 @@ jobs:
       - name: Produce contact sheet and inspect real pixels
         shell: bash
         run: |
-          python3 -m pip install --disable-pip-version-check opencv-python-headless pillow numpy
-          python3 - <<'PY'
+          python3 -m venv "$RUNNER_TEMP/repera-visual-venv"
+          "$RUNNER_TEMP/repera-visual-venv/bin/python" -m pip install --disable-pip-version-check opencv-python-headless pillow numpy
+          "$RUNNER_TEMP/repera-visual-venv/bin/python" - <<'PY'
           from pathlib import Path
           import cv2,numpy as np
           from PIL import Image, ImageOps, ImageDraw
@@ -89,7 +90,7 @@ jobs:
           w,h=225,488
           contact=Image.new("RGB",(w*4,h*3),(255,255,255))
           draw=ImageDraw.Draw(contact)
-          greens=[]
+          visual_frames=[]
           for i,(t,img) in enumerate(frames[:12]):
               thumbnail=ImageOps.contain(img,(w,h-25))
               x,y=i%4*w,i//4*h
@@ -97,14 +98,20 @@ jobs:
               draw.text((x+8,y+5),f"{t:.2f} s",fill=(20,20,20))
               arr=np.asarray(img.resize((150,320)))
               green=np.mean((arr[:,:,1]>145)&(arr[:,:,0]<105)&(arr[:,:,2]<145))
-              greens.append((t,round(float(green),3)))
+              # Green-only/black-only native splash must FAIL even if the
+              # later SwiftUI screens show the proper mascots.
+              cream=np.mean((arr[:,:,0]>145)&(arr[:,:,1]>125)&
+                            (arr[:,:,2]>105)&(arr[:,:,0]>arr[:,:,1]*1.08))
+              dark=np.mean((arr[:,:,0]<105)&(arr[:,:,1]<105)&(arr[:,:,2]<105))
+              visual_frames.append((t,round(float(green),3),
+                                  round(float(cream),3),round(float(dark),3)))
           out=Path("docs/assets/repera-native-launch-simulator.png")
           out.parent.mkdir(parents=True,exist_ok=True)
           contact.save(out,optimize=True)
-          print("Captured live launch screenshots:",greens)
+          print("Captured live launch screenshots: time, green, cream, dark",visual_frames)
           print("Evidence saved at",out)
-          if all(g < .05 for _,g in greens[1:]):
-              raise SystemExit("FAIL: No brand-green frame observed in simulator startup")
+          if not any(g>.35 and c>.02 and d>.004 for t,g,c,d in visual_frames if .65<=t<=2.8):
+              raise SystemExit("FAIL: splash shows green/black/white without mascot in early launch frames")
           PY
       - name: Upload launch video and contact sheet
         if: always()
