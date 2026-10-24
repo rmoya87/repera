@@ -158,7 +158,6 @@ struct AIAccessView: View {
     @State private var catalogError: String?
     @State private var catalogLoading = true
     @State private var showManualAccess = false
-    @State private var selectedInstructions: AIConnectionProvider?
     @State private var launchMessage: String?
     @State private var disconnectingProvider: AIConnectionProvider?
     @State private var showInstructions = false
@@ -305,32 +304,6 @@ struct AIAccessView: View {
         } message: {
             Text("Se revocará el acceso del asistente a tu cuenta de Repera.")
         }
-        .sheet(item: $selectedInstructions) { provider in
-            NavigationStack {
-                Form {
-                    Section {
-                        Text(AIProviderLaunch.instructions(for: provider))
-                            .font(.footnote)
-                            .textSelection(.enabled)
-                        Button("Copiar instrucciones") {
-                            UIPasteboard.general.string = AIProviderLaunch.instructions(for: provider)
-                        }
-                    } header: { Text("Instrucciones para \(provider.name)") }
-                    Section {
-                        if connectionVerified(for: provider) {
-                            Label("Conexión comprobada", systemImage: "checkmark.circle")
-                        }
-                    }
-                }
-                .navigationTitle(provider.name)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Cerrar") { selectedInstructions = nil }
-                    }
-                }
-            }
-        }
         .sheet(isPresented: Binding(
             get: { createdToken != nil },
             set: { if !$0 { createdToken = nil } }
@@ -399,7 +372,6 @@ struct AIAccessView: View {
                 }
             } else {
                 tokens=[]
-                selectedInstructions = nil
                 changeRequests.clearSession()
             }
         }
