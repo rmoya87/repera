@@ -12,7 +12,11 @@ public enum ExerciseEquipmentGroup {
 
     public static func category(name: String, equipment: String?) -> String {
         let n = normalized(name)
-        let e = normalized(equipment ?? "")
+        // Para varios aparatos simultáneos, agrupar por el principal (primer chip)
+        // y mostrar todos en la ficha. Evita que «Barra, Banco» se ordene como Banco.
+        let primary = (equipment ?? "").split(separator: ",", maxSplits: 1).first
+            .map(String.init) ?? ""
+        let e = normalized(primary)
         func named(_ parts: [String]) -> Bool { parts.contains { n.contains($0) } }
         func equipped(_ parts: [String]) -> Bool { parts.contains { e.contains($0) } }
 
@@ -34,6 +38,10 @@ public enum ExerciseEquipmentGroup {
                   "bici estatica", "bicicleta de aire"]) ||
             equipped(["air bike", "echo bike", "assault bike", "bikeerg"]) {
             return "Bicicletas y Air Bikes"
+        }
+
+        if named(["cinta / carrera", "treadmill"]) || equipped(["cinta de correr", "treadmill"]) {
+            return "Cintas de correr"
         }
 
         // Balones distintos: Wall Ball ≠ Slam Ball ≠ balón medicinal genérico.
@@ -59,7 +67,7 @@ public enum ExerciseEquipmentGroup {
         if named(["box jump", "box step", "box squat", "box step-up",
                   "burpee box", "salto al cajon", "step-up al cajon",
                   "burpee al cajon", "box jump over"]) ||
-            equipped(["cajon", "plyo box", "jump box"]) || e == "box" {
+            equipped(["cajon", "plyo box", "jump box"]) || e == "box" || e == "step" {
             return "Cajones"
         }
         if named(["double-under", "single-under", "triple-under", "jump rope",
@@ -84,7 +92,7 @@ public enum ExerciseEquipmentGroup {
                   "chest to bar", "toes to bar", "knees to elbows",
                   "toes to rings", "muscle-up barra", "bar muscle up",
                   "hip to bar", "pull-over barra"]) ||
-            equipped(["barra de dominadas", "pull-up bar", "pullup bar"]) {
+            equipped(["barra de dominadas", "barra fija", "pull-up bar", "pullup bar"]) {
             return "Barras de dominadas"
         }
 
@@ -101,6 +109,8 @@ public enum ExerciseEquipmentGroup {
         }
         if equipped(["balon", "medicine ball", "medball"]) { return "Balones medicinales" }
         if named(["fondos en banco"]) || equipped(["banco", "bench"]) { return "Bancos" }
+        if equipped(["rueda abdominal", "ab wheel"]) { return "Ruedas abdominales" }
+        if equipped(["plataforma elevada"]) { return "Plataformas de apoyo" }
         if equipped(["pica", "pvc pipe"]) { return "Picas" }
         if equipped(["rodillo", "foam roller"]) { return "Rodillos" }
         if equipped(["marco de puerta", "door frame"]) { return "Marcos de puerta" }

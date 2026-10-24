@@ -280,10 +280,25 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
             return .machineWork
         }
 
-        // Dominadas / muscle-up / HSPU: permiten lastre o déficit (no solo reps).
+        // Un burpee con obstáculo o dominada final no se anota como levantamiento.
+        if n.contains("burpee") { return .repsOnly }
+        // La resistencia de una banda no es una carga expresada en kilogramos.
+        if (eq.contains("banda") || eq.contains("goma"))
+            && !eq.contains("mancuerna") && !eq.contains("barra") { return .repsOnly }
+
+        // Dominadas / muscle-up / HSPU permiten anotar lastre o déficit.
         if isPullOrMuscleUp(name: n) || isHSPU(name: n) {
             return .loadAndReps
         }
+
+        // Cajón, anillas, barra fija, pared, GHD… son aparatos de apoyo, no
+        // carga externa en kg. Un montaje compuesto con KB, DB o barra sí carga.
+        let externalLoad = ["kettlebell", "mancuerna", "dumbbell", "barbell", "barra,", "disco",
+                            "saco", "lastre", "trineo", "yoke", "polea"].contains { eq.contains($0) }
+        let support = ["cajon", "step", "anillas", "barra de dominadas", "barra fija",
+                       "cuerda de trepa", "pegboard", "paralelas", "pared", "banco",
+                       "rueda abdominal", "ghd", "plataforma elevada"].contains { eq.contains($0) }
+        if support && !externalLoad { return .repsOnly }
 
         if eq.contains("peso corporal")
             || eq.isEmpty && (target.contains("cardiovascular") || group == "cardio") {
@@ -422,6 +437,8 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
     private static func isBikeOrSki(name n: String) -> Bool {
         n.contains("air bike") || n.contains("echo bike") || n.contains("assault")
             || n.contains("fan bike") || n.contains("wattbike")
+            || n.contains("bici estatica") || n.contains("bicicleta estatica")
+            || n.contains("bikeerg") || n.contains("bike erg")
             || n.contains("skierg") || n.contains("ski erg") || n.contains("ski-erg")
     }
 

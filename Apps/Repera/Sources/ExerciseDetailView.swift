@@ -158,35 +158,37 @@ struct ExerciseDetailView: View {
                 OGCardSectionTitle(title: "Músculos y equipo")
                 OGCard {
                     VStack(alignment: .leading, spacing: 14) {
-                        metaRow(title: "Músculo", icon: "figure.strengthtraining.traditional") {
+                        metaRow(title: "Músculo") {
                             chipFlow {
-                                metaChip(meta.primary, emphasized: true)
+                                metaChip(meta.primary, icon: ExerciseCategorySymbols.muscle, emphasized: true)
                             }
                         }
 
                         if !meta.secondaries.isEmpty {
-                            metaRow(title: "También", icon: nil) {
+                            metaRow(title: "También") {
                                 chipFlow {
                                     ForEach(meta.secondaries, id: \.self) { label in
-                                        metaChip(label)
+                                        metaChip(label, icon: ExerciseCategorySymbols.muscle)
                                     }
                                 }
                             }
                         }
 
-                        if let equipment = meta.equipment {
-                            metaRow(title: "Equipo", icon: "dumbbell.fill") {
+                        if !meta.equipments.isEmpty {
+                            metaRow(title: "Equipo") {
                                 chipFlow {
-                                    metaChip(equipment, icon: "dumbbell.fill")
+                                    ForEach(meta.equipments, id: \.self) { equipment in
+                                        metaChip(equipment, icon: ExerciseCategorySymbols.equipmentSymbol(for: equipment))
+                                    }
                                 }
                             }
                         }
 
                         if !meta.sports.isEmpty {
-                            metaRow(title: exercise.sportTag == "Movilidad" ? "Tipo" : "Deporte", icon: exercise.sportTag == "Movilidad" ? "figure.flexibility" : "sportscourt") {
+                            metaRow(title: exercise.sportTag == "Movilidad" ? "Tipo" : "Deporte") {
                                 chipFlow {
                                     ForEach(meta.sports, id: \.self) { sport in
-                                        metaChip(sport, icon: "sportscourt")
+                                        metaChip(sport, icon: ExerciseCategorySymbols.discipline(sport))
                                     }
                                 }
                             }
@@ -210,20 +212,13 @@ struct ExerciseDetailView: View {
     @ViewBuilder
     private func metaRow<Content: View>(
         title: String,
-        icon: String?,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 5) {
-                if let icon {
-                    Image(systemName: icon)
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                Text(title.uppercased())
-                    .font(.system(size: 11, weight: .semibold))
-                    .tracking(0.4)
-            }
-            .foregroundStyle(OG.label3)
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(0.4)
+                .foregroundStyle(OG.label3)
             content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -247,7 +242,7 @@ struct ExerciseDetailView: View {
     private struct DetailMeta {
         var primary: String
         var secondaries: [String]
-        var equipment: String?
+        var equipments: [String]
         var sports: [String]
         var hasContent: Bool { !primary.isEmpty }
     }
@@ -271,17 +266,17 @@ struct ExerciseDetailView: View {
                 secondaries.insert(label, at: 0)
             }
         }
-        let equipment = exercise.equipment.flatMap { raw -> String? in
-            let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            return t.isEmpty ? nil : LocalizedMuscle.es(t)
-        }
+        let equipments = (exercise.equipment ?? "")
+            .split(separator: ",")
+            .map { LocalizedMuscle.es(String($0).trimmingCharacters(in: .whitespacesAndNewlines)) }
+            .filter { !$0.isEmpty }
         let sports = exercise.disciplineTags.filter {
             !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
         return DetailMeta(
             primary: primary,
             secondaries: secondaries,
-            equipment: equipment,
+            equipments: equipments,
             sports: sports
         )
     }
