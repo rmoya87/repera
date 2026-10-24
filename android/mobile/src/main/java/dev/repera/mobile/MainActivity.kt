@@ -65,6 +65,16 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var centerSubmitting by mutableStateOf(false)
     private var centerError by mutableStateOf<String?>(null)
     private val sessionStore by lazy { SessionStore(this) }
+    /** Realtime de planes IA: vivo solo en foreground, resync al suscribirse. */
+    private val aiPlansRealtime by lazy {
+        AIPlansRealtimeListener(
+            sessionProvider = { verifiedSupabase },
+            onPlansChanged = {
+                runOnUiThread {
+                    if (verifiedSupabase != null && profile != null) syncAITrainingInbox()
+                }
+            })
+    }
 
     private val requestHealthPermissions = registerForActivityResult(
         PermissionController.createRequestPermissionResultContract()
@@ -294,9 +304,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     override fun onStart() {
         super.onStart()
         wearMessages.addListener(this)
+        if (verifiedSupabase != null && profile != null) aiPlansRealtime.start()
     }
 
     override fun onStop() {
+        aiPlansRealtime.stop()
         wearMessages.removeListener(this)
         super.onStop()
     }
@@ -518,11 +530,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 )
                 profile = GoogleProfile(stored.uniqueId, stored.email, stored.displayName)
                 DriveSyncWorker.schedulePeriodic(this@MainActivity)
+                aiPlansRealtime.start()
                 syncAITrainingInbox()
                 reloadFor(stored.uniqueId)
             } catch (_: Exception) {
                 // Expired or revoked refresh token: back to the login screen.
                 sessionStore.clear()
+                aiPlansRealtime.stop()
                 verifiedSupabase = null
                 centerSnapshot = null
                 centerError = null
@@ -584,10 +598,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 profile = signedIn
                 persistSession(session, signedIn)
                 DriveSyncWorker.schedulePeriodic(this@MainActivity)
+                aiPlansRealtime.start()
                 syncAITrainingInbox()
                 reloadFor(id)
                 status = if (snapshot == null) "No hay datos locales. Sincroniza Google Drive." else null
             } catch (error: Exception) {
+                aiPlansRealtime.stop()
                 verifiedSupabase = null
                 centerSnapshot = null
                 centerError = null
@@ -828,6 +844,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             } catch (_: Exception) {
                 // UI still returns to login; existing account files stay isolated.
             } finally {
+                aiPlansRealtime.stop()
                 verifiedSupabase = null
                 sessionStore.clear()
                 // Data Layer is best effort: a disconnected watch must never prevent
