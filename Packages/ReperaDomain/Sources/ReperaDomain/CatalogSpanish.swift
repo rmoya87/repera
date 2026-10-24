@@ -1005,6 +1005,9 @@ public enum CatalogSpanish {
             "Misma mecánica de extensión de cadera que el box jump.",
         ],
         "Broad jump": [
+            "Carga: bisagra atras, brazos atras, listo para saltar.",
+            "Vuelo: extension completa, brazos adelante.",
+            "Aterrizaje suave con rodillas flexionadas y pecho alto.",
             "Pies al ancho de cadera; bisagra ligera, brazos atrás; salta lo más lejos posible aterrizando suave.",
             "Extiende cadera/rodillas/tobillos; brazos adelante en el vuelo.",
             "Aterriza con rodillas blandas, pecho alto; párate estable antes de la siguiente.",
