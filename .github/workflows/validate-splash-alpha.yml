@@ -56,7 +56,7 @@ jobs:
           assert "UILaunchStoryboardName:" not in config
           assert "UIImageName: ReperaNativeBarbell" in config
           assert "UIColorName: LaunchBackground" in config
-          assert "path: Apps/Repera/Resources/Info.plist" not in config
+          assert "path: Apps/Repera/Resources/ReperaLaunchBundle.storyboard" not in config
           assert "path: Apps/Repera/Resources/LaunchHeroOpaque.png" not in config
           runner=Path("Apps/Repera/Sources/ReperaApp.swift").read_text()
           assert 'UIImage(named: "MascotRunning")' in runner
