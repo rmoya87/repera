@@ -96,7 +96,10 @@ internal fun ProgressTab(
     val dayFmt = java.time.format.DateTimeFormatter
         .ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
         .withLocale(java.util.Locale.getDefault())
+    val dragListState = androidx.compose.foundation.lazy.rememberLazyListState()
+    ProvideLazyDragAutoScroll(dragListState) {
     LazyColumn(
+        state = dragListState,
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -376,6 +379,7 @@ internal fun ProgressTab(
         item {
             AccountSyncCard(busy, syncing, status, overview, onDriveSync, onExportJson, onSignOut)
         }
+    }
     }
 }
 

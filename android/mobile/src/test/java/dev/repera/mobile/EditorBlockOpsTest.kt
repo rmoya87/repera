@@ -147,4 +147,13 @@ class EditorBlockOpsTest {
         assertEquals(3, b.getJSONObject(1).getJSONArray("movements").length())
         assertEquals(1, arr0.length())
     }
+
+    @Test fun autoScrollSpeedIsZeroInMiddleRampedAndClamped() {
+        assertEquals(0f, autoScrollSpeed(500f, 0f, 1000f, 100f, 20f), 0f)
+        assertEquals(10f, autoScrollSpeed(950f, 0f, 1000f, 100f, 20f), 1e-4f)   // mitad de la zona inferior
+        assertEquals(20f, autoScrollSpeed(1500f, 0f, 1000f, 100f, 20f), 1e-4f)  // fuera: tope
+        assertEquals(-10f, autoScrollSpeed(50f, 0f, 1000f, 100f, 20f), 1e-4f)
+        assertEquals(-20f, autoScrollSpeed(-300f, 0f, 1000f, 100f, 20f), 1e-4f)
+        assertEquals(0f, autoScrollSpeed(10f, 0f, 1000f, 0f, 20f), 0f)
+    }
 }

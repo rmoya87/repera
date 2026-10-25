@@ -289,16 +289,21 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         val big = "[$many]"
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = big)
+        val scrollState = androidx.compose.foundation.ScrollState(0)
         compose.setContent {
-            androidx.compose.foundation.layout.Column(
-                androidx.compose.ui.Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState())) {
-                FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it }
+            androidx.compose.runtime.CompositionLocalProvider(
+                LocalDragAutoScroller provides { d -> scrollState.dispatchRawDelta(d) }) {
+                androidx.compose.foundation.layout.Column(
+                    androidx.compose.ui.Modifier.fillMaxSize().verticalScroll(scrollState)) {
+                    FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it }
+                }
             }
         }
         compose.onNodeWithTag("edit_finished_workout").performClick()
         compose.onNodeWithTag("ex_drag_0_0").performTouchInput {
             down(center); advanceEventTime(700)
             repeat(40) { moveBy(Offset(0f, 60f)); advanceEventTime(50) }
+            advanceEventTime(1500) // dedo quieto en el borde: el autoscroll continuo debe seguir
             up()
         }
         compose.waitForIdle(); compose.onNodeWithTag("edit_save").performClick()

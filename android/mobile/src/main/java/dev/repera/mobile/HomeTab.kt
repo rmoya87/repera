@@ -109,7 +109,10 @@ internal fun HomeTab(
     modifier: Modifier = Modifier
 ) {
     var homeDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    val dragListState = androidx.compose.foundation.lazy.rememberLazyListState()
+    ProvideLazyDragAutoScroll(dragListState) {
     LazyColumn(
+        state = dragListState,
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -260,5 +263,6 @@ internal fun HomeTab(
         item {
             AccountSyncCard(busy, syncing, status, overview, onDriveSync, onExportJson, onSignOut)
         }
+    }
     }
 }

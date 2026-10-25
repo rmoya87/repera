@@ -2,8 +2,6 @@ package dev.repera.mobile
 
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.zIndex
-import androidx.compose.foundation.relocation.bringIntoViewRequester
-import kotlinx.coroutines.launch
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.graphics.graphicsLayer
@@ -503,31 +501,42 @@ internal fun DragReorderItem(
     content: @Composable (Modifier) -> Unit
 ) {
     var dy by remember { mutableStateOf(0f) }
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
-    val requester = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
-    var sizePx by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
     var top by remember { mutableStateOf(0f) }
     var bottom by remember { mutableStateOf(0f) }
+    val scroller = LocalDragAutoScroller.current
+    var dragging by remember { mutableStateOf(false) }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val windowH = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp * density.density
+    // Autoscroll continuo y acotado mientras dura el arrastre: el LaunchedEffect se cancela solo al
+    // soltar/cancelar (dragging=false) o al salir de composición; no quedan corrutinas vivas.
+    androidx.compose.runtime.LaunchedEffect(dragging, scroller) {
+        if (!dragging || scroller == null) return@LaunchedEffect
+        while (true) {
+            val center = (top + bottom) / 2f + dy
+            val v = autoScrollSpeed(center, 0f, windowH, edgePx = 96f * density.density, maxPerFrame = 24f * density.density / 2f)
+            if (v != 0f) {
+                val consumed = scroller(v)
+                // El contenido se mueve bajo la fila: compensar para que siga bajo el dedo.
+                dy += consumed
+            }
+            androidx.compose.runtime.withFrameNanos { }
+        }
+    }
+    var sizePx by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
     val handle = Modifier.pointerInput(index, count) {
         detectDragGesturesAfterLongPress(
-            onDragStart = {},
-            onDrag = { change, amount ->
-                change.consume(); dy += amount.y
-                // Autoscroll: pide que el ancestro desplazable muestre la fila arrastrada (rect trasladado dy).
-                scope.launch {
-                    requester.bringIntoView(androidx.compose.ui.geometry.Rect(0f, dy, sizePx.width.toFloat(), dy + sizePx.height))
-                }
-            },
+            onDragStart = { dragging = true },
+            onDrag = { change, amount -> change.consume(); dy += amount.y },
             onDragEnd = {
                 val target = dragTargetIndex(index, dy, (0 until count).map { heights[it] ?: 0 })
                 val center = (top + bottom) / 2f + dy
+                dragging = false
                 dy = 0f
                 onDrop(center, target)
             },
-            onDragCancel = { dy = 0f })
+            onDragCancel = { dragging = false; dy = 0f })
     }
     Column(Modifier
-        .bringIntoViewRequester(requester)
         .zIndex(if (dy != 0f) 1f else 0f)
         .graphicsLayer { translationY = dy }
         .onSizeChanged { heights[index] = it.height; sizePx = it }
