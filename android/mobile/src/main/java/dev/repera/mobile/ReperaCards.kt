@@ -347,7 +347,7 @@ internal fun ActiveWorkoutCard(
                 Text("Serie de calentamiento", modifier = Modifier.padding(top = 12.dp))
             }
             if (!active.durationInput && !warmup) {
-                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                     Switch(checked=toFailure,onCheckedChange={toFailure=it},enabled=!busy, modifier=Modifier.testTag("set_to_failure"))
                     Text("Al fallo")
                 }
