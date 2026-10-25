@@ -273,11 +273,19 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 - La acción «Añadir serie» tiene área táctil de altura mínima 44 puntos y se alinea con las filas de series.
 
 
+## Comenzar: deportes GPS y actividad en directo
+
+- La grabación de caminata, carrera y ciclismo comienza desde «Comenzar» y utiliza **Core Location** como fuente única de distancia, puntos y ritmo medio de la sesión. Con ubicación permitida y el modo `location` empaquetado, continúa al bloquear el iPhone o salir de la vista. **Apple Salud no registra ni reconstruye por su cuenta el GPS de una sesión libre de Repera**.
+- Al regresar a primer plano o reabrir «Comenzar», se pide una lectura actual y se actualiza ActivityKit: el ritmo medio se recalcula con distancia GPS válida y **tiempo activo**, sin esperar una visita a la pestaña de métricas. Los datos GPS encolados por iOS se procesan cronológicamente; las pausas y cortes de señal no generan kilómetros ficticios.
+- El widget de pantalla bloqueada/Dynamic Island recibe nuevas métricas cuando Core Location proporciona datos y iOS permite actualizar ActivityKit. El cronómetro del widget se anima localmente. **iOS puede retrasar o limitar actualizaciones en segundo plano; no hay garantía de cadencia exacta**. Si se fuerza el cierre, no es posible reconstruir el trayecto de un periodo sin GPS.
+- En mapa se colorean tramos de ritmo de verde (lento) a rojo (rápido), sin dibujar rectas sobre pérdidas de GPS. Se alterna entre navegador inclinado y 2D, con recentrado separado.
+- Los avisos de kilómetro/giro usan voz española de mejor calidad disponible mediante `AVSpeechSynthesizer`; **no** se accede a las voces internas de Siri. Con voz activada se interrumpe temporalmente el audio ajeno y se solicita su reanudación; desactivada, no se abre ninguna sesión de audio y los avisos visuales son silenciosos. La reproducción bajo bloqueo depende de `UIBackgroundModes/audio` y de las políticas del sistema.
+
 ## Cardio exterior: altitud, meteorología y parciales
 
 - En la ficha de **Entreno** y la ficha de Apple Salud, los recorridos GPS (carrera, caminar, senderismo, bici y otras actividades exterior con ruta) permiten alternar mediante selector segmentado nativo **Cardio / Altitud** dentro de la misma tarjeta; curvas suavizadas (`catmullRom`) y clip del plot. En **Altitud**, los tiles son **máx / mín / media** de altitud (m); en **Cardio**, FC y velocidades.
 - La altitud procede de Core Location (solo muestras con precisión vertical válida), tanto de Apple Salud como de rutas nuevas grabadas por Repera; las rutas antiguas sin altitud muestran ausencia de datos, no desnivel inventado.
-- El clima forma **parte de la misma card del mapa** (franja inferior). **No se guarda en el entreno**: WeatherKit se consulta al abrir el detalle (~1 km + atribución); fecha = `startedAt`/`finishedAt`. AQI histórico → «—».
+- El clima forma **parte de la misma card del mapa** (franja inferior). **No se guarda en el entreno**: WeatherKit consulta temperatura, humedad y **velocidad histórica del viento (km/h)** al abrir el detalle (~1 km + atribución); fecha = `startedAt`/`finishedAt`. Si la consulta falla se indica «—»; no se muestra AQI.
 - **Parciales:** columnas KM, Tiempo, **Ritmo** (valores `/km`) o `km/h` en bici, y **Frec. cardiaca** (valores en LPM). Sin pie explicativo bajo la tabla.
 - En actividades sin GPS válido o con menos de 1 km no se inventan parciales. Natación y cardio de interior no muestran parciales estimados a partir del tiempo total.
 - Son métricas **locales**: las rutas, altitudes, FC y datos meteorológicos/AQI no se añaden al espejo de Supabase.
@@ -287,7 +295,7 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 
 - WeatherKit requiere que el propietario active **App Services → WeatherKit** y **App Capabilities → WeatherKit** en el identificador `com.app.repera` dentro de Apple Developer; el entitlement ya figura en `project.yml` / `Repera.entitlements`. Si la franja muestra «—» con pie de error de autorización, casi siempre falta ese servicio en el portal o el perfil no se regeneró. Tras habilitarlo, regenerar el perfil y instalar en iPhone (el simulador suele fallar).
 - La localización del mapa se mantiene intacta y privada. Para solicitar el tiempo solo se transmite al servicio meteorológico de Apple una coordenada redondeada a 2 decimales (~1 km) y la fecha/hora del entreno.
-- No se sustituye un índice de calidad del aire histórico por valores actuales: WeatherKit no ofrece AQI histórico mediante sus consultas nativas; conectar un proveedor alternativo requiere comprobar licencia comercial, cobertura de fechas y aceptación explícita del tratamiento de coordenadas. Mientras tanto, la caja indica «—».
+- La tercera métrica es **viento (km/h)** obtenido del mismo `HourWeather` histórico. No se solicita ni se simula AQI, porque WeatherKit no proporciona AQI histórico mediante sus consultas nativas.
 - El valor de distancia en las tarjetas de resumen sustituye la repetición de «FC media» cuando existe ruta GPS. La FC media permanece visible en la cabecera de la gráfica.
 
 ### Acceso IA y planes entrantes (iOS 27)
