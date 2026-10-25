@@ -1285,8 +1285,8 @@ struct LiveActivityView: View {
             measurements.append((index, start, end, speed))
         }
         guard !measurements.isEmpty else { return [] }
-        let slowest = measurements.map(\.speed).min() ?? 0
-        let fastest = max(measurements.map(\.speed).max() ?? 0, slowest + 0.1)
+        let slowest = measurements.map { $0.speed }.min() ?? 0
+        let fastest = max(measurements.map { $0.speed }.max() ?? 0, slowest + 0.1)
         var output: [LiveColoredMapSegment] = []
         var previousIndex = -1
         var previousBucket = -1
