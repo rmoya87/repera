@@ -719,9 +719,12 @@ class VisualVerificationInstrumentedTest {
     @Test
     fun capturaSelectorLugarEstados() {
         var pin by mutableStateOf<WorkoutLocationPin?>(null)
+        val styleLoaded = java.util.concurrent.CountDownLatch(1)
         brandContent {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                WorkoutPlacePickerRow(pin = pin, accountId = "acc-vis", onPinChange = { pin = it })
+                WorkoutPlacePickerRow(pin = pin, accountId = "acc-vis",
+                    onPinChange = { pin = it },
+                    onMapStyleLoaded = { styleLoaded.countDown() })
             }
         }
         compose.waitForIdle()
@@ -730,6 +733,13 @@ class VisualVerificationInstrumentedTest {
             name = "Box Ejemplo Norte", mapItemIdentifier = "fake-1")
         compose.waitForIdle()
         save("lugar_selector_con_pin", compose.onRoot().captureToImage())
+        // El preview del pin es GL (invisible para captureToImage): captura de
+        // pantalla real tras el estilo + asentado de teselas, como la ruta.
+        if (styleLoaded.await(60, java.util.concurrent.TimeUnit.SECONDS)) {
+            Thread.sleep(8_000)
+            val shot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+            if (shot != null) save("lugar_selector_pin_mapa", shot.asImageBitmap())
+        }
     }
 
     @Test

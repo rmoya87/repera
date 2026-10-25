@@ -71,7 +71,9 @@ internal fun PlacePinMap(
     latitude: Double,
     longitude: Double,
     isInteractive: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Solo verificación: avisa cuando el estilo del mapa terminó de cargar. */
+    onStyleLoaded: (() -> Unit)? = null
 ) {
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
     var mapView by remember { mutableStateOf<MapView?>(null) }
@@ -119,6 +121,7 @@ internal fun PlacePinMap(
                         )
                         map.moveCamera(CameraUpdateFactory.newLatLngZoom(
                             LatLng(latitude, longitude), 15.5))
+                        onStyleLoaded?.invoke()
                     }
                 }
             }
@@ -133,7 +136,9 @@ fun WorkoutPlacePickerRow(
     pin: WorkoutLocationPin?,
     accountId: String,
     onPinChange: (WorkoutLocationPin?) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Solo verificación: avisa cuando el estilo del preview terminó de cargar. */
+    onMapStyleLoaded: (() -> Unit)? = null
 ) {
     var showSearch by remember { mutableStateOf(false) }
     Column(modifier = modifier.fillMaxWidth()) {
@@ -170,7 +175,7 @@ fun WorkoutPlacePickerRow(
                     .clickable { showSearch = true }
             ) {
                 PlacePinMap(pin.latitude, pin.longitude, isInteractive = false,
-                    modifier = Modifier.fillMaxSize())
+                    modifier = Modifier.fillMaxSize(), onStyleLoaded = onMapStyleLoaded)
             }
         }
     }
@@ -197,6 +202,7 @@ fun PlaceSearchSheet(
     providerOverride: PlaceSearchProvider? = null
 ) {
     val context = LocalContext.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val composite = remember { CompositePlaceSearchProvider(PhotonPlaceSearchProvider(), GeocoderPlaceSearchProvider(context)) }
     val provider = providerOverride ?: composite
     val recentStore = remember { RecentPlacesStore(context, accountId) }
@@ -281,7 +287,9 @@ fun PlaceSearchSheet(
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    placeholder = { Text("Busca un gimnasio, parque o dirección") },
+                    // Prompt iOS (.searchable): "Buscar otro sitio…" también
+                    // en la primera búsqueda; el hint largo va solo en el panel.
+                    placeholder = { Text("Buscar otro sitio…") },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -340,6 +348,10 @@ fun PlaceSearchSheet(
                                         results = emptyList()
                                         resolveError = null
                                         pending = r
+                                        // dismissSearch iOS: el panel se cierra
+                                        // al elegir y queda solo el mapa de
+                                        // confirmación.
+                                        focusManager.clearFocus()
                                     }
                                 }
                             } else if (!isResolving && resolveError == null &&
@@ -381,6 +393,7 @@ fun PlaceSearchSheet(
                                             providerId = pin.mapItemIdentifier ?: "",
                                             featureName = pin.name
                                         )
+                                        focusManager.clearFocus() // dismissSearch iOS
                                     }
                                 }
                             }

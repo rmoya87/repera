@@ -61,7 +61,13 @@ jobs:
         # android-instrumented-android17): la imagen
         # system-images;android-canary-20261007 reporta
         # ro.build.version.sdk_full=37.2 en su build.prop.
-        api: ['30', '35', '36.1']
+        # Teléfono 36.1 RETIRADO (25/10, run 40185662289): los tres renderers
+        # mueren pre-app en el display en esta config de CI — gpu por defecto
+        # (40124402423), swiftshader_indirect (RegionSamplingThread x2 +
+        # 40136277749 sin boot + 40185662289 sin adb) y guest→lavapipe
+        # (SIGABRT de surfaceflinger al boot_completed, 40184763940). Firma
+        # documentada en STATUS_AND_PARITY.md; no reintentar sin señal nueva.
+        api: ['30', '35']
         include:
           # Baseline que ejecutó 30/35 verdes (40136277749): set POR
           # DEFECTO de la acción (-no-window -gpu swiftshader_indirect
@@ -74,23 +80,6 @@ jobs:
             emu_opts: '-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096'
           - api: '35'
             emu_opts: '-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096'
-          # 36.1 nunca ha ejecutado: con gpu por defecto surfaceflinger
-          # crasheó (40124402423) y otro run quedó con usuario LOCKED.
-          # Intento controlado: el set sano (con -noaudio) + -gpu guest
-          # (renderizado software en el invitado, sin libs de host).
-          - api: '36.1'
-            # Diagnóstico 40184763940 (gpu guest→lavapipe, -show-kernel):
-            # el boot llega a sys.boot_completed=1 pero en ese instante
-            # surfaceflinger recibe SIGABRT → init mata zygote → adb pierde el
-            # pipe (exit 224). Hipótesis nueva no probada: swiftshader_indirect
-            # (GLES por software puro), la config estable de las patas 30/35/37.2.
-            emu_opts: '-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096'
-            job_timeout: 45
-            # 40181550822: con el emulador 37.2.12 recién publicado, -gpu guest cae a
-            # lavapipe (la imagen 36.1 no soporta guest rendering) y QEMU muere al
-            # arrancar (exit 224, sin adb). Con 37.3.5 (runs 40177026987/40178955252)
-            # la misma config arrancaba: fijar ese build solo en esta pata.
-            emulator_build: '16632760'
     permissions:
       contents: read
     steps:
