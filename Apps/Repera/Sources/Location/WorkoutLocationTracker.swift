@@ -110,6 +110,8 @@ final class WorkoutLocationTracker: NSObject {
     }
 
     /// Outdoor sessions need the same GPS engine as free workouts.
+    /// Match COMPLETE words to avoid treating "crunch" as "run", or a
+    /// stationary SkiErg / Assault Bike as a GPS sport.
     static func shouldTrackRoute(for session: WorkoutSession) -> Bool {
         if let sport = session.liveSportID.flatMap(LiveSport.init(rawValue:)) {
             return sport.usesGPS
@@ -118,12 +120,27 @@ final class WorkoutLocationTracker: NSObject {
             .joined(separator: " ")
             .folding(options: .diacriticInsensitive, locale: .current)
             .lowercased()
-        let keywords = [
-            "correr", "carrera", "running", "run", "bici", "ciclismo",
-            "cycling", "bike", "caminar", "caminata", "walking", "hike",
-            "hiking", "trail", "outdoor", "remo outdoor", "ski", "skate"
+        let words = Set(blob.split(whereSeparator: {
+            !$0.isLetter && !$0.isNumber
+        }).map(String.init))
+        if words.contains("treadmill") || words.contains("cinta") { return false }
+        if words.contains("outdoor") || words.contains("trail") { return true }
+        let onFoot: Set<String> = [
+            "correr", "carrera", "running", "run", "caminar",
+            "caminata", "walking", "walk", "hike", "hiking", "senderismo"
         ]
-        return keywords.contains { blob.contains($0) }
+        if !words.isDisjoint(with: onFoot) { return true }
+        let bike: Set<String> = [
+            "bici", "bicicleta", "ciclismo", "cycling", "bike", "gravel", "mtb"
+        ]
+        if !words.isDisjoint(with: bike) {
+            // Indoor ergs never start the expensive GPS sensor.
+            let indoorBike: Set<String> = [
+                "assault", "echo", "erg", "ergometer", "ergometro", "spinning"
+            ]
+            return words.isDisjoint(with: indoorBike)
+        }
+        return false
     }
 
     func capturePin() async -> WorkoutLocationPin? {
