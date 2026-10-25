@@ -87,7 +87,10 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         )
     }
 
-    func start(id: UUID, at date: Date, includesWOD: Bool, includesStrength: Bool) {
+    func start(
+        id: UUID, at date: Date, includesWOD: Bool, includesStrength: Bool,
+        liveSportID: String? = nil
+    ) {
         guard workout == nil, HKHealthStore.isHealthDataAvailable() else {
             permissionIssue = "Salud no disponible o entrenamiento de Salud ya iniciado."
             return
@@ -116,14 +119,38 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
             guard self.workoutID == id, !self.finishing else { return }
 
             let config = HKWorkoutConfiguration()
-            if includesWOD && includesStrength {
-                config.activityType = .crossTraining
-            } else if includesWOD {
-                config.activityType = .highIntensityIntervalTraining
+            if let liveSportID {
+                switch liveSportID {
+                case "running", "trail": config.activityType = .running
+                case "walking": config.activityType = .walking
+                case "hiking": config.activityType = .hiking
+                case "cycling", "mountainBike", "gravel": config.activityType = .cycling
+                case "swimming": config.activityType = .swimming
+                case "skiing": config.activityType = .downhillSkiing
+                case "surfing": config.activityType = .surfingSports
+                case "golf": config.activityType = .golf
+                case "tennis", "padel": config.activityType = .tennis
+                case "hiit": config.activityType = .highIntensityIntervalTraining
+                case "crossfit", "hyrox": config.activityType = .crossTraining
+                case "strength": config.activityType = .functionalStrengthTraining
+                case "yoga", "mobility": config.activityType = .yoga
+                default: config.activityType = .other
+                }
+                let outdoor: Set<String> = [
+                    "running", "trail", "walking", "hiking", "cycling",
+                    "mountainBike", "gravel", "surfing", "golf", "skiing"
+                ]
+                config.locationType = outdoor.contains(liveSportID) ? .outdoor : .indoor
             } else {
-                config.activityType = .functionalStrengthTraining
+                if includesWOD && includesStrength {
+                    config.activityType = .crossTraining
+                } else if includesWOD {
+                    config.activityType = .highIntensityIntervalTraining
+                } else {
+                    config.activityType = .functionalStrengthTraining
+                }
+                config.locationType = .indoor
             }
-            config.locationType = .indoor
 
             do {
                 let session = try HKWorkoutSession(healthStore: self.store, configuration: config)
