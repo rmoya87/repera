@@ -123,9 +123,10 @@ internal fun HomeTab(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            TextButton(onClick=onOpenMessages) {Text("Mensajes con centro o entrenador")}
-            Text("Hola, " + (displayName ?: "Deportista"),
-                style = MaterialTheme.typography.headlineMedium)
+            Column {
+                Text("Hola, " + (displayName ?: "Deportista"),style = MaterialTheme.typography.headlineMedium)
+                TextButton(onClick=onOpenMessages) {Text("Mensajes con centro o entrenador")}
+            }
         }
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
