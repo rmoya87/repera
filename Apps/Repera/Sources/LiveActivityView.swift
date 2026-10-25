@@ -1458,21 +1458,16 @@ struct LiveActivityView: View {
     private var routeSheet: some View {
         NavigationStack {
             List {
-                Section {
-                    Button {
-                        importAfterRouteSheet = true
-                        routePicker = false
-                    } label: { Label("Importar archivo GPX", systemImage: "square.and.arrow.down") }
-                    Button("Sin ruta", systemImage: "xmark.circle") {
-                        recorder.selectRoute(nil)
-                        routePicker = false
+                if routes.routes.isEmpty {
+                    Section {
+                        ContentUnavailableView(
+                            "Sin rutas guardadas",
+                            systemImage: "map",
+                            description: Text("Importa un GPX o guarda un recorrido después de entrenar.")
+                        )
                     }
-                }
-                Section("Rutas guardadas") {
-                    if routes.routes.isEmpty {
-                        ContentUnavailableView("Sin rutas guardadas", systemImage: "map",
-                                               description: Text("Importa un GPX para seguirlo mientras entrenas."))
-                    } else {
+                } else {
+                    Section("Rutas guardadas") {
                         ForEach(routes.routes) { route in
                             NavigationLink {
                                 LiveRouteLibraryDetailView(
@@ -1512,9 +1507,19 @@ struct LiveActivityView: View {
                         }
                     }
                 }
+                Section {
+                    Button {
+                        importAfterRouteSheet = true
+                        routePicker = false
+                    } label: {
+                        Label("Importar archivo GPX", systemImage: "square.and.arrow.down")
+                            .foregroundStyle(OG.label)
+                    }
+                    .tint(.black)
+                }
             }
             .navigationTitle("Mis rutas")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -1522,7 +1527,9 @@ struct LiveActivityView: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.black)
                     }
+                    .tint(.black)
                     .accessibilityLabel("Cerrar Mis rutas")
                 }
             }
