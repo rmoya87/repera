@@ -41,6 +41,15 @@ struct ReperaApp: App {
 
     var body: some Scene {
         WindowGroup {
+            appWindowContent
+        }
+        .backgroundTask(.appRefresh(CatalogBackgroundRefreshScheduler.identifier)) {
+            await CatalogBackgroundRefreshScheduler.runHeadless()
+        }
+    }
+
+    /// Isolate the root environment graph from the startup/lifecycle closures.
+    private var appEnvironmentContent: some View {
             launchRootView
                 .onOpenURL { url in
                     GIDSignIn.sharedInstance.handle(url)
@@ -53,6 +62,12 @@ struct ReperaApp: App {
                 .environment(businessData)
                 .environment(workoutSync)
                 .environment(aiInbox)
+    }
+
+    /// Deliberately separate View expressions: Swift 6 cannot efficiently type-check
+    /// all environment, overlay, lifecycle and synchronization modifiers at once.
+    private var appArrivalContent: some View {
+        appEnvironmentContent
                 .overlay(alignment: .top) {
                     if let title = aiInbox.lastImportedTitle {
                         HStack(spacing: 10) {
@@ -88,6 +103,12 @@ struct ReperaApp: App {
                 .environment(onboarding)
                 .environment(locationTracker)
                 .background(OG.bg)
+    }
+
+    /// Deliberately separate View expressions: Swift 6 cannot efficiently type-check
+    /// all environment, overlay, lifecycle and synchronization modifiers at once.
+    private var appPresentationContent: some View {
+        appArrivalContent
                 .sheet(isPresented: Binding(
                     get: { subscriptions.paywall.isPresented && onboarding.isComplete },
                     set: { if !$0 { subscriptions.dismissPaywall() } }
@@ -96,6 +117,12 @@ struct ReperaApp: App {
                         .environment(subscriptions)
                         .ogSheetChrome(detents: [.large])
                 }
+    }
+
+    /// Deliberately separate View expressions: Swift 6 cannot efficiently type-check
+    /// all environment, overlay, lifecycle and synchronization modifiers at once.
+    private var appLaunchContent: some View {
+        appPresentationContent
                 .task {
                     if uiTestTabShell {
                         // UI tests must not wait for ornamental startup frames.
@@ -198,6 +225,12 @@ struct ReperaApp: App {
                         await warmHealthAfterHydrate()
                     }
                 }
+    }
+
+    /// Deliberately separate View expressions: Swift 6 cannot efficiently type-check
+    /// all environment, overlay, lifecycle and synchronization modifiers at once.
+    private var appScenePhaseContent: some View {
+        appLaunchContent
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .background {
                         if businessAuth.isConnected || businessAuth.hasPriorSupabaseBinding {
@@ -239,6 +272,12 @@ struct ReperaApp: App {
                         aiInbox.startRealtime(store: store)
                     }
                 }
+    }
+
+    /// Deliberately separate View expressions: Swift 6 cannot efficiently type-check
+    /// all environment, overlay, lifecycle and synchronization modifiers at once.
+    private var appBusinessConnectionContent: some View {
+        appScenePhaseContent
                 .onChange(of: businessAuth.isConnected) { _, connected in
                     if connected {
                         CatalogBackgroundRefreshScheduler.schedule()
@@ -262,6 +301,12 @@ struct ReperaApp: App {
                     }
                     wireSubscriptionGates()
                 }
+    }
+
+    /// Deliberately separate View expressions: Swift 6 cannot efficiently type-check
+    /// all environment, overlay, lifecycle and synchronization modifiers at once.
+    private var appCenterSyncContent: some View {
+        appBusinessConnectionContent
                 .onChange(of: businessData.athleteCenterIds) { _, _ in
                     wireSubscriptionGates()
                 }
@@ -280,6 +325,12 @@ struct ReperaApp: App {
                         }
                     }
                 }
+    }
+
+    /// Deliberately separate View expressions: Swift 6 cannot efficiently type-check
+    /// all environment, overlay, lifecycle and synchronization modifiers at once.
+    private var appCatalogSyncContent: some View {
+        appCenterSyncContent
                 .onChange(of: store.catalogEpoch) { _, _ in
                     if businessAuth.isConnected {
                         Task { _ = await AIChangeRequestStore.shared.syncCustomExercises(store:store) }
@@ -290,6 +341,12 @@ struct ReperaApp: App {
                         Task { await workoutSync.sync(store: store) }
                     }
                 }
+    }
+
+    /// Deliberately separate View expressions: Swift 6 cannot efficiently type-check
+    /// all environment, overlay, lifecycle and synchronization modifiers at once.
+    private var appWindowContent: some View {
+        appCatalogSyncContent
                 .onChange(of: store.state.syncRevision) { _, _ in
                     if businessAuth.isConnected, scenePhase == .active {
                         Task { _ = await AITrainingContextStore.shared.syncCalendar(store: store)
@@ -302,10 +359,6 @@ struct ReperaApp: App {
                         customExercises: store.customExerciseCount
                     )
                 }
-        }
-        .backgroundTask(.appRefresh(CatalogBackgroundRefreshScheduler.identifier)) {
-            await CatalogBackgroundRefreshScheduler.runHeadless()
-        }
     }
 
     /// `WindowGroup` accepts Views. Keep the auth state switch in an explicit
