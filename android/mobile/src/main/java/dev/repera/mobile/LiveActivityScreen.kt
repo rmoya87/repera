@@ -32,7 +32,12 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     val routesStore = remember(accountId) { runCatching { LiveRoutesStore(context, accountId) }.getOrNull() }
     var routesVersion by remember { mutableStateOf(0) }
     var showRoutes by remember { mutableStateOf(false) }
-    val routes = remember(routesStore, routesVersion) { routesStore?.recentRoutes(emptyList()).orEmpty() }
+    var pendingDeleteRoute by remember { mutableStateOf<LiveSavedRoute?>(null) }
+    var routeListMode by remember { mutableStateOf("Últimas 5") }
+    val routes = remember(routesStore, routesVersion) { routesStore?.recentRoutes(runCatching {
+        val bytes = LocalSnapshotStore(context, accountId).read()
+        bytes?.let { LiveSportSnapshot.sessions(org.json.JSONObject(String(it))) }.orEmpty()
+    }.getOrDefault(emptyList())).orEmpty() }
     var title by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -71,6 +76,18 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     LaunchedEffect(runtime) {
         while(true) { delay(1000);runtime.publish() }
     }
+    pendingDeleteRoute?.let { route ->
+        AlertDialog(onDismissRequest = { pendingDeleteRoute = null },
+            title = { Text("¿Eliminar ruta?") }, text = { Text("Se borrará la ruta guardada. Tus actividades realizadas se conservan.") },
+            confirmButton = { TextButton(onClick = {
+                try {
+                    routesStore?.remove(route.id)
+                    if (state.selectedRouteID == route.id) runtime.selectRoute(null)
+                    routesVersion++;pendingDeleteRoute = null
+                } catch (_: Exception) { error = "No se pudo eliminar la ruta." }
+            }) { Text("Eliminar") } },
+            dismissButton = { TextButton(onClick = { pendingDeleteRoute = null }) { Text("Cancelar") } })
+    }
     if(confirmDiscard) AlertDialog(onDismissRequest={confirmDiscard=false},
         title={Text("¿Descartar actividad?")},text={Text("No se guardará esta actividad.")},
         confirmButton={TextButton(onClick={ if(runtime.discard()) LiveActivityService.stop(context);confirmDiscard=false }) {Text("Descartar")}},
@@ -103,7 +120,17 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 if (showRoutes) {
                     Button(onClick = { importGPX.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "application/octet-stream")) }) { Text("Importar GPX") }
                     if (routes.isEmpty()) Text("Sin rutas guardadas")
-                    routes.forEach { route ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("Últimas 5", "Favoritas", "Todas").forEach { mode ->
+                            FilterChip(selected = routeListMode == mode, onClick = { routeListMode = mode }, label = { Text(mode) })
+                        }
+                    }
+                    val visibleRoutes = when (routeListMode) {
+                        "Últimas 5" -> routes.take(5)
+                        "Favoritas" -> routes.filter { it.isFavorite }
+                        else -> routes
+                    }
+                    visibleRoutes.forEach { route ->
                         var edit by remember(route.id) { mutableStateOf(false) }
                         var routeTitle by remember(route.id, routesVersion) { mutableStateOf(route.title) }
                         var routeSport by remember(route.id, routesVersion) { mutableStateOf(route.sportID) }
@@ -120,6 +147,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                                         catch (_: Exception) { error = "No se pudo cambiar el favorito." }
                                     }) { Text(if (route.isFavorite) "★ Favorita" else "☆ Favorita") }
                                     TextButton(onClick = { edit = !edit }) { Text("Editar") }
+                                    TextButton(onClick = { pendingDeleteRoute = route }) { Text("Eliminar") }
                                 }
                                 if (edit) {
                                     OutlinedTextField(routeTitle, { routeTitle = it }, label = { Text("Nombre de la ruta") })
