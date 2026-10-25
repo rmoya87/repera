@@ -20,7 +20,7 @@ class BodyMapContrastInstrumentedTest {
         var dark by androidx.compose.runtime.mutableStateOf(false)
         compose.setContent {
             MaterialTheme(colorScheme = reperaColorScheme(dark)) {
-                Surface(Modifier.fillMaxSize()) {
+                Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
                     MuscleBalanceCard(emptyMap(), emptyMap(), emptyMap(), emptyMap(), false)
                 }
             }

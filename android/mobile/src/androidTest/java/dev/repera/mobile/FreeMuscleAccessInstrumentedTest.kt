@@ -1,4 +1,6 @@
 package dev.repera.mobile
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
@@ -26,11 +28,22 @@ class FreeMuscleAccessInstrumentedTest {
         val overview=StateOverview.fromBytes(state.toString().toByteArray())!!
         compose.setContent {CompositionLocalProvider(LocalSubscriptions provides free) {
             MaterialTheme(colorScheme=reperaColorScheme(false)) {
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize().safeDrawingPadding()) {
                 ProgressTab(false,false,null,overview,{},{},{},{},{},{_,_,_,_,_,_->},{_,_,_->})
+                }
             }
         }}
         compose.onNodeWithTag("progress_list").performScrollToNode(hasText("Equilibrio muscular"))
         compose.onNodeWithText("Equilibrio muscular").assertIsDisplayed()
         compose.onNodeWithText("Conoce tu equilibrio muscular").assertDoesNotExist()
+        compose.waitForIdle()
+        val bitmap=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()!!
+        val values=android.content.ContentValues().apply {
+            put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,"progreso_gratis_musculos.png")
+            put(android.provider.MediaStore.Images.Media.MIME_TYPE,"image/png")
+            put(android.provider.MediaStore.Images.Media.RELATIVE_PATH,"Pictures/ReperaVerification")
+        }
+        val uri=context.contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values)!!
+        context.contentResolver.openOutputStream(uri)!!.use {bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
     }
 }

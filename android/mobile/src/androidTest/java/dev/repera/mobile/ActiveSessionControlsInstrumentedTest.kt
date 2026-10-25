@@ -1,4 +1,6 @@
 package dev.repera.mobile
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,7 +23,7 @@ class ActiveSessionControlsInstrumentedTest {
         val routine=repo.createRoutine("Dos ejercicios","strength",listOf(RoutineDraftEntry("ex",5),RoutineDraftEntry("ex2",8)))
         var active by mutableStateOf(repo.startRoutine(routine))
         compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {
-            androidx.compose.foundation.layout.Column {
+            androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.fillMaxSize().safeDrawingPadding()) {
                 ActiveSessionControls(active,false,{active=repo.selectActiveExercise(it)},{repo.updateActiveSessionNotes(it);active=repo.active()!!})
             }
         }}

@@ -779,7 +779,9 @@ internal fun ScheduledRoutineCard(
                     }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            androidx.compose.foundation.layout.FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(
                     onClick = { onStart(routine.id) },
                     enabled = !busy && canStart && routine.supported

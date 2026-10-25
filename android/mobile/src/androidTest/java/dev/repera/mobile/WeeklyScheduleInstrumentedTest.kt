@@ -1,4 +1,6 @@
 package dev.repera.mobile
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,11 +28,13 @@ class WeeklyScheduleInstrumentedTest {
         var overview by mutableStateOf(StateOverview.fromBytes(local.read()))
         var copied=0
         compose.setContent { MaterialTheme(colorScheme=reperaColorScheme(false)) {
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize().safeDrawingPadding()) {
             DiaryTab(busy=false,syncing=false,status=null,overview=overview,activeWorkout=null,
                 onStartRoutine={},onEditRoutine={_,_,_->},onDeleteRoutine={},
                 onCopyPreviousWeek={copied=repo.copyPreviousWeekSchedule(LocalDate.of(2026,10,25));overview=StateOverview.fromBytes(local.read())},
                 onClearWeeklySchedule={repo.clearWeeklySchedule();overview=StateOverview.fromBytes(local.read())},
                 onInitializeLocal={},onImportJson={},onDriveSync={},onExportJson={},onSignOut={},onNavigateHome={})
+            }
         }}
         compose.onNodeWithTag("diary_schedule_menu").performClick()
         compose.onNodeWithText("Copiar semana pasada").performClick()

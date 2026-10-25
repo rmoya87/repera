@@ -1,4 +1,6 @@
 package dev.repera.mobile
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
@@ -19,7 +21,9 @@ class BodyWeightHistoryInstrumentedTest {
         fun read()=BodyWeightHistory.entries(JSONObject(String(local.read()!!)))
         var entries by mutableStateOf(read())
         compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize().safeDrawingPadding()) {
             BodyWeightHistoryScreen(entries,false,{repo.logBodyWeight(it);entries=read()},{repo.deleteBodyWeight(it);entries=read()})
+            }
         }}
         compose.onNodeWithText("Aún no hay pesos registrados.").assertIsDisplayed()
         compose.onNodeWithTag("weight_history_input").performTextInput("82,5")
