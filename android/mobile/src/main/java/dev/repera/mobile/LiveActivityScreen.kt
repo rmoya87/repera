@@ -26,7 +26,8 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     onOpenTools: () -> Unit, onOpenCenter: (() -> Unit)? = null,
-    hasActiveWorkout: Boolean = false, onOpenWorkout: () -> Unit = {}) {
+    hasActiveWorkout: Boolean = false, onOpenWorkout: () -> Unit = {},
+    onMapRendered: (() -> Unit)? = null) {
     val context=LocalContext.current
     val scope = rememberCoroutineScope()
     var previewPosition by remember { mutableStateOf<dev.repera.domain.WorkoutRoutePoint?>(null) }
@@ -100,6 +101,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         // También comprobar tras volver del diálogo de permiso, no solo
         // antes: puede haberse reactivado un entreno clásico mientras tanto.
         if (currentActiveWorkout) { currentOpenWorkout();return }
+        if (runtime.recoveryBlocked) { error=runtime.lastError;return }
         runtime.start();showingMetrics = state.sport.usesGPS;startService()
     }
     val notificationPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
@@ -176,7 +178,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         val freshPosition = previewPosition?.takeIf { System.currentTimeMillis()-it.recordedAtEpochMs < 15_000 }
         Box(Modifier.fillMaxSize().testTag("live_activity_screen")) {
             RouteMapView(if (state.points.isNotEmpty()) state.points else planned?.points ?: listOfNotNull(freshPosition),
-                isInteractive = true, modifier = Modifier.fillMaxSize(), plannedRoute = state.points.size < 2)
+                isInteractive = true, modifier = Modifier.fillMaxSize(), plannedRoute = state.points.size < 2,
+                controlsOverlay = true,onMapRendered = onMapRendered)
             Surface(Modifier.align(Alignment.TopCenter).padding(12.dp), shape = MaterialTheme.shapes.large,
                 tonalElevation = 4.dp) {
                 Column(Modifier.padding(12.dp)) {
@@ -196,6 +199,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     }
                     runtime.upcomingTurn?.let { Text(it) }
                     (error ?: runtime.lastError)?.let { Text(it,color=MaterialTheme.colorScheme.error) }
+                    if(runtime.recoveryBlocked) TextButton(onClick={confirmDiscard=true}) {Text("Descartar recuperación dañada")}
                 }
             }
             Surface(Modifier.align(Alignment.BottomCenter).padding(12.dp), shape = MaterialTheme.shapes.large,
@@ -345,7 +349,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     else "${LiveSportHistory.formatDuration(split * 1000 / state.activeKilometerMeters)} min/km"
                     Text("Km ${state.activeKilometer} · $current")
                 }
-                if(state.points.size>=2) RouteMapView(state.points,isInteractive=false,modifier=Modifier.fillMaxWidth().height(220.dp))
+                if(state.points.size>=2) RouteMapView(state.points,isInteractive=false,modifier=Modifier.fillMaxWidth().height(220.dp),onMapRendered=onMapRendered)
             }
             runtime.upcomingTurn?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
             runtime.latestKilometerReport?.let { Text(it) }
@@ -384,5 +388,6 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
             LiveKilometerSplitsSection(state.splitsSeconds, state.sport.displaysSpeed)
         }
         (error ?: runtime.lastError)?.let {Text(it,color=MaterialTheme.colorScheme.error)}
+        if(runtime.recoveryBlocked) TextButton(onClick={confirmDiscard=true}) {Text("Descartar recuperación dañada")}
     }
 }

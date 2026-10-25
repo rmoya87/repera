@@ -55,9 +55,12 @@ internal fun RouteMapView(
     modifier: Modifier = Modifier,
     /** Solo verificación: avisa cuando el estilo cargó y la ruta se pintó. */
     onStyleLoaded: (() -> Unit)? = null,
-    plannedRoute: Boolean = false
+    plannedRoute: Boolean = false,
+    controlsOverlay: Boolean = false,
+    onMapRendered: (() -> Unit)? = null
 ) {
     var failed by remember { mutableStateOf(false) }
+    val currentRendered by androidx.compose.runtime.rememberUpdatedState(onMapRendered)
     val currentPlanned by androidx.compose.runtime.rememberUpdatedState(plannedRoute)
     val currentPoints by androidx.compose.runtime.rememberUpdatedState(points)
     var loadedMap by remember { mutableStateOf<MapLibreMap?>(null) }
@@ -110,11 +113,25 @@ internal fun RouteMapView(
                 // El listener de fallo de carga vive en MapView (widget), no en
                 // MapLibreMap (comprobado contra el AAR de MapLibre 13.7.1).
                 addOnDidFailLoadingMapListener { failed = true }
+                addOnDidFinishRenderingMapListener { fully -> if (fully) currentRendered?.invoke() }
                 onCreate(null)
+                // A newly mounted map can arrive after its owner is RESUMED.
+                // Lifecycle events are not replayed to this new widget.
+                if (lifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) onStart()
+                if (lifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) onResume()
                 getMapAsync { map ->
                     map.uiSettings.apply {
                         isLogoEnabled = true
                         isAttributionEnabled = true
+                        if (controlsOverlay) {
+                            // Keep legal attribution above bottom controls,
+                            // not behind an opaque action panel.
+                            val d = context.resources.displayMetrics.density
+                            setLogoGravity(android.view.Gravity.TOP or android.view.Gravity.LEFT)
+                            setAttributionGravity(android.view.Gravity.TOP or android.view.Gravity.LEFT)
+                            setLogoMargins((8*d).toInt(),(180*d).toInt(),0,0)
+                            setAttributionMargins((100*d).toInt(),(180*d).toInt(),0,0)
+                        }
                         setAllGesturesEnabled(isInteractive)
                         isCompassEnabled = isInteractive
                     }

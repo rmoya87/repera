@@ -330,3 +330,19 @@ main móvil invisible.)
   de15s. Solo compilado; no se afirma continuidad GPS física.
 - Test nuevo canvas idle/activo/métricas usando puntos sintéticos directos,
   sin sensores ni FGS. Pendiente enfocado posterior al actual40226505506.
+
+## Cierre de enfocado40226505506, 20:41 CET
+- SUCCESS, SHAdebug6c583804: controles4/0 (incluye FGS interior y acciones
+  reales de notificación), save4/0 (incluye archivo de ruta idempotente).
+  XML separados, cero omitidos. GPS/Health/audio físicos NO probados.
+- Capturas evolución/Pádel legibles. Picker se capturó antes del frame y
+  guard clásico blanco: descartadas como evidencia visual, no como test
+  funcional. Espera de frame añadida. outlineVariant lavanda corregido.
+- Nuevo enfocado40227284906 SHAdebugc40323c1: controles5/save4/tema2,
+  en curso.12 capturas de6 pantallas reales claro/oscuro previstas.
+- Local posterior: checkpoint valida valores y conserva corruptos; runtime
+  bloquea sobrescritura hasta descarte explícito. Prueba instrumentada nueva
+  compilada, no incluida en run en curso. Mobile JVM195/0.
+- FC por parcial conecta proveedor medido existente; conserva segundos
+  activos y usa km/h según deporte. Curva del detalle reutilizada. Nueva
+  prueba sintética compilada, sin leer Salud real.
