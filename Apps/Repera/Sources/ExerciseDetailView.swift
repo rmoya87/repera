@@ -312,8 +312,9 @@ struct ExerciseDetailView: View {
     var highlightExerciseInstanceId: UUID? = nil
 
     var onOpenedWorkout: (() -> Void)? = nil
-    /// En el panel derecho de DUO solo se mantiene el favorito en la cabecera.
+    /// En DUO/iPad el encabezado y sus acciones viven dentro del panel derecho.
     var showsQuickLogToolbarAction = true
+    var showsInlineHeader = false
 
     @State private var showQuickLog = false
     @State private var suggestPercent: Double = 70
@@ -335,7 +336,41 @@ struct ExerciseDetailView: View {
             if let exercise {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        // Imagen edge-to-edge; técnica solo aquí (no repetir abajo).
+                        if showsInlineHeader {
+                            HStack(alignment: .center, spacing: 10) {
+                                Text(exercise.name)
+                                    .font(.title2.weight(.bold))
+                                    .foregroundStyle(OG.label)
+                                    .lineLimit(2)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Button {
+                                    store.toggleFavorite(resolvedId)
+                                } label: {
+                                    Image(systemName: exercise.isFavorite ? "star.fill" : "star")
+                                        .font(.system(size: 18, weight: .semibold))
+                                        .foregroundStyle(exercise.isFavorite ? OG.yellow : OG.label)
+                                        .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
+                                        .glassEffect(.regular.interactive(), in: .circle)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(exercise.isFavorite ? "Quitar de favoritos" : "Marcar favorito")
+                                Button {
+                                    showQuickLog = true
+                                } label: {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 18, weight: .semibold))
+                                        .foregroundStyle(OG.label)
+                                        .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
+                                        .glassEffect(.regular.interactive(), in: .circle)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Apuntar ejercicio")
+                            }
+                            .padding(.horizontal, OG.pad)
+                            .padding(.top, 12)
+                        }
+
+                        // Título y acciones quedan sobre la imagen en el panel derecho.
                         ExerciseArtView(exercise: exercise, showStepCaptions: true)
 
                         VStack(alignment: .leading, spacing: 12) {
@@ -375,9 +410,11 @@ struct ExerciseDetailView: View {
                     .ogReadableColumn()
                 }
                 .background(OG.bg.ignoresSafeArea())
-                .ogPinnedTransparentNav(exercise.name)
+                .ogPinnedTransparentNav(showsInlineHeader ? "" : exercise.name)
                 .ogDiaryTransparentNav()
+                .toolbar(showsInlineHeader ? .hidden : .visible, for: .navigationBar)
                 .toolbar {
+                    if !showsInlineHeader {
                     ToolbarItem(placement: .topBarTrailing) {
                         OGToolbarGlassButton(
                             systemName: exercise.isFavorite ? "star.fill" : "star",
@@ -391,12 +428,13 @@ struct ExerciseDetailView: View {
                         ToolbarItem(placement: .topBarTrailing) {
                             OGToolbarGlassButton(
                                 systemName: "plus",
-                                accessibilityLabel: "Apuntar series",
+                                accessibilityLabel: "Apuntar ejercicio",
                                 tint: OG.accent
                             ) {
                                 showQuickLog = true
                             }
                         }
+                    }
                     }
                 }
                 .sheet(isPresented: $showQuickLog) {
