@@ -52,7 +52,12 @@ targets:
       - path: Apps/Repera/Sources
         excludes:
           - RemoteExerciseCatalogStore.swift
+          - LiveActivityView.swift
+          - WorkoutLiveActivityCoordinator.swift
       - path: Apps/Repera/Sources/RemoteExerciseCatalogStore.swift
+      # Referencias explícitas: XcodeGen no puede omitir estas fuentes del target.
+      - path: Apps/Repera/Sources/LiveActivityView.swift
+      - path: Apps/Repera/Sources/WorkoutLiveActivityCoordinator.swift
       - path: Apps/Shared/RestActivityAttributes.swift
       - path: Apps/Shared/TrainingActivityAttributes.swift
       # XcodeGen 2.46 + objectVersion 77 omite `resources:`; hay que declarar assets a mano.
