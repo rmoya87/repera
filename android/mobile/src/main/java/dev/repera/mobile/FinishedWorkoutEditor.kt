@@ -376,6 +376,16 @@ private fun WodMovementsEditor(
                         val parsed = kg.replace(',', '.').toDoubleOrNull()
                         if (parsed != null) set.put("targetWeightKg", parsed) else set.remove("targetWeightKg")
                         EditorBlockOps.writeSetsToMovement(m, sets, machine); onEdited() })
+                if (!machine) {
+                    var rir by remember(id, set.optString("id")) { mutableStateOf(
+                        if (set.has("targetRir") && !set.isNull("targetRir")) set.getDouble("targetRir").let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() } else "") }
+                    OutlinedTextField(value = rir, singleLine = true, label = { Text("RIR") },
+                        modifier = Modifier.weight(1f).testTag("mv_set_rir_${b}_${i}_$s"),
+                        onValueChange = { v -> rir = v.filter { it.isDigit() || it == '.' || it == ',' }.take(4)
+                            val p = rir.replace(',', '.').toDoubleOrNull()
+                            if (p != null && p in 0.0..10.0) set.put("targetRir", p) else set.remove("targetRir")
+                            EditorBlockOps.writeSetsToMovement(m, sets, machine); onEdited() })
+                }
                 TextButton(enabled = sets.length() > 1, modifier = Modifier.testTag("mv_set_remove_${b}_${i}_$s"),
                     onClick = { sets.remove(s); EditorBlockOps.writeSetsToMovement(m, sets, machine); onChanged() }) { Text("×") }
             }
@@ -391,6 +401,18 @@ private fun WodMovementsEditor(
         var notes by remember(id) { mutableStateOf(m.optString("notes")) }
         var dist by remember(id) { mutableStateOf(if (!machine && m.has("distanceMeters") && !m.isNull("distanceMeters")) m.optInt("distanceMeters").toString() else "") }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            var male by remember(id) { mutableStateOf(if (m.has("weightMaleKg") && !m.isNull("weightMaleKg")) m.getDouble("weightMaleKg").toString() else "") }
+            if (!machine) OutlinedTextField(value = male, singleLine = true, label = { Text("Peso H (kg)") },
+                modifier = Modifier.weight(1f).testTag("mv_male_${b}_$i"),
+                onValueChange = { v -> male = v.filter { it.isDigit() || it == '.' || it == ',' }.take(7)
+                    val p = male.replace(',', '.').toDoubleOrNull()
+                    if (p != null) {
+                        m.put("weightMaleKg", p)
+                        // Apple applyMovementWeightToEmptySets: solo series sin peso.
+                        for (k in 0 until sets.length()) sets.getJSONObject(k).let { st ->
+                            if (!st.has("targetWeightKg") || st.isNull("targetWeightKg")) st.put("targetWeightKg", p) }
+                        EditorBlockOps.writeSetsToMovement(m, sets, machine); onChanged()
+                    } else { m.remove("weightMaleKg"); onEdited() } })
             OutlinedTextField(value = female, singleLine = true, label = { Text("Peso M (kg)") },
                 modifier = Modifier.weight(1f).testTag("mv_female_${b}_$i"),
                 onValueChange = { v -> female = v.filter { it.isDigit() || it == '.' || it == ',' }.take(7)

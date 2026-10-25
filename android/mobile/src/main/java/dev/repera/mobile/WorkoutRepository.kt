@@ -1991,17 +1991,24 @@ class WorkoutRepository(context: Context, googleId: String) {
             val catalogArr = state.getJSONArray("exercises")
             val draftBlocks = JSONArray(edit.blocksJson)
             val idByName = mutableMapOf<String, String>()
-            for (name in EditorBlockOps.pendingCustomNames(draftBlocks)) {
-                val existing = (0 until catalogArr.length()).map { catalogArr.getJSONObject(it) }
-                    .firstOrNull { it.optString("name").equals(name, ignoreCase = true) }
-                if (existing != null) { idByName[name] = existing.getString("id"); continue }
-                val customs = (0 until catalogArr.length()).count { catalogArr.getJSONObject(it).optBoolean("isCustom") }
-                check(canCreateCustom(customs)) { "Límite de ejercicios personalizados alcanzado" }
+            // Identidad por nombre normalizado (sin mayúsculas ni diacríticos), como la búsqueda de catálogo.
+            val byNorm = mutableMapOf<String, String>()
+            for (i in 0 until catalogArr.length()) catalogArr.getJSONObject(i).let {
+                byNorm.putIfAbsent(foldForSearch(it.optString("name")), it.getString("id")) }
+            val pendingNames = EditorBlockOps.pendingCustomNames(draftBlocks)
+            val toCreate = pendingNames.map { foldForSearch(it) }.distinct().filter { it !in byNorm }
+            // Capacidad del LOTE completo antes de crear nada: el último nuevo debe caber.
+            val customsNow = (0 until catalogArr.length()).count { catalogArr.getJSONObject(it).optBoolean("isCustom") }
+            if (toCreate.isNotEmpty())
+                check(canCreateCustom(customsNow + toCreate.size - 1)) { "Límite de ejercicios personalizados alcanzado" }
+            for (name in pendingNames) {
+                val norm = foldForSearch(name)
+                byNorm[norm]?.let { idByName[name] = it; continue }
                 val newId = UUID.randomUUID().toString()
-                catalogArr.put(JSONObject().put("id", newId).put("name", name).put("muscleGroup", "Otros")
+                catalogArr.put(JSONObject().put("id", newId).put("name", name.trim()).put("muscleGroup", "Otros")
                     .put("equipment", JSONObject.NULL).put("targetMuscle", "")
                     .put("secondaryMuscles", JSONArray()).put("isCustom", true))
-                idByName[name] = newId
+                byNorm[norm] = newId; idByName[name] = newId
             }
             val applied = CompletedWorkoutEditing.applying(
                 cleanTitle, EditorBlockOps.resolvePending(draftBlocks, idByName), target, catalogArr)

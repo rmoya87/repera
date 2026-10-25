@@ -226,4 +226,30 @@ class WorkoutPinEditingInstrumentedTest {
         val ids = (0 until after.length()).map { after.getJSONObject(it).getJSONObject("exercise").getString("id") }
         assertFalse(ids.any { it.startsWith("pending:") })
     }
+
+    /** Lote de 3 pendientes (2 con el mismo nombre normalizado + 1 distinto): capacidad validada para el lote;
+     *  reintento idempotente (sin duplicados). */
+    @Test fun pendingBatchValidatesTotalCapacityAndRetryDoesNotDuplicate() {
+        val (repo, _) = repoWithRoutines("r1")
+        val a = repo.startStrengthRoutine("r1")
+        repo.logCurrentSet(quantity = 5, weightKg = 60.0, rir = 2.0)
+        repo.finish()
+        val saved = repo.finishedWorkoutsSnapshot().first()
+        val blocks = CompletedWorkoutEditing.blocksFrom(saved, null)
+        fun add(name: String) = blocks.getJSONObject(0).getJSONArray("exercises").put(JSONObject()
+            .put("id", UUID.randomUUID().toString()).put("exerciseId", "pending:$name")
+            .put("plannedSets", JSONArray().put(JSONObject().put("id", UUID.randomUUID().toString()).put("targetReps", 8))))
+        add("Remo Sentado"); add("remo sentado"); add("Zancada Búlgara")
+        // El fixture ya tiene 1 personalizado: 1 + 2 nuevos = 3 → el último comprueba con 2 existentes previos.
+        val seen = mutableListOf<Int>()
+        var threw = false
+        try { repo.updateFinishedWorkout(a.id, edit(blocksJson = blocks.toString())) { n -> seen += n; false } }
+        catch (e: IllegalStateException) { threw = true }
+        assertTrue(threw); assertEquals("una sola comprobación del lote", listOf(2), seen)
+        assertTrue(repo.updateFinishedWorkout(a.id, edit(blocksJson = blocks.toString())) { true })
+        // Reintento con el mismo contenido: no crea nada nuevo.
+        val sizeAfterFirst = repo.finishedWorkoutsSnapshot().first().getJSONArray("exercises").length()
+        assertTrue(repo.updateFinishedWorkout(a.id, edit(blocksJson = blocks.toString())) { n -> fail("no debe pedir cuota"); false })
+        assertEquals(sizeAfterFirst, repo.finishedWorkoutsSnapshot().first().getJSONArray("exercises").length())
+    }
 }
