@@ -2294,6 +2294,7 @@ private struct LiveRouteEditView: View {
     @State private var routes = LiveRoutesStore.shared
     @State private var editedTitle = ""
     @State private var editedSportID = ""
+    @State private var initialized = false
     @State private var editError: String?
     let routeID: UUID
 
@@ -2346,9 +2347,11 @@ private struct LiveRouteEditView: View {
         .navigationTitle("Editar ruta")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            guard let route = routes.routes.first(where: { $0.id == routeID }) else { return }
+            guard !initialized,
+                  let route = routes.routes.first(where: { $0.id == routeID }) else { return }
             editedTitle = route.title
             editedSportID = route.sportID ?? ""
+            initialized = true
         }
         .alert("No se pudo guardar", isPresented: Binding(
             get: { editError != nil },
