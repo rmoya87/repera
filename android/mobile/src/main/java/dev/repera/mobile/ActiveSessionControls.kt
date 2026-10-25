@@ -14,12 +14,14 @@ internal fun ActiveSessionControls(active:ActiveWorkout,busy:Boolean,onSelect:(I
     var choosing by remember {mutableStateOf(false)}
     var editingNotes by remember {mutableStateOf(false)}
     var notes by rememberSaveable(active.id,active.notes) {mutableStateOf(active.notes.orEmpty())}
+    Column {
     Row {
         TextButton(enabled=!busy && active.index>0,onClick={onSelect(active.index-1)},modifier=Modifier.testTag("active_previous")) {Text("Anterior")}
         TextButton(enabled=!busy && active.navigationEntries.isNotEmpty(),onClick={choosing=true}) {Text("Ejercicios")}
         TextButton(enabled=!busy && active.index<active.total-1,onClick={onSelect(active.index+1)},modifier=Modifier.testTag("active_navigate_next")) {Text("Siguiente")}
     }
     TextButton(enabled=!busy,onClick={editingNotes=true}) {Text(if(active.notes.isNullOrBlank()) "Añadir notas" else "Editar notas")}
+    }
     if(choosing) AlertDialog(onDismissRequest={choosing=false},title={Text("Ejercicios y bloques")},
         text={Column(Modifier.verticalScroll(rememberScrollState())) {
             active.navigationEntries.forEach {entry ->

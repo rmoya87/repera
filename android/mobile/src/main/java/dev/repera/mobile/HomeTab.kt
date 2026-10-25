@@ -226,6 +226,7 @@ internal fun HomeTab(
         item {
             if (activeWorkout != null) {
                 key(activeWorkout.id, activeWorkout.index, activeWorkout.completedSets) {
+                Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
                     ActiveSessionControls(activeWorkout,busy,onSelectActiveExercise,onUpdateActiveNotes)
                     if (activeWorkout.wod != null) {
                         WodScoreCard(
@@ -268,6 +269,7 @@ internal fun HomeTab(
                                 onPinChange = onActivePinChange)
                         }
                     }
+                }
                 }
             } else {
                 Card(modifier = Modifier.fillMaxWidth()) {
