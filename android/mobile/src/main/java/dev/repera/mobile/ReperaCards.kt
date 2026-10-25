@@ -343,7 +343,7 @@ internal fun ActiveWorkoutCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Start
             ) {
-                Checkbox(checked = warmup, onCheckedChange = { warmup = it }, enabled = !busy)
+                Checkbox(checked = warmup, onCheckedChange = { warmup = it }, enabled = !busy, modifier=Modifier.testTag("set_warmup"))
                 Text("Serie de calentamiento", modifier = Modifier.padding(top = 12.dp))
             }
             if (!active.durationInput && !warmup) {

@@ -26,7 +26,7 @@ class FailureControlInstrumentedTest {
   compose.runOnIdle {assertEquals(true,failure);assertEquals(false,warmup);assertEquals(0.0,effort!!,0.0)}
   compose.onNodeWithText("Dropset").performScrollTo().performClick()
   compose.onNodeWithText("Serie de calentamiento").performScrollTo()
-  compose.onNode(isToggleable() and hasAnySibling(hasText("Serie de calentamiento"))).performClick()
+  compose.onNodeWithTag("set_warmup").performClick()
   compose.onNodeWithTag("set_to_failure").assertDoesNotExist()
   compose.onNodeWithText("Registrar serie").performScrollTo().performClick()
   compose.runOnIdle {assertEquals(false,failure);assertEquals(true,warmup);assertNull(effort);assertEquals(0,drops)}

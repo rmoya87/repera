@@ -1,9 +1,61 @@
 package dev.repera.mobile
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import org.junit.Rule
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.*
 import org.junit.Test
 import org.junit.Assert.*
 class ActivePlanEditingInstrumentedTest {
+ @get:Rule val compose=createAndroidComposeRule<androidx.activity.ComponentActivity>()
+ @Test fun activeEditorUiCancelsWithoutWritesAndSavesPlanWithoutLosingFailureSet() {
+  val context=InstrumentationRegistry.getInstrumentation().targetContext
+  val account="test-active-editor-ui-${java.util.UUID.randomUUID()}";val local=LocalSnapshotStore(context,account)
+  local.write(JSONObject().put("exercises",JSONArray().put(JSONObject().put("id","a").put("name","Sentadilla")))
+   .put("routines",JSONArray()).put("workouts",JSONArray()).toString().toByteArray())
+  val repo=WorkoutRepository(context,account);val r=repo.createRoutine("Pierna","strength",listOf(RoutineDraftEntry("a",5)))
+  var active by mutableStateOf(repo.startRoutine(r));repo.logCurrentSet(5,40.0,toFailure=true);active=repo.active()!!
+  var draft by mutableStateOf<RoutineEntry?>(null)
+  compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
+   val editing=draft
+   if(editing==null) Column {
+    ActiveSessionControls(active,false,{},{},onEdit={draft=repo.activeRoutineForEditing()})
+    Text("${active.sets.size} series conservadas")
+   } else RoutineBlocksEditorScreen(editing,listOf(ExerciseEntry("a","Sentadilla",true,true)),false,
+    onReplace={blocks ->active=repo.updateActiveSessionPlan(editing.id,blocks);draft=null},onBack={draft=null})
+  }}}
+  val before=local.read()!!
+  compose.onNodeWithText("Editar entreno").performClick()
+  compose.onNodeWithText("Título del bloque").performTextReplacement("Cambio descartado")
+  compose.onNodeWithText("Volver").performScrollTo().performClick()
+  compose.runOnIdle {assertArrayEquals(before,local.read()!!)}
+  compose.onNodeWithText("Editar entreno").performClick()
+  compose.onNodeWithText("Título del bloque").performTextReplacement("Fuerza ajustada")
+  // Remove keyboard and wait for a complete rendered editor viewport before taking evidence.
+  compose.activity.runOnUiThread {compose.activity.currentFocus?.let {v ->
+   (compose.activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(v.windowToken,0)}}
+  compose.onNodeWithText("Guardar").performScrollTo().assertIsDisplayed()
+  compose.waitForIdle();compose.mainClock.advanceTimeBy(500);compose.waitForIdle()
+  val instrument=InstrumentationRegistry.getInstrumentation();val bitmap=instrument.uiAutomation.takeScreenshot()!!
+  val values=android.content.ContentValues().apply {
+   put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,"entreno_editor_activo.png")
+   put(android.provider.MediaStore.Images.Media.MIME_TYPE,"image/png")
+   put(android.provider.MediaStore.Images.Media.RELATIVE_PATH,"Pictures/ReperaVerification")
+  }
+  val uri=context.contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values)!!
+  context.contentResolver.openOutputStream(uri)!!.use {bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+  compose.onNodeWithText("Guardar").performClick()
+  compose.onNodeWithText("1 series conservadas").assertIsDisplayed()
+  compose.runOnIdle {
+   assertTrue(active.sets.single().toFailure);assertEquals(5,active.sets.single().reps)
+   assertEquals("Fuerza ajustada",JSONObject(String(local.read()!!)).getJSONObject("activeSession").getJSONArray("routineBlocks").getJSONObject(0).getString("title"))
+  }
+ }
+
  @Test fun editorDraftIsReadOnlyAndSavedReorderKeepsSessionAndLoggedSets() {
   val context=InstrumentationRegistry.getInstrumentation().targetContext
   val account="test-active-editor-${java.util.UUID.randomUUID()}";val local=LocalSnapshotStore(context,account)

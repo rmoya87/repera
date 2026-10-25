@@ -58,6 +58,7 @@ class ExerciseOneRMInstrumentedTest {
   compose.onNodeWithTag("suggested_load_value").assertTextContains("70% 1RM",substring=true)
   compose.onNodeWithTag("suggested_load_percent").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) {it(95f)}
   compose.onNodeWithTag("suggested_load_value").assertTextContains("95% 1RM",substring=true)
+  compose.waitForIdle();compose.mainClock.advanceTimeBy(500);compose.waitForIdle()
   val instrument=InstrumentationRegistry.getInstrumentation();val bitmap=instrument.uiAutomation.takeScreenshot()!!
   val values=android.content.ContentValues().apply {
    put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,"ejercicio_tope_carga.png")
