@@ -420,12 +420,14 @@ final class WatchSessionHub: NSObject {
         sessionElapsed = max(0, Int(remote.activeDurationSeconds ?? 0))
         lastClockTick = isPaused ? nil : Date()
         health.start(
-            id: remote.id, at: remote.startedAt ?? Date(),
-            includesWOD: false, includesStrength: false, liveSportID: type
+            // HR/calorie recording begins when Watch actually joins, not
+            // retroactively at the iPhone's earlier GPS start.
+            id: remote.id, at: Date(),
+            includesWOD: false, includesStrength: false,
+            liveSportID: type, initiallyPaused: isPaused
         )
         startClock()
         checkpoint()
-        if isPaused { health.pause() }
     }
 
     private func pauseFree() {
