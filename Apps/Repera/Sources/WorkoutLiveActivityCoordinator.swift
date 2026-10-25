@@ -60,14 +60,38 @@ final class WorkoutLiveActivityCoordinator {
             result + exercise.loggedSets.count
         }
         let elapsed = max(0, Int(Date().timeIntervalSince(start)))
+        // Outdoor planned workouts use the same verified GPS odometer as Comenzar.
+        // Indoor strength/WOD keeps its series/exercise counters unchanged.
+        let gps = WorkoutLocationTracker.shared
+        let outdoor = WorkoutLocationTracker.shouldTrackRoute(for: session)
+            && gps.trackingSessionID == session.id
+        let kilometers = gps.recordedDistanceMeters / 1000
+        let activeSeconds = max(1, Date().timeIntervalSince(start))
+        let speedKmh = gps.recordedDistanceMeters / activeSeconds * 3.6
+        let isCycling = session.title.localizedCaseInsensitiveContains("bici")
+            || session.title.localizedCaseInsensitiveContains("cycling")
+        let gpsMetric: String
+        if gps.recordedDistanceMeters < 25 {
+            gpsMetric = isCycling ? "—" : "—:—"
+        } else if isCycling {
+            gpsMetric = String(format: "%.1f", speedKmh)
+        } else if speedKmh > 0.1 {
+            let paceSeconds = min(3599, Int(3600 / speedKmh))
+            gpsMetric = String(format: "%d:%02d", paceSeconds / 60, paceSeconds % 60)
+        } else {
+            gpsMetric = "—:—"
+        }
         let state = TrainingActivityAttributes.ContentState(
             phase: .running,
             title: session.title.isEmpty ? "Entrenamiento" : session.title,
-            symbol: "figure.cross.training",
-            subtitle: exercise.map { ($0.blockHeader ?? $0.exercise.name) } ?? "Entrenamiento programado",
+            symbol: outdoor ? "figure.run" : "figure.cross.training",
+            subtitle: exercise.map { ($0.blockHeader ?? $0.exercise.name) }
+                ?? "Entrenamiento programado",
             timerAnchor: start, elapsedSeconds: elapsed,
-            primaryValue: progress, primaryLabel: "Ejercicio",
-            secondaryValue: String(completedSets), secondaryLabel: "Series"
+            primaryValue: outdoor ? gpsMetric : progress,
+            primaryLabel: outdoor ? (isCycling ? "Veloc. media" : "Ritmo medio") : "Ejercicio",
+            secondaryValue: outdoor ? String(format: "%.2f", kilometers) : String(completedSets),
+            secondaryLabel: outdoor ? "Distancia (km)" : "Series"
         )
         await upsert(id: "planned:\(session.id.uuidString)", isPlanned: true, state: state)
     }

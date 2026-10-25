@@ -245,6 +245,7 @@ struct ReperaApp: App {
                     } else if phase == .inactive {
                         aiInbox.stopRealtime()
                     } else if phase == .active, wasBackgrounded {
+                        store.resumePlannedGPSTrackingIfNeeded()
                         // Real return from background — not the initial launch `.active`.
                         Task {
                             guard store.isHydrated else { return }
@@ -413,6 +414,8 @@ struct ReperaApp: App {
     /// Progressive Health after local state exists — skip full window if disk cache is fresh.
     /// Hoy en paralelo ligero; ventana 180d en utility para no congelar Inicio.
     private func warmHealthAfterHydrate() async {
+        // Resume Core Location independently of HealthKit permissions.
+        store.resumePlannedGPSTrackingIfNeeded()
         let health = HealthKitStore.shared
         health.refreshAuthorizationStatus()
         guard health.isAvailable else {

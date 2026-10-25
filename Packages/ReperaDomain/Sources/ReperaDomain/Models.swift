@@ -1943,6 +1943,9 @@ public struct WorkoutRoutePoint: Codable, Sendable, Equatable, Identifiable {
     public var speedMps: Double?
     /// Altitud GPS validada, en metros sobre el nivel del mar; optional para rutas antiguas.
     public var altitudeMeters: Double?
+    /// Precisión real de la medida (nil para rutas antiguas/importadas).
+    public var horizontalAccuracyMeters: Double?
+    public var verticalAccuracyMeters: Double?
 
     public init(
         id: Int,
@@ -1950,7 +1953,9 @@ public struct WorkoutRoutePoint: Codable, Sendable, Equatable, Identifiable {
         longitude: Double,
         recordedAt: Date = Date(),
         speedMps: Double? = nil,
-        altitudeMeters: Double? = nil
+        altitudeMeters: Double? = nil,
+        horizontalAccuracyMeters: Double? = nil,
+        verticalAccuracyMeters: Double? = nil
     ) {
         self.id = id
         self.latitude = latitude
@@ -1958,6 +1963,8 @@ public struct WorkoutRoutePoint: Codable, Sendable, Equatable, Identifiable {
         self.recordedAt = recordedAt
         self.speedMps = speedMps
         self.altitudeMeters = altitudeMeters
+        self.horizontalAccuracyMeters = horizontalAccuracyMeters
+        self.verticalAccuracyMeters = verticalAccuracyMeters
     }
 }
 

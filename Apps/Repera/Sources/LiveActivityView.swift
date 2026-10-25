@@ -502,17 +502,6 @@ private final class LiveGPXParser: NSObject, XMLParserDelegate {
 }
 
 /// Solo valores Sendable cruzan el callback de CoreLocation al MainActor.
-private struct LiveGPSFix: Sendable {
-    var latitude: Double
-    var longitude: Double
-    var altitude: Double
-    var accuracy: Double
-    var verticalAccuracy: Double
-    var speed: Double
-    var course: Double
-    var timestamp: Date
-}
-
 /// Un parcial confirmado se calcula con tiempo ACTIVO, descontando pausas.
 /// La interpolación sobre el cruce de 1 km evita depender de la frecuencia GPS.
 private struct LiveKmSplit: Codable, Identifiable, Sendable {
@@ -609,6 +598,7 @@ private struct LiveSnapshot: Codable {
     var selectedRouteID: UUID?
     var kilometerSplits: [LiveKmSplit]?
     var lastKilometerBoundarySeconds: TimeInterval?
+    var gpsSessionID: UUID?
 }
 
 /// La grabación no depende de que SwiftUI mantenga abierta la pestaña.
@@ -649,18 +639,10 @@ final class LiveActivityRecorder: NSObject {
     @ObservationIgnored private var speechSynthesizer = AVSpeechSynthesizer()
     private var guidanceAudioActive = false
     private(set) var spokenGuidanceEnabled = true
-    private var lastPosition: CLLocation?
-    /// Evita añadir a la sesión localizaciones de una pausa previa.
-    /// No se reinicia al volver del bloqueo: permite procesar fixes encolados.
-    private var gpsTrackingBeganAt: Date?
+    private var gpsSessionID = UUID()
     private var lastSave = Date.distantPast
     private var lastLiveActivityUpdate = Date.distantPast
     private var lastPublishedDistanceMeters: Double = 0
-    private let manager = CLLocationManager()
-    /// La sesión de Core Location mantiene autorización When In Use activa.
-    /// Activamos además las actualizaciones continuas solo si el bundle REAL
-    /// incluye UIBackgroundModes/location (de lo contrario iOS abortaría la app).
-    private var backgroundLocationSession: CLBackgroundActivitySession?
     private let snapshotKey = "repera.live.current.v1"
 
     private override init() {
@@ -669,11 +651,6 @@ final class LiveActivityRecorder: NSObject {
         if UserDefaults.standard.object(forKey: spokenGuidanceKey) != nil {
             spokenGuidanceEnabled = UserDefaults.standard.bool(forKey: spokenGuidanceKey)
         }
-        manager.delegate = self
-        manager.activityType = .fitness
-        manager.desiredAccuracy = kCLLocationAccuracyBest
-        manager.distanceFilter = 3
-        manager.pausesLocationUpdatesAutomatically = false
         if let data = UserDefaults.standard.data(forKey: snapshotKey),
            let snapshot = try? JSONDecoder().decode(LiveSnapshot.self, from: data),
            let restoredSport = LiveSport(rawValue: snapshot.sport),
@@ -685,6 +662,7 @@ final class LiveActivityRecorder: NSObject {
             recordedDistanceMeters = snapshot.recordedDistanceMeters
             routePoints = snapshot.routePoints
             rebuildElevationFromRoute()
+            gpsSessionID = snapshot.gpsSessionID ?? UUID()
             kilometerSplits = snapshot.kilometerSplits ?? []
             lastKilometerBoundarySeconds = snapshot.lastKilometerBoundarySeconds ?? 0
             latestKilometerReport = kilometerSplits.last.map {
@@ -791,18 +769,24 @@ final class LiveActivityRecorder: NSObject {
     /// Precarga el punto azul sin iniciar ni registrar todavía una sesión.
     func prepareMapLocation() {
         guard phase == .idle, sport.usesGPS else { return }
-        switch manager.authorizationStatus {
-        case .notDetermined:
-            manager.requestWhenInUseAuthorization()
-        case .authorizedAlways, .authorizedWhenInUse:
-            manager.requestLocation()
-        default:
-            gpsMessage = "Activa la ubicación para centrar el mapa."
+        Task { @MainActor [weak self] in
+            let tracker = WorkoutLocationTracker.shared
+            guard await tracker.ensureWhenInUseAuthorized() else {
+                self?.gpsMessage = "Activa la ubicación para centrar el mapa."
+                return
+            }
+            if let pin = await tracker.capturePin(), self?.phase == .idle {
+                self?.currentCoordinate = CLLocationCoordinate2D(
+                    latitude: pin.latitude, longitude: pin.longitude
+                )
+                self?.gpsMessage = nil
+            }
         }
     }
 
     func start() {
         guard phase == .idle else { return }
+        gpsSessionID = UUID()
         startedAt = Date()
         finishedAt = nil
         pausedAt = nil
@@ -818,17 +802,24 @@ final class LiveActivityRecorder: NSObject {
         previousFixActiveSeconds = nil
         announcedTurnIndices = []
         upcomingTurn = nil
-        lastPosition = nil
         lastPublishedDistanceMeters = 0
         currentSpeedMps = nil
         currentCourseDegrees = nil
         gpsMessage = nil
         phase = .recording
+        let sessionID = gpsSessionID
+        let workoutStart = startedAt ?? Date()
+        let selectedSport = sport
+        Task {
+            await HealthKitStore.shared.beginWorkout(
+                sessionId: sessionID, title: selectedSport.title, start: workoutStart,
+                activityType: selectedSport.healthType,
+                locationType: selectedSport.usesGPS ? .outdoor : .indoor
+            )
+        }
         if sport.usesGPS {
             startGPS()
             Task { await HealthKitStore.shared.ensureWorkoutRouteAccess() }
-            // Solicitar solo al empezar un deporte GPS: permite avisos por km
-            // también con iPhone bloqueado, sin depender de tener abierta la vista.
             if !spokenGuidanceEnabled {
                 UNUserNotificationCenter.current().requestAuthorization(
                     options: [.alert]
@@ -840,43 +831,30 @@ final class LiveActivityRecorder: NSObject {
     }
 
     private func startGPS() {
-        // Una nueva autorización no debe invalidar fixes anteriores encolados.
-        if gpsTrackingBeganAt == nil { gpsTrackingBeganAt = Date() }
-        switch manager.authorizationStatus {
-        case .notDetermined:
-            gpsMessage = "Autoriza la ubicación para registrar tu recorrido."
-            manager.requestWhenInUseAuthorization()
-        case .authorizedAlways, .authorizedWhenInUse:
-            // Comprobar el Info.plist REAL, no solo project.yml: la propiedad
-            // allowsBackgroundLocationUpdates aborta si falta este modo.
-            let modes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String] ?? []
-            let isApp = Bundle.main.bundleURL.pathExtension == "app"
-            let isTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-            if modes.contains("location"), isApp, !isTest,
-               UIApplication.shared.applicationState == .active {
-                manager.allowsBackgroundLocationUpdates = true
-                manager.showsBackgroundLocationIndicator = true
-                if backgroundLocationSession == nil {
-                    backgroundLocationSession = CLBackgroundActivitySession()
-                }
-                gpsMessage = nil
-            } else {
-                gpsMessage = "GPS solo con la app abierta."
+        let expected = gpsSessionID
+        Task { @MainActor [weak self] in
+            let tracker = WorkoutLocationTracker.shared
+            guard await tracker.ensureWhenInUseAuthorized() else {
+                self?.gpsMessage = "GPS no autorizado. Seguimos registrando el tiempo."
+                return
             }
-            manager.startUpdatingLocation()
-        default:
-            gpsMessage = "GPS no autorizado. Puedes continuar registrando el tiempo."
+            guard let self, self.phase == .recording, self.gpsSessionID == expected else { return }
+            let started = tracker.startRouteTracking(
+                sessionID: expected, cycling: self.sport.isCycling,
+                maxSpeedMetersPerSecond: self.sport.maxGPSMetersPerSecond,
+                existingPoints: self.routePoints,
+                existingDistanceMeters: self.recordedDistanceMeters,
+                onUpdate: { [weak self] update in self?.receive(update) }
+            )
+            self.gpsMessage = started ? nil : "Otro entrenamiento ya está utilizando el GPS."
+            if started { await HealthKitStore.shared.beginRecordedGPSRoute(sessionID: expected) }
         }
     }
 
-    private func stopGPS() {
-        gpsTrackingBeganAt = nil
-        manager.stopUpdatingLocation()
-        if manager.allowsBackgroundLocationUpdates {
-            manager.allowsBackgroundLocationUpdates = false
-        }
-        backgroundLocationSession?.invalidate()
-        backgroundLocationSession = nil
+    private func stopGPS(clear: Bool = true) {
+        _ = WorkoutLocationTracker.shared.stopRouteTracking(
+            sessionID: gpsSessionID, clear: clear
+        )
     }
 
     /// Checkpoint al pasar a segundo plano y mientras la vista está activa.
@@ -892,7 +870,7 @@ final class LiveActivityRecorder: NSObject {
         if phase == .recording, sport.usesGPS {
             // Una nueva lectura rompe el posible silencio del proveedor GPS
             // durante el bloqueo. La distancia sigue sumándose SOLO en receive.
-            manager.requestLocation()
+            WorkoutLocationTracker.shared.requestFreshLocation()
         }
         updateLiveActivity()
         checkpoint()
@@ -902,7 +880,7 @@ final class LiveActivityRecorder: NSObject {
         guard phase == .recording else { return }
         pausedAt = Date()
         phase = .paused
-        if sport.usesGPS { stopGPS() }
+        if sport.usesGPS { stopGPS(clear: false) }
         speechSynthesizer.stopSpeaking(at: .immediate)
         deactivateGuidanceAudio()
         currentSpeedMps = nil
@@ -914,7 +892,6 @@ final class LiveActivityRecorder: NSObject {
         guard phase == .paused else { return }
         if let pausedAt { pausedSeconds += Date().timeIntervalSince(pausedAt) }
         pausedAt = nil
-        lastPosition = nil
         previousFixActiveSeconds = nil
         phase = .recording
         if sport.usesGPS { startGPS() }
@@ -976,6 +953,7 @@ final class LiveActivityRecorder: NSObject {
         let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         return WorkoutSession(
+            id: gpsSessionID,
             title: cleaned.isEmpty ? sport.title : cleaned,
             exercises: [],
             phase: .finished,
@@ -992,6 +970,13 @@ final class LiveActivityRecorder: NSObject {
     }
 
     func discard(saved: Bool = false) {
+        if !saved {
+            let sessionID = gpsSessionID
+            Task {
+                HealthKitStore.shared.discardRecordedGPSRoute(sessionID: sessionID)
+                await HealthKitStore.shared.discardLiveTracking()
+            }
+        }
         if let startedAt {
             Task {
                 await WorkoutLiveActivityCoordinator.shared.dismissFree(
@@ -1019,7 +1004,6 @@ final class LiveActivityRecorder: NSObject {
         latestKilometerReport = nil
         previousFixActiveSeconds = nil
         chosenRoute = nil
-        lastPosition = nil
         UserDefaults.standard.removeObject(forKey: snapshotKey)
     }
 
@@ -1031,7 +1015,8 @@ final class LiveActivityRecorder: NSObject {
             recordedDistanceMeters: recordedDistanceMeters, routePoints: routePoints,
             savedAt: Date(), selectedRouteID: chosenRoute?.id,
             kilometerSplits: kilometerSplits,
-            lastKilometerBoundarySeconds: lastKilometerBoundarySeconds
+            lastKilometerBoundarySeconds: lastKilometerBoundarySeconds,
+            gpsSessionID: gpsSessionID
         )
         if let data = try? JSONEncoder().encode(snap) {
             UserDefaults.standard.set(data, forKey: snapshotKey)
@@ -1039,61 +1024,18 @@ final class LiveActivityRecorder: NSObject {
         }
     }
 
-    private func receive(_ fix: LiveGPSFix) {
-        let now = Date()
-        guard sport.usesGPS, (phase == .idle || phase == .recording),
-              fix.accuracy >= 0, fix.accuracy < 35,
-              fix.timestamp <= now.addingTimeInterval(10)
-        else { return }
-        if phase == .idle {
-            // Las previsualizaciones del mapa sí deben ser recientes.
-            guard now.timeIntervalSince(fix.timestamp) < 20 else { return }
-        } else {
-            // Core Location agrupa posiciones al suspender la UI. No descartar
-            // una tanda únicamente porque el primer punto tenga >20 s.
-            guard let trackingBeganAt = gpsTrackingBeganAt,
-                  fix.timestamp >= trackingBeganAt.addingTimeInterval(-3)
-            else { return }
-        }
-        let position = CLLocation(
-            coordinate: CLLocationCoordinate2D(latitude: fix.latitude, longitude: fix.longitude),
-            altitude: fix.altitude,
-            horizontalAccuracy: fix.accuracy,
-            verticalAccuracy: fix.verticalAccuracy,
-            course: -1,
-            speed: fix.speed,
-            timestamp: fix.timestamp
-        )
-        currentCoordinate = position.coordinate
-        if phase == .idle {
-            gpsMessage = nil
-            return
-        }
+    /// Shared GPS tracker validates accuracy, jumps, gaps and accumulated
+    /// distance ONCE. Free training only updates presentation and split state.
+    private func receive(_ update: WorkoutGPSUpdate) {
+        guard phase == .recording else { return }
+        let fix = update.fix
+        currentCoordinate = CLLocationCoordinate2D(latitude: fix.latitude, longitude: fix.longitude)
         currentSpeedMps = fix.speed >= 0 ? fix.speed : nil
-        // Solo confiar en el rumbo del GPS cuando el dispositivo se desplaza.
         if fix.course >= 0, fix.course < 360, fix.speed > 0.8 {
             currentCourseDegrees = fix.course
         }
         let beforeDistance = recordedDistanceMeters
-        if let previous = lastPosition {
-            let meters = position.distance(from: previous)
-            let seconds = fix.timestamp.timeIntervalSince(previous.timestamp)
-            guard seconds > 0 else { return }
-            // Si ha habido un salto de señal, guardar el nuevo punto como
-            // inicio de tramo pero NO sumar la recta ficticia a la distancia.
-            if seconds > 30 || meters / seconds > sport.maxGPSMetersPerSecond {
-                gpsMessage = "Señal GPS recuperada."
-            } else if meters >= max(3, min(7, max(fix.accuracy, previous.horizontalAccuracy) * 0.4)) {
-                recordedDistanceMeters += meters
-            } else {
-                // En reposo el ritmo medio sigue variando con el tiempo activo.
-                // Publicarlo sin añadir distancia inventada ni duplicar GPS.
-                if Date().timeIntervalSince(lastLiveActivityUpdate) >= 15 {
-                    updateLiveActivity()
-                }
-                return
-            }
-        }
+        recordedDistanceMeters = update.distanceMeters
         let activeSeconds = duration(at: fix.timestamp)
         if recordedDistanceMeters > beforeDistance {
             updateKilometerSplits(
@@ -1101,24 +1043,14 @@ final class LiveActivityRecorder: NSObject {
             )
         }
         previousFixActiveSeconds = activeSeconds
-        lastPosition = position
-        updateUpcomingTurn(position: position)
-        let point = WorkoutRoutePoint(
-            id: routePoints.count,
-            latitude: fix.latitude,
-            longitude: fix.longitude,
-            recordedAt: fix.timestamp,
-            speedMps: fix.speed >= 0 ? fix.speed : nil,
-            altitudeMeters: fix.verticalAccuracy >= 0 ? fix.altitude : nil
-        )
-        routePoints.append(point)
-        if sport.tracksElevation, fix.verticalAccuracy >= 0, fix.verticalAccuracy <= 15 {
-            integrateElevation(fix.altitude)
+        routePoints.append(update.point)
+        if sport.tracksElevation, let altitude = update.point.altitudeMeters,
+           let accuracy = update.point.verticalAccuracyMeters, accuracy <= 15 {
+            integrateElevation(altitude)
         }
+        updateUpcomingTurn(position: fix.location)
         if Date().timeIntervalSince(lastSave) > 10 { persistSnapshot() }
-        if Date().timeIntervalSince(lastLiveActivityUpdate) >= 5,
-           (abs(recordedDistanceMeters - lastPublishedDistanceMeters) >= 3 ||
-            Date().timeIntervalSince(lastLiveActivityUpdate) >= 15) {
+        if Date().timeIntervalSince(lastLiveActivityUpdate) >= 5 {
             updateLiveActivity()
         }
     }
@@ -1339,51 +1271,6 @@ extension LiveActivityRecorder: AVSpeechSynthesizerDelegate {
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
         Task { @MainActor [weak self] in self?.deactivateGuidanceAudio() }
-    }
-}
-
-extension LiveActivityRecorder: CLLocationManagerDelegate {
-    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        Task { @MainActor [weak self] in
-            guard let self, self.sport.usesGPS else { return }
-            if self.phase == .recording {
-                self.startGPS()
-            } else if self.phase == .idle {
-                self.prepareMapLocation()
-            }
-        }
-    }
-
-    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        // Core Location puede entregar varios puntos en un único callback después
-        // de bloquear el iPhone: no descartar los intermedios ni dibujar atajos.
-        let samples = locations.map { position in
-            LiveGPSFix(
-                latitude: position.coordinate.latitude, longitude: position.coordinate.longitude,
-                altitude: position.altitude, accuracy: position.horizontalAccuracy,
-                verticalAccuracy: position.verticalAccuracy,
-                speed: position.speed, course: position.course, timestamp: position.timestamp
-            )
-        }
-        Task { @MainActor [weak self] in
-            for sample in samples { self?.receive(sample) }
-        }
-    }
-
-    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        let code = (error as? CLError)?.code
-        // CoreLocation puede emitir locationUnknown al adquirir señal; no es un fallo
-        // persistente y no debe mostrar "The operation couldn't be completed".
-        if code == .locationUnknown { return }
-        let message: String
-        if code == .denied {
-            message = "Activa la ubicación para registrar el recorrido."
-        } else if code == .network {
-            message = "La ubicación no está disponible. Seguimos registrando el tiempo."
-        } else {
-            message = "GPS temporalmente no disponible. Seguimos registrando el tiempo."
-        }
-        Task { @MainActor [weak self] in self?.gpsMessage = message }
     }
 }
 
