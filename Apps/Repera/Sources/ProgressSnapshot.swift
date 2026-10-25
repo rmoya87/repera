@@ -213,7 +213,13 @@ enum ProgressDataEngine {
         }()
         if Task.isCancelled { return nil }
 
-        let workoutDates = input.workouts.compactMap { $0.finishedAt ?? $0.startedAt }
+        // Rachas, calendario y filtro de Progreso atribuyen «Comenzar»
+        // al día de inicio, incluso si la sesión termina después de medianoche.
+        let workoutDates = input.workouts.compactMap { workout in
+            workout.liveSportID == nil
+                ? (workout.finishedAt ?? workout.startedAt)
+                : (workout.startedAt ?? workout.finishedAt)
+        }
         let externalDates = input.externalActivities.map(\.start)
         let streak = StatsEngine.consecutiveWeekStreak(
             workoutDates: workoutDates,
