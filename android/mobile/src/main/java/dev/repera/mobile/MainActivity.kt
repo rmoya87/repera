@@ -1688,6 +1688,8 @@ data class StateOverview(
                                         val planned = ex.optJSONArray("plannedSets")
                                         val first = planned?.optJSONObject(0)
                                         RoutineBlockEntryInfo(
+                                            id = ex.optString("id").ifBlank { null },
+                                            sourceJson = ex.toString(),
                                             exerciseId = ex.getString("exerciseId"),
                                             name = "",
                                             quantity = first?.optInt("targetReps")
@@ -1699,6 +1701,7 @@ data class StateOverview(
                                                 (0 until arr.length()).map { si ->
                                                     val ps = arr.getJSONObject(si)
                                                     PlannedSetDraft(
+                                                        id = ps.optString("id").ifBlank { null },
                                                         targetReps = ps.optInt("targetReps", 8),
                                                         targetWeightKg = if (ps.has("targetWeightKg") &&
                                                             !ps.isNull("targetWeightKg"))
@@ -1717,6 +1720,8 @@ data class StateOverview(
                                     (0 until mv.length()).map { mi ->
                                         val m = mv.getJSONObject(mi)
                                         RoutineBlockEntryInfo(
+                                            id = m.optString("id").ifBlank { null },
+                                            sourceJson = m.toString(),
                                             exerciseId = m.optString("exerciseId"),
                                             name = m.optString("name"),
                                             quantity = when {
@@ -1733,6 +1738,8 @@ data class StateOverview(
                                 ?.optJSONArray("repScheme")
                                 ?.let { s -> (0 until s.length()).map { s.getInt(it) } }
                             RoutineBlockInfo(
+                                id = block.optString("id").ifBlank { null },
+                                sourceJson = block.toString(),
                                 title = block.optString("title"),
                                 format = if (kind == "strength") "strength"
                                     else block.optString("wodFormat", "strength"),
@@ -1908,7 +1915,9 @@ data class RoutineBlockInfo(
     val workSeconds: Int = 20,
     val restSeconds: Int = 10,
     val ladderScheme: List<Int>? = null,
-    val entries: List<RoutineBlockEntryInfo> = emptyList()
+    val entries: List<RoutineBlockEntryInfo> = emptyList(),
+    val id: String? = null,
+    val sourceJson: String? = null
 )
 
 data class RoutineBlockEntryInfo(
@@ -1919,7 +1928,9 @@ data class RoutineBlockEntryInfo(
     val weightKg: Double? = null,
     /** Series planificadas completas (fuerza), con targetRir si la rutina lo
      *  trae (iOS lo escribe). Round-trip: editar y guardar no lo pierde. */
-    val plannedSets: List<PlannedSetDraft>? = null
+    val plannedSets: List<PlannedSetDraft>? = null,
+    val id: String? = null,
+    val sourceJson: String? = null
 )
 
 data class ExerciseEntry(

@@ -491,3 +491,7 @@ capacidad; los sustitutos eran paridad exacta por código muerto en iOS).
 - `EditorBlockOps` (JVM, 8 tests ejecutados): conversión fuerza↔WOD con la regla de Apple (movimiento→ejercicio descarta weightFemaleKg, scaleAlternative, notes y repScheme; REST no se convierte), mover/ordenar bloques, `writeSetsToMovement`, round-trip de campos WOD por `applying`.
 - UI: renombrar/ordenar/quitar/añadir bloque, formato WOD, editor de movimientos (REST, nombre, series, cal/m, peso M, escala, notas), Mover entre cualquier bloque. androidTest COMPILADO, no ejecutado; sin inspección visual.
 - Abierto: arrastre long-press (solo ↑↓), crear ejercicio personalizado al pasar WOD→fuerza si no está en catálogo (hoy se aborta sin quitar), RIR por serie WOD, editor de PLAN (RoutineBlocksEditorScreen) sin ids/campos WOD.
+
+### Editor de PLAN con identidad (gap e)
+- `RoutineBlockDraft/RoutineDraftEntry/PlannedSetDraft` llevan blockId/itemId/set id y el JSON original (campos al final, sin romper llamadas posicionales). `buildBlock` parte del JSON original: conserva ids, REST, peso M, escala, notas, restSeconds, series y RIR por serie. Si cambia la prescripción de un movimiento WOD, descarta SOLO explicitPlannedSets/repScheme/reps-cal-m previos y reescribe la cantidad. Series de fuerza no uniformes sin tocar se escriben tal cual.
+- Tests instrumentados (2) COMPILADOS, no ejecutados.

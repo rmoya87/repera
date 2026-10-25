@@ -110,16 +110,27 @@ class WorkoutRepository(context: Context, googleId: String) {
 
     /** Bloque compartido por createRoutine y replaceRoutineBlocks: misma
      *  validación y misma escritura JSON que consume iOS. */
+    private fun isRestEntry(e: RoutineDraftEntry): Boolean =
+        e.sourceJson?.let { runCatching { JSONObject(it).optBoolean("isRest") }.getOrDefault(false) } == true
+
+    private fun originalQuantity(m: JSONObject): Int? = when {
+        m.has("reps") && !m.isNull("reps") -> m.getInt("reps")
+        m.has("calories") && !m.isNull("calories") -> m.getInt("calories")
+        m.has("distanceMeters") && !m.isNull("distanceMeters") -> m.getInt("distanceMeters")
+        else -> null
+    }
+
     private fun buildBlock(
         format: String,
         blockTitle: String?,
         entries: List<RoutineDraftEntry>,
         byId: Map<String, JSONObject>,
         timeCapMinutes: Int, rounds: Int, emomIntervalSeconds: Int,
-        workSeconds: Int, restSeconds: Int, ladderScheme: List<Int>?
+        workSeconds: Int, restSeconds: Int, ladderScheme: List<Int>?,
+        blockId: String? = null, blockSourceJson: String? = null
     ): JSONObject {
-        val block = JSONObject()
-            .put("id", UUID.randomUUID().toString())
+        val block = (blockSourceJson?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject())
+            .put("id", blockId ?: UUID.randomUUID().toString())
             .put("title", blockTitle?.takeIf { it.isNotBlank() } ?: when (format) {
                 "strength" -> "Fuerza"
                 else -> dev.repera.domain.WodFormat.fromWire(format)?.displayName
@@ -149,7 +160,7 @@ class WorkoutRepository(context: Context, googleId: String) {
                             (ps.targetWeightKg.isFinite() && ps.targetWeightKg >= 0))
                         require(ps.targetRir == null ||
                             (ps.targetRir.isFinite() && ps.targetRir >= 0))
-                        val set = JSONObject().put("id", UUID.randomUUID().toString())
+                        val set = JSONObject().put("id", ps.id ?: UUID.randomUUID().toString())
                             .put("targetReps", if (isMobilityHold(movement)) 1 else ps.targetReps)
                         if (isMobilityHold(movement)) set.put("targetDurationSeconds", 30)
                         ps.targetWeightKg?.let { set.put("targetWeightKg", it) }
@@ -166,7 +177,8 @@ class WorkoutRepository(context: Context, googleId: String) {
                 require(entry.restSeconds == null || entry.restSeconds in 0..600) {
                     "El descanso debe estar entre 0 y 600 segundos"
                 }
-                val item = JSONObject().put("id", UUID.randomUUID().toString())
+                val item = (entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject())
+                    .put("id", entry.itemId ?: UUID.randomUUID().toString())
                     .put("exerciseId", entry.exerciseId).put("plannedSets", planned)
                     .put("quantityUnit", ExerciseInput.defaultQuantityUnit(
                         movement.getString("name"), movement.optString("equipment")))
@@ -177,18 +189,29 @@ class WorkoutRepository(context: Context, googleId: String) {
         } else {
             val movements = JSONArray()
             for (entry in entries) {
+                if (isRestEntry(entry)) {
+                    movements.put(JSONObject(entry.sourceJson!!)); continue
+                }
                 val movement = byId[entry.exerciseId] ?: error("Ejercicio no encontrado")
                 require(entry.quantity in 1..10000)
                 val quantityUnit = ExerciseInput.defaultQuantityUnit(
                     movement.getString("name"), movement.optString("equipment"))
-                val item = JSONObject().put("id", UUID.randomUUID().toString())
-                    .put("exerciseId", entry.exerciseId)
-                    .put("name", movement.getString("name"))
-                    .put("isRest", false)
-                when (quantityUnit) {
-                    "calories" -> item.put("calories", entry.quantity)
-                    "meters" -> item.put("distanceMeters", entry.quantity)
-                    else -> item.put("reps", entry.quantity)
+                val original = entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() }
+                    ?.takeIf { it.optString("exerciseId") == entry.exerciseId }
+                val item = original ?: JSONObject().put("exerciseId", entry.exerciseId)
+                    .put("name", movement.getString("name")).put("isRest", false)
+                item.put("id", entry.itemId ?: original?.optString("id")?.ifBlank { null } ?: UUID.randomUUID().toString())
+                val unchanged = original != null && originalQuantity(original) == entry.quantity
+                if (!unchanged) {
+                    // La prescripción cambió: se reescribe y se descartan series explícitas
+                    // y esquema previos (el resto de campos WOD se conserva).
+                    item.remove("explicitPlannedSets"); item.remove("repScheme")
+                    item.remove("reps"); item.remove("calories"); item.remove("distanceMeters")
+                    when (quantityUnit) {
+                        "calories" -> item.put("calories", entry.quantity)
+                        "meters" -> item.put("distanceMeters", entry.quantity)
+                        else -> item.put("reps", entry.quantity)
+                    }
                 }
                 if (format == "ladder")
                     item.put("repScheme", JSONArray(ladderScheme))
@@ -356,8 +379,9 @@ class WorkoutRepository(context: Context, googleId: String) {
                 "Tipo de bloque no permitido"
             }
             require(draft.entries.isNotEmpty()) { "Cada bloque necesita al menos un ejercicio" }
-            require(draft.entries.map { it.exerciseId }.distinct().size ==
-                draft.entries.size) { "No repitas el mismo ejercicio en un bloque" }
+            val nonRest = draft.entries.filterNot { isRestEntry(it) }
+            require(nonRest.map { it.exerciseId }.distinct().size ==
+                nonRest.size || draft.format != "strength") { "No repitas el mismo ejercicio en un bloque" }
             require(draft.timeCapMinutes in 1..180 && draft.rounds in 1..100)
             require(draft.emomIntervalSeconds in 15..600 &&
                 draft.workSeconds in 5..600 && draft.restSeconds in 0..600)
@@ -374,7 +398,8 @@ class WorkoutRepository(context: Context, googleId: String) {
             }
             array.put(buildBlock(draft.format, draft.title, draft.entries, byId,
                 draft.timeCapMinutes, draft.rounds, draft.emomIntervalSeconds,
-                draft.workSeconds, draft.restSeconds, draft.ladderScheme))
+                draft.workSeconds, draft.restSeconds, draft.ladderScheme,
+                draft.blockId, draft.sourceJson))
         }
         return array
     }
@@ -2412,7 +2437,10 @@ data class RoutineBlockDraft(
     val emomIntervalSeconds: Int = 60,
     val workSeconds: Int = 20,
     val restSeconds: Int = 10,
-    val ladderScheme: List<Int>? = null
+    val ladderScheme: List<Int>? = null,
+    /** Identidad del bloque original (editar conserva ids y campos no editables). */
+    val blockId: String? = null,
+    val sourceJson: String? = null
 )
 
 data class RoutineDraftEntry(
@@ -2423,7 +2451,10 @@ data class RoutineDraftEntry(
     val restSeconds: Int? = null,
     /** Editor por serie (fuerza): cuando llega, sustituye a sets/quantity/
      *  weightKg uniformes y se escribe 1:1 (paridad PlannedSet iOS). */
-    val plannedSets: List<PlannedSetDraft>? = null
+    val plannedSets: List<PlannedSetDraft>? = null,
+    /** Identidad y JSON original del ítem/movimiento (REST, escala, peso M, notas...). */
+    val itemId: String? = null,
+    val sourceJson: String? = null
 )
 
 /** Serie planificada (port de PlannedSet iOS). targetRir null = sin fijar;
@@ -2431,7 +2462,8 @@ data class RoutineDraftEntry(
 data class PlannedSetDraft(
     val targetReps: Int,
     val targetWeightKg: Double? = null,
-    val targetRir: Double? = null
+    val targetRir: Double? = null,
+    val id: String? = null
 )
 
 /** Mirrors Swift Routine: one-off dates and weekly templates are mutually exclusive. */

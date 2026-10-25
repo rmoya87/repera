@@ -101,7 +101,8 @@ private fun formatLabel(wire: String): String = when (wire) {
 
 private class EntryUi(val exerciseId: String, name: String, quantity: Int,
                       sets: Int, weightKg: Double?,
-                      planned: List<PlannedSetDraft>? = null) {
+                      planned: List<PlannedSetDraft>? = null,
+                      val itemId: String? = null, val sourceJson: String? = null) {
     var name by mutableStateOf(name)
     var quantity by mutableStateOf(quantity.toString())
     var sets by mutableStateOf(sets.toString())
@@ -116,9 +117,17 @@ private class EntryUi(val exerciseId: String, name: String, quantity: Int,
         addAll(base)
     }
     var setsExpanded by mutableStateOf(false)
+    /** Valores iniciales de los campos uniformes: si no se tocan, las series
+     *  originales (ids, RIR, no uniformes) se escriben tal cual. */
+    val initialUniform = Triple(quantity.toString(), sets.toString(), weightKg?.toString() ?: "")
+    val hadPlanned = planned != null
+    val untouchedUniform: Boolean
+        get() = hadPlanned && Triple(quantity, sets, weight) == initialUniform
 }
 
 private class BlockDraftUi(info: RoutineBlockInfo? = null) {
+    val blockId: String? = info?.id
+    val sourceJson: String? = info?.sourceJson
     var title by mutableStateOf(info?.title ?: "")
     var format by mutableStateOf(info?.format ?: "strength")
     var timeCap by mutableStateOf((info?.timeCapMinutes ?: 12).toString())
@@ -130,7 +139,7 @@ private class BlockDraftUi(info: RoutineBlockInfo? = null) {
     val entries = mutableStateListOf<EntryUi>().apply {
         info?.entries?.forEach {
             add(EntryUi(it.exerciseId, it.name, it.quantity, it.sets, it.weightKg,
-                it.plannedSets))
+                it.plannedSets, it.id, it.sourceJson))
         }
     }
 
@@ -146,17 +155,19 @@ private class BlockDraftUi(info: RoutineBlockInfo? = null) {
         } else null
         val parsed = entries.map { entry ->
             val base = RoutineDraftEntry(
+                itemId = entry.itemId, sourceJson = entry.sourceJson,
                 exerciseId = entry.exerciseId,
                 quantity = entry.quantity.toIntOrNull() ?: return null,
                 sets = entry.sets.toIntOrNull() ?: return null,
                 weightKg = entry.weight.takeIf { it.isNotBlank() }
                     ?.replace(',', '.')?.toDoubleOrNull() ?: return null
             )
-            if (format == "strength" && entry.setsExpanded)
+            if (format == "strength" && (entry.setsExpanded || entry.untouchedUniform))
                 base.copy(plannedSets = entry.plannedSets.toList())
             else base
         }
         return RoutineBlockDraft(
+            blockId = blockId, sourceJson = sourceJson,
             title = title.trim(), format = format, entries = parsed,
             timeCapMinutes = cap, rounds = rds, emomIntervalSeconds = intv,
             workSeconds = wk, restSeconds = rst, ladderScheme = scheme

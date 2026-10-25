@@ -130,4 +130,66 @@ class RoutineBlocksEditorInstrumentedTest {
         assertEquals(20, tabata.getInt("workSeconds"))
         assertEquals(10, tabata.getInt("restSeconds"))
     }
+
+    /** Snapshot antiguo con campos WOD que el borrador simple no modela. Editar y guardar
+     *  sin tocar la prescripción conserva ids, REST, peso M, escala, notas y repScheme. */
+    @Test fun planEditorRoundTripKeepsIdsAndWodFields() {
+        val (repo, local) = repo()
+        val (pullId, rowId) = exerciseIds(local)
+        val state = JSONObject(String(local.read()!!))
+        val wod = JSONObject("""{"id":"blk-w","title":"W","kind":"wod","wodFormat":"amrap","timeCapMinutes":12,"movements":[
+            {"id":"mv-1","exerciseId":"$pullId","name":"Dominadas","isRest":false,"reps":10,"repScheme":[10,8],
+             "weightFemaleKg":30,"scaleAlternative":"banda","notes":"estrictas","explicitPlannedSets":[{"id":"ps-1","targetReps":10},{"id":"ps-2","targetReps":8}]},
+            {"id":"mv-r","name":"REST","isRest":true,"restSeconds":90}]}""")
+        val str = JSONObject("""{"id":"blk-s","title":"S","kind":"strength","exercises":[
+            {"id":"it-1","exerciseId":"$rowId","restSeconds":120,"quantityUnit":"reps","plannedSets":[
+              {"id":"sp-1","targetReps":5,"targetWeightKg":60,"targetRir":2},{"id":"sp-2","targetReps":3,"targetWeightKg":70}]}]}""")
+        state.getJSONArray("routines").put(JSONObject().put("id", "r1").put("title", "Plan")
+            .put("blocks", JSONArray().put(wod).put(str)).put("progression", "off").put("isFavorite", false))
+        local.write(state.toString().toByteArray(Charsets.UTF_8))
+        // Drafts como los produce el editor sin cambios del usuario.
+        val drafts = listOf(
+            RoutineBlockDraft(blockId = "blk-w", sourceJson = wod.toString(), title = "W", format = "amrap",
+                entries = listOf(
+                    RoutineDraftEntry(pullId, 10, itemId = "mv-1", sourceJson = wod.getJSONArray("movements").getJSONObject(0).toString()),
+                    RoutineDraftEntry("", 1, itemId = "mv-r", sourceJson = wod.getJSONArray("movements").getJSONObject(1).toString()))),
+            RoutineBlockDraft(blockId = "blk-s", sourceJson = str.toString(), title = "S", format = "strength",
+                entries = listOf(RoutineDraftEntry(rowId, 5, sets = 2, weightKg = 60.0, itemId = "it-1",
+                    sourceJson = str.getJSONArray("exercises").getJSONObject(0).toString(),
+                    plannedSets = listOf(PlannedSetDraft(5, 60.0, 2.0, "sp-1"), PlannedSetDraft(3, 70.0, null, "sp-2"))))))
+        repo.replaceRoutineBlocks("r1", drafts)
+        val after = JSONObject(String(local.read()!!)).getJSONArray("routines").getJSONObject(0).getJSONArray("blocks")
+        assertEquals("blk-w", after.getJSONObject(0).getString("id"))
+        val mv = after.getJSONObject(0).getJSONArray("movements")
+        val m = mv.getJSONObject(0)
+        assertEquals("mv-1", m.getString("id")); assertEquals(30.0, m.getDouble("weightFemaleKg"), 0.0)
+        assertEquals("banda", m.getString("scaleAlternative")); assertEquals("estrictas", m.getString("notes"))
+        assertEquals(2, m.getJSONArray("repScheme").length()); assertEquals("ps-2", m.getJSONArray("explicitPlannedSets").getJSONObject(1).getString("id"))
+        assertTrue(mv.getJSONObject(1).getBoolean("isRest")); assertEquals(90, mv.getJSONObject(1).getInt("restSeconds"))
+        val item = after.getJSONObject(1).getJSONArray("exercises").getJSONObject(0)
+        assertEquals("it-1", item.getString("id")); assertEquals(120, item.getInt("restSeconds"))
+        assertEquals("sp-1", item.getJSONArray("plannedSets").getJSONObject(0).getString("id"))
+        assertEquals(2.0, item.getJSONArray("plannedSets").getJSONObject(0).getDouble("targetRir"), 0.0)
+        assertEquals(3, item.getJSONArray("plannedSets").getJSONObject(1).getInt("targetReps"))
+    }
+
+    /** Cambiar la prescripción descarta series explícitas y esquema, pero conserva escala/notas/peso M. */
+    @Test fun planEditorChangingQuantityDropsOnlyPrescription() {
+        val (repo, local) = repo()
+        val (pullId, _) = exerciseIds(local)
+        val state = JSONObject(String(local.read()!!))
+        val mvJson = JSONObject("""{"id":"mv-1","exerciseId":"$pullId","name":"Dominadas","isRest":false,"reps":10,"repScheme":[10,8],
+            "weightFemaleKg":30,"scaleAlternative":"banda","explicitPlannedSets":[{"id":"ps-1","targetReps":10}]}""")
+        val wod = JSONObject().put("id", "blk-w").put("title", "W").put("kind", "wod").put("wodFormat", "amrap")
+            .put("timeCapMinutes", 12).put("movements", JSONArray().put(mvJson))
+        state.getJSONArray("routines").put(JSONObject().put("id", "r1").put("title", "Plan")
+            .put("blocks", JSONArray().put(wod)).put("progression", "off").put("isFavorite", false))
+        local.write(state.toString().toByteArray(Charsets.UTF_8))
+        repo.replaceRoutineBlocks("r1", listOf(RoutineBlockDraft(blockId = "blk-w", sourceJson = wod.toString(), title = "W",
+            format = "amrap", entries = listOf(RoutineDraftEntry(pullId, 15, itemId = "mv-1", sourceJson = mvJson.toString())))))
+        val m = JSONObject(String(local.read()!!)).getJSONArray("routines").getJSONObject(0)
+            .getJSONArray("blocks").getJSONObject(0).getJSONArray("movements").getJSONObject(0)
+        assertEquals(15, m.getInt("reps")); assertFalse(m.has("repScheme")); assertFalse(m.has("explicitPlannedSets"))
+        assertEquals("banda", m.getString("scaleAlternative")); assertEquals("mv-1", m.getString("id"))
+    }
 }
