@@ -63,14 +63,12 @@ struct StatsView: View {
                             case .training:
                                 if isPro {
                                     tilesGrid
-                                    liveSportsProgressCard
                                     activityCard
                                     muscleBalanceCard
                                     mobilityProgressCard
                                     proAdvancedSections
                                 } else {
                                     freeTilesGrid
-                                    liveSportsProgressCard
                                     freeActivityCard
                                     muscleBalanceCard
                                     mobilityProgressCard
@@ -246,77 +244,6 @@ struct StatsView: View {
                 }
             }
         }
-    }
-
-    /// El resumen deportivo comparte los entrenos filtrados del mismo periodo.
-    /// No duplica actividades importadas de Apple Salud ni inventa calorías/FC.
-    private var liveWorkoutsInRange: [WorkoutSession] {
-        snap.filteredWorkouts.filter {
-            $0.phase == .finished && $0.finishedAt != nil && $0.liveSportID != nil
-        }
-    }
-
-    /// Array tipado para que ForEach escoja la sobrecarga de colección,
-    /// no la de Binding; solo enumera deportes presentes en el periodo.
-    private var recordedSports: [LiveSport] {
-        let sportIDs = Set(liveWorkoutsInRange.compactMap(\.liveSportID))
-        return LiveSport.allCases.filter { sportIDs.contains($0.rawValue) }
-    }
-
-    @ViewBuilder
-    private var liveSportsProgressCard: some View {
-        if !liveWorkoutsInRange.isEmpty {
-            let workouts = liveWorkoutsInRange
-            let seconds = workouts.reduce(0.0) {
-                $0 + max(0, $1.activeDurationSeconds ?? $1.durationMinutes * 60)
-            }
-            let kilometers = workouts.reduce(0.0) {
-                $0 + max(0, $1.recordedDistanceMeters ?? 0)
-            } / 1000
-            VStack(alignment: .leading, spacing: 8) {
-                OGCardSectionTitle(title: "Deportes · Comenzar")
-                OGCard {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(spacing: 8) {
-                            liveSportStat("Sesiones", value: "\(workouts.count)")
-                            liveSportStat("Tiempo", value: "\(Int((seconds / 60).rounded())) min")
-                            liveSportStat("Distancia", value: String(format: "%.1f km", kilometers))
-                        }
-                        ForEach(recordedSports, id: \.rawValue) { (sport: LiveSport) in
-                            let related = workouts.filter { $0.liveSportID == sport.rawValue }
-                            NavigationLink {
-                                LiveSportHistoryView(sport: sport)
-                            } label: {
-                                HStack(spacing: 10) {
-                                    Image(systemName: sport.symbol)
-                                        .foregroundStyle(OG.accent).frame(width: 24)
-                                    Text(sport.title).foregroundStyle(OG.label)
-                                    Spacer(minLength: 4)
-                                    Text("\(related.count)")
-                                        .foregroundStyle(OG.label2).monospacedDigit()
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(OG.label3)
-                                }
-                                .font(.subheadline)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func liveSportStat(_ title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(value)
-                .font(.system(size: 17, weight: .semibold, design: .rounded))
-                .monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
-                .foregroundStyle(OG.label)
-            Text(title).font(.caption2).foregroundStyle(OG.label2)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// El mapa y las barras musculares son gratuitos, sin filtros de suscripción.
