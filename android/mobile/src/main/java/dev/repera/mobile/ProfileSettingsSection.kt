@@ -16,15 +16,7 @@ import androidx.compose.ui.unit.dp
     var error by remember {mutableStateOf<String?>(null)}
     val picker=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {uri ->
         if(uri!=null) runCatching {
-            // ImageDecoder honors camera EXIF orientation and downsamples before allocation.
-            val source=android.graphics.ImageDecoder.createSource(context.contentResolver,uri)
-            val bitmap=android.graphics.ImageDecoder.decodeBitmap(source) {decoder,info,_ ->
-                val scale=minOf(1.0,256.0/maxOf(info.size.width,info.size.height))
-                decoder.setTargetSize(maxOf(1,(info.size.width*scale).toInt()),maxOf(1,(info.size.height*scale).toInt()))
-                decoder.allocator=android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE
-            }
-            val bytes=java.io.ByteArrayOutputStream().also {bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG,82,it)}.toByteArray()
-            require(bytes.size<=200_000)
+            val bytes=ProfilePhotoCodec.jpeg(context.contentResolver,uri)
             onChange(value.copy(avatarJPEG=android.util.Base64.encodeToString(bytes,android.util.Base64.NO_WRAP)))
             error=null
         }.onFailure {error="No se pudo leer la foto. Prueba otra imagen."}

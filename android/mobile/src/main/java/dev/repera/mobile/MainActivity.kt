@@ -1378,6 +1378,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     }
 
     private suspend fun reloadFor(id: String) {
+        val revision=centerGate.revision
+        fun current()=profile?.uniqueId==id && centerGate.revision==revision
+        if(!current()) return
         val (overview, active, bytes) = withContext(Dispatchers.IO) {
             val store = LocalSnapshotStore(this@MainActivity, id)
             MobilityCatalogMigration.ensure(this@MainActivity, id)
@@ -1391,10 +1394,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             val bytes = store.read()
             Triple(StateOverview.fromBytes(bytes, healthSamples, recoveryRead), repository.active(), bytes)
         }
+        if(!current()) return
         // Valoración pendiente tras terminar sesión (pendingSessionReview iOS).
-        withContext(Dispatchers.IO) {
+        val review=withContext(Dispatchers.IO) {
             WorkoutRepository(this@MainActivity, id).consumePendingReview()
-        }?.let { pendingReviewSessionId = it.first; pendingReview = it.second }
+        }
+        if(!current()) return
+        review?.let { pendingReviewSessionId = it.first; pendingReview = it.second }
         snapshot = overview
         // Contadores que alimentan la política de límites Gratis (iOS:
         // SubscriptionManager.syncCounts). Rutinas guardadas y ejercicios
@@ -1410,10 +1416,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         // Local persistence is the source of truth. A missing/disconnected watch
         // must not make a saved training action appear to have failed.
         withContext(Dispatchers.IO) {
+            if(!current()) return@withContext
             runCatching { WearActiveSessionBridge.publish(this@MainActivity, bytes) }
             runCatching {
                 val plan = WorkoutRepository(this@MainActivity, id).todayPlanSession(professional=centerSnapshot?.trainingSessions.orEmpty())
-                WearActiveSessionBridge.publishTodayPlan(this@MainActivity, plan)
+                if(current()) WearActiveSessionBridge.publishTodayPlan(this@MainActivity, plan)
             }
         }
     }
@@ -1468,21 +1475,25 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                                  action: WorkoutRepository.() -> Unit) {
         val signedIn = profile ?: return
         if (busy) return
+        val revision=centerGate.revision
+        fun current()=profile?.uniqueId==signedIn.uniqueId && centerGate.revision==revision
         busy = true
         lifecycleScope.launch {
             try {
                 withContext(Dispatchers.IO) {
                     WorkoutRepository(this@MainActivity, signedIn.uniqueId).action()
                 }
+                if(!current()) return@launch
                 reloadFor(signedIn.uniqueId)
+                if(!current()) return@launch
                 DriveSyncWorker.syncNow(this@MainActivity)
                 if (verifiedSupabase != null) syncWorkoutMirror()
                 status = null
                 onSuccess?.invoke()
             } catch (error: Exception) {
-                status = error.localizedMessage ?: "No se pudo guardar el entrenamiento"
+                if(current()) status = error.localizedMessage ?: "No se pudo guardar el entrenamiento"
             } finally {
-                busy = false
+                if(current()) busy = false
             }
         }
     }
