@@ -43,7 +43,7 @@ class LiveSportHistoryInstrumentedTest {
         var opened: String? = null
         val sessions = listOf(session("r1", "running", 5000.0), session("r2", "running", 4500.0), session("p1", "padel"))
         compose.setContent {
-            MaterialTheme(colorScheme = darkColorScheme(primary = brandGreen)) {
+            MaterialTheme(colorScheme = reperaColorScheme(true)) {
                 Surface(Modifier.fillMaxSize()) {
                     var sport by remember { mutableStateOf<LiveSport?>(null) }
                     if (sport == null) LiveSportsCatalogScreen(sessions, "", { sport = it })
@@ -85,7 +85,7 @@ class LiveSportHistoryInstrumentedTest {
             session("second", "running", 4900.0).copy(liveRouteID = "route", activeDurationSeconds = 1700.0, startedEpochMillis = 1793005200000L),
             session("cut", "running", 1000.0).copy(liveRouteID = "route", activeDurationSeconds = 300.0))
         compose.setContent {
-            MaterialTheme(colorScheme = darkColorScheme(primary = brandGreen)) {
+            MaterialTheme(colorScheme = reperaColorScheme(true)) {
                 Surface(Modifier.fillMaxSize()) {
                     LiveRouteEvolutionScreen(route, LiveSport.RUNNING, sessions, {}, {})
                 }

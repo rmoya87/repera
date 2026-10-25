@@ -169,9 +169,7 @@ fun ReperaMobileScreen(
     onDriveSync: () -> Unit,
     onSignOut: () -> Unit
 ) {
-    val scheme = if (isSystemInDarkTheme()) {
-        darkColorScheme(primary = brandGreen, onPrimary = Color.Black)
-    } else lightColorScheme(primary = brandGreenReadable, onPrimary = Color.White)
+    val scheme = reperaColorScheme(isSystemInDarkTheme())
     MaterialTheme(colorScheme = scheme) {
         if (!isAuthenticated) {
             // OnboardingFlowView iOS: título centrado + subtítulo, botón Google
