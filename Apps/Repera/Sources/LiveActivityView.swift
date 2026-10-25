@@ -327,6 +327,19 @@ final class LiveActivityRecorder: NSObject {
         chosenRoute = route
     }
 
+    /// Precarga el punto azul sin iniciar ni registrar todavía una sesión.
+    func prepareMapLocation() {
+        guard phase == .idle, sport.usesGPS else { return }
+        switch manager.authorizationStatus {
+        case .notDetermined:
+            manager.requestWhenInUseAuthorization()
+        case .authorizedAlways, .authorizedWhenInUse:
+            manager.requestLocation()
+        default:
+            gpsMessage = "Activa la ubicación para centrar el mapa."
+        }
+    }
+
     func start() {
         guard phase == .idle else { return }
         startedAt = Date()
@@ -486,7 +499,7 @@ final class LiveActivityRecorder: NSObject {
     }
 
     private func receive(_ fix: LiveGPSFix) {
-        guard sport.usesGPS, phase == .recording, fix.accuracy >= 0,
+        guard sport.usesGPS, (phase == .idle || phase == .recording), fix.accuracy >= 0,
               fix.accuracy < 45,
               abs(fix.timestamp.timeIntervalSinceNow) < 20
         else { return }
@@ -500,6 +513,10 @@ final class LiveActivityRecorder: NSObject {
             timestamp: fix.timestamp
         )
         currentCoordinate = position.coordinate
+        if phase == .idle {
+            gpsMessage = nil
+            return
+        }
         currentSpeedMps = fix.speed >= 0 ? fix.speed : nil
         if let previous = lastPosition {
             let meters = position.distance(from: previous)
@@ -550,8 +567,12 @@ final class LiveActivityRecorder: NSObject {
 extension LiveActivityRecorder: CLLocationManagerDelegate {
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         Task { @MainActor [weak self] in
-            guard let self, self.phase == .recording, self.sport.usesGPS else { return }
-            self.startGPS()
+            guard let self, self.sport.usesGPS else { return }
+            if self.phase == .recording {
+                self.startGPS()
+            } else if self.phase == .idle {
+                self.prepareMapLocation()
+            }
         }
     }
 
@@ -778,6 +799,9 @@ struct LiveActivityView: View {
             .padding(.horizontal, 14)
             .padding(.top, 8)
             .padding(.bottom, 10)
+        }
+        .task {
+            recorder.prepareMapLocation()
         }
         .onChange(of: recorder.routePoints.count) { _, _ in
             guard recorder.phase == .recording,
