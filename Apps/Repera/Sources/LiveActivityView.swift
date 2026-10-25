@@ -1814,12 +1814,12 @@ struct LiveActivityView: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(OG.label)
                 .frame(width: 44, height: 44)
                 .glassEffect(.regular.interactive(), in: .circle)
         }
         .buttonStyle(.plain)
-        .tint(.black)
+        .tint(OG.label)
         .accessibilityLabel(label)
     }
 
