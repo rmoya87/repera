@@ -30,17 +30,31 @@ enum LiveSport: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// Gravel y la actividad genérica siguen existiendo solo para decodificar
+    /// entrenamientos y rutas guardados por versiones anteriores de Repera.
+    /// No se ofrecen como nuevas actividades ni al editar una ruta.
+    var isSelectable: Bool { self != .gravel && self != .other }
+
+    /// Única fuente de verdad para Elegir actividad y Elegir deporte:
+    /// orden alfabético localizado dentro de cada sección.
+    static let selectableCases = allCases
+        .filter(\.isSelectable)
+        .sorted {
+            let order = $0.title.localizedStandardCompare($1.title)
+            return order == .orderedSame ? $0.rawValue < $1.rawValue : order == .orderedAscending
+        }
+
     var title: String {
         switch self {
         case .running: "Carrera"
-        case .cycling: "Bicicleta"
+        case .cycling: "Ciclismo de carretera"
         case .walking: "Caminata"
         case .hiking: "Senderismo"
         case .trail: "Carrera de montaña"
-        case .mountainBike: "Bicicleta de montaña"
+        case .mountainBike: "Ciclismo de montaña"
         case .gravel: "Bicicleta de gravel"
         case .crossfit: "CrossFit"
-        case .strength: "Entrenamiento con pesas"
+        case .strength: "Entrenamiento"
         case .hiit: "HIIT"
         case .hyrox: "HYROX"
         case .tennis: "Tenis"
@@ -67,14 +81,15 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .skateboarding: "Skateboard"
         case .yoga: "Yoga"
         case .mobility: "Movilidad"
-        case .other: "Entrenamiento"
+        case .other: "Otra actividad"
         }
     }
 
     var symbol: String {
         switch self {
         case .running, .trail: "figure.run"
-        case .cycling, .mountainBike, .gravel: "bicycle"
+        case .cycling: "figure.outdoor.cycle"
+        case .mountainBike, .gravel: "bicycle"
         case .walking: "figure.walk"
         case .hiking: "figure.hiking"
         case .crossfit: "figure.cross.training"
@@ -85,13 +100,16 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .padel: "figure.tennis"
         case .surfing: "surfboard"
         case .swimming: "figure.pool.swim"
-        case .windsurfing: "wind"
-        case .kitesurfing: "wind"
-        case .kayaking, .rowing, .canoeing: "figure.rower"
+        case .windsurfing: "figure.sailing"
+        case .kitesurfing: "figure.surfing"
+        case .kayaking: "figure.rower"
+        case .rowing: "figure.outdoor.rowing"
+        case .canoeing: "oar.2.crossed"
         case .sailing: "sailboat"
         case .golf: "figure.golf"
         case .skiing: "figure.skiing.downhill"
-        case .iceSkating, .skateboarding: "figure.skating"
+        case .iceSkating: "figure.ice.skating"
+        case .skateboarding: "figure.skating"
         case .snowboarding: "figure.snowboarding"
         case .crossCountrySkiing: "figure.skiing.crosscountry"
         case .soccer: "soccerball"
@@ -100,7 +118,8 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .climbing: "figure.climbing"
         case .dance: "figure.dance"
         case .pilates: "figure.pilates"
-        case .yoga, .mobility: "figure.flexibility"
+        case .yoga: "figure.yoga"
+        case .mobility: "figure.flexibility"
         case .other: "figure.mixed.cardio"
         }
     }
@@ -1285,7 +1304,7 @@ private struct LiveSportPicker: View {
         NavigationStack {
             List {
                 ForEach(groups, id: \.self) { group in
-                    let sports = LiveSport.allCases.filter {
+                    let sports = LiveSport.selectableCases.filter {
                         $0.group == group && (query.isEmpty ||
                         $0.title.localizedStandardContains(query))
                     }
@@ -2762,7 +2781,7 @@ private struct LiveRouteSportOptionsView: View {
                 }
             }
             ForEach(groups, id: \.self) { group in
-                let sports = LiveSport.allCases.filter {
+                let sports = LiveSport.selectableCases.filter {
                     $0.group == group &&
                     (query.isEmpty || $0.title.localizedStandardContains(query))
                 }
