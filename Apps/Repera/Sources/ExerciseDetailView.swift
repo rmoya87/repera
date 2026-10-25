@@ -312,6 +312,8 @@ struct ExerciseDetailView: View {
     var highlightExerciseInstanceId: UUID? = nil
 
     var onOpenedWorkout: (() -> Void)? = nil
+    /// En el panel derecho de DUO solo se mantiene el favorito en la cabecera.
+    var showsQuickLogToolbarAction = true
 
     @State private var showQuickLog = false
     @State private var suggestPercent: Double = 70
@@ -385,13 +387,15 @@ struct ExerciseDetailView: View {
                             store.toggleFavorite(resolvedId)
                         }
                     }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        OGToolbarGlassButton(
-                            systemName: "plus",
-                            accessibilityLabel: "Apuntar series",
-                            tint: OG.accent
-                        ) {
-                            showQuickLog = true
+                    if showsQuickLogToolbarAction {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            OGToolbarGlassButton(
+                                systemName: "plus",
+                                accessibilityLabel: "Apuntar series",
+                                tint: OG.accent
+                            ) {
+                                showQuickLog = true
+                            }
                         }
                     }
                 }

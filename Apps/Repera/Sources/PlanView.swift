@@ -32,6 +32,8 @@ struct PlanView: View {
     @State private var assigningDay: Int?
     @State private var copyWeekFlash: Int?
     @State private var isExpandedLayout = false
+    /// Navegación independiente: editar una rutina no tapa la columna Programado.
+    @State private var rightEditing: Routine?
 
     private struct AIProgramSummary: Decodable, Identifiable {
         let id: UUID
@@ -79,24 +81,45 @@ struct PlanView: View {
                                 Text("Programado")
                                     .font(.title2.weight(.bold))
                                     .foregroundStyle(OG.label)
+                                    .listRowBackground(Color.clear)
+                                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 8, trailing: 16))
+                                    .listRowSeparator(.hidden)
                             }
                             scheduleContent
                         }
                         .ogListChrome()
                         .frame(maxWidth: .infinity)
 
-                        List {
-                            Section {
-                                Text("Rutinas")
-                                    .font(.title2.weight(.bold))
-                                    .foregroundStyle(OG.label)
+                        NavigationStack {
+                            List {
+                                Section {
+                                    Text("Rutinas")
+                                        .font(.title2.weight(.bold))
+                                        .foregroundStyle(OG.label)
+                                        .listRowBackground(Color.clear)
+                                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 8, trailing: 16))
+                                        .listRowSeparator(.hidden)
+                                }
+                                routinesContent
                             }
-                            routinesContent
+                            .ogListChrome()
+                            // El stack derecho no debe reservar una barra blanca sin título.
+                            // El editor restablece su propia toolbar al navegar.
+                            .toolbar(.hidden, for: .navigationBar)
+                            .navigationDestination(item: $rightEditing) { routine in
+                                DayEditorView(
+                                    routine: routine,
+                                    mode: .plan(isNew: isCreating),
+                                    embedsNavigationStack: false,
+                                    usesPageCloseHeader: true
+                                )
+                                .onDisappear { isCreating = false }
+                            }
                         }
-                        .ogListChrome()
                         .frame(maxWidth: .infinity)
                     }
                     .padding(.horizontal, OG.pad)
+                    .background(OG.bg)
                 } else {
                     List {
                         Section {
@@ -118,6 +141,7 @@ struct PlanView: View {
                     .ogListChrome()
                 }
             }
+            .background(OG.bg.ignoresSafeArea())
             .onGeometryChange(for: Bool.self, of: { $0.size.width >= 620 }) { _, expanded in
                 isExpandedLayout = expanded
             }
@@ -174,12 +198,14 @@ struct PlanView: View {
                     dayLabel: CalendarHelpers.weekdayName(box.day),
                     onCreateNew: {
                         isCreating = true
-                        editing = Routine(
+                        let newRoutine = Routine(
                             title: CalendarHelpers.weekdayName(box.day),
                             weekday: box.day,
                             scheduledDate: nil,
                             blocks: [.strength()]
                         )
+                        if isExpandedLayout { rightEditing = newRoutine }
+                        else { editing = newRoutine }
                     }
                 )
             }
@@ -385,7 +411,8 @@ struct PlanView: View {
                 ForEach(store.libraryRoutines) { routine in
                     Button {
                         isCreating = false
-                        editing = routine
+                        if isExpandedLayout { rightEditing = routine }
+                        else { editing = routine }
                     } label: {
                         HStack(spacing: 14) {
                             Image(systemName: routine.isFavorite ? "star.fill" : "figure.strengthtraining.traditional")
@@ -462,7 +489,9 @@ struct PlanView: View {
             return
         }
         isCreating = true
-        editing = Routine(title: "Nueva rutina", weekday: nil, scheduledDate: nil, blocks: [.strength()])
+        let newRoutine = Routine(title: "Nueva rutina", weekday: nil, scheduledDate: nil, blocks: [.strength()])
+        if isExpandedLayout { rightEditing = newRoutine }
+        else { editing = newRoutine }
     }
 
     private func librarySubtitle(_ routine: Routine) -> String {

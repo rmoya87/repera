@@ -98,6 +98,17 @@ struct LibraryView: View {
     @State private var showingAdd = false
     @State private var selectedExerciseID: UUID?
     @State private var isExpandedLayout = false
+
+    /// La distribución doble solo pertenece al catálogo de ejercicios;
+    /// WODs y Deportes conservan su navegación habitual.
+    private var usesSplitExerciseLayout: Bool {
+        guard isExpandedLayout, filterMode != .sports else { return false }
+        if filterMode == .wods {
+            return !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && filteredWODTemplates.isEmpty
+        }
+        return true
+    }
     @State private var showFilter = false
     @State private var name = ""
     @State private var muscle = "Pecho"
@@ -132,18 +143,44 @@ struct LibraryView: View {
                     (query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         || !filteredWODTemplates.isEmpty) {
                     wodsList
-                } else if isExpandedLayout {
+                } else if usesSplitExerciseLayout {
                     HStack(alignment: .top, spacing: 12) {
-                        VStack(spacing: 0) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            HStack(spacing: 6) {
+                                Text("Ejercicios")
+                                    .font(.title2.weight(.bold))
+                                    .foregroundStyle(OG.label)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                OGToolbarGlassButton(
+                                    systemName: "line.3.horizontal.decrease",
+                                    accessibilityLabel: "Filtrar y ordenar",
+                                    appliesGlass: true
+                                ) {
+                                    showFilter = true
+                                }
+                                OGToolbarGlassButton(
+                                    systemName: "plus",
+                                    accessibilityLabel: "Nuevo ejercicio",
+                                    appliesGlass: true
+                                ) {
+                                    createExerciseIfAllowed()
+                                }
+                            }
+                            .padding(.horizontal, OG.pad)
+                            .padding(.top, 12)
+
                             HStack(spacing: 9) {
                                 Image(systemName: "magnifyingglass")
                                     .foregroundStyle(OG.label2)
-                                TextField("Buscar ejercicios", text: $query)
+                                TextField("Nombre, músculo o equipo", text: $query)
                                     .textInputAutocapitalization(.never)
                                     .autocorrectionDisabled()
+                                    .foregroundStyle(OG.label)
                             }
-                            .padding(12)
-                            .background(OG.surface, in: RoundedRectangle(cornerRadius: 12))
+                            .padding(.horizontal, 14)
+                            .frame(minHeight: 44)
+                            .background(Color.clear)
+                            .glassEffect(.regular, in: .rect(cornerRadius: 14))
                             .padding(.horizontal, OG.pad)
                             .padding(.vertical, 10)
 
@@ -157,7 +194,7 @@ struct LibraryView: View {
                                 selectedExerciseID: selectedExerciseID
                             )
                         }
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(OG.bg)
 
                         Group {
@@ -165,24 +202,40 @@ struct LibraryView: View {
                                 NavigationStack {
                                     ExerciseDetailView(
                                         exerciseId: selectedExerciseID,
-                                        onOpenedWorkout: onOpenedWorkout
+                                        onOpenedWorkout: onOpenedWorkout,
+                                        showsQuickLogToolbarAction: false
                                     )
                                 }
                                 .id(selectedExerciseID)
                             } else {
-                                ContentUnavailableView {
-                                    Label("Selecciona ejercicio", systemImage: "dumbbell")
-                                } description: {
-                                    Text("Elige un ejercicio en la lista para ver sus datos, instrucciones y progreso.")
+                                VStack(spacing: 12) {
+                                    Image(systemName: "dumbbell")
+                                        .font(.system(size: 32, weight: .medium))
+                                        .foregroundStyle(OG.accent)
+                                    Text("Selecciona ejercicio")
+                                        .font(.headline)
+                                        .foregroundStyle(OG.label)
+                                    Text("Elige un ejercicio de la lista para ver sus datos, instrucciones y progreso.")
+                                        .font(.subheadline)
+                                        .foregroundStyle(OG.label2)
+                                        .multilineTextAlignment(.center)
                                 }
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .background(OG.surface, in: RoundedRectangle(cornerRadius: 20))
+                                .frame(maxWidth: .infinity, minHeight: 220)
+                                .padding(24)
+                                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: OG.radiusCard)
+                                        .strokeBorder(OG.surface3.opacity(0.75), lineWidth: 0.7)
+                                }
+                                .padding(.top, 16)
                             }
                         }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding(.trailing, OG.pad)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                        .padding(.horizontal, OG.pad)
+                        .background(OG.bg)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(OG.bg)
                 } else {
                     LibraryExerciseList(
                         sections: cachedSections,
@@ -193,6 +246,7 @@ struct LibraryView: View {
                     )
                 }
             }
+            .background(OG.bg.ignoresSafeArea())
             .onGeometryChange(for: Bool.self, of: { $0.size.width >= 620 }) { _, expanded in
                 isExpandedLayout = expanded
             }
@@ -221,7 +275,9 @@ struct LibraryView: View {
             .navigationTitle(filterMode == .wods ? "WODs" : filterMode == .sports ? "Deportes" : "Ejercicios")
             .navigationBarTitleDisplayMode(.inline)
             .ogDiaryTransparentNav()
+            .toolbar(usesSplitExerciseLayout ? .hidden : .visible, for: .navigationBar)
             .toolbar {
+                if !usesSplitExerciseLayout {
                 ToolbarItem(placement: .topBarLeading) {
                     OGToolbarGlassButton(
                         systemName: "line.3.horizontal.decrease",
@@ -236,23 +292,16 @@ struct LibraryView: View {
                             systemName: "plus",
                             accessibilityLabel: "Nuevo ejercicio"
                         ) {
-                            let decision = subscriptions.canCreateCustomExercise(isNew: true)
-                            if decision.allowed {
-                                showingAdd = true
-                            } else {
-                                subscriptions.presentPaywall(
-                                    decision.paywallContext,
-                                    feature: .unlimitedCustomExercises
-                                )
-                            }
+                            createExerciseIfAllowed()
                         }
                     }
+                }
                 }
             }
             // Campo nativo del sistema debajo del título / filtro / +.
             .modifier(LibrarySearchIfCompact(
                 query: $query,
-                enabled: !isExpandedLayout || filterMode == .wods || filterMode == .sports,
+                enabled: !usesSplitExerciseLayout,
                 prompt: filterMode == .wods ? "Nombre o formato" : "Nombre, músculo o equipo"
             ))
             .navigationDestination(for: UUID.self) { id in
@@ -280,6 +329,17 @@ struct LibraryView: View {
             .navigationDestination(isPresented: $showingAdd) {
                 addExercisePage
             }
+        }
+    }
+
+    private func createExerciseIfAllowed() {
+        let decision = subscriptions.canCreateCustomExercise(isNew: true)
+        if decision.allowed {
+            showingAdd = true
+        } else {
+            subscriptions.presentPaywall(
+                decision.paywallContext, feature: .unlimitedCustomExercises
+            )
         }
     }
 
@@ -740,13 +800,15 @@ private struct LibraryExerciseList: View {
                 }
             }
             .swipeActions {
-                Button {
-                    onToggleFavorite(row.id)
-                } label: {
-                    Image(systemName: row.isFavorite ? "star.slash" : "star")
+                if onSelect == nil {
+                    Button {
+                        onToggleFavorite(row.id)
+                    } label: {
+                        Image(systemName: row.isFavorite ? "star.slash" : "star")
+                    }
+                    .tint(OG.yellow)
+                    .accessibilityLabel(row.isFavorite ? "Quitar de favoritos" : "Marcar favorito")
                 }
-                .tint(OG.yellow)
-                .accessibilityLabel(row.isFavorite ? "Quitar de favoritos" : "Marcar favorito")
                 if row.isCustom {
                     OGSwipeDeleteButton(accessibilityLabel: "Borrar ejercicio personalizado") {
                         onDelete(row.id)

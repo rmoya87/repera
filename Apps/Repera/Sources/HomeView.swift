@@ -323,12 +323,14 @@ struct HomeView: View {
             // desde la zona segura superior hasta calendario + entreno.
             // El componente de navegación y sus controles no se modifican.
             .background(alignment: .top) {
+                // Cubrir también todo el margen superior derecho del DUO:
+                // una franja fija de 160 pt no alcanzaba el safe area horizontal.
                 OG.bg.ignoresSafeArea()
                     .overlay(alignment: .top) {
                         OG.surface
-                            .frame(height: 160)
                             .frame(maxWidth: .infinity)
-                            .ignoresSafeArea(edges: .top)
+                            .frame(height: 360, alignment: .top)
+                            .ignoresSafeArea(edges: [.top, .horizontal])
                     }
             }
             .onAppear {
@@ -1111,7 +1113,10 @@ struct HomeView: View {
                 }
                 // La banda inferior ocupa lo mismo con o sin chips:
                 // un registro y la tarjeta de día vacío miden igual.
-                .frame(minHeight: 30, alignment: .center)
+                .frame(minHeight: 30, alignment: .top)
+                // La altura de 44 pt del icono separaba visualmente el chip del título.
+                // Acercar la banda sin cambiar el alto mínimo del registro.
+                .padding(.top, -12)
             }
         )
         .accessibilityHint(accessibilityHint)
