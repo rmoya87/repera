@@ -96,3 +96,6 @@ Esta pasada NO afirma equivalencia de todas las funciones ni un plazo global.
   RIR/RPE sí tiene consumidorAppleWorkoutView; portlocal añadepreferencia a
   formulario/series de sesiónactiva y convierteentrada aRIR wire, sin cambiar
   pesokg. TestcallbackRPE8→RIR2 preparado, noejecutado.
+-22:16 objetivoPeso ahora consume valor enProgreso: diferencia conúltimo punto,
+  umbralApple<0.3kg y líneaobjetivo en gráfica; compila, falta visual/test.
+  ObjetivoMinutos/conciliaciónporfecha y reset seguro siguenpendientes.
