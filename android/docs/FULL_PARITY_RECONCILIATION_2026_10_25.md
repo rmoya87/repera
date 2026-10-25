@@ -53,3 +53,17 @@ Esta pasada NO afirma equivalencia de todas las funciones ni un plazo global.
   arriba. La previsión2–3días anterior describía delta, no igualdad completa.
 - Monitorear falle GPS/cámara mientras se portan ajustes independientes. Cada
   control nuevo exige persistencia+consumidor, test y pixels antes cierre.
+
+## Implementación local22:00 (sin cierre)
+-3d1d8723: semana/descanso/progresión/incremento con consumidores; datos/export.
+-4bd018a4: RotationPlan puro (2tests) + wire/state + modo y editor cola;
+  Inicio/Diario y todayPlanSession reloj eligen siguiente; finish solo avanza
+  si coincide rutina próxima, descartar no avanza. Tests integrados preparados
+  para otra rutina/descartar/vueltaA→B→A/volver semana fija. No ejecutados.
+-6459f4cf: flags sonido/haptic a StrengthRestService y avisos de descansoWOD
+  de teléfono/servicio. StandaloneTimer y haptics reales siguen sin validar;
+  no declarar preferencia global cerrada hasta cubrir todos consumidores.
+-252f17bd: estado real permisos ubicación/notificación y accesoAjustesSistema,
+  actualizado onResume. Botones solicitan solo por tap. Salud reusa ruta.
+-Local domain284/0 mobile199/0; instrumentadas compilan. Capturas nuevas y
+  TrainingSettingsInstrumentedTest2 preparados, todavía sin ejecución.
