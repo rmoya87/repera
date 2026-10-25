@@ -2,7 +2,7 @@ package dev.repera.domain
 
 /**
  * Catálogo de deportes "En vivo". Port literal del enum LiveSport
- * (Apps/Repera/Sources/LiveActivityView.swift, referencia Apple 5890215d).
+ * (Apps/Repera/Sources/LiveActivityView.swift, referencia Apple 37837401).
  * Los IDs son datos PERSISTIDOS en WorkoutSession, favoritos GPX y sesiones
  * interrumpidas: no se renombran ni se reordenan. `symbol` conserva el
  * nombre SF Symbol de Apple como dato; la UI Android lo mapea a su icono.
@@ -12,26 +12,26 @@ enum class LiveSport(val id: String, val title: String, val symbol: String, val 
     TRAIL("trail", "Carrera de montaña", "figure.run", "A pie"),
     WALKING("walking", "Caminata", "figure.walk", "A pie"),
     HIKING("hiking", "Senderismo", "figure.hiking", "A pie"),
-    CYCLING("cycling", "Bicicleta", "bicycle", "Ciclismo"),
-    MOUNTAIN_BIKE("mountainBike", "Bicicleta de montaña", "bicycle", "Ciclismo"),
+    CYCLING("cycling", "Ciclismo de carretera", "figure.outdoor.cycle", "Ciclismo"),
+    MOUNTAIN_BIKE("mountainBike", "Ciclismo de montaña", "bicycle", "Ciclismo"),
     GRAVEL("gravel", "Bicicleta de gravel", "bicycle", "Ciclismo"),
     CROSSFIT("crossfit", "CrossFit", "figure.cross.training", "Fuerza y fitness"),
-    STRENGTH("strength", "Entrenamiento con pesas", "dumbbell", "Fuerza y fitness"),
+    STRENGTH("strength", "Entrenamiento", "dumbbell", "Fuerza y fitness"),
     HIIT("hiit", "HIIT", "timer", "Fuerza y fitness"),
     HYROX("hyrox", "HYROX", "figure.run", "Fuerza y fitness"), // ExerciseCategorySymbols.discipline("HYROX") = figure.run,
     TENNIS("tennis", "Tenis", "tennis.racket", "Deportes de raqueta"),
     PADEL("padel", "Pádel", "figure.tennis", "Deportes de raqueta"),
     SURFING("surfing", "Surf", "surfboard", "Deportes acuáticos"),
     SWIMMING("swimming", "Natación", "figure.pool.swim", "Deportes acuáticos"),
-    WINDSURFING("windsurfing", "Windsurf", "wind", "Deportes acuáticos"),
-    KITESURFING("kitesurfing", "Kitesurf", "wind", "Deportes acuáticos"),
+    WINDSURFING("windsurfing", "Windsurf", "figure.sailing", "Deportes acuáticos"),
+    KITESURFING("kitesurfing", "Kitesurf", "figure.surfing", "Deportes acuáticos"),
     KAYAKING("kayaking", "Kayak", "figure.rower", "Deportes acuáticos"),
-    ROWING("rowing", "Remo", "figure.rower", "Deportes acuáticos"),
-    CANOEING("canoeing", "Piragua", "figure.rower", "Deportes acuáticos"),
+    ROWING("rowing", "Remo", "figure.outdoor.rowing", "Deportes acuáticos"),
+    CANOEING("canoeing", "Piragua", "oar.2.crossed", "Deportes acuáticos"),
     SAILING("sailing", "Vela", "sailboat", "Deportes acuáticos"),
     GOLF("golf", "Golf", "figure.golf", "Otros deportes"),
     SKIING("skiing", "Esquí alpino", "figure.skiing.downhill", "Deportes de invierno"),
-    ICE_SKATING("iceSkating", "Patinaje sobre hielo", "figure.skating", "Deportes de invierno"),
+    ICE_SKATING("iceSkating", "Patinaje sobre hielo", "figure.ice.skating", "Deportes de invierno"),
     SNOWBOARDING("snowboarding", "Snowboard", "figure.snowboarding", "Deportes de invierno"),
     CROSS_COUNTRY_SKIING("crossCountrySkiing", "Esquí de fondo", "figure.skiing.crosscountry", "Deportes de invierno"),
     SOCCER("soccer", "Fútbol", "soccerball", "Deportes de equipo"),
@@ -41,9 +41,11 @@ enum class LiveSport(val id: String, val title: String, val symbol: String, val 
     DANCE("dance", "Baile", "figure.dance", "Otros deportes"),
     PILATES("pilates", "Pilates", "figure.pilates", "Otros deportes"),
     SKATEBOARDING("skateboarding", "Skateboard", "figure.skating", "Otros deportes"),
-    YOGA("yoga", "Yoga", "figure.flexibility", "Otros deportes"),
+    YOGA("yoga", "Yoga", "figure.yoga", "Otros deportes"),
     MOBILITY("mobility", "Movilidad", "figure.flexibility", "Otros deportes"),
-    OTHER("other", "Entrenamiento", "figure.mixed.cardio", "Otros deportes");
+    OTHER("other", "Otra actividad", "figure.mixed.cardio", "Otros deportes");
+
+    val isSelectable:Boolean get()=this!=GRAVEL && this!=OTHER
 
     /** GPS únicamente para modalidades con recorrido exterior verificable.
      *  Ni la piscina, las pistas ni la escalada interior fabrican distancia. */
@@ -103,6 +105,15 @@ enum class LiveSport(val id: String, val title: String, val symbol: String, val 
             "Deportes acuáticos", "Deportes de invierno", "Deportes de equipo",
             "Otros deportes"
         )
+
+        val selectableCases:List<LiveSport>
+            get() {
+                val collator=java.text.Collator.getInstance(java.util.Locale("es"))
+                return entries.filter {it.isSelectable}.sortedWith {a,b ->
+                    val result=collator.compare(a.title,b.title)
+                    if(result==0) a.id.compareTo(b.id) else result
+                }
+            }
 
         fun byId(id: String): LiveSport? = entries.firstOrNull { it.id == id }
 

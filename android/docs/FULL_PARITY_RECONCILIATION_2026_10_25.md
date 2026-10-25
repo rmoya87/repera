@@ -1,6 +1,7 @@
 # Igualdad completa: reconciliación25oct21:53 CET
 
-Referencia Apple5890215d (origin/main comprobado sin cambios21:41). No es
+Referencia actual Apple37837401 (origin/main refrescado22:19); el análisis inicial
+fue5890215d y sus filas históricas se corrigen por los hitos de abajo. No es
 solo delta25oct. Inventarios23/24oct son históricos, no lista cerrada.
 Esta pasada NO afirma equivalencia de todas las funciones ni un plazo global.
 
@@ -11,7 +12,7 @@ Esta pasada NO afirma equivalencia de todas las funciones ni un plazo global.
 | SettingsView: semana lunes/domingo | Calendarios/contadores/charts fijaban lunes | Port local iniciado: persistencia y todos esos consumidores, pendiente pruebas |
 | SettingsView: descanso predeterminado | Solo descanso del ejercicio, sin fallback90s | Port local iniciado: fallback, respeta prescripción; pendiente prueba |
 | SettingsView: progresión/incremento | Motor existe y lee claves, sin UI para cambiarlas | Port local iniciado: UI+persistence, pendiente ejecución |
-| SettingsView: kg/lb | No consumidor weightUnit localizado en mobile | Portar conversión presentación/entrada, conservar kg wire. No añadir picker inerte |
+| SettingsView: kg/lb | Apple solo selector/modelo, sin consumidor; confirmado grep5890215d | Selector/wire Android igual; no prometer conversión de pesos |
 | SettingsView: RIR/RPE | CampoRIR funciona, sin consumidor effortUnit localizado | Portar conversión presentación/entrada, preservarRIR wire |
 | SettingsView: modo semanal/rotación + RotationPlanEditor | Borrado de rutina limpia rotation; no selección/engine Android encontrado | Portar RotationEngine y consumidores Inicio/Diario/Wear plan |
 | SettingsView: sonido descanso/haptic countdown | RestNotifier vibra siempre, no consumidor flags | Portar preferencias+consumidores con pruebas; audio/haptic real sin validar |
@@ -21,7 +22,7 @@ Esta pasada NO afirma equivalencia de todas las funciones ni un plazo global.
 | SettingsView: accesoCentro/Pro | Existen CenterTab/paywall/Play; no acceso equivalente en Ajustes | Reusar rutas existentes; no activar productos/backend/distribución |
 | SettingsView: datos/contadores/export/reset | Importadores existen; export en AccountSyncCard; sin reset hallado | Reubicar acceso y contadores; diseñar reset confirmación/cola/tombstones antes implementar |
 | HomeView/MessagesInboxView | MensajesCentro/entrenador y nuevo mensaje usadosApple; no UI/storeAndroid encontrado | Auditar contrato backend existente antes port; no enviar mensajes reales |
-| LiveActivity GPS | Proveedor simulado entrega solo primera muestra | Fallo activo: diagnóstico registroLocationManager antes cierre |
+| LiveActivity GPS | Fixture corregido usa GPS real del producto enAPI30 |40233623617 proveedor2/0: coordenadas exactas, pausa/reanudación sin salto; noGPSfísico |
 | CámaraLive | Pixels perspectiva/GPX/teselas correctos; test espera callback equivocado | Frame fully-rendered en nuevo enfocado; no terreno/elevación |
 | Meteo histórica/viento | No proveedorAndroid | Requisito sin costes; no nuevo proveedor/backend/divulgación autorizado |
 
@@ -110,3 +111,14 @@ Esta pasada NO afirma equivalencia de todas las funciones ni un plazo global.
   Falta validaciónvisual y equivalencia completa de duraciónSalud enlazada.
   Guardacuentarevisión en lecturaSalud evita aplicar datos viejos a otra cuenta.
   La lectura de pasos/energía no añade permisos, usa los ya existentes.
+
+## Referencia actualizada22:20
+-Apple37837401 mueve catálogoComenzar:34seleccionables, mantiene36IDs
+ persistidos, no ofrecegravel/other, títulosCiclismo de carretera/montaña y
+ Entrenamiento, ordenespañol dentro de secciones, símbolosactualizados.
+ Portlocal con2tests. Noenfocadaactual40234505143; visualpendiente.
+-La retiradaApple de tarjetaDeportes·Comenzar enProgreso no exige borrar nada
+ Android: esa tarjeta no existe enProgressTab; catálogo permanece enEjercicios
+ comoantes. Corrijo hipótesis anterior de quehabía quequitarla.
+-AtribuciónEnVivo díaInicio ya presente enProgressSnapshot. DeltaApple sobre
+ appendRouteLocation yweakself esespecíficoSwift, sinmutaciónAndroidnecesaria.
