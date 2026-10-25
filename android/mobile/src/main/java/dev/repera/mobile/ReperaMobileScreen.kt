@@ -243,6 +243,17 @@ fun ReperaMobileScreen(
             }
         }
         val centerVisible = centerSnapshot?.isLinkedOrInvited == true
+        var showCenter by remember { mutableStateOf(false) }
+        if (showCenter && centerVisible) {
+            androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showCenter = false }) {
+                CenterTab(
+                    connected = centerConnected, loading = centerLoading, submitting = centerSubmitting,
+                    errorMessage = centerError, snapshot = centerSnapshot, onRefresh = onCenterRefresh,
+                    sharingByCenter = sharingByCenter, sharingUpdating = sharingUpdating,
+                    onSetSharing = onSetSharing, onAccept = onCenterAccept,
+                    onBook = onCenterBook, onCancel = onCenterCancel)
+            }
+        }
         val visibleTabs = tabs
         Scaffold(
             topBar = {
@@ -451,7 +462,7 @@ fun ReperaMobileScreen(
                         hasActiveWorkout = activeWorkout != null, onOpenWorkout = { navigateTab("inicio") },
                         onSaved = { onLiveActivitySaved(); navigateTab("inicio") },
                         onOpenTools = { navController.navigate("crear") },
-                        onOpenCenter = if (centerVisible) ({ navController.navigate("center") }) else null)
+                        onOpenCenter = if (centerVisible) ({ showCenter = true }) else null)
                 }
                 composable("center") {
                     CenterTab(
