@@ -123,14 +123,15 @@ private fun SportSummaryTile(title: String, value: String, modifier: Modifier) {
 }
 
 @Composable
-internal fun LiveKilometerSplitsSection(seconds: List<Double>) {
+internal fun LiveKilometerSplitsSection(seconds: List<Double>, displaysSpeed: Boolean = false) {
     if (seconds.isEmpty()) return
     Column(Modifier.fillMaxWidth().testTag("live_kilometer_splits"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text("Parciales por kilómetro", style = MaterialTheme.typography.titleMedium)
         seconds.forEachIndexed { index, duration ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Km ${index + 1}")
-                Text("${LiveSportHistory.formatDuration(duration)} min/km")
+                Text(if (displaysSpeed) "%.1f km/h".format(3600 / duration)
+                    else "${LiveSportHistory.formatDuration(duration)} min/km")
             }
         }
     }

@@ -292,7 +292,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 },modifier=Modifier.testTag("live_save")) {Text("Guardar actividad")}
             }
             TextButton(onClick={confirmDiscard=true}) {Text("Descartar")}
-            LiveKilometerSplitsSection(state.splitsSeconds)
+            LiveKilometerSplitsSection(state.splitsSeconds, state.sport.displaysSpeed)
         }
         (error ?: runtime.lastError)?.let {Text(it,color=MaterialTheme.colorScheme.error)}
     }

@@ -1341,11 +1341,19 @@ internal fun WorkoutHistoryCard(
             if (workout.startedAt.isNotBlank()) {
                 Text(workout.startedAt, style = MaterialTheme.typography.labelMedium)
             }
+            workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)?.let { sport ->
+                Text(sport.title, style = MaterialTheme.typography.labelLarge)
+                val summary = buildList {
+                    workout.activeDurationSeconds?.let { add(dev.repera.domain.LiveSportHistory.formatDuration(it)) }
+                    workout.recordedDistanceMeters?.takeIf { it > 0 }?.let { add("%.2f km".format(it / 1000)) }
+                }
+                if (summary.isNotEmpty()) Text(summary.joinToString(" · "),style=MaterialTheme.typography.bodyMedium)
+            }
             workout.results.forEach { result ->
                 Text(result, style = MaterialTheme.typography.titleSmall)
             }
             if (!expanded) {
-                TextButton(onClick = { expanded = true }) { Text("Ver ejercicios y resultados") }
+                TextButton(onClick = { expanded = true }) { Text(if (workout.liveSportID != null) "Ver actividad" else "Ver ejercicios y resultados") }
             } else if (selectedMovement != null) {
                 val index = selectedMovement!!
                 val exercise = workout.movements.getOrNull(index)
@@ -1447,7 +1455,7 @@ internal fun WorkoutHistoryCard(
                 if (workout.routePoints.size >= 2) {
                     CardioRouteSection(workout.routePoints, showComputedSplits = workout.liveKilometerSplitsSeconds.isEmpty())
                 }
-                LiveKilometerSplitsSection(workout.liveKilometerSplitsSeconds)
+                LiveKilometerSplitsSection(workout.liveKilometerSplitsSeconds, workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)?.displaysSpeed == true)
                 FinishedWorkoutEditorSection(
                     workout = workout,
                     accountId = accountId,
