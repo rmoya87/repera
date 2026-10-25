@@ -12,6 +12,7 @@ struct StatsView: View {
     @State private var heatmapMetric: HeatmapMetric = .time
     @State private var showRangePicker = false
     @State private var topic: ProgressTopic = .training
+    @State private var isExpandedLayout = false
 
     private enum ProgressTopic: String, CaseIterable {
         case training = "Entreno"
@@ -147,6 +148,9 @@ struct StatsView: View {
             // y remontaje con saltos visibles durante la carga de Recuperación.
             .defaultScrollAnchor(.top, for: .sizeChanges)
             .background(OG.bg)
+            .onGeometryChange(for: Bool.self, of: { $0.size.width >= 620 }) { _, expanded in
+                isExpandedLayout = expanded
+            }
             .ogContentTitleNav()
             .sheet(isPresented: $showRangePicker) {
                 progressRangeSheet
@@ -263,6 +267,19 @@ struct StatsView: View {
 
     @ViewBuilder
     private var proAdvancedSections: some View {
+        if isExpandedLayout {
+            HStack(alignment: .top, spacing: 12) {
+                exerciseSummarySection.frame(maxWidth: .infinity, alignment: .top)
+                recordSummarySection.frame(maxWidth: .infinity, alignment: .top)
+            }
+        } else {
+            exerciseSummarySection
+            recordSummarySection
+        }
+    }
+
+    @ViewBuilder
+    private var exerciseSummarySection: some View {
         if snap.chartExercises.isEmpty {
             progressEmptyCard(
                 title: "Sin ejercicios aún",
@@ -274,7 +291,10 @@ struct StatsView: View {
         } else {
             exerciseProgressCard
         }
+    }
 
+    @ViewBuilder
+    private var recordSummarySection: some View {
         if snap.records.isEmpty {
             progressEmptyCard(
                 title: "Sin récords en el periodo",
@@ -290,6 +310,26 @@ struct StatsView: View {
 
     @ViewBuilder
     private var healthSections: some View {
+        if isExpandedLayout {
+            LazyVGrid(columns: [
+                GridItem(.flexible(), spacing: 12, alignment: .top),
+                GridItem(.flexible(), spacing: 12, alignment: .top)
+            ], spacing: 12) {
+                sessionScoreSection
+                cardioHealthSection
+                caloriesHealthSection
+                weightHealthSection
+            }
+        } else {
+            sessionScoreSection
+            cardioHealthSection
+            caloriesHealthSection
+            weightHealthSection
+        }
+    }
+
+    @ViewBuilder
+    private var sessionScoreSection: some View {
         // La gráfica real solo incorpora notas verificadas. Si no existen,
         // mantiene los ejes y explica la ausencia de datos.
         ProgressSessionScoreChartCard(
@@ -313,12 +353,20 @@ struct StatsView: View {
                 }
             }
         }
+    }
+
+    private var cardioHealthSection: some View {
         ProgressCardioChartCard(
             prepared: snap.charts,
             workouts: snap.filteredWorkouts
         )
-        ProgressCaloriesChartCard(prepared: snap.charts)
+    }
 
+    private var caloriesHealthSection: some View {
+        ProgressCaloriesChartCard(prepared: snap.charts)
+    }
+
+    private var weightHealthSection: some View {
         ProgressWeightChartCard(
             entries: store.state.bodyWeights,
             goalKg: store.state.settings.bodyWeightGoalKg,
@@ -326,7 +374,6 @@ struct StatsView: View {
             weekStartsOnMonday: mondayFirst,
             preparedPoints: snap.range == model.range ? snap.weightPoints : nil
         )
-
     }
 
     private var freeTilesGrid: some View {
@@ -746,6 +793,9 @@ struct StatsView: View {
                             .foregroundStyle(OG.label2)
                     } else {
                         ForEach(listed) { pr in
+                            NavigationLink {
+                                ExerciseDetailView(exerciseId: pr.exerciseId)
+                            } label: {
                             HStack {
                                 VStack(alignment: .leading) {
                                     Text(pr.exerciseName)
@@ -764,6 +814,8 @@ struct StatsView: View {
                                         .foregroundStyle(OG.label2)
                                 }
                             }
+                            }
+                            .buttonStyle(.plain)
                             if pr.id != listed.last?.id || snap.records.count > 5 {
                                 Divider().overlay(Color.white.opacity(0.08))
                             }
@@ -822,10 +874,14 @@ private struct ProgressAllExercisesView: View {
 
 private struct ProgressAllRecordsView: View {
     let records: [PersonalRecord]
+    @State private var selectedExerciseID: UUID?
 
     var body: some View {
         List {
             ForEach(records) { pr in
+                Button {
+                    selectedExerciseID = pr.exerciseId
+                } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(pr.exerciseName)
@@ -845,9 +901,14 @@ private struct ProgressAllRecordsView: View {
                     }
                 }
                 .padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
             }
         }
         .ogListChrome()
+        .navigationDestination(item: $selectedExerciseID) { id in
+            ExerciseDetailView(exerciseId: id)
+        }
         .ogPinnedTransparentNav("Récords (e1RM)")
     }
 }
