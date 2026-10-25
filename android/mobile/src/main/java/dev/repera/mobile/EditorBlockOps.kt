@@ -100,6 +100,36 @@ object EditorBlockOps {
         return true
     }
 
+    const val PENDING_PREFIX = "pending:"
+
+    /** Nombres de ejercicios personalizados aún no creados (WOD→fuerza sin catálogo). Solo borrador. */
+    fun pendingCustomNames(blocks: JSONArray): List<String> {
+        val out = linkedSetOf<String>()
+        for (b in 0 until blocks.length()) {
+            val ex = blocks.getJSONObject(b).optJSONArray("exercises") ?: continue
+            for (i in 0 until ex.length()) {
+                val id = ex.getJSONObject(i).optString("exerciseId")
+                if (id.startsWith(PENDING_PREFIX)) out += id.removePrefix(PENDING_PREFIX)
+            }
+        }
+        return out.toList()
+    }
+
+    /** Sustituye pending:<nombre> por el id real (mapa nombre→id). Devuelve una copia. */
+    fun resolvePending(blocks: JSONArray, idByName: Map<String, String>): JSONArray {
+        val copy = JSONArray(blocks.toString())
+        for (b in 0 until copy.length()) {
+            val ex = copy.getJSONObject(b).optJSONArray("exercises") ?: continue
+            for (i in 0 until ex.length()) {
+                val item = ex.getJSONObject(i)
+                val id = item.optString("exerciseId")
+                if (id.startsWith(PENDING_PREFIX))
+                    item.put("exerciseId", idByName.getValue(id.removePrefix(PENDING_PREFIX)))
+            }
+        }
+        return copy
+    }
+
     /** Mueve (y convierte si cambia de tipo) el ítem `itemId` al bloque destino. Devuelve false si no procede. */
     fun moveItem(
         blocks: JSONArray, sourceBlock: Int, itemId: String, targetBlock: Int, beforeId: String?,

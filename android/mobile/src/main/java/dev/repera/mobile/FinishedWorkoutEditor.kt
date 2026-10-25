@@ -160,7 +160,9 @@ private fun FinishedContentEditor(
             for (i in 0 until items.length()) {
                 val item = items.getJSONObject(i)
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    Text(nameById[item.optString("exerciseId")] ?: "Ejercicio",
+                    Text(item.optString("exerciseId").let { id ->
+                        if (id.startsWith(EditorBlockOps.PENDING_PREFIX)) id.removePrefix(EditorBlockOps.PENDING_PREFIX) + " (nuevo, se crea al guardar)"
+                        else nameById[id] ?: "Ejercicio" },
                         style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                     TextButton(enabled = i > 0, modifier = Modifier.testTag("ex_up_${b}_$i"), onClick = {
                         swap(items, i, i - 1); onChanged() }) { Text("↑") }
@@ -331,7 +333,8 @@ private fun WodMovementsEditor(
                                 moving = false
                                 val ok = EditorBlockOps.moveItem(blocks, b, id, t, null, { "" }) { mv ->
                                     mv.optString("exerciseId").takeIf { x -> x.isNotBlank() && catalog.any { c -> c.id == x } }
-                                        ?: catalog.firstOrNull { c -> c.name.equals(mv.optString("name"), true) }?.id }
+                                        ?: catalog.firstOrNull { c -> c.name.equals(mv.optString("name"), true) }?.id
+                                        ?: mv.optString("name").trim().takeIf { n -> n.isNotEmpty() }?.let { n -> EditorBlockOps.PENDING_PREFIX + n } }
                                 if (ok) onChanged() else onEdited()
                             })
                     }

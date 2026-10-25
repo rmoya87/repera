@@ -495,3 +495,7 @@ capacidad; los sustitutos eran paridad exacta por código muerto en iOS).
 ### Editor de PLAN con identidad (gap e)
 - `RoutineBlockDraft/RoutineDraftEntry/PlannedSetDraft` llevan blockId/itemId/set id y el JSON original (campos al final, sin romper llamadas posicionales). `buildBlock` parte del JSON original: conserva ids, REST, peso M, escala, notas, restSeconds, series y RIR por serie. Si cambia la prescripción de un movimiento WOD, descarta SOLO explicitPlannedSets/repScheme/reps-cal-m previos y reescribe la cantidad. Series de fuerza no uniformes sin tocar se escriben tal cual.
 - Tests instrumentados (2) COMPILADOS, no ejecutados.
+
+### WOD→fuerza sin ejercicio en catálogo (borrador)
+- Apple crea el ejercicio personalizado en el momento del drop (persiste ya). Android lo difiere: el borrador lleva `exerciseId = pending:<nombre>`; solo `updateFinishedWorkout` (Guardar) reutiliza el del catálogo por nombre o lo crea (isCustom, grupo «Otros») en la MISMA escritura. Cuota: lambda `canCreateCustom` (SubscriptionManager); si se deniega lanza antes de tocar nada. Cancelar no persiste nada. Diferencia consciente respecto a Apple (pedida por el dueño del encargo vía main).
+- JVM ejecutado: EditorBlockOpsTest 9/9. Instrumentado compilado, no ejecutado: pendingCustomExerciseIsCreatedOnlyOnSaveAndRespectsQuota.

@@ -90,4 +90,15 @@ class EditorBlockOpsTest {
         assertEquals("rápido", m.getString("notes")); assertEquals(2, m.getJSONArray("repScheme").length())
         assertTrue(kept.getJSONObject(1).getBoolean("isRest")); assertEquals(90, kept.getJSONObject(1).getInt("restSeconds"))
     }
+
+    @Test fun unknownCatalogMovementBecomesPendingDraftOnly_thenResolves() {
+        val b = blocks()
+        assertTrue(EditorBlockOps.moveItem(b, 1, "m1", 0, null, { "" }, { "pending:Thruster" }))
+        assertEquals(listOf("Thruster"), EditorBlockOps.pendingCustomNames(b))
+        val resolved = EditorBlockOps.resolvePending(b, mapOf("Thruster" to "new-id"))
+        assertEquals("new-id", resolved.getJSONObject(0).getJSONArray("exercises").getJSONObject(2).getString("exerciseId"))
+        // el borrador original sigue con el marcador (nada se persiste hasta Guardar)
+        assertEquals(listOf("Thruster"), EditorBlockOps.pendingCustomNames(b))
+        assertTrue(EditorBlockOps.pendingCustomNames(resolved).isEmpty())
+    }
 }

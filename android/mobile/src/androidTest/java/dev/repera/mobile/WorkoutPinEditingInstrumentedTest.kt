@@ -202,4 +202,28 @@ class WorkoutPinEditingInstrumentedTest {
         assertEquals(7, after.getJSONArray("exercises").getJSONObject(0).getInt("completedReps"))
         assertEquals("Editado", after.getString("title"))
     }
+
+    /** Pending custom exercise (WOD→fuerza sin catálogo): cuota denegada = nada persiste; permitido = se crea UNA vez y se enlaza. */
+    @Test fun pendingCustomExerciseIsCreatedOnlyOnSaveAndRespectsQuota() {
+        val (repo, _) = repoWithRoutines("r1")
+        val a = repo.startStrengthRoutine("r1")
+        repo.logCurrentSet(quantity = 5, weightKg = 60.0, rir = 2.0)
+        repo.finish()
+        val saved = repo.finishedWorkoutsSnapshot().first()
+        val blocks = CompletedWorkoutEditing.blocksFrom(saved, null)
+        blocks.getJSONObject(0).getJSONArray("exercises").put(JSONObject()
+            .put("id", UUID.randomUUID().toString()).put("exerciseId", "pending:Thruster fixture")
+            .put("plannedSets", JSONArray().put(JSONObject().put("id", UUID.randomUUID().toString()).put("targetReps", 8))))
+        val before = repo.finishedWorkoutsSnapshot().first().toString()
+        var threw = false
+        try { repo.updateFinishedWorkout(a.id, edit(blocksJson = blocks.toString())) { false } } catch (e: IllegalStateException) { threw = true }
+        assertTrue("cuota denegada lanza", threw)
+        assertEquals("el entreno no cambia", before, repo.finishedWorkoutsSnapshot().first().toString())
+        assertTrue(repo.updateFinishedWorkout(a.id, edit(blocksJson = blocks.toString())) { true })
+        val after = repo.finishedWorkoutsSnapshot().first().getJSONArray("exercises")
+        val names = (0 until after.length()).map { after.getJSONObject(it).getJSONObject("exercise").getString("name") }
+        assertTrue(names.contains("Thruster fixture"))
+        val ids = (0 until after.length()).map { after.getJSONObject(it).getJSONObject("exercise").getString("id") }
+        assertFalse(ids.any { it.startsWith("pending:") })
+    }
 }

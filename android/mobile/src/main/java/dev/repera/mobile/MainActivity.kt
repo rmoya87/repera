@@ -730,7 +730,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 // sin guardarla y detiene la captura de ubicación.
                 accountId = profile?.uniqueId.orEmpty(),
                 onUpdateFinishedWorkout = { workoutId, edit ->
-                    runWorkoutAction { updateFinishedWorkout(workoutId, edit) }
+                    runWorkoutAction {
+                        updateFinishedWorkout(workoutId, edit) { before ->
+                            subscriptions.syncCounts(snapshot?.routines ?: 0, before)
+                            subscriptions.canCreateCustomExercise(true).allowed
+                        }
+                    }
                 },
                 onActivePinChange = { pin ->
                     val sid = snapshot?.activeSessionId
