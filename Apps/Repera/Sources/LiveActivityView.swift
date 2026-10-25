@@ -314,6 +314,7 @@ private struct LiveGPSFix: Sendable {
     var accuracy: Double
     var verticalAccuracy: Double
     var speed: Double
+    var course: Double
     var timestamp: Date
 }
 
@@ -346,6 +347,7 @@ final class LiveActivityRecorder: NSObject {
     private(set) var routePoints: [WorkoutRoutePoint] = []
     private(set) var currentCoordinate: CLLocationCoordinate2D?
     private(set) var currentSpeedMps: Double?
+    private(set) var currentCourseDegrees: Double?
     private(set) var gpsMessage: String?
     private(set) var chosenRoute: LiveSavedRoute?
     private var lastPosition: CLLocation?
@@ -429,6 +431,7 @@ final class LiveActivityRecorder: NSObject {
         routePoints = []
         lastPosition = nil
         currentSpeedMps = nil
+        currentCourseDegrees = nil
         gpsMessage = nil
         phase = .recording
         if sport.usesGPS { startGPS() }
@@ -618,6 +621,10 @@ final class LiveActivityRecorder: NSObject {
             return
         }
         currentSpeedMps = fix.speed >= 0 ? fix.speed : nil
+        // Solo confiar en el rumbo del GPS cuando el dispositivo se desplaza.
+        if fix.course >= 0, fix.course < 360, fix.speed > 0.8 {
+            currentCourseDegrees = fix.course
+        }
         if let previous = lastPosition {
             let meters = position.distance(from: previous)
             let seconds = fix.timestamp.timeIntervalSince(previous.timestamp)
@@ -682,7 +689,7 @@ extension LiveActivityRecorder: CLLocationManagerDelegate {
             latitude: position.coordinate.latitude, longitude: position.coordinate.longitude,
             altitude: position.altitude, accuracy: position.horizontalAccuracy,
             verticalAccuracy: position.verticalAccuracy,
-            speed: position.speed, timestamp: position.timestamp
+            speed: position.speed, course: position.course, timestamp: position.timestamp
         )
         Task { @MainActor [weak self] in self?.receive(sample) }
     }
@@ -923,6 +930,9 @@ struct LiveActivityView: View {
         .onChange(of: recorder.currentCoordinate?.longitude) { _, _ in
             if mapIsCentered, let user = recorder.currentCoordinate { center3DMap(on: user) }
         }
+        .onChange(of: recorder.currentCourseDegrees) { _, _ in
+            if mapIsCentered, let user = recorder.currentCoordinate { center3DMap(on: user) }
+        }
     }
 
     /// Descartar encima, GPS y Métricas debajo. GPS solo al alejarse del centro.
@@ -957,11 +967,23 @@ struct LiveActivityView: View {
 
     /// Cámara inclinada con relieve realista; continúa centrada durante una sesión.
     private func center3DMap(on user: CLLocationCoordinate2D) {
+        // Cámara tipo navegador: rumbo de la marcha, perspectiva baja
+        // y un punto de mira por delante para dejar visible la ruta siguiente.
+        let heading = recorder.currentCourseDegrees ?? 0
+        let lookAheadMeters = recorder.phase == .idle ? 0.0 : 35.0
+        let radians = heading * .pi / 180
+        let latOffset = cos(radians) * lookAheadMeters / 111_320
+        let lonRadians = max(0.1, abs(cos(user.latitude * .pi / 180)))
+        let lonOffset = sin(radians) * lookAheadMeters / (111_320 * lonRadians)
+        let ahead = CLLocationCoordinate2D(
+            latitude: user.latitude + latOffset,
+            longitude: user.longitude + lonOffset
+        )
         position = .camera(MapCamera(
-            centerCoordinate: user,
-            distance: 900,
-            heading: 0,
-            pitch: 55
+            centerCoordinate: ahead,
+            distance: recorder.sport.isCycling ? 540 : 350,
+            heading: heading,
+            pitch: 67
         ))
     }
 
