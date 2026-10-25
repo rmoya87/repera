@@ -91,4 +91,57 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         compose.onNodeWithTag("edit_save").performClick()
         assertNull(saved!!.blocksJson)
     }
+
+    private val twoBlocks = """[
+        {"id":"b1","title":"A","kind":"strength","exercises":[
+          {"id":"e1","exerciseId":"x1","plannedSets":[{"id":"p1","targetReps":5,"targetWeightKg":60,"targetRir":2}]}]},
+        {"id":"b2","title":"B","kind":"strength","exercises":[
+          {"id":"e2","exerciseId":"x2","plannedSets":[{"id":"p2","targetReps":8}]}]}]"""
+
+    @Test fun moveBetweenBlocksKeepsItemIdAndEmitsOnSave() {
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val w = workout.copy(editableBlocksJson = twoBlocks)
+        compose.setContent {
+            FinishedWorkoutEditorSection(w, "acc", false,
+                listOf(ExerciseEntry("x1", "Sentadilla", true, true), ExerciseEntry("x2", "Press", true, true))) { saved = it }
+        }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        compose.onNodeWithTag("ex_move_0_0").performClick()
+        compose.onNodeWithTag("ex_move_to_0_0_1").performClick()
+        compose.onNodeWithTag("edit_save").performClick()
+        val arr = org.json.JSONArray(saved!!.blocksJson)
+        assertEquals(0, arr.getJSONObject(0).getJSONArray("exercises").length())
+        val dest = arr.getJSONObject(1).getJSONArray("exercises")
+        assertEquals(listOf("e2", "e1"), (0 until 2).map { dest.getJSONObject(it).getString("id") })
+    }
+
+    @Test fun searchFindsExerciseAcrossFullCatalogIgnoringAccents() {
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val catalog = (1..200).map { ExerciseEntry("c$it", "Ejercicio $it", true, true) } +
+            ExerciseEntry("tri", "Extensión de tríceps", true, true)
+        val w = workout.copy(editableBlocksJson = blocks)
+        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, catalog) { saved = it } }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        compose.onNodeWithTag("ex_add_0").performClick()
+        compose.onNodeWithTag("ex_search").performTextInput("triceps")
+        compose.onNodeWithTag("ex_pick_tri").performClick()
+        compose.onNodeWithTag("edit_save").performClick()
+        val items = org.json.JSONArray(saved!!.blocksJson).getJSONObject(0).getJSONArray("exercises")
+        assertEquals(3, items.length())
+        assertEquals("tri", items.getJSONObject(2).getString("exerciseId"))
+        assertEquals(0, items.getJSONObject(2).getJSONArray("plannedSets").getJSONObject(0).optInt("targetRir", 0))
+    }
+
+    @Test fun rirEditPersistsInDraft() {
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val w = workout.copy(editableBlocksJson = twoBlocks)
+        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, emptyList()) { saved = it } }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        compose.onNodeWithTag("set_rir_0_0_0").performTextClearance()
+        compose.onNodeWithTag("set_rir_0_0_0").performTextInput("1")
+        compose.onNodeWithTag("edit_save").performClick()
+        val set = org.json.JSONArray(saved!!.blocksJson).getJSONObject(0).getJSONArray("exercises")
+            .getJSONObject(0).getJSONArray("plannedSets").getJSONObject(0)
+        assertEquals(1.0, set.getDouble("targetRir"), 0.0)
+    }
 }

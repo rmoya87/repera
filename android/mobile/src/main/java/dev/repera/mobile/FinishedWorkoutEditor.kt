@@ -148,6 +148,28 @@ private fun FinishedContentEditor(
                         swap(items, i, i - 1); onChanged() }) { Text("↑") }
                     TextButton(enabled = i < items.length() - 1, modifier = Modifier.testTag("ex_down_${b}_$i"), onClick = {
                         swap(items, i, i + 1); onChanged() }) { Text("↓") }
+                    var moving by remember { mutableStateOf(false) }
+                    val targets = (0 until blocks.length()).filter {
+                        it != b && blocks.getJSONObject(it).optString("kind") == "strength" }
+                    if (targets.isNotEmpty()) {
+                        TextButton(modifier = Modifier.testTag("ex_move_${b}_$i"),
+                            onClick = { moving = true }) { Text("Mover") }
+                        DropdownMenu(expanded = moving, onDismissRequest = { moving = false }) {
+                            targets.forEach { t ->
+                                DropdownMenuItem(
+                                    text = { Text(blocks.getJSONObject(t).optString("title").ifBlank { "Bloque ${t + 1}" }) },
+                                    modifier = Modifier.testTag("ex_move_to_${b}_${i}_$t"),
+                                    onClick = {
+                                        moving = false
+                                        val moved = items.get(i)
+                                        items.remove(i)
+                                        val dest = blocks.getJSONObject(t)
+                                        (dest.optJSONArray("exercises") ?: org.json.JSONArray().also { dest.put("exercises", it) }).put(moved)
+                                        onChanged()
+                                    })
+                            }
+                        }
+                    }
                     TextButton(modifier = Modifier.testTag("ex_remove_${b}_$i"), onClick = {
                         items.remove(i); onChanged() }) { Text("Quitar") }
                 }
@@ -177,6 +199,18 @@ private fun FinishedContentEditor(
                                 if (parsed != null) set.put("targetWeightKg", parsed) else set.remove("targetWeightKg")
                                 onEdited()
                             })
+                        var rir by remember { mutableStateOf(
+                            if (set.has("targetRir") && !set.isNull("targetRir"))
+                                set.getDouble("targetRir").let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() }
+                            else "") }
+                        OutlinedTextField(value = rir, label = { Text("RIR") }, singleLine = true,
+                            modifier = Modifier.weight(1f).testTag("set_rir_${b}_${i}_$s"),
+                            onValueChange = { v ->
+                                rir = v.filter { it.isDigit() || it == '.' || it == ',' }.take(4)
+                                val parsed = rir.replace(',', '.').toDoubleOrNull()
+                                if (parsed != null && parsed in 0.0..10.0) set.put("targetRir", parsed) else set.remove("targetRir")
+                                onEdited()
+                            })
                         TextButton(modifier = Modifier.testTag("set_remove_${b}_${i}_$s"),
                             onClick = { sets.remove(s); onChanged() }) { Text("×") }
                     }
@@ -193,18 +227,41 @@ private fun FinishedContentEditor(
             var picking by remember { mutableStateOf(false) }
             TextButton(modifier = Modifier.testTag("ex_add_$b"), enabled = catalog.isNotEmpty(),
                 onClick = { picking = true }) { Text("Añadir ejercicio") }
-            DropdownMenu(expanded = picking, onDismissRequest = { picking = false }) {
-                catalog.take(60).forEach { entry ->
-                    DropdownMenuItem(text = { Text(entry.name) }, onClick = {
-                        picking = false
-                        items.put(org.json.JSONObject()
-                            .put("id", java.util.UUID.randomUUID().toString())
-                            .put("exerciseId", entry.id)
-                            .put("plannedSets", org.json.JSONArray().put(org.json.JSONObject()
-                                .put("id", java.util.UUID.randomUUID().toString()).put("targetReps", 8))))
-                        onChanged()
-                    })
+            if (picking) {
+                var q by remember { mutableStateOf("") }
+                val normalized = remember(q) { foldForSearch(q) }
+                val filtered = remember(q, catalog) {
+                    if (normalized.isBlank()) catalog
+                    else catalog.filter { foldForSearch(it.name).contains(normalized) }
                 }
+                AlertDialog(
+                    onDismissRequest = { picking = false },
+                    title = { Text("Añadir ejercicio") },
+                    text = {
+                        Column {
+                            OutlinedTextField(value = q, onValueChange = { q = it }, singleLine = true,
+                                label = { Text("Buscar en todo el catálogo") },
+                                modifier = Modifier.fillMaxWidth().testTag("ex_search"))
+                            androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                                items(filtered.size, key = { filtered[it].id }) { idx ->
+                                    val entry = filtered[idx]
+                                    TextButton(modifier = Modifier.fillMaxWidth().testTag("ex_pick_${entry.id}"),
+                                        onClick = {
+                                            picking = false
+                                            items.put(org.json.JSONObject()
+                                                .put("id", java.util.UUID.randomUUID().toString())
+                                                .put("exerciseId", entry.id)
+                                                .put("plannedSets", org.json.JSONArray().put(org.json.JSONObject()
+                                                    .put("id", java.util.UUID.randomUUID().toString()).put("targetReps", 8))))
+                                            onChanged()
+                                        }) { Text(entry.name, modifier = Modifier.fillMaxWidth()) }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {},
+                    dismissButton = { TextButton(onClick = { picking = false }) { Text("Cancelar") } }
+                )
             }
         }
     }
@@ -214,3 +271,8 @@ private fun swap(array: org.json.JSONArray, a: Int, b: Int) {
     val x = array.get(a); val y = array.get(b)
     array.put(a, y); array.put(b, x)
 }
+
+/** Búsqueda sin mayúsculas ni diacríticos (como la búsqueda de catálogo de iOS). */
+internal fun foldForSearch(text: String): String =
+    java.text.Normalizer.normalize(text.trim().lowercase(), java.text.Normalizer.Form.NFD)
+        .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
