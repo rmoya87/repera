@@ -18,8 +18,6 @@ internal object MirrorRecoveryReconciler {
         data object NotApplicable : Result
         /** Drive ya contiene todo lo recuperado: basta descargar. */
         data object UseRemote : Result
-        /** Documento fusionado (Drive + recuperados ausentes), listo para escribir en local y subir. */
-        class Merged(val bytes: ByteArray) : Result
     }
 
     fun reconcile(
@@ -47,15 +45,10 @@ internal object MirrorRecoveryReconciler {
         val remoteIds = remoteById.keys
         val extras = (0 until localWorkouts.length()).map { localWorkouts.getJSONObject(it) }
             .filter { it.optString("id") !in remoteIds }
-        if (extras.isEmpty()) return Result.UseRemote
-        val all = (0 until remoteWorkouts.length()).map { remoteWorkouts.getJSONObject(it) } + extras
-        val sorted = all.sortedByDescending { it.optString("finishedAt").ifBlank { it.optString("startedAt") } }
-        val merged = JSONObject(r.toString())
-        merged.put("workouts", JSONArray().also { out -> sorted.forEach { out.put(JSONObject(it.toString())) } })
-        merged.put("syncRevision", r.optInt("syncRevision", 0) + 1)
-        merged.put("updatedAt", nowIso)
-        merged.put("lastWriterDeviceId", l.optString("lastWriterDeviceId"))
-        return Result.Merged(merged.toString().toByteArray(Charsets.UTF_8))
+        // Ausente en Drive no distingue "registro nuevo" de "borrado remotamente": sin prueba de lo segundo no se sube
+        // nada por esta vía. Se conserva el camino normal (conflicto + copias de recuperación).
+        if (extras.isNotEmpty()) return Result.NotApplicable
+        return Result.UseRemote
     }
 
     /** Como isVirgin de DriveSnapshotService, ignorando workouts y los tres campos de versión que cada save() actualiza. */

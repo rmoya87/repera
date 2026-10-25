@@ -71,27 +71,27 @@ class DriveSnapshotServiceMirrorTest {
         assertEquals(setOf("a", "b"), ids(local.bytes))
     }
 
-    @Test fun recoveredWorkoutMissingFromDriveIsUploadedAndNextSyncIsUnchanged() {
+    @Test fun recoveredWorkoutMissingFromDriveIsNotUploadedAndKeepsLocalAndConflict() {
         val n = workout("new", finished = "2026-10-20T10:00:00Z")
+        val localBytes = doc(listOf(n), 1)
         val drive = FakeDrive(doc(listOf(workout("old")), 7, listOf("r")))
-        val local = FakeLocal(doc(listOf(n), 1), prov(n))
-        assertEquals(DriveSnapshotService.Outcome.Uploaded, svc(drive, local).synchronize())
-        assertEquals(setOf("old", "new"), ids(drive.bytes))
-        assertTrue(local.bytes!!.contentEquals(drive.bytes!!))
-        assertEquals(1, local.backups)
-        assertEquals(DriveSnapshotService.Outcome.Unchanged, svc(drive, local).synchronize())
+        val remoteBefore = drive.bytes!!.copyOf()
+        val local = FakeLocal(localBytes, prov(n))
+        assertEquals(DriveSnapshotService.Outcome.Conflict, svc(drive, local).synchronize())
+        assertEquals(0, drive.patches)
+        assertTrue(drive.bytes!!.contentEquals(remoteBefore))
+        assertTrue(local.bytes!!.contentEquals(localBytes))
     }
 
-    @Test fun failedUploadThenRetryConvergesWithoutConflictOrLoss() {
-        val n = workout("new"); val old = workout("old")
-        val drive = FakeDrive(doc(listOf(old), 7), failPatch = true)
-        val local = FakeLocal(doc(listOf(n), 1), prov(n))
-        assertThrows(IllegalStateException::class.java) { svc(drive, local).synchronize() }
-        assertEquals(setOf("old", "new"), ids(local.bytes))   // local ya tiene ambos; Drive no cambió
-        assertEquals(setOf("old"), ids(drive.bytes))
-        drive.failPatch = false
-        assertEquals(DriveSnapshotService.Outcome.Uploaded, svc(drive, local).synchronize())
-        assertEquals(setOf("old", "new"), ids(drive.bytes))
+    @Test fun downloadIsIdempotentOnRepeat() {
+        val a = workout("a")
+        val drive = FakeDrive(doc(listOf(a, workout("b")), 7))
+        val local = FakeLocal(doc(listOf(a), 1), prov(a))
+        val failing = FakeLocal(local.bytes, local.prov)
+        assertEquals(DriveSnapshotService.Outcome.Downloaded, svc(drive, failing).synchronize())
+        assertEquals(setOf("a", "b"), ids(failing.bytes))
+        // idempotente: repetir con el resultado ya local no cambia nada
+        assertEquals(DriveSnapshotService.Outcome.Unchanged, svc(drive, failing).synchronize())
     }
 
     @Test fun independentLocalDataStillRaisesConflict() {
@@ -102,12 +102,13 @@ class DriveSnapshotServiceMirrorTest {
         assertEquals(0, drive.patches)
     }
 
-    @Test fun workoutDeletedLocallyAfterRecoveryIsNotReAdded() {
+    @Test fun workoutDeletedLocallyAfterRecoveryNeverReachesDrive() {
         val a = workout("a"); val b = workout("b")
         val drive = FakeDrive(doc(listOf(workout("old")), 7))
         val local = FakeLocal(doc(listOf(a), 1), prov(a, b)) // b se recuperó y luego se borró en local
-        svc(drive, local).synchronize()
-        assertEquals(setOf("old", "a"), ids(drive.bytes))
+        assertEquals(DriveSnapshotService.Outcome.Conflict, svc(drive, local).synchronize())
+        assertEquals(setOf("old"), ids(drive.bytes))
+        assertEquals(0, drive.patches)
     }
 
     @Test fun sameIdWithDifferentContentIsNotMergedByTheReconciler() {

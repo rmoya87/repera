@@ -33,15 +33,17 @@ class MirrorRecoveryReconcilerTest {
         assertTrue(r is MirrorRecoveryReconciler.Result.UseRemote)
     }
 
-    @Test fun recoveredWorkoutMissingFromDriveIsReMergedAndWinsVersion() {
+    @Test fun recoveredWorkoutMissingFromDriveIsNotUploadedAutomatically() {
         val n = workout("new", "2026-10-20T10:00:00Z")
         val r = MirrorRecoveryReconciler.reconcile(bytes(doc(listOf(n), 1)),
             bytes(doc(listOf(workout("old")), 7, routines = listOf("r"))), prov(n), now)
-        val merged = JSONObject(String((r as MirrorRecoveryReconciler.Result.Merged).bytes))
-        assertEquals(listOf("new", "old"), (0 until 2).map { merged.getJSONArray("workouts").getJSONObject(it).getString("id") })
-        assertEquals(1, merged.getJSONArray("routines").length())
-        assertEquals(8, merged.getInt("syncRevision"))
-        assertEquals(now, merged.getString("updatedAt"))
+        assertEquals(MirrorRecoveryReconciler.Result.NotApplicable, r)
+    }
+
+    @Test fun sameIdWithDifferentContentDeclines() {
+        val a = workout("a"); val edited = JSONObject(a.toString()).put("title", "otro")
+        assertEquals(MirrorRecoveryReconciler.Result.NotApplicable, MirrorRecoveryReconciler.reconcile(
+            bytes(doc(listOf(a), 1)), bytes(doc(listOf(edited), 7)), prov(a), now))
     }
 
     @Test fun anyIndependentLocalChangeKeepsTheNormalConflictPath() {
@@ -59,18 +61,5 @@ class MirrorRecoveryReconcilerTest {
         // sin procedencia o sin entrenos
         assertEquals(na, MirrorRecoveryReconciler.reconcile(bytes(doc(listOf(a), 1)), remote, emptyMap(), now))
         assertEquals(na, MirrorRecoveryReconciler.reconcile(bytes(doc(emptyList(), 1)), remote, prov(a), now))
-    }
-
-    @Test fun retryAfterPartialFailureConvergesWithoutConflict() {
-        // Tras escribir local=merged pero fallar la subida, local ya no es "virgen+recuperados": el camino normal decide por versión.
-        val n = workout("new"); val remoteDoc = doc(listOf(workout("old")), 7)
-        val merged = (MirrorRecoveryReconciler.reconcile(bytes(doc(listOf(n), 1)), bytes(remoteDoc), prov(n), now)
-            as MirrorRecoveryReconciler.Result.Merged).bytes
-        assertEquals(MirrorRecoveryReconciler.Result.NotApplicable,
-            MirrorRecoveryReconciler.reconcile(merged, bytes(remoteDoc), prov(n), now))
-        val m = JSONObject(String(merged))
-        assertTrue(m.getInt("syncRevision") > remoteDoc.getInt("syncRevision"))
-        val ids = (0 until m.getJSONArray("workouts").length()).map { m.getJSONArray("workouts").getJSONObject(it).getString("id") }.toSet()
-        assertEquals(setOf("old", "new"), ids) // sin IDs únicos solo-remotos: CloudHistoryConflict no se dispara
     }
 }

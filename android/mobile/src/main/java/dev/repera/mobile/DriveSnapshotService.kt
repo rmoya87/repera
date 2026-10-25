@@ -64,15 +64,9 @@ class DriveSnapshotService(
         }
         // Local = catálogo virgen + entrenos recuperados del espejo sin editar: no es historial independiente.
         // Cualquier otra diferencia local cae al camino normal (con su Conflict).
-        when (val rec = MirrorRecoveryReconciler.reconcile(
+        when (MirrorRecoveryReconciler.reconcile(
             localBytes, remoteBytes, local.readMirrorProvenance(), Instant.now().toString())) {
             MirrorRecoveryReconciler.Result.UseRemote -> { local.write(remoteBytes); return Outcome.Downloaded }
-            is MirrorRecoveryReconciler.Result.Merged -> {
-                local.preserveRemoteBackup(remoteBytes)
-                local.write(rec.bytes)
-                update(remoteId, rec.bytes)
-                return Outcome.Uploaded
-            }
             MirrorRecoveryReconciler.Result.NotApplicable -> Unit
         }
         if (divergentTraining(localBytes, remoteBytes)) return Outcome.Conflict
