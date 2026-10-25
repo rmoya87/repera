@@ -127,7 +127,9 @@ internal fun RouteMapView(
                 // El listener de fallo de carga vive en MapView (widget), no en
                 // MapLibreMap (comprobado contra el AAR de MapLibre 13.7.1).
                 addOnDidFailLoadingMapListener { failed = true }
-                addOnDidFinishRenderingMapListener { fully -> if (fully) currentRendered?.invoke() }
+                // Map-level completion may fire only on initial load. Camera changes
+                // need a fully-rendered FRAME, not another map-load completion.
+                addOnDidFinishRenderingFrameListener { fully, _, _ -> if (fully) currentRendered?.invoke() }
                 onCreate(null)
                 // A newly mounted map can arrive after its owner is RESUMED.
                 // Lifecycle events are not replayed to this new widget.

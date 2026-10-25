@@ -19,6 +19,23 @@ class LiveLocationSourceInstrumentedTest {
     // A foreground location request must be tested while the app is visible,
     // not from a background instrumentation process without an Activity/FGS.
     @get:org.junit.Rule val compose=androidx.compose.ui.test.junit4.createAndroidComposeRule<androidx.activity.ComponentActivity>()
+    @Test fun deniedLocationDoesNotStartProviderOrInventSamples() {
+        val real=InstrumentationRegistry.getInstrumentation().targetContext
+        val denied=object:android.content.ContextWrapper(real) {
+            override fun checkPermission(permission:String,pid:Int,uid:Int):Int =
+                if(permission==Manifest.permission.ACCESS_FINE_LOCATION || permission==Manifest.permission.ACCESS_COARSE_LOCATION)
+                    android.content.pm.PackageManager.PERMISSION_DENIED else super.checkPermission(permission,pid,uid)
+        }
+        var count=0
+        val source=LiveLocationSource(denied) { count++ }
+        compose.runOnIdle {
+            assertFalse(source.isAuthorized)
+            assertFalse(source.start("synthetic-denied",LiveSport.RUNNING,emptyList(),0.0))
+            assertEquals("GPS no autorizado. Seguimos registrando el tiempo.",source.lastError)
+            source.stop("synthetic-denied")
+        }
+        assertEquals(0,count);assertEquals(0,source.receivedFixCount)
+    }
     @Suppress("DEPRECATION")
     @Test fun syntheticPlatformProviderStopsOnPauseAndResumeDoesNotBridgeGap() {
         val instrument=InstrumentationRegistry.getInstrumentation()
@@ -34,6 +51,12 @@ class LiveLocationSourceInstrumentedTest {
         fun awaitCount(count:Int) {
             val end=SystemClock.elapsedRealtime()+10_000
             while(updates.size<count && SystemClock.elapsedRealtime()<end) Thread.sleep(50)
+            if(updates.size!=count) {
+                instrument.uiAutomation.executeShellCommand("dumpsys location").use { p ->
+                    val dump=java.io.FileInputStream(p.fileDescriptor).use { String(it.readBytes()) }
+                    android.util.Log.e("ReperaSyntheticGPS",dump)
+                }
+            }
             assertEquals("Expected synthetic provider updates, raw=${source.receivedFixCount}, lastAgeMs=${source.lastFixAgeMillis}",count,updates.size)
         }
         compose.setContent { androidx.compose.material3.Text("GPS sintético en primer plano") }
@@ -54,6 +77,7 @@ class LiveLocationSourceInstrumentedTest {
                 })
             }
             fix(40.438,0);awaitCount(1)
+            android.util.Log.i("ReperaSyntheticGPS","First fix accepted; enabled=${manager.getProviders(true)} activity=${compose.activity.lifecycle.currentState}")
             Thread.sleep(5_100);fix(40.4381,5);awaitCount(2)
             val meters=updates.last().distanceMeters
             assertTrue(meters>10)

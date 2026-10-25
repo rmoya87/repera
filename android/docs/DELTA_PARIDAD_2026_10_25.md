@@ -425,3 +425,19 @@ vistas/requests ni key. Obligación de atribución. https://openfreemap.org/tos/
 No se implementó descarga offline. No confundir ausencia de coste actual con
 SLA gratis o garantía eterna. OpenFreeMap no da elevación ni cálculo rutas:
 https://github.com/hyperknot/openfreemap . Relieve3D aún no portado.
+
+## Reauditoría D7 /21:41
+- Settings delta b8f45fa→5890215d: no existe botón resync completo Android
+  que retirar; no confundir con listeners automáticos de sincronización.
+  Etiqueta de entrada Datos actualizada Acceso IA→Conecta tu IA igual Apple.
+  Resto de pantalla Ajustes Android es más limitada y no se declara igualada
+  globalmente por inspeccionar ese viewport. Cambio de etiqueta compilado,
+  pendiente captura junto con siguiente bloque.
+- Prueba canvas ampliada con toggle voz/restauración de preferencia y cancelar
+  descarte conservando fase RECORDING. Compila, aún no ejecutada. No prueba
+  salida de audio ni interacción física con otras apps.
+-40230799765: controles6/1 (timeout DESPUÉS de pulsar Modo navegador línea112,
+  no tras alternar métricas); proveedor1/1 (primera muestra sí, segunda no).
+  No cierre GPS/cámara. Nuevo40231875073 conserva captura incluso timeout y
+  diagnostica número crudo de fixes/edad sin registrar coordenadas. Corrige
+  fixture segundo fix con5.1s de espera para timestamp5s, hipótesis aún.
