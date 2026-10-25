@@ -7,6 +7,7 @@ import ReperaDomain
 import SwiftUI
 import UniformTypeIdentifiers
 import UIKit
+import UserNotifications
 
 /// El deporte determina qué se mide; no se infiere del nombre del entrenamiento.
 enum LiveSport: String, CaseIterable, Identifiable {
@@ -318,6 +319,85 @@ private struct LiveGPSFix: Sendable {
     var timestamp: Date
 }
 
+/// Un parcial confirmado se calcula con tiempo ACTIVO, descontando pausas.
+/// La interpolación sobre el cruce de 1 km evita depender de la frecuencia GPS.
+private struct LiveKmSplit: Codable, Identifiable, Sendable {
+    let kilometer: Int
+    let seconds: TimeInterval
+    var id: Int { kilometer }
+
+    var clock: String {
+        let total = max(0, Int(seconds.rounded()))
+        return String(format: "%d:%02d", total / 60, total % 60)
+    }
+}
+
+private struct LiveRouteTurn: Sendable {
+    let routeIndex: Int
+    let metersAlongRoute: Double
+    let angleDegrees: Double
+
+    var instruction: String {
+        if abs(angleDegrees) > 145 { return "Cambio de sentido" }
+        return angleDegrees > 0 ? "Gira a la derecha" : "Gira a la izquierda"
+    }
+}
+
+/// Guía orientativa de GPX. No se inventan calles ni se usa como motor de
+/// navegación vial: se detectan cambios de rumbo en la polilínea importada.
+private enum LiveGPXTurnDetection {
+    static func distance(_ a: WorkoutRoutePoint, _ b: WorkoutRoutePoint) -> Double {
+        CLLocation(latitude: a.latitude, longitude: a.longitude).distance(
+            from: CLLocation(latitude: b.latitude, longitude: b.longitude)
+        )
+    }
+
+    private static func bearing(_ a: WorkoutRoutePoint, _ b: WorkoutRoutePoint) -> Double {
+        let lat1 = a.latitude * .pi / 180
+        let lat2 = b.latitude * .pi / 180
+        let delta = (b.longitude - a.longitude) * .pi / 180
+        let y = sin(delta) * cos(lat2)
+        let x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(delta)
+        return atan2(y, x) * 180 / .pi
+    }
+
+    static func cumulative(_ points: [WorkoutRoutePoint]) -> [Double] {
+        guard !points.isEmpty else { return [] }
+        var result = [0.0]
+        for index in 1..<points.count {
+            result.append(result[index - 1] + distance(points[index - 1], points[index]))
+        }
+        return result
+    }
+
+    static func detect(_ points: [WorkoutRoutePoint], along: [Double]) -> [LiveRouteTurn] {
+        guard points.count >= 3, along.count == points.count else { return [] }
+        var turns: [LiveRouteTurn] = []
+        // Analizar como máximo ~1200 vértices sin perder los cambios fuertes de dirección.
+        let step = max(1, points.count / 1200)
+        for index in stride(from: step, to: points.count - step, by: step) {
+            let at = along[index]
+            let before = max(0, index - step)
+            let after = min(points.count - 1, index + step)
+            guard at - along[before] >= 12, along[after] - at >= 12 else { continue }
+            let oldBearing = bearing(points[before], points[index])
+            let newBearing = bearing(points[index], points[after])
+            let delta = (newBearing - oldBearing + 540)
+                .truncatingRemainder(dividingBy: 360) - 180
+            guard abs(delta) >= 52 else { continue }
+            let item = LiveRouteTurn(
+                routeIndex: index, metersAlongRoute: at, angleDegrees: delta
+            )
+            if let last = turns.last, at - last.metersAlongRoute < 55 {
+                if abs(delta) > abs(last.angleDegrees) { turns[turns.count - 1] = item }
+            } else {
+                turns.append(item)
+            }
+        }
+        return turns
+    }
+}
+
 private struct LiveSnapshot: Codable {
     var sport: String
     var phase: String
@@ -328,6 +408,8 @@ private struct LiveSnapshot: Codable {
     var routePoints: [WorkoutRoutePoint]
     var savedAt: Date
     var selectedRouteID: UUID?
+    var kilometerSplits: [LiveKmSplit]?
+    var lastKilometerBoundarySeconds: TimeInterval?
 }
 
 /// La grabación no depende de que SwiftUI mantenga abierta la pestaña.
@@ -350,6 +432,14 @@ final class LiveActivityRecorder: NSObject {
     private(set) var currentCourseDegrees: Double?
     private(set) var gpsMessage: String?
     private(set) var chosenRoute: LiveSavedRoute?
+    private(set) var kilometerSplits: [LiveKmSplit] = []
+    private(set) var latestKilometerReport: String?
+    private(set) var upcomingTurn: String?
+    private var lastKilometerBoundarySeconds: TimeInterval = 0
+    private var previousFixActiveSeconds: TimeInterval?
+    private var selectedRouteDistance: [Double] = []
+    private var selectedRouteTurns: [LiveRouteTurn] = []
+    private var announcedTurnIndices: Set<Int> = []
     private var lastPosition: CLLocation?
     private var lastSave = Date.distantPast
     private var lastLiveActivityUpdate = Date.distantPast
@@ -377,12 +467,18 @@ final class LiveActivityRecorder: NSObject {
             pausedSeconds = snapshot.pausedSeconds
             recordedDistanceMeters = snapshot.recordedDistanceMeters
             routePoints = snapshot.routePoints
+            kilometerSplits = snapshot.kilometerSplits ?? []
+            lastKilometerBoundarySeconds = snapshot.lastKilometerBoundarySeconds ?? 0
+            latestKilometerReport = kilometerSplits.last.map {
+                "Km \($0.kilometer) · \($0.clock) min/km"
+            }
             currentCoordinate = routePoints.last.map {
                 CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
             }
             chosenRoute = snapshot.selectedRouteID.flatMap { id in
                 LiveRoutesStore.shared.routes.first { $0.id == id }
             }
+            prepareRouteNavigation()
             // Restauración segura: una interrupción no debe inventar tiempo ni distancia.
             phase = .paused
         } else if let savedSport = UserDefaults.standard.string(forKey: "repera.live.lastSport"),
@@ -406,6 +502,17 @@ final class LiveActivityRecorder: NSObject {
     func selectRoute(_ route: LiveSavedRoute?) {
         guard phase == .idle else { return }
         chosenRoute = route
+        prepareRouteNavigation()
+    }
+
+    private func prepareRouteNavigation() {
+        let points = chosenRoute?.points ?? []
+        selectedRouteDistance = LiveGPXTurnDetection.cumulative(points)
+        selectedRouteTurns = LiveGPXTurnDetection.detect(
+            points, along: selectedRouteDistance
+        )
+        announcedTurnIndices = []
+        upcomingTurn = nil
     }
 
     /// Precarga el punto azul sin iniciar ni registrar todavía una sesión.
@@ -429,6 +536,12 @@ final class LiveActivityRecorder: NSObject {
         pausedSeconds = 0
         recordedDistanceMeters = 0
         routePoints = []
+        kilometerSplits = []
+        latestKilometerReport = nil
+        lastKilometerBoundarySeconds = 0
+        previousFixActiveSeconds = nil
+        announcedTurnIndices = []
+        upcomingTurn = nil
         lastPosition = nil
         currentSpeedMps = nil
         currentCourseDegrees = nil
@@ -497,6 +610,7 @@ final class LiveActivityRecorder: NSObject {
         if let pausedAt { pausedSeconds += Date().timeIntervalSince(pausedAt) }
         pausedAt = nil
         lastPosition = nil
+        previousFixActiveSeconds = nil
         phase = .recording
         if sport.usesGPS { startGPS() }
         persistSnapshot()
@@ -584,7 +698,12 @@ final class LiveActivityRecorder: NSObject {
         routePoints = []
         recordedDistanceMeters = 0
         currentSpeedMps = nil
+        currentCourseDegrees = nil
         currentCoordinate = nil
+        upcomingTurn = nil
+        kilometerSplits = []
+        latestKilometerReport = nil
+        previousFixActiveSeconds = nil
         chosenRoute = nil
         lastPosition = nil
         UserDefaults.standard.removeObject(forKey: snapshotKey)
@@ -596,7 +715,9 @@ final class LiveActivityRecorder: NSObject {
             sport: sport.rawValue, phase: phase.rawValue,
             startedAt: start, pausedAt: pausedAt, pausedSeconds: pausedSeconds,
             recordedDistanceMeters: recordedDistanceMeters, routePoints: routePoints,
-            savedAt: Date(), selectedRouteID: chosenRoute?.id
+            savedAt: Date(), selectedRouteID: chosenRoute?.id,
+            kilometerSplits: kilometerSplits,
+            lastKilometerBoundarySeconds: lastKilometerBoundarySeconds
         )
         if let data = try? JSONEncoder().encode(snap) {
             UserDefaults.standard.set(data, forKey: snapshotKey)
