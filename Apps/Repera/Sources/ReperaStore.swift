@@ -1333,6 +1333,12 @@ final class ReperaStore: NSObject {
             Task {
                 // Una edición permite reintentar una escritura de Salud pendiente.
                 if draft.healthKitWorkoutUUID == nil {
+                    if draft.liveSportID != nil {
+                        // El Watch puede estar finalizando su HKWorkout mediante
+                        // WCSession. Dar margen a su UUID antes de crear otro
+                        // HKWorkout propio en iPhone (sin retrasar el guardado).
+                        try? await Task.sleep(for: .seconds(7))
+                    }
                     _ = await syncWorkoutToHealth(sessionId: draft.id)
                 }
                 await refineSessionReviewWithHealth(sessionId: draft.id)
@@ -1350,6 +1356,9 @@ final class ReperaStore: NSObject {
               let start = session.startedAt,
               let end = session.finishedAt,
               end >= start else { return false }
+        // El Watch confirmó que inició sensores nativos. Esperar su sample
+        // real; no escribir duplicado desde iPhone aunque el UUID tarde.
+        guard session.appleHealthProvenance != "watchHealthKitPending" else { return false }
         let liveSport = session.liveSportID.flatMap { LiveSport(rawValue: $0) }
         let apple = await HealthKitStore.shared.finishWorkout(
             sessionId: session.id,
