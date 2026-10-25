@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-25 (actualizaciones de catálogo invisibles en iOS 27)
+Última actualización: 2026-10-25 (catálogo, GPS unificado y entrenamientos libres/programados)
 
 - **Reloj de bloque (vertical y horizontal):** los dígitos LED escalan de forma exacta según ancho y ronda (HH:MM/ MM:SS sin rondas = 2,76×alto, con dos dígitos verdes de ronda = 4,22×alto), para no desbordarse a la derecha en intervalos. En retrato, miniatura de 100 pt y nombre centrados debajo del tiempo con 38 pt de separación; botones abajo. En paisaje miniatura de 112 pt y nombre en columna izquierda centrada en altura; reloj a la derecha con botones alineados en una fila. El icono del temporizador del bloque dentro de Play usa círculo Liquid Glass nativo de 44 pt.
 - **Now Playing externo:** Repera no dispone de API pública para leer el Now Playing global (Spotify, Podcasts y demás apps) ni detectar de forma fiable su estado. Se elimina la tarjeta genérica «Audio del iPhone» en ambas orientaciones en vez de mostrar un falso reproductor o iconos cuando no hay reproducción verificable. El Centro de control mantiene los controles nativos de esos servicios. Solo sería posible mostrar metadatos mediante una integración específica del proveedor o reproducción propia con permiso y datos accesibles.
@@ -275,9 +275,11 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 
 ## GPS compartido entre actividades libres y planificadas
 
-- El mismo \`WorkoutLocationTracker\` procesa el GPS de «Comenzar», rutas externas y entrenamientos outdoor desde «Play»: filtrado, distancia, velocidad, conservación de muestras, autorización y segundo plano. No hay dos odómetros.
+Implementación, permisos, pruebas y límites de iOS: [GPS_TRACKING.md](GPS_TRACKING.md).
+
+- El mismo `WorkoutLocationTracker` procesa el GPS de «Comenzar», actividades libres y entrenamientos outdoor desde «Play»: filtrado, distancia, velocidad, conservación de muestras, autorización y segundo plano. No hay dos odómetros.
 - En los entrenos programados outdoor, el widget también muestra ritmo o velocidad media y distancia, usando la misma fuente de «Comenzar»; la ejecución de fuerza y WOD de interior sigue mostrando ejercicios/series. La clasificación outdoor se infiere cuando no hay un deporte explícito y nunca transforma automáticamente un WOD indoor en carrera.
-- La ruta local conserva todos los puntos y precisiones GPS originales, con cortes de señal preservados. En Salud se crea un único entrenamiento por sesión, con su tipo outdoor correcto y \`HKWorkoutRouteBuilder\` durante la grabación. La asociación se verifica por UUID y no por mero solapamiento horario. Las rutas de Apple Watch no se sobrescriben.
+- La ruta local conserva todos los puntos y precisiones GPS originales, con cortes de señal preservados. En Salud se crea un único entrenamiento por sesión, con su tipo outdoor correcto y `HKWorkoutRouteBuilder` durante la grabación. La asociación se verifica por UUID y no por mero solapamiento horario. Las rutas de Apple Watch no se sobrescriben.
 
 ## Comenzar: deportes GPS y actividad en directo
 
