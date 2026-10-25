@@ -36,7 +36,7 @@ WATCH_REQUIRED = (
 def _target_compile_sources(pbx: str, target: str) -> str:
     """Inspect the actual target Sources phase, not just project file references."""
     native = re.search(
-        rf"/\\* {re.escape(target)} \\*/\\s*=\\s*\\{{\\s*isa = PBXNativeTarget;(.*?)\\n\\s*\\}};",
+        rf"/\* {re.escape(target)} \*/\s*=\s*\{{\s*isa = PBXNativeTarget;(.*?)\n\s*\}};",
         pbx, re.DOTALL,
     )
     if native is None:
@@ -44,12 +44,12 @@ def _target_compile_sources(pbx: str, target: str) -> str:
             f"El proyecto generado no incluye el target {target}. "
             "Regenera con xcodegen generate --spec project.yml."
         )
-    phases = re.search(r"buildPhases = \\((.*?)\\);", native.group(1), re.DOTALL)
-    phase_id = re.search(r"([A-Fa-f0-9]{24}) /\\* Sources \\*/", phases.group(1)) if phases else None
+    phases = re.search(r"buildPhases = \((.*?)\);", native.group(1), re.DOTALL)
+    phase_id = re.search(r"([A-Fa-f0-9]{24}) /\* Sources \*/", phases.group(1)) if phases else None
     if phase_id is None:
         raise ValueError(f"El target {target} no tiene fase Compile Sources.")
     source_phase = re.search(
-        rf"{phase_id.group(1)} /\\* Sources \\*/\\s*=\\s*\\{{\\s*isa = PBXSourcesBuildPhase;(.*?)\\n\\s*\\}};",
+        rf"{phase_id.group(1)} /\* Sources \*/\s*=\s*\{{\s*isa = PBXSourcesBuildPhase;(.*?)\n\s*\}};",
         pbx, re.DOTALL,
     )
     if source_phase is None:
