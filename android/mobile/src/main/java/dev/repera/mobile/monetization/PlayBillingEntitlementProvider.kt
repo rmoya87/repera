@@ -46,11 +46,72 @@ class PlayBillingEntitlementProvider(
         .setListener(listener)
         .build()
 
-    override suspend fun offerings(): CommercialOfferings {
-        // Catálogo pendiente de decisión de productos/precios en Play Console.
-        return CommercialOfferings(
-            packages = emptyList(),
-            unavailableReason = "Catálogo no configurado: pendiente decisión de productos, precios y trials en Play Console."
+    /** Lectura de catálogo: precios REALES de Play (queryProductDetails).
+     *  Nada de importes en código; solo lectura, sin habilitar cobro ni Pro. */
+    override suspend fun offerings(): CommercialOfferings = suspendCoroutine { cont ->
+        client.startConnection(object : com.android.billingclient.api.BillingClientStateListener {
+            override fun onBillingSetupFinished(result: com.android.billingclient.api.BillingResult) {
+                if (result.responseCode != BillingResponseCode.OK) {
+                    client.endConnection()
+                    cont.resume(CommercialOfferings(
+                        packages = emptyList(),
+                        unavailableReason = "Catálogo no disponible ahora mismo."
+                    ))
+                    return
+                }
+                val products = CommercialConfig.ALL_PRODUCT_IDS.map { id ->
+                    com.android.billingclient.api.QueryProductDetailsParams.Product.newBuilder()
+                        .setProductId(id)
+                        .setProductType(BillingClient.ProductType.SUBS)
+                        .build()
+                }
+                client.queryProductDetailsAsync(
+                    com.android.billingclient.api.QueryProductDetailsParams.newBuilder()
+                        .setProductList(products).build()
+                ) { queryResult, detailsResult ->
+                    client.endConnection()
+                    if (queryResult.responseCode != BillingResponseCode.OK) {
+                        cont.resume(CommercialOfferings(
+                            packages = emptyList(),
+                            unavailableReason = "Catálogo no disponible ahora mismo."
+                        ))
+                        return@queryProductDetailsAsync
+                    }
+                    val packages = detailsResult.productDetailsList.mapNotNull { it.toPackageInfo() }
+                    if (packages.isEmpty()) {
+                        // Estado live 25/10: sin productos en Play Console aún.
+                        cont.resume(CommercialOfferings(
+                            packages = emptyList(),
+                            unavailableReason = "Catálogo no configurado: pendiente decisión de productos, precios y trials en Play Console."
+                        ))
+                    } else {
+                        cont.resume(CommercialOfferings(
+                            packages = packages.sortedBy { it.productID }
+                        ))
+                    }
+                }
+            }
+
+            override fun onBillingServiceDisconnected() = Unit
+        })
+    }
+
+    /** Plan base del producto: última fase = precio recurrente; una fase
+     *  previa a 0 € = trial. Sin importes hardcodeados. */
+    private fun com.android.billingclient.api.ProductDetails.toPackageInfo(): CommercialPackageInfo? {
+        val offer = subscriptionOfferDetails?.firstOrNull() ?: return null
+        val phases = offer.pricingPhases.pricingPhaseList
+        val recurring = phases.lastOrNull() ?: return null
+        val hasTrial = phases.dropLast(1).any { it.priceAmountMicros == 0L }
+        return CommercialPackageInfo(
+            productID = productId,
+            localizedPrice = recurring.formattedPrice,
+            localizedTitle = title,
+            localizedDescription = description,
+            isAnnual = productId == CommercialConfig.ANNUAL_PRODUCT_ID,
+            hasFreeTrial = hasTrial,
+            priceValue = recurring.priceAmountMicros / 1_000_000.0,
+            currencyCode = recurring.priceCurrencyCode
         )
     }
 
