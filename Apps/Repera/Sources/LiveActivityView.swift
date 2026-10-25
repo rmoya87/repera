@@ -736,8 +736,7 @@ final class LiveActivityRecorder: NSObject {
         guard let id = sessionID, let startedAt, phase != .idle else { return nil }
         let state: SessionPhase = switch phase {
         case .recording: .counting
-        case .paused: .ready
-        case .review: .finished
+        case .paused, .review: .ready
         case .idle: .idle
         }
         return WorkoutSession(
@@ -1194,7 +1193,9 @@ struct LiveActivityView: View {
                     confirmTitle: "Descartar sin guardar",
                     onConfirm: {
                         showDiscard = false
+                        store.discardLiveActivityOnWatch()
                         recorder.discard()
+                        store.syncLiveActivityToWatch()
                         title = ""
                         notes = ""
                         showingMetrics = false
@@ -1921,8 +1922,10 @@ struct LiveActivityView: View {
             }
         }
         store.saveWorkout(session)
+        store.finishLiveActivityOnWatch(session)
         let day = session.startedAt ?? Date()
         recorder.discard(saved: true)
+        store.syncLiveActivityToWatch()
         title = ""
         notes = ""
         savedWorkoutID = nil
