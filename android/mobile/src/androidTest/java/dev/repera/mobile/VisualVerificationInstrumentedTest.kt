@@ -851,7 +851,8 @@ class VisualVerificationInstrumentedTest {
         compose.waitUntil(timeoutMillis = 60_000) { cameraRef.get() != null }
         val cam0 = cameraRef.get()!!
         compose.onNodeWithTag("place_pin_map").performTouchInput {
-            swipe(center, center + androidx.compose.ui.geometry.Offset(220f, 140f),
+            swipe(center - androidx.compose.ui.geometry.Offset(0f, 260f),
+                center + androidx.compose.ui.geometry.Offset(220f, -40f),
                 durationMillis = 300)
         }
         compose.waitUntil(timeoutMillis = 15_000) {

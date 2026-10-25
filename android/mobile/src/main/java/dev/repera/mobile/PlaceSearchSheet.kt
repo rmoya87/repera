@@ -120,6 +120,11 @@ internal fun PlacePinMap(
                     var downAt = 0L
                     val slop = android.view.ViewConfiguration.get(context).scaledTouchSlop
                     setOnTouchListener { _, ev ->
+                        if (onCameraIdle != null) {
+                            android.util.Log.i("PlaceSearchTest",
+                                "map touch action=" + ev.actionMasked +
+                                " x=" + ev.x.toInt() + " y=" + ev.y.toInt())
+                        }
                         when (ev.actionMasked) {
                             android.view.MotionEvent.ACTION_DOWN -> {
                                 downX = ev.x; downY = ev.y; downAt = ev.eventTime
@@ -137,6 +142,10 @@ internal fun PlacePinMap(
                 }
                 getMapAsync { map ->
                     if (onCameraIdle != null) {
+                        map.addOnCameraMoveStartedListener { reason ->
+                            android.util.Log.i("PlaceSearchTest",
+                                "cameraMoveStarted reason=" + reason)
+                        }
                         map.addOnCameraIdleListener {
                             val pos = map.cameraPosition
                             onCameraIdle.invoke(pos.zoom,
