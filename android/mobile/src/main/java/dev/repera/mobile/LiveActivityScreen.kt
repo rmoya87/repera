@@ -146,7 +146,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     Text("Elegir actividad", style = MaterialTheme.typography.titleLarge)
                     LiveSport.groups.forEach { group ->
                         Text(group, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-                        LiveSport.entries.filter { it.group == group }.forEach { sport ->
+                        LiveSport.selectableCases.filter { it.group == group }.forEach { sport ->
                             TextButton(onClick = { runtime.choose(sport);showSportPicker = false },
                                 modifier = Modifier.fillMaxWidth().testTag("choose_sport_${sport.id}")) {
                                 Icon(sport.materialIcon,contentDescription=null,modifier=Modifier.size(22.dp))
@@ -325,7 +325,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                                     OutlinedTextField(routeTitle, { routeTitle = it }, label = { Text("Nombre de la ruta") })
                                     Text("Deporte: ${routeSport?.let(LiveSport::byId)?.title ?: "Sin deporte"}")
                                     FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        listOf<LiveSport?>(null).plus(LiveSport.entries.filter { it.usesGPS }).forEach { option ->
+                                        listOf<LiveSport?>(null).plus(LiveSport.selectableCases).forEach { option ->
                                             FilterChip(selected = routeSport == option?.id,
                                                 onClick = { routeSport = option?.id }, label = { Text(option?.title ?: "Sin deporte") })
                                         }
