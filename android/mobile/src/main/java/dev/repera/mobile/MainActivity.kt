@@ -1227,7 +1227,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 todayHealth = withContext(Dispatchers.IO) { reader.readToday() }
                 // Ventana amplia: cubre el rango más largo de Progreso (370).
                 healthSamples = withContext(Dispatchers.IO) {
-                    runCatching { reader.readSamples(370) }.getOrNull()
+                    runCatching { reader.readSamples(370,HealthExclusionSnapshot.windows(profile?.uniqueId?.let {LocalSnapshotStore(this@MainActivity,it).read()})) }.getOrNull()
                 }
                 recoveryRead = withContext(Dispatchers.IO) {
                     runCatching { reader.readRecovery(45) }.getOrNull()
