@@ -59,6 +59,21 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     var error by remember { mutableStateOf<String?>(null) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var showSportPicker by remember { mutableStateOf(false) }
+    var previewHealth by remember { mutableStateOf<dev.repera.domain.SessionCardioSample?>(null) }
+    LaunchedEffect(state.phase, state.gpsSessionID) {
+        previewHealth = null
+        if (state.phase == LiveActivityState.Phase.REVIEW) {
+            val start = state.startedMillis
+            val end = state.finishedMillis
+            if (start != null && end != null) {
+                previewHealth = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    // Solo permisos ya concedidos, sesión inequívoca y datos
+                    // medidos. No se pide acceso ni escribe Salud al revisar.
+                    runCatching { HealthConnectReader(context).readSessionSample(start, end) }.getOrNull()
+                }
+            }
+        }
+    }
     fun startService() {
         try { LiveActivityService.startFromVisibleUI(context,accountId) }
         catch (_: Exception) { runtime.pause();error="No se pudo mantener el registro en segundo plano. La actividad queda en pausa." }
@@ -248,6 +263,15 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
             }
             if(state.phase!=LiveActivityState.Phase.REVIEW) Button(onClick={runtime.finish();LiveActivityService.stop(context)},modifier=Modifier.testTag("live_finish")) {Text("Finalizar")}
             else {
+                previewHealth?.let { sample ->
+                    val heart = sample.averageHeartRateBpm?.takeIf { it.isFinite() && it > 0 }
+                    val energy = sample.activeEnergyKcal?.takeIf { it.isFinite() && it > 0 }
+                    if (heart != null || energy != null) {
+                        Text("Health Connect · datos medidos", style = MaterialTheme.typography.titleMedium)
+                        heart?.let { Text("Pulso medio: %.0f lpm".format(it)) }
+                        energy?.let { Text("Energía activa: %.0f kcal".format(it)) }
+                    }
+                }
                 OutlinedTextField(title,{title=it},label={Text("Nombre de la actividad")},modifier=Modifier.fillMaxWidth())
                 OutlinedTextField(notes,{notes=it},label={Text("Notas")},modifier=Modifier.fillMaxWidth())
                 Button(onClick={

@@ -147,6 +147,8 @@ internal fun ExercisesTab(
                         overview?.liveSportSessions?.firstOrNull { it.id == detail.id }?.let { session ->
                             Text(dev.repera.domain.LiveSportHistory.formatDuration(session.activeDurationSeconds ?: 0.0))
                             session.recordedDistanceMeters?.takeIf { it > 0 }?.let { Text("%.2f km".format(it / 1000)) }
+                            session.averageHeartRateBpm?.takeIf { it > 0 }?.let { Text("Pulso medio medido: %.0f lpm".format(it)) }
+                            session.activeEnergyKcal?.takeIf { it > 0 }?.let { Text("Energía activa medida: %.0f kcal".format(it)) }
                         }
                     }
                     item { detail.review?.let { SessionReviewCard(it) } }
