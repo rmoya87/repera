@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import dev.repera.domain.WorkoutLocationPin
 import dev.repera.domain.WorkoutRoutePoint
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
@@ -767,10 +768,12 @@ class VisualVerificationInstrumentedTest {
     @Test
     fun flujoBusquedaLugarConProveedorSimulado() {
         var selected: WorkoutLocationPin? = null
+        val mapLoaded = java.util.concurrent.CountDownLatch(1)
         brandContent {
             PlaceSearchSheet(initialPin = null, accountId = "acc-vis",
                 onSelect = { selected = it }, onDismiss = {},
-                providerOverride = FakePlaceProvider())
+                providerOverride = FakePlaceProvider(),
+                onMapStyleLoaded = { mapLoaded.countDown() })
         }
         compose.waitForIdle()
         compose.onNodeWithTag("place_query").performTextInput("box madrid")
@@ -795,7 +798,10 @@ class VisualVerificationInstrumentedTest {
         compose.onNodeWithText("Busca un gimnasio, parque o dirección")
             .assertIsDisplayed()
         // Tocar el mapa CIERRA la búsqueda presentada (dismissSearch iOS):
-        // vuelve el modo confirmar con el panel cerrado.
+        // vuelve el modo confirmar con el panel cerrado. El listener del
+        // mapa se registra en getMapAsync (asíncrono): esperar el estilo
+        // (que implica mapa entregado) antes de tocar, como en el selector.
+        assertTrue("estilo del mapa cargado", mapLoaded.await(60, java.util.concurrent.TimeUnit.SECONDS))
         compose.onNodeWithTag("place_pin_map").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("Lugar").assertIsDisplayed()

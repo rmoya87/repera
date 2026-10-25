@@ -209,7 +209,10 @@ fun PlaceSearchSheet(
     onSelect: (WorkoutLocationPin?) -> Unit,
     onDismiss: () -> Unit,
     /** Solo verificación: proveedor simulado. Producción siempre usa el compuesto. */
-    providerOverride: PlaceSearchProvider? = null
+    providerOverride: PlaceSearchProvider? = null,
+    /** Solo verificación: avisa cuando el estilo del mapa terminó de cargar
+     *  (y por tanto getMapAsync ya entregó el mapa y sus listeners). */
+    onMapStyleLoaded: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
@@ -455,6 +458,7 @@ fun PlaceSearchSheet(
                     Box(Modifier.fillMaxSize()) {
                         PlacePinMap(p.latitude, p.longitude, isInteractive = true,
                             modifier = Modifier.fillMaxSize(),
+                            onStyleLoaded = onMapStyleLoaded,
                             onMapClick = {
                                 searchFocused = false
                                 focusManager.clearFocus(force = true)
@@ -494,6 +498,7 @@ fun PlaceSearchSheet(
                     if (center != null) {
                         PlacePinMap(center.first, center.second, isInteractive = true,
                             modifier = Modifier.fillMaxSize(),
+                            onStyleLoaded = onMapStyleLoaded,
                             onMapClick = {
                                 searchFocused = false
                                 focusManager.clearFocus(force = true)
