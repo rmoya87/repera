@@ -55,6 +55,7 @@ final class WorkoutLocationTracker: NSObject {
     @ObservationIgnored private var lastAccepted: CLLocation?
     @ObservationIgnored private var segmentBeganAt: Date?
     @ObservationIgnored private var onAccepted: (@MainActor (WorkoutGPSUpdate) -> Void)?
+    @ObservationIgnored private var speedLimitMetersPerSecond = 12.0
     @ObservationIgnored private var authContinuations: [CheckedContinuation<Bool, Never>] = []
     @ObservationIgnored private var pendingPinContinuation: ((WorkoutLocationPin?) -> Void)?
     @ObservationIgnored private var lastSavedAt = Date.distantPast
@@ -180,6 +181,7 @@ final class WorkoutLocationTracker: NSObject {
     func startRouteTracking(
         sessionID: UUID,
         cycling: Bool = false,
+        maxSpeedMetersPerSecond: Double? = nil,
         existingPoints: [WorkoutRoutePoint] = [],
         existingDistanceMeters: Double = 0,
         onUpdate: (@MainActor (WorkoutGPSUpdate) -> Void)? = nil
@@ -196,6 +198,7 @@ final class WorkoutLocationTracker: NSObject {
             segmentBeganAt = Date()
         }
         manager.distanceFilter = cycling ? 5 : 3
+        speedLimitMetersPerSecond = max(1, maxSpeedMetersPerSecond ?? (cycling ? 22.0 : 12.0))
         let modes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String] ?? []
         let appExecutable = Bundle.main.bundleURL.pathExtension == "app"
         let testing = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
@@ -276,7 +279,7 @@ final class WorkoutLocationTracker: NSObject {
             let seconds = position.timestamp.timeIntervalSince(previous.timestamp)
             guard seconds > 0 else { return }
             let meters = position.distance(from: previous)
-            let limit = manager.distanceFilter >= 5 ? 22.0 : 12.0
+            let limit = speedLimitMetersPerSecond
             if seconds <= 30, meters / seconds <= limit {
                 let jitter = max(3.0, min(7.0, max(fix.accuracy, previous.horizontalAccuracy) * 0.4))
                 if meters < jitter { return }

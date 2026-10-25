@@ -2418,8 +2418,9 @@ enum HealthActivityIcons {
         switch type {
         case .running, .cycling, .hiking, .walking,
              .wheelchairRunPace, .handCycling,
-             .downhillSkiing, .snowboarding,
-             .paddleSports, .rowing, .skatingSports:
+             .downhillSkiing, .crossCountrySkiing, .snowboarding,
+             .paddleSports, .rowing, .sailing, .surfingSports,
+             .waterSports, .skatingSports:
             return true
         default:
             return false
@@ -2472,6 +2473,26 @@ enum HealthActivityIcons {
             return "figure.golf"
         case .crossTraining:
             return "figure.cross.training"
+        case .surfingSports:
+            return "surfboard"
+        case .waterSports:
+            return "water.waves"
+        case .paddleSports:
+            return "figure.rower"
+        case .sailing:
+            return "sailboat"
+        case .downhillSkiing:
+            return "figure.skiing.downhill"
+        case .crossCountrySkiing:
+            return "figure.skiing.crosscountry"
+        case .snowboarding:
+            return "figure.snowboarding"
+        case .skatingSports:
+            return "figure.skating"
+        case .volleyball:
+            return "volleyball"
+        case .climbing:
+            return "figure.climbing"
         case .mixedCardio, .other:
             return "figure.mixed.cardio"
         default:

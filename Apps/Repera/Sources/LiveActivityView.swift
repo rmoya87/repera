@@ -12,9 +12,21 @@ import UserNotifications
 
 /// El deporte determina qué se mide; no se infiere del nombre del entrenamiento.
 enum LiveSport: String, CaseIterable, Identifiable {
+    // Conservar todos los rawValue anteriores: son identificadores persistidos
+    // en WorkoutSession, favoritos GPX y las sesiones interrumpidas.
     case running, cycling, walking, hiking, trail, mountainBike, gravel
     case crossfit, strength, hiit, hyrox, tennis, padel, surfing, swimming
-    case golf, skiing, yoga, mobility, other
+    case windsurfing, kitesurfing, kayaking, rowing, canoeing, sailing
+    case golf, skiing, iceSkating, snowboarding, crossCountrySkiing
+    case soccer, basketball, volleyball
+    case climbing, dance, pilates, skateboarding
+    case yoga, mobility, other
+
+    static let groups = [
+        "A pie", "Ciclismo", "Fuerza y fitness", "Deportes de raqueta",
+        "Deportes acuáticos", "Deportes de invierno", "Deportes de equipo",
+        "Otros deportes"
+    ]
 
     var id: String { rawValue }
 
@@ -35,8 +47,24 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .padel: "Pádel"
         case .surfing: "Surf"
         case .swimming: "Natación"
+        case .windsurfing: "Windsurf"
+        case .kitesurfing: "Kitesurf"
+        case .kayaking: "Kayak"
+        case .rowing: "Remo"
+        case .canoeing: "Piragua"
+        case .sailing: "Vela"
         case .golf: "Golf"
         case .skiing: "Esquí alpino"
+        case .iceSkating: "Patinaje sobre hielo"
+        case .snowboarding: "Snowboard"
+        case .crossCountrySkiing: "Esquí de fondo"
+        case .soccer: "Fútbol"
+        case .basketball: "Baloncesto"
+        case .volleyball: "Voleibol"
+        case .climbing: "Escalada"
+        case .dance: "Baile"
+        case .pilates: "Pilates"
+        case .skateboarding: "Skateboard"
         case .yoga: "Yoga"
         case .mobility: "Movilidad"
         case .other: "Entrenamiento"
@@ -49,15 +77,29 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .cycling, .mountainBike, .gravel: "bicycle"
         case .walking: "figure.walk"
         case .hiking: "figure.hiking"
-        case .crossfit, .hyrox: "figure.cross.training"
+        case .crossfit: "figure.cross.training"
+        case .hyrox: ExerciseCategorySymbols.discipline("HYROX")
         case .strength: "dumbbell"
         case .hiit: "timer"
         case .tennis: "tennis.racket"
         case .padel: "figure.tennis"
-        case .surfing: "water.waves"
+        case .surfing: "surfboard"
         case .swimming: "figure.pool.swim"
+        case .windsurfing: "wind"
+        case .kitesurfing: "wind"
+        case .kayaking, .rowing, .canoeing: "figure.rower"
+        case .sailing: "sailboat"
         case .golf: "figure.golf"
         case .skiing: "figure.skiing.downhill"
+        case .iceSkating, .skateboarding: "figure.skating"
+        case .snowboarding: "figure.snowboarding"
+        case .crossCountrySkiing: "figure.skiing.crosscountry"
+        case .soccer: "soccerball"
+        case .basketball: "basketball"
+        case .volleyball: "volleyball"
+        case .climbing: "figure.climbing"
+        case .dance: "figure.dance"
+        case .pilates: "figure.pilates"
         case .yoga, .mobility: "figure.flexibility"
         case .other: "figure.mixed.cardio"
         }
@@ -69,21 +111,72 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .cycling, .mountainBike, .gravel: "Ciclismo"
         case .crossfit, .strength, .hiit, .hyrox: "Fuerza y fitness"
         case .tennis, .padel: "Deportes de raqueta"
-        case .surfing, .swimming: "Deportes acuáticos"
+        case .surfing, .swimming, .windsurfing, .kitesurfing,
+             .kayaking, .rowing, .canoeing, .sailing: "Deportes acuáticos"
+        case .skiing, .iceSkating, .snowboarding, .crossCountrySkiing: "Deportes de invierno"
+        case .soccer, .basketball, .volleyball: "Deportes de equipo"
         default: "Otros deportes"
         }
     }
 
+    /// GPS únicamente para modalidades con recorrido exterior verificable.
+    /// Ni la piscina, las pistas ni la escalada interior fabrican distancia.
     var usesGPS: Bool {
         switch self {
-        case .running, .cycling, .walking, .hiking, .trail, .mountainBike, .gravel, .surfing, .skiing, .golf:
+        case .running, .cycling, .walking, .hiking, .trail, .mountainBike,
+             .gravel, .surfing, .windsurfing, .kitesurfing, .kayaking,
+             .rowing, .canoeing, .sailing, .golf, .skiing,
+             .snowboarding, .crossCountrySkiing, .skateboarding:
             true
         default: false
         }
     }
 
     var isCycling: Bool { self == .cycling || self == .mountainBike || self == .gravel }
-    var displaysSpeed: Bool { isCycling || self == .surfing || self == .skiing || self == .golf }
+
+    var displaysSpeed: Bool {
+        switch self {
+        case .cycling, .mountainBike, .gravel, .surfing, .windsurfing,
+             .kitesurfing, .kayaking, .rowing, .canoeing, .sailing,
+             .golf, .skiing, .snowboarding, .crossCountrySkiing, .skateboarding:
+            true
+        default: false
+        }
+    }
+
+    /// Solo calcular desnivel cuando la actividad tiene sentido en pendiente.
+    var tracksElevation: Bool {
+        switch self {
+        case .hiking, .trail, .mountainBike, .skiing,
+             .snowboarding, .crossCountrySkiing:
+            true
+        default: false
+        }
+    }
+
+    /// Evita descartar las muestras auténticas de deportes rápidos como
+    /// kitesurf y esquí, manteniendo el filtro de saltos GPS.
+    var maxGPSMetersPerSecond: Double {
+        switch self {
+        case .skiing, .snowboarding: 50
+        case .windsurfing, .kitesurfing, .sailing: 42
+        case .crossCountrySkiing, .skateboarding: 24
+        case .cycling, .mountainBike, .gravel: 22
+        default: 12
+        }
+    }
+
+    /// Las métricas de sensores se muestran únicamente cuando existen datos
+    /// reales en Apple Salud, nunca como un contador simulado.
+    var metricDescription: String {
+        if usesGPS {
+            let motion = displaysSpeed ? "velocidad" : "ritmo"
+            return tracksElevation
+                ? "Tiempo · distancia · \(motion) · desnivel GPS"
+                : "Tiempo · distancia · \(motion)"
+        }
+        return "Tiempo · pulso y calorías si están disponibles"
+    }
 
     var healthType: HKWorkoutActivityType {
         switch self {
@@ -96,9 +189,22 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .hiit: .highIntensityIntervalTraining
         case .tennis, .padel: .tennis
         case .surfing: .surfingSports
+        case .windsurfing, .kitesurfing: .surfingSports
         case .swimming: .swimming
+        case .kayaking, .canoeing: .paddleSports
+        case .rowing: .rowing
+        case .sailing: .sailing
         case .golf: .golf
         case .skiing: .downhillSkiing
+        case .iceSkating, .skateboarding: .skatingSports
+        case .snowboarding: .snowboarding
+        case .crossCountrySkiing: .crossCountrySkiing
+        case .soccer: .soccer
+        case .basketball: .basketball
+        case .volleyball: .volleyball
+        case .climbing: .climbing
+        case .dance: .dance
+        case .pilates: .pilates
         case .yoga: .yoga
         case .mobility: .flexibility
         case .other: .other
@@ -510,6 +616,10 @@ final class LiveActivityRecorder: NSObject {
     private(set) var pausedSeconds: TimeInterval = 0
     private(set) var recordedDistanceMeters: Double = 0
     private(set) var routePoints: [WorkoutRoutePoint] = []
+    private(set) var elevationGainMeters: Double = 0
+    private(set) var elevationLossMeters: Double = 0
+    private var elevationReferenceMeters: Double?
+    var hasElevationSamples: Bool { elevationReferenceMeters != nil }
     private(set) var currentCoordinate: CLLocationCoordinate2D?
     private(set) var currentSpeedMps: Double?
     private(set) var currentCourseDegrees: Double?
@@ -551,6 +661,7 @@ final class LiveActivityRecorder: NSObject {
             pausedSeconds = snapshot.pausedSeconds
             recordedDistanceMeters = snapshot.recordedDistanceMeters
             routePoints = snapshot.routePoints
+            rebuildElevationFromRoute()
             gpsSessionID = snapshot.gpsSessionID ?? UUID()
             kilometerSplits = snapshot.kilometerSplits ?? []
             lastKilometerBoundarySeconds = snapshot.lastKilometerBoundarySeconds ?? 0
@@ -682,6 +793,9 @@ final class LiveActivityRecorder: NSObject {
         pausedSeconds = 0
         recordedDistanceMeters = 0
         routePoints = []
+        elevationGainMeters = 0
+        elevationLossMeters = 0
+        elevationReferenceMeters = nil
         kilometerSplits = []
         latestKilometerReport = nil
         lastKilometerBoundarySeconds = 0
@@ -727,6 +841,7 @@ final class LiveActivityRecorder: NSObject {
             guard let self, self.phase == .recording, self.gpsSessionID == expected else { return }
             let started = tracker.startRouteTracking(
                 sessionID: expected, cycling: self.sport.isCycling,
+                maxSpeedMetersPerSecond: self.sport.maxGPSMetersPerSecond,
                 existingPoints: self.routePoints,
                 existingDistanceMeters: self.recordedDistanceMeters,
                 onUpdate: { [weak self] update in self?.receive(update) }
@@ -878,6 +993,9 @@ final class LiveActivityRecorder: NSObject {
         pausedAt = nil
         routePoints = []
         recordedDistanceMeters = 0
+        elevationGainMeters = 0
+        elevationLossMeters = 0
+        elevationReferenceMeters = nil
         currentSpeedMps = nil
         currentCourseDegrees = nil
         currentCoordinate = nil
@@ -926,10 +1044,39 @@ final class LiveActivityRecorder: NSObject {
         }
         previousFixActiveSeconds = activeSeconds
         routePoints.append(update.point)
+        if sport.tracksElevation, let altitude = update.point.altitudeMeters,
+           let accuracy = update.point.verticalAccuracyMeters, accuracy <= 15 {
+            integrateElevation(altitude)
+        }
         updateUpcomingTurn(position: fix.location)
         if Date().timeIntervalSince(lastSave) > 10 { persistSnapshot() }
         if Date().timeIntervalSince(lastLiveActivityUpdate) >= 5 {
             updateLiveActivity()
+        }
+    }
+
+    /// GPS vertical orientativo: umbral de 3 m para amortiguar ruido.
+    /// Los resultados se reconstruyen a partir del recorrido al reabrir la app.
+    private func integrateElevation(_ altitude: Double) {
+        guard altitude.isFinite, (-500...9000).contains(altitude) else { return }
+        if let previous = elevationReferenceMeters {
+            let delta = altitude - previous
+            guard abs(delta) >= 3, abs(delta) <= 120 else { return }
+            if delta > 0 { elevationGainMeters += delta }
+            else { elevationLossMeters -= delta }
+        }
+        elevationReferenceMeters = altitude
+    }
+
+    private func rebuildElevationFromRoute() {
+        elevationGainMeters = 0
+        elevationLossMeters = 0
+        elevationReferenceMeters = nil
+        guard sport.tracksElevation else { return }
+        for point in routePoints {
+            if let altitude = point.altitudeMeters {
+                integrateElevation(altitude)
+            }
         }
     }
 
@@ -1132,7 +1279,7 @@ private struct LiveSportPicker: View {
     @Environment(\.dismiss) private var dismiss
     var choose: (LiveSport) -> Void
     @State private var query = ""
-    private let groups = ["A pie", "Ciclismo", "Fuerza y fitness", "Deportes de raqueta", "Deportes acuáticos", "Otros deportes"]
+    private let groups = LiveSport.groups
 
     var body: some View {
         NavigationStack {
@@ -1149,8 +1296,23 @@ private struct LiveSportPicker: View {
                                     choose(sport)
                                     dismiss()
                                 } label: {
-                                    Label(sport.title, systemImage: sport.symbol)
-                                        .foregroundStyle(OG.label)
+                                    HStack(spacing: 12) {
+                                        Image(systemName: sport.symbol)
+                                            .font(.title3)
+                                            .frame(width: 34)
+                                            .foregroundStyle(OG.accent)
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(sport.title)
+                                                .font(.body.weight(.medium))
+                                                .foregroundStyle(OG.label)
+                                            Text(sport.metricDescription)
+                                                .font(.caption)
+                                                .foregroundStyle(OG.label2)
+                                                .lineLimit(2)
+                                        }
+                                        Spacer(minLength: 4)
+                                    }
+                                    .padding(.vertical, 3)
                                 }
                             }
                         }
@@ -1594,6 +1756,7 @@ struct LiveActivityView: View {
                     smallMetric("Distancia (km)",
                                 value: String(format: "%.2f", recorder.recordedDistanceMeters / 1000))
                 }
+                elevationMetricStrip
                 if recorder.sport.usesGPS &&
                    (recorder.phase == .recording || recorder.phase == .paused) {
                     Divider().overlay(OG.label2.opacity(0.18))
@@ -1604,6 +1767,27 @@ struct LiveActivityView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 14)
             .glassEffect(.regular, in: .rect(cornerRadius: 22))
+        }
+    }
+
+    @ViewBuilder
+    private var elevationMetricStrip: some View {
+        if recorder.sport.tracksElevation && recorder.hasElevationSamples {
+            Divider().overlay(OG.label2.opacity(0.18))
+            HStack {
+                Label(
+                    "+\(Int(recorder.elevationGainMeters.rounded())) m ascenso",
+                    systemImage: "arrow.up.right"
+                )
+                Spacer()
+                Label(
+                    "−\(Int(recorder.elevationLossMeters.rounded())) m descenso",
+                    systemImage: "arrow.down.right"
+                )
+            }
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(OG.label2)
+            .padding(.horizontal, 10)
         }
     }
 
@@ -1688,14 +1872,13 @@ struct LiveActivityView: View {
                         .padding(.top, 12)
                 }
                 Spacer(minLength: 14)
-                Text(recorder.sport.usesGPS ? paceOrSpeed :
-                     recorder.phase == .idle ? "Listo" : "En vivo")
+                Text(recorder.sport.usesGPS ? paceOrSpeed : "—")
                     .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
                     .minimumScaleFactor(0.55).lineLimit(1)
                     .foregroundStyle(OG.label)
                 Text(recorder.sport.usesGPS ?
-                    (recorder.sport.displaysSpeed ? "Veloc. media (km/h)" : "Ritmo medio (min/km)") :
-                    recorder.sport.title)
+                    (recorder.sport.displaysSpeed ? "Velocidad media (km/h)" : "Ritmo medio (min/km)") :
+                    "Frecuencia cardíaca (lpm)")
                     .font(.subheadline).foregroundStyle(OG.label2)
                 Spacer(minLength: 14)
                 if recorder.sport.usesGPS {
@@ -1704,11 +1887,32 @@ struct LiveActivityView: View {
                         .foregroundStyle(OG.label)
                     Text("Distancia (km)").font(.subheadline).foregroundStyle(OG.label2)
                 } else {
-                    Text("Las pulsaciones y las calorías aparecen cuando Apple Salud facilita mediciones reales.")
+                    Text("—")
+                        .font(.system(size: 55, weight: .semibold, design: .rounded))
+                        .foregroundStyle(OG.label)
+                    Text("Calorías activas (kcal)")
+                        .font(.subheadline).foregroundStyle(OG.label2)
+                    Text("El pulso y las calorías se incorporan al finalizar si Apple Salud tiene mediciones reales.")
                         .font(.caption)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(OG.label2)
-                        .padding(.horizontal, 38)
+                        .padding(.horizontal, 30)
+                }
+                if recorder.sport.tracksElevation && recorder.hasElevationSamples {
+                    HStack {
+                        Label(
+                            "+\(Int(recorder.elevationGainMeters.rounded())) m",
+                            systemImage: "arrow.up.right"
+                        )
+                        Spacer()
+                        Label(
+                            "−\(Int(recorder.elevationLossMeters.rounded())) m",
+                            systemImage: "arrow.down.right"
+                        )
+                    }
+                    .font(.subheadline.monospacedDigit())
+                    .foregroundStyle(OG.label2)
+                    .padding(.horizontal, 28)
                 }
                 Spacer(minLength: 16)
             }
@@ -1916,11 +2120,34 @@ struct LiveActivityView: View {
                                 "Energía",
                                 value: previewHealthExtras.flatMap { extras in
                                     extras.hasExternalSaludSource ?
-                                        extras.activeEnergyKcal.map { "\(Int($0.rounded()))" } : nil
+                                        extras.activeEnergyKcal.map { "\(Int($0.rounded())) kcal" } : nil
                                 } ?? "—",
                                 icon: "flame.fill",
                                 tint: OG.orange
                             )
+                        }
+                        if let extras = previewHealthExtras, extras.hasExternalSaludSource,
+                           let heartRate = extras.averageHeartRateBpm {
+                            Label(
+                                "Pulso medio: \(Int(heartRate.rounded())) lpm",
+                                systemImage: "heart"
+                            )
+                            .font(.subheadline)
+                            .foregroundStyle(OG.label2)
+                        }
+                        if recorder.sport.tracksElevation && recorder.hasElevationSamples {
+                            HStack(spacing: 14) {
+                                Label(
+                                    "+\(Int(recorder.elevationGainMeters.rounded())) m de ascenso",
+                                    systemImage: "arrow.up.right"
+                                )
+                                Label(
+                                    "−\(Int(recorder.elevationLossMeters.rounded())) m de descenso",
+                                    systemImage: "arrow.down.right"
+                                )
+                            }
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(OG.label2)
                         }
                         if recorder.sport.usesGPS,
                            let distance = session.recordedDistanceMeters, distance > 0,
@@ -2515,10 +2742,7 @@ private struct LiveRouteSportOptionsView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedSportID: String
     @State private var query = ""
-    private let groups = [
-        "A pie", "Ciclismo", "Fuerza y fitness",
-        "Deportes de raqueta", "Deportes acuáticos", "Otros deportes"
-    ]
+    private let groups = LiveSport.groups
 
     var body: some View {
         List {

@@ -1007,7 +1007,10 @@ extension StatsEngine {
     private static let cardioLiveSports: Set<String> = [
         "running", "cycling", "walking", "hiking", "trail", "mountainBike",
         "gravel", "tennis", "padel", "surfing", "swimming", "skiing",
-        "hiit", "hyrox"
+        "windsurfing", "kitesurfing", "kayaking", "rowing", "canoeing",
+        "sailing", "iceSkating", "snowboarding", "crossCountrySkiing",
+        "soccer", "basketball", "volleyball", "climbing", "dance",
+        "skateboarding", "hiit", "hyrox"
     ]
 
     public static func isCardioWorkout(_ workout: WorkoutSession) -> Bool {
