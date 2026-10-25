@@ -242,10 +242,19 @@ jobs:
           # Wear OS 6.1 se publica como android-wear-signed (android-wear no
           # existe para 36.1: "Failed to find package" en 40164143521).
           # -verbose y el log de arranque van a artefacto.
-          - api: '36.1'
+          # Wear OS 6.1 (36.1_signed_r01) NO arranca en CI: con swiftshader y
+          # con guest/lavapipe, el guest entra en bucle de crash tipo
+          # system_server ~17 s tras el boot (crash_dump64 -> init mata zygote
+          # cada ~2.5 s; kernel log 40181550822). Es el ÚNICO build publicado
+          # de 6.1. Aislamiento acotado: probar el build oficial inmediato
+          # anterior, Wear OS 6.0 (36, también android-wear-signed). Si 6.0
+          # arranca, la firma es específica del build 6.1; si también entra
+          # en bucle, es de la clase de imágenes signed en este runner. Un
+          # solo intento; después se documenta y se detienen reintentos.
+          - api: '36'
             target: android-wear-signed
-            label: 'Wear OS 6.1 (API 36.1, intento controlado)'
-            emu_opts: '-no-window -gpu guest -no-snapshot -noaudio -no-boot-anim -memory 4096 -wipe-data -verbose -show-kernel'
+            label: 'Wear OS 6.0 (API 36, aislamiento boot 6.1)'
+            emu_opts: '-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -wipe-data -verbose -show-kernel'
             experimental: true
     steps:
       - uses: actions/checkout@v4
