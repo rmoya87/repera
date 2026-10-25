@@ -768,6 +768,37 @@ final class ReperaStore: NSObject {
         Task { await WorkoutLiveActivityCoordinator.shared.updatePlanned(session) }
     }
 
+    /// Restore a planned outdoor workout after a process restart. Only
+    /// previously recorded points are recovered: missing GPS is never inferred.
+    /// A free workout remains safely paused until the athlete resumes it.
+    func resumePlannedGPSTrackingIfNeeded() {
+        guard let active = state.activeSession,
+              active.startedAt != nil, active.finishedAt == nil,
+              WorkoutLocationTracker.shouldTrackRoute(for: active),
+              !LiveActivityRecorder.shared.isActive else { return }
+        let sessionID = active.id
+        let tracker = WorkoutLocationTracker.shared
+        guard tracker.trackingSessionID != sessionID else { return }
+        Task {
+            guard await tracker.ensureWhenInUseAuthorized(),
+                  state.activeSession?.id == sessionID else { return }
+            let restored = tracker.restoreForResume(sessionID: sessionID)
+            if tracker.startRouteTracking(
+                sessionID: sessionID,
+                cycling: workoutHealthType(for: active) == .cycling,
+                existingPoints: restored?.points ?? [],
+                existingDistanceMeters: restored?.meters ?? 0,
+                onUpdate: { [weak self] _ in
+                    guard let self, let current = self.state.activeSession,
+                          current.id == sessionID else { return }
+                    self.publishPlannedGPSMetrics(for: current)
+                }
+            ) {
+                await HealthKitStore.shared.beginRecordedGPSRoute(sessionID: sessionID)
+            }
+        }
+    }
+
     /// Guarda el OCR como entreno suelto de un día concreto (no entra en el plan semanal de Diario).
     @discardableResult
     func saveBoardToDay(
