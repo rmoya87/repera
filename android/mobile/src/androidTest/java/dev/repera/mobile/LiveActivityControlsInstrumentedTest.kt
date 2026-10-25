@@ -63,6 +63,23 @@ class LiveActivityControlsInstrumentedTest {
             LiveActivityRuntime.stopAll()
         }
     }
+    @Test fun activeLiveActivityBlocksAllClassicSessionEntrypointsBeforeAnyWrite() {
+        val account = "test-inverse-guard-${UUID.randomUUID()}"
+        val runtime = LiveActivityRuntime.forAccount(context,account)
+        runtime.choose(LiveSport.PADEL);runtime.start()
+        val repository = WorkoutRepository(context,account)
+        try {
+            listOf<() -> Unit>(
+                { repository.startRoutine("none") },
+                { repository.startQuickLog("none") },
+                { repository.startSessionFromDrafts("none",emptyList(),false) }
+            ).forEach { start ->
+                try { start();fail("Classic session started with live recorder active") }
+                catch (expected: IllegalStateException) { assertTrue(expected.message.orEmpty().contains("En vivo")) }
+            }
+            assertNull(LocalSnapshotStore(context,account).read())
+        } finally { runtime.discard();LiveActivityRuntime.stopAll() }
+    }
     @Test fun indoorForegroundServiceNotificationPausesResumesAndFinishesSyntheticSession() {
         val store = SessionStore(context)
         // Never replace a real account. This test requires a fresh emulator.

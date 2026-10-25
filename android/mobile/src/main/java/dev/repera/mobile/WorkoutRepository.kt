@@ -701,11 +701,18 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
      * llamante ya validó la cuota de rutinas, como Apple con saveRoutine). Sin favorito NO se persiste rutina alguna.
      * Todo se valida y construye antes de la única escritura: un fallo no deja sesión ni rutina.
      */
+    private fun requireNoLiveActivity() {
+        check(!LiveActivityRuntime.hasPendingActivity(context, googleId)) {
+            "Hay una actividad En vivo pendiente. Finalízala, guárdala o descártala antes de iniciar otro entreno."
+        }
+    }
+
     @Synchronized fun startSessionFromDrafts(
         title: String, drafts: List<RoutineBlockDraft>, saveAsFavorite: Boolean,
         allowAdvancedProgression: Boolean = true,
         canCreateCustom: (Int) -> Boolean = { true }
     ): ActiveWorkout {
+        requireNoLiveActivity()
         val state = loadOrNull() ?: error("Importa primero un historial o crea tus datos locales")
         check(state.isNull("activeSession")) { "Ya existe una sesión activa" }
         val cleaned = title.trim().ifEmpty { "Mi entreno" }
@@ -723,6 +730,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     @Synchronized fun startStrengthRoutine(id: String): ActiveWorkout = startRoutine(id)
 
     @Synchronized fun startRoutine(id: String, allowAdvancedProgression: Boolean = true): ActiveWorkout {
+        requireNoLiveActivity()
         val state = loadOrNull() ?: error("Importa primero un historial o crea tus datos locales")
         check(state.isNull("activeSession")) { "Ya existe una sesión activa" }
         val routines = state.getJSONArray("routines")
@@ -861,6 +869,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
      * copied from the latest saved workout when available; never invent recorded sets.
      */
     @Synchronized fun startQuickLog(exerciseId: String): ActiveWorkout {
+        requireNoLiveActivity()
         val state = requireState()
         check(state.isNull("activeSession")) { "Ya existe una sesión activa" }
         val catalog = state.getJSONArray("exercises")

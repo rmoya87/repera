@@ -134,6 +134,14 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
             current?.stopForAccountChange();current?.voice?.close()
             return LiveActivityRuntime(context,accountID).also { current=it }
         }
+        @Synchronized fun hasPendingActivity(context: Context, accountID: String): Boolean {
+            current?.takeIf { it.accountID == accountID }?.let { return it.state.phase != LiveActivityState.Phase.IDLE }
+            val folder = File(context.filesDir,"users/" + MessageDigest.getInstance("SHA-256")
+                .digest(accountID.toByteArray()).joinToString("") { "%02x".format(it) })
+            // Sin crear TTS/proveedor ni cambiar la cuenta activa desde IO.
+            return try { LiveActivitySnapshotStore(File(folder,"live_activity.json")).read() != null }
+                catch (_: Exception) { true } // checkpoint dañado: no pisarlo con otro entreno.
+        }
         @Synchronized fun stopAll() { current?.stopForAccountChange();current?.voice?.close();current=null }
     }
 }
