@@ -24,6 +24,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         (directory / "AITrainingContextStore.swift").write_text("// AI context", encoding="utf-8")
         (directory / "AITrainingProgramsView.swift").write_text("// AI programs", encoding="utf-8")
         (directory / "AIChangeRequestStore.swift").write_text("// AI change store", encoding="utf-8")
+        (directory / "RemoteExerciseCatalogStore.swift").write_text("// Catalog feed", encoding="utf-8")
         watch = self.root / "Apps/ReperaWatch/Sources"
         watch.mkdir(parents=True)
         for name in (
@@ -33,14 +34,40 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             (watch / name).write_text("// Watch target source", encoding="utf-8")
         (self.root / "project.yml").write_text(
             "targets:\n  Repera:\n    sources:\n      - path: Apps/Repera/Sources\n"
+            "      - path: Apps/Repera/Sources/RemoteExerciseCatalogStore.swift\n"
             "    dependencies:\n      - package: Supabase\n        product: Supabase\n"
             "  ReperaWatch:\n    sources:\n      - path: Apps/ReperaWatch/Sources\n",
             encoding="utf-8",
         )
         (self.root / "Repera.xcodeproj").mkdir()
         self.pbx = self.root / "Repera.xcodeproj/project.pbxproj"
+        app_sources = (
+            "AppleAuthStore.swift", "BusinessAuthStore.swift",
+            "BusinessDataStore.swift", "BusinessWorkoutSyncStore.swift",
+            "AITrainingInboxStore.swift", "AIAccessView.swift",
+            "AITrainingContextStore.swift", "AITrainingProgramsView.swift",
+            "AIChangeRequestStore.swift", "RemoteExerciseCatalogStore.swift",
+        )
+        app_pbx = (
+            "999999999999999999999999 /* Repera */ = {\n"
+            "  isa = PBXNativeTarget;\n"
+            "  buildPhases = (\n"
+            "    888888888888888888888888 /* Sources */,\n"
+            "  );\n"
+            "  name = Repera;\n"
+            "};\n"
+            "888888888888888888888888 /* Sources */ = {\n"
+            "  isa = PBXSourcesBuildPhase;\n"
+            "  files = (\n"
+            + "".join(
+                f"    {i:024X} /* {name} in Sources */,\n"
+                for i, name in enumerate(app_sources, start=1)
+            )
+            + "  );\n"
+            "};\n"
+        )
         self.pbx.write_text(
-            "AppleAuthStore.swift in Sources\nBusinessAuthStore.swift in Sources\n"
+            app_pbx + "AppleAuthStore.swift in Sources\nBusinessAuthStore.swift in Sources\n"
             "BusinessDataStore.swift in Sources\n"
             "BusinessWorkoutSyncStore.swift in Sources\n"
             "AITrainingInboxStore.swift in Sources\n"
@@ -77,7 +104,9 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             Path(__file__).resolve().parents[1]
             / "Apps/Repera/Sources/ReperaApp.swift"
         ).read_text(encoding="utf-8")
-        self.assertIn("WindowGroup {\n            launchRootView", app)
+        self.assertIn("WindowGroup {\n            appWindowContent", app)
+        self.assertIn("private var appEnvironmentContent: some View", app)
+        self.assertIn("private var appWindowContent: some View", app)
         self.assertIn("@ViewBuilder\n    private var launchRootView: some View", app)
         self.assertIn(".environment(store)", app)
         self.assertIn(".overlay(alignment: .top)", app)
@@ -148,7 +177,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
 
     def test_stale_generated_project_is_rejected(self):
         self.pbx.write_text("AppleAuthStore.swift in Sources", encoding="utf-8")
-        with self.assertRaisesRegex(ValueError, "BusinessAuthStore.swift"):
+        with self.assertRaisesRegex(ValueError, "Repera"):
             validate(self.root)
 
     def test_outdated_checkout_is_rejected(self):
@@ -168,6 +197,21 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             encoding="utf-8",
         )
         with self.assertRaisesRegex(ValueError, "BusinessWorkoutSyncStore.swift"):
+            validate(self.root)
+
+    def test_missing_remote_catalog_store_requires_checkout_update(self):
+        (self.root / "Apps/Repera/Sources/RemoteExerciseCatalogStore.swift").unlink()
+        with self.assertRaisesRegex(ValueError, "RemoteExerciseCatalogStore.swift"):
+            validate(self.root)
+
+    def test_remote_catalog_not_in_app_compile_phase_is_rejected(self):
+        pbx = self.pbx.read_text(encoding="utf-8")
+        self.pbx.write_text(
+            pbx.replace("RemoteExerciseCatalogStore.swift in Sources",
+                        "RemoteExerciseCatalogStore.swift (file reference only)"),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "RemoteExerciseCatalogStore.swift"):
             validate(self.root)
 
     def test_missing_ai_inbox_store_requires_checkout_update(self):
