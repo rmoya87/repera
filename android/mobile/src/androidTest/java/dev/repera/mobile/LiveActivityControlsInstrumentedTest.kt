@@ -73,6 +73,9 @@ class LiveActivityControlsInstrumentedTest {
         val account = "test-canvas-${UUID.randomUUID()}"
         val runtime = LiveActivityRuntime.forAccount(context,account)
         runtime.choose(LiveSport.RUNNING)
+        val plan=LiveRoutesStore(context,account).addRecordedRoute("GPX sintético",
+            listOf(dev.repera.domain.WorkoutRoutePoint(0,40.4375,-3.7035,0),
+                dev.repera.domain.WorkoutRoutePoint(1,40.439,-3.701,0)),"running")
         val rendered=java.util.concurrent.atomic.AtomicInteger(0)
         fun awaitMapAfter(previous:Int) {
             compose.waitUntil(60_000) { rendered.get()>previous }
@@ -85,6 +88,7 @@ class LiveActivityControlsInstrumentedTest {
         awaitMapAfter(0)
         capture("comenzar_gps_idle_mapa.png")
         compose.runOnIdle {
+            runtime.selectRoute(plan.id)
             // Direct recorder fixture: do not start any provider/service.
             val now = System.currentTimeMillis()
             runtime.state.start(now-30_000,"synthetic-canvas")

@@ -57,23 +57,26 @@ internal fun RouteMapView(
     onStyleLoaded: (() -> Unit)? = null,
     plannedRoute: Boolean = false,
     controlsOverlay: Boolean = false,
+    plannedPoints: List<WorkoutRoutePoint> = emptyList(),
     onMapRendered: (() -> Unit)? = null
 ) {
     var failed by remember { mutableStateOf(false) }
     val currentRendered by androidx.compose.runtime.rememberUpdatedState(onMapRendered)
     val currentPlanned by androidx.compose.runtime.rememberUpdatedState(plannedRoute)
+    val currentPlan by androidx.compose.runtime.rememberUpdatedState(plannedPoints)
     val currentPoints by androidx.compose.runtime.rememberUpdatedState(points)
     var loadedMap by remember { mutableStateOf<MapLibreMap?>(null) }
     var renderedPoints by remember { mutableStateOf<List<WorkoutRoutePoint>>(emptyList()) }
-    androidx.compose.runtime.LaunchedEffect(points, plannedRoute, loadedMap) {
+    androidx.compose.runtime.LaunchedEffect(points, plannedRoute, plannedPoints, loadedMap) {
         val map = loadedMap ?: return@LaunchedEffect
-        if (points == renderedPoints && !plannedRoute) return@LaunchedEffect
+        if (points == renderedPoints && !plannedRoute && plannedPoints.isEmpty()) return@LaunchedEffect
         map.getStyle { style ->
             runCatching {
                 style.removeLayer("route-line");style.removeSource("route-src")
                 for (i in 0..1) {
                     style.removeLayer("route-pt-layer-$i");style.removeSource("route-pt-$i")
                 }
+                applyPlannedOverlay(style,plannedPoints)
                 applyRoute(map, style, points, plannedRoute);renderedPoints = points.toList()
             }.onFailure { failed = true }
         }
@@ -136,7 +139,7 @@ internal fun RouteMapView(
                         isCompassEnabled = isInteractive
                     }
                     map.setStyle("https://tiles.openfreemap.org/styles/liberty") { style ->
-                        runCatching { applyRoute(map, style, currentPoints, currentPlanned) }
+                        runCatching { applyPlannedOverlay(style,currentPlan);applyRoute(map, style, currentPoints, currentPlanned) }
                             .onFailure { failed = true }
                             .onSuccess { renderedPoints = currentPoints.toList();loadedMap = map;onStyleLoaded?.invoke() }
                     }
@@ -144,6 +147,20 @@ internal fun RouteMapView(
             }
         }
     )
+}
+
+/** Chosen GPX remains visible beneath the measured trace after recording begins. */
+private fun applyPlannedOverlay(style:org.maplibre.android.maps.Style,points:List<WorkoutRoutePoint>) {
+    style.removeLayer("planned-route-line");style.removeSource("planned-route-src")
+    if(points.size<2) return
+    val coordinates=org.json.JSONArray()
+    points.forEach { coordinates.put(org.json.JSONArray().put(it.longitude).put(it.latitude)) }
+    val feature=org.maplibre.geojson.Feature.fromJson(JSONObject().put("type","Feature")
+        .put("geometry",JSONObject().put("type","LineString").put("coordinates",coordinates)).toString())
+    style.addSource(GeoJsonSource("planned-route-src",feature))
+    style.addLayer(LineLayer("planned-route-line","planned-route-src").withProperties(
+        PropertyFactory.lineColor(android.graphics.Color.rgb(10,132,255)),PropertyFactory.lineWidth(4f),
+        PropertyFactory.lineOpacity(0.65f),PropertyFactory.lineCap("round")))
 }
 
 private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
