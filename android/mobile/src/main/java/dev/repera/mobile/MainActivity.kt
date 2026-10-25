@@ -1666,7 +1666,8 @@ data class StateOverview(
     val dayEnergyKcal:Map<java.time.LocalDate,Double> = emptyMap(),
     val bodyWeightHistory:List<BodyWeightHistoryEntry> = emptyList(),
     val testedOneRMByExercise:Map<String,Double> = emptyMap(),
-    val externalHealthHistory:List<ExternalHealthHistoryEntry> = emptyList()
+    val externalHealthHistory:List<ExternalHealthHistoryEntry> = emptyList(),
+    val sessionScoresByRange:Map<String,List<dev.repera.domain.ProgressDayPoint>> = emptyMap()
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?, health: HealthSamples? = null,
@@ -2013,6 +2014,7 @@ data class StateOverview(
                 minutesByDay[day]=(minutesByDay[day] ?: 0.0)+s.durationMinutes
                 countsByDay[day]=(countsByDay[day] ?: 0)+1}
             return StateOverview(
+                sessionScoresByRange=dev.repera.domain.ProgressTimeRange.entries.associate {it.wire to SessionScoreProgress.points(json,it,trainingSettings.weekStartsOnMonday)},
                 dayWorkoutMinutes=minutesByDay,dayWorkoutCounts=countsByDay,
                 dayEnergyKcal=health?.energyDays.orEmpty().associate {it.date to it.kcal},
                 trainingSettings=trainingSettings,rotationPlan=RotationSettings.read(json),healthGoals=HealthGoals.read(json),profileSettings=ProfileSettings.read(json),

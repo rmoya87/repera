@@ -86,6 +86,7 @@ internal fun ProgressTab(
     onLogBodyWeight: (Double) -> Unit = {},
     onOpenBodyWeights:()->Unit = {},
     onOpenHistory:()->Unit = {},
+    onOpenExercise:(String)->Unit = {},
     modifier: Modifier = Modifier
 ) {
     // Deliberately limited to the recent archive loaded by StateOverview.
@@ -231,6 +232,10 @@ internal fun ProgressTab(
                     }
                 }
             }
+            item {
+                if(subscriptions==null || subscriptions.isPro) SessionScoreProgressCard(overview?.sessionScoresByRange?.get(selectedRange).orEmpty())
+                else SessionScoreProgressCard((0..6).map {i ->dev.repera.domain.ProgressDayPoint(today.minusDays(6L-i),listOf(6.0,7.0,7.0,8.0,6.0,8.0,9.0)[i])},preview=true)
+            }
             overview?.chartsByRange?.get(selectedRange)?.let { charts ->
                 item { ProgressChartsCard(charts) }
             }
@@ -254,26 +259,13 @@ internal fun ProgressTab(
                 }
             }
 
-            if (snapshot.records.isNotEmpty()) {
-                item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("Récords del periodo",
-                                style = MaterialTheme.typography.titleMedium)
-                            snapshot.records.take(5).forEach { record ->
-                                val date = java.time.Instant.ofEpochMilli(record.epochMillis)
-                                    .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                                    .format(reperaDayFormatter)
-                                Text("${record.exerciseName}: " +
-                                    "${formatWeight(record.weightKg)} kg × ${record.reps} " +
-                                    "(1RM est. ${formatWeight(record.estimatedOneRM)} kg) · $date",
-                                    style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
-                    }
-                }
+            if(subscriptions==null || subscriptions.isPro) {
+                item {ProgressExercisesCard(snapshot.chartExercises,onOpenExercise)}
+                item {ProgressRecordsCard(snapshot.records,onOpenExercise)}
             }
+            else item {dev.repera.mobile.monetization.ProTeaserCard(title="Descubre todo tu progreso",bodyText="Analiza tu evolución por ejercicio y tus marcas personales.",onClick={
+                subscriptions.presentPaywall(dev.repera.domain.monetization.PaywallContext.PROGRESS,feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)
+            })}
             if (snapshot.muscleStatuses.isNotEmpty()) {
                 item {
                     // Current Apple StatsView explicitly exposes map and bars to Free.

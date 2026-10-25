@@ -29,6 +29,8 @@ import java.time.ZoneId
  * MuscleMapEngine sobre el archivo completo del estado. Port del
  * ProgressDataEngine de iOS (sin las partes de Salud aún no conectadas).
  */
+data class ProgressExerciseRow(val id:String,val name:String,val topWeight:Double?)
+
 data class ProgressSnapshotData(
     val range: ProgressTimeRange,
     val summary: ProgressHealthSummary,
@@ -61,7 +63,8 @@ data class ProgressSnapshotData(
     val filteredWorkouts: Int,
     val averageHeartRate: Double? = null,
     val previousAverageHeartRate: Double? = null,
-    val externalSessions: Int = 0
+    val externalSessions: Int = 0,
+    val chartExercises:List<ProgressExerciseRow> = emptyList()
 )
 
 object ProgressSnapshotBuilder {
@@ -372,6 +375,9 @@ object ProgressSnapshotBuilder {
             streak = streak,
             previousStreak = previousStreak,
             records = records,
+            chartExercises=filtered.flatMap {it.exercises}.groupBy {it.exerciseId}.map {(id,items) ->
+                ProgressExerciseRow(id,items.first().exerciseName,items.flatMap {it.sets}.mapNotNull {it.weightKg}.maxOrNull())
+            }.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) {it.name}),
             muscleStatuses = statuses,
             hasHardSets = hasHardSets,
             muscleLoadAll = loadAll,

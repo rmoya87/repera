@@ -543,7 +543,7 @@ fun ReperaMobileScreen(
                     )
                 }
                 composable("progreso") {
-                    ProgressTab(
+                    ProgressTab(onOpenExercise={id ->navController.navigate("ejercicio/$id")},
                         busy = busy,
                         syncing = syncing,
                         status = status,

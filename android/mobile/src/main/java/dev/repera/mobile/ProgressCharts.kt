@@ -383,13 +383,14 @@ internal fun DayPointLineChart(
     points: List<dev.repera.domain.ProgressDayPoint>,
     modifier: Modifier = Modifier,
     valueFormat: (Double) -> String = { formatWeight(it) },
-    goal:Double? = null
+    goal:Double? = null,
+    bounds:ClosedFloatingPointRange<Double>? = null
 ) {
     if (points.isEmpty()) return
     val line = MaterialTheme.colorScheme.primary
     var selected by remember(points) { mutableStateOf<Int?>(null) }
-    val minV = minOf(points.minOf { it.value },goal ?: Double.POSITIVE_INFINITY)
-    val maxV = maxOf(points.maxOf { it.value },goal ?: Double.NEGATIVE_INFINITY)
+    val minV = bounds?.start ?: minOf(points.minOf { it.value },goal ?: Double.POSITIVE_INFINITY)
+    val maxV = bounds?.endInclusive ?: maxOf(points.maxOf { it.value },goal ?: Double.NEGATIVE_INFINITY)
     val span = (maxV - minV).coerceAtLeast(1e-9)
     val firstDay = points.first().day
     val midDay = points[points.size / 2].day
