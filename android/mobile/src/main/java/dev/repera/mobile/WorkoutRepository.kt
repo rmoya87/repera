@@ -1924,6 +1924,32 @@ class WorkoutRepository(context: Context, googleId: String) {
         save(state)
     }
 
+    /** Pin crudo de la sesión activa (lectura para verificación de tests). */
+    @Synchronized internal fun activeSessionLocationPinForTest(): JSONObject? =
+        loadOrNull()?.optJSONObject("activeSession")?.optJSONObject("locationPin")
+
+    /** Pin de un entreno ya archivado (HistoryView iOS: locationPinBinding).
+     *  Sólo sin ruta GPS: con ruta el mapa de la ruta ya es el lugar. Devuelve
+     *  false si no existe, o si tiene ruta (no se toca). pin == null lo borra. */
+    @Synchronized fun setFinishedLocationPin(workoutId: String, pin: dev.repera.domain.WorkoutLocationPin?): Boolean {
+        val state = loadOrNull() ?: return false
+        val archive = state.optJSONArray("workouts") ?: return false
+        val target = (0 until archive.length()).map { archive.getJSONObject(it) }
+            .firstOrNull { it.optString("id") == workoutId } ?: return false
+        if ((target.optJSONArray("routePoints")?.length() ?: 0) >= 2) return false
+        if (pin == null) target.remove("locationPin") else target.put("locationPin", JSONObject()
+            .put("latitude", pin.latitude)
+            .put("longitude", pin.longitude)
+            .put("recordedAtEpochMs", pin.recordedAtEpochMs)
+            .apply {
+                pin.name?.let { put("name", it) }
+                pin.mapItemIdentifier?.let { put("mapItemIdentifier", it) }
+                pin.pointOfInterestCategory?.let { put("pointOfInterestCategory", it) }
+            })
+        save(state)
+        return true
+    }
+
     /** Ruta GPS al terminar (stopRouteTracking iOS): vale con la sesión aún
      *  activa o ya archivada en el historial. */
     @Synchronized fun attachRoutePoints(sessionId: String, points: List<dev.repera.domain.WorkoutRoutePoint>) {

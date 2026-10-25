@@ -10,6 +10,10 @@ package dev.repera.domain
  *  dispositivo, así que la búsqueda se dispara con pausa de tecleo
  *  (DEBOUNCE_MS) y mínimo de caracteres, no por tecla — diferencia de
  *  fidelidad documentada por restricción de plataforma, no por descuido.
+ *  ACTUALIZACIÓN (25/10): POI por nombre se cubre con Photon público
+ *  (photon.komoot.io; sin cuenta ni coste; README komoot/photon: uso permitido
+ *  con volumen razonable, sin garantías) con límites conservadores y caída a
+ *  Geocoder + pin manual: ver PhotonPlaceSearchProvider.
  *  Nominatim público queda descartado (su política no admite asumir
  *  autocompletado en producción) y Google Places por requerir facturación
  *  (solo si el usuario lo pide explícitamente). */

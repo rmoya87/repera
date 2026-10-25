@@ -195,7 +195,7 @@ fun PlaceSearchSheet(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val provider = remember { GeocoderPlaceSearchProvider(context) }
+    val provider = remember { CompositePlaceSearchProvider(PhotonPlaceSearchProvider(), GeocoderPlaceSearchProvider(context)) }
     val recentStore = remember { RecentPlacesStore(context, accountId) }
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<PlaceSearchResult>>(emptyList()) }

@@ -448,3 +448,9 @@ cada concepto con Android. Además de lo ya registrado:
 Recordatorio del método: el barrido es por concepto; un «Android tiene X»
 exige contrastar contenido, no solo nombre (el heatmap era fidelidad, no
 capacidad; los sustitutos eran paridad exacta por código muerto en iOS).
+
+## Selector de lugar: dónde está conectado (25/10, c6603b51 y siguiente)
+- Entreno activo (WorkoutView iOS): CONECTADO. Compilado + tests JVM; sin ejecución en dispositivo.
+- Detalle de entreno archivado sin ruta (HistoryView iOS): CONECTADO (`setFinishedLocationPin`, no toca entrenos con ruta). Tests instrumentados nuevos `WorkoutPinEditingInstrumentedTest` (5): compilados, NO ejecutados.
+- Plan (PlanView iOS, «Datos del entreno realizado» vía `onApplyCompleted`): AUSENTE. Android no tiene el flujo de marcar un plan como completado con datos editables; el selector no tiene dónde colgarse sin construir ese flujo entero. No se ha fabricado una pantalla.
+- Búsqueda de POI por nombre: Photon público (`PhotonPlaceSearchProvider`) con pausa de tecleo, ≥3 caracteres, 1 petición/s, caché, enfriamiento de 120 s ante 429/5xx/timeout y caída a Geocoder + pin manual. Al exterior sale sólo el texto y el centro del mapa a 2 decimales. Política: README komoot/photon (uso razonable, sin garantías). 9 tests JVM con fixtures (ejecutados en local; ninguna petición real).

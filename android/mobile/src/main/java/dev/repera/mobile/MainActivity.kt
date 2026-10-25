@@ -729,6 +729,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 // endActiveSession(save: false) iOS: borra la sesión en curso
                 // sin guardarla y detiene la captura de ubicación.
                 accountId = profile?.uniqueId.orEmpty(),
+                onFinishedPinChange = { workoutId, pin ->
+                    runWorkoutAction { setFinishedLocationPin(workoutId, pin) }
+                },
                 onActivePinChange = { pin ->
                     val sid = snapshot?.activeSessionId
                     if (sid != null) runWorkoutAction { setActiveLocationPin(sid, pin) }
@@ -1624,6 +1627,7 @@ data class StateOverview(
                         }.getOrElse { session.optString("startedAt").take(10) },
                         results = results,
                         movements = movements,
+                        locationPin = pinFromJson(session.optJSONObject("locationPin")),
                         routePoints = session.optJSONArray("routePoints")?.let { rp ->
                             (0 until rp.length()).mapNotNull { i ->
                                 val point = rp.getJSONObject(i)
@@ -1931,6 +1935,19 @@ data class ExerciseEntry(
         get() = dev.repera.domain.SportExerciseNames.displayName(name, sportTag)
 }
 
+internal fun pinFromJson(o: org.json.JSONObject?): dev.repera.domain.WorkoutLocationPin? {
+    o ?: return null
+    return runCatching {
+        dev.repera.domain.WorkoutLocationPin(
+            latitude = o.getDouble("latitude"),
+            longitude = o.getDouble("longitude"),
+            recordedAtEpochMs = o.optLong("recordedAtEpochMs"),
+            name = o.optString("name").takeIf { it.isNotBlank() },
+            mapItemIdentifier = o.optString("mapItemIdentifier").takeIf { it.isNotBlank() },
+            pointOfInterestCategory = o.optString("pointOfInterestCategory").takeIf { it.isNotBlank() })
+    }.getOrNull()
+}
+
 data class WorkoutHistoryEntry(
     val id: String,
     val title: String,
@@ -1938,7 +1955,8 @@ data class WorkoutHistoryEntry(
     val results: List<String>,
     val movements: List<WorkoutHistoryMovement>,
     val review: dev.repera.domain.SessionReview? = null,
-    val routePoints: List<dev.repera.domain.WorkoutRoutePoint> = emptyList()
+    val routePoints: List<dev.repera.domain.WorkoutRoutePoint> = emptyList(),
+    val locationPin: dev.repera.domain.WorkoutLocationPin? = null
 )
 data class WorkoutHistoryMovement(
     val name: String,
