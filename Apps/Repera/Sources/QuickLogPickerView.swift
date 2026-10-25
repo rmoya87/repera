@@ -1,7 +1,7 @@
 import ReperaDomain
 import SwiftUI
 
-/// Picker de un ejercicio para log rápido (Crear → Apuntar series).
+/// Picker de un ejercicio para log rápido (Crear → Apuntar ejercicio).
 /// Mismo pipeline rápido que `ExercisePickerView` (índice/ranking off-main).
 struct QuickLogPickerView: View {
     @Environment(ReperaStore.self) private var store
@@ -19,10 +19,10 @@ struct QuickLogPickerView: View {
                 Text("Ejercicio")
             },
             footer: {
-                Text("Un ejercicio, sin montar rutina. Entra directo a apuntar series.")
+                Text("Un ejercicio, sin montar rutina. Entra directo a apuntar ejercicio.")
             }
         )
-        .ogPinnedTransparentNav("Apuntar series")
+        .ogPinnedTransparentNav("Apuntar ejercicio")
         .ogDiaryTransparentNav()
     }
 }
