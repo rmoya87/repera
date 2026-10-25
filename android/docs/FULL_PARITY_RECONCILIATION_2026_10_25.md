@@ -85,3 +85,9 @@ Esta pasada NO afirma equivalencia de todas las funciones ni un plazo global.
   ejercicio temporal. Guardas sesiónactiva/fecha/schema/status. Test integrado
   preparado comprueba prioridadpersonal y noescritura, noejecutado aún.
   Logout limpia también caché plan/timer delreloj. E2E físico siguependiente.
+-22:12 perfil local: nombre opcional y fotoJPEG256px ensettings existentes;
+  Inicio usa nombre editado. No publica perfilSupabase (Apple sí sincroniza
+  perfil público explícitamente); esa diferencia sigueabierta. Selecciónfoto
+  y orientaciónEXIF/visual aún sin validar. No cierre de perfil.
+-Accesos Ajustes aCenter y paywallPro existente, sin conceder entitlement ni
+  modificar precios/compra/backend. No probado visualmente aún.
