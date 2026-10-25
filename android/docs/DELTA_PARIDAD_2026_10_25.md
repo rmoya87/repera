@@ -225,3 +225,12 @@ main móvil invisible.)
   de aviso cuando voz falla/está off, voz instalada de mejor calidad y tests.
 - Pruebas instrumentadas D3/historial/evolución/guardado sintético lanzadas en
   rama debug separada sobre 6d003b02 (NO incluyen aún guía/TTS posterior).
+
+## Validación D3 20:08 CET
+- 40223448697 SUCCESS XML4/0 solo LiveSportHistoryInstrumentedTest (runner no
+  ejecutó la segunda clase de la lista). Catálogo/historial legibles en
+  capturas. Evolución: resumen/gráfica legibles, mapa no evaluable por captura
+  Compose (SurfaceView). No se da guardado por probado ni mapa por vacío real.
+- Nueva clase explícita única LiveActivitySaveInstrumentedTest ejecuta guardado
+  UUID-idempotente y captura de ventana real tras estilo +8s con ruta sintética.
+  Run nuevo debug sobre ecdd57f8, sin regresión global ni cambios beta.
