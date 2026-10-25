@@ -17,13 +17,22 @@ internal object RouteMapModel {
 
     fun segments(points: List<WorkoutRoutePoint>): List<Segment> {
         if (points.size < 2) return emptyList()
-        val speeds = points.mapNotNull { it.speedMps }.filter { it >= 0 }
-        val minS = speeds.minOrNull() ?: 0.0
-        val maxS = maxOf(speeds.maxOrNull() ?: 1.0, minS + 0.1)
-        return (0 until points.size - 1).map { i ->
-            val a = points[i]; val b = points[i + 1]
-            val speed = a.speedMps ?: b.speedMps ?: minS
-            Segment(a, b, speedColor(speed, minS, maxS))
+        val speeds = (0 until points.lastIndex).map { i ->
+            val a = points[i];val b = points[i+1]
+            val seconds = (b.recordedAtEpochMs-a.recordedAtEpochMs)/1000.0
+            if (seconds <= 0 || seconds > 30) null
+            else {
+                val geometric = dev.repera.domain.LiveGPXTurnDetection.distance(a,b)/seconds
+                if (!geometric.isFinite() || geometric > 25) null
+                else (b.speedMps ?: a.speedMps)?.takeIf { it.isFinite() && it in 0.2..25.0 }
+                    ?: geometric.takeIf { it >= 0.2 }
+            }
+        }
+        val valid = speeds.filterNotNull()
+        val minS = valid.minOrNull() ?: 0.0
+        val maxS = maxOf(valid.maxOrNull() ?: 1.0,minS+0.1)
+        return speeds.mapIndexedNotNull { i,speed ->
+            speed?.let { Segment(points[i],points[i+1],speedColor(it,minS,maxS)) }
         }
     }
 
