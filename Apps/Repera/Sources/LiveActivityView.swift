@@ -1341,7 +1341,8 @@ struct LiveActivityView: View {
                     smallMetric("Distancia (km)",
                                 value: String(format: "%.2f", recorder.recordedDistanceMeters / 1000))
                 }
-                if recorder.sport.usesGPS, recorder.phase == .recording || recorder.phase == .paused {
+                if recorder.sport.usesGPS &&
+                   (recorder.phase == .recording || recorder.phase == .paused) {
                     Divider().overlay(OG.label2.opacity(0.18))
                     kilometerSplitSummary
                         .padding(.horizontal, 8)
