@@ -37,6 +37,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     // Cache plans created before WatchConnectivity activation completes.
     private let latestPayloadLock = NSLock()
     private var latestPayload: [String: Any]?
+    private let pendingLiveKey = "repera.phone.pendingLiveWatchEvents.v1"
 
     func activate() {
         guard WCSession.isSupported() else { return }
@@ -84,13 +85,30 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     func sendCriticalLiveState(_ session: WorkoutSession) {
         guard WCSession.isSupported(),
               let data = try? JSONEncoder().encode(session) else { return }
+        // Puede pulsarse Guardar justo antes de WCSession.activation.
+        // Persistir primero y dejar que transferUserInfo entregue offline.
+        latestPayloadLock.withLock {
+            var queue = UserDefaults.standard.array(forKey: pendingLiveKey) as? [Data] ?? []
+            queue.append(data)
+            UserDefaults.standard.set(queue.suffix(20), forKey: pendingLiveKey)
+        }
+        flushCriticalLiveEvents()
+    }
+
+    private func flushCriticalLiveEvents() {
+        guard WCSession.isSupported() else { return }
         let wc = WCSession.default
         guard wc.activationState == .activated else { return }
-        wc.transferUserInfo(["session": data])
-        if wc.isReachable {
-            wc.sendMessage(["session": data], replyHandler: nil) { [weak self] error in
-                self?.logger.debug("Deferred free workout event: \(error.localizedDescription, privacy: .public)")
+        latestPayloadLock.withLock {
+            let queue = UserDefaults.standard.array(forKey: pendingLiveKey) as? [Data] ?? []
+            guard !queue.isEmpty else { return }
+            let inFlight = Set(wc.outstandingUserInfoTransfers.compactMap {
+                $0.userInfo["session"] as? Data
+            })
+            for data in queue where !inFlight.contains(data) {
+                wc.transferUserInfo(["session": data])
             }
+            UserDefaults.standard.removeObject(forKey: pendingLiveKey)
         }
     }
 
@@ -121,6 +139,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             logger.error("WCSession activation error: \(error.localizedDescription, privacy: .public)")
         }
         publishLatestContext()
+        flushCriticalLiveEvents()
         delegate?.phoneConnectivityDidUpdateReachability(session.isReachable)
     }
 
