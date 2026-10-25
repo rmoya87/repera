@@ -1,3 +1,4 @@
+import AVFoundation
 import CoreLocation
 import Foundation
 import HealthKit
@@ -445,6 +446,11 @@ final class LiveActivityRecorder: NSObject {
     private var selectedRouteDistance: [Double] = []
     private var selectedRouteTurns: [LiveRouteTurn] = []
     private var announcedTurnIndices: Set<Int> = []
+    // Los avisos por voz son opt-out; las notificaciones de segundo plano
+    // siguen dependiendo del permiso del usuario.
+    private let spokenGuidanceKey = "repera.live.spokenGuidance.enabled"
+    private var speechSynthesizer = AVSpeechSynthesizer()
+    private(set) var spokenGuidanceEnabled = true
     private var lastPosition: CLLocation?
     private var lastSave = Date.distantPast
     private var lastLiveActivityUpdate = Date.distantPast
@@ -457,6 +463,9 @@ final class LiveActivityRecorder: NSObject {
 
     private override init() {
         super.init()
+        if UserDefaults.standard.object(forKey: spokenGuidanceKey) != nil {
+            spokenGuidanceEnabled = UserDefaults.standard.bool(forKey: spokenGuidanceKey)
+        }
         manager.delegate = self
         manager.activityType = .fitness
         manager.desiredAccuracy = kCLLocationAccuracyBest
@@ -496,6 +505,26 @@ final class LiveActivityRecorder: NSObject {
     }
 
     var isActive: Bool { phase != .idle }
+
+    func toggleSpokenGuidance() {
+        spokenGuidanceEnabled.toggle()
+        UserDefaults.standard.set(spokenGuidanceEnabled, forKey: spokenGuidanceKey)
+        if !spokenGuidanceEnabled {
+            speechSynthesizer.stopSpeaking(at: .immediate)
+        }
+    }
+
+    /// Las indicaciones con voz funcionan mientras la app está activa.
+    /// En la pantalla bloqueada se conserva el aviso local autorizado.
+    private func speakNavigation(_ message: String) {
+        guard spokenGuidanceEnabled, UIApplication.shared.applicationState == .active,
+              !speechSynthesizer.isSpeaking else { return }
+        let phrase = AVSpeechUtterance(string: message)
+        phrase.voice = AVSpeechSynthesisVoice(language: "es-ES")
+        phrase.rate = 0.48
+        phrase.volume = 1
+        speechSynthesizer.speak(phrase)
+    }
 
     func choose(_ selection: LiveSport) {
         guard phase == .idle else { return }
@@ -610,6 +639,7 @@ final class LiveActivityRecorder: NSObject {
         pausedAt = Date()
         phase = .paused
         if sport.usesGPS { stopGPS() }
+        speechSynthesizer.stopSpeaking(at: .immediate)
         currentSpeedMps = nil
         persistSnapshot()
         updateLiveActivity()
@@ -669,6 +699,7 @@ final class LiveActivityRecorder: NSObject {
         finishedAt = now
         phase = .review
         stopGPS()
+        speechSynthesizer.stopSpeaking(at: .immediate)
         persistSnapshot()
         updateLiveActivity()
     }
@@ -850,6 +881,9 @@ final class LiveActivityRecorder: NSObject {
             result = "\(split.clock) min/km"
         }
         latestKilometerReport = "Km \(split.kilometer) · \(result)"
+        if sport.usesGPS {
+            speakNavigation("Kilómetro \(split.kilometer) completado. \(result)")
+        }
         if UIApplication.shared.applicationState == .active {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
@@ -903,6 +937,9 @@ final class LiveActivityRecorder: NSObject {
             if remaining <= (sport.isCycling ? 120 : 70),
                !announcedTurnIndices.contains(next.routeIndex) {
                 announcedTurnIndices.insert(next.routeIndex)
+                // La guía procede solo de la geometría GPX: no sustituye
+                // señalización ni navegación vial oficial.
+                speakNavigation(upcomingTurn ?? next.instruction)
                 notifyDuringBackground(
                     identifier: "repera.turn.\(startedAt?.timeIntervalSince1970 ?? 0).\(next.routeIndex)",
                     title: "Giro orientativo del GPX",
@@ -1188,13 +1225,29 @@ struct LiveActivityView: View {
                 if recorder.phase == .recording,
                    recorder.chosenRoute != nil,
                    let instruction = recorder.upcomingTurn {
-                    Label(instruction, systemImage: "arrow.triangle.turn.up.right.diamond")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(OG.label)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .glassEffect(.regular, in: .rect(cornerRadius: 18))
-                        .accessibilityLabel("Próxima indicación orientativa: \(instruction)")
+                    HStack(spacing: 10) {
+                        Label(instruction, systemImage: "arrow.triangle.turn.up.right.diamond")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(OG.label)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button {
+                            recorder.toggleSpokenGuidance()
+                        } label: {
+                            Image(systemName: recorder.spokenGuidanceEnabled
+                                  ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                                .font(.subheadline)
+                                .foregroundStyle(OG.label)
+                                .frame(width: 38, height: 38)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(recorder.spokenGuidanceEnabled
+                                            ? "Silenciar indicaciones" : "Activar indicaciones por voz")
+                    }
+                    .padding(.leading, 14)
+                    .padding(.trailing, 5)
+                    .padding(.vertical, 5)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 18))
+                    .accessibilityLabel("Próxima indicación orientativa: \(instruction)")
                 }
                 if let gpsMessage = recorder.gpsMessage, recorder.phase == .idle {
                     Text(gpsMessage)
