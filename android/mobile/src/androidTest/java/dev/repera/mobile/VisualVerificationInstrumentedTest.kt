@@ -132,8 +132,9 @@ class VisualVerificationInstrumentedTest {
     // (lavanda) y NO representa la app.
     private fun brandContent(content: @Composable () -> Unit) {
         compose.setContent {
+            // Mismo esquema claro que producción (ReperaMobileScreen): verde legible.
             MaterialTheme(colorScheme = lightColorScheme(
-                primary = brandGreen, onPrimary = Color.Black)) {
+                primary = brandGreenReadable, onPrimary = Color.White)) {
                 Surface(modifier = Modifier.fillMaxSize()) { content() }
             }
         }
@@ -569,8 +570,8 @@ class VisualVerificationInstrumentedTest {
             createdAt = "2026-10-24T09:00:00Z")
         compose.setContent {
             MaterialTheme(colorScheme = androidx.compose.material3.lightColorScheme(
-                primary = brandGreen,
-                onPrimary = androidx.compose.ui.graphics.Color.Black)) {
+                primary = brandGreenReadable,
+                onPrimary = androidx.compose.ui.graphics.Color.White)) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     AIAccessScreen(
                         connected = true, busy = false, tokens = tokens,
@@ -598,8 +599,8 @@ class VisualVerificationInstrumentedTest {
         val overview = estadoSinteticoOverview()
         compose.setContent {
             MaterialTheme(colorScheme = androidx.compose.material3.lightColorScheme(
-                primary = brandGreen,
-                onPrimary = androidx.compose.ui.graphics.Color.Black)) {
+                primary = brandGreenReadable,
+                onPrimary = androidx.compose.ui.graphics.Color.White)) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     ProgressTab(
                         busy = false, syncing = false, status = null,
@@ -622,8 +623,8 @@ class VisualVerificationInstrumentedTest {
         val overview = estadoSinteticoOverview()
         compose.setContent {
             MaterialTheme(colorScheme = androidx.compose.material3.lightColorScheme(
-                primary = brandGreen,
-                onPrimary = androidx.compose.ui.graphics.Color.Black)) {
+                primary = brandGreenReadable,
+                onPrimary = androidx.compose.ui.graphics.Color.White)) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     HomeTab(
                         displayName = "Ramón", busy = false, syncing = false,
