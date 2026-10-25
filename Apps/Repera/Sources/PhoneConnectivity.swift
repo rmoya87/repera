@@ -79,6 +79,21 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         publishLatestContext()
     }
 
+    /// Ending/canceling a free workout is a durable event, unlike
+    /// updateApplicationContext which deliberately coalesces snapshots.
+    func sendCriticalLiveState(_ session: WorkoutSession) {
+        guard WCSession.isSupported(),
+              let data = try? JSONEncoder().encode(session) else { return }
+        let wc = WCSession.default
+        guard wc.activationState == .activated else { return }
+        wc.transferUserInfo(["session": data])
+        if wc.isReachable {
+            wc.sendMessage(["session": data], replyHandler: nil) { [weak self] error in
+                self?.logger.debug("Deferred free workout event: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
     /// Reliable latest state while offline; immediate state for a reachable Watch.
     private func publishLatestContext() {
         guard WCSession.isSupported(),
