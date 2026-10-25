@@ -1455,7 +1455,13 @@ internal fun WorkoutHistoryCard(
                 if (workout.routePoints.size >= 2) {
                     CardioRouteSection(workout.routePoints, showComputedSplits = workout.liveKilometerSplitsSeconds.isEmpty())
                 }
-                LiveKilometerSplitsSection(workout.liveKilometerSplitsSeconds, workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)?.displaysSpeed == true)
+                val splitHeart by produceState<List<Pair<Long,Int>>>(emptyList(),workout.id,workout.liveKilometerSplitsSeconds) {
+                    if (workout.liveKilometerSplitsSeconds.isNotEmpty())
+                        value = runCatching { heartSeriesProvider(workout.id) }.getOrDefault(emptyList())
+                }
+                LiveKilometerSplitsSection(workout.liveKilometerSplitsSeconds,
+                    workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)?.displaysSpeed == true,
+                    workout.routePoints, splitHeart)
                 FinishedWorkoutEditorSection(
                     workout = workout,
                     accountId = accountId,

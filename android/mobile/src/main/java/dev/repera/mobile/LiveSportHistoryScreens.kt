@@ -126,8 +126,15 @@ private fun SportSummaryTile(title: String, value: String, modifier: Modifier) {
 }
 
 @Composable
-internal fun LiveKilometerSplitsSection(seconds: List<Double>, displaysSpeed: Boolean = false) {
+internal fun LiveKilometerSplitsSection(seconds: List<Double>, displaysSpeed: Boolean = false,
+    routePoints: List<dev.repera.domain.WorkoutRoutePoint> = emptyList(),
+    heartRate: List<Pair<Long,Int>> = emptyList()) {
     if (seconds.isEmpty()) return
+    val measured = remember(routePoints,heartRate) {
+        if (heartRate.isEmpty()) emptyList() else dev.repera.domain.CardioRouteAnalysis.analyze(
+            routePoints.map { dev.repera.domain.CardioRouteAnalysis.Sample(it.recordedAtEpochMs/1000.0,it.latitude,it.longitude,it.altitudeMeters) },
+            heartRate.map { dev.repera.domain.CardioRouteAnalysis.HeartSample(it.first/1000.0,it.second.toDouble()) }).splits
+    }
     Column(Modifier.fillMaxWidth().testTag("live_kilometer_splits"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text("Parciales por kilómetro", style = MaterialTheme.typography.titleMedium)
         seconds.forEachIndexed { index, duration ->
@@ -135,6 +142,9 @@ internal fun LiveKilometerSplitsSection(seconds: List<Double>, displaysSpeed: Bo
                 Text("Km ${index + 1}")
                 Text(if (displaysSpeed) "%.1f km/h".format(3600 / duration)
                     else "${LiveSportHistory.formatDuration(duration)} min/km")
+                measured.firstOrNull { it.kilometer == index+1 }?.averageBpm?.let {
+                    Text("%.0f lpm".format(it))
+                }
             }
         }
     }
