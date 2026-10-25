@@ -10,7 +10,7 @@ SRC = ROOT / "Apps" / "Repera" / "Sources"
 
 
 class AIRealtimeContractTests(unittest.TestCase):
-    def test_access_view_has_single_explicit_sync_in_account_only(self):
+    def test_access_view_sync_is_invisible_and_lifecycle_driven(self):
         access = (SRC / "AIAccessView.swift").read_text(encoding="utf-8")
         settings = (SRC / "SettingsView.swift").read_text(encoding="utf-8")
         for old in (
@@ -20,7 +20,11 @@ class AIRealtimeContractTests(unittest.TestCase):
             "await inbox.sync(store: store)",
         ):
             self.assertNotIn(old, access)
-        self.assertIn("AITrainingInboxStore.shared.sync(store: store)", settings)
+        app = (SRC / "ReperaApp.swift").read_text(encoding="utf-8")
+        self.assertNotIn("Sincronizar ahora", settings)
+        self.assertNotIn("syncEverything()", settings)
+        self.assertIn("await aiInbox.sync(store: store)", app)
+        self.assertIn("aiInbox.startRealtime(store: store)", app)
 
     def test_realtime_is_owner_scoped_and_lifecycle_bound(self):
         inbox = (SRC / "AITrainingInboxStore.swift").read_text(encoding="utf-8")
