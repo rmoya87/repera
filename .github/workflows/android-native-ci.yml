@@ -81,6 +81,11 @@ jobs:
           - api: '36.1'
             emu_opts: '-no-window -gpu guest -no-snapshot -noaudio -no-boot-anim -memory 4096'
             job_timeout: 45
+            # 40181550822: con el emulador 37.2.12 recién publicado, -gpu guest cae a
+            # lavapipe (la imagen 36.1 no soporta guest rendering) y QEMU muere al
+            # arrancar (exit 224, sin adb). Con 37.3.5 (runs 40177026987/40178955252)
+            # la misma config arrancaba: fijar ese build solo en esta pata.
+            emulator_build: '16632760'
     permissions:
       contents: read
     steps:
@@ -114,6 +119,7 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
+          emulator-build: ${{ matrix.emulator_build || '' }}
           # La imagen 36.1 + APKs mobile y wear agotaban la partición de datos
           # por defecto: los tests "pasaban" sin ejecutarse (0 tests).
           disk-size: 8G
