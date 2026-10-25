@@ -768,6 +768,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onSetExerciseFavorite = { id, favorite ->
                     runWorkoutAction { setExerciseFavorite(id, favorite) }
                 },
+                onSelectActiveExercise = { index ->
+                    StrengthRestService.cancel(this)
+                    runWorkoutAction { selectActiveExercise(index) }
+                },
+                onUpdateActiveNotes = { notes -> runWorkoutAction { updateActiveSessionNotes(notes) } },
                 onNext = { runWorkoutAction { next() } },
                 onFinish = {
                     StrengthRestService.cancel(this)

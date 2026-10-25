@@ -160,6 +160,8 @@ fun ReperaMobileScreen(
     onSetRoutineFavorite: (String, Boolean) -> Unit,
     onSetExerciseFavorite: (String, Boolean) -> Unit,
     onNext: () -> Unit,
+    onSelectActiveExercise:(Int)->Unit = {},
+    onUpdateActiveNotes:(String)->Unit = {},
     onFinish: () -> Unit,
     onDiscardSession: () -> Unit = {},
     accountId: String = "",
@@ -334,6 +336,8 @@ fun ReperaMobileScreen(
                                     "&instancia=" + instanceId)
                         },
                         onNext = onNext,
+                        onSelectActiveExercise = onSelectActiveExercise,
+                        onUpdateActiveNotes = onUpdateActiveNotes,
                         onFinish = onFinish,
                         onDiscardSession = onDiscardSession,
                         accountId = accountId,
@@ -486,7 +490,7 @@ fun ReperaMobileScreen(
                             onWodScore,onWodMovement,onCompleteWodBlock,onReviseWodMovement,onDeleteWodMovement,
                             onLogSet,onLogDropSet,onLogRestPauseSet,onReviseSet,onDeleteSet,onNext,onFinish,
                             onDiscardSession,{navController.navigate("reloj")},{navController.popBackStack()},
-                            overview?.activeLocationPin,accountId,onActivePinChange,overview?.trainingSettings?.effortUnit ?: "rir")
+                            overview?.activeLocationPin,accountId,onActivePinChange,overview?.trainingSettings?.effortUnit ?: "rir",onSelectActiveExercise,onUpdateActiveNotes)
                     }
                 }
                 composable("en-vivo") {

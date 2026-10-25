@@ -87,6 +87,8 @@ internal fun HomeTab(
     onReviseSet: (String, Int, Double?, String?, Int?, Int?) -> Unit,
     onDeleteSet: (String) -> Unit,
     onNext: () -> Unit,
+    onSelectActiveExercise:(Int)->Unit = {},
+    onUpdateActiveNotes:(String)->Unit = {},
     onFinish: () -> Unit,
     onDiscardSession: () -> Unit = {},
     accountId: String = "",
@@ -223,6 +225,7 @@ internal fun HomeTab(
         item {
             if (activeWorkout != null) {
                 key(activeWorkout.id, activeWorkout.index, activeWorkout.completedSets) {
+                    ActiveSessionControls(activeWorkout,busy,onSelectActiveExercise,onUpdateActiveNotes)
                     if (activeWorkout.wod != null) {
                         WodScoreCard(
                             active = activeWorkout,

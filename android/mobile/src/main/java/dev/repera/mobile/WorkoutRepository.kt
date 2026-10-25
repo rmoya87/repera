@@ -1010,7 +1010,6 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         check(inputMode.showsWeight || weightKg == null) {
             "Este ejercicio no registra peso"
         }
-        check(!exercise.optBoolean("isCompleted")) { "Ejercicio ya completado" }
         val logged = exercise.getJSONArray("loggedSets")
         val set = JSONObject()
             .put("id", setId ?: UUID.randomUUID().toString())
@@ -1077,7 +1076,6 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             ExerciseInputMode.HSPU_DEFICIT)) {
             "Las dropsets solo aplican a ejercicios de fuerza"
         }
-        check(!exercise.optBoolean("isCompleted")) { "Ejercicio ya completado" }
         check(inputMode(movement).showsWeight ||
             (weightKg == null && drops.all { it.second == null })) {
             "Este ejercicio no registra peso"
@@ -1134,7 +1132,6 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             ExerciseInputMode.HSPU_DEFICIT)) {
             "El rest-pause solo aplica a ejercicios de fuerza"
         }
-        check(!exercise.optBoolean("isCompleted")) { "Ejercicio ya completado" }
         check(inputMode(movement).showsWeight || weightKg == null) {
             "Este ejercicio no registra peso"
         }
@@ -1162,6 +1159,20 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         session.put("phase", "counting")
         save(state)
         return summarize(session)
+    }
+
+    /** Navigation never confirms an exercise or fabricates completed work. */
+    @Synchronized fun selectActiveExercise(index: Int): ActiveWorkout {
+        val state = requireState(); val session = requireActive(state)
+        require(index in 0 until session.getJSONArray("exercises").length())
+        session.put("currentIndex",index).put("phase","ready")
+        save(state); return summarize(session)
+    }
+    @Synchronized fun updateActiveSessionNotes(notes: String) {
+        val state = requireState(); val session = requireActive(state)
+        val trimmed = notes.trim()
+        if (trimmed.isEmpty()) session.remove("notes") else session.put("notes",trimmed)
+        save(state)
     }
 
     @Synchronized fun next(): ActiveWorkout? {
@@ -1578,7 +1589,6 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val session = requireActive(state)
         val exercise = session.getJSONArray("exercises").getJSONObject(session.getInt("currentIndex"))
         check(exercise.optString("blockKind") != "wod") { "Usa el editor WOD para estos movimientos" }
-        check(!exercise.optBoolean("isCompleted")) { "No se puede editar un ejercicio cerrado" }
         val old = exercise.getJSONArray("loggedSets")
         val kept = JSONArray()
         var removed = false
@@ -2588,6 +2598,12 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 current.getJSONObject("exercise").getString("name"),
                 current.getJSONObject("exercise").optString("equipment")),
             wod = wod,
+            notes = session.optString("notes").takeIf {it.isNotBlank()},
+            navigationEntries = (0 until exercises.length()).map { n ->
+                val entry=exercises.getJSONObject(n)
+                ActiveExerciseNavigation(n,entry.getJSONObject("exercise").exerciseDisplayName(),
+                    entry.optString("blockId"),entry.optString("blockKind"),entry.optBoolean("isCompleted"))
+            },
             sets = (0 until logged.length()).map { n ->
                 val set = logged.getJSONObject(n)
                 WorkoutSetSummary(
@@ -2640,8 +2656,11 @@ data class ActiveWorkout(
     val quantityUnit: String = "reps",
     val durationInput: Boolean = false,
     val cardioToggle: Boolean = false,
-    val wod: WodExecution? = null
+    val wod: WodExecution? = null,
+    val notes: String? = null,
+    val navigationEntries: List<ActiveExerciseNavigation> = emptyList()
 )
+data class ActiveExerciseNavigation(val index:Int,val name:String,val blockId:String,val blockKind:String,val completed:Boolean)
 
 data class WodExecution(
     val format: String,
