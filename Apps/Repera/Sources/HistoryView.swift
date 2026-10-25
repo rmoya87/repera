@@ -653,6 +653,7 @@ struct WorkoutDetailView: View {
             ? healthExtras?.activeEnergyKcal
             : nil
         let minutes: Double = {
+            if session.liveSportID != nil { return session.durationMinutes }
             if let start = session.startedAt {
                 let end = session.finishedAt ?? start.addingTimeInterval(60)
                 let wall = max(0, end.timeIntervalSince(start) / 60)
@@ -663,6 +664,7 @@ struct WorkoutDetailView: View {
 
         let route = displayedRoute(session)
         let distanceMeters: Double? = {
+            if let recorded = session.recordedDistanceMeters, recorded > 0 { return recorded }
             guard route.count >= 2 else { return nil }
             let samples = route.map {
                 CardioRouteAnalysis.Sample(

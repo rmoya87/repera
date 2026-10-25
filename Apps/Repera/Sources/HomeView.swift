@@ -57,6 +57,7 @@ struct HomeView: View {
     @Environment(HealthKitStore.self) private var health
     @Environment(BusinessDataStore.self) private var businessData
     var onOpenWorkout: () -> Void
+    var focusDay: Date? = nil
     var onStart: () -> Void
     /// Abre el preview / inicio de un entreno concreto (p. ej. suelto del viernes).
     var onStartRoutine: (Routine) -> Void = { _ in }
@@ -77,6 +78,7 @@ struct HomeView: View {
     /// Keeps the activity/progress cards below steady while changing days.
     @ScaledMetric(relativeTo: .body) private var singleWorkoutMinHeight: CGFloat = 100
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: Date())
+    @State private var lastAppliedFocusDay: Date?
     /// Live refine for **today** only (HK query). Past days use bucket metrics — never wait on HealthKit to paint.
     @State private var todayHealthLive = HealthKitStore.DayMetrics()
     /// Pasos reales de Salud del día seleccionado; nil si no hay lecturas disponibles.
@@ -316,6 +318,10 @@ struct HomeView: View {
             }
             .onAppear {
                 LaunchTiming.mark("HomeView.onAppear")
+                if let focusDay, focusDay != lastAppliedFocusDay {
+                    lastAppliedFocusDay = focusDay
+                    selectedDay = calendar.startOfDay(for: focusDay)
+                }
                 // Con diskPaint, workouts ya están en store (mismo ritmo que Salud).
                 rebuildDayBuckets()
                 rebuildWeekChrome()
@@ -331,6 +337,12 @@ struct HomeView: View {
                 guard hydrated else { return }
                 rebuildDayBuckets()
                 rebuildWeekChrome()
+            }
+            .onChange(of: focusDay) { _, day in
+                if let day {
+                    lastAppliedFocusDay = day
+                    selectedDay = calendar.startOfDay(for: day)
+                }
             }
             .onChange(of: selectedDay) { _, newDay in
                 // Al elegir un cuadrado, el progreso semanal sigue esa fecha.
@@ -833,17 +845,20 @@ struct HomeView: View {
                         store.endActiveSession(save: false)
                     }
                 }
-            } else if !workouts.isEmpty {
+            }
+            // La sesión estándar activa no debe ocultar actividades En vivo ya guardadas.
+            if !workouts.isEmpty {
                 ForEach(workouts) { session in
                     dayWorkoutCard(session)
                         .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
                 }
-            } else if let planned = plannedRoutineForSelectedDay {
-                // El plan mantiene todos los gestos existentes.
-                plannedDayCard(planned)
-                    .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
-            } else if !hasCompletedActivity {
-                emptyWorkoutCard
+            } else if !hasActive {
+                if let planned = plannedRoutineForSelectedDay {
+                    plannedDayCard(planned)
+                        .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
+                } else if !hasCompletedActivity {
+                    emptyWorkoutCard
+                }
             }
 
             ForEach(healthActivities) { activity in
@@ -986,7 +1001,10 @@ struct HomeView: View {
             title: {
                 HStack(alignment: .top, spacing: 12) {
                     // Completado en Inicio: check (Historial usa icono de fuerza).
-                    OGRegisterLeadingIcon(systemName: "checkmark", tint: OG.accent)
+                    OGRegisterLeadingIcon(
+                        systemName: session.liveSportID.flatMap { LiveSport(rawValue: $0)?.symbol } ?? "checkmark",
+                        tint: OG.accent
+                    )
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(WorkoutListCaption.dayTimeLine(
@@ -1007,6 +1025,9 @@ struct HomeView: View {
                 .padding(.horizontal, Self.registerCardPad)
             },
             chips: {
+                if let meters = session.recordedDistanceMeters, meters > 0 {
+                    OGRegisterChip(text: String(format: "%.2f km", meters / 1000), icon: "point.topleft.down.curvedto.point.bottomright.up")
+                }
                 WorkoutRegisterChips.repera(
                     session: session,
                     prCount: prs,
@@ -1292,7 +1313,7 @@ struct HomeView: View {
     private func rebuildDayBuckets() {
         var workouts: [String: [WorkoutSession]] = [:]
         for w in store.state.workouts {
-            guard let d = w.finishedAt else { continue }
+            guard let d = w.liveSportID == nil ? w.finishedAt : (w.startedAt ?? w.finishedAt) else { continue }
             workouts[dayKey(d), default: []].append(w)
         }
         for key in workouts.keys {

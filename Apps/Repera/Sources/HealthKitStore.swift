@@ -1857,7 +1857,9 @@ final class HealthKitStore {
         title: String,
         start: Date,
         end: Date,
-        fallbackKcal: Double? = nil
+        fallbackKcal: Double? = nil,
+        activityType: HKWorkoutActivityType = .traditionalStrengthTraining,
+        locationType: HKWorkoutSessionLocationType = .indoor
     ) async -> WorkoutSyncResult {
         let safeEnd = max(end, start.addingTimeInterval(60))
         guard syncingSessionIds.insert(sessionId).inserted else {
@@ -1874,9 +1876,11 @@ final class HealthKitStore {
         // para respetar los tiempos/FC guardados por Apple Watch.
         let previous = await existingReperaWorkout(sessionId: sessionId, start: start, end: safeEnd)
         let overlapping = await overlappingWorkout(from: start, to: safeEnd)
-        let external = overlapping.flatMap {
-            (Self.isReperaSource($0.sourceRevision.source) &&
-             !Self.isWatchRecordedSource($0.sourceRevision.source)) ? nil : $0
+        let external: HKWorkout? = overlapping.flatMap { candidate -> HKWorkout? in
+            guard activityType == .traditionalStrengthTraining ||
+                    candidate.workoutActivityType == activityType else { return nil }
+            return (Self.isReperaSource(candidate.sourceRevision.source) &&
+                !Self.isWatchRecordedSource(candidate.sourceRevision.source)) ? nil : candidate
         }
         let legacyOwn = overlapping.flatMap { candidate -> HKWorkout? in
             guard Self.isReperaSource(candidate.sourceRevision.source),
@@ -1910,13 +1914,19 @@ final class HealthKitStore {
             resolvedEnd = owned.endDate
             await discardLocalBuilder()
             lastError = nil
+        } else if isWatchWorkoutMirrored {
+            // Jamás crear una segunda sesión mientras Watch es el propietario.
+            lastError = "Apple Watch sigue grabando. La conciliación se realizará cuando termine."
+            await discardLocalBuilder()
         } else if canWriteWorkouts {
             savedUUID = await saveStrengthWorkout(
                 sessionId: sessionId,
                 title: title,
                 start: resolvedStart,
                 end: resolvedEnd,
-                preferBuilder: trackedSessionId == sessionId ? liveBuilder : nil
+                preferBuilder: trackedSessionId == sessionId ? liveBuilder : nil,
+                activityType: activityType,
+                locationType: locationType
             )
             if savedUUID != nil { lastError = nil }
         } else {
@@ -2120,7 +2130,9 @@ final class HealthKitStore {
         title: String,
         start: Date,
         end: Date,
-        preferBuilder: HKWorkoutBuilder?
+        preferBuilder: HKWorkoutBuilder?,
+        activityType: HKWorkoutActivityType,
+        locationType: HKWorkoutSessionLocationType
     ) async -> UUID? {
         guard canWriteWorkouts else {
             lastError = "Falta permiso para guardar entrenamientos en Apple Salud"
@@ -2154,8 +2166,8 @@ final class HealthKitStore {
         }
 
         let config = HKWorkoutConfiguration()
-        config.activityType = .traditionalStrengthTraining
-        config.locationType = .indoor
+        config.activityType = activityType
+        config.locationType = locationType
         let builder = HKWorkoutBuilder(healthStore: store, configuration: config, device: .local())
         do {
             try await builder.beginCollection(at: start)

@@ -600,6 +600,10 @@ final class ReperaStore: NSObject {
     }
 
     func startSession(from routine: Routine) {
+        guard !LiveActivityRecorder.shared.isActive else {
+            HealthKitStore.shared.lastError = "Finaliza o descarta la actividad En vivo antes de iniciar otro entrenamiento."
+            return
+        }
         guard !HealthKitStore.shared.isWatchWorkoutMirrored else {
             HealthKitStore.shared.lastError = "El Apple Watch ya está registrando un entrenamiento. Termínalo desde el reloj antes de iniciar otro."
             return
@@ -637,6 +641,10 @@ final class ReperaStore: NSObject {
         ocrText: String? = nil,
         blocks: [RoutineBlock]? = nil
     ) -> Bool {
+        guard !LiveActivityRecorder.shared.isActive else {
+            HealthKitStore.shared.lastError = "Finaliza o descarta la actividad En vivo antes de iniciar otro entrenamiento."
+            return false
+        }
         guard !HealthKitStore.shared.isWatchWorkoutMirrored else {
             HealthKitStore.shared.lastError = "El Apple Watch ya está registrando un entrenamiento. Finalízalo primero desde el reloj."
             return false
@@ -815,6 +823,11 @@ final class ReperaStore: NSObject {
         restCoordinator.endForSessionClose()
         state.activeSession = nil
         persist()
+        // El widget de entrenamiento tiene su propio ciclo de vida, no se
+        // cancela junto con el timer de descansos.
+        Task {
+            await WorkoutLiveActivityCoordinator.shared.completePlanned(session, saved: save)
+        }
         pushActiveToWatch(immediate: true)
 
         if save {
@@ -1297,7 +1310,7 @@ final class ReperaStore: NSObject {
             if draft.healthKitWorkoutUUID == nil {
                 draft.appleActiveEnergyKcal = nil
             }
-            if let start = draft.startedAt, let end = draft.finishedAt {
+            if let start = draft.startedAt, let end = draft.finishedAt, draft.liveSportID == nil {
                 draft.appleDurationSeconds = max(60, end.timeIntervalSince(start))
             }
             // La valoración anterior ya no corresponde a series/orden/carga editados.
@@ -1326,11 +1339,14 @@ final class ReperaStore: NSObject {
               let start = session.startedAt,
               let end = session.finishedAt,
               end >= start else { return false }
+        let liveSport = session.liveSportID.flatMap { LiveSport(rawValue: $0) }
         let apple = await HealthKitStore.shared.finishWorkout(
             sessionId: session.id,
             title: session.title,
             start: start,
-            end: end
+            end: end,
+            activityType: liveSport?.healthType ?? .traditionalStrengthTraining,
+            locationType: liveSport?.usesGPS == true ? .outdoor : .indoor
         )
         guard let uuid = apple.workoutUUID,
               var current = state.workouts.first(where: { $0.id == sessionId })
@@ -1444,6 +1460,11 @@ final class ReperaStore: NSObject {
             }
 
             if changed { persistWorkouts() }
+            if session.finishedAt != nil {
+                Task {
+                    await WorkoutLiveActivityCoordinator.shared.completePlanned(session, saved: true)
+                }
+            }
             let snapshot = state
             let needsSync = changed
             Task { @MainActor in
@@ -1587,6 +1608,13 @@ final class ReperaStore: NSObject {
             changed = true
         }
         if changed { sessionEpoch &+= 1 }
+        // También recupera la Live Activity al hidratar una sesión persistida:
+        // no depende de la pantalla Play ni de una transmisión al Watch.
+        if let active, active.startedAt != nil {
+            Task {
+                await WorkoutLiveActivityCoordinator.shared.updatePlanned(active)
+            }
+        }
     }
 
     private func professionalWorkoutForWatchToday() -> WorkoutSession? {
