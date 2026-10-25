@@ -72,11 +72,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var healthSamples by mutableStateOf<HealthSamples?>(null)
     private var recoveryRead by mutableStateOf<RecoveryRead?>(null)
     private val credentialManager by lazy { CredentialManager.create(this) }
-    private var centerRevision=0L
+    private val centerGate=AccountRevisionGate()
     private var verifiedSupabase: SupabaseIdentity.Session? = null
         set(value) {
-            if(field?.userId!=value?.userId) {
-                centerRevision++
+            if(centerGate.update(value?.userId)) {
                 centerSnapshot=null;centerError=null;centerLoading=false;centerSubmitting=false
             }
             field=value
@@ -986,19 +985,19 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val session = verifiedSupabase ?: return
         if (centerLoading) return
         centerLoading = true
-        val revision=centerRevision
+        val revision=centerGate.revision
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 BusinessCenterStore().refresh(session)
             }
-            if(centerRevision!=revision || verifiedSupabase?.userId!=session.userId) return@launch
+            if(!centerGate.accepts(session.userId,revision)) return@launch
             when (result) {
                 is BusinessCenterStore.LoadResult.Loaded -> {
                     centerSnapshot = result.snapshot
                     centerError = null
                     profile?.uniqueId?.let {id ->
                         val plan=withContext(Dispatchers.IO) {WorkoutRepository(this@MainActivity,id).todayPlanSession(professional=result.snapshot.trainingSessions)}
-                        if(centerRevision==revision && verifiedSupabase?.userId==session.userId)
+                        if(centerGate.accepts(session.userId,revision))
                             WearActiveSessionBridge.publishTodayPlan(this@MainActivity,plan)
                     }
                 }
@@ -1007,7 +1006,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     centerError = result.message
                 }
             }
-            if(centerRevision==revision) centerLoading = false
+            if(centerGate.accepts(session.userId,revision)) centerLoading = false
         }
     }
 
@@ -1017,12 +1016,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val session = verifiedSupabase ?: return
         if (centerSubmitting) return
         centerSubmitting = true
-        val revision=centerRevision
+        val revision=centerGate.revision
         lifecycleScope.launch {
             val failure=withContext(Dispatchers.IO) {
                 runCatching {BusinessCenterStore().action(session)}.exceptionOrNull()
             }
-            if(centerRevision!=revision || verifiedSupabase?.userId!=session.userId) return@launch
+            if(!centerGate.accepts(session.userId,revision)) return@launch
             centerError=failure?.localizedMessage
             centerSubmitting=false
             if(failure==null) refreshCenter()
