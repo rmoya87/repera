@@ -119,6 +119,12 @@ final class LiveRoutesStore {
     static let shared = LiveRoutesStore()
     private(set) var routes: [LiveSavedRoute] = []
     private let legacyKey = "repera.live.routes.v1"
+    /// Tombstones: deleting a saved route must not recreate it on cloud sync.
+    private let deletedRoutesKey = "repera.live.routes.deleted.v1"
+    private var deletedIDs: Set<UUID> {
+        Set((UserDefaults.standard.stringArray(forKey: deletedRoutesKey) ?? [])
+            .compactMap(UUID.init(uuidString:)))
+    }
     /// GPX de miles de puntos no debe almacenarse en UserDefaults (plist en memoria).
     private let storageURL: URL = {
         let base = FileManager.default.urls(
@@ -174,10 +180,26 @@ final class LiveRoutesStore {
         }
     }
 
+    /// Editar metadatos mantiene el UUID y, por tanto, el histórico de intentos.
+    func update(_ id: UUID, title: String, sportID: String?) throws {
+        guard let index = routes.firstIndex(where: { $0.id == id }) else { return }
+        let cleanName = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanName.isEmpty else { throw LiveRouteError.emptyName }
+        let previous = routes
+        routes[index].title = cleanName
+        routes[index].sportID = sportID
+        do {
+            try persist()
+        } catch {
+            routes = previous
+            throw error
+        }
+    }
+
     /// Recupera favoritos vinculados a sesiones sincronizadas por iCloud, sin
     /// renumerar el identificador del recorrido ni duplicarlo en dispositivos nuevos.
     func recoverFromSessions(_ sessions: [WorkoutSession]) {
-        var known = Set(routes.map(\.id))
+        var known = Set(routes.map(\.id)).union(deletedIDs)
         var recovered: [LiveSavedRoute] = []
         for session in sessions.sorted(by: {
             ($0.startedAt ?? .distantPast) < ($1.startedAt ?? .distantPast)
@@ -200,13 +222,18 @@ final class LiveRoutesStore {
         }
     }
 
-    func remove(_ id: UUID) {
+    func remove(_ id: UUID) throws {
         let previous = routes
         routes.removeAll { $0.id == id }
         do {
             try persist()
+            // Update tombstones only once persisted so failures are recoverable.
+            var deleted = deletedIDs
+            deleted.insert(id)
+            UserDefaults.standard.set(deleted.map(\.uuidString), forKey: deletedRoutesKey)
         } catch {
             routes = previous
+            throw error
         }
     }
 
@@ -221,12 +248,13 @@ final class LiveRoutesStore {
 }
 
 private enum LiveRouteError: LocalizedError {
-    case empty, invalidXML
+    case empty, invalidXML, emptyName
 
     var errorDescription: String? {
         switch self {
         case .empty: "Este GPX no contiene al menos dos puntos de recorrido."
         case .invalidXML: "El archivo GPX está dañado o no tiene un formato válido."
+        case .emptyName: "La ruta necesita un nombre."
         }
     }
 }
@@ -922,7 +950,7 @@ struct LiveActivityView: View {
                 position = .userLocation(fallback: .automatic)
             }
             if recorder.phase == .recording || recorder.phase == .paused {
-                mapCircleButton("arrow.up.left.and.arrow.down.right", label: "Ver métricas") {
+                mapCircleButton("chart.bar.xaxis", label: "Ver métricas") {
                     showingMetrics = true
                 }
                 mapCircleButton("xmark", label: "Descartar actividad") {
@@ -946,10 +974,26 @@ struct LiveActivityView: View {
         .accessibilityLabel(label)
     }
 
+    /// Accent green from outer .tint must not color toolbar symbols in metrics.
+    private func metricsCircleButton(
+        _ symbol: String, label: String, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.black)
+                .frame(width: 44, height: 44)
+                .glassEffect(.regular.interactive(), in: .circle)
+        }
+        .buttonStyle(.plain)
+        .tint(.black)
+        .accessibilityLabel(label)
+    }
+
     private var mapMetricStrip: some View {
         TimelineView(.periodic(from: .now, by: 1)) { timeline in
             HStack(spacing: 5) {
-                smallMetric("Duración", value: formattedTime(recorder.duration(at: timeline.date)))
+                smallMetric("Duración", value: formattedTime(recorder.duration(at: timeline.date)), prominent: true)
                 smallMetric(recorder.sport.displaysSpeed ? "Velocidad" : "Ritmo",
                             value: paceOrSpeed)
                 smallMetric("Distancia (km)",
@@ -980,26 +1024,14 @@ struct LiveActivityView: View {
                     }
                     Spacer()
                     if recorder.sport.usesGPS {
-                        Button {
+                        metricsCircleButton("map", label: "Ver mapa") {
                             showingMetrics = false
-                        } label: {
-                            Label("Mapa", systemImage: "map")
-                                .labelStyle(.iconOnly)
-                                .font(.title3.weight(.medium))
-                                .frame(width: 44, height: 44)
-                                .glassEffect(.regular.interactive(), in: .circle)
                         }
-                        .accessibilityLabel("Ver mapa")
                     }
                     if recorder.phase != .idle {
-                        Button {
+                        metricsCircleButton("xmark", label: "Descartar actividad") {
                             showDiscard = true
-                        } label: {
-                            Image(systemName: "xmark")
-                                .frame(width: 44, height: 44)
-                                .glassEffect(.regular.interactive(), in: .circle)
                         }
-                        .accessibilityLabel("Descartar actividad")
                     }
                 }
                 .padding(.horizontal, 18)
@@ -1007,7 +1039,7 @@ struct LiveActivityView: View {
 
                 Spacer(minLength: 16)
                 Text(formattedTime(recorder.duration(at: timeline.date)))
-                    .font(.system(size: 46, weight: .bold, design: .rounded).monospacedDigit())
+                    .font(.system(size: 68, weight: .bold, design: .rounded).monospacedDigit())
                     .foregroundStyle(OG.label)
                     .minimumScaleFactor(0.6).lineLimit(1)
                 Text("Duración")
@@ -1122,13 +1154,11 @@ struct LiveActivityView: View {
                 } label: {
                     Label("Pausar", systemImage: "pause.fill")
                         .font(.headline)
-                        .frame(maxWidth: .infinity, minHeight: 58)
+                        .frame(maxWidth: .infinity, minHeight: 64)
                         .foregroundStyle(.black)
                         .background(OG.accent, in: Capsule())
                 }
                 .buttonStyle(.plain)
-                .padding(12)
-                .glassEffect(.regular, in: .rect(cornerRadius: 28))
 
             case .paused:
                 HStack(spacing: 10) {
@@ -1137,7 +1167,7 @@ struct LiveActivityView: View {
                     } label: {
                         Label("Reanudar", systemImage: "play.fill")
                             .font(.subheadline.weight(.bold))
-                            .frame(maxWidth: .infinity, minHeight: 56)
+                            .frame(maxWidth: .infinity, minHeight: 64)
                             .foregroundStyle(.black)
                             .background(OG.accent, in: Capsule())
                     }
@@ -1147,14 +1177,12 @@ struct LiveActivityView: View {
                     } label: {
                         Label("Finalizar", systemImage: "flag.checkered")
                             .font(.subheadline.weight(.bold))
-                            .frame(maxWidth: .infinity, minHeight: 56)
+                            .frame(maxWidth: .infinity, minHeight: 64)
                             .foregroundStyle(.white)
                             .background(Color.black, in: Capsule())
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(12)
-                .glassEffect(.regular, in: .rect(cornerRadius: 28))
             case .review:
                 EmptyView()
             }
@@ -1335,10 +1363,11 @@ struct LiveActivityView: View {
         return String(format: "%02d:%02d:%02d", total / 3600, (total / 60) % 60, total % 60)
     }
 
-    private func smallMetric(_ label: String, value: String) -> some View {
+    private func smallMetric(_ label: String, value: String, prominent: Bool = false) -> some View {
         VStack(spacing: 5) {
             Text(value)
-                .font(.system(size: 19, weight: .semibold, design: .rounded).monospacedDigit())
+                .font(.system(size: prominent ? 27 : 19,
+                              weight: .semibold, design: .rounded).monospacedDigit())
                 .lineLimit(1).minimumScaleFactor(0.65)
                 .foregroundStyle(OG.label)
             Text(label)
