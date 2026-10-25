@@ -683,7 +683,8 @@ final class LiveActivityRecorder: NSObject {
             liveSportID: sport.rawValue,
             liveRouteID: chosenRoute?.id,
             recordedDistanceMeters: sport.usesGPS ? recordedDistanceMeters : nil,
-            activeDurationSeconds: durationSeconds
+            activeDurationSeconds: durationSeconds,
+            liveKilometerSplitsSeconds: kilometerSplits.isEmpty ? nil : kilometerSplits.map(\.seconds)
         )
     }
 
@@ -1171,6 +1172,25 @@ struct LiveActivityView: View {
                         .padding(.vertical, 10)
                         .glassEffect(.regular, in: .capsule)
                 }
+                if recorder.phase == .recording,
+                   recorder.chosenRoute != nil,
+                   let instruction = recorder.upcomingTurn {
+                    Label(instruction, systemImage: "arrow.triangle.turn.up.right.diamond")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(OG.label)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .glassEffect(.regular, in: .rect(cornerRadius: 18))
+                        .accessibilityLabel("Próxima indicación orientativa: \(instruction)")
+                }
+                if let result = recorder.latestKilometerReport {
+                    Label(result, systemImage: "flag.checkered")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(OG.label)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .glassEffect(.regular, in: .capsule)
+                }
                 if let gpsMessage = recorder.gpsMessage, recorder.phase == .idle {
                     Text(gpsMessage)
                         .font(.caption.weight(.medium))
@@ -1359,6 +1379,26 @@ struct LiveActivityView: View {
                     .minimumScaleFactor(0.6).lineLimit(1)
                 Text("Duración")
                     .font(.subheadline).foregroundStyle(OG.label2)
+                if recorder.sport.usesGPS, recorder.phase != .idle {
+                    VStack(spacing: 6) {
+                        HStack {
+                            Text("Km \(recorder.activeKilometer) en curso")
+                                .font(.subheadline.weight(.semibold))
+                            Spacer()
+                            Text("\(Int(recorder.activeKilometerMeters)) m · \(recorder.currentKilometerPace)/km")
+                                .font(.caption.monospacedDigit())
+                        }
+                        ProgressView(value: recorder.activeKilometerMeters, total: 1000)
+                            .tint(OG.accent)
+                        if let last = recorder.latestKilometerReport {
+                            Text("Último parcial: \(last)")
+                                .font(.caption).foregroundStyle(OG.label2)
+                        }
+                    }
+                    .padding(15)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 17))
+                    .padding(.horizontal, 16)
+                }
                 Spacer(minLength: 14)
                 Text(recorder.sport.usesGPS ? paceOrSpeed :
                      recorder.phase == .idle ? "Listo" : "En vivo")
@@ -1636,7 +1676,8 @@ struct LiveActivityView: View {
                             CardioSplitsView(
                                 routePoints: route,
                                 heartRate: previewHealthExtras?.heartRateSeries ?? [],
-                                cycling: recorder.sport.displaysSpeed
+                                cycling: recorder.sport.displaysSpeed,
+                                activeKilometerSeconds: session.liveKilometerSplitsSeconds
                             )
                             .ogCardListRow()
                         } header: {
