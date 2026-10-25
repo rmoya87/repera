@@ -1393,3 +1393,300 @@ struct LiveActivityView: View {
         .frame(maxWidth: .infinity)
     }
 }
+
+
+/// Ficha de una ruta (GPX importado o una salida grabada) desde «Cargar ruta».
+/// Muestra el mapa, estadísticas verificables, edición y eliminación sin tocar
+/// las sesiones históricas que pudieran haber recorrido esta ruta.
+private struct LiveRouteLibraryDetailView: View {
+    @Environment(ReperaStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @State private var routes = LiveRoutesStore.shared
+    @State private var position: MapCameraPosition = .automatic
+    @State private var editing = false
+    @State private var editedTitle = ""
+    @State private var editedSportID = ""
+    @State private var deleteConfirmation = false
+    @State private var editError: String?
+
+    let routeID: UUID
+    let onUseRoute: (LiveSavedRoute) -> Void
+    let onDeleteRoute: (UUID) -> Void
+
+    private var route: LiveSavedRoute? {
+        routes.routes.first { $0.id == routeID }
+    }
+
+    private var attempts: [WorkoutSession] {
+        store.state.workouts.filter {
+            $0.liveRouteID == routeID && $0.phase == .finished && $0.finishedAt != nil
+        }.sorted { ($0.startedAt ?? .distantPast) > ($1.startedAt ?? .distantPast) }
+    }
+
+    private var historySport: LiveSport? {
+        if let route, let sportID = route.sportID,
+           let sport = LiveSport(rawValue: sportID) {
+            return sport
+        }
+        return attempts.compactMap { session in
+            session.liveSportID.flatMap(LiveSport.init(rawValue:))
+        }.first
+    }
+
+    private var distanceMeters: Double {
+        guard let route else { return 0 }
+        let points = route.points
+        guard points.count > 1 else { return 0 }
+        return zip(points, points.dropFirst()).reduce(0.0) { result, pair in
+            let from = CLLocation(latitude: pair.0.latitude, longitude: pair.0.longitude)
+            let to = CLLocation(latitude: pair.1.latitude, longitude: pair.1.longitude)
+            return result + from.distance(from: to)
+        }
+    }
+
+    private var elevationGainMeters: Double? {
+        guard let route else { return nil }
+        let heights = route.points.compactMap(\.altitudeMeters)
+        guard heights.count > 1 else { return nil }
+        let gain = zip(heights, heights.dropFirst()).reduce(0.0) { result, pair in
+            result + max(0, pair.1 - pair.0)
+        }
+        return gain
+    }
+
+    /// Excluye sesiones truncadas: un intento a media ruta no es un récord.
+    private var completeAttempts: [WorkoutSession] {
+        attempts.filter { session in
+            guard let duration = session.activeDurationSeconds, duration > 0,
+                  let recorded = session.recordedDistanceMeters, recorded > 0,
+                  distanceMeters > 100 else { return false }
+            return recorded >= distanceMeters * 0.8 && recorded <= distanceMeters * 1.2
+        }
+    }
+
+    private var bestTime: TimeInterval? {
+        completeAttempts.compactMap(\.activeDurationSeconds).min()
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                if let route, route.points.count > 1 {
+                    Map(position: $position) {
+                        MapPolyline(coordinates: route.points.map {
+                            CLLocationCoordinate2D(
+                                latitude: $0.latitude, longitude: $0.longitude
+                            )
+                        })
+                        .stroke(OG.accent, lineWidth: 5)
+                    }
+                    .mapControlVisibility(.hidden)
+                    .frame(height: 230)
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .task(id: route.id) {
+                        position = .region(region(for: route.points))
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Recorrido").font(.headline)
+                    HStack(spacing: 8) {
+                        stat("Distancia", value: String(format: "%.2f km", distanceMeters / 1000))
+                        stat("Repeticiones", value: "\(attempts.count)")
+                        stat("Mejor tiempo", value: bestTime.map(clock) ?? "—")
+                    }
+                    if let gain = elevationGainMeters, gain > 0 {
+                        Label("Desnivel positivo: \(Int(gain.rounded())) m", systemImage: "mountain.2")
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                    }
+                    if completeAttempts.count < attempts.count {
+                        Text("El mejor tiempo solo cuenta recorridos completos de distancia comparable.")
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                    }
+                }
+                .padding(16)
+                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+
+                if let route {
+                    Button {
+                        onUseRoute(route)
+                    } label: {
+                        Label("Repetir esta ruta", systemImage: "play.fill")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, minHeight: 58)
+                            .foregroundStyle(.black)
+                            .background(OG.accent, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if let sport = historySport, !attempts.isEmpty {
+                    NavigationLink {
+                        LiveRouteEvolutionView(routeID: routeID, sport: sport)
+                    } label: {
+                        Label("Ver evolución de esta ruta", systemImage: "chart.xyaxis.line")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(16)
+                    .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+                }
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Gestionar ruta").font(.headline)
+
+                    if editing {
+                        TextField("Nombre de la ruta", text: $editedTitle)
+                            .textFieldStyle(.roundedBorder)
+                        Picker("Deporte", selection: $editedSportID) {
+                            Text("Sin asignar").tag("")
+                            ForEach(LiveSport.allCases) { sport in
+                                Text(sport.title).tag(sport.rawValue)
+                            }
+                        }
+                        Button {
+                            saveEditing()
+                        } label: {
+                            Label("Guardar cambios", systemImage: "checkmark")
+                        }
+                        .disabled(editedTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        Button("Cancelar") { editing = false }
+                    } else {
+                        Button {
+                            if let route {
+                                editedTitle = route.title
+                                editedSportID = route.sportID ?? ""
+                                editing = true
+                            }
+                        } label: {
+                            Label("Editar nombre y deporte", systemImage: "pencil")
+                        }
+                    }
+                    Divider()
+                    Button(role: .destructive) {
+                        deleteConfirmation = true
+                    } label: {
+                        Label("Eliminar ruta guardada", systemImage: "trash")
+                    }
+                    Text("Eliminarla no borra las actividades que ya has registrado.")
+                        .font(.caption).foregroundStyle(OG.label2)
+                }
+                .foregroundStyle(OG.label)
+                .padding(16)
+                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+
+                if !attempts.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Actividades realizadas").font(.headline)
+                        ForEach(attempts) { session in
+                            NavigationLink {
+                                WorkoutDetailView(sessionId: session.id)
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text((session.startedAt ?? .now)
+                                            .formatted(date: .abbreviated, time: .shortened))
+                                            .foregroundStyle(OG.label)
+                                        Text(String(format: "%.2f km", max(0, session.recordedDistanceMeters ?? 0) / 1000))
+                                            .font(.caption).foregroundStyle(OG.label2)
+                                    }
+                                    Spacer()
+                                    Text(clock(session.activeDurationSeconds ?? 0))
+                                        .monospacedDigit().foregroundStyle(OG.label)
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption).foregroundStyle(OG.label2)
+                                }
+                                .padding(.vertical, 9)
+                            }
+                        }
+                    }
+                    .padding(16)
+                    .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+                } else {
+                    Text("Cuando vuelvas a realizar este recorrido podrás comparar las estadísticas.")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                }
+            }
+            .padding(OG.pad)
+        }
+        .background(OG.bg.ignoresSafeArea())
+        .navigationTitle(route?.title ?? "Ruta")
+        .navigationBarTitleDisplayMode(.inline)
+        .alert("No se pudo modificar la ruta", isPresented: Binding(
+            get: { editError != nil }, set: { if !$0 { editError = nil } }
+        )) {
+            Button("Aceptar", role: .cancel) { editError = nil }
+        } message: { Text(editError ?? "") }
+        .confirmationDialog("¿Eliminar esta ruta?", isPresented: $deleteConfirmation) {
+            Button("Eliminar ruta", role: .destructive) {
+                do {
+                    try routes.remove(routeID)
+                    onDeleteRoute(routeID)
+                    dismiss()
+                } catch {
+                    editError = "No se pudo eliminar la ruta. Comprueba el almacenamiento disponible."
+                }
+            }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Las actividades guardadas se conservarán en Inicio e Historial.")
+        }
+    }
+
+    private func saveEditing() {
+        do {
+            try routes.update(
+                routeID, title: editedTitle,
+                sportID: editedSportID.isEmpty ? nil : editedSportID
+            )
+            editing = false
+        } catch {
+            editError = error.localizedDescription
+        }
+    }
+
+    private func stat(_ name: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(value)
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+            Text(name).font(.caption2).foregroundStyle(OG.label2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func clock(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds))
+        if total >= 3600 {
+            return String(format: "%d:%02d:%02d", total / 3600, total / 60 % 60, total % 60)
+        }
+        return String(format: "%02d:%02d", total / 60, total % 60)
+    }
+
+    private func region(for points: [WorkoutRoutePoint]) -> MKCoordinateRegion {
+        guard let first = points.first else {
+            return MKCoordinateRegion(
+                center: CLLocationCoordinate2D(latitude: 40.4, longitude: -3.7),
+                span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+            )
+        }
+        let lat = points.map(\.latitude)
+        let lon = points.map(\.longitude)
+        let lowLat = lat.min() ?? first.latitude
+        let highLat = lat.max() ?? first.latitude
+        let lowLon = lon.min() ?? first.longitude
+        let highLon = lon.max() ?? first.longitude
+        return MKCoordinateRegion(
+            center: CLLocationCoordinate2D(
+                latitude: (lowLat + highLat) / 2, longitude: (lowLon + highLon) / 2
+            ),
+            span: MKCoordinateSpan(
+                latitudeDelta: max(0.004, (highLat - lowLat) * 1.3),
+                longitudeDelta: max(0.004, (highLon - lowLon) * 1.3)
+            )
+        )
+    }
+}
