@@ -450,26 +450,32 @@ final class LiveActivityRecorder: NSObject {
     // siguen dependiendo del permiso del usuario.
     private let spokenGuidanceKey = "repera.live.spokenGuidance.enabled"
     @ObservationIgnored private var speechSynthesizer = AVSpeechSynthesizer()
+    private var guidanceAudioActive = false
     private(set) var spokenGuidanceEnabled = true
     private var lastPosition: CLLocation?
+    /// Evita añadir a la sesión localizaciones de una pausa previa.
+    /// No se reinicia al volver del bloqueo: permite procesar fixes encolados.
+    private var gpsTrackingBeganAt: Date?
     private var lastSave = Date.distantPast
     private var lastLiveActivityUpdate = Date.distantPast
+    private var lastPublishedDistanceMeters: Double = 0
     private let manager = CLLocationManager()
-    /// La sesión de Core Location actual mantiene visibilidad y autorización
-    /// When In Use en segundo plano sin tocar allowsBackgroundLocationUpdates,
-    /// cuyo setter aborta el proceso si la app compilada no es backgroundable.
+    /// La sesión de Core Location mantiene autorización When In Use activa.
+    /// Activamos además las actualizaciones continuas solo si el bundle REAL
+    /// incluye UIBackgroundModes/location (de lo contrario iOS abortaría la app).
     private var backgroundLocationSession: CLBackgroundActivitySession?
     private let snapshotKey = "repera.live.current.v1"
 
     private override init() {
         super.init()
+        speechSynthesizer.delegate = self
         if UserDefaults.standard.object(forKey: spokenGuidanceKey) != nil {
             spokenGuidanceEnabled = UserDefaults.standard.bool(forKey: spokenGuidanceKey)
         }
         manager.delegate = self
         manager.activityType = .fitness
         manager.desiredAccuracy = kCLLocationAccuracyBest
-        manager.distanceFilter = 5
+        manager.distanceFilter = 3
         manager.pausesLocationUpdatesAutomatically = false
         if let data = UserDefaults.standard.data(forKey: snapshotKey),
            let snapshot = try? JSONDecoder().decode(LiveSnapshot.self, from: data),
@@ -511,19 +517,54 @@ final class LiveActivityRecorder: NSObject {
         UserDefaults.standard.set(spokenGuidanceEnabled, forKey: spokenGuidanceKey)
         if !spokenGuidanceEnabled {
             speechSynthesizer.stopSpeaking(at: .immediate)
+            deactivateGuidanceAudio()
+            // Los avisos visuales son alternativos a la locución, no duplicados.
+            UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in }
         }
     }
 
-    /// Las indicaciones con voz funcionan mientras la app está activa.
-    /// En la pantalla bloqueada se conserva el aviso local autorizado.
-    private func speakNavigation(_ message: String) {
-        guard spokenGuidanceEnabled, UIApplication.shared.applicationState == .active,
-              !speechSynthesizer.isSpeaking else { return }
+    /// La API pública no permite seleccionar las voces privadas de Siri.
+    /// Preferir la voz española de mayor calidad instalada en este dispositivo.
+    private var preferredGuidanceVoice: AVSpeechSynthesisVoice? {
+        let spanish = AVSpeechSynthesisVoice.speechVoices().filter { $0.language == "es-ES" }
+        return spanish.first(where: { $0.quality == .premium })
+            ?? spanish.first(where: { $0.quality == .enhanced })
+            ?? AVSpeechSynthesisVoice(language: "es-ES")
+    }
+
+    private func deactivateGuidanceAudio() {
+        guard guidanceAudioActive else { return }
+        guidanceAudioActive = false
+        try? AVAudioSession.sharedInstance().setActive(
+            false, options: .notifyOthersOnDeactivation
+        )
+    }
+
+    /// Se invoca también desde Core Location con la pantalla bloqueada.
+    /// Solo se toca el audio de otras apps cuando la locución está habilitada.
+    @discardableResult
+    private func speakNavigation(_ message: String) -> Bool {
+        guard spokenGuidanceEnabled, !speechSynthesizer.isSpeaking else { return false }
+        let audio = AVAudioSession.sharedInstance()
+        do {
+            try audio.setCategory(
+                .playback, mode: .spokenAudio,
+                // El usuario ha elegido pausa completa, no bajar el volumen.
+                // Sin mixWithOthers iOS interrumpe la reproducción ajena.
+                options: []
+            )
+            try audio.setActive(true)
+            guidanceAudioActive = true
+        } catch {
+            deactivateGuidanceAudio()
+            return false
+        }
         let phrase = AVSpeechUtterance(string: message)
-        phrase.voice = AVSpeechSynthesisVoice(language: "es-ES")
-        phrase.rate = 0.48
+        phrase.voice = preferredGuidanceVoice
+        phrase.rate = 0.51
         phrase.volume = 1
         speechSynthesizer.speak(phrase)
+        return true
     }
 
     func choose(_ selection: LiveSport) {
@@ -577,6 +618,7 @@ final class LiveActivityRecorder: NSObject {
         announcedTurnIndices = []
         upcomingTurn = nil
         lastPosition = nil
+        lastPublishedDistanceMeters = 0
         currentSpeedMps = nil
         currentCourseDegrees = nil
         gpsMessage = nil
@@ -586,30 +628,33 @@ final class LiveActivityRecorder: NSObject {
             Task { await HealthKitStore.shared.ensureWorkoutRouteAccess() }
             // Solicitar solo al empezar un deporte GPS: permite avisos por km
             // también con iPhone bloqueado, sin depender de tener abierta la vista.
-            UNUserNotificationCenter.current().requestAuthorization(
-                options: [.alert, .sound]
-            ) { _, _ in }
+            if !spokenGuidanceEnabled {
+                UNUserNotificationCenter.current().requestAuthorization(
+                    options: [.alert]
+                ) { _, _ in }
+            }
         }
         persistSnapshot()
         updateLiveActivity()
     }
 
     private func startGPS() {
+        // Una nueva autorización no debe invalidar fixes anteriores encolados.
+        if gpsTrackingBeganAt == nil { gpsTrackingBeganAt = Date() }
         switch manager.authorizationStatus {
         case .notDetermined:
             gpsMessage = "Autoriza la ubicación para registrar tu recorrido."
             manager.requestWhenInUseAuthorization()
         case .authorizedAlways, .authorizedWhenInUse:
-            // CLBackgroundActivitySession es la API moderna de iOS 17+.
-            // Se crea solo si el Info.plist REAL del proceso incluye location.
-            // No usar CLLocationManager.allowsBackgroundLocationUpdates = true:
-            // Core Location lanza una excepción Objective-C no recuperable si
-            // falta la capacidad, por ejemplo con un proyecto Xcode antiguo.
+            // Comprobar el Info.plist REAL, no solo project.yml: la propiedad
+            // allowsBackgroundLocationUpdates aborta si falta este modo.
             let modes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String] ?? []
             let isApp = Bundle.main.bundleURL.pathExtension == "app"
             let isTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
             if modes.contains("location"), isApp, !isTest,
                UIApplication.shared.applicationState == .active {
+                manager.allowsBackgroundLocationUpdates = true
+                manager.showsBackgroundLocationIndicator = true
                 if backgroundLocationSession == nil {
                     backgroundLocationSession = CLBackgroundActivitySession()
                 }
@@ -624,7 +669,11 @@ final class LiveActivityRecorder: NSObject {
     }
 
     private func stopGPS() {
+        gpsTrackingBeganAt = nil
         manager.stopUpdatingLocation()
+        if manager.allowsBackgroundLocationUpdates {
+            manager.allowsBackgroundLocationUpdates = false
+        }
         backgroundLocationSession?.invalidate()
         backgroundLocationSession = nil
     }
@@ -634,12 +683,27 @@ final class LiveActivityRecorder: NSObject {
         if isActive && Date().timeIntervalSince(lastSave) >= 10 { persistSnapshot() }
     }
 
+    /// Reconciliar los valores al reabrir Comenzar sin reiniciar el odómetro.
+    /// La fuente es siempre el grabador GPS; HealthKit no genera datos de
+    /// localización retroactivos de un entrenamiento libre de iPhone.
+    func refreshWhenActive() {
+        guard phase != .idle else { return }
+        if phase == .recording, sport.usesGPS {
+            // Una nueva lectura rompe el posible silencio del proveedor GPS
+            // durante el bloqueo. La distancia sigue sumándose SOLO en receive.
+            manager.requestLocation()
+        }
+        updateLiveActivity()
+        checkpoint()
+    }
+
     func pause() {
         guard phase == .recording else { return }
         pausedAt = Date()
         phase = .paused
         if sport.usesGPS { stopGPS() }
         speechSynthesizer.stopSpeaking(at: .immediate)
+        deactivateGuidanceAudio()
         currentSpeedMps = nil
         persistSnapshot()
         updateLiveActivity()
@@ -671,8 +735,9 @@ final class LiveActivityRecorder: NSObject {
         return speed * 3.6
     }
 
-    /// Mantiene la velocidad media también al pausar y al finalizar;
-    /// no utiliza la última velocidad instantánea como media.
+    /// Mantiene la velocidad media también al pausar y al finalizar.
+    /// Recalcular a partir de distancia verificada y tiempo ACTIVO, nunca
+    /// reutilizar una lectura de ritmo almacenada en la interfaz.
     var averageSpeedKmh: Double? {
         guard sport.usesGPS, routePoints.count >= 2, durationSeconds > 0 else { return nil }
         return max(0, recordedDistanceMeters / durationSeconds * 3.6)
@@ -700,6 +765,7 @@ final class LiveActivityRecorder: NSObject {
         phase = .review
         stopGPS()
         speechSynthesizer.stopSpeaking(at: .immediate)
+        deactivateGuidanceAudio()
         persistSnapshot()
         updateLiveActivity()
     }
@@ -733,6 +799,8 @@ final class LiveActivityRecorder: NSObject {
             }
         }
         stopGPS()
+        speechSynthesizer.stopSpeaking(at: .immediate)
+        deactivateGuidanceAudio()
         phase = .idle
         startedAt = nil
         finishedAt = nil
@@ -768,10 +836,21 @@ final class LiveActivityRecorder: NSObject {
     }
 
     private func receive(_ fix: LiveGPSFix) {
-        guard sport.usesGPS, (phase == .idle || phase == .recording), fix.accuracy >= 0,
-              fix.accuracy < 45,
-              abs(fix.timestamp.timeIntervalSinceNow) < 20
+        let now = Date()
+        guard sport.usesGPS, (phase == .idle || phase == .recording),
+              fix.accuracy >= 0, fix.accuracy < 35,
+              fix.timestamp <= now.addingTimeInterval(10)
         else { return }
+        if phase == .idle {
+            // Las previsualizaciones del mapa sí deben ser recientes.
+            guard now.timeIntervalSince(fix.timestamp) < 20 else { return }
+        } else {
+            // Core Location agrupa posiciones al suspender la UI. No descartar
+            // una tanda únicamente porque el primer punto tenga >20 s.
+            guard let trackingBeganAt = gpsTrackingBeganAt,
+                  fix.timestamp >= trackingBeganAt.addingTimeInterval(-3)
+            else { return }
+        }
         let position = CLLocation(
             coordinate: CLLocationCoordinate2D(latitude: fix.latitude, longitude: fix.longitude),
             altitude: fix.altitude,
@@ -795,8 +874,21 @@ final class LiveActivityRecorder: NSObject {
         if let previous = lastPosition {
             let meters = position.distance(from: previous)
             let seconds = fix.timestamp.timeIntervalSince(previous.timestamp)
-            guard seconds > 0, meters >= 4, meters / seconds < 25 else { return }
-            recordedDistanceMeters += meters
+            guard seconds > 0 else { return }
+            // Si ha habido un salto de señal, guardar el nuevo punto como
+            // inicio de tramo pero NO sumar la recta ficticia a la distancia.
+            if seconds > 30 || meters / seconds > (sport.isCycling ? 22 : 12) {
+                gpsMessage = "Señal GPS recuperada."
+            } else if meters >= max(3, min(7, max(fix.accuracy, previous.horizontalAccuracy) * 0.4)) {
+                recordedDistanceMeters += meters
+            } else {
+                // En reposo el ritmo medio sigue variando con el tiempo activo.
+                // Publicarlo sin añadir distancia inventada ni duplicar GPS.
+                if Date().timeIntervalSince(lastLiveActivityUpdate) >= 15 {
+                    updateLiveActivity()
+                }
+                return
+            }
         }
         let activeSeconds = duration(at: fix.timestamp)
         if recordedDistanceMeters > beforeDistance {
@@ -817,7 +909,9 @@ final class LiveActivityRecorder: NSObject {
         )
         routePoints.append(point)
         if Date().timeIntervalSince(lastSave) > 10 { persistSnapshot() }
-        if Date().timeIntervalSince(lastLiveActivityUpdate) >= 15 {
+        if Date().timeIntervalSince(lastLiveActivityUpdate) >= 5,
+           (abs(recordedDistanceMeters - lastPublishedDistanceMeters) >= 3 ||
+            Date().timeIntervalSince(lastLiveActivityUpdate) >= 15) {
             updateLiveActivity()
         }
     }
@@ -881,8 +975,18 @@ final class LiveActivityRecorder: NSObject {
             result = "\(split.clock) min/km"
         }
         latestKilometerReport = "Km \(split.kilometer) · \(result)"
+        var didSpeak = false
         if sport.usesGPS {
-            speakNavigation("Kilómetro \(split.kilometer) completado. \(result)")
+            let seconds = max(1, Int(split.seconds.rounded()))
+            let minutes = seconds / 60
+            let remaining = seconds % 60
+            let spokenTime = minutes > 0
+                ? "\(minutes) minutos y \(remaining) segundos"
+                : "\(remaining) segundos"
+            let message = sport.displaysSpeed
+                ? "Has completado el kilómetro \(split.kilometer). Tu velocidad media ha sido de \(String(format: "%.1f", 3600 / split.seconds)) kilómetros por hora."
+                : "Has completado el kilómetro \(split.kilometer). Lo has hecho en \(spokenTime)."
+            didSpeak = speakNavigation(message)
         }
         if UIApplication.shared.applicationState == .active {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -890,7 +994,8 @@ final class LiveActivityRecorder: NSObject {
         notifyDuringBackground(
             identifier: "repera.km.\(startedAt?.timeIntervalSince1970 ?? 0).\(split.kilometer)",
             title: "Kilómetro \(split.kilometer) completado",
-            body: result
+            body: result,
+            fallbackWhenSpeechFailed: !didSpeak
         )
         persistSnapshot()
     }
@@ -939,26 +1044,31 @@ final class LiveActivityRecorder: NSObject {
                 announcedTurnIndices.insert(next.routeIndex)
                 // La guía procede solo de la geometría GPX: no sustituye
                 // señalización ni navegación vial oficial.
-                speakNavigation(upcomingTurn ?? next.instruction)
+                let didSpeak = speakNavigation(
+                    "Dentro de \(meters) metros, \(next.instruction.lowercased())."
+                )
                 notifyDuringBackground(
                     identifier: "repera.turn.\(startedAt?.timeIntervalSince1970 ?? 0).\(next.routeIndex)",
                     title: "Giro orientativo del GPX",
-                    body: upcomingTurn ?? next.instruction
+                    body: upcomingTurn ?? next.instruction,
+                    fallbackWhenSpeechFailed: !didSpeak
                 )
             }
         }
     }
 
     private func notifyDuringBackground(
-        identifier: String, title: String, body: String
+        identifier: String, title: String, body: String,
+        fallbackWhenSpeechFailed: Bool = false
     ) {
-        // Dentro de la app aparece en el panel. En segundo plano se envía una
-        // notificación local solo si el usuario ha autorizado los avisos.
-        guard UIApplication.shared.applicationState != .active else { return }
+        // No duplicar avisos hablados. Si falla la locución en segundo plano,
+        // permitir solo el aviso visual (jamás interrumpir el audio de otra app).
+        guard (!spokenGuidanceEnabled || fallbackWhenSpeechFailed),
+              UIApplication.shared.applicationState != .active else { return }
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
-        content.sound = .default
+        content.sound = nil
         UNUserNotificationCenter.current().add(
             UNNotificationRequest(identifier: identifier, content: content, trigger: nil),
             withCompletionHandler: nil
@@ -969,6 +1079,7 @@ final class LiveActivityRecorder: NSObject {
     private func updateLiveActivity() {
         guard let startedAt, phase != .idle else { return }
         lastLiveActivityUpdate = Date()
+        lastPublishedDistanceMeters = recordedDistanceMeters
         let status: TrainingActivityAttributes.ContentState.Phase
         switch phase {
         case .recording: status = .running
@@ -989,6 +1100,16 @@ final class LiveActivityRecorder: NSObject {
     }
 }
 
+extension LiveActivityRecorder: AVSpeechSynthesizerDelegate {
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        Task { @MainActor [weak self] in self?.deactivateGuidanceAudio() }
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        Task { @MainActor [weak self] in self?.deactivateGuidanceAudio() }
+    }
+}
+
 extension LiveActivityRecorder: CLLocationManagerDelegate {
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         Task { @MainActor [weak self] in
@@ -1002,14 +1123,19 @@ extension LiveActivityRecorder: CLLocationManagerDelegate {
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let position = locations.last else { return }
-        let sample = LiveGPSFix(
-            latitude: position.coordinate.latitude, longitude: position.coordinate.longitude,
-            altitude: position.altitude, accuracy: position.horizontalAccuracy,
-            verticalAccuracy: position.verticalAccuracy,
-            speed: position.speed, course: position.course, timestamp: position.timestamp
-        )
-        Task { @MainActor [weak self] in self?.receive(sample) }
+        // Core Location puede entregar varios puntos en un único callback después
+        // de bloquear el iPhone: no descartar los intermedios ni dibujar atajos.
+        let samples = locations.map { position in
+            LiveGPSFix(
+                latitude: position.coordinate.latitude, longitude: position.coordinate.longitude,
+                altitude: position.altitude, accuracy: position.horizontalAccuracy,
+                verticalAccuracy: position.verticalAccuracy,
+                speed: position.speed, course: position.course, timestamp: position.timestamp
+            )
+        }
+        Task { @MainActor [weak self] in
+            for sample in samples { self?.receive(sample) }
+        }
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
@@ -1096,6 +1222,7 @@ struct LiveActivityView: View {
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
     /// Muestra Recentrar únicamente si se ha alejado el mapa de la posición real.
     @State private var mapIsCentered = true
+    @State private var navigationMapEnabled = true
 
     var onSaved: (Date) -> Void
     var onOpenWorkout: () -> Void
@@ -1169,11 +1296,83 @@ struct LiveActivityView: View {
         }
         .tint(OG.accent)
         .onChange(of: scenePhase) { _, next in
-            if next != .active { recorder.checkpoint() }
+            if next == .active {
+                recorder.refreshWhenActive()
+            } else {
+                recorder.checkpoint()
+            }
         }
         .task(id: store.workoutsEpoch) {
             routes.recoverFromSessions(store.state.workouts)
         }
+        .onAppear {
+            if scenePhase == .active { recorder.refreshWhenActive() }
+        }
+    }
+
+    private struct LiveColoredMapSegment: Identifiable {
+        var id: Int
+        var coordinates: [CLLocationCoordinate2D]
+        var color: Color
+    }
+
+    /// Ruta detallada por velocidad, manteniendo tramos discontinuos cuando
+    /// se pierde la señal. Se agrupan colores consecutivos para no crear miles
+    /// de overlays en MapKit durante entrenamientos prolongados.
+    private var coloredLiveSegments: [LiveColoredMapSegment] {
+        let points = recorder.routePoints
+        guard points.count >= 2 else { return [] }
+        let limit = recorder.sport.isCycling ? 22.0 : 12.0
+        var measurements: [(index: Int, start: CLLocationCoordinate2D,
+                            end: CLLocationCoordinate2D, speed: Double)] = []
+        for index in 1..<points.count {
+            let a = points[index - 1]
+            let b = points[index]
+            let seconds = b.recordedAt.timeIntervalSince(a.recordedAt)
+            guard seconds > 0, seconds <= 30 else { continue }
+            let start = CLLocationCoordinate2D(latitude: a.latitude, longitude: a.longitude)
+            let end = CLLocationCoordinate2D(latitude: b.latitude, longitude: b.longitude)
+            let meters = CLLocation(latitude: a.latitude, longitude: a.longitude)
+                .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude))
+            let derived = meters / seconds
+            guard derived.isFinite, derived <= limit else { continue }
+            let speed = b.speedMps.flatMap { $0 > 0 && $0 <= limit ? $0 : nil } ?? derived
+            measurements.append((index, start, end, speed))
+        }
+        guard !measurements.isEmpty else { return [] }
+        let slowest = measurements.map { $0.speed }.min() ?? 0
+        let fastest = max(measurements.map { $0.speed }.max() ?? 0, slowest + 0.1)
+        var output: [LiveColoredMapSegment] = []
+        var previousIndex = -1
+        var previousBucket = -1
+        for sample in measurements {
+            let fraction = min(1, max(0, (sample.speed - slowest) / (fastest - slowest)))
+            let bucket = min(5, Int((fraction * 5).rounded()))
+            if sample.index == previousIndex + 1, bucket == previousBucket,
+               !output.isEmpty {
+                output[output.count - 1].coordinates.append(sample.end)
+            } else {
+                output.append(LiveColoredMapSegment(
+                    id: sample.index, coordinates: [sample.start, sample.end],
+                    color: Self.traceColor(Double(bucket) / 5)
+                ))
+            }
+            previousIndex = sample.index
+            previousBucket = bucket
+        }
+        return output
+    }
+
+    /// Misma escala que el mapa de los entrenamientos guardados:
+    /// verde = más lento, amarillo = intermedio, rojo = más rápido.
+    private static func traceColor(_ fraction: Double) -> Color {
+        let t = min(1, max(0, fraction))
+        if t < 0.5 {
+            let u = t * 2
+            return Color(red: 0.2 + 0.8 * u, green: 0.82, blue: 0.2 * (1 - u))
+        }
+        let u = (t - 0.5) * 2
+        return Color(red: 1, green: 0.82 * (1 - u) + 0.27 * u, blue: 0.23 * u)
     }
 
     /// Canvas edge-to-edge; únicamente las capas de interacción reciben material.
@@ -1187,11 +1386,9 @@ struct LiveActivityView: View {
                     })
                     .stroke(OG.blue, lineWidth: 5)
                 }
-                if recorder.routePoints.count > 1 {
-                    MapPolyline(coordinates: recorder.routePoints.map {
-                        CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
-                    })
-                    .stroke(OG.accent, lineWidth: 5)
+                ForEach(coloredLiveSegments) { segment in
+                    MapPolyline(coordinates: segment.coordinates)
+                        .stroke(segment.color, lineWidth: 5)
                 }
                 if let current = recorder.currentCoordinate {
                     Annotation("Tú", coordinate: current) {
@@ -1204,7 +1401,7 @@ struct LiveActivityView: View {
                     }
                 }
             }
-            .mapStyle(.standard(elevation: .realistic))
+            .mapStyle(.standard(elevation: navigationMapEnabled ? .realistic : .flat))
             .onMapCameraChange(frequency: .onEnd) { context in
                 guard let user = recorder.currentCoordinate else { return }
                 let center = context.camera.centerCoordinate
@@ -1278,8 +1475,18 @@ struct LiveActivityView: View {
                         showDiscard = true
                     }
                 }
+                mapCircleButton(
+                    navigationMapEnabled ? "map" : "cube.transparent",
+                    label: navigationMapEnabled ? "Cambiar a vista 2D" : "Cambiar a modo navegador"
+                ) {
+                    navigationMapEnabled.toggle()
+                    if let user = recorder.currentCoordinate {
+                        mapIsCentered = true
+                        center3DMap(on: user)
+                    }
+                }
                 if !mapIsCentered, recorder.currentCoordinate != nil {
-                    mapCircleButton("location.north.line.fill", label: "Centrar en mi posición") {
+                    mapCircleButton("location.fill", label: "Centrar en mi posición") {
                         if let user = recorder.currentCoordinate {
                             mapIsCentered = true
                             center3DMap(on: user)
@@ -1308,6 +1515,15 @@ struct LiveActivityView: View {
 
     /// Cámara inclinada con relieve realista; continúa centrada durante una sesión.
     private func center3DMap(on user: CLLocationCoordinate2D) {
+        if !navigationMapEnabled {
+            position = .camera(MapCamera(
+                centerCoordinate: user,
+                distance: recorder.sport.isCycling ? 650 : 450,
+                heading: 0,
+                pitch: 0
+            ))
+            return
+        }
         // Cámara tipo navegador: rumbo de la marcha, perspectiva baja
         // y un punto de mira por delante para dejar visible la ruta siguiente.
         let heading = recorder.currentCourseDegrees ?? 0
@@ -1401,7 +1617,7 @@ struct LiveActivityView: View {
             VStack(spacing: 10) {
                 HStack(spacing: 5) {
                     smallMetric("Duración", value: formattedTime(recorder.duration(at: timeline.date)), prominent: true)
-                    smallMetric(recorder.sport.displaysSpeed ? "Velocidad" : "Ritmo",
+                    smallMetric(recorder.sport.displaysSpeed ? "Veloc. media" : "Ritmo medio",
                                 value: paceOrSpeed)
                     smallMetric("Distancia (km)",
                                 value: String(format: "%.2f", recorder.recordedDistanceMeters / 1000))
@@ -1506,7 +1722,7 @@ struct LiveActivityView: View {
                     .minimumScaleFactor(0.55).lineLimit(1)
                     .foregroundStyle(OG.label)
                 Text(recorder.sport.usesGPS ?
-                    (recorder.sport.displaysSpeed ? "Velocidad (km/h)" : "Ritmo (min/km)") :
+                    (recorder.sport.displaysSpeed ? "Veloc. media (km/h)" : "Ritmo medio (min/km)") :
                     recorder.sport.title)
                     .font(.subheadline).foregroundStyle(OG.label2)
                 Spacer(minLength: 14)
@@ -2037,12 +2253,18 @@ struct LiveActivityView: View {
         )
     }
 
+    /// La misma métrica media en pantalla, Dynamic Island y bloqueo.
+    /// Cambia con cada punto GPS y con la duración activa, sin valores en caché.
     private var paceOrSpeed: String {
-        if recorder.sport.displaysSpeed {
-            return recorder.speedKmh.map { String(format: "%.1f", $0) } ?? "—"
+        guard let average = recorder.averageSpeedKmh, average > 0.1 else {
+            return recorder.sport.displaysSpeed ? "—" : "—:—"
         }
-        guard let seconds = recorder.paceSecondsPerKm, seconds < 3600 else { return "—:—" }
-        return String(format: "%d:%02d", Int(seconds) / 60, Int(seconds) % 60)
+        if recorder.sport.displaysSpeed {
+            return String(format: "%.1f", average)
+        }
+        let seconds = Int(3600 / average)
+        guard seconds < 3600 else { return "—:—" }
+        return String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 
     private func formattedTime(_ seconds: TimeInterval) -> String {

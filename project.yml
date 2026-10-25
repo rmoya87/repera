@@ -146,9 +146,11 @@ targets:
         # Native BGAppRefreshTask (system-scheduled, never a foreground spinner).
         BGTaskSchedulerPermittedIdentifiers:
           - com.app.repera.catalog.refresh
+        # Locuciones GPS en pantalla bloqueada, activas solo cuando el usuario las habilita.
         UIBackgroundModes:
           - fetch
           - location
+          - audio
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
