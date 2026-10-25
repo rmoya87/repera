@@ -787,8 +787,8 @@ class VisualVerificationInstrumentedTest {
      * en la franja que contiene título y acciones, debajo de status bar. */
     private fun hasConfirmationChrome(bmp: android.graphics.Bitmap): Boolean {
         var light = 0; var dark = 0; var n = 0
-        for (y in (bmp.height * 0.06).toInt() until (bmp.height * 0.11).toInt() step 2) {
-            for (x in (bmp.width * 0.1).toInt() until (bmp.width * 0.9).toInt() step 2) {
+        for (y in (bmp.height * 0.03).toInt() until (bmp.height * 0.09).toInt() step 2) {
+            for (x in (bmp.width * 0.03).toInt() until (bmp.width * 0.97).toInt() step 2) {
                 val c = bmp.getPixel(x, y)
                 val r = android.graphics.Color.red(c); val g = android.graphics.Color.green(c); val b = android.graphics.Color.blue(c)
                 if (r > 240 && g > 235 && b > 240) light++
