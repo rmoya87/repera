@@ -76,6 +76,19 @@ Opcional para actualización oportuna (no necesario para verificar):
 Sin los pasos 1-4, Android no puede ofrecer Pro en producción con garantías:
 queda Gratis funcional con paywall informativo "compras no configuradas".
 
+## Precios confirmados por Ramón (25/10/2026, iMessage 13:40)
+
+"Tiene que ser con los precios de apple mensual de 5,99 y si es anual de 39,99"
+(mensaje phonemsg-01M5SH836466EK865PC0YT8TJV, canal iMessage verificado).
+- Mensual (com.app.repera.premium.monthly): 5,99 EUR/mes.
+- Anual (com.app.repera.premium.yearly): 39,99 EUR/año.
+- Trial: SIN RESPUESTA aún; dato abierto para la aprobación final agrupada.
+Estos importes NO van en código (la app los lee de Play). Se aplicarán al
+crear los productos en Play Console cuando la subida del primer AAB y la
+creación de productos estén autorizadas (hoy NO lo están). Los mismos
+importes del debug provider iOS son placeholders de desarrollo; su
+coincidencia con esta decisión es posterior a la confirmación de Ramón.
+
 ## Estado de la capacidad
 
 implementado: política de dominio completa con pruebas (19 tests).
