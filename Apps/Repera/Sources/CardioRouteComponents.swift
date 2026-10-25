@@ -280,6 +280,33 @@ struct CardioSplitsView: View {
     var routePoints: [HealthKitStore.RoutePoint]
     var heartRate: [HealthKitStore.HeartRatePoint]
     var cycling: Bool = false
+    /// Si Repera midió los parciales con su reloj activo, preferirlos sobre
+    /// los timestamps GPS que incluyen intervalos en pausa.
+    var activeKilometerSeconds: [Double]? = nil
+
+    private struct DisplaySplit: Identifiable {
+        var id: Int { kilometer }
+        var kilometer: Int
+        var seconds: Double
+        var averageBpm: Double?
+    }
+
+    private var displayedSplits: [DisplaySplit] {
+        if let recorded = activeKilometerSeconds, !recorded.isEmpty {
+            return recorded.enumerated().compactMap { index, seconds in
+                guard seconds.isFinite && seconds > 0 else { return nil }
+                let km = index + 1
+                return DisplaySplit(
+                    kilometer: km, seconds: seconds,
+                    averageBpm: splits.first { $0.kilometer == km }?.averageBpm
+                )
+            }
+        }
+        return splits.map {
+            DisplaySplit(kilometer: $0.kilometer, seconds: $0.seconds,
+                         averageBpm: $0.averageBpm)
+        }
+    }
 
     private var splits: [CardioRouteAnalysis.Split] {
         CardioRouteAnalysis.analyze(
@@ -303,13 +330,13 @@ struct CardioSplitsView: View {
             .foregroundStyle(OG.label3)
             .padding(.vertical, 8)
 
-            if splits.isEmpty {
+            if displayedSplits.isEmpty {
                 Text("No hay kilómetros completos con GPS válido.")
                     .font(.subheadline)
                     .foregroundStyle(OG.label2)
                     .padding(.vertical, 16)
             } else {
-                ForEach(splits) { split in
+                ForEach(displayedSplits) { split in
                     Divider().opacity(0.30)
                     HStack(spacing: 6) {
                         Text("\(split.kilometer)")
@@ -318,8 +345,8 @@ struct CardioSplitsView: View {
                         Text(Self.clock(split.seconds))
                             .frame(maxWidth: .infinity, alignment: .leading)
                         Text(cycling
-                             ? String(format: "%.1f", split.speedKmh)
-                             : "\(Self.clock(split.paceSecondsPerKm))/km")
+                             ? String(format: "%.1f", 3600 / max(1, split.seconds))
+                             : "\(Self.clock(split.seconds))/km")
                             .frame(maxWidth: .infinity, alignment: .leading)
                         Text(split.averageBpm.map { "\(Int($0.rounded())) LPM" } ?? "—")
                             .frame(width: 88, alignment: .trailing)
