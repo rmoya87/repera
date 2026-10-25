@@ -68,7 +68,14 @@ internal class LiveActivityService : Service() {
         val paused=r.state.phase==LiveActivityState.Phase.PAUSED
         val text=buildList {
             add(LiveSportHistory.formatDuration(r.state.durationSeconds(System.currentTimeMillis())))
-            if(r.state.sport.usesGPS) add("%.2f km".format(r.state.distanceMeters/1000))
+
+            if(r.state.sport.usesGPS) {
+                add("%.2f km".format(r.state.distanceMeters/1000))
+                r.state.averageSpeedKmh(System.currentTimeMillis())?.takeIf { it > 0.1 }?.let { speed ->
+                    add(if (r.state.sport.displaysSpeed) "%.1f km/h".format(speed)
+                        else LiveSportHistory.formatDuration(3600 / speed) + " min/km")
+                }
+            }
             if(paused) add("En pausa")
         }.joinToString(" · ")
         fun action(action:String,code:Int)=PendingIntent.getService(this,code,

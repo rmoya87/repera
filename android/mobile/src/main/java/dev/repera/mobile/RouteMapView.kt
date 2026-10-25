@@ -65,9 +65,7 @@ internal fun RouteMapView(
         if (points == renderedPoints) return@LaunchedEffect
         map.getStyle { style ->
             runCatching {
-                for (i in 0 until maxOf(0, renderedPoints.size - 1)) {
-                    style.removeLayer("route-line-$i");style.removeSource("route-src-$i")
-                }
+                style.removeLayer("route-line");style.removeSource("route-src")
                 for (i in 0..1) {
                     style.removeLayer("route-pt-layer-$i");style.removeSource("route-pt-$i")
                 }
@@ -131,29 +129,21 @@ internal fun RouteMapView(
 private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
                        points: List<WorkoutRoutePoint>) {
     val segments = RouteMapModel.segments(points)
-    // Un GeoJSON por segmento con su color (paridad del stroke por segmento
-    // de iOS); LineLayer por segmento mantiene el renderer simple y el número
-    // de segmentos lo acota la propia grabación (1 punto ≈ 1 s de captura).
-    segments.forEachIndexed { i, seg ->
+    // Una colección y una capa: no crear miles de capas por cada muestra
+    // ni reconstruir un árbol de estilos entero al llegar un punto GPS.
+    val features = segments.map { seg ->
         val coords = org.json.JSONArray()
             .put(org.json.JSONArray().put(seg.a.longitude).put(seg.a.latitude))
             .put(org.json.JSONArray().put(seg.b.longitude).put(seg.b.latitude))
-        val feature = JSONObject()
+        org.maplibre.geojson.Feature.fromJson(JSONObject()
             .put("type", "Feature")
-            .put("properties", JSONObject().put("color",
-                "#%06X".format(seg.argb and 0xFFFFFF)))
-            .put("geometry", JSONObject()
-                .put("type", "LineString")
-                .put("coordinates", coords))
-        val source = GeoJsonSource("route-src-$i",
-            org.maplibre.geojson.Feature.fromJson(feature.toString()))
-        style.addSource(source)
-        style.addLayer(LineLayer("route-line-$i", "route-src-$i").withProperties(
-            PropertyFactory.lineColor(Expression.get("color")),
-            PropertyFactory.lineWidth(4f),
-            PropertyFactory.lineCap("round")
-        ))
+            .put("properties", JSONObject().put("color", "#%06X".format(seg.argb and 0xFFFFFF)))
+            .put("geometry", JSONObject().put("type", "LineString").put("coordinates", coords)).toString())
     }
+    style.addSource(GeoJsonSource("route-src", org.maplibre.geojson.FeatureCollection.fromFeatures(features)))
+    style.addLayer(LineLayer("route-line", "route-src").withProperties(
+        PropertyFactory.lineColor(Expression.get("color")), PropertyFactory.lineWidth(4f),
+        PropertyFactory.lineCap("round")))
     // Inicio (acento) y fin (rojo), círculos con borde blanco como iOS.
     listOfNotNull(
         points.firstOrNull()?.let { it to "#2FA86B" },
@@ -176,10 +166,16 @@ private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
         ))
     }
     // Cámara: bounds con margen (iOS usa span ×1.5 con mínimo 0.008°).
-    val builder = LatLngBounds.Builder()
-    points.forEach { builder.include(LatLng(it.latitude, it.longitude)) }
-    val bounds = builder.build()
-    map.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 64))
+    val camera = RouteMapModel.camera(points)
+    if (camera != null) {
+        val bounds = LatLngBounds.from(
+            (camera.centerLat + camera.spanLat / 2).coerceAtMost(85.0),
+            (camera.centerLon + camera.spanLon / 2).coerceAtMost(180.0),
+            (camera.centerLat - camera.spanLat / 2).coerceAtLeast(-85.0),
+            (camera.centerLon - camera.spanLon / 2).coerceAtLeast(-180.0))
+        map.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 32))
+    }
+
 }
 
 /** Degradado sin teselas: polilínea normalizada con los mismos colores. */

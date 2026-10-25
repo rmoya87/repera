@@ -86,7 +86,8 @@ internal fun ExercisesTab(
     onSignOut: () -> Unit,
     onNavigateHome: () -> Unit,
     modifier: Modifier = Modifier,
-    accountId: String = "", onArchiveChanged: () -> Unit = {}
+    accountId: String = "", onArchiveChanged: () -> Unit = {},
+    onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> }
 ) {
     var selectedLiveSessionID by rememberSaveable { mutableStateOf<String?>(null) }
     var libraryMode by rememberSaveable { mutableStateOf("Ejercicios") }
@@ -147,12 +148,18 @@ internal fun ExercisesTab(
                         overview?.liveSportSessions?.firstOrNull { it.id == detail.id }?.let { session ->
                             Text(dev.repera.domain.LiveSportHistory.formatDuration(session.activeDurationSeconds ?: 0.0))
                             session.recordedDistanceMeters?.takeIf { it > 0 }?.let { Text("%.2f km".format(it / 1000)) }
+                            session.averageHeartRateBpm?.takeIf { it > 0 }?.let { Text("Pulso medio medido: %.0f lpm".format(it)) }
+                            session.activeEnergyKcal?.takeIf { it > 0 }?.let { Text("Energía activa medida: %.0f kcal".format(it)) }
                         }
                     }
                     item { detail.review?.let { SessionReviewCard(it) } }
                     if (detail.routePoints.size >= 2) item { CardioRouteSection(detail.routePoints, showComputedSplits = detail.liveKilometerSplitsSeconds.isEmpty()) }
                     item { LiveKilometerSplitsSection(detail.liveKilometerSplitsSeconds) }
-                    detail.notes?.let { note -> item { Text(note) } }
+                    item {
+                        FinishedWorkoutEditorSection(detail, accountId, busy, overview?.exerciseEntries.orEmpty()) { edit ->
+                            onUpdateFinishedWorkout(detail.id, edit)
+                        }
+                    }
                 }
             } else if (selected != null && evolutionRouteID != null && savedRoutes.any { it.id == evolutionRouteID }) {
                 LiveRouteEvolutionScreen(savedRoutes.first { it.id == evolutionRouteID }, selected,

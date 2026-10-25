@@ -119,7 +119,10 @@ class LiveActivityState {
         points = snapshot.points.toList(); splitsSeconds = snapshot.splitsSeconds.toList()
         lastBoundarySeconds = snapshot.lastBoundarySeconds; selectedRouteID = snapshot.selectedRouteID
         gpsSessionID = snapshot.gpsSessionID
-        if (sport.tracksElevation) points.forEach { it.altitudeMeters?.let(::integrateElevation) }
+        if (sport.tracksElevation) points.forEach { point ->
+            if (point.verticalAccuracyMeters?.let { it in 0.0..15.0 } == true)
+                point.altitudeMeters?.let(::integrateElevation)
+        }
         return true
     }
     val activeKilometer: Int get() = max(1, (distanceMeters / 1000).toInt() + 1)

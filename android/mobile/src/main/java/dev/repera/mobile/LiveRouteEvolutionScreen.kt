@@ -67,13 +67,23 @@ internal fun LiveRouteEvolutionScreen(route: LiveSavedRoute, sport: LiveSport,
                         Canvas(Modifier.fillMaxWidth().height(200.dp).semantics {
                             contentDescription="${chart.size} intentos: " + chart.joinToString {"%.2f %s".format(it.second,unit)}
                         }) {
-                            val path=Path()
-                            chart.forEachIndexed {i,(session,value) ->
-                                val x=12f+((session.startedEpochMillis!!-first)/spanTime).toFloat()*(size.width-24)
-                                val y=12f+(1-((value-low)/span).toFloat())*(size.height-24)
-                                if(i==0)path.moveTo(x,y) else path.lineTo(x,y)
-                                drawCircle(color,5f,androidx.compose.ui.geometry.Offset(x,y))
+                            val vertices = chart.map { (session,value) ->
+                                androidx.compose.ui.geometry.Offset(
+                                    12f+((session.startedEpochMillis!!-first)/spanTime).toFloat()*(size.width-24),
+                                    12f+(1-((value-low)/span).toFloat())*(size.height-24))
                             }
+                            val path = Path().apply {
+                                moveTo(vertices.first().x, vertices.first().y)
+                                // Uniform Catmull-Rom, expressed as cubic Bézier.
+                                for (i in 0 until vertices.lastIndex) {
+                                    val p0 = vertices[(i-1).coerceAtLeast(0)]
+                                    val p1 = vertices[i];val p2 = vertices[i+1]
+                                    val p3 = vertices[(i+2).coerceAtMost(vertices.lastIndex)]
+                                    cubicTo(p1.x+(p2.x-p0.x)/6, p1.y+(p2.y-p0.y)/6,
+                                        p2.x-(p3.x-p1.x)/6, p2.y-(p3.y-p1.y)/6, p2.x,p2.y)
+                                }
+                            }
+                            vertices.forEach { drawCircle(color,5f,it) }
                             drawPath(path,color,style=Stroke(width=3f))
                         }
                         Text("%.2f - %.2f %s".format(low,high,unit),style=MaterialTheme.typography.bodySmall)

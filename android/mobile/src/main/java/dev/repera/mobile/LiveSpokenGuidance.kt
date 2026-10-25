@@ -29,9 +29,11 @@ internal class LiveSpokenGuidance(context: Context) {
         if(!ready || tts.isSpeaking) return false
         val language=tts.setLanguage(Locale("es","ES"))
         if(language==TextToSpeech.LANG_MISSING_DATA || language==TextToSpeech.LANG_NOT_SUPPORTED) return false
+        val offline = tts.voices?.filter {
+            it.locale.language == "es" && it.locale.country == "ES" && !it.isNetworkConnectionRequired
+        }?.maxByOrNull { it.quality } ?: return false
+        tts.voice = offline
         if(audio.requestAudioFocus(focus)!=AudioManager.AUDIOFOCUS_REQUEST_GRANTED) return false
-        tts.voices?.filter { it.locale.language == "es" && it.locale.country == "ES" && !it.isNetworkConnectionRequired }
-            ?.maxByOrNull { it.quality }?.let { tts.voice = it }
         tts.setSpeechRate(1.0f)
         val result=tts.speak(message,TextToSpeech.QUEUE_FLUSH,null,"repera-live-guidance")
         if(result!=TextToSpeech.SUCCESS) audio.abandonAudioFocusRequest(focus)

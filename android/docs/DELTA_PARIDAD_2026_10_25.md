@@ -263,3 +263,38 @@ main móvil invisible.)
   evidencia de fidelidad Repera. Fixture corregido a primary=brandGreen.
 - Próxima ejecución incluye ciclo runtime interior aislado/restauración sin
   sensores (3 pruebas en clase). FGS/permisos/background siguen sin validar.
+
+- D4/D6 selector de deporte pasa a Dialog como Apple, no lista de 36 antes
+  del botón iniciar. Si existe entreno clásico activo, Comenzar ofrece
+  Continuar y no inicia segundo GPS. Destino Continuar sigue siendo Inicio,
+  no detalle concreto: pendiente alinear navegación.
+- D7 Settings: no existe botón Android de resync completo en Ajustes actual;
+  no procede retirar algo inexistente. Resto de Settings no se declara a
+  paridad por este gap-check puntual.
+
+## Checkpoint 20:29 CET (HEAD local, aún no regresión global)
+### Terminado local/JVM
+- Dominio 282/0 y mobile JVM 192/0 sin omitidos. Nuevo test prueba que
+  restaurar desnivel conserva filtro de precisión vertical del directo.
+- Guardado de ruta nueva archiva con identidad derivada de UUID de sesión;
+  reintento no duplica. Prueba instrumentada añadida, aún por ejecutar.
+### En curso
+- Comenzar con selector compacto; guard de entreno clásico también tras
+  permiso; edición legacy disponible en detalle deportivo; Center en hoja.
+- Gráfica Catmull-Rom, mapa con colección/capa única en vez de una por
+  segmento y cámara con mínimo span. Compila, pendiente nueva imagen real.
+- Revisión consulta Salud únicamente con permisos existentes y asociación
+  inequívoca; enseña solo pulso/kcal medidos. Sin E2E Health real autorizado.
+- Notificación incluye ritmo/velocidad media; voz exige es-ES instalada
+  offline (sin fallback inadvertido de red). Audio real sigue sin ejecutar.
+- Añadida clase enfocada LiveActivityControlsInstrumentedTest, 3 pruebas:
+  guard clásico, picker Pádel y FGS interior con acciones reales de
+  notificación sobre sesión sintética en emulador vacío. Solo compilada.
+### Pendiente
+- Enfocado de controles y archivo de ruta; nueva captura tras cambio mapa.
+- Comenzar aún no replica canvas inicial GPS + controles flotantes de Apple,
+  falta mapa/métricas alternables y navegación de sesión concreta.
+- Guard inverso (impedir inicio clásico si hay En vivo activo), símbolos,
+  swipe guardar ruta y otras alineaciones menores D7 por auditar.
+- Servicio con GPS/background, permisos denegados, ciclo vida, audio real;
+  después regresión global del bloque coherente. Beta draft 51500 intacta.

@@ -46,6 +46,17 @@ class LiveActivityStateTest {
         s.receive("a",point(40,601.0,5.0),40.0)
         assertEquals(4.0,s.elevationGainMeters,0.0);assertEquals(3.0,s.elevationLossMeters,0.0)
     }
+    @Test fun restoredElevationKeepsSameAccuracyFilterAsLiveRecording() {
+        val s = LiveActivityState();s.choose(LiveSport.HIKING);s.start(0,"a")
+        s.receive("a",point(0,600.0,5.0),0.0)
+        s.receive("a",point(10,620.0,40.0),10.0)
+        s.receive("a",point(20,604.0,5.0),20.0)
+        s.receive("a",point(30,650.0,null),30.0)
+        val r = LiveActivityState();assertTrue(r.restore(s.snapshot(40_000)!!))
+        assertEquals(s.elevationGainMeters,r.elevationGainMeters,0.0)
+        assertEquals(s.elevationLossMeters,r.elevationLossMeters,0.0)
+        assertEquals(4.0,r.elevationGainMeters,0.0)
+    }
     @Test fun discardClearsEverySessionFieldAndCannotRestoreIdleSnapshot() {
         val s = LiveActivityState();s.selectRoute("r");s.start(0,"a");s.receive("a",point(100),500.0)
         s.discard();assertNull(s.snapshot(500_000));assertNull(s.startedMillis)
