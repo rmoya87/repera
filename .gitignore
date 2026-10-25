@@ -53,3 +53,9 @@ reference/
 web/*.zip
 web/Archivo.zip
 **/.kotlin/
+
+# Nunca commitear claves de firma ni cuentas de servicio
+*.keystore
+*.jks
+*.pem
+repera-sa.json

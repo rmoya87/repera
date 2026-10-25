@@ -354,18 +354,57 @@ jobs:
           gradle-version: '9.6.0'
       - name: Decode upload keystore
         run: echo "${{ secrets.REPERA_UPLOAD_KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/repera-upload.keystore"
-      - name: Versioning
+      - name: Guardia de commit obsoleto
         run: |
-          # versionCode = minutos desde 2026-01-01 UTC: monotonico por reloj,
-          # inmune a reejecuciones de runs antiguos (un re-run obtiene un
-          # codigo NUEVO y mayor), unico mientras los despliegues esten
-          # serializados (concurrency group del workflow). Limite Play
-          # 2100000000: holgado. No hay releases previos (verificado 25/10).
-          EPOCH_MIN=$(( $(date -u +%s) / 60 - 29453760 ))
+          # Solo el HEAD actual de beta puede desplegar: un re-run de un run
+          # viejo aborta aqui en vez de subir un artefacto obsoleto.
+          git fetch origin beta --depth=1
+          if [ "$(git rev-parse origin/beta)" != "${{ github.sha }}" ]; then
+            echo "::error::Este run ya no es el HEAD de beta; despliegue abortado (commit obsoleto)."
+            exit 1
+          fi
+      - name: Versioning (max Play + 1, suelo epoch)
+        env:
+          REPERA_PLAY_SA_JSON: ${{ secrets.REPERA_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          # versionCode = max(versionCode maximo en Play + 1, minutos desde
+          # 2026-01-01 UTC). El maximo de Play se consulta EN VIVO justo antes
+          # del build que se subira: ni colisiones por re-runs ni uploads
+          # fuera de orden. Limite Play 2100000000: holgado.
+          pip install -q pyjwt cryptography
+          python3 - <<'PYSCRIPT'
+          import json, os, time, jwt, urllib.request
+          sa = json.loads(os.environ["REPERA_PLAY_SA_JSON"])
+          now = int(time.time())
+          tok = jwt.encode({"iss": sa["client_email"],
+              "scope": "https://www.googleapis.com/auth/androidpublisher",
+              "aud": "https://oauth2.googleapis.com/token",
+              "iat": now, "exp": now + 600}, sa["private_key"], algorithm="RS256")
+          req = urllib.request.Request("https://oauth2.googleapis.com/token",
+              data=("grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=" + tok).encode())
+          acc = json.load(urllib.request.urlopen(req))["access_token"]
+          H = {"Authorization": "Bearer " + acc, "Content-Type": "application/json"}
+          base = "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.app.repera"
+          edit = json.load(urllib.request.urlopen(urllib.request.Request(base + "/edits", data=b"{}", headers=H, method="POST")))
+          eid = edit["id"]
+          play_max = 0
+          try:
+              tracks = json.load(urllib.request.urlopen(urllib.request.Request(base + "/edits/" + eid + "/tracks", headers=H)))
+              for t in tracks.get("tracks", []):
+                  for r in t.get("releases", []):
+                      for vc in r.get("versionCodes", []):
+                          play_max = max(play_max, int(vc))
+          finally:
+              urllib.request.urlopen(urllib.request.Request(base + "/edits/" + eid, headers=H, method="DELETE"))
+          epoch_min = now // 60 - 29453760
+          vc = max(play_max + 1, epoch_min)
+          print("play_max=%d epoch_min=%d -> versionCode=%d" % (play_max, epoch_min, vc))
+          with open(os.environ["GITHUB_ENV"], "a") as f:
+              f.write("REPERA_VERSION_CODE=%d\n" % vc)
+          PYSCRIPT
           TAG=$(git describe --tags --exact-match 2>/dev/null || true)
           VNAME="${TAG:-0.1.0-beta.${{ github.run_number }}}"
-          echo "versionCode=$EPOCH_MIN versionName=$VNAME"
-          echo "REPERA_VERSION_CODE=$EPOCH_MIN" >> "$GITHUB_ENV"
+          echo "versionName=$VNAME"
           echo "REPERA_VERSION_NAME=$VNAME" >> "$GITHUB_ENV"
       - name: Build release AAB (telefono)
         run: gradle -p android :mobile:bundleRelease -PREPERA_VERSION_CODE="$REPERA_VERSION_CODE" -PREPERA_VERSION_NAME="$REPERA_VERSION_NAME" --no-daemon --stacktrace
