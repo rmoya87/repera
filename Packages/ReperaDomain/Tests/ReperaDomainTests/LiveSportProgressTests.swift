@@ -85,6 +85,70 @@ struct LiveSportProgressTests {
         #expect(item.appleActiveEnergyKcal == nil)
     }
 
+    @Test func liveAndPlannedSessionsShareExistingProgressMetrics() {
+        let timestamp = Calendar.current.startOfDay(for: now).addingTimeInterval(15 * 3600)
+        let planned = WorkoutSession(
+            title: "Entrenamiento programado",
+            exercises: [],
+            phase: .finished,
+            startedAt: timestamp.addingTimeInterval(-3600),
+            finishedAt: timestamp,
+            activeDurationSeconds: 3600
+        )
+        let live = WorkoutSession(
+            title: "Ciclismo de carretera",
+            exercises: [],
+            phase: .finished,
+            startedAt: timestamp.addingTimeInterval(-1200),
+            finishedAt: timestamp,
+            liveSportID: "cycling",
+            recordedDistanceMeters: 6500,
+            activeDurationSeconds: 1200
+        )
+        let combined = [planned, live]
+        let summary = StatsEngine.progressHealthSummary(
+            workouts: combined, range: .today, now: timestamp
+        )
+        #expect(summary.sessionCount == 2)
+        #expect(summary.averageMinutes == 40)
+        #expect(summary.averageCardioMinutes == 20)
+        #expect(summary.totalKcal == 0)
+
+        let activity = StatsEngine.dailyActivity(workouts: combined)
+        #expect(activity.count == 1)
+        #expect(activity.values.first?.sessionCount == 2)
+        #expect(activity.values.first?.minutes == 80)
+
+        let cardio = StatsEngine.dailyMetricSeries(
+            workouts: combined, metric: .cardioMinutes,
+            range: .today, now: timestamp
+        )
+        #expect(cardio.reduce(0) { $0 + $1.value } == 20)
+    }
+
+    @Test func liveMidnightSessionUsesSameDayInHeatmapAndRangeFilter() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let midnight = calendar.startOfDay(for: now)
+        let session = WorkoutSession(
+            title: "Carrera nocturna",
+            exercises: [],
+            phase: .finished,
+            startedAt: midnight.addingTimeInterval(-120),
+            finishedAt: midnight.addingTimeInterval(120),
+            liveSportID: "running",
+            activeDurationSeconds: 240
+        )
+        let heatmap = StatsEngine.dailyActivity(workouts: [session], calendar: calendar)
+        #expect(heatmap.count == 1)
+        #expect(heatmap.values.first?.date == midnight.addingTimeInterval(-86400))
+        #expect(heatmap.values.first?.sessionCount == 1)
+        #expect(StatsEngine.filterWorkouts(
+            [session], range: .today,
+            now: midnight.addingTimeInterval(-30), calendar: calendar
+        ).count == 1)
+    }
+
     @Test func liveActivityUsesStartDayForProgressRange() {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(secondsFromGMT: 0)!
