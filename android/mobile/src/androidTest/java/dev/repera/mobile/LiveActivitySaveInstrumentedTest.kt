@@ -14,6 +14,32 @@ import java.util.UUID
 /** Cuenta sintética aislada, sin sensores, red ni Salud. */
 @RunWith(AndroidJUnit4::class)
 class LiveActivitySaveInstrumentedTest {
+    @get:org.junit.Rule val compose = androidx.compose.ui.test.junit4.createAndroidComposeRule<androidx.activity.ComponentActivity>()
+    @Test fun evolutionMapCapturesRealWindowAfterStyleLoaded() {
+        val loaded = java.util.concurrent.CountDownLatch(1)
+        val route = LiveSavedRoute(title = "Ruta sintética Madrid", sportID = "running", points = listOf(
+            dev.repera.domain.WorkoutRoutePoint(0,40.438,-3.703,0),
+            dev.repera.domain.WorkoutRoutePoint(1,40.441,-3.700,300_000),
+            dev.repera.domain.WorkoutRoutePoint(2,40.439,-3.697,600_000)))
+        compose.setContent {
+            androidx.compose.material3.MaterialTheme {
+                LiveRouteEvolutionScreen(route, LiveSport.RUNNING, emptyList(), {}, {}, { loaded.countDown() })
+            }
+        }
+        assertTrue("No cargó el estilo del mapa real", loaded.await(60, java.util.concurrent.TimeUnit.SECONDS))
+        Thread.sleep(8_000)
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        assertNotNull(bitmap)
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val values = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, "deportes_evolucion_mapa_real.png")
+            put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png")
+            put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/ReperaVerification")
+        }
+        val uri = context.contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)!!
+        context.contentResolver.openOutputStream(uri)!!.use { bitmap!!.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+    }
+
     @Test fun saveLiveActivityIsIdempotentAndDoesNotInventExerciseOrHealthValues() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val account="test-live-save-${UUID.randomUUID()}"

@@ -24,7 +24,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 internal fun LiveRouteEvolutionScreen(route: LiveSavedRoute, sport: LiveSport,
     sessions: List<LiveSportHistory.LiveSession>, onBack: () -> Unit,
-    onOpenSession: (String) -> Unit) {
+    onOpenSession: (String) -> Unit, onMapStyleLoaded: (() -> Unit)? = null) {
     var metric by remember(route.id) { mutableStateOf(LiveSportHistory.EvolutionMetric.DURATION) }
     val attempts=sessions.filter {it.liveRouteID==route.id && it.sportID==sport.id && it.finishedEpochMillis!=null}
         .sortedBy {it.startedEpochMillis ?: Long.MIN_VALUE}
@@ -43,7 +43,7 @@ internal fun LiveRouteEvolutionScreen(route: LiveSavedRoute, sport: LiveSport,
             Text(route.title,style=MaterialTheme.typography.headlineMedium)
         }
         if(route.points.size>=2) item {
-            RouteMapView(route.points,isInteractive=true,modifier=Modifier.fillMaxWidth().height(220.dp))
+            RouteMapView(route.points,isInteractive=true,modifier=Modifier.fillMaxWidth().height(220.dp), onStyleLoaded=onMapStyleLoaded)
         }
         item {
             Card(Modifier.fillMaxWidth()) {
