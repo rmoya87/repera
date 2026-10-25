@@ -890,9 +890,11 @@ class VisualVerificationInstrumentedTest {
         // en las 3 patas; el pan via UiDevice si funciono).
         // uiautomator 2.3.0 no tiene UiDevice.performTwoPointerGesture;
         // UiObject2.pinchOpen usa el mismo pipeline real de input.
+        // El MapView (SurfaceView) no aparece en el arbol de accesibilidad
+        // por clase; el nodo Compose expone su testTag como resource-id.
         val mapObj = uiDevice.findObject(
-            androidx.test.uiautomator.By.clazz("org.maplibre.android.maps.MapView"))
-            ?: error("MapView no encontrado por uiautomator")
+            androidx.test.uiautomator.By.res("place_pin_map"))
+            ?: error("place_pin_map no encontrado por uiautomator")
         mapObj.pinchOpen(0.4f, 200)
         compose.waitUntil(timeoutMillis = 15_000) { cameraRef.get()!!.first > z0 }
         compose.onNodeWithText("Buscar lugar").assertIsDisplayed()
