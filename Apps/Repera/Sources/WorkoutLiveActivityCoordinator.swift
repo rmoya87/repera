@@ -11,6 +11,9 @@ final class WorkoutLiveActivityCoordinator {
 
     private let logger = Logger(subsystem: "com.app.repera", category: "WorkoutLiveActivity")
     private var latestStates: [String: TrainingActivityAttributes.ContentState] = [:]
+    /// Impide que una actualización GPS/Watch encolada resucite una sesión
+    /// después de finalizarla o descartarla.
+    private var closedSessionIDs: Set<String> = []
 
     /// En vivo: métricas GPS verificadas. Pausas descontadas del tiempo activo.
     func updateFree(
@@ -72,6 +75,7 @@ final class WorkoutLiveActivityCoordinator {
     func completePlanned(_ session: WorkoutSession?, saved: Bool) async {
         guard let session else { return }
         let id = "planned:\(session.id.uuidString)"
+        closedSessionIDs.insert(id)
         if saved {
             var state = latestStates[id] ?? TrainingActivityAttributes.ContentState(
                 phase: .completed, title: session.title,
@@ -94,6 +98,7 @@ final class WorkoutLiveActivityCoordinator {
 
     func dismissFree(startedAt: Date, saved: Bool) async {
         let id = "free:" + String(Int64(startedAt.timeIntervalSince1970 * 1000))
+        closedSessionIDs.insert(id)
         if saved, var state = latestStates[id] {
             state.phase = .completed
             state.subtitle = "Actividad finalizada"
@@ -108,7 +113,8 @@ final class WorkoutLiveActivityCoordinator {
         isPlanned: Bool,
         state: TrainingActivityAttributes.ContentState
     ) async {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        guard ActivityAuthorizationInfo().areActivitiesEnabled,
+              !closedSessionIDs.contains(id) else { return }
         if let previous = latestStates[id], previous == state { return }
         latestStates[id] = state
 
