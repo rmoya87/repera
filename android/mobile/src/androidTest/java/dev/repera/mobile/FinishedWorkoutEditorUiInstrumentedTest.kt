@@ -335,7 +335,9 @@ class FinishedWorkoutEditorUiInstrumentedTest {
             up()
         }
         compose.waitForIdle(); clickTag("edit_save")
-        assertNotNull("el arrastre con autoscroll debe soltar dentro de un bloque visible", saved!!.blocksJson)
+        assertNotNull("el arrastre con autoscroll debe registrar el cambio (scroll=${'$'}scrollState.value, " +
+            "destino=${'$'}{compose.onNodeWithTag(\"block_title_11\").fetchSemanticsNode().boundsInRoot})",
+            saved!!.blocksJson)
         val arr = org.json.JSONArray(saved!!.blocksJson)
         val ids = (0 until arr.length()).flatMap { b -> val ex = arr.getJSONObject(b).getJSONArray("exercises")
             (0 until ex.length()).map { ex.getJSONObject(it).getString("id") } }

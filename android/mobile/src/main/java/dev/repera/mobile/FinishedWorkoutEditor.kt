@@ -512,8 +512,18 @@ internal fun DragReorderItem(
     content: @Composable (Modifier) -> Unit
 ) {
     var dy by remember { mutableStateOf(0f) }
+    // Desplazamiento del SOLO dedo (sin la compensación de autoscroll). Es el que
+    // determina destino y centro de drop: la compensación de scroll cancela el
+    // movimiento del contenido y la fila queda siempre bajo el dedo.
+    var dyFinger by remember { mutableStateOf(0f) }
     var top by remember { mutableStateOf(0f) }
     var bottom by remember { mutableStateOf(0f) }
+    // Posición congelada al iniciar el arrastre. NO usar top/bottom durante el
+    // gesto: si el autoscroll (o cualquier relayout) dispara onGloballyPositioned
+    // a mitad de arrastre, positionInRoot ya incluye el translationY=dy y sumarle
+    // dy otra vez desplaza el centro de drop miles de px por debajo del dedo.
+    var dragTop by remember { mutableStateOf(0f) }
+    var dragBottom by remember { mutableStateOf(0f) }
     val scroller = LocalDragAutoScroller.current
     var dragging by remember { mutableStateOf(false) }
     val density = androidx.compose.ui.platform.LocalDensity.current
@@ -523,7 +533,7 @@ internal fun DragReorderItem(
     androidx.compose.runtime.LaunchedEffect(dragging, scroller) {
         if (!dragging || scroller == null) return@LaunchedEffect
         while (true) {
-            val center = (top + bottom) / 2f + dy
+            val center = (dragTop + dragBottom) / 2f + dyFinger
             // Viewport REAL del contenedor; si aún no está medido, borde de ventana como último recurso.
             val vp = scroller.viewport() ?: (0f to windowH)
             val v = autoScrollSpeed(center, vp.first, vp.second, edgePx = 96f * density.density, maxPerFrame = 24f * density.density / 2f)
@@ -538,16 +548,16 @@ internal fun DragReorderItem(
     var sizePx by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
     val handle = Modifier.pointerInput(index, count) {
         detectDragGesturesAfterLongPress(
-            onDragStart = { dragging = true },
-            onDrag = { change, amount -> change.consume(); dy += amount.y },
+            onDragStart = { dragTop = top; dragBottom = bottom; dyFinger = 0f; dragging = true },
+            onDrag = { change, amount -> change.consume(); dy += amount.y; dyFinger += amount.y },
             onDragEnd = {
-                val target = dragTargetIndex(index, dy, (0 until count).map { heights[it] ?: 0 })
-                val center = (top + bottom) / 2f + dy
+                val target = dragTargetIndex(index, dyFinger, (0 until count).map { heights[it] ?: 0 })
+                val center = (dragTop + dragBottom) / 2f + dyFinger
                 dragging = false
                 dy = 0f
                 onDrop(center, target)
             },
-            onDragCancel = { dragging = false; dy = 0f })
+            onDragCancel = { dragging = false; dy = 0f; dyFinger = 0f })
     }
     Column(Modifier
         .zIndex(if (dy != 0f) 1f else 0f)
