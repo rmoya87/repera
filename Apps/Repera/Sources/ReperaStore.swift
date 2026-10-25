@@ -775,7 +775,8 @@ final class ReperaStore: NSObject {
         guard let active = state.activeSession,
               active.startedAt != nil, active.finishedAt == nil,
               WorkoutLocationTracker.shouldTrackRoute(for: active),
-              !LiveActivityRecorder.shared.isActive else { return }
+              !LiveActivityRecorder.shared.isActive,
+              !HealthKitStore.shared.isWatchWorkoutMirrored else { return }
         let sessionID = active.id
         let tracker = WorkoutLocationTracker.shared
         guard tracker.trackingSessionID != sessionID else { return }
@@ -940,6 +941,7 @@ final class ReperaStore: NSObject {
                             sessionId: sessionId, workoutUUID: uuid, points: routePoints
                         )
                     }
+                    HealthKitStore.shared.discardRecordedGPSRoute(sessionID: sessionId)
                 }
                 if var updated = state.workouts.first(where: { $0.id == sessionId }) {
                     updated.startedAt = apple.startedAt
