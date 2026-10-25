@@ -79,23 +79,15 @@ class WorkoutMirrorStore(
             //    vistos, no borrados y con payload íntegro.
             val localIds = repository.finishedWorkoutsSnapshot()
                 .map { it.optString("id") }.toSet()
-            val recovered = mutableListOf<JSONObject>()
             // Con Drive sincronizando no se recupera ni se marca nada como visto: se reintenta en el siguiente ciclo.
-            val recoveryAllowed = !CloudSyncGate.isDriveSyncRunning()
-            for (row in if (recoveryAllowed) remote else emptyList()) {
-                if (!row.isNull("deleted_at")) continue
-                val id = row.optString("id")
-                if (id.isBlank() || localIds.contains(id) ||
-                    deletionIDs.contains(id) || seen[id] != null) continue
-                val payload = row.optJSONObject("payload") ?: continue
-                if (payload.optString("id") != id ||
-                    payload.isNull("finishedAt")) continue
-                recovered.add(payload)
-                seen[id] = canonicalDigest(payload)
-            }
-            val recoveredCount = if (recovered.isEmpty() || false) 0 else {
+            val recovered = if (CloudSyncGate.isDriveSyncRunning()) emptyList()
+                else selectRecoverable(remote, localIds, deletionIDs, seen)
+            val recoveredCount = if (recovered.isEmpty()) 0 else {
+                // Primero se funde y solo después se marcan como vistos: si el merge falla, se reintenta.
+                val merged = repository.mergeRecoveredWorkoutsFromSupabase(recovered)
+                recovered.forEach { seen[it.getString("id")] = canonicalDigest(it) }
                 saveFingerprints(seen)
-                repository.mergeRecoveredWorkoutsFromSupabase(recovered)
+                merged
             }
 
             // 1) Tombstones: propagan borrados aunque se hicieran sin red.
@@ -297,6 +289,22 @@ class WorkoutMirrorStore(
     }
 
     companion object {
+        /** Filas remotas recuperables: no borradas, IDs desconocidos localmente, sin tombstone pendiente, nunca vistas y con payload íntegro. */
+        internal fun selectRecoverable(
+            remote: List<JSONObject>, localIds: Set<String>, deletionIDs: Set<String>, seen: Map<String, String>
+        ): List<JSONObject> {
+            val out = mutableListOf<JSONObject>()
+            for (row in remote) {
+                if (!row.isNull("deleted_at") && row.has("deleted_at")) continue
+                val id = row.optString("id")
+                if (id.isBlank() || localIds.contains(id) || deletionIDs.contains(id) || seen[id] != null) continue
+                val payload = row.optJSONObject("payload") ?: continue
+                if (payload.optString("id") != id || payload.isNull("finishedAt") || !payload.has("finishedAt")) continue
+                out.add(payload)
+            }
+            return out
+        }
+
         private const val KEY_FINGERPRINTS = "fingerprints"
         private const val KEY_DELETED = "deleted"
 
