@@ -546,7 +546,9 @@ final class LiveActivityRecorder: NSObject {
         do {
             try audio.setCategory(
                 .playback, mode: .spokenAudio,
-                options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
+                // El usuario ha elegido pausa completa, no bajar el volumen.
+                // Sin mixWithOthers iOS interrumpe la reproducción ajena.
+                options: []
             )
             try audio.setActive(true)
             guidanceAudioActive = true
