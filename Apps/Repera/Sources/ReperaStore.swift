@@ -1741,6 +1741,22 @@ final class ReperaStore: NSObject {
         sendWatchContextNow()
     }
 
+    /// La vista de revisión no debe finalizar el entrenamiento HealthKit:
+    /// puede cancelarse. Enviar el cierre fiable solo después de Guardar.
+    func finishLiveActivityOnWatch(_ session: WorkoutSession) {
+        var signal = session
+        signal.routePoints = [] // GPS completo se conserva en iPhone
+        signal.liveKilometerSplitsSeconds = nil
+        connectivity.sendCriticalLiveState(signal)
+    }
+
+    func discardLiveActivityOnWatch() {
+        guard var signal = LiveActivityRecorder.shared.watchSnapshot() else { return }
+        signal.phase = .idle
+        signal.finishedAt = nil
+        connectivity.sendCriticalLiveState(signal)
+    }
+
     private func sendWatchContextNow() {
         let today = currentWatchWorkoutForToday()
         connectivity.send(
