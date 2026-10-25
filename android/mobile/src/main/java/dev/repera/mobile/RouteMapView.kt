@@ -57,29 +57,30 @@ internal fun RouteMapView(
     onStyleLoaded: (() -> Unit)? = null,
     plannedRoute: Boolean = false,
     controlsOverlay: Boolean = false,
+    plannedPoints: List<WorkoutRoutePoint> = emptyList(),
     onMapRendered: (() -> Unit)? = null
 ) {
     var failed by remember { mutableStateOf(false) }
     val currentRendered by androidx.compose.runtime.rememberUpdatedState(onMapRendered)
     val currentPlanned by androidx.compose.runtime.rememberUpdatedState(plannedRoute)
+    val currentPlan by androidx.compose.runtime.rememberUpdatedState(plannedPoints)
     val currentPoints by androidx.compose.runtime.rememberUpdatedState(points)
     var loadedMap by remember { mutableStateOf<MapLibreMap?>(null) }
-    var renderedPoints by remember { mutableStateOf<List<WorkoutRoutePoint>>(emptyList()) }
-    androidx.compose.runtime.LaunchedEffect(points, plannedRoute, loadedMap) {
+    androidx.compose.runtime.LaunchedEffect(points, plannedRoute, plannedPoints, loadedMap) {
         val map = loadedMap ?: return@LaunchedEffect
-        if (points == renderedPoints && !plannedRoute) return@LaunchedEffect
         map.getStyle { style ->
             runCatching {
                 style.removeLayer("route-line");style.removeSource("route-src")
                 for (i in 0..1) {
                     style.removeLayer("route-pt-layer-$i");style.removeSource("route-pt-$i")
                 }
-                applyRoute(map, style, points, plannedRoute);renderedPoints = points.toList()
+                applyPlannedOverlay(style,plannedPoints)
+                applyRoute(map, style, points, plannedRoute)
             }.onFailure { failed = true }
         }
     }
     if (failed) {
-        RouteMapFallback(points, modifier, plannedRoute)
+        RouteMapFallback(points, modifier, plannedRoute,plannedPoints)
         return
     }
     // Lifecycle MapLibre: onStart/Resume/... atados al ciclo del composable
@@ -136,14 +137,28 @@ internal fun RouteMapView(
                         isCompassEnabled = isInteractive
                     }
                     map.setStyle("https://tiles.openfreemap.org/styles/liberty") { style ->
-                        runCatching { applyRoute(map, style, currentPoints, currentPlanned) }
+                        runCatching { applyPlannedOverlay(style,currentPlan);applyRoute(map, style, currentPoints, currentPlanned) }
                             .onFailure { failed = true }
-                            .onSuccess { renderedPoints = currentPoints.toList();loadedMap = map;onStyleLoaded?.invoke() }
+                            .onSuccess { loadedMap = map;onStyleLoaded?.invoke() }
                     }
                 }
             }
         }
     )
+}
+
+/** Chosen GPX remains visible beneath the measured trace after recording begins. */
+private fun applyPlannedOverlay(style:org.maplibre.android.maps.Style,points:List<WorkoutRoutePoint>) {
+    style.removeLayer("planned-route-line");style.removeSource("planned-route-src")
+    if(points.size<2) return
+    val coordinates=org.json.JSONArray()
+    points.forEach { coordinates.put(org.json.JSONArray().put(it.longitude).put(it.latitude)) }
+    val feature=org.maplibre.geojson.Feature.fromJson(JSONObject().put("type","Feature")
+        .put("geometry",JSONObject().put("type","LineString").put("coordinates",coordinates)).toString())
+    style.addSource(GeoJsonSource("planned-route-src",feature))
+    style.addLayer(LineLayer("planned-route-line","planned-route-src").withProperties(
+        PropertyFactory.lineColor(android.graphics.Color.rgb(10,132,255)),PropertyFactory.lineWidth(4f),
+        PropertyFactory.lineOpacity(0.65f),PropertyFactory.lineCap("round")))
 }
 
 private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
@@ -202,18 +217,21 @@ private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
 
 /** Degradado sin teselas: polilínea normalizada con los mismos colores. */
 @Composable
-private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier, plannedRoute: Boolean) {
-    val segments = remember(points, plannedRoute) {
-        if (plannedRoute) points.zipWithNext().map { (a,b) -> RouteMapModel.Segment(a,b,0xFF0A84FF) }
+private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier, plannedRoute: Boolean,
+    plannedPoints:List<WorkoutRoutePoint> = emptyList()) {
+    val allPoints=points+plannedPoints
+    val segments = remember(points, plannedRoute,plannedPoints) {
+        val measured=if (plannedRoute) points.zipWithNext().map { (a,b) -> RouteMapModel.Segment(a,b,0xFF0A84FF) }
         else RouteMapModel.segments(points)
+        plannedPoints.zipWithNext().map { (a,b) -> RouteMapModel.Segment(a,b,0xFF0A84FF) }+measured
     }
     Box(modifier = modifier.testTag("route_map_fallback")) {
         Canvas(modifier = Modifier.fillMaxWidth().height(180.dp)) {
-            if (points.size >= 2) {
-                val minLat = points.minOf { it.latitude }
-                val maxLat = points.maxOf { it.latitude }
-                val minLon = points.minOf { it.longitude }
-                val maxLon = points.maxOf { it.longitude }
+            if (allPoints.size >= 2) {
+                val minLat = allPoints.minOf { it.latitude }
+                val maxLat = allPoints.maxOf { it.latitude }
+                val minLon = allPoints.minOf { it.longitude }
+                val maxLon = allPoints.maxOf { it.longitude }
                 val spanLat = (maxLat - minLat).takeIf { it > 0 } ?: 1e-6
                 val spanLon = (maxLon - minLon).takeIf { it > 0 } ?: 1e-6
                 fun xy(p: WorkoutRoutePoint) = Offset(

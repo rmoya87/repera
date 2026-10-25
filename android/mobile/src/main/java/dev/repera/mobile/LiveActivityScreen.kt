@@ -27,7 +27,8 @@ import kotlinx.coroutines.launch
 internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     onOpenTools: () -> Unit, onOpenCenter: (() -> Unit)? = null,
     hasActiveWorkout: Boolean = false, onOpenWorkout: () -> Unit = {},
-    onMapRendered: (() -> Unit)? = null) {
+    onMapRendered: (() -> Unit)? = null,
+    onSavedDay: (Long) -> Unit = {}) {
     val context=LocalContext.current
     val scope = rememberCoroutineScope()
     var previewPosition by remember { mutableStateOf<dev.repera.domain.WorkoutRoutePoint?>(null) }
@@ -179,7 +180,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         Box(Modifier.fillMaxSize().testTag("live_activity_screen")) {
             RouteMapView(if (state.points.isNotEmpty()) state.points else planned?.points ?: listOfNotNull(freshPosition),
                 isInteractive = true, modifier = Modifier.fillMaxSize(), plannedRoute = state.points.size < 2,
-                controlsOverlay = true,onMapRendered = onMapRendered)
+                controlsOverlay = true,plannedPoints=if(state.points.isNotEmpty()) planned?.points.orEmpty() else emptyList(),
+                onMapRendered = onMapRendered)
             Surface(Modifier.align(Alignment.TopCenter).padding(12.dp), shape = MaterialTheme.shapes.large,
                 tonalElevation = 4.dp) {
                 Column(Modifier.padding(12.dp)) {
@@ -349,7 +351,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     else "${LiveSportHistory.formatDuration(split * 1000 / state.activeKilometerMeters)} min/km"
                     Text("Km ${state.activeKilometer} · $current")
                 }
-                if(state.points.size>=2) RouteMapView(state.points,isInteractive=false,modifier=Modifier.fillMaxWidth().height(220.dp),onMapRendered=onMapRendered)
+                if(state.points.size>=2) RouteMapView(state.points,isInteractive=false,modifier=Modifier.fillMaxWidth().height(220.dp),
+                    plannedPoints=routes.firstOrNull { it.id==state.selectedRouteID }?.points.orEmpty(),onMapRendered=onMapRendered)
             }
             runtime.upcomingTurn?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
             runtime.latestKilometerReport?.let { Text(it) }
@@ -377,9 +380,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 Button(onClick={
                     try {
                         val now=System.currentTimeMillis()
+                        val savedDay=state.startedMillis ?: now
                         WorkoutRepository(context,accountId).saveLiveActivity(state.snapshot(now)!!,
                             state.finishedMillis ?: now,state.durationSeconds(now),title,notes)
-                        if (runtime.discard()) { LiveActivityService.stop(context);title="";notes="";showingMetrics=false;onSaved() }
+                        if (runtime.discard()) { LiveActivityService.stop(context);title="";notes="";showingMetrics=false;onSavedDay(savedDay);onSaved() }
                         else error="La actividad se guardó, pero no se pudo limpiar el punto de recuperación."
                     } catch (_: Exception) {error="No se pudo guardar. La actividad sigue disponible para reintentar."}
                 },modifier=Modifier.testTag("live_save")) {Text("Guardar actividad")}

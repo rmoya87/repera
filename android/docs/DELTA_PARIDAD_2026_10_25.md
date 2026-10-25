@@ -346,3 +346,29 @@ main móvil invisible.)
 - FC por parcial conecta proveedor medido existente; conserva segundos
   activos y usa km/h según deporte. Curva del detalle reutilizada. Nueva
   prueba sintética compilada, sin leer Salud real.
+
+## Checkpoint 21:07 CET (local, todavía sin cierre)
+- Enfocado40227284906 verde a c40323c1: controles5/0, save4/0, tema2/0,
+  sin omitidos. Inspeccionadas12 capturas claro/oscuro de6 pantallas. Canvas
+  activo NO aceptado: teselas pendientes en captura; atribución idle oculta.
+- c8cb5efc sincroniza onStart/onResume de MapView montado con owner ya
+  reanudado, mueve atribución por encima de controles y espera callback de
+  mapa completamente renderizado en test. En ejecución40229021477,
+  debug1c4edd6c. No sustituye prueba de píxeles ni suite global.
+- Local siguiente: swipe trailing revela Guardar ruta (tap explícito antes
+  de escribir, acción accesible); guardar revisión transmite fecha de inicio
+  a calendario Inicio. Tests compilan, ejecución pendiente. Más vistas de
+  tema preparadas: Diario, Ajustes, catálogo Deportes y Crear claro/oscuro.
+- Meteo/viento sigue sin equivalente: Apple usa WeatherKit autenticado;
+  Android no tiene transporte/backend existente. No se añaden proveedores
+  ni se transmiten coordenadas privadas a servicios nuevos silenciosamente.
+
+## D6 navegación, 21:10 CET local
+- Verificación exacta Apple5890215d: repera://workout NO resuelve un UUID;
+  abre flujo de sesión activa si existe o Inicio sin sesión. Android ahora
+  abre ruta dedicada de sesión activa (fuerza/WOD y lugar), en vez de dejar
+  la tarjeta por debajo del calendario. Nuevo componente reutiliza callbacks
+  ya existentes. Pendiente ejecución/capturas claro/oscuro.
+- Cobertura tema preparada11 pantallas×2, con aserción del focusDay de Inicio.
+- Preparada prueba proveedor Android simulado: dos fixes con distancia,
+  pausa sin callbacks y reanudación sin unir salto. No GPS/hardware real.

@@ -110,4 +110,21 @@ class LiveSportHistoryInstrumentedTest {
         compose.onNodeWithText("150 lpm").assertIsDisplayed()
     }
 
+    @Test fun trailingSwipeRevealsSaveRouteWithoutOpeningOrSavingUntilTap() {
+        var saved=0;var opened=0
+        compose.setContent { MaterialTheme(colorScheme=reperaColorScheme(false)) {
+            LiveSportHistoryScreen(LiveSport.RUNNING,listOf(session("swipe","running",5000.0)),
+                {},{opened++},canSaveRoute={true},onSaveRoute={saved++})
+        } }
+        compose.onNodeWithTag("live_session_swipe").performScrollTo()
+        compose.onNodeWithTag("save_route_swipe").assertDoesNotExist()
+        compose.onNodeWithTag("swipe_route_swipe").performTouchInput { swipeLeft() }
+        compose.onNodeWithTag("save_route_swipe").assertIsDisplayed()
+        assertEquals(0,saved);assertEquals(0,opened)
+        save("deportes_guardar_ruta_swipe")
+        compose.onNodeWithTag("save_route_swipe").performClick()
+        assertEquals(1,saved);assertEquals(0,opened)
+        compose.onNodeWithTag("save_route_swipe").assertDoesNotExist()
+    }
+
 }

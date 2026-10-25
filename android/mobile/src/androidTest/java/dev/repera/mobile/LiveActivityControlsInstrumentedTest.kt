@@ -73,6 +73,9 @@ class LiveActivityControlsInstrumentedTest {
         val account = "test-canvas-${UUID.randomUUID()}"
         val runtime = LiveActivityRuntime.forAccount(context,account)
         runtime.choose(LiveSport.RUNNING)
+        val plan=LiveRoutesStore(context,account).addRecordedRoute("GPX sintético",
+            listOf(dev.repera.domain.WorkoutRoutePoint(0,40.4375,-3.7035,0),
+                dev.repera.domain.WorkoutRoutePoint(1,40.439,-3.701,0)),"running")
         val rendered=java.util.concurrent.atomic.AtomicInteger(0)
         fun awaitMapAfter(previous:Int) {
             compose.waitUntil(60_000) { rendered.get()>previous }
@@ -85,6 +88,7 @@ class LiveActivityControlsInstrumentedTest {
         awaitMapAfter(0)
         capture("comenzar_gps_idle_mapa.png")
         compose.runOnIdle {
+            runtime.selectRoute(plan.id)
             // Direct recorder fixture: do not start any provider/service.
             val now = System.currentTimeMillis()
             runtime.state.start(now-30_000,"synthetic-canvas")
@@ -103,6 +107,28 @@ class LiveActivityControlsInstrumentedTest {
         awaitMapAfter(beforeMap)
         capture("comenzar_gps_mapa_activo.png")
         compose.runOnIdle { runtime.discard();LiveActivityRuntime.stopAll() }
+    }
+    @Test fun savingReviewReturnsSessionStartDayNotSaveDayAndClearsDraft() {
+        val account="test-save-day-${UUID.randomUUID()}"
+        LocalSnapshotStore(context,account).write(org.json.JSONObject().put("workouts",org.json.JSONArray())
+            .put("exercises",org.json.JSONArray()).put("routines",org.json.JSONArray()).toString().toByteArray())
+        val runtime=LiveActivityRuntime.forAccount(context,account)
+        val start=System.currentTimeMillis()-2*86_400_000L
+        runtime.choose(LiveSport.PADEL);runtime.state.start(start,"synthetic-save-day")
+        runtime.state.finish(start+60_000);runtime.publish()
+        var savedDay:Long?=null;var saves=0
+        compose.setContent { MaterialTheme(colorScheme=reperaColorScheme(false)) {
+            LiveActivityScreen(account,{saves++},{},onSavedDay={savedDay=it})
+        } }
+        compose.onNodeWithText("Nombre de la actividad").performTextInput("Partido antiguo")
+        compose.onNodeWithTag("live_save").performScrollTo().performClick()
+        compose.runOnIdle {
+            assertEquals(start,savedDay);assertEquals(1,saves)
+            assertEquals(LiveActivityState.Phase.IDLE,runtime.state.phase)
+            val archived=StateOverview.fromBytes(LocalSnapshotStore(context,account).read())!!.completeHistory.single()
+            assertEquals("Partido antiguo",archived.title)
+            LiveActivityRuntime.stopAll()
+        }
     }
     @Test fun activeLiveActivityBlocksAllClassicSessionEntrypointsBeforeAnyWrite() {
         val account = "test-inverse-guard-${UUID.randomUUID()}"

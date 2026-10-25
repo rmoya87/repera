@@ -236,10 +236,12 @@ fun ReperaMobileScreen(
             }
         }
         LaunchedEffect(initialExternalRoute) {
-            initialExternalRoute?.takeIf { it == "en-vivo" || it == "inicio" }?.let {
-                navigateTab(it);onExternalRouteHandled()
+            initialExternalRoute?.takeIf { it == "en-vivo" || it == "inicio" || it == "entreno-activo" }?.let {
+                navigateTab(LiveNavigationTarget.resolvedRoute(it,activeWorkout!=null))
+                onExternalRouteHandled()
             }
         }
+        var homeFocusDay by remember { mutableStateOf<java.time.LocalDate?>(null) }
         val centerVisible = centerSnapshot?.isLinkedOrInvited == true
         var showCenter by remember { mutableStateOf(false) }
         if (showCenter && centerVisible) {
@@ -284,6 +286,7 @@ fun ReperaMobileScreen(
             ) {
                 composable("inicio") {
                     HomeTab(
+                        focusDay=homeFocusDay,
                         heartSeriesProvider = heartSeriesProvider,
                         displayName = displayName,
                         busy = busy,
@@ -455,10 +458,23 @@ fun ReperaMobileScreen(
                         onBack = { navController.popBackStack() }
                     )
                 }
+                composable("entreno-activo") {
+                    val workout=activeWorkout
+                    if(workout==null) {
+                        LaunchedEffect(Unit) { navigateTab("inicio") }
+                    } else {
+                        ActiveWorkoutScreen(workout,busy,wodTimer,onWodTimerAction,onWodTimerTick,
+                            onWodScore,onWodMovement,onCompleteWodBlock,onReviseWodMovement,onDeleteWodMovement,
+                            onLogSet,onLogDropSet,onLogRestPauseSet,onReviseSet,onDeleteSet,onNext,onFinish,
+                            onDiscardSession,{navController.navigate("reloj")},{navController.popBackStack()},
+                            overview?.activeLocationPin,accountId,onActivePinChange)
+                    }
+                }
                 composable("en-vivo") {
                     LiveActivityScreen(accountId = accountId,
-                        hasActiveWorkout = activeWorkout != null, onOpenWorkout = { navigateTab("inicio") },
+                        hasActiveWorkout = activeWorkout != null, onOpenWorkout = { navController.navigate("entreno-activo") },
                         onSaved = { onLiveActivitySaved(); navigateTab("inicio") },
+                        onSavedDay={ homeFocusDay=java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate() },
                         onOpenTools = { navController.navigate("crear") },
                         onOpenCenter = if (centerVisible) ({ showCenter = true }) else null)
                 }
@@ -694,7 +710,7 @@ fun ReperaMobileScreen(
  *  ubicación de iOS en SettingsView). El resto de ajustes de iOS aún no
  *  tiene pantalla Android. */
 @Composable
-private fun SettingsTab(
+internal fun SettingsTab(
     busy: Boolean,
     onOpenAIAccess: () -> Unit,
     onImportJson: () -> Unit,

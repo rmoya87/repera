@@ -1,5 +1,12 @@
 package dev.repera.mobile
 
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -93,6 +100,8 @@ internal fun LiveSportHistoryScreen(
         item { Text(if (sport.usesGPS) "Recorridos realizados" else "Actividades realizadas",
             style = MaterialTheme.typography.titleMedium) }
         items(own, key = { it.id }) { session ->
+            SaveRouteSwipeRow(session.id, sport.usesGPS && canSaveRoute(session.id),
+                { onSaveRoute(session.id) }) {
             Card(Modifier.fillMaxWidth().testTag("live_session_${session.id}").clickable { onOpenSession(session.id) }) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text(session.title, style = MaterialTheme.typography.titleSmall)
@@ -108,12 +117,33 @@ internal fun LiveSportHistoryScreen(
                         session.activeEnergyKcal?.takeIf { it > 0 }?.let { add("${it.roundToInt()} kcal") }
                     }
                     Text(metrics.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
-                    if (sport.usesGPS && canSaveRoute(session.id)) {
-                        TextButton(onClick = { onSaveRoute(session.id) }) { Text("Guardar ruta") }
-                    }
                 }
             }
+            }
         }
+    }
+}
+
+/** Reveal-only swipe: a gesture never writes a favorite without the action tap. */
+@Composable
+private fun SaveRouteSwipeRow(id:String,enabled:Boolean,onSave:()->Unit,content:@Composable ()->Unit) {
+    val width=with(LocalDensity.current) { 112.dp.toPx() }
+    var offset by remember(id) { mutableStateOf(0f) }
+    LaunchedEffect(enabled) { if(!enabled) offset=0f }
+    Box(Modifier.fillMaxWidth().testTag("swipe_route_$id")
+        .semantics {
+            if(enabled) customActions=listOf(CustomAccessibilityAction("Guardar ruta") { onSave();true })
+        }
+        .pointerInput(id,enabled,width) {
+            if(enabled) detectHorizontalDragGestures(
+                onHorizontalDrag={change,amount -> change.consume();offset=(offset+amount).coerceIn(-width,0f)},
+                onDragEnd={offset=if(offset < -width/2) -width else 0f},
+                onDragCancel={offset=0f})
+        }) {
+        if(enabled && offset<0f) TextButton(onClick={onSave();offset=0f},
+            modifier=Modifier.align(androidx.compose.ui.Alignment.CenterEnd).width(112.dp)
+                .testTag("save_route_$id")) { Text("Guardar ruta") }
+        Box(Modifier.offset { IntOffset(offset.roundToInt(),0) }) { content() }
     }
 }
 
