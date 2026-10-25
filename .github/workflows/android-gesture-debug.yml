@@ -54,7 +54,7 @@ jobs:
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096'
           # UNA linea (la accion ejecuta cada linea en un sh -c distinto).
-          script: adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; adb shell input keyevent 82 || true; sleep 3; gradle -p android :mobile:installDebug --no-daemon --stacktrace; RESULT=0; mkdir -p android/focused-evidence; for CLASS in TrainingSettingsInstrumentedTest LiveLocationSourceInstrumentedTest ReperaThemeInstrumentedTest; do mkdir -p android/focused-evidence/$CLASS; gradle -p android :mobile:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.repera.mobile.$CLASS --no-daemon --stacktrace; CODE=$?; echo "CLASS=$CLASS EXIT=$CODE"; if [ $CODE -ne 0 ]; then RESULT=1; fi; cp -r android/mobile/build/outputs/androidTest-results/connected/debug/. android/focused-evidence/$CLASS/ || true; done; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; adb logcat -d -t 3000 || true; exit $RESULT
+          script: adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; adb shell input keyevent 82 || true; sleep 3; gradle -p android :mobile:installDebug --no-daemon --stacktrace; RESULT=0; mkdir -p android/focused-evidence; for CLASS in BusinessProjectionInstrumentedTest HealthGoalsInstrumentedTest TrainingSettingsInstrumentedTest ReperaThemeInstrumentedTest; do mkdir -p android/focused-evidence/$CLASS; gradle -p android :mobile:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.repera.mobile.$CLASS --no-daemon --stacktrace; CODE=$?; echo "CLASS=$CLASS EXIT=$CODE"; if [ $CODE -ne 0 ]; then RESULT=1; fi; cp -r android/mobile/build/outputs/androidTest-results/connected/debug/. android/focused-evidence/$CLASS/ || true; done; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; adb logcat -d -t 3000 || true; exit $RESULT
 
 
 
@@ -62,7 +62,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: delta-settings-selected-gps-api30-evidence
+          name: parity-settings-business-effort-api30-evidence
           path: |
             android/screenshots/**
             android/focused-evidence/**
