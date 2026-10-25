@@ -449,7 +449,7 @@ final class LiveActivityRecorder: NSObject {
     // Los avisos por voz son opt-out; las notificaciones de segundo plano
     // siguen dependiendo del permiso del usuario.
     private let spokenGuidanceKey = "repera.live.spokenGuidance.enabled"
-    private var speechSynthesizer = AVSpeechSynthesizer()
+    @ObservationIgnored private var speechSynthesizer = AVSpeechSynthesizer()
     private(set) var spokenGuidanceEnabled = true
     private var lastPosition: CLLocation?
     private var lastSave = Date.distantPast
@@ -1225,29 +1225,13 @@ struct LiveActivityView: View {
                 if recorder.phase == .recording,
                    recorder.chosenRoute != nil,
                    let instruction = recorder.upcomingTurn {
-                    HStack(spacing: 10) {
-                        Label(instruction, systemImage: "arrow.triangle.turn.up.right.diamond")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(OG.label)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Button {
-                            recorder.toggleSpokenGuidance()
-                        } label: {
-                            Image(systemName: recorder.spokenGuidanceEnabled
-                                  ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                                .font(.subheadline)
-                                .foregroundStyle(OG.label)
-                                .frame(width: 38, height: 38)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(recorder.spokenGuidanceEnabled
-                                            ? "Silenciar indicaciones" : "Activar indicaciones por voz")
-                    }
-                    .padding(.leading, 14)
-                    .padding(.trailing, 5)
-                    .padding(.vertical, 5)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 18))
-                    .accessibilityLabel("Próxima indicación orientativa: \(instruction)")
+                    Label(instruction, systemImage: "arrow.triangle.turn.up.right.diamond")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(OG.label)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .glassEffect(.regular, in: .rect(cornerRadius: 18))
+                        .accessibilityLabel("Próxima indicación orientativa: \(instruction)")
                 }
                 if let gpsMessage = recorder.gpsMessage, recorder.phase == .idle {
                     Text(gpsMessage)
@@ -1420,7 +1404,19 @@ struct LiveActivityView: View {
                 Text(recorder.currentKilometerMetric)
                     .font(.subheadline.weight(.semibold).monospacedDigit())
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .minimumScaleFactor(0.75)
+                Button {
+                    recorder.toggleSpokenGuidance()
+                } label: {
+                    Image(systemName: recorder.spokenGuidanceEnabled
+                          ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(OG.label)
+                        .frame(width: 30, height: 32)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(recorder.spokenGuidanceEnabled
+                                    ? "Silenciar avisos por kilómetro y giro" : "Activar avisos hablados")
             }
             ProgressView(value: min(1000, recorder.activeKilometerMeters), total: 1000)
                 .tint(OG.accent)
