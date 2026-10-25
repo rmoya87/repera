@@ -80,6 +80,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     var error by remember { mutableStateOf<String?>(null) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var showSportPicker by remember { mutableStateOf(false) }
+    var sportQuery by remember {mutableStateOf("")}
     var showingMetrics by remember { mutableStateOf(false) }
     var previewHealth by remember { mutableStateOf<dev.repera.domain.SessionCardioSample?>(null) }
     LaunchedEffect(state.phase, state.gpsSessionID) {
@@ -144,9 +145,11 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
             Surface(shape = MaterialTheme.shapes.large) {
                 Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState()).padding(16.dp)) {
                     Text("Elegir actividad", style = MaterialTheme.typography.titleLarge)
+                    OutlinedTextField(sportQuery,{sportQuery=it},label={Text("Buscar actividad")},singleLine=true,modifier=Modifier.fillMaxWidth())
                     LiveSport.groups.forEach { group ->
-                        Text(group, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-                        LiveSport.selectableCases.filter { it.group == group }.forEach { sport ->
+                        val filtered=LiveSport.selectableCases.filter {it.group==group && foldForSearch(it.title).contains(foldForSearch(sportQuery))}
+                        if(filtered.isNotEmpty()) Text(group, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
+                        filtered.forEach { sport ->
                             TextButton(onClick = { runtime.choose(sport);showSportPicker = false },
                                 modifier = Modifier.fillMaxWidth().testTag("choose_sport_${sport.id}")) {
                                 Icon(sport.materialIcon,contentDescription=null,modifier=Modifier.size(22.dp))
