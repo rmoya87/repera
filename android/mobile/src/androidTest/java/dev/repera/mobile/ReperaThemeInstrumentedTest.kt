@@ -9,6 +9,8 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -168,7 +170,8 @@ class ReperaThemeInstrumentedTest {
         compose.onNodeWithText("Entrenamientos · " + focusedDay!!.format(reperaDayFormatter))
             .performScrollTo().assertIsDisplayed()
         compose.runOnIdle {screen=1}
-        compose.onNodeWithText("Peso corporal").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("progress_list").performScrollToNode(hasText("Peso corporal"))
+        compose.onNodeWithText("Peso corporal").assertIsDisplayed()
         Thread.sleep(500)
         val finalBitmap=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()!!
         val finalContext=InstrumentationRegistry.getInstrumentation().targetContext

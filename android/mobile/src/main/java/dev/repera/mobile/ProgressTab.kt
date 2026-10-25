@@ -1,4 +1,5 @@
 package dev.repera.mobile
+import androidx.compose.ui.platform.testTag
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.animateContentSize
@@ -100,7 +101,7 @@ internal fun ProgressTab(
     ProvideLazyDragAutoScroll(dragListState) {
     LazyColumn(
         state = dragListState,
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().then(Modifier.testTag("progress_list")),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
