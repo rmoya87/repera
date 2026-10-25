@@ -1196,6 +1196,22 @@ struct LiveActivityView: View {
                         .glassEffect(.regular, in: .rect(cornerRadius: 18))
                         .accessibilityLabel("Próxima indicación orientativa: \(instruction)")
                 }
+                if recorder.sport.usesGPS,
+                   recorder.phase == .recording || recorder.phase == .paused {
+                    HStack(spacing: 8) {
+                        Text("Km \(recorder.activeKilometer)")
+                            .font(.subheadline.weight(.bold))
+                        Text("\(Int(recorder.activeKilometerMeters)) m")
+                            .font(.caption.monospacedDigit())
+                        Spacer(minLength: 4)
+                        Text(recorder.currentKilometerMetric)
+                            .font(.subheadline.weight(.semibold).monospacedDigit())
+                    }
+                    .foregroundStyle(OG.label)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
+                }
                 if let result = recorder.latestKilometerReport {
                     Label(result, systemImage: "flag.checkered")
                         .font(.subheadline.weight(.semibold))
