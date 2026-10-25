@@ -47,7 +47,7 @@ struct RootTabView: View {
                     PlanView(section: $planSection, onOpenRoutine: openRoutinePreview)
                 }
 
-                SwiftUI.Tab("Comenzar", systemImage: "play.fill", value: AppTab.center) {
+                SwiftUI.Tab("Comenzar", systemImage: "livephoto.play", value: AppTab.center) {
                     LiveActivityView(
                         onSaved: { date in
                             homeFocusDay = date

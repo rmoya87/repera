@@ -457,7 +457,7 @@ final class LiveActivityRecorder: NSObject {
                 }
                 gpsMessage = nil
             } else {
-                gpsMessage = "Seguimiento GPS activo. Para registrar con la pantalla bloqueada, actualiza la app con la capacidad de ubicación en segundo plano."
+                gpsMessage = "GPS solo con la app abierta."
             }
             manager.startUpdatingLocation()
         default:
@@ -765,6 +765,8 @@ struct LiveActivityView: View {
     @State private var notes = ""
     @State private var savedWorkoutID: UUID?
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
+    /// Muestra Recentrar únicamente si se ha alejado el mapa de la posición real.
+    @State private var mapIsCentered = true
 
     var onSaved: (Date) -> Void
     var onOpenWorkout: () -> Void
@@ -788,13 +790,14 @@ struct LiveActivityView: View {
             }
             .background(OG.bg)
             .toolbar(recorder.phase == .review ? .visible : .hidden, for: .navigationBar)
-            .navigationTitle(recorder.phase == .review ? "Guardar actividad" : "Comenzar")
+            .navigationTitle(recorder.phase == .review ? "Guardar entreno" : "Comenzar")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $sportPicker) {
                 LiveSportPicker { sport in
                     recorder.choose(sport)
                     showingMetrics = false
                     position = .userLocation(fallback: .automatic)
+                    mapIsCentered = true
                 }
             }
             // Nunca abrir fileImporter mientras se está cerrando otra sheet.
@@ -817,16 +820,22 @@ struct LiveActivityView: View {
             } message: {
                 Text(routeError ?? "")
             }
-            .confirmationDialog("¿Descartar la actividad?", isPresented: $showDiscard) {
-                Button("Descartar sin guardar", role: .destructive) {
-                    recorder.discard()
-                    title = ""
-                    notes = ""
-                    showingMetrics = false
-                }
-                Button("Cancelar", role: .cancel) {}
-            } message: {
-                Text("El recorrido y los datos registrados se perderán.")
+            .sheet(isPresented: $showDiscard) {
+                OGConfirmSheet(
+                    systemImage: "trash",
+                    title: "¿Descartar entreno?",
+                    message: "Perderás el recorrido y los datos que no hayas guardado.",
+                    confirmTitle: "Descartar sin guardar",
+                    onConfirm: {
+                        showDiscard = false
+                        recorder.discard()
+                        title = ""
+                        notes = ""
+                        showingMetrics = false
+                        mapIsCentered = true
+                    },
+                    onCancel: { showDiscard = false }
+                )
             }
         }
         .tint(OG.accent)
@@ -867,6 +876,13 @@ struct LiveActivityView: View {
                 }
             }
             .mapStyle(.standard(elevation: .realistic))
+            .onMapCameraChange(frequency: .onEnd) { context in
+                guard let user = recorder.currentCoordinate else { return }
+                let center = context.camera.centerCoordinate
+                let meters = CLLocation(latitude: user.latitude, longitude: user.longitude)
+                    .distance(from: CLLocation(latitude: center.latitude, longitude: center.longitude))
+                mapIsCentered = meters < 65
+            }
             .ignoresSafeArea()
 
             VStack(spacing: 12) {
@@ -897,38 +913,75 @@ struct LiveActivityView: View {
         }
         .task {
             recorder.prepareMapLocation()
+            if mapIsCentered, let user = recorder.currentCoordinate {
+                center3DMap(on: user)
+            }
         }
-        .onChange(of: recorder.routePoints.count) { _, _ in
-            guard recorder.phase == .recording,
-                  let coordinate = recorder.currentCoordinate else { return }
-            position = .region(MKCoordinateRegion(
-                center: coordinate,
-                span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
-            ))
+        .onChange(of: recorder.currentCoordinate?.latitude) { _, _ in
+            if mapIsCentered, let user = recorder.currentCoordinate { center3DMap(on: user) }
+        }
+        .onChange(of: recorder.currentCoordinate?.longitude) { _, _ in
+            if mapIsCentered, let user = recorder.currentCoordinate { center3DMap(on: user) }
         }
     }
 
+    /// Descartar encima, GPS y Métricas debajo. GPS solo al alejarse del centro.
     private var mapHeader: some View {
-        HStack(spacing: 10) {
-            // El mapa queda despejado: sin globo «Comenzar / Bicicleta».
-            // El estado de la sesión y las métricas viven en la parte inferior.
+        HStack(alignment: .top) {
             Spacer(minLength: 0)
-
-            if recorder.phase == .idle, let onOpenCenter {
-                mapCircleButton("building.2", label: "Mi centro", action: onOpenCenter)
-            }
-            mapCircleButton("location.north.line.fill", label: "Centrar mapa") {
-                position = .userLocation(fallback: .automatic)
-            }
-            if recorder.phase == .recording || recorder.phase == .paused {
-                mapCircleButton("chart.bar.xaxis", label: "Ver métricas") {
-                    showingMetrics = true
+            VStack(spacing: 10) {
+                if recorder.phase == .recording || recorder.phase == .paused {
+                    mapCircleButton("xmark", label: "Descartar entreno") {
+                        showDiscard = true
+                    }
                 }
-                mapCircleButton("xmark", label: "Descartar actividad") {
-                    showDiscard = true
+                if !mapIsCentered, recorder.currentCoordinate != nil {
+                    mapCircleButton("location.north.line.fill", label: "Centrar en mi posición") {
+                        if let user = recorder.currentCoordinate {
+                            mapIsCentered = true
+                            center3DMap(on: user)
+                        }
+                    }
+                }
+                if recorder.phase == .recording || recorder.phase == .paused {
+                    mapCircleButton("chart.bar.xaxis", label: "Ver métricas") {
+                        showingMetrics = true
+                    }
+                }
+                if recorder.phase == .idle, let onOpenCenter {
+                    mapCircleButton("building.2", label: "Mi centro", action: onOpenCenter)
                 }
             }
         }
+    }
+
+    /// Cámara inclinada con relieve realista; continúa centrada durante una sesión.
+    private func center3DMap(on user: CLLocationCoordinate2D) {
+        position = .camera(MapCamera(
+            centerCoordinate: user,
+            distance: 900,
+            heading: 0,
+            pitch: 55
+        ))
+    }
+
+    private func route3DPosition(_ points: [WorkoutRoutePoint]) -> MapCameraPosition {
+        let region = routeRegion(points)
+        let north = CLLocation(
+            latitude: region.center.latitude + region.span.latitudeDelta / 2,
+            longitude: region.center.longitude
+        )
+        let south = CLLocation(
+            latitude: region.center.latitude - region.span.latitudeDelta / 2,
+            longitude: region.center.longitude
+        )
+        let span = north.distance(from: south)
+        return .camera(MapCamera(
+            centerCoordinate: region.center,
+            distance: max(900, span * 2.6),
+            heading: 0,
+            pitch: 55
+        ))
     }
 
     private func mapCircleButton(
@@ -1176,7 +1229,8 @@ struct LiveActivityView: View {
                 try routes.addGPX(data: data, name: url.deletingPathExtension().lastPathComponent)
                 guard let route = routes.routes.first else { return }
                 recorder.selectRoute(route)
-                position = .region(routeRegion(route.points))
+                position = route3DPosition(route.points)
+                mapIsCentered = false
             } catch let error as LiveRouteError {
                 routeError = error.localizedDescription
             } catch {
@@ -1328,7 +1382,7 @@ struct LiveActivityView: View {
                     Button {
                         saveRecordedActivity()
                     } label: {
-                        Label("Guardar actividad", systemImage: "checkmark")
+                        Text("Guardar")
                             .font(.headline)
                             .frame(maxWidth: .infinity, minHeight: 52)
                             .foregroundStyle(.black)
@@ -1339,7 +1393,19 @@ struct LiveActivityView: View {
                 }
 
                 Section {
-                    Button("Descartar actividad", role: .destructive) { showDiscard = true }
+                    Button(role: .destructive) {
+                        showDiscard = true
+                    } label: {
+                        Text("Descartar")
+                            .font(.system(size: 16, weight: .medium))
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, 16)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(OG.red)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 }
             }
         }
@@ -1413,7 +1479,8 @@ struct LiveActivityView: View {
                                     routeID: route.id,
                                     onUseRoute: { selected in
                                         recorder.selectRoute(selected)
-                                        position = .region(routeRegion(selected.points))
+                                        position = route3DPosition(selected.points)
+                                        mapIsCentered = false
                                         routePicker = false
                                     },
                                     onDeleteRoute: { deletedID in
