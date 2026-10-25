@@ -25,6 +25,8 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         (directory / "AITrainingProgramsView.swift").write_text("// AI programs", encoding="utf-8")
         (directory / "AIChangeRequestStore.swift").write_text("// AI change store", encoding="utf-8")
         (directory / "RemoteExerciseCatalogStore.swift").write_text("// Catalog feed", encoding="utf-8")
+        (directory / "LiveActivityView.swift").write_text("// En vivo", encoding="utf-8")
+        (directory / "WorkoutLiveActivityCoordinator.swift").write_text("// ActivityKit", encoding="utf-8")
         watch = self.root / "Apps/ReperaWatch/Sources"
         watch.mkdir(parents=True)
         for name in (
@@ -35,6 +37,9 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         (self.root / "project.yml").write_text(
             "targets:\n  Repera:\n    sources:\n      - path: Apps/Repera/Sources\n"
             "      - path: Apps/Repera/Sources/RemoteExerciseCatalogStore.swift\n"
+            "      - path: Apps/Repera/Sources/LiveActivityView.swift\n"
+            "      - path: Apps/Repera/Sources/WorkoutLiveActivityCoordinator.swift\n"
+            "      - path: Apps/Shared/TrainingActivityAttributes.swift\n"
             "    dependencies:\n      - package: Supabase\n        product: Supabase\n"
             "  ReperaWatch:\n    sources:\n      - path: Apps/ReperaWatch/Sources\n",
             encoding="utf-8",
@@ -47,6 +52,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "AITrainingInboxStore.swift", "AIAccessView.swift",
             "AITrainingContextStore.swift", "AITrainingProgramsView.swift",
             "AIChangeRequestStore.swift", "RemoteExerciseCatalogStore.swift",
+            "LiveActivityView.swift", "WorkoutLiveActivityCoordinator.swift",
         )
         app_pbx = (
             "999999999999999999999999 /* Repera */ = {\n"
@@ -213,6 +219,23 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "RemoteExerciseCatalogStore.swift"):
             validate(self.root)
+
+    def test_missing_live_source_requires_checkout_update(self):
+        for name in ("LiveActivityView.swift", "WorkoutLiveActivityCoordinator.swift"):
+            source = self.root / "Apps/Repera/Sources" / name
+            original = source.read_text(encoding="utf-8")
+            source.unlink()
+            with self.assertRaisesRegex(ValueError, name):
+                validate(self.root)
+            source.write_text(original, encoding="utf-8")
+
+    def test_stale_live_sources_in_generated_target_are_rejected(self):
+        for name in ("LiveActivityView.swift", "WorkoutLiveActivityCoordinator.swift"):
+            pbx = self.pbx.read_text(encoding="utf-8")
+            self.pbx.write_text(pbx.replace(f"{name} in Sources", ""), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, name):
+                validate(self.root)
+            self.pbx.write_text(pbx, encoding="utf-8")
 
     def test_missing_ai_inbox_store_requires_checkout_update(self):
         (self.root / "Apps/Repera/Sources/AITrainingInboxStore.swift").unlink()
