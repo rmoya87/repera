@@ -1174,6 +1174,7 @@ struct LiveActivityView: View {
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
     /// Muestra Recentrar únicamente si se ha alejado el mapa de la posición real.
     @State private var mapIsCentered = true
+    @State private var navigationMapEnabled = true
 
     var onSaved: (Date) -> Void
     var onOpenWorkout: () -> Void
@@ -1254,6 +1255,71 @@ struct LiveActivityView: View {
         }
     }
 
+    private struct LiveColoredMapSegment: Identifiable {
+        var id: Int
+        var coordinates: [CLLocationCoordinate2D]
+        var color: Color
+    }
+
+    /// Ruta detallada por velocidad, manteniendo tramos discontinuos cuando
+    /// se pierde la señal. Se agrupan colores consecutivos para no crear miles
+    /// de overlays en MapKit durante entrenamientos prolongados.
+    private var coloredLiveSegments: [LiveColoredMapSegment] {
+        let points = recorder.routePoints
+        guard points.count >= 2 else { return [] }
+        let limit = recorder.sport.isCycling ? 22.0 : 12.0
+        var measurements: [(index: Int, start: CLLocationCoordinate2D,
+                            end: CLLocationCoordinate2D, speed: Double)] = []
+        for index in 1..<points.count {
+            let a = points[index - 1]
+            let b = points[index]
+            let seconds = b.recordedAt.timeIntervalSince(a.recordedAt)
+            guard seconds > 0, seconds <= 30 else { continue }
+            let start = CLLocationCoordinate2D(latitude: a.latitude, longitude: a.longitude)
+            let end = CLLocationCoordinate2D(latitude: b.latitude, longitude: b.longitude)
+            let meters = CLLocation(latitude: a.latitude, longitude: a.longitude)
+                .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude))
+            let derived = meters / seconds
+            guard derived.isFinite, derived <= limit else { continue }
+            let speed = b.speedMps.flatMap { $0 > 0 && $0 <= limit ? $0 : nil } ?? derived
+            measurements.append((index, start, end, speed))
+        }
+        guard !measurements.isEmpty else { return [] }
+        let slowest = measurements.map(\.speed).min() ?? 0
+        let fastest = max(measurements.map(\.speed).max() ?? 0, slowest + 0.1)
+        var output: [LiveColoredMapSegment] = []
+        var previousIndex = -1
+        var previousBucket = -1
+        for sample in measurements {
+            let fraction = min(1, max(0, (sample.speed - slowest) / (fastest - slowest)))
+            let bucket = min(5, Int((fraction * 5).rounded()))
+            if sample.index == previousIndex + 1, bucket == previousBucket,
+               !output.isEmpty {
+                output[output.count - 1].coordinates.append(sample.end)
+            } else {
+                output.append(LiveColoredMapSegment(
+                    id: sample.index, coordinates: [sample.start, sample.end],
+                    color: Self.traceColor(Double(bucket) / 5)
+                ))
+            }
+            previousIndex = sample.index
+            previousBucket = bucket
+        }
+        return output
+    }
+
+    /// Misma escala que el mapa de los entrenamientos guardados:
+    /// verde = más lento, amarillo = intermedio, rojo = más rápido.
+    private static func traceColor(_ fraction: Double) -> Color {
+        let t = min(1, max(0, fraction))
+        if t < 0.5 {
+            let u = t * 2
+            return Color(red: 0.2 + 0.8 * u, green: 0.82, blue: 0.2 * (1 - u))
+        }
+        let u = (t - 0.5) * 2
+        return Color(red: 1, green: 0.82 * (1 - u) + 0.27 * u, blue: 0.23 * u)
+    }
+
     /// Canvas edge-to-edge; únicamente las capas de interacción reciben material.
     /// Tab bar principal permanece nativa y aparece superpuesta al mapa.
     private var mapView: some View {
@@ -1265,11 +1331,9 @@ struct LiveActivityView: View {
                     })
                     .stroke(OG.blue, lineWidth: 5)
                 }
-                if recorder.routePoints.count > 1 {
-                    MapPolyline(coordinates: recorder.routePoints.map {
-                        CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
-                    })
-                    .stroke(OG.accent, lineWidth: 5)
+                ForEach(coloredLiveSegments) { segment in
+                    MapPolyline(coordinates: segment.coordinates)
+                        .stroke(segment.color, lineWidth: 5)
                 }
                 if let current = recorder.currentCoordinate {
                     Annotation("Tú", coordinate: current) {
@@ -1282,7 +1346,7 @@ struct LiveActivityView: View {
                     }
                 }
             }
-            .mapStyle(.standard(elevation: .realistic))
+            .mapStyle(.standard(elevation: navigationMapEnabled ? .realistic : .flat))
             .onMapCameraChange(frequency: .onEnd) { context in
                 guard let user = recorder.currentCoordinate else { return }
                 let center = context.camera.centerCoordinate
@@ -1356,8 +1420,18 @@ struct LiveActivityView: View {
                         showDiscard = true
                     }
                 }
+                mapCircleButton(
+                    navigationMapEnabled ? "map" : "cube.transparent",
+                    label: navigationMapEnabled ? "Cambiar a vista 2D" : "Cambiar a modo navegador"
+                ) {
+                    navigationMapEnabled.toggle()
+                    if let user = recorder.currentCoordinate {
+                        mapIsCentered = true
+                        center3DMap(on: user)
+                    }
+                }
                 if !mapIsCentered, recorder.currentCoordinate != nil {
-                    mapCircleButton("location.north.line.fill", label: "Centrar en mi posición") {
+                    mapCircleButton("location.fill", label: "Centrar en mi posición") {
                         if let user = recorder.currentCoordinate {
                             mapIsCentered = true
                             center3DMap(on: user)
@@ -1386,6 +1460,15 @@ struct LiveActivityView: View {
 
     /// Cámara inclinada con relieve realista; continúa centrada durante una sesión.
     private func center3DMap(on user: CLLocationCoordinate2D) {
+        if !navigationMapEnabled {
+            position = .camera(MapCamera(
+                centerCoordinate: user,
+                distance: recorder.sport.isCycling ? 650 : 450,
+                heading: 0,
+                pitch: 0
+            ))
+            return
+        }
         // Cámara tipo navegador: rumbo de la marcha, perspectiva baja
         // y un punto de mira por delante para dejar visible la ruta siguiente.
         let heading = recorder.currentCourseDegrees ?? 0
