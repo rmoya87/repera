@@ -1264,6 +1264,7 @@ struct LiveActivityView: View {
                 }
             }
             .navigationTitle("Mis rutas")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
