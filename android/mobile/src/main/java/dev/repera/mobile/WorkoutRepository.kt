@@ -218,7 +218,7 @@ class WorkoutRepository(context: Context, googleId: String) {
                         else -> item.put("reps", entry.quantity)
                     }
                 }
-                if (format == "ladder")
+                if (format == "ladder" && ladderScheme != null)
                     item.put("repScheme", JSONArray(ladderScheme))
                 movements.put(item)
             }
@@ -398,8 +398,10 @@ class WorkoutRepository(context: Context, googleId: String) {
                 require(draft.rounds.toLong() * (draft.workSeconds + draft.restSeconds) <= 10800L)
                 require(draft.workSeconds + draft.restSeconds <= 600)
             }
-            require(draft.format != "ladder" ||
-                (draft.ladderScheme != null && draft.ladderScheme.size in 2..12 &&
+            // Sin esquema = cada movimiento conserva sus reps/repScheme propios (plantillas ladder con
+            // movimientos repetidos, como WODTemplate.makeBlock de Apple). Con esquema, se valida.
+            require(draft.format != "ladder" || draft.ladderScheme == null ||
+                (draft.ladderScheme.size in 2..12 &&
                     draft.ladderScheme.all { it in 1..1000 })) {
                 "La escalera necesita un esquema tipo 21-15-9"
             }

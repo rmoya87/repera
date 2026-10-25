@@ -7,6 +7,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasScrollAction
@@ -192,5 +193,33 @@ class EditorUiInstrumentedTest {
         compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
         assertEquals(3, delivered!!.size)
         assertEquals(t.movements.size, delivered!![2].entries.size)
+    }
+
+    /** Plantilla ladder con movimientos repetidos: se añade íntegra y el título sugerido llega antes de Guardar. Solo compilado. */
+    @Test fun planPickLadderTemplateKeepsRepeatedMovementsAndSuggestsTitle() {
+        var delivered: List<RoutineBlockDraft>? = null
+        var title: String? = null
+        val empty = RoutineEntry(id = "r-e", title = "Entreno", supported = true, blocks = emptyList())
+        compose.setContent { MaterialThemeForTest {
+            RoutineBlocksEditorScreen(routine = empty, exercises = listOf(exercise), busy = false,
+                onReplace = { delivered = it }, onBack = {}, onTitleSuggested = { title = it }) } }
+        compose.onNodeWithTag("plan_pick_wod").performClick()
+        compose.onNodeWithTag("plan_wod_pick_21-15-9-thruster-bjo").performClick()
+        compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
+        assertEquals("21-15-9 Thruster + BJO", title)
+        val b = delivered!!.last()
+        assertEquals("ladder", b.format); assertEquals(6, b.entries.size)
+    }
+
+    @Test fun planBlockDownAndSwipeRemove() {
+        var delivered: List<RoutineBlockDraft>? = null
+        compose.setContent { MaterialThemeForTest {
+            RoutineBlocksEditorScreen(routine = planRoutine(), exercises = listOf(exercise), busy = false,
+                onReplace = { delivered = it }, onBack = {}) } }
+        compose.onAllNodesWithTag("plan_block_down")[0].performClick()
+        compose.onAllNodesWithTag("plan_entry_swipe")[0].performTouchInput { swipeLeft() }
+        compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
+        assertEquals("b-w", delivered!![0].blockId)
+        assertEquals(0, delivered!![1].entries.size)
     }
 }

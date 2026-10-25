@@ -45,8 +45,12 @@ fun RoutineBlocksEditorScreen(
     onBack: () -> Unit,
     loadGuideProvider: (exerciseId: String, targetReps: Int, targetRir: Double?) ->
         LoadGuide? = { _, _, _ -> null },
-    importableRoutines: List<RoutineEntry> = emptyList()
+    importableRoutines: List<RoutineEntry> = emptyList(),
+    /** Como DayEditorView: al elegir una plantilla con título vacío/«Entreno»/«Nuevo entreno», el título pasa a ser el de la
+     *  plantilla. Se notifica justo antes de onReplace (Guardar); nada se persiste antes. */
+    onTitleSuggested: (String) -> Unit = {}
 ) {
+    var suggestedTitle by remember(routine.id) { mutableStateOf<String?>(null) }
     val nameById = remember(exercises) { exercises.associate { it.id to it.name } }
     val blocks = remember(routine.id) {
         mutableStateListOf<BlockDraftUi>().apply {
@@ -75,6 +79,7 @@ fun RoutineBlocksEditorScreen(
                     }
                     drafts.add(parsed)
                 }
+                suggestedTitle?.let(onTitleSuggested)
                 onReplace(drafts)
             }, enabled = !busy) { Text("Guardar") }
         }
@@ -93,6 +98,8 @@ fun RoutineBlocksEditorScreen(
                     exercises = exercises,
                     loadGuideProvider = loadGuideProvider,
                     onRemove = if (blocks.size > 1) ({ blocks.removeAt(index) }) else null,
+                    onBlockUp = if (index > 0) ({ val m = blocks.removeAt(index); blocks.add(index - 1, m) }) else null,
+                    onBlockDown = if (index < blocks.size - 1) ({ val m = blocks.removeAt(index); blocks.add(index + 1, m) }) else null,
                     handle = handle,
                     moveTargets = blocks.mapIndexedNotNull { ti, tb ->
                         if (ti == index) null else ti to tb.title.ifBlank { "Bloque ${ti + 1}" } },
@@ -153,8 +160,10 @@ fun RoutineBlocksEditorScreen(
                             val t = dev.repera.domain.CatalogWods.search(query)[i]
                             TextButton(modifier = Modifier.testTag("plan_wod_pick_${t.id}"), onClick = {
                                 val info = EditorBlockOps.templateToBlockInfo(t, exercises)
-                                if (info == null) error = "«" + t.name + "» es una escalera con movimientos repetidos y no cabe en este editor"
-                                else { blocks.add(BlockDraftUi(info)); error = null }
+                                blocks.add(BlockDraftUi(info)); error = null
+                                val cur = routine.title.trim()
+                                if (suggestedTitle == null && (cur.isEmpty() || cur == "Entreno" || cur == "Nuevo entreno"))
+                                    suggestedTitle = t.name
                                 showWods = false
                             }) { Text(t.name + " · " + t.formatLabel) }
                         } } } })
@@ -227,7 +236,7 @@ private class BlockDraftUi(info: RoutineBlockInfo? = null) {
         val intv = interval.toIntOrNull() ?: return null
         val wk = work.toIntOrNull() ?: return null
         val rst = rest.toIntOrNull() ?: return null
-        val scheme = if (format == "ladder") {
+        val scheme = if (format == "ladder" && ladder.isNotBlank()) {
             ladder.split("-", ",", " ").filter { it.isNotBlank() }
                 .map { it.toIntOrNull() ?: return null }
         } else null
@@ -264,7 +273,9 @@ private fun BlockEditorCard(
     moveTargets: List<Pair<Int, String>> = emptyList(),
     onMoveEntry: (Int, Int) -> Unit = { _, _ -> },
     onEntryBounds: (Int, Float, Float) -> Unit = { _, _, _ -> },
-    onEntryDrop: (entryIndex: Int, centerY: Float, sameBlockTarget: Int) -> Unit = { _, _, _ -> }
+    onEntryDrop: (entryIndex: Int, centerY: Float, sameBlockTarget: Int) -> Unit = { _, _, _ -> },
+    onBlockUp: (() -> Unit)? = null,
+    onBlockDown: (() -> Unit)? = null
 ) {
     val entryHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -279,6 +290,8 @@ private fun BlockEditorCard(
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
+                TextButton(enabled = onBlockUp != null, modifier = Modifier.testTag("plan_block_up"), onClick = { onBlockUp?.invoke() }) { Text("↑") }
+                TextButton(enabled = onBlockDown != null, modifier = Modifier.testTag("plan_block_down"), onClick = { onBlockDown?.invoke() }) { Text("↓") }
                 onRemove?.let {
                     TextButton(onClick = it) { Text("Quitar") }
                 }
@@ -324,9 +337,19 @@ private fun BlockEditorCard(
                 }
             }
             block.entries.forEachIndexed { index, entry ->
+              androidx.compose.runtime.key(entry) {
                 DragReorderItem(index, entryHeights, block.entries.size,
                     onDrop = { cy, t -> onEntryDrop(index, cy, t) },
                     onBounds = { top, bottom -> onEntryBounds(index, top, bottom) }) { entryHandle ->
+                  // Deslizar para quitar (OGSwipeDeleteButton de Apple); el arrastre sigue siendo por pulsación larga.
+                  val swipe = androidx.compose.material3.rememberSwipeToDismissBoxState(
+                      confirmValueChange = { v ->
+                          if (v == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) {
+                              block.entries.remove(entry); true } else false })
+                  androidx.compose.material3.SwipeToDismissBox(state = swipe, enableDismissFromStartToEnd = false,
+                      modifier = Modifier.testTag("plan_entry_swipe"),
+                      backgroundContent = { Text("Quitar", color = MaterialTheme.colorScheme.error,
+                          modifier = Modifier.fillMaxWidth().padding(16.dp)) }) {
                     EntryEditorRow(
                         entry = entry,
                         resolvedName = entry.name.ifBlank {
@@ -335,12 +358,16 @@ private fun BlockEditorCard(
                         unitChoices = exercises.firstOrNull { it.id == entry.exerciseId }?.let { ex ->
                             dev.repera.domain.AppleCardioUnits.allowsCalorieOrDistanceToggle(ex.name, ex.equipment) } == true,
                         loadGuideProvider = loadGuideProvider,
-                        onRemove = { block.entries.removeAt(index) },
+                        onRemove = { block.entries.remove(entry) },
                         handle = entryHandle,
                         moveTargets = moveTargets,
-                        onMove = { target -> onMoveEntry(index, target) }
+                        onMove = { target -> onMoveEntry(index, target) },
+                        onUp = if (index > 0) ({ val m = block.entries.removeAt(index); block.entries.add(index - 1, m) }) else null,
+                        onDown = if (index < block.entries.size - 1) ({ val m = block.entries.removeAt(index); block.entries.add(index + 1, m) }) else null
                     )
+                  }
                 }
+              }
             }
             if (block.format != "strength") {
                 TextButton(modifier = Modifier.testTag("plan_add_rest"), onClick = {
@@ -387,7 +414,9 @@ private fun EntryEditorRow(
     handle: Modifier = Modifier,
     moveTargets: List<Pair<Int, String>> = emptyList(),
     onMove: (Int) -> Unit = {},
-    unitChoices: Boolean = false
+    unitChoices: Boolean = false,
+    onUp: (() -> Unit)? = null,
+    onDown: (() -> Unit)? = null
 ) {
     val isRest = entry.sourceJson?.let { runCatching { JSONObject(it).optBoolean("isRest") }.getOrDefault(false) } == true
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -405,6 +434,8 @@ private fun EntryEditorRow(
                     }
                 }
             }
+            TextButton(enabled = onUp != null, modifier = Modifier.testTag("plan_entry_up"), onClick = { onUp?.invoke() }) { Text("↑") }
+            TextButton(enabled = onDown != null, modifier = Modifier.testTag("plan_entry_down"), onClick = { onDown?.invoke() }) { Text("↓") }
             TextButton(onClick = onRemove) { Text("Quitar") }
         }
         if (isRest) {

@@ -182,10 +182,7 @@ object EditorBlockOps {
             plannedSets = e.plannedSets?.map { it.copy(id = null) }) })
 
     /** WODTemplate.makeBlock: movimientos repetidos se mantienen; sin coincidencia de catálogo se conservan por nombre. */
-    fun templateToBlockInfo(t: dev.repera.domain.WodTemplate, catalog: List<ExerciseEntry>): RoutineBlockInfo? {
-        // Escalera con movimientos repetidos (21-15-9 + varios): el modelo de escalera del editor (un esquema por
-        // bloque) no lo representa sin cambiar su semántica; se rechaza en vez de reinterpretarlo.
-        if (t.format == dev.repera.domain.WodFormat.LADDER) return null
+    fun templateToBlockInfo(t: dev.repera.domain.WodTemplate, catalog: List<ExerciseEntry>): RoutineBlockInfo {
         val byName = catalog.associateBy { it.name.lowercase() }
         val entries = t.movements.map { m ->
             val ex = byName[m.name.lowercase()]

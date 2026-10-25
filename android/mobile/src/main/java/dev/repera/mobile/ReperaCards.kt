@@ -61,6 +61,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -814,10 +815,15 @@ internal fun ScheduledRoutineCard(
                             label = { Text(option.second) })
                     }
                 }
-                if (editPlanning == "date") OutlinedTextField(
-                    value = editDate, onValueChange = { editDate = it.take(10) },
-                    label = { Text("Fecha (AAAA-MM-DD)") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth())
+                if (editPlanning == "date") {
+                    // DatePicker de Apple en lugar de texto libre.
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                    val cur = runCatching { LocalDate.parse(editDate) }.getOrDefault(LocalDate.now())
+                    TextButton(modifier = Modifier.testTag("routine_edit_date"), onClick = {
+                        android.app.DatePickerDialog(ctx, { _, y, m, d -> editDate = LocalDate.of(y, m + 1, d).toString() },
+                            cur.year, cur.monthValue - 1, cur.dayOfMonth).show()
+                    }) { Text("Fecha: " + cur.toString()) }
+                }
                 if (editPlanning == "weekly") Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -827,10 +833,23 @@ internal fun ScheduledRoutineCard(
                             label = { Text(day) })
                     }
                 }
-                if (editPlanning != "library") OutlinedTextField(
-                    value = editClock, onValueChange = { editClock = it.take(5) },
-                    label = { Text("Hora opcional (HH:mm)") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth())
+                if (editPlanning != "library") {
+                    // "Hora programada": interruptor + selector de hora (18:00 por defecto), como scheduledTimeControls.
+                    val ctx2 = androidx.compose.ui.platform.LocalContext.current
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Switch(checked = editClock.isNotBlank(),
+                            modifier = Modifier.testTag("routine_edit_time_switch"),
+                            onCheckedChange = { on -> editClock = if (on) "18:00" else "" })
+                        Text("  Hora programada")
+                        if (editClock.isNotBlank()) {
+                            val t = runCatching { LocalTime.parse(editClock) }.getOrDefault(LocalTime.of(18, 0))
+                            TextButton(modifier = Modifier.testTag("routine_edit_time"), onClick = {
+                                android.app.TimePickerDialog(ctx2, { _, h, mi -> editClock = "%02d:%02d".format(h, mi) },
+                                    t.hour, t.minute, true).show()
+                            }) { Text(editClock) }
+                        }
+                    }
+                }
                 val validDate = editPlanning != "date" ||
                     runCatching { LocalDate.parse(editDate) }.isSuccess
                 val parsedClock = if (editClock.isBlank()) null else

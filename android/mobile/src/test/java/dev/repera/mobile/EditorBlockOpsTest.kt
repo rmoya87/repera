@@ -223,7 +223,10 @@ class DayEditorImportTest {
         val t = dev.repera.domain.CatalogWods.seed().first { it.format != dev.repera.domain.WodFormat.LADDER && it.movements.size > 1 }
         val info = EditorBlockOps.templateToBlockInfo(t, cat)!!
         org.junit.Assert.assertEquals(t.movements.size, info.entries.size)
-        org.junit.Assert.assertNull(EditorBlockOps.templateToBlockInfo(
-            dev.repera.domain.CatalogWods.template("21-15-9-thruster-bjo")!!, cat))
+        val ladder = EditorBlockOps.templateToBlockInfo(dev.repera.domain.CatalogWods.template("21-15-9-thruster-bjo")!!, cat)
+        org.junit.Assert.assertEquals(6, ladder.entries.size)
+        org.junit.Assert.assertEquals("ladder", ladder.format)
+        org.junit.Assert.assertNull(ladder.ladderScheme)
+        org.junit.Assert.assertEquals(listOf(21, 21, 15, 15, 9, 9), ladder.entries.map { it.quantity })
     }
 }

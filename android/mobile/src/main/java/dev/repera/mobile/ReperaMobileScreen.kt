@@ -2,6 +2,7 @@ package dev.repera.mobile
 
 import android.net.Uri
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -39,6 +40,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -496,6 +498,9 @@ fun ReperaMobileScreen(
                             busy = busy,
                             loadGuideProvider = loadGuideProvider,
                             importableRoutines = overview?.routineEntries.orEmpty(),
+                            onTitleSuggested = { t ->
+                                onEditRoutine(routineId, t, RoutineSchedule(routine.scheduledDate, routine.weekday, routine.timeMinutes))
+                            },
                             onReplace = { drafts ->
                                 onReplaceRoutineBlocks(routineId, drafts)
                                 navController.popBackStack()
@@ -529,14 +534,16 @@ fun ReperaMobileScreen(
                             scheduledDate = fecha,
                             blocks = emptyList())
                     }
+                    var oneOffTitle by remember(fecha, nombre) { mutableStateOf<String?>(null) }
                     RoutineBlocksEditorScreen(
                         routine = draft,
                         exercises = overview?.exerciseEntries.orEmpty(),
                         busy = busy,
                         loadGuideProvider = loadGuideProvider,
                         importableRoutines = overview?.routineEntries.orEmpty(),
+                        onTitleSuggested = { t -> oneOffTitle = t },
                         onReplace = { drafts ->
-                            onSaveOneOffRoutine(nombre, drafts, fecha)
+                            onSaveOneOffRoutine(oneOffTitle ?: nombre, drafts, fecha)
                             navController.popBackStack()
                         },
                         onBack = { navController.popBackStack() }
