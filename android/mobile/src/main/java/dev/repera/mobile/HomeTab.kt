@@ -89,6 +89,8 @@ internal fun HomeTab(
     onNext: () -> Unit,
     onFinish: () -> Unit,
     onDiscardSession: () -> Unit = {},
+    accountId: String = "",
+    onActivePinChange: (dev.repera.domain.WorkoutLocationPin?) -> Unit = {},
     onInitializeLocal: () -> Unit,
     onImportJson: () -> Unit,
     onDriveSync: () -> Unit,
@@ -221,6 +223,16 @@ internal fun HomeTab(
                             onFinish = onFinish,
                             onDiscard = onDiscardSession
                         )
+                    }
+                    // Sección «Lugar» (WorkoutView iOS): fila + mapa del pin activo.
+                    Card(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Lugar", style = MaterialTheme.typography.titleMedium)
+                            WorkoutPlacePickerRow(
+                                pin = overview?.activeLocationPin,
+                                accountId = accountId,
+                                onPinChange = onActivePinChange)
+                        }
                     }
                 }
             } else {

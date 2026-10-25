@@ -728,6 +728,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 },
                 // endActiveSession(save: false) iOS: borra la sesión en curso
                 // sin guardarla y detiene la captura de ubicación.
+                accountId = profile?.uniqueId.orEmpty(),
+                onActivePinChange = { pin ->
+                    val sid = snapshot?.activeSessionId
+                    if (sid != null) runWorkoutAction { setActiveLocationPin(sid, pin) }
+                },
                 onDiscardSession = {
                     StrengthRestService.cancel(this)
                     locationTracker.stopRouteTracking()
@@ -1490,6 +1495,8 @@ data class StateOverview(
     val exercises: Int,
     val bodyWeights: Int,
     val activeSessionTitle: String?,
+    val activeSessionId: String? = null,
+    val activeLocationPin: dev.repera.domain.WorkoutLocationPin? = null,
     val recentWorkoutTitles: List<String>,
     val history: List<WorkoutHistoryEntry>,
     val routineEntries: List<RoutineEntry>,
@@ -1815,6 +1822,18 @@ data class StateOverview(
                 exercises = exerciseEntries.size,
                 bodyWeights = json.optJSONArray("bodyWeights")?.length() ?: 0,
                 activeSessionTitle = json.optJSONObject("activeSession")?.optString("title"),
+                activeSessionId = json.optJSONObject("activeSession")?.optString("id")?.takeIf { it.isNotEmpty() },
+                activeLocationPin = json.optJSONObject("activeSession")?.optJSONObject("locationPin")?.let { o ->
+                    runCatching {
+                        dev.repera.domain.WorkoutLocationPin(
+                            latitude = o.getDouble("latitude"),
+                            longitude = o.getDouble("longitude"),
+                            recordedAtEpochMs = o.optLong("recordedAtEpochMs"),
+                            name = o.optString("name").takeIf { it.isNotBlank() },
+                            mapItemIdentifier = o.optString("mapItemIdentifier").takeIf { it.isNotBlank() },
+                            pointOfInterestCategory = o.optString("pointOfInterestCategory").takeIf { it.isNotBlank() })
+                    }.getOrNull()
+                },
                 recentWorkoutTitles = workoutTitles.asReversed().take(20),
                 history = history,
                 routineEntries = routineEntries,

@@ -1913,6 +1913,17 @@ class WorkoutRepository(context: Context, googleId: String) {
         save(state)
     }
 
+    /** Cambia o borra el pin de la sesión ACTIVA desde el selector de lugar
+     *  (activeLocationPin set iOS). pin == null lo elimina. */
+    @Synchronized fun setActiveLocationPin(sessionId: String, pin: dev.repera.domain.WorkoutLocationPin?) {
+        if (pin != null) { attachLocationPin(sessionId, pin); return }
+        val state = loadOrNull() ?: return
+        val session = state.optJSONObject("activeSession") ?: return
+        if (session.optString("id") != sessionId) return
+        session.remove("locationPin")
+        save(state)
+    }
+
     /** Ruta GPS al terminar (stopRouteTracking iOS): vale con la sesión aún
      *  activa o ya archivada en el historial. */
     @Synchronized fun attachRoutePoints(sessionId: String, points: List<dev.repera.domain.WorkoutRoutePoint>) {
