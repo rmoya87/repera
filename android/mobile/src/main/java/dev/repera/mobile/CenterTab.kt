@@ -163,6 +163,9 @@ internal fun CenterTab(
                 }
             }
         }
+        if(connected) items(snapshot?.trainingSessions.orEmpty()) {session ->
+            ProfessionalSessionCard(session,snapshot?.centerName(session.orgId) ?: "Centro",false)
+        }
         item { Text("Reservas", style = MaterialTheme.typography.titleMedium) }
         item {
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {

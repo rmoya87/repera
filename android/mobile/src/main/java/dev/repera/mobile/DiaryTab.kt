@@ -90,6 +90,8 @@ internal fun DiaryTab(
     onDayPlusFavorites: () -> Unit = {},
     onDayPlusTimer: () -> Unit = {},
     onDayPlusScan: () -> Unit = {},
+    professionalSessions:List<BusinessCenterStore.ProfessionalSession> = emptyList(),
+    centerName:(String)->String = {"Centro"},
     modifier: Modifier = Modifier
 ) {
     var diaryDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
@@ -215,6 +217,7 @@ internal fun DiaryTab(
                 onSetFavorite = onSetRoutineFavorite)
         }
         item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
+        items(professionalSessions) {session -> ProfessionalSessionCard(session,centerName(session.orgId),false) }
         item {
             AccountSyncCard(busy, syncing, status, overview, onDriveSync, onExportJson, onSignOut)
         }

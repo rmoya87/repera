@@ -160,6 +160,7 @@ fun ReperaMobileScreen(
     onFinish: () -> Unit,
     onDiscardSession: () -> Unit = {},
     accountId: String = "",
+    onSendCenterMessage:(String,String,String)->Unit = {_,_,_->},
     onUpdateHealthGoals:(HealthGoals)->Unit = {},
     onUpdateRotation:(dev.repera.domain.RotationPlan?)->Unit = {},
     onUpdateTrainingSettings: (TrainingSettings) -> Unit = {},
@@ -291,6 +292,9 @@ fun ReperaMobileScreen(
             ) {
                 composable("inicio") {
                     HomeTab(
+                        professionalSessions=centerSnapshot?.trainingSessions.orEmpty(),
+                        centerName={id -> centerSnapshot?.centerName(id) ?: "Centro"},
+                        onOpenMessages={navController.navigate("mensajes")},
                         focusDay=homeFocusDay,
                         heartSeriesProvider = heartSeriesProvider,
                         displayName = displayName,
@@ -343,6 +347,8 @@ fun ReperaMobileScreen(
                 }
                 composable("diario") {
                     DiaryTab(
+                        professionalSessions=centerSnapshot?.trainingSessions.orEmpty(),
+                        centerName={id -> centerSnapshot?.centerName(id) ?: "Centro"},
                         aiPrograms = aiPrograms ?: emptyList(),
                         onOpenAIPrograms = { navController.navigate("programas-ia") },
                         busy = busy,
@@ -564,6 +570,10 @@ fun ReperaMobileScreen(
                         overview=overview,onUpdateTrainingSettings=onUpdateTrainingSettings,onUpdateRotation=onUpdateRotation,onUpdateHealthGoals=onUpdateHealthGoals,
                         onExportJson=onExportJson,onHealthConnect=onHealthConnect,onSignOut=onSignOut
                     )
+                }
+                composable("mensajes") {
+                    LaunchedEffect(Unit) {onCenterRefresh()}
+                    CenterMessagesScreen(centerConnected,centerLoading,centerSubmitting,centerError,centerSnapshot,onCenterRefresh,onSendCenterMessage)
                 }
                 composable("programas-ia") {
                     LaunchedEffect(Unit) { onAIProgramsRefresh() }

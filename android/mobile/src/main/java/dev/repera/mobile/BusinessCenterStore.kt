@@ -40,6 +40,9 @@ class BusinessCenterStore(
         val validFrom: String?, val validUntil: String?, val status: String)
     data class Booking(val id: String, val orgId: String, val clientId: String,
         val occurrenceId: String, val status: String)
+    data class Notice(val id:String,val orgId:String,val clientId:String,val title:String,val body:String,val createdAt:String)
+    data class ProfessionalSession(val id:String,val orgId:String,val clientId:String,val coachUserId:String,
+        val scheduledDate:String,val title:String,val instructions:String,val status:String,val prescription:JSONObject?)
     data class Availability(val occurrenceId: String, val capacity: Int,
         val reserved: Int)
 
@@ -50,7 +53,9 @@ class BusinessCenterStore(
         val occurrences: List<Occurrence> = emptyList(),
         val passes: List<Pass> = emptyList(),
         val bookings: List<Booking> = emptyList(),
-        val availability: Map<String, Availability> = emptyMap()
+        val availability: Map<String, Availability> = emptyMap(),
+        val notices:List<Notice> = emptyList(),
+        val trainingSessions:List<ProfessionalSession> = emptyList()
     ) {
         val isLinkedOrInvited: Boolean
             get() = athleteCenterIds.isNotEmpty() || invitations.isNotEmpty()
@@ -134,6 +139,8 @@ class BusinessCenterStore(
                 "id,org_id,client_id,kind,total_credits,remaining_credits,valid_from,valid_until,status"))
             val bookings = parseBookings(get(session, "service_bookings",
                 "id,org_id,client_id,occurrence_id,status"))
+            val notices=parseNotices(get(session,"business_client_notifications","id,org_id,client_id,title,body,created_at"))
+            val training=parseProfessionalSessions(get(session,"professional_training_sessions","id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,prescription,status"))
             val counts = mutableMapOf<String, Availability>()
             for (center in centers) {
                 val occupancy = rpc(session, "get_service_availability",
@@ -159,7 +166,8 @@ class BusinessCenterStore(
                 occurrences = occurrences.filter { it.status == "active" },
                 passes = passes.filter { it.clientId in ownedClientIds },
                 bookings = bookings.filter { it.clientId in ownedClientIds },
-                availability = counts))
+                availability = counts,notices=ownedNotices(notices,ownedClientIds),
+                trainingSessions=ownedTraining(training,ownedClientIds)))
         } catch (error: Exception) {
             LoadResult.Failed("No se han podido cargar tus centros y reservas. " +
                 (error.localizedMessage ?: ""))
@@ -182,6 +190,23 @@ class BusinessCenterStore(
         rpc(session, "cancel_service_booking", JSONObject()
             .put("p_booking", booking.id)
             .put("p_request", UUID.randomUUID().toString()))
+    }
+
+    fun sendMessage(session:SupabaseIdentity.Session,orgId:String,title:String,body:String) {
+        require(orgId.isNotBlank() && body.trim().length>=2)
+        rpc(session,"athlete_send_org_message",JSONObject().put("p_org",orgId)
+            .put("p_title",title.trim().ifEmpty {"Mensaje"}).put("p_body",body.trim()))
+    }
+    internal fun ownedNotices(rows:List<Notice>,owned:Set<String>)=rows.filter {it.clientId in owned}
+    internal fun ownedTraining(rows:List<ProfessionalSession>,owned:Set<String>)=rows.filter {it.clientId in owned && it.status=="scheduled"}.sortedBy {it.scheduledDate}
+    internal fun parseNotices(data:JSONArray):List<Notice> = (0 until data.length()).map { i ->
+        val r=data.getJSONObject(i)
+        Notice(r.getString("id"),r.getString("org_id"),r.getString("client_id"),r.getString("title"),r.getString("body"),r.getString("created_at"))
+    }
+    internal fun parseProfessionalSessions(data:JSONArray):List<ProfessionalSession> = (0 until data.length()).map { i ->
+        val r=data.getJSONObject(i)
+        ProfessionalSession(r.getString("id"),r.getString("org_id"),r.getString("client_id"),r.getString("coach_user_id"),
+            r.getString("scheduled_date"),r.getString("title"),r.getString("instructions"),r.getString("status"),r.optJSONObject("prescription"))
     }
 
     private fun parseOrganizations(data: JSONArray) = (0 until data.length()).map { i ->

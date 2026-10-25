@@ -67,3 +67,16 @@ Esta pasada NO afirma equivalencia de todas las funciones ni un plazo global.
   actualizado onResume. Botones solicitan solo por tap. Salud reusa ruta.
 -Local domain284/0 mobile199/0; instrumentadas compilan. Capturas nuevas y
   TrainingSettingsInstrumentedTest2 preparados, todavía sin ejecución.
+
+## Implementación local22:08 (sin cierre, posterior a CI40233623617)
+- a97b4c2b HealthGoals: opcionales/rangos/editor/persistencia; Inicio consume pasos/kcal
+  de hoy y contador semanal local. Minutos/peso/fecha seleccionada/conciliaciónSalud pendientes.
+- Mensajes: tablas/RPC exactos de BusinessDataStore5890215d; bandeja+destino
+  entre centros vinculados+asunto/cuerpo+Enviar explícito. Ningún envío real.
+- Prescripciones profesionales: proyecciónsololectura en Inicio/Diario/Center.
+  La tarjetaApple NO inicia entrenamientos. Proyección temporal de plan profesional
+  para Watch sí existe en ReperaStore1724–1811 y sigue pendiente en Wear.
+- Filtros clientepropio+scheduled+orden fecha probados JVM201/0. Guardarevisión
+  de cuenta evita aplicar carga o error de cuenta anterior y borra datos al cambiar.
+- BusinessProjectionInstrumentedTest2 preparados, compilan, noejecutados;
+  capturas pendientes. No cerrar paridad mensajes/profesional ni HealthGoals.
