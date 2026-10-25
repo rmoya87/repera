@@ -412,3 +412,16 @@ main móvil invisible.)
   navegador/2D/seguimiento desde posición medida, voz/descarte del mapa.
   Diferencia abierta: no relieve3D de Apple, pitch MapLibre60° vs Apple67°.
 - No beta/merge/main/Apple cambios. Domain282/0, mobile199/0 locales.
+
+## Restricción coste21:34 CET
+Usuario pide solución sin costes, también meteo. No activar facturación ni
+servicios nuevos. Google Weather queda candidato no autorizado, no elegido.
+Mapa Android actual: MapLibre13.7.1 + OpenFreeMap Liberty (RouteMapView y
+PlaceSearchSheet); no Google Maps. Fuente actual https://openfreemap.org/ :
+instancia pública gratuita, uso comercial/apps permitido, sin límites de
+vistas/requests ni key. Obligación de atribución. https://openfreemap.org/tos/
+(14-10-2026): as-is, sin garantía disponibilidad ni permanencia; offline hasta
+3000 teselas/50MB,4 peticiones paralelas, User-Agent propio por descarga.
+No se implementó descarga offline. No confundir ausencia de coste actual con
+SLA gratis o garantía eterna. OpenFreeMap no da elevación ni cálculo rutas:
+https://github.com/hyperknot/openfreemap . Relieve3D aún no portado.
