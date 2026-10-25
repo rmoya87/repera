@@ -45,6 +45,57 @@ enum class LiveSport(val id: String, val title: String, val symbol: String, val 
     MOBILITY("mobility", "Movilidad", "figure.flexibility", "Otros deportes"),
     OTHER("other", "Entrenamiento", "figure.mixed.cardio", "Otros deportes");
 
+    /** GPS únicamente para modalidades con recorrido exterior verificable.
+     *  Ni la piscina, las pistas ni la escalada interior fabrican distancia. */
+    val usesGPS: Boolean
+        get() = when (this) {
+            RUNNING, CYCLING, WALKING, HIKING, TRAIL, MOUNTAIN_BIKE,
+            GRAVEL, SURFING, WINDSURFING, KITESURFING, KAYAKING,
+            ROWING, CANOEING, SAILING, GOLF, SKIING,
+            SNOWBOARDING, CROSS_COUNTRY_SKIING, SKATEBOARDING -> true
+            else -> false
+        }
+
+    val isCycling: Boolean
+        get() = this == CYCLING || this == MOUNTAIN_BIKE || this == GRAVEL
+
+    /** Velocidad (km/h) en lugar de ritmo (min/km) para deportes rápidos. */
+    val displaysSpeed: Boolean
+        get() = when (this) {
+            CYCLING, MOUNTAIN_BIKE, GRAVEL, SURFING, WINDSURFING,
+            KITESURFING, KAYAKING, ROWING, CANOEING, SAILING,
+            GOLF, SKIING, SNOWBOARDING, CROSS_COUNTRY_SKIING, SKATEBOARDING -> true
+            else -> false
+        }
+
+    /** Solo calcular desnivel cuando la actividad tiene sentido en pendiente. */
+    val tracksElevation: Boolean
+        get() = when (this) {
+            HIKING, TRAIL, MOUNTAIN_BIKE, SKIING,
+            SNOWBOARDING, CROSS_COUNTRY_SKIING -> true
+            else -> false
+        }
+
+    /** Evita descartar las muestras auténticas de deportes rápidos como
+     *  kitesurf y esquí, manteniendo el filtro de saltos GPS. */
+    val maxGPSMetersPerSecond: Double
+        get() = when (this) {
+            SKIING, SNOWBOARDING -> 50.0
+            WINDSURFING, KITESURFING, SAILING -> 42.0
+            CROSS_COUNTRY_SKIING, SKATEBOARDING -> 24.0
+            CYCLING, MOUNTAIN_BIKE, GRAVEL -> 22.0
+            else -> 12.0
+        }
+
+    /** Las métricas de sensores se muestran únicamente cuando existen datos
+     *  reales en Salud, nunca como un contador simulado. */
+    val metricDescription: String
+        get() = if (usesGPS) {
+            val motion = if (displaysSpeed) "velocidad" else "ritmo"
+            if (tracksElevation) "Tiempo · distancia · $motion · desnivel GPS"
+            else "Tiempo · distancia · $motion"
+        } else "Tiempo · pulso y calorías si están disponibles"
+
     companion object {
         /** Orden de grupos tal como Apple lo presenta en el picker. */
         val groups: List<String> = listOf(
