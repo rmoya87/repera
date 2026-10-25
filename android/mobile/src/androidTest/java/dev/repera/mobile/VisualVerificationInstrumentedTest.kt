@@ -143,9 +143,8 @@ class VisualVerificationInstrumentedTest {
         android.util.Log.i("VisualVerification", "guardada en MediaStore: $uri")
     }
 
-    // Tema real de la app (ReperaMobileScreen): solo se sobreescribe primary.
-    // Capturar con MaterialTheme a pelo dibuja la paleta Material por defecto
-    // (lavanda) y NO representa la app.
+    // Esquema compartido de producción: tokens claros/oscuros adaptativos.
+    // MaterialTheme sin esquema no representa la app.
     private fun brandContent(content: @Composable () -> Unit) {
         // Host de prueba edge-to-edge como producción (targetSdk 37): contenido
         // fuera de la barra de estado e iconos oscuros sobre fondo claro, para

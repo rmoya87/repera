@@ -171,8 +171,11 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         dismissButton={TextButton(onClick={confirmDiscard=false}) {Text("Cancelar")}})
     if (state.sport.usesGPS && state.phase != LiveActivityState.Phase.REVIEW && !showingMetrics && !showRoutes) {
         val planned = routes.firstOrNull { it.id == state.selectedRouteID }
+        // Una captura puntual no se convierte en ubicación viva por quedarse
+        // en memoria: caduca aunque el usuario no haya salido de esta pantalla.
+        val freshPosition = previewPosition?.takeIf { System.currentTimeMillis()-it.recordedAtEpochMs < 15_000 }
         Box(Modifier.fillMaxSize().testTag("live_activity_screen")) {
-            RouteMapView(if (state.points.isNotEmpty()) state.points else planned?.points ?: listOfNotNull(previewPosition),
+            RouteMapView(if (state.points.isNotEmpty()) state.points else planned?.points ?: listOfNotNull(freshPosition),
                 isInteractive = true, modifier = Modifier.fillMaxSize(), plannedRoute = state.points.size < 2)
             Surface(Modifier.align(Alignment.TopCenter).padding(12.dp), shape = MaterialTheme.shapes.large,
                 tonalElevation = 4.dp) {
@@ -188,7 +191,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                                 centerPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION))
                             else capturePosition()
                         }) { Text("Centrar en mi ubicación") }
-                        if (previewPosition == null && planned == null)
+                        if (freshPosition == null && planned == null)
                             Text(previewMessage ?: "Sin ubicación. Pulsa Centrar para situarte.",style=MaterialTheme.typography.bodySmall)
                     }
                     runtime.upcomingTurn?.let { Text(it) }
