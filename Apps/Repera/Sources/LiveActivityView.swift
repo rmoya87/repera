@@ -222,7 +222,7 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .basketball: .basketball
         case .volleyball: .volleyball
         case .climbing: .climbing
-        case .dance: .dance
+        case .dance: .cardioDance
         case .pilates: .pilates
         case .yoga: .yoga
         case .mobility: .flexibility
