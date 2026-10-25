@@ -14,6 +14,31 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class TrainingSettingsInstrumentedTest {
     @get:Rule val compose=createAndroidComposeRule<androidx.activity.ComponentActivity>()
+    @Test fun rotationAdvancesOnlyAfterFinishingNextRoutineAndNeverOnDiscard() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val account="test-rotation-${java.util.UUID.randomUUID()}"
+        val exercise=JSONObject().put("id","ex").put("name","Sentadilla").put("muscleGroup","Piernas")
+        val state=JSONObject().put("workouts",JSONArray()).put("routines",JSONArray()).put("exercises",JSONArray().put(exercise))
+        val local=LocalSnapshotStore(context,account);local.write(state.toString().toByteArray())
+        val repo=WorkoutRepository(context,account)
+        repo.createRoutine("A","strength",listOf(RoutineDraftEntry("ex",5)))
+        repo.createRoutine("B","strength",listOf(RoutineDraftEntry("ex",5)))
+        val ids=JSONObject(String(local.read()!!)).getJSONArray("routines").let { a -> (0 until a.length()).map {a.getJSONObject(it).getString("id")} }
+        repo.updateTrainingSettings(TrainingSettings(scheduleMode="rotation"))
+        assertEquals(ids[0],repo.todayPlanSession()!!.getString("routineId"))
+        repo.startRoutine(ids[1]);repo.finish()
+        assertEquals(ids[0],repo.todayPlanSession()!!.getString("routineId"))
+        repo.startRoutine(ids[0]);repo.discardActiveSession()
+        assertEquals(ids[0],repo.todayPlanSession()!!.getString("routineId"))
+        repo.startRoutine(ids[0]);repo.finish()
+        assertEquals(ids[1],repo.todayPlanSession()!!.getString("routineId"))
+        repo.startRoutine(ids[1]);repo.finish()
+        assertEquals(ids[0],repo.todayPlanSession()!!.getString("routineId"))
+        assertEquals("rotation",StateOverview.fromBytes(local.read())!!.trainingSettings.scheduleMode)
+        repo.updateTrainingSettings(TrainingSettings(scheduleMode="fixedWeek"))
+        assertNull(repo.todayPlanSession())
+        assertNotNull(RotationSettings.read(JSONObject(String(local.read()!!))))
+    }
     @Test fun settingsPersistPreserveUnknownFieldsAndDriveWeekAndRest() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val account="test-settings-${java.util.UUID.randomUUID()}"

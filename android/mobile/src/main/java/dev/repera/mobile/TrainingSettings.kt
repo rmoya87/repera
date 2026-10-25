@@ -8,7 +8,8 @@ data class TrainingSettings(
     val weekStartsOnMonday:Boolean = true,
     val defaultRestSeconds:Int = 90,
     val defaultProgression:String = "linear",
-    val weightIncrementKg:Double = 2.5
+    val weightIncrementKg:Double = 2.5,
+    val scheduleMode:String="fixedWeek"
 ) {
     companion object {
         fun read(state:JSONObject):TrainingSettings {
@@ -16,17 +17,25 @@ data class TrainingSettings(
             return TrainingSettings(s.optString("weekStartsOn","monday")!="sunday",
                 s.optInt("defaultRestSeconds",90).coerceIn(30,300),
                 ProgressionPolicy.fromWire(s.optString("defaultProgression","linear"))?.wire ?: "linear",
-                s.optDouble("weightIncrementKg",2.5).takeIf { it.isFinite() && it in 0.5..10.0 } ?: 2.5)
+                s.optDouble("weightIncrementKg",2.5).takeIf { it.isFinite() && it in 0.5..10.0 } ?: 2.5,
+                s.optString("scheduleMode","fixedWeek").takeIf { it in listOf("fixedWeek","rotation") } ?: "fixedWeek")
         }
         fun apply(state:JSONObject,value:TrainingSettings) {
-            require(value.defaultRestSeconds in 30..300 && value.defaultRestSeconds%15==0)
-            require(value.weightIncrementKg.isFinite() && value.weightIncrementKg in 0.5..10.0 && value.weightIncrementKg*2%1==0.0)
+            require(value.defaultRestSeconds in 30..300)
+            require(value.weightIncrementKg.isFinite() && value.weightIncrementKg in 0.5..10.0)
             require(ProgressionPolicy.fromWire(value.defaultProgression)!=null)
+            require(value.scheduleMode in listOf("fixedWeek","rotation"))
             val s=state.optJSONObject("settings") ?: JSONObject().also { state.put("settings",it) }
             s.put("weekStartsOn",if(value.weekStartsOnMonday) "monday" else "sunday")
             s.put("defaultRestSeconds",value.defaultRestSeconds)
             s.put("defaultProgression",value.defaultProgression)
             s.put("weightIncrementKg",value.weightIncrementKg)
+            s.put("scheduleMode",value.scheduleMode)
+            if(value.scheduleMode=="rotation" && state.optJSONObject("rotation")==null) {
+                val routines=state.optJSONArray("routines") ?: org.json.JSONArray()
+                RotationSettings.write(state,dev.repera.domain.RotationPlan(java.util.UUID.randomUUID().toString(),routineIds=
+                    (0 until routines.length()).map { routines.getJSONObject(it).getString("id") }))
+            }
         }
     }
 }

@@ -761,6 +761,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 accountId = profile?.uniqueId.orEmpty(),
                 initialExternalRoute = externalRoute,
                 onExternalRouteHandled = { externalRoute = null },
+                onUpdateRotation = { plan -> runWorkoutAction { updateRotation(plan) } },
                 onUpdateTrainingSettings = { value -> runWorkoutAction { updateTrainingSettings(value) } },
                 onLiveActivitySaved = {
                     profile?.uniqueId?.let { id -> lifecycleScope.launch { reloadFor(id) } }
@@ -1564,7 +1565,8 @@ data class StateOverview(
     /** Archivo completo, no la ventana de 20 registros recientes. */
     val liveSportSessions: List<dev.repera.domain.LiveSportHistory.LiveSession> = emptyList(),
     val completeHistory: List<WorkoutHistoryEntry> = emptyList(),
-    internal val trainingSettings:TrainingSettings = TrainingSettings()
+    internal val trainingSettings:TrainingSettings = TrainingSettings(),
+    internal val rotationPlan:dev.repera.domain.RotationPlan? = null
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?, health: HealthSamples? = null,
@@ -1893,7 +1895,7 @@ data class StateOverview(
                 )
             }
             return StateOverview(
-                trainingSettings=trainingSettings,
+                trainingSettings=trainingSettings,rotationPlan=RotationSettings.read(json),
                 liveSportSessions = LiveSportSnapshot.sessions(json),
                 recovery = recoveryState,
                 favoriteTimerCount = json.optJSONArray("favoriteTimers")?.length() ?: 0,

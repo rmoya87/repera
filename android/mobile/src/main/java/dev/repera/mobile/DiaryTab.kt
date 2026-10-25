@@ -97,8 +97,9 @@ internal fun DiaryTab(
     val routines = overview?.routineEntries.orEmpty()
     val day = LocalDate.parse(diaryDateIso)
     val todays = routines.filter {
-        it.scheduledDate == day.toString() ||
-            (it.scheduledDate == null && it.weekday == day.dayOfWeek.value)
+        (overview?.trainingSettings?.scheduleMode=="rotation" && it.id==overview.rotationPlan?.nextRoutineId) ||
+            (overview?.trainingSettings?.scheduleMode!="rotation" && (it.scheduledDate == day.toString() ||
+            (it.scheduledDate == null && it.weekday == day.dayOfWeek.value)))
     }
     val dated = routines.filter {
         it.scheduledDate != null && it.scheduledDate != day.toString()

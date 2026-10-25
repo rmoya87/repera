@@ -160,6 +160,7 @@ fun ReperaMobileScreen(
     onFinish: () -> Unit,
     onDiscardSession: () -> Unit = {},
     accountId: String = "",
+    onUpdateRotation:(dev.repera.domain.RotationPlan?)->Unit = {},
     onUpdateTrainingSettings: (TrainingSettings) -> Unit = {},
     onLiveActivitySaved: () -> Unit = {},
     initialExternalRoute: String? = null, onExternalRouteHandled: () -> Unit = {},
@@ -559,7 +560,7 @@ fun ReperaMobileScreen(
                         },
                         onImportJson = onImportJson,
                         onImportCsv = onImportCsv,
-                        overview=overview,onUpdateTrainingSettings=onUpdateTrainingSettings,
+                        overview=overview,onUpdateTrainingSettings=onUpdateTrainingSettings,onUpdateRotation=onUpdateRotation,
                         onExportJson=onExportJson,onHealthConnect=onHealthConnect,onSignOut=onSignOut
                     )
                 }
@@ -722,6 +723,7 @@ internal fun SettingsTab(
     onImportCsv: () -> Unit,
     overview:StateOverview? = null,
     onUpdateTrainingSettings:(TrainingSettings)->Unit = {},
+    onUpdateRotation:(dev.repera.domain.RotationPlan?)->Unit = {},
     onExportJson:()->Unit = {},
     onHealthConnect:()->Unit = {},
     onSignOut:()->Unit = {}
@@ -730,6 +732,8 @@ internal fun SettingsTab(
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Ajustes", style = MaterialTheme.typography.titleLarge)
         TrainingSettingsSection(overview?.trainingSettings ?: TrainingSettings(),busy || overview==null,onUpdateTrainingSettings)
+        if(overview?.trainingSettings?.scheduleMode=="rotation")
+            RotationSettingsSection(overview.rotationPlan,overview.routineEntries,busy,onUpdateRotation)
         OutlinedButton(onClick=onHealthConnect,enabled=!busy) {Text("Conectar con Salud")}
         Text("Datos", style = MaterialTheme.typography.titleMedium)
         overview?.let { Text("Entrenamientos: ${it.workouts} · Ejercicios: ${it.exercises} · Rutinas: ${it.routines}") }

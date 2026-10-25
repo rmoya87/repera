@@ -144,8 +144,9 @@ internal fun HomeTab(
         item {
             val day = LocalDate.parse(homeDateIso)
             val dayRoutines = overview?.routineEntries.orEmpty().filter {
-                it.scheduledDate == day.toString() ||
-                    (it.scheduledDate == null && it.weekday == day.dayOfWeek.value)
+                (overview?.trainingSettings?.scheduleMode=="rotation" && it.id==overview.rotationPlan?.nextRoutineId) ||
+                    (overview?.trainingSettings?.scheduleMode!="rotation" && (it.scheduledDate == day.toString() ||
+                    (it.scheduledDate == null && it.weekday == day.dayOfWeek.value)))
             }
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(12.dp),

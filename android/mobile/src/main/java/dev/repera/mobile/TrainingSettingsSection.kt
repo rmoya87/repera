@@ -11,6 +11,11 @@ import dev.repera.domain.ProgressionPolicy
 @Composable internal fun TrainingSettingsSection(value:TrainingSettings,busy:Boolean,onChange:(TrainingSettings)->Unit) {
     Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Text("Entrenamiento",style=MaterialTheme.typography.titleMedium)
+        Text("Modo de plan")
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected=value.scheduleMode=="fixedWeek",enabled=!busy,onClick={onChange(value.copy(scheduleMode="fixedWeek"))},label={Text("Semana fija")})
+            FilterChip(selected=value.scheduleMode=="rotation",enabled=!busy,onClick={onChange(value.copy(scheduleMode="rotation"))},label={Text("Rotación A→B→C")})
+        }
         Text("Semana empieza")
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             FilterChip(selected=value.weekStartsOnMonday,enabled=!busy,onClick={onChange(value.copy(weekStartsOnMonday=true))},label={Text("Lunes")})
@@ -18,8 +23,8 @@ import dev.repera.domain.ProgressionPolicy
         }
         Text("Descanso: ${value.defaultRestSeconds}s")
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(enabled=!busy && value.defaultRestSeconds>30,onClick={onChange(value.copy(defaultRestSeconds=value.defaultRestSeconds-15))}) {Text("Restar 15 s")}
-            OutlinedButton(enabled=!busy && value.defaultRestSeconds<300,onClick={onChange(value.copy(defaultRestSeconds=value.defaultRestSeconds+15))}) {Text("Añadir 15 s")}
+            OutlinedButton(enabled=!busy && value.defaultRestSeconds>30,onClick={onChange(value.copy(defaultRestSeconds=(value.defaultRestSeconds-15).coerceAtLeast(30)))}) {Text("Restar 15 s")}
+            OutlinedButton(enabled=!busy && value.defaultRestSeconds<300,onClick={onChange(value.copy(defaultRestSeconds=(value.defaultRestSeconds+15).coerceAtMost(300)))}) {Text("Añadir 15 s")}
         }
         Text("Progresión por defecto")
         ProgressionPolicy.entries.forEach { policy ->
@@ -28,8 +33,8 @@ import dev.repera.domain.ProgressionPolicy
         }
         Text("Incremento: %.1f kg".format(value.weightIncrementKg))
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(enabled=!busy && value.weightIncrementKg>0.5,onClick={onChange(value.copy(weightIncrementKg=value.weightIncrementKg-0.5))}) {Text("Restar 0,5 kg")}
-            OutlinedButton(enabled=!busy && value.weightIncrementKg<10,onClick={onChange(value.copy(weightIncrementKg=value.weightIncrementKg+0.5))}) {Text("Añadir 0,5 kg")}
+            OutlinedButton(enabled=!busy && value.weightIncrementKg>0.5,onClick={onChange(value.copy(weightIncrementKg=(value.weightIncrementKg-0.5).coerceAtLeast(0.5)))}) {Text("Restar 0,5 kg")}
+            OutlinedButton(enabled=!busy && value.weightIncrementKg<10,onClick={onChange(value.copy(weightIncrementKg=(value.weightIncrementKg+0.5).coerceAtMost(10.0)))}) {Text("Añadir 0,5 kg")}
         }
     }
 }
