@@ -762,7 +762,7 @@ struct LiveActivityView: View {
             }
             .background(OG.bg)
             .toolbar(recorder.phase == .review ? .visible : .hidden, for: .navigationBar)
-            .navigationTitle(recorder.phase == .review ? "Guardar actividad" : "En vivo")
+            .navigationTitle(recorder.phase == .review ? "Guardar actividad" : "Comenzar")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $sportPicker) {
                 LiveSportPicker { sport in
@@ -896,7 +896,7 @@ struct LiveActivityView: View {
                 Image(systemName: recorder.phase == .paused ? "pause.fill" : "location.fill")
                     .foregroundStyle(recorder.phase == .paused ? OG.orange : OG.accent)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(recorder.phase == .paused ? "En pausa" : "En vivo")
+                    Text(recorder.phase == .paused ? "En pausa" : recorder.phase == .recording ? "Grabando" : "Comenzar")
                         .font(.subheadline.weight(.bold))
                     if let route = recorder.chosenRoute {
                         Text(route.title)
