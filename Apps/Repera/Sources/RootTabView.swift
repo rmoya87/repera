@@ -108,6 +108,23 @@ struct RootTabView: View {
         }
         .animation(.easeInOut(duration: 0.32), value: flowPath.isEmpty)
         .tint(OG.accent)
+        .onOpenURL { url in
+            guard url.scheme == "repera" else { return }
+            switch url.host {
+            case "live":
+                flowPath = []
+                tab = .center
+            case "workout":
+                if store.hasActiveSession {
+                    openWorkout()
+                } else {
+                    flowPath = []
+                    tab = .home
+                }
+            default:
+                break
+            }
+        }
         .sheet(isPresented: Binding(
             get: { store.pendingSessionReview != nil },
             set: { if !$0 { store.dismissPendingSessionReview() } }
