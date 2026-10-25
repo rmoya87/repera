@@ -26,6 +26,8 @@ import dev.repera.domain.ProgressionPolicy
             OutlinedButton(enabled=!busy && value.defaultRestSeconds>30,onClick={onChange(value.copy(defaultRestSeconds=(value.defaultRestSeconds-15).coerceAtLeast(30)))}) {Text("Restar 15 s")}
             OutlinedButton(enabled=!busy && value.defaultRestSeconds<300,onClick={onChange(value.copy(defaultRestSeconds=(value.defaultRestSeconds+15).coerceAtMost(300)))}) {Text("Añadir 15 s")}
         }
+        Row { Text("Sonido al terminar descanso",modifier=Modifier.weight(1f));Switch(checked=value.restSoundEnabled,enabled=!busy,onCheckedChange={onChange(value.copy(restSoundEnabled=it))}) }
+        Row { Text("Vibración en countdown",modifier=Modifier.weight(1f));Switch(checked=value.restHapticEnabled,enabled=!busy,onCheckedChange={onChange(value.copy(restHapticEnabled=it))}) }
         Text("Progresión por defecto")
         ProgressionPolicy.entries.forEach { policy ->
             FilterChip(selected=value.defaultProgression==policy.wire,enabled=!busy,

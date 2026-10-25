@@ -103,7 +103,8 @@ internal fun WodClockScreen(
     }
     LaunchedEffect(restLabel) {
         if (restLabel != null && restLabel != lastRestLabel) {
-            RestNotifier.notifyRest(context, restLabel, face.primarySeconds)
+            val settings=trainingSettingsForAccount(context,SessionStore(context).load()?.uniqueId)
+            RestNotifier.notifyRest(context, restLabel, face.primarySeconds,settings.restSoundEnabled,settings.restHapticEnabled)
         } else if (restLabel == null && lastRestLabel != null) {
             RestNotifier.cancel(context)
         }

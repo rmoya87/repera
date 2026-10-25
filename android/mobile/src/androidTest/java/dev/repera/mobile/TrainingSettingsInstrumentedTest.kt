@@ -26,6 +26,8 @@ class TrainingSettingsInstrumentedTest {
         val ids=JSONObject(String(local.read()!!)).getJSONArray("routines").let { a -> (0 until a.length()).map {a.getJSONObject(it).getString("id")} }
         repo.updateTrainingSettings(TrainingSettings(scheduleMode="rotation"))
         assertEquals(ids[0],repo.todayPlanSession()!!.getString("routineId"))
+        val initialOverview=StateOverview.fromBytes(local.read())!!
+        assertEquals(ids[0],initialOverview.rotationPlan!!.nextRoutineId)
         repo.startRoutine(ids[1]);repo.finish()
         assertEquals(ids[0],repo.todayPlanSession()!!.getString("routineId"))
         repo.startRoutine(ids[0]);repo.discardActiveSession()
@@ -62,8 +64,9 @@ class TrainingSettingsInstrumentedTest {
             val overview=StateOverview.fromBytes(store.read())!!
             assertFalse(overview.trainingSettings.weekStartsOnMonday)
             assertEquals(105,overview.trainingSettings.defaultRestSeconds)
-            repo.updateTrainingSettings(value.copy(defaultProgression="double",weightIncrementKg=3.0))
+            repo.updateTrainingSettings(value.copy(defaultProgression="double",weightIncrementKg=3.0,restSoundEnabled=false,restHapticEnabled=false))
             val reread=TrainingSettings.read(JSONObject(String(store.read()!!)))
+            assertFalse(reread.restSoundEnabled);assertFalse(reread.restHapticEnabled)
             assertEquals("double",reread.defaultProgression);assertEquals(3.0,reread.weightIncrementKg,0.0)
             assertEquals(java.time.LocalDate.of(2026,10,25),dev.repera.domain.StatsEngine.startOfWeek(java.time.LocalDate.of(2026,10,28),reread.weekStartsOnMonday))
             val savedAgain=JSONObject(String(store.read()!!))

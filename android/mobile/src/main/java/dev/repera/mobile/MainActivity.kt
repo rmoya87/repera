@@ -694,7 +694,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     val rest = currentRestInfo()
                     runWorkoutAction(onSuccess = {
                         rest?.let { (name, seconds) ->
-                            StrengthRestService.start(this, name, seconds)
+                            StrengthRestService.start(this, name, seconds,snapshot?.trainingSettings?.restSoundEnabled ?: true,snapshot?.trainingSettings?.restHapticEnabled ?: true)
                         }
                     }) { logCurrentSet(quantity, weight, rir, warmup,
                         quantityUnit = unit, durationSeconds = duration, deficitCm = deficit) }
@@ -703,7 +703,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     val rest = currentRestInfo()
                     runWorkoutAction(onSuccess = {
                         rest?.let { (name, seconds) ->
-                            StrengthRestService.start(this, name, seconds)
+                            StrengthRestService.start(this, name, seconds,snapshot?.trainingSettings?.restSoundEnabled ?: true,snapshot?.trainingSettings?.restHapticEnabled ?: true)
                         }
                     }) { logDropSet(quantity, weight, drops) }
                 },
@@ -711,7 +711,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     val rest = currentRestInfo()
                     runWorkoutAction(onSuccess = {
                         rest?.let { (name, seconds) ->
-                            StrengthRestService.start(this, name, seconds)
+                            StrengthRestService.start(this, name, seconds,snapshot?.trainingSettings?.restSoundEnabled ?: true,snapshot?.trainingSettings?.restHapticEnabled ?: true)
                         }
                     }) { logRestPauseSet(clusters, weight) }
                 },
@@ -918,7 +918,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                             deficitCm = deficit, sessionPayload = sessionPayload
                         )
                         wearRest?.let { (name, seconds) ->
-                            StrengthRestService.start(this@MainActivity, name, seconds)
+                            StrengthRestService.start(this@MainActivity, name, seconds,snapshot?.trainingSettings?.restSoundEnabled ?: true,snapshot?.trainingSettings?.restHapticEnabled ?: true)
                         }
                     }
                     reloadFor(signedIn.uniqueId)

@@ -9,7 +9,9 @@ data class TrainingSettings(
     val defaultRestSeconds:Int = 90,
     val defaultProgression:String = "linear",
     val weightIncrementKg:Double = 2.5,
-    val scheduleMode:String="fixedWeek"
+    val scheduleMode:String="fixedWeek",
+    val restSoundEnabled:Boolean=true,
+    val restHapticEnabled:Boolean=true
 ) {
     companion object {
         fun read(state:JSONObject):TrainingSettings {
@@ -18,7 +20,7 @@ data class TrainingSettings(
                 s.optInt("defaultRestSeconds",90).coerceIn(30,300),
                 ProgressionPolicy.fromWire(s.optString("defaultProgression","linear"))?.wire ?: "linear",
                 s.optDouble("weightIncrementKg",2.5).takeIf { it.isFinite() && it in 0.5..10.0 } ?: 2.5,
-                s.optString("scheduleMode","fixedWeek").takeIf { it in listOf("fixedWeek","rotation") } ?: "fixedWeek")
+                s.optString("scheduleMode","fixedWeek").takeIf { it in listOf("fixedWeek","rotation") } ?: "fixedWeek",s.optBoolean("restSoundEnabled",true),s.optBoolean("restHapticEnabled",true))
         }
         fun apply(state:JSONObject,value:TrainingSettings) {
             require(value.defaultRestSeconds in 30..300)
@@ -31,6 +33,7 @@ data class TrainingSettings(
             s.put("defaultProgression",value.defaultProgression)
             s.put("weightIncrementKg",value.weightIncrementKg)
             s.put("scheduleMode",value.scheduleMode)
+            s.put("restSoundEnabled",value.restSoundEnabled);s.put("restHapticEnabled",value.restHapticEnabled)
             if(value.scheduleMode=="rotation" && state.optJSONObject("rotation")==null) {
                 val routines=state.optJSONArray("routines") ?: org.json.JSONArray()
                 RotationSettings.write(state,dev.repera.domain.RotationPlan(java.util.UUID.randomUUID().toString(),routineIds=
@@ -39,3 +42,8 @@ data class TrainingSettings(
         }
     }
 }
+
+internal fun trainingSettingsForAccount(context:android.content.Context,accountID:String?):TrainingSettings =
+    if(accountID.isNullOrBlank()) TrainingSettings() else runCatching {
+        LocalSnapshotStore(context,accountID).read()?.let { TrainingSettings.read(JSONObject(String(it))) }
+    }.getOrNull() ?: TrainingSettings()

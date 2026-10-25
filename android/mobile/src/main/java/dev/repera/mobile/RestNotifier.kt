@@ -21,24 +21,26 @@ internal object RestNotifier {
     private const val CHANNEL_ID = "repera.timers"
     private const val NOTIFICATION_ID = 4201
 
-    fun notifyRest(context: Context, label: String, remainingSeconds: Int) {
-        vibrate(context)
+    fun notifyRest(context: Context, label: String, remainingSeconds: Int,sound:Boolean=true,haptic:Boolean=true) {
+        if(haptic) vibrate(context)
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(
                 context, Manifest.permission.POST_NOTIFICATIONS
             ) != PackageManager.PERMISSION_GRANTED
         ) return
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val channel=CHANNEL_ID+if(sound) ".sound" else ".silent"
         if (Build.VERSION.SDK_INT >= 26) {
             manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "Cronómetros", NotificationManager.IMPORTANCE_HIGH)
+                NotificationChannel(channel, "Cronómetros", NotificationManager.IMPORTANCE_HIGH).apply { enableVibration(false);if(!sound) setSound(null,null) }
             )
         }
         val text = "%d:%02d restantes".format(remainingSeconds / 60, remainingSeconds % 60)
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_timer)
             .setContentTitle(label)
             .setContentText(text)
             .setOnlyAlertOnce(true)
+            .setSilent(!sound)
             .setAutoCancel(true)
             .build()
         runCatching { manager.notify(NOTIFICATION_ID, notification) }
