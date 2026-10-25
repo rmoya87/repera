@@ -173,6 +173,32 @@ final class LiveRoutesStore {
         }
     }
 
+    /// Recupera favoritos vinculados a sesiones sincronizadas por iCloud, sin
+    /// renumerar el identificador del recorrido ni duplicarlo en dispositivos nuevos.
+    func recoverFromSessions(_ sessions: [WorkoutSession]) {
+        var known = Set(routes.map(\.id))
+        var recovered: [LiveSavedRoute] = []
+        for session in sessions.sorted(by: {
+            ($0.startedAt ?? .distantPast) < ($1.startedAt ?? .distantPast)
+        }) {
+            guard let id = session.liveRouteID, !known.contains(id),
+                  session.routePoints.count >= 2 else { continue }
+            recovered.append(
+                LiveSavedRoute(id: id, title: session.title,
+                               points: session.routePoints, sportID: session.liveSportID)
+            )
+            known.insert(id)
+        }
+        guard !recovered.isEmpty else { return }
+        let previous = routes
+        routes.append(contentsOf: recovered)
+        do {
+            try persist()
+        } catch {
+            routes = previous
+        }
+    }
+
     func remove(_ id: UUID) {
         let previous = routes
         routes.removeAll { $0.id == id }
@@ -763,6 +789,9 @@ struct LiveActivityView: View {
         .tint(OG.accent)
         .onChange(of: scenePhase) { _, next in
             if next != .active { recorder.checkpoint() }
+        }
+        .task(id: store.workoutsEpoch) {
+            routes.recoverFromSessions(store.state.workouts)
         }
     }
 
