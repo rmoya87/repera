@@ -6,7 +6,7 @@
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array><string>com.app.repera.catalog.refresh</string></array>
 	<key>UIBackgroundModes</key>
-	<array><string>fetch</string></array>
+	<array><string>fetch</string><string>location</string></array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -60,7 +60,9 @@
 		<string>Repera usa ubicación precisa para el pin del gym y la ruta del entreno.</string>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Repera usa tu ubicación para mostrar en el mapa dónde entrenaste y, en entrenos outdoor, el recorrido.</string>
+	<string>Repera registra la ruta y la distancia durante un entreno, incluso al bloquear el iPhone.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Repera continúa registrando el recorrido de tu entrenamiento con el iPhone bloqueado.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Repera lee fotos de pizarras o pantallas para importar el entrenamiento.</string>
 	<key>NSSupportsLiveActivities</key>
