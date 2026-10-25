@@ -164,3 +164,22 @@ main móvil invisible.)
   precisiones/splits/UUID, conserva checkpoint ante fallo de escritura y
   conserva archivo corrupto sin borrado silencioso. 3 tests JVM nuevos
   verdes. Local domain 279/0, mobile 192/0. No wiring FGS todavía.
+
+## Checkpoint Android runtime, 19:38 CET
+### Terminado a nivel de dominio/JVM (no validación global)
+- Recorder, odómetro, GPX/giros, rutas y checkpoint atómicos con tests locales.
+### En curso
+- LiveLocationSource conecta LocationManager al odómetro; runtime compartido
+  por cuenta conecta recorder/checkpoint/proveedor. Servicio foreground privado
+  y notificación ongoing con pausa/reanudar/finalizar implementados y compilan.
+  NO se han ejecutado aún servicio, permisos ni GPS en instrumento; falta UI.
+- Nuevo permiso FOREGROUND_SERVICE_LOCATION, sin ACCESS_BACKGROUND_LOCATION.
+  La ruta prevista es iniciar FGS location desde UI visible con permiso de
+  ubicación concedido. No se afirma validación de continuidad en background
+  ni aprobación Play; debe probarse y documentarse antes de distribución.
+- Cabecera API30: diagnóstico boundsRoot positivo pero boundsWindow negativo
+  prueba desplazamiento de la ventana. TextureView solo no resolvió. Nuevo
+  run 40221857337 prueba adjust-noting/imePadding/token del propio Dialog.
+### Pendiente
+- UI/comienzo/guardado/favoritos/evolución/audio y pruebas instrumentadas/
+  capturas. D5 notificación es parcial hasta ejecución y métricas completas.
