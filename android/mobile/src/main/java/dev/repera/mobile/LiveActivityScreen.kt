@@ -177,8 +177,6 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(state.sport.materialIcon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Text(state.sport.title,style=MaterialTheme.typography.titleLarge)
-        if(state.sport.usesGPS && state.phase!=LiveActivityState.Phase.REVIEW)
-            TextButton(onClick={showingMetrics=false;showRoutes=false}) {Text("Ver mapa")}
                     }
                     Text("Mapa del recorrido · guía GPX orientativa", style=MaterialTheme.typography.bodySmall)
                     if (state.phase == LiveActivityState.Phase.IDLE) {
@@ -199,8 +197,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                     if (state.phase == LiveActivityState.Phase.IDLE) {
                         Text(state.sport.metricDescription,style=MaterialTheme.typography.bodySmall)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically) {
+                        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             TextButton(onClick={showSportPicker=true},modifier=Modifier.testTag("live_sport_picker")) {
                                 Text("Elegir actividad: ${state.sport.title}")
                             }
@@ -211,15 +209,15 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                                 else start()
                             },modifier=Modifier.testTag("live_start")) { Text(if(hasActiveWorkout) "Continuar entrenamiento" else "Iniciar") }
                         }
-                        Row {
+                        FlowRow {
                             TextButton(onClick={showRoutes=true;showingMetrics=true}) {Text("Rutas")}
                             TextButton(onClick=onOpenTools) {Text("Crear")}
                             onOpenCenter?.let { TextButton(onClick=it) {Text("Center")} }
                         }
                     } else {
-                        Text("${LiveSportHistory.formatDuration(state.durationSeconds(System.currentTimeMillis()))} · %.2f km".format(state.distanceMeters/1000),
+                        Text(LiveSportHistory.formatDuration(state.durationSeconds(System.currentTimeMillis())) + " · %.2f km".format(state.distanceMeters/1000),
                             style=MaterialTheme.typography.titleLarge)
-                        Row {
+                        FlowRow {
                             Button(onClick={showingMetrics=true}) {Text("Ver métricas")}
                             if(state.phase==LiveActivityState.Phase.RECORDING) TextButton(onClick={runtime.pause()}) {Text("Pausar")}
                             else TextButton(onClick={runtime.resume();startService()}) {Text("Reanudar")}
@@ -237,6 +235,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         @Suppress("UNUSED_VARIABLE") val version=revision
         Text("Comenzar",style=MaterialTheme.typography.headlineMedium)
         Text(state.sport.title,style=MaterialTheme.typography.titleLarge)
+        if(state.sport.usesGPS && state.phase!=LiveActivityState.Phase.REVIEW)
+            TextButton(onClick={showingMetrics=false;showRoutes=false}) {Text("Ver mapa")}
         if(state.phase==LiveActivityState.Phase.IDLE) {
             OutlinedButton(onClick = { showSportPicker = true }, modifier = Modifier.testTag("live_sport_picker")) {
                 Text("Elegir actividad: ${state.sport.title}")
