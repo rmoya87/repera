@@ -25,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -124,10 +125,10 @@ private fun BodyMapLegend() {
         Text("Recuperado", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer4()
         for (level in 0..4) {
-            Box(modifier = Modifier
+            Box(modifier = Modifier.testTag("body_legend_$level")
                 .width(12.dp)
                 .height(12.dp)
-                .background(BodyMapPalette.fill(level), RoundedCornerShape(2.dp)))
+                .background(BodyMapPalette.fill(level, BodyMapPalette.neutralFor(MaterialTheme.colorScheme.surfaceContainerHighest)), RoundedCornerShape(2.dp)))
         }
         Spacer4()
         Text("Fatigado", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -175,7 +176,7 @@ private fun BarsSection(
                         Box(modifier = Modifier
                             .fillMaxWidth(fraction.coerceIn(0f, 1f))
                             .height(8.dp)
-                            .background(BodyMapPalette.fill(level), CircleShape))
+                            .background(BodyMapPalette.fill(level, BodyMapPalette.neutralFor(MaterialTheme.colorScheme.surfaceContainerHighest)), CircleShape))
                     }
                     Text("${formatSets(value)} series",
                         fontSize = 12.sp,

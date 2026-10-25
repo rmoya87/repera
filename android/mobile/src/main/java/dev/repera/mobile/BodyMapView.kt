@@ -3,6 +3,8 @@ package dev.repera.mobile
 import android.graphics.Path as AndroidPath
 import android.graphics.RectF
 import android.graphics.Region
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Row
@@ -41,15 +43,18 @@ internal object BodyMapPalette {
     val red = Color(1f, 69f / 255f, 58f / 255f)
     val gray = Color(0.23f, 0.23f, 0.24f)
 
-    fun fill(level: Int): Color = when (level) {
+    fun fill(level: Int, neutral: Color = gray): Color = when (level) {
         1 -> brandGreen
         2 -> yellow
         3 -> orange
         4 -> red
-        else -> gray
+        else -> neutral
     }
 
-    val silhouette: Color = gray.copy(alpha = 0.55f)
+    // Neutral anatomy must remain distinct from the card in both themes.
+    fun neutralFor(background: Color): Color =
+        if (background.luminance() < 0.25f) Color(0.68f, 0.68f, 0.70f) else gray
+    fun silhouetteFor(background: Color): Color = neutralFor(background).copy(alpha = 0.70f)
 }
 
 internal class CompiledBodyView(
@@ -179,6 +184,9 @@ private fun BodySilhouetteView(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val background = MaterialTheme.colorScheme.surfaceContainerHighest
+    val neutral = BodyMapPalette.neutralFor(background)
+    val silhouette = BodyMapPalette.silhouetteFor(background)
     Canvas(
         modifier.pointerInput(view, selected) {
             detectTapGestures { offset ->
@@ -205,7 +213,7 @@ private fun BodySilhouetteView(
             for (key in view.inertPaths.keys.sorted()) {
                 if (key == "head") continue
                 for (path in view.inertPaths[key] ?: emptyList()) {
-                    drawPath(path.asComposePath(), color = BodyMapPalette.silhouette)
+                    drawPath(path.asComposePath(), color = silhouette)
                 }
             }
             for (slug in MuscleTaxonomy.muscles) {
@@ -213,14 +221,14 @@ private fun BodySilhouetteView(
                 val isSel = selected == slug
                 for (path in view.musclePaths[slug] ?: emptyList()) {
                     val compose = path.asComposePath()
-                    drawPath(compose, color = BodyMapPalette.fill(level))
+                    drawPath(compose, color = BodyMapPalette.fill(level, neutral))
                     if (isSel) {
                         drawPath(compose, color = Color.White, style = Stroke(width = 1.5f / scale))
                     }
                 }
             }
             for (path in view.inertPaths["head"] ?: emptyList()) {
-                drawPath(path.asComposePath(), color = BodyMapPalette.silhouette)
+                drawPath(path.asComposePath(), color = silhouette)
             }
         }
     }
