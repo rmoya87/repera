@@ -725,7 +725,13 @@ extension StatsEngine {
         let df = Self.dayKeyFormatter(calendar: calendar)
 
         for workout in workouts {
-            guard let date = workout.finishedAt ?? workout.startedAt else { continue }
+            // El día de una sesión iniciada desde «Comenzar» debe coincidir
+            // con el filtro de Progreso y las series cardio, incluso si
+            // termina después de medianoche.
+            let date = workout.liveSportID == nil
+                ? (workout.finishedAt ?? workout.startedAt)
+                : (workout.startedAt ?? workout.finishedAt)
+            guard let date else { continue }
             let day = calendar.startOfDay(for: date)
             let key = df.string(from: day)
             var row = agg[key] ?? DayActivityContribution(

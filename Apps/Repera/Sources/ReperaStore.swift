@@ -733,7 +733,8 @@ final class ReperaStore: NSObject {
         let sessionID = session.id
         let trackRoute = WorkoutLocationTracker.shouldTrackRoute(for: session)
         let cycling = workoutHealthType(for: session) == .cycling
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
             let tracker = WorkoutLocationTracker.shared
             guard await tracker.ensureWhenInUseAuthorized(),
                   state.activeSession?.id == sessionID else { return }
@@ -780,7 +781,8 @@ final class ReperaStore: NSObject {
         let sessionID = active.id
         let tracker = WorkoutLocationTracker.shared
         guard tracker.trackingSessionID != sessionID else { return }
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
             guard await tracker.ensureWhenInUseAuthorized(),
                   state.activeSession?.id == sessionID else { return }
             let restored = tracker.restoreForResume(sessionID: sessionID)

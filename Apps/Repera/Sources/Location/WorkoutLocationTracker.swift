@@ -300,7 +300,7 @@ final class WorkoutLocationTracker: NSObject {
         routeBuffer.append(point)
         onAccepted?(WorkoutGPSUpdate(fix: fix, point: point, distanceMeters: recordedDistanceMeters))
         // Store the original accuracy in HealthKit, never substitute 15 m.
-        Task { await HealthKitStore.shared.appendRecordedRouteLocation(sessionID: id, location: position) }
+        HealthKitStore.shared.appendRecordedRouteLocation(sessionID: id, location: position)
         if Date().timeIntervalSince(lastSavedAt) > 10 { saveSnapshot() }
     }
 }
