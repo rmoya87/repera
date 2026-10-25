@@ -92,7 +92,7 @@ class BusinessProjectionInstrumentedTest {
             } }
         }}}
         compose.onNodeWithText("RPE opcional (0–10)").performScrollTo().performTextInput("8")
-        compose.onNodeWithText("Fuerza").performClick() // dismiss keyboard before capture
+        compose.activity.runOnUiThread {val view=compose.activity.currentFocus; if(view!=null) (compose.activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(view.windowToken,0)}
         compose.onNodeWithText("RPE opcional (0–10)").performScrollTo()
         capture("registro_esfuerzo_rpe")
         compose.onNodeWithText("Registrar serie").performScrollTo().performClick()
