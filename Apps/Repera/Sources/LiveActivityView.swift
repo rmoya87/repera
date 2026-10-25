@@ -99,7 +99,8 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .volleyball: "volleyball"
         case .climbing: "figure.climbing"
         case .dance: "figure.dance"
-        case .pilates, .yoga, .mobility: "figure.flexibility"
+        case .pilates: "figure.pilates"
+        case .yoga, .mobility: "figure.flexibility"
         case .other: "figure.mixed.cardio"
         }
     }
@@ -188,7 +189,7 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .hiit: .highIntensityIntervalTraining
         case .tennis, .padel: .tennis
         case .surfing: .surfingSports
-        case .windsurfing, .kitesurfing: .waterSports
+        case .windsurfing, .kitesurfing: .surfingSports
         case .swimming: .swimming
         case .kayaking, .canoeing: .paddleSports
         case .rowing: .rowing
