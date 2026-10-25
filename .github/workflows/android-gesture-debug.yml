@@ -8,7 +8,7 @@ name: Android gesture debug (focused)
 on:
   workflow_dispatch:
   push:
-    branches: [feat/android-wear-native-parity]
+    branches: [debug/gesture-pinch]
 permissions:
   contents: read
 concurrency:
