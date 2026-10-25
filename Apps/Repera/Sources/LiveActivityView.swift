@@ -693,6 +693,16 @@ final class LiveActivityRecorder: NSObject {
         currentCourseDegrees = nil
         gpsMessage = nil
         phase = .recording
+        let sessionID = gpsSessionID
+        let workoutStart = startedAt ?? Date()
+        let selectedSport = sport
+        Task {
+            await HealthKitStore.shared.beginWorkout(
+                sessionId: sessionID, title: selectedSport.title, start: workoutStart,
+                activityType: selectedSport.healthType,
+                locationType: selectedSport.usesGPS ? .outdoor : .indoor
+            )
+        }
         if sport.usesGPS {
             startGPS()
             Task { await HealthKitStore.shared.ensureWorkoutRouteAccess() }
@@ -845,6 +855,13 @@ final class LiveActivityRecorder: NSObject {
     }
 
     func discard(saved: Bool = false) {
+        if !saved {
+            let sessionID = gpsSessionID
+            Task {
+                HealthKitStore.shared.discardRecordedGPSRoute(sessionID: sessionID)
+                await HealthKitStore.shared.discardLiveTracking()
+            }
+        }
         if let startedAt {
             Task {
                 await WorkoutLiveActivityCoordinator.shared.dismissFree(
