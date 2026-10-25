@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   gesture:
-    name: Delta D3 and save tests (API 30)
+    name: Delta controls and save tests (API 30)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -54,13 +54,14 @@ jobs:
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096'
           # UNA linea (la accion ejecuta cada linea en un sh -c distinto).
-          script: adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; adb shell input keyevent 82 || true; sleep 3; adb shell wm dismiss-keyguard || true; gradle -p android :mobile:installDebug --no-daemon --stacktrace; for i in $(seq 1 60); do if adb shell run-as com.app.repera true 2>/dev/null; then echo "usuario-desbloqueado-$i"; break; fi; adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; sleep 10; done; gradle -p android :mobile:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class='dev.repera.mobile.LiveActivitySaveInstrumentedTest' --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; echo "TEST_EXIT=$TEST_EXIT"; X=$(ls android/mobile/build/outputs/androidTest-results/connected/debug/TEST-*.xml 2>/dev/null | head -1); cat "$X" || true; adb logcat -d -t 3000 || true; exit $TEST_EXIT
+          script: adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; adb shell input keyevent 82 || true; sleep 3; gradle -p android :mobile:installDebug --no-daemon --stacktrace; mkdir -p android/focused-evidence/controls android/focused-evidence/save; gradle -p android :mobile:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class='dev.repera.mobile.LiveActivityControlsInstrumentedTest' --no-daemon --stacktrace; FIRST=$?; cp -r android/mobile/build/outputs/androidTest-results/connected/debug/. android/focused-evidence/controls/ || true; gradle -p android :mobile:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class='dev.repera.mobile.LiveActivitySaveInstrumentedTest' --no-daemon --stacktrace; SECOND=$?; cp -r android/mobile/build/outputs/androidTest-results/connected/debug/. android/focused-evidence/save/ || true; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; echo "CONTROLS_EXIT=$FIRST SAVE_EXIT=$SECOND"; adb logcat -d -t 3000 || true; test $FIRST -eq 0 -a $SECOND -eq 0
+
 
       - name: Upload focused screenshots and reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: delta-save-map-api30-evidence
+          name: delta-controls-save-api30-evidence
           path: |
             android/screenshots/**
-            android/mobile/build/outputs/androidTest-results/**
+            android/focused-evidence/**
