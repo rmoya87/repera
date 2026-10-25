@@ -810,10 +810,10 @@ fun ReperaMobileScreen(
                     if (id != null && routine != null) {
                         RoutineBlocksEditorScreen(
                             routine = routine,
-                            exercises = overview.exerciseEntries,
+                            exercises = overview?.exerciseEntries.orEmpty(),
                             busy = busy,
                             loadGuideProvider = loadGuideProvider,
-                            importableRoutines = overview.routineEntries,
+                            importableRoutines = overview?.routineEntries.orEmpty(),
                             onTitleSuggested = { title ->
                                 onEditRoutine(id, title, RoutineSchedule(
                                     routine.scheduledDate, routine.weekday, routine.timeMinutes))
