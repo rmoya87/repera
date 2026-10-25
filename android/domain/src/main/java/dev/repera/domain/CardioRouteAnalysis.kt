@@ -128,6 +128,15 @@ object CardioRouteAnalysis {
         return Result(profile, splits, distance, ascent, descent)
     }
 
+    /** Distancia total de un recorrido (LiveSavedRoute.distanceKm de Apple):
+     *  suma de tramos entre puntos consecutivos, en metros. */
+    fun routeDistanceMeters(points: List<Sample>): Double {
+        if (points.size < 2) return 0.0
+        var total = 0.0
+        for (i in 0 until points.size - 1) total += haversine(points[i], points[i + 1])
+        return total
+    }
+
     private fun validAltitude(meters: Double?): Double? =
         meters?.takeIf { it.isFinite() && it in -500.0..9000.0 }
 
