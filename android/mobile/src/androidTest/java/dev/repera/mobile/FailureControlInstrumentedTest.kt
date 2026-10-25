@@ -33,6 +33,10 @@ class FailureControlInstrumentedTest {
  }
  private fun capture(name:String) {
   compose.waitForIdle();val instrument=InstrumentationRegistry.getInstrumentation();val context=instrument.targetContext
+  instrument.waitForIdleSync()
+  Thread.sleep(300)
+  val root=instrument.uiAutomation.rootInActiveWindow
+  org.junit.Assert.assertEquals("Screenshot must show the app, not a system overlay",instrument.targetContext.packageName,root?.packageName?.toString())
   val bitmap=instrument.uiAutomation.takeScreenshot()!!
   val values=android.content.ContentValues().apply {
    put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,name);put(android.provider.MediaStore.Images.Media.MIME_TYPE,"image/png")

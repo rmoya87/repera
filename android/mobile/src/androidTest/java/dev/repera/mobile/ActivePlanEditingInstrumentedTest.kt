@@ -40,7 +40,11 @@ class ActivePlanEditingInstrumentedTest {
    (compose.activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(v.windowToken,0)}}
   compose.onNodeWithText("Guardar").performScrollTo().assertIsDisplayed()
   compose.waitForIdle();compose.mainClock.advanceTimeBy(500);compose.waitForIdle()
-  val instrument=InstrumentationRegistry.getInstrumentation();val bitmap=instrument.uiAutomation.takeScreenshot()!!
+  val instrument=InstrumentationRegistry.getInstrumentation();instrument.waitForIdleSync()
+  Thread.sleep(300)
+  val root=instrument.uiAutomation.rootInActiveWindow
+  org.junit.Assert.assertEquals("Screenshot must show the app, not a system overlay",instrument.targetContext.packageName,root?.packageName?.toString())
+  val bitmap=instrument.uiAutomation.takeScreenshot()!!
   val values=android.content.ContentValues().apply {
    put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,"entreno_editor_activo.png")
    put(android.provider.MediaStore.Images.Media.MIME_TYPE,"image/png")

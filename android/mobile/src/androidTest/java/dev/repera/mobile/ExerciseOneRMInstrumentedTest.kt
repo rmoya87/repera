@@ -59,7 +59,11 @@ class ExerciseOneRMInstrumentedTest {
   compose.onNodeWithTag("suggested_load_percent").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) {it(95f)}
   compose.onNodeWithTag("suggested_load_value").assertTextContains("95% 1RM",substring=true)
   compose.waitForIdle();compose.mainClock.advanceTimeBy(500);compose.waitForIdle()
-  val instrument=InstrumentationRegistry.getInstrumentation();val bitmap=instrument.uiAutomation.takeScreenshot()!!
+  val instrument=InstrumentationRegistry.getInstrumentation();instrument.waitForIdleSync()
+  Thread.sleep(300)
+  val root=instrument.uiAutomation.rootInActiveWindow
+  org.junit.Assert.assertEquals("Screenshot must show the app, not a system overlay",instrument.targetContext.packageName,root?.packageName?.toString())
+  val bitmap=instrument.uiAutomation.takeScreenshot()!!
   val values=android.content.ContentValues().apply {
    put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,"ejercicio_tope_carga.png")
    put(android.provider.MediaStore.Images.Media.MIME_TYPE,"image/png")
