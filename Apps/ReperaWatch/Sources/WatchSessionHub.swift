@@ -39,6 +39,11 @@ final class WatchSessionHub: NSObject {
     private var lastIntervalIndex = 0
     private var todayUpdatedAt: Date?
     private let persistenceKey = "repera.watch.offlineState.v1"
+    private let discardedFreeKey = "repera.watch.discardedFree.v1"
+    private var discardedFreeIDs: Set<UUID> {
+        Set((UserDefaults.standard.stringArray(forKey: discardedFreeKey) ?? [])
+            .compactMap(UUID.init(uuidString:)))
+    }
 
     private struct OfflineState: Codable {
         var current: WorkoutSession?
@@ -393,6 +398,14 @@ final class WatchSessionHub: NSObject {
     /// de Play, pero no inventa ejercicios/series para deportes sin prescripción.
     private func acceptFreeWorkout(_ remote: WorkoutSession) {
         if remote.phase == .idle {
+            // A late/reordered applicationContext must not resurrect a session
+            // after the user discarded it on iPhone.
+            var discarded = discardedFreeIDs
+            discarded.insert(remote.id)
+            UserDefaults.standard.set(
+                Array(discarded.suffix(60)).map(\.uuidString),
+                forKey: discardedFreeKey
+            )
             guard active?.id == remote.id, active?.liveSportID != nil else { return }
             stopClock()
             stopMotion()
@@ -408,7 +421,8 @@ final class WatchSessionHub: NSObject {
             if active?.id == remote.id { finishWorkout() }
             return
         }
-        guard let type = remote.liveSportID else { return }
+        guard let type = remote.liveSportID,
+              !discardedFreeIDs.contains(remote.id) else { return }
         if let active, active.id == remote.id {
             // GPS y rutas son del iPhone; sensores/calorías pertenecen al Watch.
             var merged = active
