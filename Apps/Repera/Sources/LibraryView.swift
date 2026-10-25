@@ -148,7 +148,7 @@ struct LibraryView: View {
                         VStack(alignment: .leading, spacing: 0) {
                             HStack(spacing: 6) {
                                 Text("Ejercicios")
-                                    .font(.title2.weight(.bold))
+                                    .font(.largeTitle.weight(.bold))
                                     .foregroundStyle(OG.label)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 OGToolbarGlassButton(
@@ -167,7 +167,9 @@ struct LibraryView: View {
                                 }
                             }
                             .padding(.horizontal, OG.pad)
-                            .padding(.top, 12)
+                            .padding(.top, 4)
+                            .padding(.bottom, 4)
+                            .background(Color.clear) // cabecera transparente, igual que la raíz compacta
 
                             HStack(spacing: 9) {
                                 Image(systemName: "magnifyingglass")
@@ -203,8 +205,9 @@ struct LibraryView: View {
                                     ExerciseDetailView(
                                         exerciseId: selectedExerciseID,
                                         onOpenedWorkout: onOpenedWorkout,
-                                        showsQuickLogToolbarAction: false
+                                        showsQuickLogToolbarAction: true
                                     )
+                                    .toolbar(.visible, for: .navigationBar)
                                 }
                                 .id(selectedExerciseID)
                             } else {
@@ -227,10 +230,9 @@ struct LibraryView: View {
                                     RoundedRectangle(cornerRadius: OG.radiusCard)
                                         .strokeBorder(OG.surface3.opacity(0.75), lineWidth: 0.7)
                                 }
-                                .padding(.top, 16)
                             }
                         }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                         .padding(.horizontal, OG.pad)
                         .background(OG.bg)
                     }

@@ -338,6 +338,58 @@ private struct OGListChromeModifier: ViewModifier {
     }
 }
 
+/// Panel lateral de media pantalla para DUO desplegado, iPad y pantallas grandes.
+/// Mantiene el contenido de origen a la izquierda y desplaza el destino desde la derecha.
+/// En iPhone compacto no se utiliza: sigue el push de NavigationStack.
+private struct OGTrailingColumnPanel<Panel: View>: ViewModifier {
+    var isPresented: Bool
+    var onDismiss: () -> Void
+    @ViewBuilder var panel: () -> Panel
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                GeometryReader { geometry in
+                    ZStack(alignment: .trailing) {
+                        if isPresented {
+                            Color.black.opacity(0.10)
+                                .contentShape(Rectangle())
+                                .onTapGesture(perform: onDismiss)
+                                .transition(.opacity)
+                            panel()
+                                .frame(width: geometry.size.width / 2)
+                                .frame(maxHeight: .infinity)
+                                .background(OG.bg)
+                                .overlay(alignment: .leading) {
+                                    Rectangle().fill(OG.surface3).frame(width: 1)
+                                }
+                                .transition(.move(edge: .trailing))
+                                .zIndex(1)
+                        }
+                    }
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                }
+                .ignoresSafeArea()
+                .allowsHitTesting(isPresented)
+            }
+            .animation(.easeInOut(duration: 0.28), value: isPresented)
+    }
+}
+
+extension View {
+    func ogTrailingColumnPanel<Panel: View>(
+        isPresented: Bool,
+        onDismiss: @escaping () -> Void,
+        @ViewBuilder panel: @escaping () -> Panel
+    ) -> some View {
+        modifier(OGTrailingColumnPanel(
+            isPresented: isPresented,
+            onDismiss: onDismiss,
+            panel: panel
+        ))
+    }
+}
+
 extension View {
     /// Centro compartido para contenido ScrollView (Progreso, Inicio inferior,
     /// Center, detalles). No se usa en el primer componente blanco de Inicio.

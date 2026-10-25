@@ -69,6 +69,7 @@ struct HomeView: View {
     private static let weekCarouselRadius = 52
     @State private var calendarScrollID: String?
     @State private var isExpandedLayout = false
+    @State private var showSettingsPanel = false
     @ScaledMetric(relativeTo: .body) private var weekCarouselHeight: CGFloat = 72
     /// Máximo ancho del calendario: 7 días completos con sus huecos.
     /// En paisaje evita cuadros desproporcionados o fragmentos laterales.
@@ -282,6 +283,7 @@ struct HomeView: View {
             .background(OG.bg.ignoresSafeArea(edges: .bottom))
             .onGeometryChange(for: Bool.self, of: { $0.size.width >= 620 }) { _, expanded in
                 isExpandedLayout = expanded
+                if !expanded { showSettingsPanel = false }
             }
             .refreshable { await businessData.refresh() }
             .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay), backgroundColor: OG.surface) {
@@ -308,16 +310,29 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Mensajes con centro o entrenador")
                 }
-                NavigationLink {
-                    SettingsView()
-                } label: {
-                    iCloudAvatar
-                        .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
-                        .contentShape(Circle())
-                        .glassEffect(.regular.interactive(), in: .circle)
+                if isExpandedLayout {
+                    Button {
+                        showSettingsPanel = true
+                    } label: {
+                        iCloudAvatar
+                            .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
+                            .contentShape(Circle())
+                            .glassEffect(.regular.interactive(), in: .circle)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Abrir Ajustes en la columna derecha")
+                } else {
+                    NavigationLink {
+                        SettingsView()
+                    } label: {
+                        iCloudAvatar
+                            .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
+                            .contentShape(Circle())
+                            .glassEffect(.regular.interactive(), in: .circle)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Ajustes y cuenta iCloud")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Ajustes y cuenta iCloud")
             }
             // Fondo independiente del topbar: el blanco continúa visualmente
             // desde la zona segura superior hasta calendario + entreno.
@@ -517,6 +532,28 @@ struct HomeView: View {
                     onCancel: { healthPendingDelete = nil }
                 )
             }
+        }
+        .ogTrailingColumnPanel(
+            isPresented: isExpandedLayout && showSettingsPanel,
+            onDismiss: { showSettingsPanel = false }
+        ) {
+            NavigationStack {
+                SettingsView()
+                    .toolbar(.visible, for: .navigationBar)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button {
+                                showSettingsPanel = false
+                            } label: {
+                                Image(systemName: "arrow.left")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(OG.label)
+                            }
+                            .accessibilityLabel("Cerrar Ajustes")
+                        }
+                    }
+            }
+            .background(OG.bg)
         }
     }
 
