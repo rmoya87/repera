@@ -709,7 +709,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 },
                 onInitializeLocal = ::initializeLocalCatalog,
                 onLogSet = { quantity, weight, rir, warmup, unit, duration, deficit ->
-                    val rest = currentRestInfo()
+                    val rest = currentRestInfo()?.let {(name,seconds) -> name to dev.repera.domain.StrengthRestPolicy.seconds(seconds,warmup=warmup)}
                     runWorkoutAction(onSuccess = {
                         rest?.let { (name, seconds) ->
                             StrengthRestService.start(this, name, seconds,snapshot?.trainingSettings?.restSoundEnabled ?: true,snapshot?.trainingSettings?.restHapticEnabled ?: true)
@@ -718,7 +718,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         quantityUnit = unit, durationSeconds = duration, deficitCm = deficit) }
                 },
                 onLogDropSet = { quantity, weight, drops ->
-                    val rest = currentRestInfo()
+                    val rest = currentRestInfo()?.let {(name,seconds) -> name to dev.repera.domain.StrengthRestPolicy.seconds(seconds,kind="dropset")}
                     runWorkoutAction(onSuccess = {
                         rest?.let { (name, seconds) ->
                             StrengthRestService.start(this, name, seconds,snapshot?.trainingSettings?.restSoundEnabled ?: true,snapshot?.trainingSettings?.restHapticEnabled ?: true)
@@ -726,7 +726,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     }) { logDropSet(quantity, weight, drops) }
                 },
                 onLogRestPauseSet = { clusters, weight ->
-                    val rest = currentRestInfo()
+                    val rest = currentRestInfo()?.let {(name,seconds) -> name to dev.repera.domain.StrengthRestPolicy.seconds(seconds,kind="restpause")}
                     runWorkoutAction(onSuccess = {
                         rest?.let { (name, seconds) ->
                             StrengthRestService.start(this, name, seconds,snapshot?.trainingSettings?.restSoundEnabled ?: true,snapshot?.trainingSettings?.restHapticEnabled ?: true)

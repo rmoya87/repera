@@ -122,3 +122,25 @@ Esta pasada NO afirma equivalencia de todas las funciones ni un plazo global.
  comoantes. Corrijo hipótesis anterior de quehabía quequitarla.
 -AtribuciónEnVivo díaInicio ya presente enProgressSnapshot. DeltaApple sobre
  appendRouteLocation yweakself esespecíficoSwift, sinmutaciónAndroidnecesaria.
+
+## Hitos verificados22:24
+-40233623617 (funcionalhasta b16c5886): ajustes3/0, proveedorGPS2/0,
+ tema2/0; coordenadasexactas y pausasinpuente verificadas; capturascalendario
+ domingo y ajustesclaro/oscuro inspeccionadas. NohardwareGPS.
+-40234505143 (funcional203dde5a): profesional/mensajes/RPE4/0, objetivos1/0,
+ ajustes3/0, tema2/0, skips0. Bandeja/borradorRPE8/perfilsettingsclarooscuro
+ inspeccionados. Capturaprofesional enblanco peseaserciones, noaceptada.
+-40235096876 enejecución parafuncional5459eed5/Apple37837401, sinframefix
+ posterior; incluye objetivosdía/peso/catálogoseleccionable.
+-HEAD posterior corrigeesperaframe yfechamensajes/búsquedadeporte. Además
+ descansoportApple: calentamiento45s/drops20s/restpausemax45,base÷2; testpuro.
+
+## Restante conocido (no lista global cerrada)
+-Resetdatos conconfirmación/tombstones/colas y noresurrección: noimplementado.
+-PerfilpúblicoSupabase noportado; editorlocalfoto yEXIF sinprueba selecciónreal.
+-ObjetivosSalud porfecha ypesoconsumidores locales; pendientesdatosreales,
+ conciliaciónduración enlazada, estabilidadalrefresh yvalidaciónvisual reciente.
+-Editorrotación reordenabotones (Apple drag); falta revisar equivalenciavisual.
+-Audios/haptic reales, GPSfísico, Healthreal yE2E móvil-reloj pendientes.
+-Meteo/terreno/servicios nuevos siguen sujetosa decisión sincostes.
+-Regresiónglobal actual pendiente, último globalverde212dcbe3.
