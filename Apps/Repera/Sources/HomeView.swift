@@ -269,7 +269,8 @@ struct HomeView: View {
                     }
                     .padding(.top, 12)
                     .padding(.bottom, 28)
-                    .ogReadableColumn()
+                    .frame(maxWidth: isExpandedLayout ? .infinity : OG.contentColumnMaxWidth)
+                    .frame(maxWidth: .infinity, alignment: .center)
                     // En paisaje la safe area lateral pertenece al gris de
                     // Progreso/Actividad; el blanco solo es calendario + entreno.
                     .background(OG.bg.ignoresSafeArea(edges: .horizontal))
