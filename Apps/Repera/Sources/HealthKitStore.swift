@@ -12,6 +12,11 @@ final class HealthKitStore {
 
     private let store = HKHealthStore()
     private var mirroredWatchSession: HKWorkoutSession?
+
+    /// Route writer per iPhone workout. Raw CLLocation accuracy and time are retained.
+    @ObservationIgnored private var gpsRouteBuilders: [UUID: HKWorkoutRouteBuilder] = [:]
+    @ObservationIgnored private var gpsRouteQueue: [UUID: [CLLocation]] = [:]
+    @ObservationIgnored private var gpsRouteTasks: [UUID: Task<Void, Never>] = [:]
     private var mirroredWatchDelegate: CompanionWorkoutMirrorDelegate?
     private(set) var mirroredWatchState: HKWorkoutSessionState?
     private(set) var mirroredWatchError: String?
@@ -1509,6 +1514,82 @@ final class HealthKitStore {
         }
     }
 
+    /// Start one native HealthKit route builder when a local GPS workout begins.
+    /// On Watch-owned workouts the watch writes its own route; never duplicate it.
+    func beginRecordedGPSRoute(sessionID: UUID) async {
+        guard !isWatchWorkoutMirrored, isAvailable,
+              store.authorizationStatus(for: HKSeriesType.workoutRoute()) == .sharingAuthorized
+        else { return }
+        if gpsRouteBuilders[sessionID] == nil {
+            gpsRouteBuilders[sessionID] = HKWorkoutRouteBuilder(healthStore: store, device: .local())
+        }
+    }
+
+    /// Preserve original fixes, including accuracy. Insertion is batched and
+    /// serialized per workout, independent of SwiftUI and foreground rendering.
+    func appendRecordedRouteLocation(sessionID: UUID, location: CLLocation) {
+        guard gpsRouteBuilders[sessionID] != nil else { return }
+        gpsRouteQueue[sessionID, default: []].append(location)
+        if (gpsRouteQueue[sessionID]?.count ?? 0) >= 12 {
+            scheduleRouteDrain(sessionID: sessionID)
+        }
+    }
+
+    private func scheduleRouteDrain(sessionID: UUID) {
+        guard gpsRouteTasks[sessionID] == nil,
+              gpsRouteBuilders[sessionID] != nil else { return }
+        gpsRouteTasks[sessionID] = Task { @MainActor [weak self] in
+            guard let self else { return }
+            while let builder = self.gpsRouteBuilders[sessionID],
+                  let queued = self.gpsRouteQueue[sessionID], !queued.isEmpty {
+                let batch = Array(queued.prefix(250))
+                self.gpsRouteQueue[sessionID]?.removeFirst(batch.count)
+                do {
+                    try await builder.insertRouteData(batch)
+                } catch {
+                    self.lastError = "Error de ruta en Apple Salud: \(error.localizedDescription)"
+                    // Repera keeps the full route locally if HealthKit fails.
+                }
+            }
+            self.gpsRouteTasks[sessionID] = nil
+        }
+    }
+
+    /// Finish the exact route against its own HKWorkout UUID (never an
+    /// arbitrary workout that merely overlaps the same clock interval).
+    /// Returns false when no streaming route could be written; caller may
+    /// attach the local GPS points after authorization is restored.
+    func finishRecordedGPSRoute(sessionID: UUID, workoutUUID: UUID) async -> Bool {
+        guard let builder = gpsRouteBuilders[sessionID],
+              let workout = await fetchWorkout(uuid: workoutUUID),
+              Self.isReperaSource(workout.sourceRevision.source),
+              !Self.isWatchRecordedSource(workout.sourceRevision.source),
+              workout.metadata?["ReperaSessionID"] as? String == sessionID.uuidString
+        else { return false }
+        if let task = gpsRouteTasks[sessionID] { await task.value }
+        scheduleRouteDrain(sessionID: sessionID)
+        if let task = gpsRouteTasks[sessionID] { await task.value }
+        defer {
+            gpsRouteBuilders.removeValue(forKey: sessionID)
+            gpsRouteQueue.removeValue(forKey: sessionID)
+            gpsRouteTasks.removeValue(forKey: sessionID)
+        }
+        if !(await fetchRoutes(for: workout)).isEmpty { return true }
+        do {
+            _ = try await builder.finishRoute(with: workout, metadata: nil)
+            return true
+        } catch {
+            lastError = "No se pudo finalizar la ruta en Salud: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    func discardRecordedGPSRoute(sessionID: UUID) {
+        gpsRouteBuilders.removeValue(forKey: sessionID)
+        gpsRouteQueue.removeValue(forKey: sessionID)
+        gpsRouteTasks.removeValue(forKey: sessionID)
+    }
+
     /// Transfiere un recorrido GPS grabado por Repera al HKWorkout creado por
     /// esta misma app. Las rutas registradas por Watch jamás se sobrescriben.
     /// El GPX original en WorkoutSession se mantiene si Salud deniega el permiso.
@@ -1526,10 +1607,7 @@ final class HealthKitStore {
         else { return }
         // Reintentos de sincronización son idempotentes. Salud es la fuente de
         // verdad del HKWorkoutRoute y nunca debemos adjuntar la misma ruta dos veces.
-        let linked = await fetchRoutePoints(
-            workoutUUID: workoutUUID, start: workout.startDate, end: workout.endDate
-        )
-        guard linked.count < 2 else { return }
+        guard (await fetchRoutes(for: workout)).isEmpty else { return }
 
         let locations = points.compactMap { point -> CLLocation? in
             guard (-90...90).contains(point.latitude),
@@ -1543,8 +1621,8 @@ final class HealthKitStore {
                     latitude: point.latitude, longitude: point.longitude
                 ),
                 altitude: point.altitudeMeters ?? 0,
-                horizontalAccuracy: 15,
-                verticalAccuracy: point.altitudeMeters == nil ? -1 : 15,
+                horizontalAccuracy: point.horizontalAccuracyMeters ?? -1,
+                verticalAccuracy: point.verticalAccuracyMeters ?? -1,
                 course: -1,
                 speed: courseSpeed,
                 timestamp: point.recordedAt
@@ -1845,7 +1923,11 @@ final class HealthKitStore {
     }
 
     /// Arranca un `HKWorkoutBuilder` de fuerza tradicional alineado con el reloj/Salud.
-    func beginWorkout(sessionId: UUID, title: String, start: Date = Date()) async {
+    func beginWorkout(
+        sessionId: UUID, title: String, start: Date = Date(),
+        activityType: HKWorkoutActivityType = .traditionalStrengthTraining,
+        locationType: HKWorkoutSessionLocationType = .indoor
+    ) async {
         guard isAvailable else { return }
         guard !isWatchWorkoutMirrored else {
             lastError = "Este entrenamiento se está registrando en Apple Watch. Termínalo allí para evitar duplicados en Salud."
@@ -1865,8 +1947,8 @@ final class HealthKitStore {
         liveDurationSeconds = 0
 
         let config = HKWorkoutConfiguration()
-        config.activityType = .traditionalStrengthTraining
-        config.locationType = .indoor
+        config.activityType = activityType
+        config.locationType = locationType
 
         let builder = HKWorkoutBuilder(healthStore: store, configuration: config, device: .local())
         do {
