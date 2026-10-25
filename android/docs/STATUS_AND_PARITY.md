@@ -602,6 +602,41 @@ Pagos:
 - Proveedor: Play Billing directo sin RevenueCat (decisión de Ramón, iMessage 24/10 20:06, verificada en el canal). Compra detectada = pendiente de verificación (UNKNOWN, no concede Pro): Play no expone expiryTime en dispositivo y su documentación pide verificación en backend. Sin backend/Play Console (autoridad pendiente) no hay compras ni Pro en producción. No es un gap que pueda cerrar sin cuentas/backend; sigue ABIERTO y declarado, no cerrado.
 - Diferencia con Apple (StoreKit verifica en dispositivo con JWS y expirationDate): en Android no hay equivalente on-device de la vigencia.
 Validaciones por versión:
-- Build: minSdk 30, compileSdk/targetSdk 37 (mobile, wear, domain). Matriz CI documentada (30, 35, 37.2 canary, Wear 5.1; 36.1 sin ejecución, Wear 6.1 sin ruta validada).
+- Build: minSdk 30, compileSdk/targetSdk 37 (mobile, wear, domain). Matriz CI: 30, 35, 37.2 canary, Wear 5.1 y Wear 6.0 VERDES ejecutadas; teléfono 36.1 y Wear 6.1 sin validar (ver sección siguiente).
 - Revisión de manifiestos: `WodTimerService` es el único servicio en primer plano; declara `specialUse` con subtipo y permiso, y llama a startForeground con tipo en API 34+ (coherente). `StrengthRestService` no usa startForeground. POST_NOTIFICATIONS se pide en ≥33. Wear declara FOREGROUND_SERVICE_HEALTH sin servicio de salud en primer plano (inocuo). Las ramas SDK_INT ≤29 son código muerto con minSdk 30 (inocuo).
-- Sin ejecución en ninguna API: nada de esto está validado en runtime.
+- Ejecución: ver la sección siguiente (estado por pata al 25/10 con runs y evidencia).
+
+## Estado de ejecución en CI al 25/10/2026 (runs 40178955252, 40181550822, 40183447742)
+
+Patas VERDES con tests ejecutados (XML verificados, no solo guardián de 0-tests):
+teléfono API 30 (208/208), API 35 (208/208), Android 17 API 37.2 canary (202/202),
+Wear OS 5.1 (API 35) y Wear OS 6.0 (API 36, android-wear-signed; verde en
+40183447742), más el job android-native (JVM + builds). Bugs reales encontrados por
+la ejecución y corregidos con confirmación verde: targeting del drop de arrastre con
+autoscroll/relayout (03b37651) y copia de favorito (061a6629). Verificación visual
+en emulador (artefactos android-visual-screenshots-*): editores de plan y de entreno
+terminado y drag A->B validados por captura; corregidos hueco del selector de
+formatos (FlowRow; el chip estrangulado inflaba su fila), sangrado del "Quitar" del
+swipe en reposo (contenido opaco) y contraste del esquema claro (primary #0E7A38).
+
+Teléfono API 36.1: NO validado aún. Historia: surfaceflinger crasheó con el gpu por
+defecto (40124402423); con -gpu guest el arranque es inestable (~50%: arrancó en
+40177026987 y 40178955252; QEMU murió al iniciar en 40181550822 y 40183447742; la
+imagen no soporta guest rendering y cae a lavapipe). Cuando la imagen arranca, el
+usuario tarda ~7 min en pasar a RUNNING_UNLOCKED: el workflow ya espera la
+precondición real (run-as = almacenamiento CE) con timeout de pata de 45 min.
+Siguiente intento: gpu guest + -verbose -show-kernel para capturar la causa del
+crash de arranque. Emulador fijado a 37.3.5 (build 16632760) en esa pata para
+eliminar la variable del emulador recién publicado (37.2.12 también crasheó).
+
+Wear OS 6.1 (API 36.1; único build oficial publicado: 36.1_signed_r01):
+BLOQUEADO / NO VALIDADO (fallo pre-app). Firma: ~17 s tras el boot el guest entra
+en bucle de crash tipo system_server (crash_dump64 -> init mata zygote cada ~2.5 s;
+SIGKILL repetido a netd/media/audioserver; sys.init.updatable_crashing=1) con AMBOS
+renderers (swiftshader_indirect y guest/lavapipe), sin OOM; adb nunca llega a subir
+y nuestro código nunca se ejecuta (kernel logs de 40178955252 y 40181550822).
+Aislamiento: Wear OS 6.0 (API 36, también android-wear-signed) SÍ arranca y pasa
+los tests en el mismo runner y emulador (40183447742), así que la firma es
+específica del build 6.1 r01 y no de la clase de imágenes signed ni del entorno.
+Sin más reintentos de esa pata hasta nueva señal (build nuevo de la imagen u otra
+evidencia). Queda pendiente; no cerrado ni sustituido por 5.1/6.0.
