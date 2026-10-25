@@ -809,6 +809,14 @@ final class LiveActivityRecorder: NSObject {
         return String(format: "%d:%02d", whole / 60, whole % 60)
     }
 
+    var currentKilometerMetric: String {
+        guard sport.displaysSpeed else { return "\(currentKilometerPace) min/km" }
+        let meters = activeKilometerMeters
+        let seconds = currentSplitSeconds(at: Date())
+        guard meters >= 40, seconds > 0 else { return "— km/h" }
+        return String(format: "%.1f km/h", meters / seconds * 3.6)
+    }
+
     private func updateKilometerSplits(
         previousDistance: Double, activeSeconds: TimeInterval
     ) {
@@ -1385,7 +1393,7 @@ struct LiveActivityView: View {
                             Text("Km \(recorder.activeKilometer) en curso")
                                 .font(.subheadline.weight(.semibold))
                             Spacer()
-                            Text("\(Int(recorder.activeKilometerMeters)) m · \(recorder.currentKilometerPace)/km")
+                            Text("\(Int(recorder.activeKilometerMeters)) m · \(recorder.currentKilometerMetric)")
                                 .font(.caption.monospacedDigit())
                         }
                         ProgressView(value: recorder.activeKilometerMeters, total: 1000)
