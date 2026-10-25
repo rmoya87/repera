@@ -186,7 +186,11 @@ jobs:
               info=plistlib.load(f)
           assert info.get("UILaunchStoryboardName")=="LaunchScreen", info.get("UILaunchStoryboardName")
           assert not info.get("UILaunchScreen"), "Blank UILaunchScreen is overriding storyboard"
-          print("PASS: native storyboard configured in packaged Info.plist")
+          assert "location" in info.get("UIBackgroundModes", []), (
+              "Repera.app must contain UIBackgroundModes/location; source project.yml is insufficient"
+          )
+          assert info.get("NSLocationWhenInUseUsageDescription"), "GPS usage description absent"
+          print("PASS: native storyboard and background GPS enabled in packaged Info.plist")
           PY
           xcrun assetutil --info "$APP/Assets.car" > "$RUNNER_TEMP/launch-assets.json"
           python3 - "$RUNNER_TEMP/launch-assets.json" <<'PY'

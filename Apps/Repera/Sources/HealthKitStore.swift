@@ -320,6 +320,7 @@ final class HealthKitStore {
             HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
             HKObjectType.quantityType(forIdentifier: .bodyMass)!,
             HKObjectType.workoutType(),
+            HKSeriesType.workoutRoute(),
         ]
         do {
             let status = try? await store.statusForAuthorizationRequest(toShare: share, read: read)
@@ -1444,6 +1445,7 @@ final class HealthKitStore {
             HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
             HKObjectType.quantityType(forIdentifier: .bodyMass)!,
             HKObjectType.workoutType(),
+            HKSeriesType.workoutRoute(),
         ]
         do {
             try await store.requestAuthorization(toShare: share, read: read)
@@ -1504,6 +1506,63 @@ final class HealthKitStore {
                 cont.resume(returning: samples?.first as? HKWorkout)
             }
             store.execute(q)
+        }
+    }
+
+    /// Transfiere un recorrido GPS grabado por Repera al HKWorkout creado por
+    /// esta misma app. Las rutas registradas por Watch jamás se sobrescriben.
+    /// El GPX original en WorkoutSession se mantiene si Salud deniega el permiso.
+    func attachRecordedRouteIfNeeded(
+        sessionId: UUID,
+        workoutUUID: UUID,
+        points: [WorkoutRoutePoint]
+    ) async {
+        guard points.count >= 2, isAvailable,
+              store.authorizationStatus(for: HKSeriesType.workoutRoute()) == .sharingAuthorized,
+              let workout = await fetchWorkout(uuid: workoutUUID),
+              Self.isReperaSource(workout.sourceRevision.source),
+              !Self.isWatchRecordedSource(workout.sourceRevision.source),
+              workout.metadata?["ReperaSessionID"] as? String == sessionId.uuidString
+        else { return }
+        // Reintentos de sincronización son idempotentes. Salud es la fuente de
+        // verdad del HKWorkoutRoute y nunca debemos adjuntar la misma ruta dos veces.
+        let linked = await fetchRoutePoints(
+            workoutUUID: workoutUUID, start: workout.startDate, end: workout.endDate
+        )
+        guard linked.count < 2 else { return }
+
+        let locations = points.compactMap { point -> CLLocation? in
+            guard (-90...90).contains(point.latitude),
+                  (-180...180).contains(point.longitude),
+                  point.recordedAt >= workout.startDate.addingTimeInterval(-60),
+                  point.recordedAt <= workout.endDate.addingTimeInterval(60)
+            else { return nil }
+            let courseSpeed = point.speedMps ?? -1
+            return CLLocation(
+                coordinate: CLLocationCoordinate2D(
+                    latitude: point.latitude, longitude: point.longitude
+                ),
+                altitude: point.altitudeMeters ?? 0,
+                horizontalAccuracy: 15,
+                verticalAccuracy: point.altitudeMeters == nil ? -1 : 15,
+                course: -1,
+                speed: courseSpeed,
+                timestamp: point.recordedAt
+            )
+        }
+        guard locations.count >= 2 else { return }
+        do {
+            let builder = HKWorkoutRouteBuilder(healthStore: store, device: .local())
+            // HealthKit accepts batched points, even when the workout has ended.
+            for start in stride(from: 0, to: locations.count, by: 500) {
+                try await builder.insertRouteData(
+                    Array(locations[start..<min(start + 500, locations.count)])
+                )
+            }
+            _ = try await builder.finishRoute(with: workout, metadata: nil)
+        } catch {
+            // The local route is not lost, and is still rendered in Repera.
+            lastError = "No se pudo añadir la ruta a Apple Salud: \(error.localizedDescription)"
         }
     }
 

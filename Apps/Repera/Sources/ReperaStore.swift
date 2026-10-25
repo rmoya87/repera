@@ -1351,6 +1351,13 @@ final class ReperaStore: NSObject {
         guard let uuid = apple.workoutUUID,
               var current = state.workouts.first(where: { $0.id == sessionId })
         else { return false }
+        if current.routePoints.count >= 2 {
+            await HealthKitStore.shared.attachRecordedRouteIfNeeded(
+                sessionId: current.id,
+                workoutUUID: uuid,
+                points: current.routePoints
+            )
+        }
         guard current.healthKitWorkoutUUID == nil else { return true }
         current.healthKitWorkoutUUID = uuid
         current.startedAt = apple.startedAt

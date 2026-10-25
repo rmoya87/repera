@@ -2029,25 +2029,39 @@ struct HealthWorkoutRouteMap: View {
 
     private var segments: [SpeedSegment] {
         guard points.count >= 2 else { return [] }
-        let speeds = points.compactMap(\.speedMps).filter { $0 >= 0 }
-        let minS = speeds.min() ?? 0
-        let maxS = max(speeds.max() ?? 1, minS + 0.1)
+        // Si el dispositivo no guarda la velocidad instantánea, calcular el
+        // ritmo de cada segmento a partir de los puntos GPS reales y sus fechas.
+        // Nunca atribuir un color de rendimiento a tramos sin señal fiable.
+        let speeds: [Double?] = (0..<(points.count - 1)).map { i in
+            let first = points[i]
+            let second = points[i + 1]
+            if let measured = second.speedMps ?? first.speedMps,
+               measured >= 0.2, measured <= 25, measured.isFinite {
+                return measured
+            }
+            let seconds = second.date.timeIntervalSince(first.date)
+            guard seconds >= 1, seconds <= 120 else { return nil }
+            let start = CLLocation(latitude: first.latitude, longitude: first.longitude)
+            let end = CLLocation(latitude: second.latitude, longitude: second.longitude)
+            let speed = start.distance(from: end) / seconds
+            return (speed >= 0.2 && speed <= 25 && speed.isFinite) ? speed : nil
+        }
+        let valid = speeds.compactMap { $0 }.sorted()
+        let minS = valid.first ?? 0
+        let maxS = max(valid.last ?? 1, minS + 0.1)
 
-        var result: [SpeedSegment] = []
-        for i in 0..<(points.count - 1) {
+        return (0..<(points.count - 1)).map { i in
             let a = points[i]
             let b = points[i + 1]
-            let speed = a.speedMps ?? b.speedMps ?? minS
-            result.append(
-                SpeedSegment(
-                    id: i,
-                    start: CLLocationCoordinate2D(latitude: a.latitude, longitude: a.longitude),
-                    end: CLLocationCoordinate2D(latitude: b.latitude, longitude: b.longitude),
-                    color: Self.speedColor(speed, minSpeed: minS, maxSpeed: maxS)
-                )
+            return SpeedSegment(
+                id: i,
+                start: CLLocationCoordinate2D(latitude: a.latitude, longitude: a.longitude),
+                end: CLLocationCoordinate2D(latitude: b.latitude, longitude: b.longitude),
+                color: speeds[i].map {
+                    Self.speedColor($0, minSpeed: minS, maxSpeed: maxS)
+                } ?? OG.accent
             )
         }
-        return result
     }
 
     private var cameraPosition: MapCameraPosition {

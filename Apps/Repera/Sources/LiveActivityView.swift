@@ -314,6 +314,7 @@ private struct LiveGPSFix: Sendable {
     var accuracy: Double
     var verticalAccuracy: Double
     var speed: Double
+    var course: Double
     var timestamp: Date
 }
 
@@ -346,6 +347,7 @@ final class LiveActivityRecorder: NSObject {
     private(set) var routePoints: [WorkoutRoutePoint] = []
     private(set) var currentCoordinate: CLLocationCoordinate2D?
     private(set) var currentSpeedMps: Double?
+    private(set) var currentCourseDegrees: Double?
     private(set) var gpsMessage: String?
     private(set) var chosenRoute: LiveSavedRoute?
     private var lastPosition: CLLocation?
@@ -429,9 +431,13 @@ final class LiveActivityRecorder: NSObject {
         routePoints = []
         lastPosition = nil
         currentSpeedMps = nil
+        currentCourseDegrees = nil
         gpsMessage = nil
         phase = .recording
-        if sport.usesGPS { startGPS() }
+        if sport.usesGPS {
+            startGPS()
+            Task { await HealthKitStore.shared.ensureWorkoutRouteAccess() }
+        }
         persistSnapshot()
         updateLiveActivity()
     }
@@ -618,6 +624,10 @@ final class LiveActivityRecorder: NSObject {
             return
         }
         currentSpeedMps = fix.speed >= 0 ? fix.speed : nil
+        // Solo confiar en el rumbo del GPS cuando el dispositivo se desplaza.
+        if fix.course >= 0, fix.course < 360, fix.speed > 0.8 {
+            currentCourseDegrees = fix.course
+        }
         if let previous = lastPosition {
             let meters = position.distance(from: previous)
             let seconds = fix.timestamp.timeIntervalSince(previous.timestamp)
@@ -682,7 +692,7 @@ extension LiveActivityRecorder: CLLocationManagerDelegate {
             latitude: position.coordinate.latitude, longitude: position.coordinate.longitude,
             altitude: position.altitude, accuracy: position.horizontalAccuracy,
             verticalAccuracy: position.verticalAccuracy,
-            speed: position.speed, timestamp: position.timestamp
+            speed: position.speed, course: position.course, timestamp: position.timestamp
         )
         Task { @MainActor [weak self] in self?.receive(sample) }
     }
@@ -749,6 +759,7 @@ private struct LiveSportPicker: View {
 
 struct LiveActivityView: View {
     @Environment(ReperaStore.self) private var store
+    @Environment(HealthKitStore.self) private var health
     @Environment(\.scenePhase) private var scenePhase
     @State private var recorder = LiveActivityRecorder.shared
     @State private var routes = LiveRoutesStore.shared
@@ -764,6 +775,7 @@ struct LiveActivityView: View {
     @State private var title = ""
     @State private var notes = ""
     @State private var savedWorkoutID: UUID?
+    @State private var previewHealthExtras: HealthKitStore.SessionHealthExtras?
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
     /// Muestra Recentrar únicamente si se ha alejado el mapa de la posición real.
     @State private var mapIsCentered = true
@@ -923,6 +935,9 @@ struct LiveActivityView: View {
         .onChange(of: recorder.currentCoordinate?.longitude) { _, _ in
             if mapIsCentered, let user = recorder.currentCoordinate { center3DMap(on: user) }
         }
+        .onChange(of: recorder.currentCourseDegrees) { _, _ in
+            if mapIsCentered, let user = recorder.currentCoordinate { center3DMap(on: user) }
+        }
     }
 
     /// Descartar encima, GPS y Métricas debajo. GPS solo al alejarse del centro.
@@ -957,11 +972,23 @@ struct LiveActivityView: View {
 
     /// Cámara inclinada con relieve realista; continúa centrada durante una sesión.
     private func center3DMap(on user: CLLocationCoordinate2D) {
+        // Cámara tipo navegador: rumbo de la marcha, perspectiva baja
+        // y un punto de mira por delante para dejar visible la ruta siguiente.
+        let heading = recorder.currentCourseDegrees ?? 0
+        let lookAheadMeters = recorder.phase == .idle ? 0.0 : 35.0
+        let radians = heading * .pi / 180
+        let latOffset = cos(radians) * lookAheadMeters / 111_320
+        let lonRadians = max(0.1, abs(cos(user.latitude * .pi / 180)))
+        let lonOffset = sin(radians) * lookAheadMeters / (111_320 * lonRadians)
+        let ahead = CLLocationCoordinate2D(
+            latitude: user.latitude + latOffset,
+            longitude: user.longitude + lonOffset
+        )
         position = .camera(MapCamera(
-            centerCoordinate: user,
-            distance: 900,
-            heading: 0,
-            pitch: 55
+            centerCoordinate: ahead,
+            distance: recorder.sport.isCycling ? 540 : 350,
+            heading: heading,
+            pitch: 67
         ))
     }
 
@@ -1280,7 +1307,10 @@ struct LiveActivityView: View {
                             }
                             reviewTile(
                                 "Energía",
-                                value: "—",
+                                value: previewHealthExtras.flatMap { extras in
+                                    extras.hasExternalSaludSource ?
+                                        extras.activeEnergyKcal.map { "\(Int($0.rounded()))" } : nil
+                                } ?? "—",
                                 icon: "flame.fill",
                                 tint: OG.orange
                             )
@@ -1340,7 +1370,8 @@ struct LiveActivityView: View {
                     if isRecordedRoute {
                         Section {
                             CardioSplitsView(
-                                routePoints: route, heartRate: [],
+                                routePoints: route,
+                                heartRate: previewHealthExtras?.heartRateSeries ?? [],
                                 cycling: recorder.sport.displaysSpeed
                             )
                             .ogCardListRow()
@@ -1365,6 +1396,19 @@ struct LiveActivityView: View {
                         .ogCardListRow()
                     } header: {
                         Text("Recorrido").foregroundStyle(OG.accent).textCase(nil)
+                    }
+                }
+
+                if let extras = previewHealthExtras,
+                   extras.averageHeartRateBpm != nil || extras.activeEnergyKcal != nil {
+                    Section {
+                        HealthSessionMetricsCard(
+                            extras: extras,
+                            includeSourceRows: extras.hasExternalSaludSource
+                        )
+                        .ogCardListRow()
+                    } header: {
+                        Text("Apple Salud").foregroundStyle(OG.accent).textCase(nil)
                     }
                 }
 
@@ -1411,6 +1455,14 @@ struct LiveActivityView: View {
         }
         .ogListChrome()
         .listSectionSpacing(12)
+        .task(id: recorder.phase) {
+            guard recorder.phase == .review,
+                  let workout = recorder.makeSession(title: title, notes: notes) else {
+                previewHealthExtras = nil
+                return
+            }
+            previewHealthExtras = await health.sessionHealthExtras(for: workout)
+        }
     }
 
     private func reviewTile(
@@ -1459,20 +1511,38 @@ struct LiveActivityView: View {
         NavigationStack {
             List {
                 Section {
-                    Button {
-                        importAfterRouteSheet = true
-                        routePicker = false
-                    } label: { Label("Importar archivo GPX", systemImage: "square.and.arrow.down") }
-                    Button("Sin ruta", systemImage: "xmark.circle") {
-                        recorder.selectRoute(nil)
-                        routePicker = false
+                    HStack(alignment: .center) {
+                        Text("Mis rutas")
+                            .font(.system(size: 31, weight: .bold))
+                            .foregroundStyle(OG.label)
+                        Spacer()
+                        Button {
+                            routePicker = false
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.black)
+                                .frame(width: 42, height: 42)
+                                .glassEffect(.regular.interactive(), in: .circle)
+                        }
+                        .buttonStyle(.plain)
+                        .tint(.black)
+                        .accessibilityLabel("Cerrar Mis rutas")
                     }
+                    .padding(.vertical, 4)
                 }
-                Section("Rutas guardadas") {
-                    if routes.routes.isEmpty {
-                        ContentUnavailableView("Sin rutas guardadas", systemImage: "map",
-                                               description: Text("Importa un GPX para seguirlo mientras entrenas."))
-                    } else {
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                if routes.routes.isEmpty {
+                    Section {
+                        ContentUnavailableView(
+                            "Sin rutas guardadas",
+                            systemImage: "map",
+                            description: Text("Importa un GPX o guarda un recorrido después de entrenar.")
+                        )
+                    }
+                } else {
+                    Section("Rutas guardadas") {
                         ForEach(routes.routes) { route in
                             NavigationLink {
                                 LiveRouteLibraryDetailView(
@@ -1512,20 +1582,20 @@ struct LiveActivityView: View {
                         }
                     }
                 }
-            }
-            .navigationTitle("Mis rutas")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                Section {
                     Button {
+                        importAfterRouteSheet = true
                         routePicker = false
                     } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .semibold))
+                        Label("Importar archivo GPX", systemImage: "square.and.arrow.down")
+                            .foregroundStyle(OG.label)
                     }
-                    .accessibilityLabel("Cerrar Mis rutas")
+                    .tint(.black)
                 }
             }
+            // Cabecera propia: título y X comparten exactamente la misma línea.
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
         }
         .tint(OG.accent)
     }
