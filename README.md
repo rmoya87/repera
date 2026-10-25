@@ -2,7 +2,7 @@
 
 App nativa de entrenamiento (**iPhone + Apple Watch**), **local-first + iCloud**, acceso con Apple o Google (SDK oficial iOS + sesión Supabase), UI **SwiftUI Liquid Glass** (iOS 27+).
 
-Última actualización: 2026-10-25 (actualizaciones de catálogo invisibles y nativas iOS 27, catálogo editorial de 288 ejercicios, PR en validación).
+Última actualización: 2026-10-25 (catálogo editorial Supabase de 288 ejercicios y sincronización invisible iOS 27/watchOS 27 integrados en `main`; Android/Wear continúa en la rama `feat/android-wear-native-parity`).
 
 El acceso Google usa el SDK oficial `GoogleSignIn` 10.1.0. Su botón tiene presentación SwiftUI adaptada al de Apple: contenido centrado, sin sombra y esquinas redondeadas; la autenticación sigue siendo del SDK. Los identificadores públicos del cliente OAuth **iOS** de `com.app.repera`, su esquema de retorno y el cliente Web del backend están configurados en `Configs/GoogleSignIn.xcconfig`. Regenerar XcodeGen antes de compilar. Configuración y validación pendiente en [docs/GOOGLE_AUTH_IOS.md](docs/GOOGLE_AUTH_IOS.md).
 
