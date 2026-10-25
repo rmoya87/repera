@@ -1,7 +1,5 @@
 name: Android gesture debug (focused)
-# Workflow de depuracion enfocada: ejecuta SOLO el test de gestos del
-# mapa (flujoBusquedaLugarConProveedorSimulado) en UNA pata (API 30) para
-# iterar el localizador/inyeccion sin quemar la suite completa de 20 min.
+# Validación enfocada de la tanda vigente. No sustituye a la regresión global.
 # Lanzar manualmente: gh workflow run android-gesture-debug.yml
 #   --ref feat/android-wear-native-parity
 # No sustituye a la regresion global de android-native-ci.yml.
@@ -16,7 +14,11 @@ concurrency:
   cancel-in-progress: true
 jobs:
   gesture:
-    name: Delta controls save and theme (API 30)
+    name: Profile, health, drag and controls (API ${{ matrix.api }})
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [30, 35]
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -43,10 +45,10 @@ jobs:
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL || true
           df -h /
-      - name: Run only the place-search gesture test (API 30)
+      - name: Run focused parity contracts
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: ${{ matrix.api }}
           target: google_apis
           arch: x86_64
           profile: pixel_6
@@ -54,7 +56,7 @@ jobs:
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096'
           # UNA linea (la accion ejecuta cada linea en un sh -c distinto).
-          script: adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; adb shell input keyevent 82 || true; sleep 3; gradle -p android :mobile:installDebug --no-daemon --stacktrace; RESULT=0; mkdir -p android/focused-evidence; for CLASS in BusinessProjectionInstrumentedTest HealthGoalsInstrumentedTest TrainingSettingsInstrumentedTest LiveActivityControlsInstrumentedTest ReperaThemeInstrumentedTest; do mkdir -p android/focused-evidence/$CLASS; gradle -p android :mobile:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.repera.mobile.$CLASS --no-daemon --stacktrace; CODE=$?; echo "CLASS=$CLASS EXIT=$CODE"; if [ $CODE -ne 0 ]; then RESULT=1; fi; cp -r android/mobile/build/outputs/androidTest-results/connected/debug/. android/focused-evidence/$CLASS/ || true; done; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; adb logcat -d -t 3000 || true; exit $RESULT
+          script: adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; adb shell input keyevent 82 || true; sleep 3; gradle -p android :mobile:installDebug --no-daemon --stacktrace; RESULT=0; mkdir -p android/focused-evidence; for CLASS in ProfilePhotoInstrumentedTest HealthGoalsInstrumentedTest TrainingSettingsInstrumentedTest LiveActivityControlsInstrumentedTest ReperaThemeInstrumentedTest VisualVerificationInstrumentedTest#flujoBusquedaLugarConProveedorSimulado; do mkdir -p android/focused-evidence/$CLASS; gradle -p android :mobile:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.repera.mobile.$CLASS --no-daemon --stacktrace; CODE=$?; echo "CLASS=$CLASS EXIT=$CODE"; if [ $CODE -ne 0 ]; then RESULT=1; fi; cp -r android/mobile/build/outputs/androidTest-results/connected/debug/. android/focused-evidence/$CLASS/ || true; done; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; adb logcat -d -t 3000 || true; exit $RESULT
 
 
 
@@ -62,7 +64,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: parity-current-apple-goals-api30-evidence
+          name: parity-profile-health-drag-api${{ matrix.api }}-evidence
           path: |
             android/screenshots/**
             android/focused-evidence/**
