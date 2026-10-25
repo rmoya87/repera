@@ -1001,6 +1001,22 @@ extension StatsEngine {
         return calendar.date(byAdding: .day, value: -delta, to: day) ?? day
     }
 
+    /// Un registro de Comenzar no contiene series, pero algunos deportes
+    /// representan tiempo cardio real y han de entrar en los gráficos de Progreso.
+    /// No fabricamos kcal, FC ni carga muscular.
+    private static let cardioLiveSports: Set<String> = [
+        "running", "cycling", "walking", "hiking", "trail", "mountainBike",
+        "gravel", "tennis", "padel", "surfing", "swimming", "skiing",
+        "hiit", "hyrox"
+    ]
+
+    public static func isCardioWorkout(_ workout: WorkoutSession) -> Bool {
+        if let sport = workout.liveSportID {
+            return cardioLiveSports.contains(sport)
+        }
+        return workout.exercises.contains { $0.exercise.muscleGroup == "Cardio" }
+    }
+
     public static func filterWorkouts(
         _ workouts: [WorkoutSession],
         range: ProgressTimeRange,
@@ -1009,7 +1025,9 @@ extension StatsEngine {
         calendar: Calendar = .current
     ) -> [WorkoutSession] {
         workouts.filter { workout in
-            guard let day = workout.finishedAt ?? workout.startedAt else { return false }
+            guard let day = workout.liveSportID == nil ?
+                (workout.finishedAt ?? workout.startedAt) :
+                (workout.startedAt ?? workout.finishedAt) else { return false }
             return range.contains(day, now: now, calendar: calendar, weekStartsOnMonday: weekStartsOnMonday)
         }
     }
@@ -1022,7 +1040,9 @@ extension StatsEngine {
         calendar: Calendar = .current
     ) -> [WorkoutSession] {
         workouts.filter { workout in
-            guard let day = workout.finishedAt ?? workout.startedAt else { return false }
+            guard let day = workout.liveSportID == nil ?
+                (workout.finishedAt ?? workout.startedAt) :
+                (workout.startedAt ?? workout.finishedAt) else { return false }
             return range.containsInPreviousPeriod(
                 day, now: now, calendar: calendar, weekStartsOnMonday: weekStartsOnMonday
             )
@@ -1088,17 +1108,16 @@ extension StatsEngine {
         }
 
         for workout in workouts {
-            guard let raw = workout.finishedAt ?? workout.startedAt else { continue }
+            guard let raw = workout.liveSportID == nil ?
+                (workout.finishedAt ?? workout.startedAt) :
+                (workout.startedAt ?? workout.finishedAt) else { continue }
             let day = calendar.startOfDay(for: raw)
             guard day >= start, day <= today else { continue }
             let key = df.string(from: day)
             let add: Double
             switch metric {
             case .cardioMinutes:
-                let isCardioSession = workout.exercises.contains {
-                    $0.exercise.muscleGroup == "Cardio"
-                }
-                add = isCardioSession ? max(0, workout.durationMinutes) : 0
+                add = isCardioWorkout(workout) ? max(0, workout.durationMinutes) : 0
             case .activeEnergyKcal:
                 add = max(0, workout.appleActiveEnergyKcal ?? 0)
             }
@@ -1161,10 +1180,7 @@ extension StatsEngine {
             if let k = workout.appleActiveEnergyKcal, k > 0 {
                 kcal += k
             }
-            let isCardioSession = workout.exercises.contains {
-                $0.exercise.muscleGroup == "Cardio"
-            }
-            if isCardioSession, m > 0 {
+            if isCardioWorkout(workout), m > 0 {
                 cardioMinutes.append(m)
             }
         }

@@ -6,6 +6,7 @@ import Observation
 import ReperaDomain
 import SwiftUI
 import UniformTypeIdentifiers
+import UIKit
 
 /// El deporte determina qué se mide; no se infiere del nombre del entrenamiento.
 enum LiveSport: String, CaseIterable, Identifiable {
@@ -107,6 +108,8 @@ struct LiveSavedRoute: Identifiable, Codable {
     var id: UUID = UUID()
     var title: String
     var points: [WorkoutRoutePoint]
+    /// Nil para GPX importados sin deporte asignado.
+    var sportID: String? = nil
 }
 
 /// Biblioteca offline pequeña de GPX; los recorridos completados se conservan en cada WorkoutSession.
@@ -150,6 +153,50 @@ final class LiveRoutesStore {
         } catch {
             routes = previous
             throw error
+        }
+    }
+
+    /// Crea una ruta favorita estable a partir de una sesión real con GPS.
+    func addRecordedRoute(from session: WorkoutSession) throws -> UUID {
+        guard session.routePoints.count >= 2,
+              let sportID = session.liveSportID else { throw LiveRouteError.empty }
+        let previous = routes
+        let favorite = LiveSavedRoute(
+            title: session.title, points: session.routePoints, sportID: sportID
+        )
+        routes.insert(favorite, at: 0)
+        do {
+            try persist()
+            return favorite.id
+        } catch {
+            routes = previous
+            throw error
+        }
+    }
+
+    /// Recupera favoritos vinculados a sesiones sincronizadas por iCloud, sin
+    /// renumerar el identificador del recorrido ni duplicarlo en dispositivos nuevos.
+    func recoverFromSessions(_ sessions: [WorkoutSession]) {
+        var known = Set(routes.map(\.id))
+        var recovered: [LiveSavedRoute] = []
+        for session in sessions.sorted(by: {
+            ($0.startedAt ?? .distantPast) < ($1.startedAt ?? .distantPast)
+        }) {
+            guard let id = session.liveRouteID, !known.contains(id),
+                  session.routePoints.count >= 2 else { continue }
+            recovered.append(
+                LiveSavedRoute(id: id, title: session.title,
+                               points: session.routePoints, sportID: session.liveSportID)
+            )
+            known.insert(id)
+        }
+        guard !recovered.isEmpty else { return }
+        let previous = routes
+        routes.append(contentsOf: recovered)
+        do {
+            try persist()
+        } catch {
+            routes = previous
         }
     }
 
@@ -277,6 +324,10 @@ final class LiveActivityRecorder: NSObject {
     private var lastSave = Date.distantPast
     private var lastLiveActivityUpdate = Date.distantPast
     private let manager = CLLocationManager()
+    /// La sesión de Core Location actual mantiene visibilidad y autorización
+    /// When In Use en segundo plano sin tocar allowsBackgroundLocationUpdates,
+    /// cuyo setter aborta el proceso si la app compilada no es backgroundable.
+    private var backgroundLocationSession: CLBackgroundActivitySession?
     private let snapshotKey = "repera.live.current.v1"
 
     private override init() {
@@ -363,12 +414,33 @@ final class LiveActivityRecorder: NSObject {
             gpsMessage = "Autoriza la ubicación para registrar tu recorrido."
             manager.requestWhenInUseAuthorization()
         case .authorizedAlways, .authorizedWhenInUse:
-            manager.allowsBackgroundLocationUpdates = true
+            // CLBackgroundActivitySession es la API moderna de iOS 17+.
+            // Se crea solo si el Info.plist REAL del proceso incluye location.
+            // No usar CLLocationManager.allowsBackgroundLocationUpdates = true:
+            // Core Location lanza una excepción Objective-C no recuperable si
+            // falta la capacidad, por ejemplo con un proyecto Xcode antiguo.
+            let modes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String] ?? []
+            let isApp = Bundle.main.bundleURL.pathExtension == "app"
+            let isTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            if modes.contains("location"), isApp, !isTest,
+               UIApplication.shared.applicationState == .active {
+                if backgroundLocationSession == nil {
+                    backgroundLocationSession = CLBackgroundActivitySession()
+                }
+                gpsMessage = nil
+            } else {
+                gpsMessage = "Seguimiento GPS activo. Para registrar con la pantalla bloqueada, actualiza la app con la capacidad de ubicación en segundo plano."
+            }
             manager.startUpdatingLocation()
-            gpsMessage = nil
         default:
             gpsMessage = "GPS no autorizado. Puedes continuar registrando el tiempo."
         }
+    }
+
+    private func stopGPS() {
+        manager.stopUpdatingLocation()
+        backgroundLocationSession?.invalidate()
+        backgroundLocationSession = nil
     }
 
     /// Checkpoint al pasar a segundo plano y mientras la vista está activa.
@@ -380,6 +452,7 @@ final class LiveActivityRecorder: NSObject {
         guard phase == .recording else { return }
         pausedAt = Date()
         phase = .paused
+        if sport.usesGPS { stopGPS() }
         currentSpeedMps = nil
         persistSnapshot()
         updateLiveActivity()
@@ -437,8 +510,7 @@ final class LiveActivityRecorder: NSObject {
         pausedAt = nil
         finishedAt = now
         phase = .review
-        manager.stopUpdatingLocation()
-        manager.allowsBackgroundLocationUpdates = false
+        stopGPS()
         persistSnapshot()
         updateLiveActivity()
     }
@@ -456,6 +528,7 @@ final class LiveActivityRecorder: NSObject {
             notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
             routePoints: routePoints,
             liveSportID: sport.rawValue,
+            liveRouteID: chosenRoute?.id,
             recordedDistanceMeters: sport.usesGPS ? recordedDistanceMeters : nil,
             activeDurationSeconds: durationSeconds
         )
@@ -469,8 +542,7 @@ final class LiveActivityRecorder: NSObject {
                 )
             }
         }
-        manager.stopUpdatingLocation()
-        manager.allowsBackgroundLocationUpdates = false
+        stopGPS()
         phase = .idle
         startedAt = nil
         finishedAt = nil
@@ -664,6 +736,7 @@ struct LiveActivityView: View {
     @State private var routeError: String?
     @State private var title = ""
     @State private var notes = ""
+    @State private var saveRouteAsFavorite = false
     @State private var savedWorkoutID: UUID?
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
 
@@ -689,7 +762,7 @@ struct LiveActivityView: View {
             }
             .background(OG.bg)
             .toolbar(recorder.phase == .review ? .visible : .hidden, for: .navigationBar)
-            .navigationTitle(recorder.phase == .review ? "Guardar actividad" : "En vivo")
+            .navigationTitle(recorder.phase == .review ? "Guardar actividad" : "Comenzar")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $sportPicker) {
                 LiveSportPicker { sport in
@@ -733,6 +806,7 @@ struct LiveActivityView: View {
                 Button("Terminar y revisar") {
                     recorder.finish()
                     title = recorder.sport.title
+                    saveRouteAsFavorite = false
                 }
                 Button("Seguir entrenando", role: .cancel) {}
             }
@@ -740,6 +814,9 @@ struct LiveActivityView: View {
         .tint(OG.accent)
         .onChange(of: scenePhase) { _, next in
             if next != .active { recorder.checkpoint() }
+        }
+        .task(id: store.workoutsEpoch) {
+            routes.recoverFromSessions(store.state.workouts)
         }
     }
 
@@ -819,7 +896,7 @@ struct LiveActivityView: View {
                 Image(systemName: recorder.phase == .paused ? "pause.fill" : "location.fill")
                     .foregroundStyle(recorder.phase == .paused ? OG.orange : OG.accent)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(recorder.phase == .paused ? "En pausa" : "En vivo")
+                    Text(recorder.phase == .paused ? "En pausa" : recorder.phase == .recording ? "Grabando" : "Comenzar")
                         .font(.subheadline.weight(.bold))
                     if let route = recorder.chosenRoute {
                         Text(route.title)
@@ -1126,18 +1203,37 @@ struct LiveActivityView: View {
                 TextField("Título", text: $title)
                 TextField("Notas (opcional)", text: $notes, axis: .vertical)
                     .lineLimit(2...5)
+                if recorder.sport.usesGPS, recorder.routePoints.count >= 2,
+                   recorder.chosenRoute == nil {
+                    Toggle("Guardar recorrido en Mis rutas", isOn: $saveRouteAsFavorite)
+                        .tint(OG.accent)
+                }
+                if let route = recorder.chosenRoute {
+                    Label("Ruta guardada: \(route.title)", systemImage: "star.fill")
+                        .font(.footnote).foregroundStyle(OG.label2)
+                }
             }
             Section {
                 Button {
-                    guard let session = recorder.makeSession(title: title, notes: notes) else { return }
+                    guard var session = recorder.makeSession(title: title, notes: notes) else { return }
                     guard savedWorkoutID != session.id else { return }
                     savedWorkoutID = session.id
+                    if saveRouteAsFavorite {
+                        do {
+                            session.liveRouteID = try routes.addRecordedRoute(from: session)
+                        } catch {
+                            savedWorkoutID = nil
+                            routeError = "No se pudo guardar esta ruta en favoritos. Comprueba el almacenamiento disponible."
+                            return
+                        }
+                    }
                     store.saveWorkout(session)
                     let date = session.startedAt ?? Date()
                     recorder.discard(saved: true)
                     title = ""
                     notes = ""
                     savedWorkoutID = nil
+                    saveRouteAsFavorite = false
                     showingMetrics = false
                     onSaved(date)
                 } label: {
@@ -1193,9 +1289,16 @@ struct LiveActivityView: View {
                 }
             }
             .navigationTitle("Mis rutas")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Cerrar") { routePicker = false }
+                    Button {
+                        routePicker = false
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .accessibilityLabel("Cerrar Mis rutas")
                 }
             }
         }

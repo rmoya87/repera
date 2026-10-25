@@ -8,7 +8,7 @@ enum WorkoutFlowRoute: Hashable {
     case workout
 }
 
-/// Menú principal: Inicio · Diario · En vivo · Progreso · Ejercicios.
+/// Menú principal: Inicio · Diario · Comenzar · Progreso · Ejercicios.
 /// Las herramientas de Crear y el centro profesional siguen disponibles sin ocupar la pestaña.
 struct RootTabView: View {
     @Environment(ReperaStore.self) private var store
@@ -47,7 +47,7 @@ struct RootTabView: View {
                     PlanView(section: $planSection, onOpenRoutine: openRoutinePreview)
                 }
 
-                SwiftUI.Tab("En vivo", systemImage: "waveform.path.ecg", value: AppTab.center) {
+                SwiftUI.Tab("Comenzar", systemImage: "play.fill", value: AppTab.center) {
                     LiveActivityView(
                         onSaved: { date in
                             homeFocusDay = date
