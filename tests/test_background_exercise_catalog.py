@@ -29,6 +29,16 @@ class BackgroundExerciseCatalogContracts(unittest.TestCase):
         self.assertIn("refresh(force: true)", app)
         self.assertIn("CatalogBackgroundRefreshScheduler.schedule()", app)
 
+    def test_scheduling_never_resets_pending_native_refresh(self):
+        app = source("Apps/Repera/Sources/ReperaApp.swift")
+        self.assertIn("BGTaskScheduler.shared.getPendingTaskRequests", app)
+        self.assertNotIn("cancel(taskRequestWithIdentifier:", app)
+
+    def test_warm_start_does_not_write_unchanged_catalogue(self):
+        catalog = source("Apps/Repera/Sources/RemoteExerciseCatalogStore.swift")
+        self.assertIn("if originalIDs != saved.localIDs", catalog)
+        self.assertIn("if idsBeforeMerge != working.localIDs", catalog)
+
     def test_cache_io_and_overlay_are_off_main_actor(self):
         s = source("Apps/Repera/Sources/RemoteExerciseCatalogStore.swift")
         self.assertIn("private actor DiskStorage", s)
