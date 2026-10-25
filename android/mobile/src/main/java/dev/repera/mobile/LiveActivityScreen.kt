@@ -196,7 +196,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(route.title, style = MaterialTheme.typography.titleSmall)
                                 Text("%.2f km · %s".format(route.distanceKm, route.sportTitle))
-                                if (route.points.size >= 2) RouteMapView(route.points, isInteractive = false,
+                                if (route.points.size >= 2) RouteMapView(route.points, isInteractive = false, plannedRoute = true,
                                     modifier = Modifier.fillMaxWidth().height(110.dp))
                                 Row {
                                     TextButton(onClick = { runtime.selectRoute(route.id); showRoutes = false }) { Text("Elegir") }
