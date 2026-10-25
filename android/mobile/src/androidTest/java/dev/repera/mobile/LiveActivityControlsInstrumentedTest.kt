@@ -106,6 +106,13 @@ class LiveActivityControlsInstrumentedTest {
         compose.onNodeWithText("Ver métricas").assertIsDisplayed()
         awaitMapAfter(beforeMap)
         capture("comenzar_gps_mapa_activo.png")
+        val beforeNavigation=rendered.get()
+        compose.onNodeWithText("Modo navegador").performClick()
+        compose.onNodeWithText("Vista 2D").assertIsDisplayed()
+        awaitMapAfter(beforeNavigation)
+        capture("comenzar_gps_navegador.png")
+        compose.onNodeWithText("Vista 2D").performClick()
+        compose.onNodeWithText("Modo navegador").assertIsDisplayed()
         compose.runOnIdle { runtime.discard();LiveActivityRuntime.stopAll() }
     }
     @Test fun savingReviewReturnsSessionStartDayNotSaveDayAndClearsDraft() {

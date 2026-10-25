@@ -31,10 +31,14 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     onSavedDay: (Long) -> Unit = {}) {
     val context=LocalContext.current
     val scope = rememberCoroutineScope()
+    var navigationMode by remember { mutableStateOf(false) }
+    var followingMap by remember { mutableStateOf(true) }
+    var recenterToken by remember { mutableStateOf(0) }
     var previewPosition by remember { mutableStateOf<dev.repera.domain.WorkoutRoutePoint?>(null) }
     var previewMessage by remember { mutableStateOf<String?>(null) }
     fun capturePosition() { scope.launch {
         val pin = runCatching { WorkoutLocationTracker(context).capturePin() }.getOrNull()
+        followingMap=true;recenterToken++
         previewPosition = pin?.let { dev.repera.domain.WorkoutRoutePoint(0,it.latitude,it.longitude,System.currentTimeMillis()) }
         previewMessage = if (pin == null) "Sin posición GPS disponible. El mapa no representa tu ubicación." else null
     } }
@@ -181,7 +185,9 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
             RouteMapView(if (state.points.isNotEmpty()) state.points else planned?.points ?: listOfNotNull(freshPosition),
                 isInteractive = true, modifier = Modifier.fillMaxSize(), plannedRoute = state.points.size < 2,
                 controlsOverlay = true,plannedPoints=if(state.points.isNotEmpty()) planned?.points.orEmpty() else emptyList(),
-                onMapRendered = onMapRendered)
+                onMapRendered = onMapRendered,navigationMode=navigationMode,
+                cameraCenter=if(followingMap) state.points.lastOrNull() ?: freshPosition else null,
+                recenterToken=recenterToken,onCameraGesture={followingMap=false})
             Surface(Modifier.align(Alignment.TopCenter).padding(12.dp), shape = MaterialTheme.shapes.large,
                 tonalElevation = 4.dp) {
                 Column(Modifier.padding(12.dp)) {
@@ -190,6 +196,13 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                         Text(state.sport.title,style=MaterialTheme.typography.titleLarge)
                     }
                     Text("Mapa del recorrido · guía GPX orientativa", style=MaterialTheme.typography.bodySmall)
+                    Row {
+                        TextButton(onClick={navigationMode=!navigationMode}) {
+                            Text(if(navigationMode) "Vista 2D" else "Modo navegador")
+                        }
+                        if(!followingMap && (state.points.isNotEmpty() || freshPosition!=null))
+                            TextButton(onClick={followingMap=true;recenterToken++}) { Text("Centrar posición") }
+                    }
                     if (state.phase == LiveActivityState.Phase.IDLE) {
                         TextButton(onClick={
                             if(ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)

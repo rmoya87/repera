@@ -372,3 +372,15 @@ main móvil invisible.)
 - Cobertura tema preparada11 pantallas×2, con aserción del focusDay de Inicio.
 - Preparada prueba proveedor Android simulado: dos fixes con distancia,
   pausa sin callbacks y reanudación sin unir salto. No GPS/hardware real.
+
+## Canvas navegación, 21:16 CET local
+- Comparación directa Apple5890215d detectó además modo navegador/2D y
+  seguimiento del punto actual. Preparado toggle, cámara centrada en última
+  muestra real, rumbo desde geometría medida y lookahead35m, pitch60° máximo
+  MapLibre (Apple67°). Gesto manual suspende seguimiento hasta centrar.
+- GPX planificado sigue debajo de traza, no se sustituye por traza al iniciar.
+- Tests JVM cámara2/0. Compilación instrumentada verde. Captura navegador
+  preparada, aún NO ejecutada. No afirmar relieve3D Apple: proveedor vectorial
+  Android actual no aporta terreno/elevación3D. Es diferencia abierta.
+- Run40229854247 a debug a1e9d4f8 ejecuta bloque ANTERIOR al modo navegador;
+  no confundir con HEAD posterior local. Sin beta nueva.
