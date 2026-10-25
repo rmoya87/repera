@@ -411,7 +411,15 @@ ninguno aparecía en las auditorías del 23/10.
   (SingleChoiceSegmentedButtonRow), franja de días con etiquetas en
   Hoy/Semana, rejilla por semanas (lunes) con gutter L/X/V, etiquetas de
   mes, scroll horizontal al final, hoy con borde y futuro al 25%
-  (HeatmapGrid/HeatmapLayout.resolve portados). VERIFICADO POR PÍXELES
+  (HeatmapGrid/HeatmapLayout.resolve portados). Corrección 25/10 (main):
+  el gutter derivaba de las filas (7×(cell+gap) vs 7×cell+6×gap) y las
+  etiquetas fijas ["", "L", "", "X", "", "V", ""] de iOS solo cuadran con
+  semana que empieza en domingo — con lunes etiquetaban mar/jue/sáb;
+  ahora se calculan del weekday REAL de la fila (L/X/V = lun/mié/vie) y el
+  gutter usa spacing=gap. Modelo extraído a buildHeatmapGrid puro con
+  fixture JVM de fechas reales (HeatmapGridModelTest 5/5: hoy domingo en
+  última columna fila 6, columnas empiezan en lunes, futuro solo tras hoy,
+  etiquetas ago/sept, franja lun-dom). VERIFICADO POR PÍXELES
   (25/10, run 40185662289): franja con 7 días + etiquetas + hoy con borde;
   rejilla 90d con gutter L/X/V, etiquetas ago/sept/oct y hoy con borde;
   cambio de métrica a Volumen con leyenda. Capturas:

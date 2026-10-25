@@ -124,6 +124,81 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts) {
     }
 }
 
+/** Modelo de presentación del heatmap (HeatmapGrid.build iOS), puro y
+ *  testable en JVM: franja (Hoy/Semana) o rejilla por semanas (lunes). */
+internal data class HeatmapColModel(
+    val cells: List<Triple<java.time.LocalDate?, Int, Boolean>>) // (día, nivel, futuro)
+internal data class HeatmapGridModel(
+    val columns: List<HeatmapColModel>,
+    val monthLabels: List<String>,
+    val dayLabels: List<String>,
+    val isStrip: Boolean)
+
+internal fun buildHeatmapGrid(
+    levels: List<Pair<java.time.LocalDate, Int>>,
+    range: dev.repera.domain.ProgressTimeRange,
+    locale: java.util.Locale = java.util.Locale("es", "ES")
+): HeatmapGridModel {
+    val es = locale
+    val dayFmt = java.time.format.DateTimeFormatter.ofPattern("EEE", es)
+    val monthFmt = java.time.format.DateTimeFormatter.ofPattern("MMM", es)
+    val today = levels.last().first
+    val levelByDay = levels.toMap()
+    val isStrip = range == dev.repera.domain.ProgressTimeRange.TODAY ||
+        range == dev.repera.domain.ProgressTimeRange.WEEK
+    if (isStrip) {
+        val days = levels.take(15) // iOS: tope tras 15 columnas
+        return HeatmapGridModel(
+            columns = days.map { (day, level) ->
+                HeatmapColModel(listOf(Triple(day, level, false)))
+            },
+            monthLabels = emptyList(),
+            dayLabels = days.map { (day, _) -> dayFmt.format(day).replace(".", "") },
+            isStrip = true)
+    }
+    val weeksBack = when (range) {
+        dev.repera.domain.ProgressTimeRange.MONTH -> 4
+        dev.repera.domain.ProgressTimeRange.DAYS_90 -> 13
+        dev.repera.domain.ProgressTimeRange.DAYS_180 -> 26
+        dev.repera.domain.ProgressTimeRange.DAYS_360 -> 52
+        else -> 0
+    }
+    val offsetInWeek = today.dayOfWeek.value - 1 // lunes = 0, como iOS (firstWeekday 2)
+    val endOfWeek = today.minusDays(offsetInWeek.toLong())
+    val start = endOfWeek.minusWeeks(weeksBack.toLong())
+    val cols = mutableListOf<HeatmapColModel>()
+    val months = mutableListOf<String>()
+    var lastMonth = -1
+    for (wk in 0..weeksBack) {
+        val colStart = start.plusWeeks(wk.toLong())
+        val mo = colStart.monthValue
+        val showM = mo != lastMonth && colStart.dayOfMonth <= 7 && wk < weeksBack
+        months.add(if (showM) monthFmt.format(colStart) else "")
+        if (colStart.dayOfMonth <= 7) lastMonth = mo
+        val cells = (0..6).map { d ->
+            val date = colStart.plusDays(d.toLong())
+            val future = date.isAfter(today)
+            Triple(date, if (future) 0 else (levelByDay[date] ?: 0), future)
+        }
+        cols.add(HeatmapColModel(cells))
+    }
+    return HeatmapGridModel(cols, months, emptyList(), isStrip = false)
+}
+
+/** Etiquetas del gutter por weekday REAL de cada fila (fila 0 = lunes):
+ *  L/X/V en lunes/miércoles/viernes. iOS usa ["", "L", "", "X", "", "V", ""],
+ *  que solo cuadra con semana que empieza en domingo (con lunes quedaban en
+ *  martes/jueves/sábado: corrección de main 25/10, no desviación silenciosa). */
+internal fun heatmapGutterLabels(colStart: java.time.LocalDate): List<String> =
+    (0..6).map { d ->
+        when (colStart.plusDays(d.toLong()).dayOfWeek) {
+            java.time.DayOfWeek.MONDAY -> "L"
+            java.time.DayOfWeek.WEDNESDAY -> "X"
+            java.time.DayOfWeek.FRIDAY -> "V"
+            else -> ""
+        }
+    }
+
 /** Heatmap de actividad (ActivityHeatmapView iOS): UNA tarjeta con selector
  *  segmentado Tiempo/Volumen (iOS tenía picker segmentado dentro de la tarjeta;
  *  antes había aquí dos tarjetas separadas). Hoy/Esta semana = franja de días
@@ -141,57 +216,12 @@ internal fun ActivityHeatmapCard(
     var metric by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("time") }
     val levels = if (metric == "time") timeLevels else volumeLevels
     if (levels.isEmpty()) return
-    val isStrip = range == dev.repera.domain.ProgressTimeRange.TODAY ||
-        range == dev.repera.domain.ProgressTimeRange.WEEK
-    val es = java.util.Locale("es", "ES")
-    val dayFmt = java.time.format.DateTimeFormatter.ofPattern("EEE", es)
-    val monthFmt = java.time.format.DateTimeFormatter.ofPattern("MMM", es)
-
-    // Modelo de presentación portado de HeatmapGrid.build (iOS).
-    data class Col(val cells: List<Triple<java.time.LocalDate?, Int, Boolean>>) // (día, nivel, futuro)
+    val grid = buildHeatmapGrid(levels, range)
+    val isStrip = grid.isStrip
+    val columns = grid.columns
+    val monthLabels = grid.monthLabels
+    val dayLabels = grid.dayLabels
     val today = levels.last().first
-    val levelByDay = levels.toMap()
-    val columns: List<Col>
-    val monthLabels: List<String>
-    val dayLabels: List<String>
-    if (isStrip) {
-        val days = levels.take(15) // iOS: tope tras 15 columnas
-        columns = days.map { (day, level) ->
-            Col(listOf(Triple(day, level, false)))
-        }
-        monthLabels = emptyList()
-        dayLabels = days.map { (day, _) -> dayFmt.format(day).replace(".", "") }
-    } else {
-        val weeksBack = when (range) {
-            dev.repera.domain.ProgressTimeRange.MONTH -> 4
-            dev.repera.domain.ProgressTimeRange.DAYS_90 -> 13
-            dev.repera.domain.ProgressTimeRange.DAYS_180 -> 26
-            dev.repera.domain.ProgressTimeRange.DAYS_360 -> 52
-            else -> 0
-        }
-        val offsetInWeek = today.dayOfWeek.value - 1 // lunes = 0, como iOS (firstWeekday 2)
-        val endOfWeek = today.minusDays(offsetInWeek.toLong())
-        val start = endOfWeek.minusWeeks(weeksBack.toLong())
-        val cols = mutableListOf<Col>()
-        val months = mutableListOf<String>()
-        var lastMonth = -1
-        for (wk in 0..weeksBack) {
-            val colStart = start.plusWeeks(wk.toLong())
-            val mo = colStart.monthValue
-            val showM = mo != lastMonth && colStart.dayOfMonth <= 7 && wk < weeksBack
-            months.add(if (showM) monthFmt.format(colStart) else "")
-            if (colStart.dayOfMonth <= 7) lastMonth = mo
-            val cells = (0..6).map { d ->
-                val date = colStart.plusDays(d.toLong())
-                val future = date.isAfter(today)
-                Triple(date, if (future) 0 else (levelByDay[date] ?: 0), future)
-            }
-            cols.add(Col(cells))
-        }
-        columns = cols
-        monthLabels = months
-        dayLabels = emptyList()
-    }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(18.dp)) {
@@ -247,11 +277,15 @@ internal fun ActivityHeatmapCard(
                     }
                     Row {
                         if (!isStrip) {
-                            // Gutter de días: L/X/V en filas 1/3/5 (weekDayGutter iOS).
-                            val gutter = listOf("", "L", "", "X", "", "V", "")
-                            Column {
+                            // Gutter (weekDayGutter iOS): VStack con
+                            // spacing=gap y cada etiqueta de altura cell — si
+                            // no, 7×(cell+gap) deriva respecto a 7×cell+6×gap.
+                            // Etiquetas por weekday REAL de la fila.
+                            val gutter = heatmapGutterLabels(
+                                columns.first().cells[0].first!!)
+                            Column(verticalArrangement = Arrangement.spacedBy(gap)) {
                                 gutter.forEach { g ->
-                                    Box(modifier = Modifier.width(labelWidth).height(cell + gap),
+                                    Box(modifier = Modifier.width(labelWidth).height(cell),
                                         contentAlignment = Alignment.CenterEnd) {
                                         Text(g, fontSize = 9.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant)
