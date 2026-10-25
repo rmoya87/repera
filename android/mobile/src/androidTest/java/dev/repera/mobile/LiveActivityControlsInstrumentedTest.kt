@@ -109,8 +109,8 @@ class LiveActivityControlsInstrumentedTest {
         val beforeNavigation=rendered.get()
         compose.onNodeWithText("Modo navegador").performClick()
         compose.onNodeWithText("Vista 2D").assertIsDisplayed()
-        awaitMapAfter(beforeNavigation)
-        capture("comenzar_gps_navegador.png")
+        try { awaitMapAfter(beforeNavigation) }
+        finally { capture("comenzar_gps_navegador.png") }
         compose.onNodeWithText("Vista 2D").performClick()
         compose.onNodeWithText("Modo navegador").assertIsDisplayed()
         compose.runOnIdle { runtime.discard();LiveActivityRuntime.stopAll() }

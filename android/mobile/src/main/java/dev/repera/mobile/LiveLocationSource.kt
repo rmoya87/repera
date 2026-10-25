@@ -47,7 +47,11 @@ internal class LiveLocationSource(private val context: Context,
         if (odometer.ownerSessionID != sessionID) return
         manager?.removeUpdates(listener);odometer.stop(sessionID,clear)
     }
+    internal var receivedFixCount = 0; private set
+    internal var lastFixAgeMillis: Long? = null; private set
     private fun accept(location: Location) {
+        receivedFixCount++
+        lastFixAgeMillis = System.currentTimeMillis()-location.time
         if (!location.hasAccuracy()) return
         val fix=LiveGPSOdometer.Fix(location.latitude,location.longitude,location.time,
             location.accuracy.toDouble(),
