@@ -77,6 +77,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         set(value) {
             if(centerGate.update(value?.userId)) {
                 centerSnapshot=null;centerError=null;centerLoading=false;centerSubmitting=false
+                centerDirectory=emptyList();centerDirectorySearching=false;centerDirectoryGeneration++
                 todayHealth=null;healthSamples=null;recoveryRead=null
             }
             field=value
@@ -86,6 +87,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var centerSnapshot by mutableStateOf<BusinessCenterStore.Snapshot?>(null)
     private var centerLoading by mutableStateOf(false)
     private var centerSubmitting by mutableStateOf(false)
+    private var centerDirectory by mutableStateOf<List<BusinessCenterStore.Organization>>(emptyList())
+    private var centerDirectorySearching by mutableStateOf(false)
+    private var centerDirectoryGeneration=0L
     private var centerError by mutableStateOf<String?>(null)
     private val sessionStore by lazy { SessionStore(this) }
     /** Wizard obligatorio de primer acceso (port OnboardingStore iOS). */
@@ -658,6 +662,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     refreshCenter()
                     syncSupabaseMirrors()
                 },
+                centerDirectory = centerDirectory,
+                centerDirectorySearching = centerDirectorySearching,
+                onSearchCenterDirectory = ::searchCenterDirectory,
+                onRequestCenterLink = { org,kind,note -> centerAction {session -> requestLink(session,org,kind,note)} },
+                onLeaveCenter = {org -> centerAction {session -> leave(session,org)} },
                 onCenterAccept = { invitation ->
                     centerAction { s -> accept(s, invitation) }
                 },
@@ -1002,6 +1011,24 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             } else if (result.imported > 0) {
                 status = "Plan de IA aplicado: " + (result.lastImportedTitle ?: "entreno")
                 reloadFor(uniqueId)
+            }
+        }
+    }
+
+    private fun searchCenterDirectory(query:String) {
+        val session=verifiedSupabase ?: return
+        val revision=centerGate.revision
+        val generation=++centerDirectoryGeneration
+        centerDirectorySearching=true
+        lifecycleScope.launch {
+            val result=withContext(Dispatchers.IO) {runCatching {BusinessCenterStore().searchDirectory(session,query)}}
+            if(!centerGate.accepts(session.userId,revision) || generation!=centerDirectoryGeneration) return@launch
+            centerDirectory=result.getOrDefault(emptyList())
+            centerDirectorySearching=false
+            centerError=result.exceptionOrNull()?.let {
+                if(it.message?.contains("PGRST202")==true || it.message?.contains("could not find",ignoreCase=true)==true)
+                    "El directorio aún no está activo en el servidor. Vuelve a intentarlo en unos minutos."
+                else "No se pudo buscar centros. Comprueba la conexión e inténtalo de nuevo."
             }
         }
     }

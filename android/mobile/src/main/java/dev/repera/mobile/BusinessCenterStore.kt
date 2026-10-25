@@ -174,6 +174,18 @@ class BusinessCenterStore(
         }
     }
 
+    fun searchDirectory(session:SupabaseIdentity.Session,query:String):List<Organization> =
+        parseOrganizations(rpc(session,"search_discoverable_organizations",JSONObject().put("p_query",query)))
+
+    fun requestLink(session:SupabaseIdentity.Session,organization:Organization,passKind:String,note:String?) {
+        require(passKind in setOf("class","appointment","unlimited"))
+        rpc(session,"request_org_athlete_link",JSONObject().put("p_org",organization.id)
+            .put("p_pass_kind",passKind).put("p_note",note.orEmpty()))
+    }
+    fun leave(session:SupabaseIdentity.Session,organization:Organization) {
+        rpc(session,"leave_org_as_athlete",JSONObject().put("p_org",organization.id))
+    }
+
     fun accept(session: SupabaseIdentity.Session, invitation: Invitation) {
         rpc(session, "accept_org_invitation",
             JSONObject().put("p_invitation_id", invitation.id))

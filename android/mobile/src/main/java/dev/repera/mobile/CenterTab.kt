@@ -51,8 +51,15 @@ internal fun CenterTab(
     onCancel: (BusinessCenterStore.Booking) -> Unit,
     sharingByCenter: Map<String, Boolean> = emptyMap(),
     sharingUpdating: Boolean = false,
-    onSetSharing: (String, Boolean) -> Unit = { _, _ -> }
+    onSetSharing: (String, Boolean) -> Unit = { _, _ -> },
+    directory:List<BusinessCenterStore.Organization> = emptyList(),
+    directorySearching:Boolean = false,
+    onSearchDirectory:(String)->Unit = {},
+    onRequestLink:(BusinessCenterStore.Organization,String,String?)->Unit = {_,_,_->},
+    onLeave:(BusinessCenterStore.Organization)->Unit = {}
 ) {
+    var showDirectory by remember {mutableStateOf(false)}
+    var detail by remember {mutableStateOf<BusinessCenterStore.Organization?>(null)}
     var section by remember { mutableStateOf("class") }
     var pendingCancellation by remember {
         mutableStateOf<BusinessCenterStore.Booking?>(null)
@@ -73,6 +80,7 @@ internal fun CenterTab(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { Text("Center", style = MaterialTheme.typography.headlineMedium) }
+        item { TextButton(onClick={showDirectory=true}) {Text("Buscar centro o entrenador")} }
         item { Text("Mis centros y entrenadores",
             style = MaterialTheme.typography.titleMedium) }
         if (!connected) {
@@ -129,8 +137,8 @@ internal fun CenterTab(
             }
             items(centers) { center ->
                 Card(modifier = Modifier.fillMaxWidth()) {
-                    Text(center.name, modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.titleSmall)
+                    TextButton(onClick={detail=center}) {Text(center.name, modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.titleSmall)}
                 }
             }
             // Privacidad (paridad iOS BusinessCenterViews): consentimiento
@@ -273,4 +281,7 @@ internal fun CenterTab(
             }
         )
     }
+    if(showDirectory) CenterDirectoryDialog(connected,directory,directorySearching,submitting,
+        snapshot?.athleteCenterIds.orEmpty(),onSearchDirectory,onRequestLink) {showDirectory=false}
+    detail?.let {center -> LinkedCenterDialog(center,snapshot,submitting,onLeave) {detail=null}}
 }

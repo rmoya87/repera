@@ -103,6 +103,11 @@ fun ReperaMobileScreen(
     centerSnapshot: BusinessCenterStore.Snapshot?,
     onCenterRefresh: () -> Unit,
     onCenterAccept: (BusinessCenterStore.Invitation) -> Unit,
+    centerDirectory:List<BusinessCenterStore.Organization> = emptyList(),
+    centerDirectorySearching:Boolean = false,
+    onSearchCenterDirectory:(String)->Unit = {},
+    onRequestCenterLink:(BusinessCenterStore.Organization,String,String?)->Unit = {_,_,_->},
+    onLeaveCenter:(BusinessCenterStore.Organization)->Unit = {},
     onCenterBook: (BusinessCenterStore.Occurrence, BusinessCenterStore.Pass) -> Unit,
     onCenterCancel: (BusinessCenterStore.Booking) -> Unit,
     sharingByCenter: Map<String, Boolean>,
@@ -265,7 +270,9 @@ fun ReperaMobileScreen(
                     errorMessage = centerError, snapshot = centerSnapshot, onRefresh = onCenterRefresh,
                     sharingByCenter = sharingByCenter, sharingUpdating = sharingUpdating,
                     onSetSharing = onSetSharing, onAccept = onCenterAccept,
-                    onBook = onCenterBook, onCancel = onCenterCancel)
+                    onBook = onCenterBook, onCancel = onCenterCancel,
+                    directory=centerDirectory,directorySearching=centerDirectorySearching,onSearchDirectory=onSearchCenterDirectory,
+                    onRequestLink=onRequestCenterLink,onLeave=onLeaveCenter)
             }
         }
         val visibleTabs = tabs
@@ -515,7 +522,9 @@ fun ReperaMobileScreen(
                         onSetSharing = onSetSharing,
                         onAccept = onCenterAccept,
                         onBook = onCenterBook,
-                        onCancel = onCenterCancel
+                        onCancel = onCenterCancel,
+                        directory=centerDirectory,directorySearching=centerDirectorySearching,onSearchDirectory=onSearchCenterDirectory,
+                        onRequestLink=onRequestCenterLink,onLeave=onLeaveCenter
                     )
                 }
                 composable("progreso") {
