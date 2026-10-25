@@ -560,6 +560,7 @@ fun ReperaMobileScreen(
                     )
                 }
                 composable("ajustes") {
+                    val subs=dev.repera.mobile.monetization.LocalSubscriptions.current
                     SettingsTab(
                         busy = busy,
                         onOpenAIAccess = {
@@ -567,6 +568,10 @@ fun ReperaMobileScreen(
                         },
                         onImportJson = onImportJson,
                         onImportCsv = onImportCsv,
+                        onOpenCenter={navController.navigate("center")},
+                        onOpenPro={subs?.presentPaywall(dev.repera.domain.monetization.PaywallContext.SETTINGS,
+                            feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)},
+                        proStatus=if(subs?.businessSponsoredAccess==true) "Acceso por centro o entrenador" else subs?.status?.displayName,
                         overview=overview,onUpdateTrainingSettings=onUpdateTrainingSettings,onUpdateRotation=onUpdateRotation,onUpdateHealthGoals=onUpdateHealthGoals,
                         onExportJson=onExportJson,onHealthConnect=onHealthConnect,onSignOut=onSignOut
                     )
@@ -738,7 +743,10 @@ internal fun SettingsTab(
     onUpdateRotation:(dev.repera.domain.RotationPlan?)->Unit = {},
     onExportJson:()->Unit = {},
     onHealthConnect:()->Unit = {},
-    onSignOut:()->Unit = {}
+    onSignOut:()->Unit = {},
+    onOpenCenter:()->Unit = {},
+    onOpenPro:()->Unit = {},
+    proStatus:String? = null
 ) {
     Column(modifier = Modifier.fillMaxSize().then(Modifier.verticalScroll(rememberScrollState())).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -746,6 +754,9 @@ internal fun SettingsTab(
         TrainingSettingsSection(overview?.trainingSettings ?: TrainingSettings(),busy || overview==null,onUpdateTrainingSettings)
         if(overview?.trainingSettings?.scheduleMode=="rotation")
             RotationSettingsSection(overview.rotationPlan,overview.routineEntries,busy,onUpdateRotation)
+        OutlinedButton(onClick=onOpenCenter,enabled=!busy) {Text("Mis centros y entrenadores")}
+        proStatus?.let {Text(it)}
+        OutlinedButton(onClick=onOpenPro,enabled=!busy) {Text("Repera Pro")}
         PermissionSettingsSection(onHealthConnect)
         HealthGoalsSection(overview?.healthGoals ?: HealthGoals(),busy || overview==null,onUpdateHealthGoals)
         Text("Datos", style = MaterialTheme.typography.titleMedium)
