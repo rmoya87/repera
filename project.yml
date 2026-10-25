@@ -46,7 +46,13 @@ targets:
     type: application
     platform: iOS
     sources:
+      # XcodeGen must register this new file in Repera / Compile Sources.
+      # Listing it separately prevents old or incomplete directory grouping
+      # from silently excluding the Supabase editorial catalog store.
       - path: Apps/Repera/Sources
+        excludes:
+          - RemoteExerciseCatalogStore.swift
+      - path: Apps/Repera/Sources/RemoteExerciseCatalogStore.swift
       - path: Apps/Shared/RestActivityAttributes.swift
       # XcodeGen 2.46 + objectVersion 77 omite `resources:`; hay que declarar assets a mano.
       - path: Apps/Repera/Resources/Assets.xcassets
