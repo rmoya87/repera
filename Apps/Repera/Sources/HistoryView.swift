@@ -2055,31 +2055,34 @@ struct HealthWorkoutRouteMap: View {
         let speeds: [Double?] = (0..<(points.count - 1)).map { i in
             let first = points[i]
             let second = points[i + 1]
+            let seconds = second.date.timeIntervalSince(first.date)
+            // Una pérdida de señal o una pausa no puede convertirse en una recta
+            // sobre el mapa, aunque alguno de los puntos guarde una velocidad.
+            guard seconds > 0, seconds <= 30 else { return nil }
+            let start = CLLocation(latitude: first.latitude, longitude: first.longitude)
+            let end = CLLocation(latitude: second.latitude, longitude: second.longitude)
+            let speed = start.distance(from: end) / seconds
+            guard speed.isFinite, speed <= 25 else { return nil }
             if let measured = second.speedMps ?? first.speedMps,
                measured >= 0.2, measured <= 25, measured.isFinite {
                 return measured
             }
-            let seconds = second.date.timeIntervalSince(first.date)
-            guard seconds >= 1, seconds <= 120 else { return nil }
-            let start = CLLocation(latitude: first.latitude, longitude: first.longitude)
-            let end = CLLocation(latitude: second.latitude, longitude: second.longitude)
-            let speed = start.distance(from: end) / seconds
-            return (speed >= 0.2 && speed <= 25 && speed.isFinite) ? speed : nil
+            return speed >= 0.2 ? speed : nil
         }
         let valid = speeds.compactMap { $0 }.sorted()
         let minS = valid.first ?? 0
         let maxS = max(valid.last ?? 1, minS + 0.1)
 
-        return (0..<(points.count - 1)).map { i in
+        return (0..<(points.count - 1)).compactMap { i -> SpeedSegment? in
+            // No dibujar tramos inventados cuando falta una medida fiable.
+            guard let speed = speeds[i] else { return nil }
             let a = points[i]
             let b = points[i + 1]
             return SpeedSegment(
                 id: i,
                 start: CLLocationCoordinate2D(latitude: a.latitude, longitude: a.longitude),
                 end: CLLocationCoordinate2D(latitude: b.latitude, longitude: b.longitude),
-                color: speeds[i].map {
-                    Self.speedColor($0, minSpeed: minS, maxSpeed: maxS)
-                } ?? OG.accent
+                color: Self.speedColor(speed, minSpeed: minS, maxSpeed: maxS)
             )
         }
     }
