@@ -29,6 +29,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     val runtime=remember(accountId) { LiveActivityRuntime.forAccount(context,accountId) }
     val revision by runtime.updates.collectAsState()
     val state=runtime.state
+    val routesStore = remember(accountId) { runCatching { LiveRoutesStore(context, accountId) }.getOrNull() }
+    var routesVersion by remember { mutableStateOf(0) }
+    var showRoutes by remember { mutableStateOf(false) }
+    val routes = remember(routesStore, routesVersion) { routesStore?.recentRoutes(emptyList()).orEmpty() }
     var title by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -39,6 +43,31 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     }
     fun start() { runtime.start();startService() }
     val permissions=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { start() }
+    val importGPX = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            try {
+                val name = context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                } ?: "Ruta GPX"
+                val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
+                    // Límite de bytes además del tope de puntos; no agotar memoria
+                    // con un archivo seleccionado accidentalmente.
+                    val output = java.io.ByteArrayOutputStream()
+                    val buffer = ByteArray(8192)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        output.write(buffer, 0, count)
+                        require(output.size() <= 16 * 1024 * 1024)
+                    }
+                    output.toByteArray()
+                } ?: error("No se pudo abrir el archivo")
+                require(bytes.size <= 16 * 1024 * 1024)
+                routesStore?.addGPX(bytes, name.substringBeforeLast('.', name)) ?: error("Almacén no disponible")
+                routesVersion++;error = null
+            } catch (_: Exception) { error = "No se pudo importar el GPX. Comprueba el archivo y el almacenamiento (máximo 16 MB)." }
+        }
+    }
     LaunchedEffect(runtime) {
         while(true) { delay(1000);runtime.publish() }
     }
@@ -62,6 +91,52 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 }
             }
             Text(state.sport.metricDescription)
+            if (state.sport.usesGPS) {
+                TextButton(onClick = { showRoutes = !showRoutes }) { Text("Biblioteca de rutas") }
+                state.selectedRouteID?.let { selected ->
+                    Text("Ruta: ${routes.firstOrNull { it.id == selected }?.title ?: "No disponible"}")
+                    TextButton(onClick = { runtime.selectRoute(null) }) { Text("Sin ruta planificada") }
+                }
+                if (showRoutes) {
+                    Button(onClick = { importGPX.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "application/octet-stream")) }) { Text("Importar GPX") }
+                    if (routes.isEmpty()) Text("Sin rutas guardadas")
+                    routes.forEach { route ->
+                        var edit by remember(route.id) { mutableStateOf(false) }
+                        var routeTitle by remember(route.id, routesVersion) { mutableStateOf(route.title) }
+                        var routeSport by remember(route.id, routesVersion) { mutableStateOf(route.sportID) }
+                        Card(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(route.title, style = MaterialTheme.typography.titleSmall)
+                                Text("%.2f km · %s".format(route.distanceKm, route.sportTitle))
+                                if (route.points.size >= 2) RouteMapView(route.points, isInteractive = false,
+                                    modifier = Modifier.fillMaxWidth().height(110.dp))
+                                Row {
+                                    TextButton(onClick = { runtime.selectRoute(route.id); showRoutes = false }) { Text("Elegir") }
+                                    TextButton(onClick = {
+                                        try { routesStore?.setFavorite(route.id, !route.isFavorite); routesVersion++ }
+                                        catch (_: Exception) { error = "No se pudo cambiar el favorito." }
+                                    }) { Text(if (route.isFavorite) "★ Favorita" else "☆ Favorita") }
+                                    TextButton(onClick = { edit = !edit }) { Text("Editar") }
+                                }
+                                if (edit) {
+                                    OutlinedTextField(routeTitle, { routeTitle = it }, label = { Text("Nombre de la ruta") })
+                                    Text("Deporte: ${routeSport?.let(LiveSport::byId)?.title ?: "Sin deporte"}")
+                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        listOf<LiveSport?>(null).plus(LiveSport.entries.filter { it.usesGPS }).forEach { option ->
+                                            FilterChip(selected = routeSport == option?.id,
+                                                onClick = { routeSport = option?.id }, label = { Text(option?.title ?: "Sin deporte") })
+                                        }
+                                    }
+                                    TextButton(onClick = {
+                                        try { routesStore?.update(route.id, routeTitle, routeSport); routesVersion++;edit = false }
+                                        catch (_: Exception) { error = "La ruta necesita un nombre y almacenamiento disponible." }
+                                    }) { Text("Guardar ruta") }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             Button(onClick={
                 if(state.sport.usesGPS && ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)
                     permissions.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION))

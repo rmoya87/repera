@@ -202,3 +202,13 @@ main móvil invisible.)
   (swipe Apple no portado), interpolación de gráfica lineal (Apple catmullRom),
   detalle de sesión actual no tiene toda la edición del detalle antiguo.
   No cierre D3 todavía. Necesita validar fixtures/capturas y completar wiring.
+
+- D4 importación GPX desde selector de documentos (16MB máximo, sin red),
+  biblioteca con miniaturas MapLibre, elegir ruta/favorito/editar título y
+  deporte implementada y COMPILA. No ejecutada en UI todavía; faltan borrar
+  con confirmación, últimas5 basadas en actividad (actual usa creación),
+  recuperación desde sesiones y guía hablada/giros. No cierre de biblioteca.
+- API30 40221857337: AFTER completo muestra cabecera/check/buscador/mapa/panel
+  sin IME y boundsWindow positivos. Aceptado por main. Test rojo por franja
+  demasiado baja, corregida contra before/after (no se relajan umbrales).
+  Cadena completa pendiente run 40222615922.
