@@ -287,7 +287,7 @@ class HealthConnectReader(private val context: Context) {
 
     /** Lecturas de los últimos `days` días para Progreso (misma ventana
      *  que ProgressTimeRange.healthFetchDayCount en iOS). */
-    suspend fun readSamples(days: Int): HealthSamples {
+    suspend fun readSamples(days: Int,localSessions:List<dev.repera.domain.ReperaHealthExclusion.Window> = emptyList()): HealthSamples {
         check(available()) { "Health Connect no está disponible en este dispositivo" }
         val client = HealthConnectClient.getOrCreate(context)
         val granted = client.permissionController.getGrantedPermissions()
@@ -334,6 +334,7 @@ class HealthConnectReader(private val context: Context) {
             for (record in response.records) {
                 // Las sesiones registradas por Repera no son «externas».
                 if (record.metadata.dataOrigin.packageName == context.packageName) continue
+                if(dev.repera.domain.ReperaHealthExclusion.matches(record.startTime.toEpochMilli(),record.endTime.toEpochMilli(),record.metadata.id,localSessions)) continue
                 val minutes = maxOf(0.0,
                     (record.endTime.epochSecond - record.startTime.epochSecond) / 60.0)
                 if (minutes <= 0) continue

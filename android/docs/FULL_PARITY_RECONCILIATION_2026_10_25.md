@@ -99,3 +99,8 @@ Esta pasada NO afirma equivalencia de todas las funciones ni un plazo global.
 -22:16 objetivoPeso ahora consume valor enProgreso: diferencia conúltimo punto,
   umbralApple<0.3kg y líneaobjetivo en gráfica; compila, falta visual/test.
   ObjetivoMinutos/conciliaciónporfecha y reset seguro siguenpendientes.
+-22:18 huecoSalud confirmado y portado local: readSamples excluía solo package
+  Repera, no registros externos enlazados/solapados conentrenoslocales.
+  ReperaHealthExclusion replica ApplematchesReperaSession: idenlazado o un
+  único solape>=40%; ambigüedad noexcluye. Distinto del matcherestricto de
+  refinamiento.2testsJVM nuevos. No se leyó/escribió Salud real.
