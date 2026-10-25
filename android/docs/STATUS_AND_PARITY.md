@@ -727,8 +727,10 @@ Reconciliado contra el CÓDIGO 25/10 (el backlog estaba viejo en varias piezas):
 - Wear OS 6.1: bloqueado pre-app (firma documentada arriba; en esta
   configuración el build 6.1 falla y el 6.0 pasa; no se afirma defecto
   exclusivo de la imagen independiente del entorno). Sin reruns idénticos.
-- Teléfono API 36.1: arranque inestable con -gpu guest (~50%); diagnóstico con
-  -show-kernel en curso (última iteración planificada sin hipótesis nueva).
+- Teléfono API 36.1: NO VALIDADO. Tres renderers con fallo pre-app de display
+  (ver historial arriba); run en curso con swiftshader_indirect + emulador
+  37.3.5 como último contraste. Si falla, la pata se retira con la firma
+  documentada y no se reintenta sin señal nueva.
 - Arte: el lote solicitado está CERRADO (489 raíz + 488 thumbs verificados por
   hash) y main b151c4d no añadió assets; NO está bloqueado. Solo re-verificar si
   aparece una señal actual de assets nuevos.
