@@ -1007,6 +1007,9 @@ final class LiveActivityRecorder: NSObject {
         pausedAt = nil
         routePoints = []
         recordedDistanceMeters = 0
+        elevationGainMeters = 0
+        elevationLossMeters = 0
+        elevationReferenceMeters = nil
         currentSpeedMps = nil
         currentCourseDegrees = nil
         currentCoordinate = nil
@@ -2229,11 +2232,34 @@ struct LiveActivityView: View {
                                 "Energía",
                                 value: previewHealthExtras.flatMap { extras in
                                     extras.hasExternalSaludSource ?
-                                        extras.activeEnergyKcal.map { "\(Int($0.rounded()))" } : nil
+                                        extras.activeEnergyKcal.map { "\(Int($0.rounded())) kcal" } : nil
                                 } ?? "—",
                                 icon: "flame.fill",
                                 tint: OG.orange
                             )
+                        }
+                        if let extras = previewHealthExtras, extras.hasExternalSaludSource,
+                           let heartRate = extras.averageHeartRateBpm {
+                            Label(
+                                "Pulso medio: \(Int(heartRate.rounded())) lpm",
+                                systemImage: "heart"
+                            )
+                            .font(.subheadline)
+                            .foregroundStyle(OG.label2)
+                        }
+                        if recorder.sport.tracksElevation && recorder.hasElevationSamples {
+                            HStack(spacing: 14) {
+                                Label(
+                                    "+\(Int(recorder.elevationGainMeters.rounded())) m de ascenso",
+                                    systemImage: "arrow.up.right"
+                                )
+                                Label(
+                                    "−\(Int(recorder.elevationLossMeters.rounded())) m de descenso",
+                                    systemImage: "arrow.down.right"
+                                )
+                            }
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(OG.label2)
                         }
                         if recorder.sport.usesGPS,
                            let distance = session.recordedDistanceMeters, distance > 0,
