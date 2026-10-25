@@ -828,6 +828,7 @@ final class LiveActivityRecorder: NSObject {
         let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         return WorkoutSession(
+            id: gpsSessionID,
             title: cleaned.isEmpty ? sport.title : cleaned,
             exercises: [],
             phase: .finished,
