@@ -21,7 +21,7 @@ class ExerciseOneRMInstrumentedTest {
   compose.onAllNodesWithText("Tope 1RM · 100.0 kg")[0].assertIsDisplayed()
   compose.onNodeWithTag("exercise_evolution_chart").performTouchInput {click(androidx.compose.ui.geometry.Offset(1f,center.y))}
   compose.onNodeWithText("Seleccionado:",substring=true).assertIsDisplayed()
-  val expectedDate=java.time.Instant.ofEpochMilli(dates.first()).atZone(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy",java.util.Locale.forLanguageTag("es")))
+  val expectedDate=java.time.Instant.ofEpochMilli(dates.first()).atZone(java.time.ZoneId.systemDefault()).toLocalDate().format(reperaDayFormatter)
   compose.onNodeWithText(expectedDate).assertIsDisplayed()
   compose.onNodeWithTag("exercise_evolution_chart").performTouchInput {swipeLeft()}
   compose.onNodeWithText("Seleccionado:",substring=true).assertIsDisplayed()
