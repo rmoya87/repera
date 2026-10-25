@@ -15,12 +15,10 @@ import java.util.UUID
  *
  * Alcance Android (documentado en STATUS_AND_PARITY):
  *  - fuerza: port completo (ids, reordenación entre bloques, set targets → loggedSets);
- *  - bloques WOD: se conservan tal cual (Android no tiene editor de movimientos);
- *    las entradas WOD se reasignan por id/bloque con las reglas de Apple y los
- *    wodResults se validan contra el formato (un cambio de formato los invalida).
- *  - DESVIACIÓN: Block.plannedSets(for:) de Apple (rellenos EMOM/Tabata/rondas)
- *    no está portado; para un movimiento WOD sin explicitPlannedSets se conservan
- *    las series previas de la sesión.
+ *  - WOD: routine(from:) reconstruye movimientos desde las entradas (REST se conserva);
+ *    applying usa explicitPlannedSets y, si no hay, RoutineBlock.plannedSets(for:)
+ *    portado en domain (WodPlannedSets: EMOM/circuit/Tabata/rondas); los wodResults se
+ *    validan contra el formato (un cambio de formato los invalida).
  */
 object CompletedWorkoutEditing {
 
@@ -84,7 +82,24 @@ object CompletedWorkoutEditing {
                 source.put("exercises", mapped)
                 source.put("movements", JSONArray())
             }
-            // Bloques WOD: se conservan (sin editor de movimientos en Android).
+            else {
+                // Bloque WOD (routine(from:) Apple): REST se conserva, cada movimiento no-REST toma
+                // su entrada de sesión por orden; sobrantes se añaden al final.
+                var index = 0
+                val movements = JSONArray()
+                val origMoves = source.optJSONArray("movements") ?: JSONArray()
+                val preserve = source.has("wodFormat") && !source.isNull("wodFormat") && isGlobalCapture(source)
+                for (i in 0 until origMoves.length()) {
+                    val original = origMoves.getJSONObject(i)
+                    if (original.optBoolean("isRest")) movements.put(original)
+                    else if (index < entries.size) {
+                        movements.put(movementFor(entries[index], original, preserve)); index++
+                    }
+                }
+                for (extra in entries.drop(index)) movements.put(movementFor(extra, null, false))
+                source.put("movements", movements)
+                source.put("exercises", JSONArray())
+            }
             blocks.put(source)
         }
         // Históricos anteriores al snapshot (o ejercicios sin bloque).
@@ -115,6 +130,36 @@ object CompletedWorkoutEditing {
         return blocks
     }
 
+    private fun spec(m: JSONObject): dev.repera.domain.WodMovementSpec = dev.repera.domain.WodMovementSpec(
+        id = m.optString("id"),
+        reps = if (m.has("reps") && !m.isNull("reps")) m.getInt("reps") else null,
+        repScheme = m.optJSONArray("repScheme")?.let { a -> (0 until a.length()).map { a.getInt(it) } },
+        distanceMeters = if (m.has("distanceMeters") && !m.isNull("distanceMeters")) m.getInt("distanceMeters") else null,
+        calories = if (m.has("calories") && !m.isNull("calories")) m.getInt("calories") else null,
+        weightMaleKg = if (m.has("weightMaleKg") && !m.isNull("weightMaleKg")) m.getDouble("weightMaleKg") else null,
+        isRest = m.optBoolean("isRest"),
+        explicitPlannedSets = m.optJSONArray("explicitPlannedSets")?.let { a ->
+            (0 until a.length()).map { i -> a.getJSONObject(i).let { s ->
+                dev.repera.domain.PlannedSetValue(s.optInt("targetReps"),
+                    if (s.has("targetWeightKg") && !s.isNull("targetWeightKg")) s.getDouble("targetWeightKg") else null,
+                    if (s.has("targetRir") && !s.isNull("targetRir")) s.getDouble("targetRir") else null) } }
+        })
+
+    /** RoutineBlock.plannedSets(for:) de Apple para un movimiento sin series explícitas. */
+    private fun derivedSets(block: JSONObject, movement: JSONObject): JSONArray {
+        val all = block.optJSONArray("movements") ?: JSONArray()
+        val values = dev.repera.domain.WodPlannedSets.forMovement(
+            dev.repera.domain.WodFormat.fromWire(block.optString("wodFormat")),
+            if (block.has("rounds") && !block.isNull("rounds")) block.getInt("rounds") else null,
+            (0 until all.length()).map { spec(all.getJSONObject(it)) }, spec(movement))
+        return JSONArray().apply {
+            values.forEach { v ->
+                put(JSONObject().put("id", UUID.randomUUID().toString()).put("targetReps", v.targetReps)
+                    .apply { v.targetWeightKg?.let { put("targetWeightKg", it) }; v.targetRir?.let { put("targetRir", it) } })
+            }
+        }
+    }
+
     private fun newBlock(entry: JSONObject, id: String, kind: String, n: Int): JSONObject {
         val b = JSONObject().put("id", id)
             .put("title", entry.optString("blockHeader").ifBlank { "Bloque $n" })
@@ -127,8 +172,11 @@ object CompletedWorkoutEditing {
         return b
     }
 
-    private fun movementFor(entry: JSONObject, original: JSONObject?): JSONObject {
-        val sets = visibleSets(entry)
+    private fun movementFor(entry: JSONObject, original: JSONObject?, preservePrescription: Boolean = false): JSONObject {
+        val sets = if (preservePrescription)
+            (original?.optJSONArray("explicitPlannedSets")?.takeIf { it.length() > 0 }
+                ?: entry.optJSONArray("plannedSets") ?: JSONArray())
+        else visibleSets(entry)
         val first = sets.optJSONObject(0)
         val unit = entry.optString("quantityUnit")
         val reps = first?.optInt("targetReps")
@@ -182,8 +230,9 @@ object CompletedWorkoutEditing {
                 for (i in 0 until mv.length()) mv.getJSONObject(i).let {
                     if (it.optBoolean("isRest")) return@let
                     val explicit = it.optJSONArray("explicitPlannedSets")?.takeIf { s -> s.length() > 0 }
+                    val derived = explicit ?: derivedSets(block, it)
                     items += Item(it.getString("id"), it.optString("exerciseId").ifBlank { null }, it.optString("name"),
-                        explicit, if (it.has("calories") && !it.isNull("calories")) "calories"
+                        derived, if (it.has("calories") && !it.isNull("calories")) "calories"
                         else if (it.has("distanceMeters") && !it.isNull("distanceMeters")) "meters" else null, it)
                 }
             }

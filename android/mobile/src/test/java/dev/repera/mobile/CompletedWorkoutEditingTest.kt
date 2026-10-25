@@ -153,4 +153,50 @@ class CompletedWorkoutEditingTest {
         assertEquals(1, blocks.length())
         assertEquals(2, blocks.getJSONObject(0).getJSONArray("exercises").length())
     }
+
+    private fun emomSession(): JSONObject {
+        val block = JSONObject().put("id", "w2").put("title", "EMOM").put("kind", "wod")
+            .put("wodFormat", "emom").put("rounds", 3).put("emomIntervalSeconds", 60)
+            .put("movements", JSONArray().put(JSONObject().put("id", "m1").put("exerciseId", "bu")
+                .put("name", "Burpees").put("reps", 10)))
+        return JSONObject().put("id", "s3").put("title", "EMOM").put("phase", "finished")
+            .put("startedAt", "2026-10-20T10:00:00Z").put("finishedAt", "2026-10-20T11:00:00Z")
+            .put("currentIndex", 0).put("routineBlocks", JSONArray().put(block)).put("wodResults", JSONArray())
+            .put("exercises", JSONArray().put(JSONObject().put("id", "m1").put("exercise", ex("bu", "Burpees"))
+                .put("plannedSets", JSONArray().put(planned("a", 10)).put(planned("b", 10)).put(planned("c", 10)))
+                .put("loggedSets", JSONArray().put(logged("a", 10, 0.0, 2.0)).put(logged("b", 9, 0.0, 2.0)).put(logged("c", 8, 0.0, 2.0)))
+                .put("completedReps", 27).put("isCompleted", true).put("blockId", "w2").put("blockKind", "wod")
+                .put("wodFormat", "emom").put("blockHeader", "EMOM").put("blockRounds", 3)))
+    }
+
+    @Test fun wodPerMovementRebuildKeepsLoggedSetIdsViaExplicitSets() {
+        val s = emomSession()
+        val blocks = CompletedWorkoutEditing.blocksFrom(s, null)
+        val mv = blocks.getJSONObject(0).getJSONArray("movements").getJSONObject(0)
+        assertEquals(3, mv.getJSONArray("explicitPlannedSets").length())
+        assertEquals("b", mv.getJSONArray("explicitPlannedSets").getJSONObject(1).getString("id"))
+        mv.getJSONArray("explicitPlannedSets").getJSONObject(1).put("targetReps", 7)
+        val u = CompletedWorkoutEditing.applying("EMOM", blocks, s, JSONArray().put(ex("bu", "Burpees")))
+        val ls = u.getJSONArray("exercises").getJSONObject(0).getJSONArray("loggedSets")
+        assertEquals(listOf("a", "b", "c"), (0 until 3).map { ls.getJSONObject(it).getString("id") })
+        assertEquals(7, ls.getJSONObject(1).getInt("reps"))
+        assertEquals(10 + 7 + 8, u.getJSONArray("exercises").getJSONObject(0).getInt("completedReps"))
+    }
+
+    @Test fun clearingExplicitSetsDerivesFromBlockRulesWithoutInventingLoggedReps() {
+        val s = emomSession()
+        val blocks = CompletedWorkoutEditing.blocksFrom(s, null)
+        val b = blocks.getJSONObject(0)
+        b.put("rounds", 5)
+        b.getJSONArray("movements").getJSONObject(0).remove("explicitPlannedSets")
+        val u = CompletedWorkoutEditing.applying("EMOM", blocks, s, JSONArray().put(ex("bu", "Burpees")))
+        val e = u.getJSONArray("exercises").getJSONObject(0)
+        // Apple: routine(from:) deja repScheme [10,9,8] (ola registrada); con EMOM de 5 rondas se
+        // rellena repitiendo la última => [10,9,8,8,8]. Los ids derivados son nuevos.
+        assertEquals(listOf(10, 9, 8, 8, 8), (0 until 5).map { e.getJSONArray("plannedSets").getJSONObject(it).getInt("targetReps") })
+        assertEquals(5, e.getInt("blockRounds"))
+        // Las series registradas se reconstruyen con las prescritas (Apple), con completedAt = finishedAt.
+        assertEquals(5, e.getJSONArray("loggedSets").length())
+        assertEquals("2026-10-20T11:00:00Z", e.getJSONArray("loggedSets").getJSONObject(4).getString("completedAt"))
+    }
 }
