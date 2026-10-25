@@ -206,3 +206,24 @@ class CardioUnitTest {
         org.junit.Assert.assertEquals("reps", EditorBlockOps.resolveQuantityUnit("Sentadilla", null, "meters", null))
     }
 }
+
+class DayEditorImportTest {
+    @org.junit.Test fun freshIdsReplacesEveryIdAndDropsSuperset() {
+        val j = """{"id":"b","exercises":[{"id":"i","exerciseId":"ex-1","supersetGroup":"g","plannedSets":[{"id":"s"}]}]}"""
+        val out = org.json.JSONObject(EditorBlockOps.freshIds(j)!!)
+        org.junit.Assert.assertNotEquals("b", out.getString("id"))
+        val it = out.getJSONArray("exercises").getJSONObject(0)
+        org.junit.Assert.assertNotEquals("i", it.getString("id"))
+        org.junit.Assert.assertEquals("ex-1", it.getString("exerciseId"))
+        org.junit.Assert.assertFalse(it.has("supersetGroup"))
+        org.junit.Assert.assertNotEquals("s", it.getJSONArray("plannedSets").getJSONObject(0).getString("id"))
+    }
+    @org.junit.Test fun templateKeepsRepeatedMovementsAndRejectsLadder() {
+        val cat = listOf(ExerciseEntry("ex-t", "Thruster", true, true))
+        val t = dev.repera.domain.CatalogWods.seed().first { it.format != dev.repera.domain.WodFormat.LADDER && it.movements.size > 1 }
+        val info = EditorBlockOps.templateToBlockInfo(t, cat)!!
+        org.junit.Assert.assertEquals(t.movements.size, info.entries.size)
+        org.junit.Assert.assertNull(EditorBlockOps.templateToBlockInfo(
+            dev.repera.domain.CatalogWods.template("21-15-9-thruster-bjo")!!, cat))
+    }
+}

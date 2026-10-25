@@ -163,4 +163,34 @@ class EditorUiInstrumentedTest {
         compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
         assertEquals("meters", delivered!![0].entries[0].quantityUnit)
     }
+
+    /** «Añadir rutina» copia bloques con ids nuevos. Solo compilado. */
+    @Test fun planAddRoutineCopiesBlocksWithFreshIds() {
+        var delivered: List<RoutineBlockDraft>? = null
+        val src = planRoutine().copy(id = "r-src", title = "Origen")
+        val target = RoutineEntry(id = "r-dst", title = "Destino", supported = true, blocks = listOf(
+            RoutineBlockInfo(title = "Fuerza", format = "strength", id = "bd",
+                entries = listOf(RoutineBlockEntryInfo(exerciseId = "ex-1", name = "", quantity = 5, id = "idd")))))
+        compose.setContent { MaterialThemeForTest {
+            RoutineBlocksEditorScreen(routine = target, exercises = listOf(exercise), busy = false,
+                onReplace = { delivered = it }, onBack = {}, importableRoutines = listOf(src)) } }
+        compose.onNodeWithTag("plan_add_routine").performClick()
+        compose.onNodeWithTag("plan_import_r-src").performClick()
+        compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
+        assertEquals(3, delivered!!.size)
+        assertTrue(delivered!![1].blockId != "b-s" && delivered!![1].blockId != null)
+    }
+
+    @Test fun planPickWodAddsTemplateBlock() {
+        var delivered: List<RoutineBlockDraft>? = null
+        val t = dev.repera.domain.CatalogWods.seed().first { it.format != dev.repera.domain.WodFormat.LADDER }
+        compose.setContent { MaterialThemeForTest {
+            RoutineBlocksEditorScreen(routine = planRoutine(), exercises = listOf(exercise), busy = false,
+                onReplace = { delivered = it }, onBack = {}) } }
+        compose.onNodeWithTag("plan_pick_wod").performClick()
+        compose.onNodeWithTag("plan_wod_pick_" + t.id).performClick()
+        compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
+        assertEquals(3, delivered!!.size)
+        assertEquals(t.movements.size, delivered!![2].entries.size)
+    }
 }

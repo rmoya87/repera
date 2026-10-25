@@ -206,7 +206,7 @@ class WorkoutRepository(context: Context, googleId: String) {
                 val item = original ?: JSONObject().put("exerciseId", entry.exerciseId)
                     .put("name", movement.getString("name")).put("isRest", false)
                 item.put("id", entry.itemId ?: original?.optString("id")?.ifBlank { null } ?: UUID.randomUUID().toString())
-                val unchanged = original != null && originalQuantity(original) == entry.quantity && originalUnit == quantityUnit
+                val unchanged = original != null && originalQuantity(original) == entry.quantity && (entry.quantityUnit == null || originalUnit == quantityUnit)
                 if (!unchanged) {
                     // La prescripción cambió: se reescribe y se descartan series explícitas
                     // y esquema previos (el resto de campos WOD se conserva).

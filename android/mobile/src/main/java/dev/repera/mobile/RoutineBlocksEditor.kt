@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -43,7 +44,8 @@ fun RoutineBlocksEditorScreen(
     onReplace: (List<RoutineBlockDraft>) -> Unit,
     onBack: () -> Unit,
     loadGuideProvider: (exerciseId: String, targetReps: Int, targetRir: Double?) ->
-        LoadGuide? = { _, _, _ -> null }
+        LoadGuide? = { _, _, _ -> null },
+    importableRoutines: List<RoutineEntry> = emptyList()
 ) {
     val nameById = remember(exercises) { exercises.associate { it.id to it.name } }
     val blocks = remember(routine.id) {
@@ -117,6 +119,45 @@ fun RoutineBlocksEditorScreen(
         }
         TextButton(onClick = { blocks.add(BlockDraftUi()) }, enabled = !busy) {
             Text("Añadir bloque")
+        }
+        // Equivalente de «Elegir WOD» y «Añadir rutina» de DayEditorView (Apple).
+        var showWods by remember { mutableStateOf(false) }
+        var showRoutines by remember { mutableStateOf(false) }
+        TextButton(modifier = Modifier.testTag("plan_pick_wod"), onClick = { showWods = true }, enabled = !busy) { Text("Elegir WOD") }
+        val importable = importableRoutines.filter { it.id != routine.id && it.blocks.isNotEmpty() }
+        if (importable.isNotEmpty())
+            TextButton(modifier = Modifier.testTag("plan_add_routine"), onClick = { showRoutines = true }, enabled = !busy) { Text("Añadir rutina") }
+        if (showRoutines) androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showRoutines = false },
+            confirmButton = { TextButton(onClick = { showRoutines = false }) { Text("Cancelar") } },
+            title = { Text("Añadir rutina") },
+            text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text("Se copian los bloques; el título y el día de esta rutina no cambian.", style = MaterialTheme.typography.bodySmall)
+                importable.forEach { src ->
+                    TextButton(modifier = Modifier.testTag("plan_import_${src.id}"), onClick = {
+                        src.blocks.forEach { blocks.add(BlockDraftUi(EditorBlockOps.duplicateBlockInfo(it))) }
+                        showRoutines = false
+                    }) { Text(src.title + " · " + src.blocks.size + " bloques") }
+                } } })
+        if (showWods) {
+            var query by remember { mutableStateOf("") }
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showWods = false },
+                confirmButton = { TextButton(onClick = { showWods = false }) { Text("Cancelar") } },
+                title = { Text("Elegir WOD") },
+                text = { Column {
+                    OutlinedTextField(value = query, onValueChange = { query = it }, singleLine = true,
+                        label = { Text("Buscar") }, modifier = Modifier.fillMaxWidth().testTag("plan_wod_search"))
+                    androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                        items(dev.repera.domain.CatalogWods.search(query).size) { i ->
+                            val t = dev.repera.domain.CatalogWods.search(query)[i]
+                            TextButton(modifier = Modifier.testTag("plan_wod_pick_${t.id}"), onClick = {
+                                val info = EditorBlockOps.templateToBlockInfo(t, exercises)
+                                if (info == null) error = "«" + t.name + "» es una escalera con movimientos repetidos y no cabe en este editor"
+                                else { blocks.add(BlockDraftUi(info)); error = null }
+                                showWods = false
+                            }) { Text(t.name + " · " + t.formatLabel) }
+                        } } } })
         }
     }
     }
@@ -292,7 +333,7 @@ private fun BlockEditorCard(
                             nameById[entry.exerciseId] ?: "Ejercicio" },
                         isStrength = block.format == "strength",
                         unitChoices = exercises.firstOrNull { it.id == entry.exerciseId }?.let { ex ->
-                            dev.repera.domain.ExerciseInput.supportsCaloriesAndMeters(ex.name, null) } == true,
+                            dev.repera.domain.AppleCardioUnits.allowsCalorieOrDistanceToggle(ex.name, ex.equipment) } == true,
                         loadGuideProvider = loadGuideProvider,
                         onRemove = { block.entries.removeAt(index) },
                         handle = entryHandle,

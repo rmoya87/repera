@@ -515,3 +515,9 @@ No portado (histórico):  Verificación: JVM EditorBlockOpsTest 15/15; androidTe
 
 ### Selector de unidad de cardio (plan)
 Port del Picker "Unidad de cardio" de Apple: chips Calorías/Metros en el editor de plan para ejercicios que admiten ambas (`supportsCaloriesAndMeters`, evaluado sin equipamiento: aproximación). Antes el guardado pisaba la unidad original con la por defecto; ahora se conserva salvo elección. JVM CardioUnitTest 2/2; androidTest solo compilado. Pendiente de Apple: picker de día/hora/progresión ya existe en ReperaCards (no re-verificado contra DayEditorView), DatePickers de datos del entreno terminado y chrome de página/NavigationStack no portados.
+
+### Auditoría DayEditorView (plan) - estado
+- Unidad de cardio: ahora regla literal de Apple (`AppleCardioUnits`: allowsCalorieOrDistanceToggle/defaultQuantityUnit, con equipamiento). Sustituye la aproximación anterior. Nota: sled con equipamiento "trineo" admite Cal/m porque así lo define el modelo Apple.
+- Añadido: "Añadir rutina" (copia bloques con ids nuevos y sin supersetGroup, como duplicatingContent) y "Elegir WOD" (plantillas CatalogWods; movimientos sin coincidencia de catálogo se conservan por nombre).
+- Diferencias/no portado: la plantilla ladder con movimientos repetidos se rechaza con mensaje (el modelo de escalera del editor no la representa); Apple fija el título de la rutina al nombre de la plantilla si está vacío (no portado: este editor no posee el título); hoja "Reordenar" separada, swipe-to-delete, DatePickers de entreno terminado dentro de este editor y chrome de NavigationStack no portados; "Favorito"/"Día"/"Progresión" viven en la ficha de rutina de Android (no re-contrastado pixel a pixel).
+- Verificación: JVM AppleCardioUnitsTest 2/2, CardioUnitTest 2/2, DayEditorImportTest 2/2, EditorBlockOpsTest; androidTest solo compilado.

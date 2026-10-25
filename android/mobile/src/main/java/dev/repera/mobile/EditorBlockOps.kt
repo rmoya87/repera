@@ -146,14 +146,65 @@ object EditorBlockOps {
      * prescripción original (quantityUnit o calories/distanceMeters), no se pisa con la por defecto.
      */
     fun resolveQuantityUnit(name: String, equipment: String?, requested: String?, original: JSONObject?): String {
-        val default = dev.repera.domain.ExerciseInput.defaultQuantityUnit(name, equipment)
-        if (!dev.repera.domain.ExerciseInput.supportsCaloriesAndMeters(name, equipment)) return default
+        // Reglas literales de Apple (AppleCardioUnits), no la heurística genérica de ExerciseInput.
+        val default = if (dev.repera.domain.AppleCardioUnits.allowsCalorieOrDistanceToggle(name, equipment))
+            dev.repera.domain.AppleCardioUnits.defaultQuantityUnit(name, equipment)
+        else dev.repera.domain.ExerciseInput.defaultQuantityUnit(name, equipment)
+        if (!dev.repera.domain.AppleCardioUnits.allowsCalorieOrDistanceToggle(name, equipment)) return default
         if (requested == "calories" || requested == "meters") return requested
         val fromJson = original?.optString("quantityUnit")?.takeIf { it == "calories" || it == "meters" }
         if (fromJson != null) return fromJson
         if (original != null && opt(original, "calories") != null) return "calories"
         if (original != null && opt(original, "distanceMeters") != null) return "meters"
         return default
+    }
+
+    /** duplicatingContent de Apple: ids nuevos en todo el árbol (bloque, ítems, series) y sin supersetGroup. */
+    fun freshIds(json: String?): String? {
+        if (json == null) return null
+        fun walk(v: Any?) {
+            when (v) {
+                is JSONObject -> {
+                    if (v.has("id")) v.put("id", UUID.randomUUID().toString())
+                    v.remove("supersetGroup")
+                    v.keys().asSequence().toList().forEach { walk(v.opt(it)) }
+                }
+                is JSONArray -> for (i in 0 until v.length()) walk(v.opt(i))
+            }
+        }
+        return runCatching { JSONObject(json).also { walk(it) }.toString() }.getOrDefault(json)
+    }
+
+    /** Copia de un bloque de otra rutina con ids nuevos (Añadir rutina). */
+    fun duplicateBlockInfo(b: RoutineBlockInfo): RoutineBlockInfo = b.copy(
+        id = UUID.randomUUID().toString(), sourceJson = freshIds(b.sourceJson),
+        entries = b.entries.map { e -> e.copy(id = UUID.randomUUID().toString(), sourceJson = freshIds(e.sourceJson),
+            plannedSets = e.plannedSets?.map { it.copy(id = null) }) })
+
+    /** WODTemplate.makeBlock: movimientos repetidos se mantienen; sin coincidencia de catálogo se conservan por nombre. */
+    fun templateToBlockInfo(t: dev.repera.domain.WodTemplate, catalog: List<ExerciseEntry>): RoutineBlockInfo? {
+        // Escalera con movimientos repetidos (21-15-9 + varios): el modelo de escalera del editor (un esquema por
+        // bloque) no lo representa sin cambiar su semántica; se rechaza en vez de reinterpretarlo.
+        if (t.format == dev.repera.domain.WodFormat.LADDER) return null
+        val byName = catalog.associateBy { it.name.lowercase() }
+        val entries = t.movements.map { m ->
+            val ex = byName[m.name.lowercase()]
+            val item = JSONObject().put("id", UUID.randomUUID().toString()).put("name", m.name).put("isRest", false)
+            ex?.let { item.put("exerciseId", it.id) }
+            m.reps?.let { item.put("reps", it) }; m.distanceMeters?.let { item.put("distanceMeters", it) }
+            m.calories?.let { item.put("calories", it) }; m.weightMaleKg?.let { item.put("weightMaleKg", it) }
+            m.weightFemaleKg?.let { item.put("weightFemaleKg", it) }; m.notes?.let { item.put("notes", it) }
+            RoutineBlockEntryInfo(exerciseId = ex?.id ?: "", name = m.name,
+                quantity = m.reps ?: m.calories ?: m.distanceMeters ?: 10, id = item.getString("id"), sourceJson = item.toString())
+        }
+        val block = JSONObject().put("id", UUID.randomUUID().toString()).put("title", t.name).put("kind", "wod")
+            .put("wodFormat", t.format.wireName).put("emomIntervalSeconds", t.emomIntervalSeconds ?: 60)
+            .put("wodTemplateId", t.id)
+        t.notes?.let { block.put("wodNotes", it) }
+        return RoutineBlockInfo(title = t.name, format = t.format.wireName,
+            timeCapMinutes = t.timeCapMinutes ?: 12, rounds = t.rounds ?: 1, emomIntervalSeconds = t.emomIntervalSeconds ?: 60,
+            workSeconds = t.workSeconds ?: 20, restSeconds = t.restSeconds ?: 10, entries = entries,
+            id = block.getString("id"), sourceJson = block.toString())
     }
 
     const val PENDING_PREFIX = "pending:"
