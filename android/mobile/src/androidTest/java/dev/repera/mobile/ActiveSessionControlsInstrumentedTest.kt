@@ -15,10 +15,10 @@ class ActiveSessionControlsInstrumentedTest {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val account="test-active-nav-${java.util.UUID.randomUUID()}"
         val local=LocalSnapshotStore(context,account)
-        local.write(JSONObject().put("exercises",JSONArray().put(JSONObject().put("id","ex").put("name","Sentadilla").put("muscleGroup","Piernas")))
+        local.write(JSONObject().put("exercises",JSONArray().put(JSONObject().put("id","ex").put("name","Sentadilla").put("muscleGroup","Piernas")).put(JSONObject().put("id","ex2").put("name","Press banca").put("muscleGroup","Pecho")))
             .put("workouts",JSONArray()).put("routines",JSONArray()).toString().toByteArray())
         val repo=WorkoutRepository(context,account)
-        val routine=repo.createRoutine("Dos ejercicios","strength",listOf(RoutineDraftEntry("ex",5),RoutineDraftEntry("ex",8)))
+        val routine=repo.createRoutine("Dos ejercicios","strength",listOf(RoutineDraftEntry("ex",5),RoutineDraftEntry("ex2",8)))
         var active by mutableStateOf(repo.startRoutine(routine))
         compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {
             androidx.compose.foundation.layout.Column {
