@@ -125,7 +125,8 @@ struct StatsView: View {
                         .padding(.horizontal, OG.pad)
                         .padding(.top, 0)
                         .padding(.bottom, 28)
-                        .ogReadableColumn()
+                        .frame(maxWidth: isExpandedLayout ? .infinity : OG.contentColumnMaxWidth)
+                    .frame(maxWidth: .infinity, alignment: .center)
                     } header: {
                         // El control nativo mantiene la animación Liquid Glass
                         // de la selección al pulsar y arrastrar entre pestañas.
