@@ -196,6 +196,17 @@ private final class LiveGPXParser: NSObject, XMLParserDelegate {
     }
 }
 
+/// Solo valores Sendable cruzan el callback de CoreLocation al MainActor.
+private struct LiveGPSFix: Sendable {
+    var latitude: Double
+    var longitude: Double
+    var altitude: Double
+    var accuracy: Double
+    var verticalAccuracy: Double
+    var speed: Double
+    var timestamp: Date
+}
+
 private struct LiveSnapshot: Codable {
     var sport: String
     var phase: String
@@ -412,27 +423,36 @@ final class LiveActivityRecorder: NSObject {
         }
     }
 
-    private func receive(_ position: CLLocation) {
-        guard sport.usesGPS, phase == .recording, position.horizontalAccuracy >= 0,
-              position.horizontalAccuracy < 45,
-              abs(position.timestamp.timeIntervalSinceNow) < 20
+    private func receive(_ fix: LiveGPSFix) {
+        guard sport.usesGPS, phase == .recording, fix.accuracy >= 0,
+              fix.accuracy < 45,
+              abs(fix.timestamp.timeIntervalSinceNow) < 20
         else { return }
+        let position = CLLocation(
+            coordinate: CLLocationCoordinate2D(latitude: fix.latitude, longitude: fix.longitude),
+            altitude: fix.altitude,
+            horizontalAccuracy: fix.accuracy,
+            verticalAccuracy: fix.verticalAccuracy,
+            course: -1,
+            speed: fix.speed,
+            timestamp: fix.timestamp
+        )
         currentCoordinate = position.coordinate
-        currentSpeedMps = position.speed >= 0 ? position.speed : nil
+        currentSpeedMps = fix.speed >= 0 ? fix.speed : nil
         if let previous = lastPosition {
             let meters = position.distance(from: previous)
-            let seconds = position.timestamp.timeIntervalSince(previous.timestamp)
+            let seconds = fix.timestamp.timeIntervalSince(previous.timestamp)
             guard seconds > 0, meters >= 4, meters / seconds < 25 else { return }
             recordedDistanceMeters += meters
         }
         lastPosition = position
         let point = WorkoutRoutePoint(
             id: routePoints.count,
-            latitude: position.coordinate.latitude,
-            longitude: position.coordinate.longitude,
-            recordedAt: position.timestamp,
-            speedMps: position.speed >= 0 ? position.speed : nil,
-            altitudeMeters: position.verticalAccuracy >= 0 ? position.altitude : nil
+            latitude: fix.latitude,
+            longitude: fix.longitude,
+            recordedAt: fix.timestamp,
+            speedMps: fix.speed >= 0 ? fix.speed : nil,
+            altitudeMeters: fix.verticalAccuracy >= 0 ? fix.altitude : nil
         )
         routePoints.append(point)
         if Date().timeIntervalSince(lastSave) > 10 { persistSnapshot() }
@@ -449,10 +469,11 @@ extension LiveActivityRecorder: CLLocationManagerDelegate {
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let position = locations.last else { return }
-        let sample = CLLocation(
-            coordinate: position.coordinate, altitude: position.altitude,
-            horizontalAccuracy: position.horizontalAccuracy, verticalAccuracy: position.verticalAccuracy,
-            course: position.course, speed: position.speed, timestamp: position.timestamp
+        let sample = LiveGPSFix(
+            latitude: position.coordinate.latitude, longitude: position.coordinate.longitude,
+            altitude: position.altitude, accuracy: position.horizontalAccuracy,
+            verticalAccuracy: position.verticalAccuracy,
+            speed: position.speed, timestamp: position.timestamp
         )
         Task { @MainActor [weak self] in self?.receive(sample) }
     }
