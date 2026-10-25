@@ -51,6 +51,12 @@ class LiveLocationSourceInstrumentedTest {
         fun awaitCount(count:Int) {
             val end=SystemClock.elapsedRealtime()+10_000
             while(updates.size<count && SystemClock.elapsedRealtime()<end) Thread.sleep(50)
+            if(updates.size!=count) {
+                instrument.uiAutomation.executeShellCommand("dumpsys location").use { p ->
+                    val dump=java.io.FileInputStream(p.fileDescriptor).use { String(it.readBytes()) }
+                    android.util.Log.e("ReperaSyntheticGPS",dump)
+                }
+            }
             assertEquals("Expected synthetic provider updates, raw=${source.receivedFixCount}, lastAgeMs=${source.lastFixAgeMillis}",count,updates.size)
         }
         compose.setContent { androidx.compose.material3.Text("GPS sintético en primer plano") }
@@ -71,6 +77,7 @@ class LiveLocationSourceInstrumentedTest {
                 })
             }
             fix(40.438,0);awaitCount(1)
+            android.util.Log.i("ReperaSyntheticGPS","First fix accepted; enabled=${manager.getProviders(true)} activity=${compose.activity.lifecycle.currentState}")
             Thread.sleep(5_100);fix(40.4381,5);awaitCount(2)
             val meters=updates.last().distanceMeters
             assertTrue(meters>10)
