@@ -26,10 +26,12 @@ struct TrainingLiveActivityWidget: Widget {
                                 .font(.headline)
                             Spacer(minLength: 4)
                             if context.state.phase == .paused {
-                                Label("Pausa", systemImage: "pause.fill")
+                                Image(systemName: "pause.fill")
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(pauseYellow)
+                                    .accessibilityLabel("En pausa")
                             }
+                            reperaMark(isOnYellow: false)
                         }
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             islandMetric(value: timer(context.state), title: "Duración")
@@ -37,7 +39,7 @@ struct TrainingLiveActivityWidget: Widget {
                             islandMetric(value: Text(context.state.secondaryValue), title: context.state.secondaryLabel)
                         }
                     }
-                    .padding(.horizontal, 7)
+                    .padding(.horizontal, 3)
                     .padding(.top, 2)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
@@ -55,8 +57,10 @@ struct TrainingLiveActivityWidget: Widget {
             } compactTrailing: {
                 timer(context.state)
                     .monospacedDigit()
-                    .font(.caption2.weight(.semibold))
-                    .frame(minWidth: 38)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .fixedSize(horizontal: true, vertical: false)
             } minimal: {
                 Image(systemName: context.state.phase == .paused ? "pause.fill" : context.state.symbol)
                     .foregroundStyle(context.state.phase == .paused ? pauseYellow : green)
@@ -64,6 +68,18 @@ struct TrainingLiveActivityWidget: Widget {
             .widgetURL(destination(for: context.attributes))
             .keylineTint(context.state.phase == .paused ? pauseYellow : green)
         }
+    }
+
+    /// Símbolo oficial desde el mismo asset del iPhone, incluido en el bundle del widget.
+    /// El tint cambia para respetar contraste en la franja de pausa amarilla.
+    private func reperaMark(isOnYellow: Bool) -> some View {
+        Image("ReperaNativeBarbell")
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .foregroundStyle(isOnYellow ? .black : green)
+            .frame(width: 28, height: 25)
+            .accessibilityLabel("Repera")
     }
 
     @ViewBuilder
@@ -77,9 +93,7 @@ struct TrainingLiveActivityWidget: Widget {
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
                 Spacer(minLength: 6)
-                Text("REPERA")
-                    .font(.caption2.weight(.bold))
-                    .tracking(1.0)
+                reperaMark(isOnYellow: context.state.phase == .paused)
             }
             .foregroundStyle(context.state.phase == .paused ? .black : .white)
             .padding(.horizontal, 16)
