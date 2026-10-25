@@ -732,9 +732,7 @@ fun ReperaMobileScreen(
 }
 
 
-/** Ajustes mínimos: sección Datos con la entrada Acceso IA (paridad con la
- *  ubicación de iOS en SettingsView). El resto de ajustes de iOS aún no
- *  tiene pantalla Android. */
+/** Account settings with persisted consumers; unresolved parity is tracked separately. */
 @Composable
 internal fun SettingsTab(
     busy: Boolean,
@@ -759,7 +757,9 @@ internal fun SettingsTab(
         text={Text("Volverás al acceso con Google. Tus datos locales se conservan.")},
         confirmButton={androidx.compose.material3.TextButton(enabled=!busy,onClick={confirmSignOut=false;onSignOut()}) {Text("Cerrar sesión")}},
         dismissButton={androidx.compose.material3.TextButton(onClick={confirmSignOut=false}) {Text("Cancelar")}})
-    Column(modifier = Modifier.fillMaxSize().then(Modifier.verticalScroll(rememberScrollState())).padding(18.dp),
+    val settingsScroll=rememberScrollState()
+    ProvideScrollDragAutoScroll(settingsScroll) {
+    Column(modifier = Modifier.fillMaxSize().then(Modifier.verticalScroll(settingsScroll)).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Ajustes", style = MaterialTheme.typography.titleLarge)
         ProfileSettingsSection(overview?.profileSettings ?: ProfileSettings(),busy || overview==null,onUpdateProfile)
@@ -794,5 +794,6 @@ internal fun SettingsTab(
             modifier = Modifier.fillMaxWidth()) {
             Text("Importar CSV Strong/Hevy")
         }
+    }
     }
 }

@@ -26,6 +26,26 @@ class TrainingSettingsInstrumentedTest {
         val uri=context.contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values)!!
         context.contentResolver.openOutputStream(uri)!!.use {bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
     }
+    @Test fun rotationOrderSupportsActualDragAndKeepsExplicitButtons() {
+        var plan by mutableStateOf(dev.repera.domain.RotationPlan("rotation",routineIds=listOf("a","b","c")))
+        val routines=listOf("a","b","c").map {RoutineEntry(it,it.uppercase(),true,null,null,null,emptyList())}
+        compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {
+            androidx.compose.foundation.layout.Column {
+                RotationSettingsSection(plan,routines,false) {plan=it!!}
+            }
+        }}
+        compose.waitForIdle()
+        val first=compose.onNodeWithTag("rotation_drag_a").fetchSemanticsNode().boundsInRoot
+        val second=compose.onNodeWithTag("rotation_drag_b").fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithTag("rotation_drag_a").performTouchInput {
+            down(center);advanceEventTime(650)
+            moveBy(androidx.compose.ui.geometry.Offset(0f,second.center.y-first.center.y),500)
+            up()
+        }
+        compose.runOnIdle {assertEquals(listOf("b","a","c"),plan.routineIds)}
+        compose.onNodeWithTag("rotation_drag_a").assertIsDisplayed()
+        capture("rotacion_arrastre.png")
+    }
     @Test fun rotationAdvancesOnlyAfterFinishingNextRoutineAndNeverOnDiscard() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val account="test-rotation-${java.util.UUID.randomUUID()}"
