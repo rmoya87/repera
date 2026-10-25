@@ -53,9 +53,11 @@ struct TrainingLiveActivityWidget: Widget {
                 }
             } compactLeading: {
                 Image(systemName: context.state.phase == .paused ? "pause.fill" : context.state.symbol)
-                    .font(.system(size: 15, weight: .medium))
+                    .resizable()
+                    .scaledToFit()
                     .foregroundStyle(context.state.phase == .paused ? pauseYellow : green)
-                    .frame(width: 19, height: 20, alignment: .leading)
+                    .frame(width: 26, height: 20, alignment: .center)
+                    .accessibilityHidden(true)
             } compactTrailing: {
                 // La anchura de .timer es expansiva si se mide sin restricciones.
                 // Un ancho compacto explícito impide que el widget reclame
@@ -132,7 +134,13 @@ struct TrainingLiveActivityWidget: Widget {
 
     private func timer(_ state: TrainingActivityAttributes.ContentState) -> Text {
         if state.phase == .running {
-            return Text(state.timerAnchor, style: .timer)
+            // Stopwatch de iOS 27: segundos reales (00:07, 01:23, …)
+            // en lugar del tiempo relativo «menos de un minuto».
+            return Text(
+                .currentDate,
+                format: .stopwatch(startingAt: state.timerAnchor,
+                                   maxPrecision: .seconds(1))
+            )
         }
         return Text(timeString(state.elapsedSeconds))
     }
