@@ -4,6 +4,11 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.down
+import androidx.compose.ui.test.moveBy
+import androidx.compose.ui.test.up
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -186,5 +191,31 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         compose.onNodeWithTag("edit_save").performClick()
         val arr = org.json.JSONArray(saved!!.blocksJson)
         assertEquals(3, arr.length()); assertEquals("emom", arr.getJSONObject(1).getString("wodFormat"))
+    }
+
+    /** Long-press + arrastre del asa reordena (un único reorden al soltar); sin long-press no hay cambio. */
+    @Test fun longPressDragReordersExercises() {
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val w = workout.copy(editableBlocksJson = blocks)
+        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        compose.onNodeWithTag("ex_drag_0_0").performTouchInput {
+            down(center); advanceEventTime(700); moveBy(Offset(0f, 600f)); advanceEventTime(50); up()
+        }
+        compose.waitForIdle()
+        compose.onNodeWithTag("edit_save").performClick()
+        val ids = org.json.JSONArray(saved!!.blocksJson).getJSONObject(0).getJSONArray("exercises")
+        assertEquals("e2", ids.getJSONObject(0).getString("id")); assertEquals("e1", ids.getJSONObject(1).getString("id"))
+    }
+
+    @Test fun quickSwipeWithoutLongPressDoesNotReorder() {
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val w = workout.copy(editableBlocksJson = blocks)
+        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        compose.onNodeWithTag("ex_drag_0_0").performTouchInput { down(center); moveBy(Offset(0f, 600f)); up() }
+        compose.waitForIdle()
+        compose.onNodeWithTag("edit_save").performClick()
+        assertNull(saved!!.blocksJson)
     }
 }

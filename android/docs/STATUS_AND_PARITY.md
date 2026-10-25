@@ -501,3 +501,7 @@ capacidad; los sustitutos eran paridad exacta por código muerto en iOS).
 - JVM ejecutado: EditorBlockOpsTest 9/9. Instrumentado compilado, no ejecutado: pendingCustomExerciseIsCreatedOnlyOnSaveAndRespectsQuota.
 - Lote: varios `pending:` en un Guardar se normalizan (sin mayúsculas/diacríticos, como la búsqueda de catálogo), se deduplican, y la capacidad del lote completo se valida UNA vez antes de crear nada (`canCreateCustom(existentes + nuevos - 1)`). La escritura es única (`save(state)` al final): si falla o se deniega, no queda catálogo parcial ni cuota consumida; un reintento reutiliza por nombre y no vuelve a pedir cuota. Instrumentado compilado, no ejecutado.
 - Editor WOD: RIR por serie (no máquina) y campo «Peso H» que aplica solo a series sin peso (como applyMovementWeightToEmptySets); «Peso M» escribe weightFemaleKg.
+
+### Arrastre long-press (gap a, parcial)
+- Asa «⠿» por ejercicio de fuerza y por movimiento WOD: `detectDragGesturesAfterLongPress`; mientras se arrastra solo se traslada la fila (graphicsLayer, sin recomponer el contenido) y al soltar se aplica UN reorden (`EditorBlockOps.reorder`). Destino por regla del punto medio sobre alturas reales (`dragTargetIndex`, JVM ejecutado). Los botones ↑↓ conviven.
+- NO hecho: arrastre de bloques completos y soltar entre bloques (hoy: Mover). Tests de gesto (2) compilados, no ejecutados; el comportamiento táctil real no está verificado.

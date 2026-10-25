@@ -100,6 +100,15 @@ object EditorBlockOps {
         return true
     }
 
+    /** Reordena dentro de un array: quita `from` e inserta en `to` (índice final). */
+    fun reorder(arr: JSONArray, from: Int, to: Int): Boolean {
+        if (from !in 0 until arr.length() || to !in 0 until arr.length() || from == to) return false
+        val list = (0 until arr.length()).map { arr.get(it) }.toMutableList()
+        list.add(to, list.removeAt(from))
+        list.forEachIndexed { i, o -> arr.put(i, o) }
+        return true
+    }
+
     const val PENDING_PREFIX = "pending:"
 
     /** Nombres de ejercicios personalizados aún no creados (WOD→fuerza sin catálogo). Solo borrador. */

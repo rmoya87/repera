@@ -101,4 +101,21 @@ class EditorBlockOpsTest {
         assertEquals(listOf("Thruster"), EditorBlockOps.pendingCustomNames(b))
         assertTrue(EditorBlockOps.pendingCustomNames(resolved).isEmpty())
     }
+
+    @Test fun reorderKeepsIdsAndIsSinglePass() {
+        val arr = JSONArray().put(JSONObject().put("id", "a")).put(JSONObject().put("id", "b")).put(JSONObject().put("id", "c"))
+        assertTrue(EditorBlockOps.reorder(arr, 0, 2))
+        assertEquals(listOf("b", "c", "a"), (0 until 3).map { arr.getJSONObject(it).getString("id") })
+        assertFalse(EditorBlockOps.reorder(arr, 1, 1)); assertFalse(EditorBlockOps.reorder(arr, 0, 9))
+    }
+
+    @Test fun dragTargetUsesMidpointOverRealHeights() {
+        val h = listOf(100, 300, 100)
+        assertEquals(0, dragTargetIndex(0, 100f, h))     // < mitad del siguiente (150)
+        assertEquals(1, dragTargetIndex(0, 150f, h))
+        assertEquals(2, dragTargetIndex(0, 350f, h))     // 300 + 50
+        assertEquals(1, dragTargetIndex(2, -150f, h))
+        assertEquals(0, dragTargetIndex(2, -500f, h))
+        assertEquals(1, dragTargetIndex(1, 0f, h))
+    }
 }

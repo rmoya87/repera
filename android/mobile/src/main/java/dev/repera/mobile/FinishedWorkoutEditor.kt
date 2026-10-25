@@ -1,5 +1,11 @@
 package dev.repera.mobile
 
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.foundation.layout.padding
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.*
@@ -157,9 +163,12 @@ private fun FinishedContentEditor(
                 continue
             }
             val items = block.optJSONArray("exercises") ?: org.json.JSONArray().also { block.put("exercises", it) }
+            val exHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
             for (i in 0 until items.length()) {
                 val item = items.getJSONObject(i)
+                DragReorderItem(i, exHeights, items.length(), { f, t -> EditorBlockOps.reorder(items, f, t); onChanged() }) { handle ->
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text("⠿", modifier = handle.testTag("ex_drag_${b}_$i").padding(8.dp))
                     Text(item.optString("exerciseId").let { id ->
                         if (id.startsWith(EditorBlockOps.PENDING_PREFIX)) id.removePrefix(EditorBlockOps.PENDING_PREFIX) + " (nuevo, se crea al guardar)"
                         else nameById[id] ?: "Ejercicio" },
@@ -241,6 +250,7 @@ private fun FinishedContentEditor(
                         .apply { if (last != null && last.has("targetWeightKg")) put("targetWeightKg", last.get("targetWeightKg")) })
                     onChanged()
                 }) { Text("Añadir serie") }
+                }
             }
             var picking by remember { mutableStateOf(false) }
             TextButton(modifier = Modifier.testTag("ex_add_$b"), enabled = catalog.isNotEmpty(),
@@ -310,10 +320,13 @@ private fun WodMovementsEditor(
 ) {
     val block = blocks.getJSONObject(b)
     val moves = block.optJSONArray("movements") ?: org.json.JSONArray().also { block.put("movements", it) }
+    val mvHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
     for (i in 0 until moves.length()) {
         val m = moves.getJSONObject(i)
         val id = m.optString("id")
+        DragReorderItem(i, mvHeights, moves.length(), { f, t -> EditorBlockOps.reorder(moves, f, t); onChanged() }) { handle ->
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text("⠿", modifier = handle.testTag("mv_drag_${b}_$i").padding(8.dp))
             Text(if (m.optBoolean("isRest")) "REST" else m.optString("name"),
                 style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
             TextButton(enabled = i > 0, modifier = Modifier.testTag("mv_up_${b}_$i"), onClick = {
@@ -348,7 +361,7 @@ private fun WodMovementsEditor(
                 modifier = Modifier.fillMaxWidth().testTag("mv_rest_${b}_$i"),
                 onValueChange = { v -> secs = v.filter { it.isDigit() }.take(3)
                     m.put("restSeconds", (secs.toIntOrNull() ?: 60).coerceIn(15, 300)); onEdited() })
-            continue
+            return@DragReorderItem
         }
         var name by remember(id) { mutableStateOf(m.optString("name")) }
         OutlinedTextField(value = name, singleLine = true, label = { Text("Nombre") },
@@ -430,6 +443,7 @@ private fun WodMovementsEditor(
         OutlinedTextField(value = notes, singleLine = true, label = { Text("Notas") },
             modifier = Modifier.fillMaxWidth().testTag("mv_notes_${b}_$i"),
             onValueChange = { notes = it; if (it.isEmpty()) m.remove("notes") else m.put("notes", it); onEdited() })
+        }
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         TextButton(modifier = Modifier.testTag("mv_add_rest_$b"), onClick = { moves.put(EditorBlockOps.restMovement()); onChanged() }) { Text("Añadir REST") }
@@ -456,4 +470,49 @@ private fun WodMovementsEditor(
                 confirmButton = {}, dismissButton = { TextButton(onClick = { picking = false }) { Text("Cancelar") } })
         }
     }
+}
+
+
+/** Fila reordenable por long-press (como `.draggable` de Apple). El arrastre solo mueve la fila
+ *  visualmente (graphicsLayer, sin recomponer el contenido) y aplica UN reorden al soltar. */
+@Composable
+internal fun DragReorderItem(
+    index: Int, heights: androidx.compose.runtime.snapshots.SnapshotStateMap<Int, Int>, count: Int,
+    onReorder: (Int, Int) -> Unit, content: @Composable (Modifier) -> Unit
+) {
+    var dy by remember { mutableStateOf(0f) }
+    val handle = Modifier.pointerInput(index, count) {
+        detectDragGesturesAfterLongPress(
+            onDragStart = {},
+            onDrag = { change, amount -> change.consume(); dy += amount.y },
+            onDragEnd = {
+                val target = dragTargetIndex(index, dy, (0 until count).map { heights[it] ?: 0 })
+                dy = 0f
+                if (target != index) onReorder(index, target)
+            },
+            onDragCancel = { dy = 0f })
+    }
+    Column(Modifier
+        .zIndex(if (dy != 0f) 1f else 0f)
+        .graphicsLayer { translationY = dy }
+        .onSizeChanged { heights[index] = it.height }) { content(handle) }
+}
+
+/** Índice destino de un arrastre vertical (regla del punto medio sobre alturas reales). Pura y testeable. */
+internal fun dragTargetIndex(from: Int, dy: Float, heights: List<Int>): Int {
+    var target = from
+    if (dy > 0) {
+        var travelled = 0f
+        for (j in from + 1 until heights.size) {
+            if (dy >= travelled + heights[j] / 2f) target = j else break
+            travelled += heights[j]
+        }
+    } else if (dy < 0) {
+        var travelled = 0f
+        for (j in from - 1 downTo 0) {
+            if (-dy >= travelled + heights[j] / 2f) target = j else break
+            travelled += heights[j]
+        }
+    }
+    return target
 }
