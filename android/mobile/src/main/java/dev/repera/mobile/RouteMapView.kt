@@ -105,7 +105,8 @@ internal fun RouteMapView(
         modifier = modifier.testTag("route_map"),
         factory = { context ->
             MapLibre.getInstance(context)
-            MapView(context).also { mapView = it }.apply {
+            MapView(context, org.maplibre.android.maps.MapLibreMapOptions.createFromAttributes(context)
+                .textureMode(true)).also { mapView = it }.apply {
                 // El listener de fallo de carga vive en MapView (widget), no en
                 // MapLibreMap (comprobado contra el AAR de MapLibre 13.7.1).
                 addOnDidFailLoadingMapListener { failed = true }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -18,6 +19,7 @@ import dev.repera.domain.LiveActivityState
 import dev.repera.domain.LiveSport
 import dev.repera.domain.LiveSportHistory
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** Primer wiring ejecutable: no estima kcal/pulso ni escribe Salud.
  * Rutas, voz y revisión visual se completan por separado, no se ocultan. */
@@ -26,6 +28,16 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     onOpenTools: () -> Unit, onOpenCenter: (() -> Unit)? = null,
     hasActiveWorkout: Boolean = false, onOpenWorkout: () -> Unit = {}) {
     val context=LocalContext.current
+    val scope = rememberCoroutineScope()
+    var previewPosition by remember { mutableStateOf<dev.repera.domain.WorkoutRoutePoint?>(null) }
+    var previewMessage by remember { mutableStateOf<String?>(null) }
+    fun capturePosition() { scope.launch {
+        val pin = runCatching { WorkoutLocationTracker(context).capturePin() }.getOrNull()
+        previewPosition = pin?.let { dev.repera.domain.WorkoutRoutePoint(0,it.latitude,it.longitude,System.currentTimeMillis()) }
+        previewMessage = if (pin == null) "Sin posición GPS disponible. El mapa no representa tu ubicación." else null
+    } }
+    val centerPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { capturePosition() }
+
     if(accountId.isBlank()) { Text("Inicia sesión para guardar actividades.");return }
     val runtime=remember(accountId) { LiveActivityRuntime.forAccount(context,accountId) }
     val revision by runtime.updates.collectAsState()
@@ -59,6 +71,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     var error by remember { mutableStateOf<String?>(null) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var showSportPicker by remember { mutableStateOf(false) }
+    var showingMetrics by remember { mutableStateOf(false) }
     var previewHealth by remember { mutableStateOf<dev.repera.domain.SessionCardioSample?>(null) }
     LaunchedEffect(state.phase, state.gpsSessionID) {
         previewHealth = null
@@ -84,7 +97,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         // También comprobar tras volver del diálogo de permiso, no solo
         // antes: puede haberse reactivado un entreno clásico mientras tanto.
         if (currentActiveWorkout) { currentOpenWorkout();return }
-        runtime.start();startService()
+        runtime.start();showingMetrics = state.sport.usesGPS;startService()
     }
     val notificationPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val permissions=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { start() }
@@ -126,6 +139,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                         LiveSport.entries.filter { it.group == group }.forEach { sport ->
                             TextButton(onClick = { runtime.choose(sport);showSportPicker = false },
                                 modifier = Modifier.fillMaxWidth().testTag("choose_sport_${sport.id}")) {
+                                Icon(sport.materialIcon,contentDescription=null,modifier=Modifier.size(22.dp))
+                                Spacer(Modifier.width(8.dp))
                                 Text((if (state.sport == sport) "✓ " else "") + sport.title)
                             }
                         }
@@ -151,6 +166,71 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         title={Text("¿Descartar actividad?")},text={Text("No se guardará esta actividad.")},
         confirmButton={TextButton(onClick={ if(runtime.discard()) LiveActivityService.stop(context);confirmDiscard=false }) {Text("Descartar")}},
         dismissButton={TextButton(onClick={confirmDiscard=false}) {Text("Cancelar")}})
+    if (state.sport.usesGPS && state.phase != LiveActivityState.Phase.REVIEW && !showingMetrics && !showRoutes) {
+        val planned = routes.firstOrNull { it.id == state.selectedRouteID }
+        Box(Modifier.fillMaxSize().testTag("live_activity_screen")) {
+            RouteMapView(if (state.points.isNotEmpty()) state.points else planned?.points ?: listOfNotNull(previewPosition),
+                isInteractive = true, modifier = Modifier.fillMaxSize(), plannedRoute = state.points.size < 2)
+            Surface(Modifier.align(Alignment.TopCenter).padding(12.dp), shape = MaterialTheme.shapes.large,
+                tonalElevation = 4.dp) {
+                Column(Modifier.padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(state.sport.materialIcon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text(state.sport.title,style=MaterialTheme.typography.titleLarge)
+        if(state.sport.usesGPS && state.phase!=LiveActivityState.Phase.REVIEW)
+            TextButton(onClick={showingMetrics=false;showRoutes=false}) {Text("Ver mapa")}
+                    }
+                    Text("Mapa del recorrido · guía GPX orientativa", style=MaterialTheme.typography.bodySmall)
+                    if (state.phase == LiveActivityState.Phase.IDLE) {
+                        TextButton(onClick={
+                            if(ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)
+                                centerPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION))
+                            else capturePosition()
+                        }) { Text("Centrar en mi ubicación") }
+                        if (previewPosition == null && planned == null)
+                            Text(previewMessage ?: "Sin ubicación. Pulsa Centrar para situarte.",style=MaterialTheme.typography.bodySmall)
+                    }
+                    runtime.upcomingTurn?.let { Text(it) }
+                    runtime.lastError?.let { Text(it,color=MaterialTheme.colorScheme.error) }
+                }
+            }
+            Surface(Modifier.align(Alignment.BottomCenter).padding(12.dp), shape = MaterialTheme.shapes.large,
+                tonalElevation = 4.dp) {
+                Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                    if (state.phase == LiveActivityState.Phase.IDLE) {
+                        Text(state.sport.metricDescription,style=MaterialTheme.typography.bodySmall)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick={showSportPicker=true},modifier=Modifier.testTag("live_sport_picker")) {
+                                Text("Elegir actividad: ${state.sport.title}")
+                            }
+                            Button(onClick={
+                                if(hasActiveWorkout) onOpenWorkout()
+                                else if(ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)
+                                    permissions.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION))
+                                else start()
+                            },modifier=Modifier.testTag("live_start")) { Text(if(hasActiveWorkout) "Continuar entrenamiento" else "Iniciar") }
+                        }
+                        Row {
+                            TextButton(onClick={showRoutes=true;showingMetrics=true}) {Text("Rutas")}
+                            TextButton(onClick=onOpenTools) {Text("Crear")}
+                            onOpenCenter?.let { TextButton(onClick=it) {Text("Center")} }
+                        }
+                    } else {
+                        Text("${LiveSportHistory.formatDuration(state.durationSeconds(System.currentTimeMillis()))} · %.2f km".format(state.distanceMeters/1000),
+                            style=MaterialTheme.typography.titleLarge)
+                        Row {
+                            Button(onClick={showingMetrics=true}) {Text("Ver métricas")}
+                            if(state.phase==LiveActivityState.Phase.RECORDING) TextButton(onClick={runtime.pause()}) {Text("Pausar")}
+                            else TextButton(onClick={runtime.resume();startService()}) {Text("Reanudar")}
+                            TextButton(onClick={runtime.finish();LiveActivityService.stop(context)}) {Text("Finalizar")}
+                        }
+                    }
+                }
+            }
+        }
+        return
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)
         .testTag("live_activity_screen"),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         // Lectura de revision asegura recomposición del estado puro compartido.
