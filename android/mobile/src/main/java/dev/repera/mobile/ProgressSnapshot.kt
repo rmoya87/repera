@@ -67,9 +67,16 @@ data class ProgressSnapshotData(
 object ProgressSnapshotBuilder {
 
     private fun epochOf(session: JSONObject): Long? {
-        val raw = session.optString("finishedAt").takeIf { it.isNotBlank() }
-            ?: session.optString("startedAt").takeIf { it.isNotBlank() }
-            ?: return null
+        // Sesiones "En vivo": el día es el de INICIO (StatsEngine.swift:
+        // liveSportID == nil ? finishedAt ?? startedAt : startedAt ?? finishedAt).
+        val live = session.optString("liveSportID").takeIf { it.isNotBlank() } != null
+        val raw = if (live)
+            session.optString("startedAt").takeIf { it.isNotBlank() }
+                ?: session.optString("finishedAt").takeIf { it.isNotBlank() }
+        else
+            session.optString("finishedAt").takeIf { it.isNotBlank() }
+                ?: session.optString("startedAt").takeIf { it.isNotBlank() }
+        if (raw == null) return null
         return runCatching { Instant.parse(raw).toEpochMilli() }.getOrNull()
             ?: runCatching {
                 LocalDate.parse(raw.take(10)).atTime(LocalTime.NOON)
@@ -128,7 +135,13 @@ object ProgressSnapshotBuilder {
             val started = runCatching {
                 Instant.parse(session.optString("startedAt")).toEpochMilli()
             }.getOrNull()
-            val duration = if (started != null)
+            // En vivo: duración ACTIVA medida por Repera (sin pausas), no
+            // reloj de pared (Models.swift durationMinutes/displayDurationMinutes).
+            val activeSeconds = session.optDouble("activeDurationSeconds")
+                .takeIf { session.has("activeDurationSeconds") && it > 0 }
+            val duration = if (activeSeconds != null)
+                maxOf(0.0, activeSeconds / 60.0)
+            else if (started != null)
                 maxOf(0.0, (epoch - started) / 60000.0) else 0.0
             val exercisesJson = session.optJSONArray("exercises") ?: JSONArray()
             val exercises = mutableListOf<StatsExercise>()
@@ -181,7 +194,10 @@ object ProgressSnapshotBuilder {
             val kcal = if (session.has("appleActiveEnergyKcal") &&
                 !session.isNull("appleActiveEnergyKcal"))
                 session.optDouble("appleActiveEnergyKcal") else null
-            stats.add(StatsWorkout(epoch, duration, finished, kcal, exercises))
+            stats.add(StatsWorkout(
+                epoch, duration, finished, kcal, exercises,
+                liveSportID = session.optString("liveSportID")
+                    .takeIf { it.isNotBlank() }))
             stimuli.add(MuscleStimulusWorkout(epoch, stimulusExercises))
         }
         return stats to stimuli

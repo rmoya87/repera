@@ -64,7 +64,11 @@ data class StatsWorkout(
     val durationMinutes: Double,
     val finished: Boolean = true,
     val activeEnergyKcal: Double? = null,
-    val exercises: List<StatsExercise> = emptyList()
+    val exercises: List<StatsExercise> = emptyList(),
+    /** Deporte registrado desde "Comenzar" (LiveSport.id); null en sesiones
+     *  clásicas. Cambia el criterio cardio y el día asignado lo decide el
+     *  adaptador (día de INICIO para sesiones en vivo, como StatsEngine.swift). */
+    val liveSportID: String? = null
 ) {
     val totalVolumeKg: Double get() = exercises.sumOf { e -> e.sets.sumOf { it.volumeKg } }
 }
@@ -113,6 +117,15 @@ private class SeriesAcc(var date: LocalDate, var sum: Double, var count: Int)
 
 /** Estadísticas de Progreso. Port de StatsEngine.swift (iOS) sobre java.time. */
 object StatsEngine {
+
+    /** Un registro de Comenzar no contiene series, pero algunos deportes
+     *  representan tiempo cardio real y han de entrar en los gráficos de
+     *  Progreso. No fabricamos kcal, FC ni carga muscular.
+     *  Port 1:1 de StatsEngine.isCardioWorkout (Apple 5890215d). */
+    fun isCardioWorkout(workout: StatsWorkout): Boolean {
+        workout.liveSportID?.let { return it in LiveSport.cardioLiveSports }
+        return workout.exercises.any { it.muscleGroup == "Cardio" }
+    }
 
     fun epleyOneRM(weightKg: Double, reps: Int): Double =
         if (weightKg > 0 && reps > 0) weightKg * (1 + reps / 30.0) else 0.0
@@ -386,10 +399,8 @@ object StatsEngine {
         for (workout in workouts) {
             val day = dayOf(workout.epochMillis, zone)
             when (metric) {
-                "cardioMinutes" -> {
-                    val isCardio = workout.exercises.any { it.muscleGroup == "Cardio" }
-                    add(day, if (isCardio) maxOf(0.0, workout.durationMinutes) else 0.0)
-                }
+                "cardioMinutes" ->
+                    add(day, if (isCardioWorkout(workout)) maxOf(0.0, workout.durationMinutes) else 0.0)
                 "activeEnergyKcal" -> add(day, maxOf(0.0, workout.activeEnergyKcal ?: 0.0))
             }
         }
@@ -459,8 +470,8 @@ object StatsEngine {
             if (workout.durationMinutes > 0) minutes.add(workout.durationMinutes)
             volume += maxOf(0.0, workout.totalVolumeKg)
             workout.activeEnergyKcal?.let { if (it > 0) kcal += it }
-            val isCardio = workout.exercises.any { it.muscleGroup == "Cardio" }
-            if (isCardio && workout.durationMinutes > 0) cardioMinutes.add(workout.durationMinutes)
+            if (isCardioWorkout(workout) && workout.durationMinutes > 0)
+                cardioMinutes.add(workout.durationMinutes)
         }
         for (sample in filteredE) {
             if (sample.minutes > 0) minutes.add(sample.minutes)

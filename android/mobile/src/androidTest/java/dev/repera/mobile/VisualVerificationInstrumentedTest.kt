@@ -818,20 +818,16 @@ class VisualVerificationInstrumentedTest {
         // Evidencia de RECUPERACIÓN VISIBLE en pantalla completa real
         // (UiAutomation, no captureToImage): el SurfaceView del mapa fuerza
         // una re-sincronización de superficie (API 30, GL por software) y la
-        // captura puede salir vacía un instante. Medir cuánto dura el estado
-        // vacío y EXIGIR que el contenido reaparezca (conteo en logcat).
+        // captura puede salir vacía un instante: EXIGIR que el contenido
+        // reaparezca dentro de la ventana de recuperación.
         val tChoose = android.os.SystemClock.elapsedRealtime()
         waitTitleDisplayed("Lugar")
-        val tTitle = android.os.SystemClock.elapsedRealtime() - tChoose
         var confirmShot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         while (confirmShot != null && isMostlyBlank(confirmShot) &&
             android.os.SystemClock.elapsedRealtime() - tChoose < 15_000) {
             Thread.sleep(500)
             confirmShot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         }
-        android.util.Log.i("PlaceSearchTest",
-            "titulo visible en ${tTitle}ms; pantalla con contenido en " +
-            "${android.os.SystemClock.elapsedRealtime() - tChoose}ms")
         assertTrue("contenido visible tras elegir (recuperación del estado vacío)",
             confirmShot != null && !isMostlyBlank(confirmShot))
         save("lugar_hoja_confirmar", confirmShot!!.asImageBitmap())
@@ -871,14 +867,8 @@ class VisualVerificationInstrumentedTest {
         val dy = minOf(220f, pinMapBounds.height / 2 - margin)
         val swipeFromX = (pinMapBounds.left + pinMapBounds.width / 2).toInt()
         val swipeFromY = (pinMapBounds.top + pinMapBounds.height / 2).toInt()
-        android.util.Log.i("PlaceSearchTest",
-            "pinMapBounds=$pinMapBounds swipe ($swipeFromX,$swipeFromY)->" +
-            "(${swipeFromX + dx.toInt()},${swipeFromY + dy.toInt()}) pkg=" +
-            uiDevice.currentPackageName)
         uiDevice.swipe(swipeFromX, swipeFromY,
             swipeFromX + dx.toInt(), swipeFromY + dy.toInt(), 20)
-        android.util.Log.i("PlaceSearchTest",
-            "tras swipe pkg=" + uiDevice.currentPackageName)
         compose.waitUntil(timeoutMillis = 15_000) {
             cameraRef.get()?.let { it.second != cam0.second || it.third != cam0.third } == true
         }
