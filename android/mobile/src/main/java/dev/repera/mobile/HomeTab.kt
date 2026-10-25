@@ -152,7 +152,7 @@ internal fun HomeTab(
                     verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Calendario y entrenamientos",
                         style = MaterialTheme.typography.titleLarge)
-                    WeekCalendarStrip(day) { homeDateIso = it.toString() }
+                    WeekCalendarStrip(day,overview?.trainingSettings?.weekStartsOnMonday ?: true) { homeDateIso = it.toString() }
                     Text("Entrenamientos · " + day.format(reperaDayFormatter),
                         style = MaterialTheme.typography.titleMedium)
                     if (dayRoutines.isEmpty()) {

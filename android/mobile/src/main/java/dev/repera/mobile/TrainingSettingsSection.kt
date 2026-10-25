@@ -1,0 +1,35 @@
+package dev.repera.mobile
+
+import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import dev.repera.domain.ProgressionPolicy
+
+/** Controls are offered only for settings with connected consumers. */
+@Composable internal fun TrainingSettingsSection(value:TrainingSettings,busy:Boolean,onChange:(TrainingSettings)->Unit) {
+    Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+        Text("Entrenamiento",style=MaterialTheme.typography.titleMedium)
+        Text("Semana empieza")
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected=value.weekStartsOnMonday,enabled=!busy,onClick={onChange(value.copy(weekStartsOnMonday=true))},label={Text("Lunes")})
+            FilterChip(selected=!value.weekStartsOnMonday,enabled=!busy,onClick={onChange(value.copy(weekStartsOnMonday=false))},label={Text("Domingo")})
+        }
+        Text("Descanso: ${value.defaultRestSeconds}s")
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(enabled=!busy && value.defaultRestSeconds>30,onClick={onChange(value.copy(defaultRestSeconds=value.defaultRestSeconds-15))}) {Text("Restar 15 s")}
+            OutlinedButton(enabled=!busy && value.defaultRestSeconds<300,onClick={onChange(value.copy(defaultRestSeconds=value.defaultRestSeconds+15))}) {Text("Añadir 15 s")}
+        }
+        Text("Progresión por defecto")
+        ProgressionPolicy.entries.forEach { policy ->
+            FilterChip(selected=value.defaultProgression==policy.wire,enabled=!busy,
+                onClick={onChange(value.copy(defaultProgression=policy.wire))},label={Text(policy.displayName)})
+        }
+        Text("Incremento: %.1f kg".format(value.weightIncrementKg))
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(enabled=!busy && value.weightIncrementKg>0.5,onClick={onChange(value.copy(weightIncrementKg=value.weightIncrementKg-0.5))}) {Text("Restar 0,5 kg")}
+            OutlinedButton(enabled=!busy && value.weightIncrementKg<10,onClick={onChange(value.copy(weightIncrementKg=value.weightIncrementKg+0.5))}) {Text("Añadir 0,5 kg")}
+        }
+    }
+}

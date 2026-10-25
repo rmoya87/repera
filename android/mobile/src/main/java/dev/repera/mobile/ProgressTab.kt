@@ -92,7 +92,7 @@ internal fun ProgressTab(
     var selectedRange by rememberSaveable { mutableStateOf(ProgressTimeRange.WEEK.wire) }
     val snapshot = overview?.progressByRange?.get(selectedRange)
     val today = LocalDate.now()
-    val weekStart = today.minusDays((today.dayOfWeek.value - 1).toLong())
+    val weekStart = dev.repera.domain.StatsEngine.startOfWeek(today,overview?.trainingSettings?.weekStartsOnMonday ?: true)
     val dayFmt = java.time.format.DateTimeFormatter
         .ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
         .withLocale(java.util.Locale.getDefault())
@@ -116,7 +116,7 @@ internal fun ProgressTab(
                     Text("${overview?.workoutsThisWeek ?: 0} sesiones esta semana",
                         style = MaterialTheme.typography.headlineSmall)
                     Text("Del ${weekStart.format(dayFmt)} al ${today.format(dayFmt)}")
-                    WeekTrainingBars(overview?.weeklyDayTotals.orEmpty())
+                    WeekTrainingBars(overview?.weeklyDayTotals.orEmpty(),overview?.trainingSettings?.weekStartsOnMonday ?: true)
                     Text("El total semanal usa todo el historial local. " +
                         "Los detalles de abajo muestran las últimas 20 sesiones.",
                         style = MaterialTheme.typography.bodySmall)

@@ -761,6 +761,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 accountId = profile?.uniqueId.orEmpty(),
                 initialExternalRoute = externalRoute,
                 onExternalRouteHandled = { externalRoute = null },
+                onUpdateTrainingSettings = { value -> runWorkoutAction { updateTrainingSettings(value) } },
                 onLiveActivitySaved = {
                     profile?.uniqueId?.let { id -> lifecycleScope.launch { reloadFor(id) } }
                 },
@@ -1562,7 +1563,8 @@ data class StateOverview(
     val chartsByRange: Map<String, dev.repera.domain.ProgressPreparedCharts> = emptyMap(),
     /** Archivo completo, no la ventana de 20 registros recientes. */
     val liveSportSessions: List<dev.repera.domain.LiveSportHistory.LiveSession> = emptyList(),
-    val completeHistory: List<WorkoutHistoryEntry> = emptyList()
+    val completeHistory: List<WorkoutHistoryEntry> = emptyList(),
+    internal val trainingSettings:TrainingSettings = TrainingSettings()
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?, health: HealthSamples? = null,
@@ -1607,7 +1609,8 @@ data class StateOverview(
                 }
             }
             val today = java.time.LocalDate.now()
-            val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+            val trainingSettings=TrainingSettings.read(json)
+            val monday = dev.repera.domain.StatsEngine.startOfWeek(today,trainingSettings.weekStartsOnMonday)
             val weeklyDayTotals = IntArray(7)
             val workoutsThisWeek = json.getJSONArray("workouts").let { archive ->
                 var total = 0
@@ -1623,7 +1626,7 @@ data class StateOverview(
                     }.getOrNull()
                     if (date != null && !date.isBefore(monday) && !date.isAfter(today)) {
                         total += 1
-                        weeklyDayTotals[date.dayOfWeek.value - 1] += 1
+                        weeklyDayTotals[java.time.temporal.ChronoUnit.DAYS.between(monday,date).toInt()] += 1
                     }
                 }
                 total
@@ -1890,6 +1893,7 @@ data class StateOverview(
                 )
             }
             return StateOverview(
+                trainingSettings=trainingSettings,
                 liveSportSessions = LiveSportSnapshot.sessions(json),
                 recovery = recoveryState,
                 favoriteTimerCount = json.optJSONArray("favoriteTimers")?.length() ?: 0,
@@ -1922,12 +1926,12 @@ data class StateOverview(
                     json.getJSONArray("workouts"), today, ZoneId.systemDefault()),
                 exerciseSessions = ExerciseSessionHistory.fromArchive(json.getJSONArray("workouts")),
                 progressByRange = dev.repera.domain.ProgressTimeRange.entries.associate { range ->
-                    range.wire to ProgressSnapshotBuilder.build(json, range, health = health)
+                    range.wire to ProgressSnapshotBuilder.build(json, range, monday=trainingSettings.weekStartsOnMonday,health = health)
                 },
                 chartsByRange = dev.repera.domain.ProgressTimeRange.entries.associate { range ->
                     range.wire to dev.repera.domain.ProgressChartBuilder.build(
                         range = range,
-                        weekStartsOnMonday = true,
+                        weekStartsOnMonday = trainingSettings.weekStartsOnMonday,
                         heartRateDays = health?.heartRateDays?.map {
                             dev.repera.domain.DailyHeartRatePoint(
                                 it.date, it.minBpm, it.avgBpm, it.maxBpm)

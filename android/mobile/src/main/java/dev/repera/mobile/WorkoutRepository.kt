@@ -31,6 +31,12 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         }
     }
 
+    @Synchronized internal fun updateTrainingSettings(value:TrainingSettings) {
+        val state=requireState()
+        TrainingSettings.apply(state,value)
+        save(state)
+    }
+
     @Synchronized fun setLiveRouteID(sessionID: String, routeID: String) {
         val state = requireState()
         val archive = state.getJSONArray("workouts")
@@ -1393,7 +1399,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val index = exerciseIndex ?: session.optInt("currentIndex", -1)
         if (index !in 0 until array.length()) return null
         val exercise = array.getJSONObject(index)
-        val rest = exercise.optInt("restSeconds", -1)
+        val rest = exercise.optInt("restSeconds", TrainingSettings.read(state).defaultRestSeconds)
         if (rest <= 0) return null
         val name = exercise.optJSONObject("exercise")?.optString("name")
             ?: return null

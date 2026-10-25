@@ -1156,9 +1156,9 @@ internal fun RoutineCreatorCard(
 /** Drill-down stays inside the workout, preserving the back-to-summary behaviour. */
 /** Accessible Material 3 bars; absent sessions remain zero, not fabricated activity. */
 @Composable
-internal fun WeekTrainingBars(totals: List<Int>) {
+internal fun WeekTrainingBars(totals: List<Int>, monday:Boolean=true) {
     if (totals.size != 7) return
-    val labels = listOf("L", "M", "X", "J", "V", "S", "D")
+    val labels = if(monday) listOf("L", "M", "X", "J", "V", "S", "D") else listOf("D","L","M","X","J","V","S")
     val scale = (totals.maxOrNull() ?: 0).coerceAtLeast(1).toFloat()
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         totals.forEachIndexed { index, count ->
@@ -1185,8 +1185,8 @@ internal val reperaDayFormatter: java.time.format.DateTimeFormatter =
         .withLocale(java.util.Locale("es", "ES"))
 
 @Composable
-internal fun WeekCalendarStrip(selected: LocalDate, onSelect: (LocalDate) -> Unit) {
-    val weekStart = selected.minusDays((selected.dayOfWeek.value - 1).toLong())
+internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, onSelect: (LocalDate) -> Unit) {
+    val weekStart = dev.repera.domain.StatsEngine.startOfWeek(selected,monday)
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1207,7 +1207,7 @@ internal fun WeekCalendarStrip(selected: LocalDate, onSelect: (LocalDate) -> Uni
             // queda escondido al final de la semana.
             Row(modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                val days = listOf("L", "M", "X", "J", "V", "S", "D")
+                val days = if(monday) listOf("L", "M", "X", "J", "V", "S", "D") else listOf("D","L","M","X","J","V","S")
                 repeat(7) { index ->
                     val day = weekStart.plusDays(index.toLong())
                     // Celda propia (no FilterChip): el padding interno del chip

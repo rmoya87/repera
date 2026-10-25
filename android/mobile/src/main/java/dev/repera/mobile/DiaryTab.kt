@@ -163,7 +163,7 @@ internal fun DiaryTab(
             }
         }
         item {
-            WeekCalendarStrip(day) { chosen -> diaryDateIso = chosen.toString() }
+            WeekCalendarStrip(day,overview?.trainingSettings?.weekStartsOnMonday ?: true) { chosen -> diaryDateIso = chosen.toString() }
         }
         if (routines.isEmpty()) item { Text("No hay rutinas creadas") }
         if (todays.isNotEmpty()) item {

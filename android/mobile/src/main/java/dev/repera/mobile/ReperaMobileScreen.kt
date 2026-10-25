@@ -4,6 +4,8 @@ import dev.repera.mobile.monetization.LocalSubscriptions
 import android.net.Uri
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -158,6 +160,7 @@ fun ReperaMobileScreen(
     onFinish: () -> Unit,
     onDiscardSession: () -> Unit = {},
     accountId: String = "",
+    onUpdateTrainingSettings: (TrainingSettings) -> Unit = {},
     onLiveActivitySaved: () -> Unit = {},
     initialExternalRoute: String? = null, onExternalRouteHandled: () -> Unit = {},
     onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> },
@@ -555,7 +558,9 @@ fun ReperaMobileScreen(
                             navController.navigate("acceso-ia")
                         },
                         onImportJson = onImportJson,
-                        onImportCsv = onImportCsv
+                        onImportCsv = onImportCsv,
+                        overview=overview,onUpdateTrainingSettings=onUpdateTrainingSettings,
+                        onExportJson=onExportJson,onHealthConnect=onHealthConnect,onSignOut=onSignOut
                     )
                 }
                 composable("programas-ia") {
@@ -714,12 +719,22 @@ internal fun SettingsTab(
     busy: Boolean,
     onOpenAIAccess: () -> Unit,
     onImportJson: () -> Unit,
-    onImportCsv: () -> Unit
+    onImportCsv: () -> Unit,
+    overview:StateOverview? = null,
+    onUpdateTrainingSettings:(TrainingSettings)->Unit = {},
+    onExportJson:()->Unit = {},
+    onHealthConnect:()->Unit = {},
+    onSignOut:()->Unit = {}
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(18.dp),
+    Column(modifier = Modifier.fillMaxSize().then(Modifier.verticalScroll(rememberScrollState())).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Ajustes", style = MaterialTheme.typography.titleLarge)
+        TrainingSettingsSection(overview?.trainingSettings ?: TrainingSettings(),busy || overview==null,onUpdateTrainingSettings)
+        OutlinedButton(onClick=onHealthConnect,enabled=!busy) {Text("Conectar con Salud")}
         Text("Datos", style = MaterialTheme.typography.titleMedium)
+        overview?.let { Text("Entrenamientos: ${it.workouts} · Ejercicios: ${it.exercises} · Rutinas: ${it.routines}") }
+        OutlinedButton(onClick=onExportJson,enabled=!busy && overview!=null) {Text("Exportar JSON")}
+        OutlinedButton(onClick=onSignOut,enabled=!busy) {Text("Cerrar sesión")}
         Row(modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onOpenAIAccess)
