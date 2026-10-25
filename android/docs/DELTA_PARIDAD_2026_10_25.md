@@ -122,3 +122,8 @@ main móvil invisible.)
   giros portada (ventana 30m, mínimo 20m, ángulo 52°, deduplicación 55m,
   muestreo hasta ~1200 vértices). 5 tests nuevos verdes. DTD/entidades
   externas rechazadas. No hay aún recorder/FGS/UI ni persistencia de rutas.
+
+- D4 almacén offline de rutas: archivo atómico por cuenta, favoritos/edición
+  con UUID estable, orden reciente por actividad, recuperación sin duplicados
+  ni favoritos inventados y tombstones persistentes. 4 tests JVM verdes,
+  incluido fallo de escritura con memoria/disco sin cambios. Aún sin wiring UI.
