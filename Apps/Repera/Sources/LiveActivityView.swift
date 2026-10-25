@@ -434,7 +434,10 @@ final class LiveActivityRecorder: NSObject {
         currentCourseDegrees = nil
         gpsMessage = nil
         phase = .recording
-        if sport.usesGPS { startGPS() }
+        if sport.usesGPS {
+            startGPS()
+            Task { await HealthKitStore.shared.ensureWorkoutRouteAccess() }
+        }
         persistSnapshot()
         updateLiveActivity()
     }
@@ -756,6 +759,7 @@ private struct LiveSportPicker: View {
 
 struct LiveActivityView: View {
     @Environment(ReperaStore.self) private var store
+    @Environment(HealthKitStore.self) private var health
     @Environment(\.scenePhase) private var scenePhase
     @State private var recorder = LiveActivityRecorder.shared
     @State private var routes = LiveRoutesStore.shared
@@ -771,6 +775,7 @@ struct LiveActivityView: View {
     @State private var title = ""
     @State private var notes = ""
     @State private var savedWorkoutID: UUID?
+    @State private var previewHealthExtras: HealthKitStore.SessionHealthExtras?
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
     /// Muestra Recentrar únicamente si se ha alejado el mapa de la posición real.
     @State private var mapIsCentered = true
@@ -1302,7 +1307,10 @@ struct LiveActivityView: View {
                             }
                             reviewTile(
                                 "Energía",
-                                value: "—",
+                                value: previewHealthExtras.flatMap { extras in
+                                    extras.hasExternalSaludSource ?
+                                        extras.activeEnergyKcal.map { "\(Int($0.rounded()))" } : nil
+                                } ?? "—",
                                 icon: "flame.fill",
                                 tint: OG.orange
                             )
@@ -1362,7 +1370,8 @@ struct LiveActivityView: View {
                     if isRecordedRoute {
                         Section {
                             CardioSplitsView(
-                                routePoints: route, heartRate: [],
+                                routePoints: route,
+                                heartRate: previewHealthExtras?.heartRateSeries ?? [],
                                 cycling: recorder.sport.displaysSpeed
                             )
                             .ogCardListRow()
@@ -1387,6 +1396,19 @@ struct LiveActivityView: View {
                         .ogCardListRow()
                     } header: {
                         Text("Recorrido").foregroundStyle(OG.accent).textCase(nil)
+                    }
+                }
+
+                if let extras = previewHealthExtras,
+                   extras.averageHeartRateBpm != nil || extras.activeEnergyKcal != nil {
+                    Section {
+                        HealthSessionMetricsCard(
+                            extras: extras,
+                            includeSourceRows: extras.hasExternalSaludSource
+                        )
+                        .ogCardListRow()
+                    } header: {
+                        Text("Apple Salud").foregroundStyle(OG.accent).textCase(nil)
                     }
                 }
 
@@ -1433,6 +1455,14 @@ struct LiveActivityView: View {
         }
         .ogListChrome()
         .listSectionSpacing(12)
+        .task(id: recorder.phase) {
+            guard recorder.phase == .review,
+                  let workout = recorder.makeSession(title: title, notes: notes) else {
+                previewHealthExtras = nil
+                return
+            }
+            previewHealthExtras = await health.sessionHealthExtras(for: workout)
+        }
     }
 
     private func reviewTile(
