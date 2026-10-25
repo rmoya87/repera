@@ -90,32 +90,18 @@ struct PlanView: View {
                         .ogListChrome()
                         .frame(maxWidth: .infinity)
 
-                        NavigationStack {
-                            List {
-                                Section {
-                                    Text("Rutinas")
-                                        .font(.title2.weight(.bold))
-                                        .foregroundStyle(OG.label)
-                                        .listRowBackground(Color.clear)
-                                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 8, trailing: 16))
-                                        .listRowSeparator(.hidden)
-                                }
-                                routinesContent
+                        List {
+                            Section {
+                                Text("Rutinas")
+                                    .font(.title2.weight(.bold))
+                                    .foregroundStyle(OG.label)
+                                    .listRowBackground(Color.clear)
+                                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 8, trailing: 16))
+                                    .listRowSeparator(.hidden)
                             }
-                            .ogListChrome()
-                            // El stack derecho no debe reservar una barra blanca sin título.
-                            // El editor restablece su propia toolbar al navegar.
-                            .toolbar(.hidden, for: .navigationBar)
-                            .navigationDestination(item: $rightEditing) { routine in
-                                DayEditorView(
-                                    routine: routine,
-                                    mode: .plan(isNew: isCreating),
-                                    embedsNavigationStack: false,
-                                    usesPageCloseHeader: true
-                                )
-                                .onDisappear { isCreating = false }
-                            }
+                            routinesContent
                         }
+                        .ogListChrome()
                         .frame(maxWidth: .infinity)
                     }
                     .padding(.horizontal, OG.pad)
@@ -144,6 +130,7 @@ struct PlanView: View {
             .background(OG.bg.ignoresSafeArea())
             .onGeometryChange(for: Bool.self, of: { $0.size.width >= 620 }) { _, expanded in
                 isExpandedLayout = expanded
+                if !expanded { rightEditing = nil }
             }
             .refreshable {
                 await businessData.refresh()
@@ -235,6 +222,30 @@ struct PlanView: View {
                 Text(n == 0
                      ? "No había entrenos sueltos en la semana ISO anterior."
                      : "Se añadieron \(n) entreno\(n == 1 ? "" : "s") a esta semana.")
+            }
+        }
+        .ogTrailingColumnPanel(
+            isPresented: isExpandedLayout && rightEditing != nil,
+            onDismiss: {
+                rightEditing = nil
+                isCreating = false
+            }
+        ) {
+            if let rightEditing {
+                NavigationStack {
+                    DayEditorView(
+                        routine: rightEditing,
+                        mode: .plan(isNew: isCreating),
+                        onClose: {
+                            self.rightEditing = nil
+                            isCreating = false
+                        },
+                        embedsNavigationStack: false,
+                        usesPageCloseHeader: true
+                    )
+                }
+                .id(rightEditing.id)
+                .background(OG.bg)
             }
         }
     }
@@ -534,6 +545,7 @@ private struct DayEditorChromeModifier: ViewModifier {
     let canConfirm: Bool
     let confirmTitle: String
     let onConfirm: () -> Void
+    var onBack: (() -> Void)? = nil
 
     func body(content: Content) -> some View {
         if usesPageCloseHeader {
@@ -544,7 +556,10 @@ private struct DayEditorChromeModifier: ViewModifier {
                 .navigationBarBackButtonHidden(true)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button { dismiss() } label: {
+                        Button {
+                            if let onBack { onBack() }
+                            else { dismiss() }
+                        } label: {
                             Image(systemName: "arrow.left")
                                 .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(OG.label)
@@ -826,7 +841,8 @@ struct DayEditorView: View {
             embedsNavigationStack: embedsNavigationStack,
             canConfirm: canConfirm,
             confirmTitle: confirmTitle,
-            onConfirm: confirm
+            onConfirm: confirm,
+            onBack: onClose
         ))
         // Pickers de creación: push nativo horizontal con volver en topbar.
         .navigationDestination(item: $pickExerciseForBlock) { blockID in
