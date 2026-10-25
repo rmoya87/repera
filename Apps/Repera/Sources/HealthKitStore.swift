@@ -1541,8 +1541,10 @@ final class HealthKitStore {
     /// Preserve original fixes, including accuracy. Insertion is batched and
     /// serialized per workout, independent of SwiftUI and foreground rendering.
     func appendRecordedRouteLocation(sessionID: UUID, location: CLLocation) {
-        // The first GPS fix may arrive before authorization/builder creation.
-        // Keep it so HealthKit receives the complete route when permitted.
+        guard store.authorizationStatus(for: HKSeriesType.workoutRoute()) == .sharingAuthorized
+        else { return }
+        // The first GPS fix may arrive before its HealthKit builder creation.
+        // Buffer only when sharing has been explicitly authorized.
         gpsRouteQueue[sessionID, default: []].append(location)
         guard gpsRouteBuilders[sessionID] != nil else { return }
         if (gpsRouteQueue[sessionID]?.count ?? 0) >= 12 {
