@@ -57,6 +57,7 @@ struct HomeView: View {
     @Environment(HealthKitStore.self) private var health
     @Environment(BusinessDataStore.self) private var businessData
     var onOpenWorkout: () -> Void
+    var focusDay: Date? = nil
     var onStart: () -> Void
     /// Abre el preview / inicio de un entreno concreto (p. ej. suelto del viernes).
     var onStartRoutine: (Routine) -> Void = { _ in }
@@ -331,6 +332,9 @@ struct HomeView: View {
                 guard hydrated else { return }
                 rebuildDayBuckets()
                 rebuildWeekChrome()
+            }
+            .onChange(of: focusDay) { _, day in
+                if let day { selectedDay = calendar.startOfDay(for: day) }
             }
             .onChange(of: selectedDay) { _, newDay in
                 // Al elegir un cuadrado, el progreso semanal sigue esa fecha.
@@ -986,7 +990,10 @@ struct HomeView: View {
             title: {
                 HStack(alignment: .top, spacing: 12) {
                     // Completado en Inicio: check (Historial usa icono de fuerza).
-                    OGRegisterLeadingIcon(systemName: "checkmark", tint: OG.accent)
+                    OGRegisterLeadingIcon(
+                        systemName: session.liveSportID.flatMap { LiveSport(rawValue: $0)?.symbol } ?? "checkmark",
+                        tint: OG.accent
+                    )
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(WorkoutListCaption.dayTimeLine(
@@ -1007,6 +1014,9 @@ struct HomeView: View {
                 .padding(.horizontal, Self.registerCardPad)
             },
             chips: {
+                if let meters = session.recordedDistanceMeters, meters > 0 {
+                    OGRegisterChip(text: String(format: "%.2f km", meters / 1000), icon: "point.topleft.down.curvedto.point.bottomright.up")
+                }
                 WorkoutRegisterChips.repera(
                     session: session,
                     prCount: prs,
@@ -1292,7 +1302,7 @@ struct HomeView: View {
     private func rebuildDayBuckets() {
         var workouts: [String: [WorkoutSession]] = [:]
         for w in store.state.workouts {
-            guard let d = w.finishedAt else { continue }
+            guard let d = w.liveSportID == nil ? w.finishedAt : (w.startedAt ?? w.finishedAt) else { continue }
             workouts[dayKey(d), default: []].append(w)
         }
         for key in workouts.keys {
