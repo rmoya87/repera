@@ -229,6 +229,23 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         workout.resume()
     }
 
+    /// Descarta una sesión Comenzar cancelada antes de guardar. No escribir
+    /// HKWorkout ni muestras estimadas, incluso si el reloj seguía en segundo plano.
+    func discardFreeWorkout() {
+        finishing = true
+        finishHandler = nil
+        workout?.end()
+        builder?.discardWorkout()
+        workout = nil
+        builder = nil
+        workoutID = nil
+        pendingBlock = nil
+        pendingStateTransition = nil
+        isRecording = false
+        pulseBpm = nil
+        kcal = nil
+    }
+
     func finish(_ callback: @escaping (Result) -> Void) {
         guard !finishing else { return }
         finishing = true
