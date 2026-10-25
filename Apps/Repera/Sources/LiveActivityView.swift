@@ -550,6 +550,11 @@ final class LiveActivityRecorder: NSObject {
         if sport.usesGPS {
             startGPS()
             Task { await HealthKitStore.shared.ensureWorkoutRouteAccess() }
+            // Solicitar solo al empezar un deporte GPS: permite avisos por km
+            // también con iPhone bloqueado, sin depender de tener abierta la vista.
+            UNUserNotificationCenter.current().requestAuthorization(
+                options: [.alert, .sound]
+            ) { _, _ in }
         }
         persistSnapshot()
         updateLiveActivity()
@@ -749,13 +754,22 @@ final class LiveActivityRecorder: NSObject {
         if fix.course >= 0, fix.course < 360, fix.speed > 0.8 {
             currentCourseDegrees = fix.course
         }
+        let beforeDistance = recordedDistanceMeters
         if let previous = lastPosition {
             let meters = position.distance(from: previous)
             let seconds = fix.timestamp.timeIntervalSince(previous.timestamp)
             guard seconds > 0, meters >= 4, meters / seconds < 25 else { return }
             recordedDistanceMeters += meters
         }
+        let activeSeconds = duration(at: fix.timestamp)
+        if recordedDistanceMeters > beforeDistance {
+            updateKilometerSplits(
+                previousDistance: beforeDistance, activeSeconds: activeSeconds
+            )
+        }
+        previousFixActiveSeconds = activeSeconds
         lastPosition = position
+        updateUpcomingTurn(position: position)
         let point = WorkoutRoutePoint(
             id: routePoints.count,
             latitude: fix.latitude,
@@ -769,6 +783,135 @@ final class LiveActivityRecorder: NSObject {
         if Date().timeIntervalSince(lastLiveActivityUpdate) >= 15 {
             updateLiveActivity()
         }
+    }
+
+    /// Parcial activo (no el promedio de la sesión). La distancia restante
+    /// se toma del odómetro GPS filtrado, no del kilometraje teórico del GPX.
+    var activeKilometer: Int {
+        max(1, Int(recordedDistanceMeters / 1000) + 1)
+    }
+
+    var activeKilometerMeters: Double {
+        max(0, recordedDistanceMeters - Double(activeKilometer - 1) * 1000)
+    }
+
+    func currentSplitSeconds(at date: Date) -> TimeInterval {
+        max(0, duration(at: date) - lastKilometerBoundarySeconds)
+    }
+
+    var currentKilometerPace: String {
+        let meters = activeKilometerMeters
+        guard meters >= 40 else { return "—:—" }
+        let seconds = currentSplitSeconds(at: Date()) * 1000 / meters
+        guard seconds.isFinite && seconds > 0 else { return "—:—" }
+        let whole = Int(seconds.rounded())
+        return String(format: "%d:%02d", whole / 60, whole % 60)
+    }
+
+    private func updateKilometerSplits(
+        previousDistance: Double, activeSeconds: TimeInterval
+    ) {
+        let priorActive = previousFixActiveSeconds ?? activeSeconds
+        let segmentDistance = max(1, recordedDistanceMeters - previousDistance)
+        while recordedDistanceMeters >= Double(kilometerSplits.count + 1) * 1000 {
+            let km = kilometerSplits.count + 1
+            let boundary = Double(km) * 1000
+            let fraction = min(1, max(0, (boundary - previousDistance) / segmentDistance))
+            let crossingSeconds = priorActive + fraction * max(0, activeSeconds - priorActive)
+            let split = LiveKmSplit(
+                kilometer: km,
+                seconds: max(1, crossingSeconds - lastKilometerBoundarySeconds)
+            )
+            kilometerSplits.append(split)
+            lastKilometerBoundarySeconds = crossingSeconds
+            reportKilometer(split)
+        }
+    }
+
+    private func reportKilometer(_ split: LiveKmSplit) {
+        let result: String
+        if sport.displaysSpeed, split.seconds > 0 {
+            result = String(format: "%.1f km/h", 3600 / split.seconds)
+        } else {
+            result = "\(split.clock) min/km"
+        }
+        latestKilometerReport = "Km \(split.kilometer) · \(result)"
+        if UIApplication.shared.applicationState == .active {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }
+        notifyDuringBackground(
+            identifier: "repera.km.\(startedAt?.timeIntervalSince1970 ?? 0).\(split.kilometer)",
+            title: "Kilómetro \(split.kilometer) completado",
+            body: result
+        )
+        persistSnapshot()
+    }
+
+    private func updateUpcomingTurn(position: CLLocation) {
+        guard let route = chosenRoute, route.points.count >= 3,
+              selectedRouteDistance.count == route.points.count
+        else {
+            upcomingTurn = nil
+            return
+        }
+        // Un GPX puede superar 20 000 puntos. Limitar el trabajo GPS a
+        // unos 1200 vértices y no usar esta estimación fuera de la ruta.
+        let step = max(1, route.points.count / 1200)
+        var bestIndex = 0
+        var nearestMeters = Double.greatestFiniteMagnitude
+        for index in stride(from: 0, to: route.points.count, by: step) {
+            let point = route.points[index]
+            let d = position.distance(
+                from: CLLocation(latitude: point.latitude, longitude: point.longitude)
+            )
+            if d < nearestMeters {
+                nearestMeters = d
+                bestIndex = index
+            }
+        }
+        guard nearestMeters < 55 else {
+            upcomingTurn = "Fuera de ruta · revisa el mapa"
+            return
+        }
+        let along = selectedRouteDistance[bestIndex]
+        guard let next = selectedRouteTurns.first(where: {
+            $0.routeIndex > bestIndex && $0.metersAlongRoute > along + 8
+        }) else {
+            upcomingTurn = "Sigue el recorrido"
+            return
+        }
+        let remaining = max(0, next.metersAlongRoute - along)
+        if remaining > 250 {
+            upcomingTurn = "Sigue el recorrido"
+        } else {
+            let meters = Int((remaining / 10).rounded() * 10)
+            upcomingTurn = "\(next.instruction) aprox. en \(meters) m"
+            if remaining <= (sport.isCycling ? 120 : 70),
+               !announcedTurnIndices.contains(next.routeIndex) {
+                announcedTurnIndices.insert(next.routeIndex)
+                notifyDuringBackground(
+                    identifier: "repera.turn.\(startedAt?.timeIntervalSince1970 ?? 0).\(next.routeIndex)",
+                    title: "Giro orientativo del GPX",
+                    body: upcomingTurn ?? next.instruction
+                )
+            }
+        }
+    }
+
+    private func notifyDuringBackground(
+        identifier: String, title: String, body: String
+    ) {
+        // Dentro de la app aparece en el panel. En segundo plano se envía una
+        // notificación local solo si el usuario ha autorizado los avisos.
+        guard UIApplication.shared.applicationState != .active else { return }
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        UNUserNotificationCenter.current().add(
+            UNNotificationRequest(identifier: identifier, content: content, trigger: nil),
+            withCompletionHandler: nil
+        )
     }
 
     /// Estado compacto: la pantalla bloqueada anima el contador por sí sola.
