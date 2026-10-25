@@ -1310,11 +1310,6 @@ struct LiveActivityView: View {
         HStack(alignment: .top) {
             Spacer(minLength: 0)
             VStack(spacing: 10) {
-                if recorder.phase == .recording || recorder.phase == .paused {
-                    mapCircleButton("xmark", label: "Descartar entreno") {
-                        showDiscard = true
-                    }
-                }
                 if !mapIsCentered, recorder.currentCoordinate != nil {
                     mapCircleButton("location.north.line.fill", label: "Centrar en mi posición") {
                         if let user = recorder.currentCoordinate {
@@ -1487,19 +1482,6 @@ struct LiveActivityView: View {
         TimelineView(.periodic(from: .now, by: 1)) { timeline in
             VStack(spacing: 0) {
                 HStack(spacing: 12) {
-                    Image(systemName: recorder.sport.symbol)
-                        .font(.title2.weight(.medium))
-                        .foregroundStyle(OG.accent)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(recorder.sport.title).font(.headline)
-                        if recorder.phase == .paused {
-                            Text("En pausa").font(.caption.weight(.semibold))
-                                .foregroundStyle(OG.orange)
-                        } else {
-                            Text(recorder.phase == .recording ? "Grabando actividad" : "Preparado")
-                                .font(.caption).foregroundStyle(OG.label2)
-                        }
-                    }
                     Spacer()
                     if showGuidanceToggle {
                         metricsCircleButton(
@@ -1512,11 +1494,6 @@ struct LiveActivityView: View {
                     if recorder.sport.usesGPS {
                         metricsCircleButton("map", label: "Ver mapa") {
                             showingMetrics = false
-                        }
-                    }
-                    if recorder.phase != .idle {
-                        metricsCircleButton("xmark", label: "Descartar actividad") {
-                            showDiscard = true
                         }
                     }
                 }
@@ -1598,6 +1575,7 @@ struct LiveActivityView: View {
                             onOpenWorkout()
                         } else {
                             recorder.start()
+                            store.syncLiveActivityToWatch()
                             showingMetrics = recorder.sport.usesGPS
                         }
                     } label: {
@@ -1643,6 +1621,7 @@ struct LiveActivityView: View {
             case .recording:
                 Button {
                     recorder.pause()
+                    store.syncLiveActivityToWatch()
                 } label: {
                     Label("Pausar", systemImage: "pause.fill")
                         .font(.headline)
@@ -1656,6 +1635,7 @@ struct LiveActivityView: View {
                 HStack(spacing: 10) {
                     Button {
                         recorder.resume()
+                        store.syncLiveActivityToWatch()
                     } label: {
                         Label("Reanudar", systemImage: "play.fill")
                             .font(.subheadline.weight(.bold))
@@ -1716,6 +1696,7 @@ struct LiveActivityView: View {
     private func finishAndShowSave() {
         guard recorder.phase == .recording || recorder.phase == .paused else { return }
         recorder.finish()
+        store.syncLiveActivityToWatch()
         title = recorder.sport.title
         notes = ""
     }
