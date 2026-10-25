@@ -363,6 +363,13 @@ final class LiveActivityRecorder: NSObject {
         return speed * 3.6
     }
 
+    /// Mantiene la velocidad media también al pausar y al finalizar;
+    /// no utiliza la última velocidad instantánea como media.
+    var averageSpeedKmh: Double? {
+        guard sport.usesGPS, routePoints.count >= 2, durationSeconds > 0 else { return nil }
+        return max(0, recordedDistanceMeters / durationSeconds * 3.6)
+    }
+
     var paceSecondsPerKm: Double? {
         guard let speed = currentSpeedMps, speed > 0.5 else { return nil }
         return 1000 / speed
@@ -496,7 +503,7 @@ final class LiveActivityRecorder: NSObject {
         let sport = sport
         let elapsed = durationSeconds
         let distance = recordedDistanceMeters
-        let kmh = speedKmh
+        let kmh = averageSpeedKmh
         Task {
             await WorkoutLiveActivityCoordinator.shared.updateFree(
                 startedAt: startedAt, sport: sport, phase: status,
