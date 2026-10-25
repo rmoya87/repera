@@ -144,3 +144,19 @@ Esta pasada NO afirma equivalencia de todas las funciones ni un plazo global.
 -Audios/haptic reales, GPSfísico, Healthreal yE2E móvil-reloj pendientes.
 -Meteo/terreno/servicios nuevos siguen sujetosa decisión sincostes.
 -Regresiónglobal actual pendiente, último globalverde212dcbe3.
+
+## Verificación22:41
+-40235096876: negocio4/0, objetivos2/0, ajustes3/0, controles6/0;
+ tema2fallos por buscar nodoPeso fuera del lazy viewport. f6e9feaa corrige
+ prueba con scrollToNode en lista etiquetada, no retira aserción. Enfocada
+40236392296 corriendo. No nuevo global hasta lote validado.
+-Global40235357776 funcional8fb1a50d: domain289/0, Wear35=6/0 y36=6/0;
+ API30phone242/2fallos/0errores/skips0, ambos mismo scrollPeso. WearAPI30
+6/0. API35/37.2 pendientes. Capturaprofesional inspeccionada legible completa,
+ framewait700 corrige blanco anterior. Ajustesinferior/Inicioobjetivos y
+ selectorCiclismo actual inspeccionados enenfocada previa.
+-ConciliaciónduraciónSalud enlazada portada local: HomeView usa valor externo
+ verificado aun pausas distintas; propio solo diferencia<=max5min/25%.
+ HealthConnect resta segmentosPAUSE unidos/clipeados. JVM4tests nuevos;
+ instrumentada objetivos añade32min=12enlazados+20externos sin doblecuenta,
+ compilada noejecutada. Sin leer ni escribir Saludreal.

@@ -33,6 +33,11 @@ class HealthGoalsInstrumentedTest {
         val overview=StateOverview.fromBytes(state.toString().toByteArray(),health)!!
         assertEquals(50.0,overview.dayWorkoutMinutes[day]!!,0.00001)
         assertEquals(2,overview.dayWorkoutCounts[day])
+        state.getJSONArray("workouts").getJSONObject(0).put("healthConnectRecordId","verified")
+        val linked=health.copy(verifiedWorkoutMinutes=mapOf("verified" to HealthWorkoutMinutes.Verified(12.0,true)))
+        val reconciled=StateOverview.fromBytes(state.toString().toByteArray(),linked)!!
+        assertEquals(32.0,reconciled.dayWorkoutMinutes[day]!!,0.00001)
+        assertEquals(2,reconciled.dayWorkoutCounts[day])
         assertNull(overview.dayEnergyKcal[day])
         assertNull(overview.dayWorkoutMinutes[day.minusDays(1)])
     }

@@ -36,7 +36,8 @@ data class RecoveryRead(
 data class HealthSamples(
     val heartRateDays: List<DailyHeartRatePoint>,
     val energyDays: List<DailyEnergyPoint>,
-    val externalActivities: List<HealthMuscleMapper.ExternalActivity>
+    val externalActivities: List<HealthMuscleMapper.ExternalActivity>,
+    val verifiedWorkoutMinutes: Map<String,HealthWorkoutMinutes.Verified> = emptyMap()
 ) {
     val daySamples: List<dev.repera.domain.ExternalDaySample>
         get() = HealthMuscleMapper.daySamples(externalActivities)
@@ -330,16 +331,24 @@ class HealthConnectReader(private val context: Context) {
         }
 
         val externalActivities = mutableListOf<HealthMuscleMapper.ExternalActivity>()
+        val verifiedMinutes=mutableMapOf<String,HealthWorkoutMinutes.Verified>()
+        val linkedIDs=localSessions.mapNotNull {it.linkedHealthId}.toSet()
         if (granted.contains(HealthPermission.getReadPermission(
                 ExerciseSessionRecord::class))) {
             val response = client.readRecords(ReadRecordsRequest(
                 ExerciseSessionRecord::class, TimeRangeFilter.between(start, now)))
             for (record in response.records) {
+                val measured=HealthWorkoutMinutes.measured(record.startTime.toEpochMilli(),record.endTime.toEpochMilli(),
+                    record.segments.filter {it.segmentType==androidx.health.connect.client.records.ExerciseSegment.EXERCISE_SEGMENT_TYPE_PAUSE}
+                        .map {it.startTime.toEpochMilli() to it.endTime.toEpochMilli()})
+                if(record.metadata.id in linkedIDs && measured>0) {
+                    verifiedMinutes[record.metadata.id]=HealthWorkoutMinutes.Verified(measured,
+                        record.metadata.dataOrigin.packageName!=context.packageName)
+                }
                 // Las sesiones registradas por Repera no son «externas».
                 if (record.metadata.dataOrigin.packageName == context.packageName) continue
                 if(dev.repera.domain.ReperaHealthExclusion.matches(record.startTime.toEpochMilli(),record.endTime.toEpochMilli(),record.metadata.id,localSessions)) continue
-                val minutes = maxOf(0.0,
-                    (record.endTime.epochSecond - record.startTime.epochSecond) / 60.0)
+                val minutes = measured
                 if (minutes <= 0) continue
                 externalActivities.add(HealthMuscleMapper.ExternalActivity(
                     epochMillis = record.startTime.toEpochMilli(),
@@ -359,7 +368,8 @@ class HealthConnectReader(private val context: Context) {
             }.sortedBy { it.date },
             energyDays = energyDays.map { (day, kcal) -> DailyEnergyPoint(day, kcal) }
                 .sortedBy { it.date },
-            externalActivities = externalActivities.sortedBy { it.epochMillis }
+            externalActivities = externalActivities.sortedBy { it.epochMillis },
+            verifiedWorkoutMinutes=verifiedMinutes
         )
     }
 

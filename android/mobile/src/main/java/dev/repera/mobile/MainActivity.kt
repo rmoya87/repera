@@ -1918,7 +1918,15 @@ data class StateOverview(
                     recentAverageSleepHours = avg
                 )
             }
-            val localStats=ProgressSnapshotBuilder.statsWorkouts(json).filter {it.finished}
+            val archiveForMinutes=json.optJSONArray("workouts") ?: org.json.JSONArray()
+            val localStats=(0 until archiveForMinutes.length()).flatMap {i ->
+                val session=archiveForMinutes.getJSONObject(i)
+                val one=org.json.JSONObject().put("workouts",org.json.JSONArray().put(session))
+                ProgressSnapshotBuilder.statsWorkouts(one).filter {it.finished}.map {s ->
+                    val linked=session.optString(dev.repera.domain.HealthSessionLink.SNAPSHOT_FIELD)
+                    s.copy(durationMinutes=HealthWorkoutMinutes.resolve(s.durationMinutes,health?.verifiedWorkoutMinutes?.get(linked)))
+                }
+            }
             val zone=java.time.ZoneId.systemDefault()
             val minutesByDay=mutableMapOf<java.time.LocalDate,Double>()
             val countsByDay=mutableMapOf<java.time.LocalDate,Int>()
