@@ -1292,6 +1292,14 @@ struct LiveActivityView: View {
                 if recorder.phase == .idle, let onOpenCenter {
                     mapCircleButton("building.2", label: "Mi centro", action: onOpenCenter)
                 }
+                if showGuidanceToggle {
+                    mapCircleButton(
+                        guidanceSymbol,
+                        label: guidanceAccessibilityLabel
+                    ) {
+                        recorder.toggleSpokenGuidance()
+                    }
+                }
             }
         }
     }
@@ -1367,6 +1375,24 @@ struct LiveActivityView: View {
         .accessibilityLabel(label)
     }
 
+    /// Los avisos por voz son un control de navegación, no una métrica del parcial.
+    /// En Mapa se coloca al pie de los controles derechos; en Métricas, a la
+    /// izquierda del resto de acciones de cabecera.
+    private var showGuidanceToggle: Bool {
+        recorder.sport.usesGPS &&
+        (recorder.phase == .recording || recorder.phase == .paused)
+    }
+
+    private var guidanceSymbol: String {
+        recorder.spokenGuidanceEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill"
+    }
+
+    private var guidanceAccessibilityLabel: String {
+        recorder.spokenGuidanceEnabled
+            ? "Desactivar avisos por kilómetro y giro"
+            : "Activar avisos por kilómetro y giro"
+    }
+
     /// Panel único: tres métricas arriba, parcial actual integrado debajo.
     private var mapMetricStrip: some View {
         TimelineView(.periodic(from: .now, by: 1)) { timeline in
@@ -1405,18 +1431,6 @@ struct LiveActivityView: View {
                     .font(.subheadline.weight(.semibold).monospacedDigit())
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
-                Button {
-                    recorder.toggleSpokenGuidance()
-                } label: {
-                    Image(systemName: recorder.spokenGuidanceEnabled
-                          ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(OG.label)
-                        .frame(width: 30, height: 32)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(recorder.spokenGuidanceEnabled
-                                    ? "Silenciar avisos por kilómetro y giro" : "Activar avisos hablados")
             }
             ProgressView(value: min(1000, recorder.activeKilometerMeters), total: 1000)
                 .tint(OG.accent)
@@ -1448,6 +1462,14 @@ struct LiveActivityView: View {
                         }
                     }
                     Spacer()
+                    if showGuidanceToggle {
+                        metricsCircleButton(
+                            guidanceSymbol,
+                            label: guidanceAccessibilityLabel
+                        ) {
+                            recorder.toggleSpokenGuidance()
+                        }
+                    }
                     if recorder.sport.usesGPS {
                         metricsCircleButton("map", label: "Ver mapa") {
                             showingMetrics = false
