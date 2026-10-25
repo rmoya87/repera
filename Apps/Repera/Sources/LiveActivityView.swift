@@ -1405,8 +1405,23 @@ private struct LiveSportPicker: View {
                                     choose(sport)
                                     dismiss()
                                 } label: {
-                                    Label(sport.title, systemImage: sport.symbol)
-                                        .foregroundStyle(OG.label)
+                                    HStack(spacing: 12) {
+                                        Image(systemName: sport.symbol)
+                                            .font(.title3)
+                                            .frame(width: 34)
+                                            .foregroundStyle(OG.accent)
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(sport.title)
+                                                .font(.body.weight(.medium))
+                                                .foregroundStyle(OG.label)
+                                            Text(sport.metricDescription)
+                                                .font(.caption)
+                                                .foregroundStyle(OG.label2)
+                                                .lineLimit(2)
+                                        }
+                                        Spacer(minLength: 4)
+                                    }
+                                    .padding(.vertical, 3)
                                 }
                             }
                         }
@@ -1850,6 +1865,7 @@ struct LiveActivityView: View {
                     smallMetric("Distancia (km)",
                                 value: String(format: "%.2f", recorder.recordedDistanceMeters / 1000))
                 }
+                elevationMetricStrip
                 if recorder.sport.usesGPS &&
                    (recorder.phase == .recording || recorder.phase == .paused) {
                     Divider().overlay(OG.label2.opacity(0.18))
@@ -1860,6 +1876,27 @@ struct LiveActivityView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 14)
             .glassEffect(.regular, in: .rect(cornerRadius: 22))
+        }
+    }
+
+    @ViewBuilder
+    private var elevationMetricStrip: some View {
+        if recorder.sport.tracksElevation && recorder.hasElevationSamples {
+            Divider().overlay(OG.label2.opacity(0.18))
+            HStack {
+                Label(
+                    "+\(Int(recorder.elevationGainMeters.rounded())) m ascenso",
+                    systemImage: "arrow.up.right"
+                )
+                Spacer()
+                Label(
+                    "−\(Int(recorder.elevationLossMeters.rounded())) m descenso",
+                    systemImage: "arrow.down.right"
+                )
+            }
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(OG.label2)
+            .padding(.horizontal, 10)
         }
     }
 
@@ -1944,14 +1981,13 @@ struct LiveActivityView: View {
                         .padding(.top, 12)
                 }
                 Spacer(minLength: 14)
-                Text(recorder.sport.usesGPS ? paceOrSpeed :
-                     recorder.phase == .idle ? "Listo" : "En vivo")
+                Text(recorder.sport.usesGPS ? paceOrSpeed : "—")
                     .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
                     .minimumScaleFactor(0.55).lineLimit(1)
                     .foregroundStyle(OG.label)
                 Text(recorder.sport.usesGPS ?
-                    (recorder.sport.displaysSpeed ? "Veloc. media (km/h)" : "Ritmo medio (min/km)") :
-                    recorder.sport.title)
+                    (recorder.sport.displaysSpeed ? "Velocidad media (km/h)" : "Ritmo medio (min/km)") :
+                    "Frecuencia cardíaca (lpm)")
                     .font(.subheadline).foregroundStyle(OG.label2)
                 Spacer(minLength: 14)
                 if recorder.sport.usesGPS {
@@ -1960,11 +1996,32 @@ struct LiveActivityView: View {
                         .foregroundStyle(OG.label)
                     Text("Distancia (km)").font(.subheadline).foregroundStyle(OG.label2)
                 } else {
-                    Text("Las pulsaciones y las calorías aparecen cuando Apple Salud facilita mediciones reales.")
+                    Text("—")
+                        .font(.system(size: 55, weight: .semibold, design: .rounded))
+                        .foregroundStyle(OG.label)
+                    Text("Calorías activas (kcal)")
+                        .font(.subheadline).foregroundStyle(OG.label2)
+                    Text("El pulso y las calorías se incorporan al finalizar si Apple Salud tiene mediciones reales.")
                         .font(.caption)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(OG.label2)
-                        .padding(.horizontal, 38)
+                        .padding(.horizontal, 30)
+                }
+                if recorder.sport.tracksElevation && recorder.hasElevationSamples {
+                    HStack {
+                        Label(
+                            "+\(Int(recorder.elevationGainMeters.rounded())) m",
+                            systemImage: "arrow.up.right"
+                        )
+                        Spacer()
+                        Label(
+                            "−\(Int(recorder.elevationLossMeters.rounded())) m",
+                            systemImage: "arrow.down.right"
+                        )
+                    }
+                    .font(.subheadline.monospacedDigit())
+                    .foregroundStyle(OG.label2)
+                    .padding(.horizontal, 28)
                 }
                 Spacer(minLength: 16)
             }
