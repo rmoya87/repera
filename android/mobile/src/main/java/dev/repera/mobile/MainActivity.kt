@@ -1631,6 +1631,9 @@ data class StateOverview(
                         startedAtIso = session.optString("startedAt").takeIf { it.isNotBlank() },
                         finishedAtIso = session.optString("finishedAt").takeIf { it.isNotBlank() },
                         notes = session.optString("notes").takeIf { it.isNotBlank() },
+                        editableBlocksJson = runCatching {
+                            CompletedWorkoutEditing.blocksFrom(session, null).toString()
+                        }.getOrNull(),
                         routePoints = session.optJSONArray("routePoints")?.let { rp ->
                             (0 until rp.length()).mapNotNull { i ->
                                 val point = rp.getJSONObject(i)
@@ -1962,7 +1965,9 @@ data class WorkoutHistoryEntry(
     val locationPin: dev.repera.domain.WorkoutLocationPin? = null,
     val startedAtIso: String? = null,
     val finishedAtIso: String? = null,
-    val notes: String? = null
+    val notes: String? = null,
+    /** Bloques editables (con ids) para el editor de contenido; null si no se pudieron derivar. */
+    val editableBlocksJson: String? = null
 )
 data class WorkoutHistoryMovement(
     val name: String,

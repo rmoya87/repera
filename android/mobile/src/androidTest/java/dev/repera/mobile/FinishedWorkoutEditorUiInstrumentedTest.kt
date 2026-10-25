@@ -50,4 +50,45 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         assertEquals(0, calls)
         compose.onNodeWithTag("edit_finished_workout").assertIsDisplayed()
     }
+
+    private val blocks = """[{"id":"b1","title":"A","kind":"strength","exercises":[
+        {"id":"e1","exerciseId":"x1","plannedSets":[{"id":"p1","targetReps":5,"targetWeightKg":60}]},
+        {"id":"e2","exerciseId":"x2","plannedSets":[{"id":"p2","targetReps":8}]}]}]"""
+
+    @Test fun reorderAndCancelNeverEmitsContent() {
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val w = workout.copy(editableBlocksJson = blocks)
+        compose.setContent {
+            FinishedWorkoutEditorSection(w, "acc", false,
+                listOf(ExerciseEntry("x1", "Sentadilla", true, true), ExerciseEntry("x2", "Press", true, true))) { saved = it }
+        }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        compose.onNodeWithTag("ex_down_0_0").performClick()
+        compose.onNodeWithTag("edit_cancel").performClick()
+        assertNull(saved)
+    }
+
+    @Test fun reorderThenSaveEmitsReorderedBlocksOnly() {
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val w = workout.copy(editableBlocksJson = blocks)
+        compose.setContent {
+            FinishedWorkoutEditorSection(w, "acc", false,
+                listOf(ExerciseEntry("x1", "Sentadilla", true, true), ExerciseEntry("x2", "Press", true, true))) { saved = it }
+        }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        compose.onNodeWithTag("ex_down_0_0").performClick()
+        compose.onNodeWithTag("edit_save").performClick()
+        val ids = org.json.JSONArray(saved!!.blocksJson).getJSONObject(0).getJSONArray("exercises")
+        assertEquals("e2", ids.getJSONObject(0).getString("id"))
+        assertEquals("e1", ids.getJSONObject(1).getString("id"))
+    }
+
+    @Test fun untouchedContentEmitsNoBlocks() {
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val w = workout.copy(editableBlocksJson = blocks)
+        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, emptyList()) { saved = it } }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        compose.onNodeWithTag("edit_save").performClick()
+        assertNull(saved!!.blocksJson)
+    }
 }

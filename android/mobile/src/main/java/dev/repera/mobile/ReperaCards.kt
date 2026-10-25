@@ -1228,6 +1228,7 @@ internal fun WorkoutHistoryCard(
     onDeleteWorkout: (String) -> Unit = {},
     onOpenExerciseFromSession: (String, String, String) -> Unit = { _, _, _ -> },
     accountId: String = "",
+    exerciseCatalog: List<ExerciseEntry> = emptyList(),
     onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> },
     /** Serie de FC de la sesión (epoch ms → lpm) desde Salud; vacía sin
      *  permisos o sin datos (la sección solo se pinta con ≥2 muestras). */
@@ -1429,6 +1430,7 @@ internal fun WorkoutHistoryCard(
                     workout = workout,
                     accountId = accountId,
                     busy = busy,
+                    exerciseCatalog = exerciseCatalog,
                     onSave = { onUpdateFinishedWorkout(workout.id, it) })
                 workout.movements.forEachIndexed { index, movement ->
                     TextButton(

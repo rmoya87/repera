@@ -1940,7 +1940,9 @@ class WorkoutRepository(context: Context, googleId: String) {
         val finishedAtIso: String?,
         val notes: String?,
         val pinEdited: Boolean,
-        val pin: dev.repera.domain.WorkoutLocationPin?
+        val pin: dev.repera.domain.WorkoutLocationPin?,
+        /** Bloques editados (JSON, con ids) del editor de contenido; null = contenido intacto. */
+        val blocksJson: String? = null
     )
 
     @Synchronized fun updateFinishedWorkout(workoutId: String, edit: FinishedWorkoutEdit): Boolean {
@@ -1951,7 +1953,15 @@ class WorkoutRepository(context: Context, googleId: String) {
         val start = edit.startedAtIso?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
         var end = edit.finishedAtIso?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
         if (start != null && end != null && end.isBefore(start)) end = start.plusSeconds(60)
-        target.put("title", edit.title.trim().ifEmpty { "Entreno" })
+        val cleanTitle = edit.title.trim().ifEmpty { "Entreno" }
+        if (edit.blocksJson != null) {
+            // Contenido (CompletedWorkoutEditing.applying): validado ANTES de tocar nada.
+            val applied = CompletedWorkoutEditing.applying(
+                cleanTitle, JSONArray(edit.blocksJson), target, state.getJSONArray("exercises"))
+            for (key in listOf("exercises", "routineBlocks", "wodResults", "currentIndex"))
+                target.put(key, applied.get(key))
+        }
+        target.put("title", cleanTitle)
         if (start != null) target.put("startedAt", start.toString())
         if (end != null) target.put("finishedAt", end.toString())
         val notes = edit.notes?.trim().orEmpty()

@@ -24,6 +24,7 @@ internal fun FinishedWorkoutEditorSection(
     workout: WorkoutHistoryEntry,
     accountId: String,
     busy: Boolean,
+    exerciseCatalog: List<ExerciseEntry> = emptyList(),
     onSave: (WorkoutRepository.FinishedWorkoutEdit) -> Unit
 ) {
     var editing by remember(workout.id) { mutableStateOf(false) }
@@ -51,6 +52,12 @@ internal fun FinishedWorkoutEditorSection(
     var notes by remember(workout.id) { mutableStateOf(workout.notes.orEmpty()) }
     var pin by remember(workout.id) { mutableStateOf(workout.locationPin) }
     var pinEdited by remember(workout.id) { mutableStateOf(false) }
+    // Borrador del CONTENIDO: copia JSON con ids; solo se escribe al Guardar.
+    val blocks = remember(workout.id) {
+        workout.editableBlocksJson?.let { runCatching { org.json.JSONArray(it) }.getOrNull() }
+    }
+    var contentVersion by remember(workout.id) { mutableIntStateOf(0) }
+    var contentDirty by remember(workout.id) { mutableStateOf(false) }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Editar", style = MaterialTheme.typography.titleMedium)
@@ -64,6 +71,12 @@ internal fun FinishedWorkoutEditorSection(
             WorkoutPlacePickerRow(pin = pin, accountId = accountId,
                 onPinChange = { pin = it; pinEdited = true })
         }
+        if (blocks != null) {
+            Text("Contenido", style = MaterialTheme.typography.titleMedium)
+            key(contentVersion) {
+                FinishedContentEditor(blocks, exerciseCatalog, onEdited = { contentDirty = true }) { contentDirty = true; contentVersion++ }
+            }
+        }
         OutlinedTextField(value = notes, onValueChange = { notes = it },
             label = { Text("Notas: cómo te sentiste, molestias…") }, minLines = 2, maxLines = 5,
             modifier = Modifier.fillMaxWidth().testTag("edit_notes"))
@@ -71,7 +84,8 @@ internal fun FinishedWorkoutEditorSection(
             Button(enabled = !busy, modifier = Modifier.testTag("edit_save"), onClick = {
                 onSave(WorkoutRepository.FinishedWorkoutEdit(
                     title = title, startedAtIso = startIso, finishedAtIso = endIso,
-                    notes = notes, pinEdited = pinEdited, pin = pin))
+                    notes = notes, pinEdited = pinEdited, pin = pin,
+                    blocksJson = if (contentDirty) blocks?.toString() else null))
                 editing = false
             }) { Text("Guardar") }
             TextButton(modifier = Modifier.testTag("edit_cancel"),
@@ -100,4 +114,103 @@ private fun DateTimeRow(label: String, iso: String?, tag: String, onChange: (Str
             }, current.year, current.monthValue - 1, current.dayOfMonth).show()
         }) { Text(current.format(shownFormat)) }
     }
+}
+
+/** Editor de bloques de fuerza de un entreno terminado: reordenar, quitar, añadir
+ *  ejercicio y editar series (reps / kg / RIR). Los bloques WOD se muestran sin
+ *  edición (Android no tiene editor de movimientos). Opera sobre el borrador. */
+@Composable
+private fun FinishedContentEditor(
+    blocks: org.json.JSONArray,
+    catalog: List<ExerciseEntry>,
+    onEdited: () -> Unit,
+    onChanged: () -> Unit
+) {
+    val nameById = remember(catalog) { catalog.associate { it.id to it.name } }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        for (b in 0 until blocks.length()) {
+            val block = blocks.getJSONObject(b)
+            Text(block.optString("title").ifBlank { "Bloque ${b + 1}" },
+                style = MaterialTheme.typography.titleSmall)
+            if (block.optString("kind") != "strength") {
+                Text("Bloque WOD: contenido no editable en Android todavía.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                continue
+            }
+            val items = block.optJSONArray("exercises") ?: org.json.JSONArray().also { block.put("exercises", it) }
+            for (i in 0 until items.length()) {
+                val item = items.getJSONObject(i)
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text(nameById[item.optString("exerciseId")] ?: "Ejercicio",
+                        style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    TextButton(enabled = i > 0, modifier = Modifier.testTag("ex_up_${b}_$i"), onClick = {
+                        swap(items, i, i - 1); onChanged() }) { Text("↑") }
+                    TextButton(enabled = i < items.length() - 1, modifier = Modifier.testTag("ex_down_${b}_$i"), onClick = {
+                        swap(items, i, i + 1); onChanged() }) { Text("↓") }
+                    TextButton(modifier = Modifier.testTag("ex_remove_${b}_$i"), onClick = {
+                        items.remove(i); onChanged() }) { Text("Quitar") }
+                }
+                val sets = item.optJSONArray("plannedSets") ?: org.json.JSONArray().also { item.put("plannedSets", it) }
+                for (s in 0 until sets.length()) {
+                    val set = sets.getJSONObject(s)
+                    var reps by remember { mutableStateOf(set.optInt("targetReps").toString()) }
+                    var kg by remember { mutableStateOf(
+                        if (set.has("targetWeightKg") && !set.isNull("targetWeightKg"))
+                            set.getDouble("targetWeightKg").let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() }
+                        else "") }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text("Serie ${s + 1}", modifier = Modifier.width(64.dp))
+                        OutlinedTextField(value = reps, label = { Text("Reps") }, singleLine = true,
+                            modifier = Modifier.weight(1f).testTag("set_reps_${b}_${i}_$s"),
+                            onValueChange = { v ->
+                                reps = v.filter { it.isDigit() }.take(4)
+                                set.put("targetReps", reps.toIntOrNull() ?: 0)
+                                onEdited()
+                            })
+                        OutlinedTextField(value = kg, label = { Text("Kg") }, singleLine = true,
+                            modifier = Modifier.weight(1f).testTag("set_kg_${b}_${i}_$s"),
+                            onValueChange = { v ->
+                                kg = v.filter { it.isDigit() || it == '.' || it == ',' }.take(7)
+                                val parsed = kg.replace(',', '.').toDoubleOrNull()
+                                if (parsed != null) set.put("targetWeightKg", parsed) else set.remove("targetWeightKg")
+                                onEdited()
+                            })
+                        TextButton(modifier = Modifier.testTag("set_remove_${b}_${i}_$s"),
+                            onClick = { sets.remove(s); onChanged() }) { Text("×") }
+                    }
+                }
+                TextButton(modifier = Modifier.testTag("set_add_${b}_$i"), onClick = {
+                    val last = sets.optJSONObject(sets.length() - 1)
+                    sets.put(org.json.JSONObject()
+                        .put("id", java.util.UUID.randomUUID().toString())
+                        .put("targetReps", last?.optInt("targetReps") ?: 8)
+                        .apply { if (last != null && last.has("targetWeightKg")) put("targetWeightKg", last.get("targetWeightKg")) })
+                    onChanged()
+                }) { Text("Añadir serie") }
+            }
+            var picking by remember { mutableStateOf(false) }
+            TextButton(modifier = Modifier.testTag("ex_add_$b"), enabled = catalog.isNotEmpty(),
+                onClick = { picking = true }) { Text("Añadir ejercicio") }
+            DropdownMenu(expanded = picking, onDismissRequest = { picking = false }) {
+                catalog.take(60).forEach { entry ->
+                    DropdownMenuItem(text = { Text(entry.name) }, onClick = {
+                        picking = false
+                        items.put(org.json.JSONObject()
+                            .put("id", java.util.UUID.randomUUID().toString())
+                            .put("exerciseId", entry.id)
+                            .put("plannedSets", org.json.JSONArray().put(org.json.JSONObject()
+                                .put("id", java.util.UUID.randomUUID().toString()).put("targetReps", 8))))
+                        onChanged()
+                    })
+                }
+            }
+        }
+    }
+}
+
+private fun swap(array: org.json.JSONArray, a: Int, b: Int) {
+    val x = array.get(a); val y = array.get(b)
+    array.put(a, y); array.put(b, x)
 }

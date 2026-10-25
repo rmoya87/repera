@@ -253,7 +253,7 @@ internal fun HomeTab(
             WorkoutHistoryCard(workout, busy,
                         onReviseFinishedSet, onDeleteFinishedSet,
                         onDeleteWorkout, onOpenExerciseFromSession,
-                        accountId, onUpdateFinishedWorkout,
+                        accountId, overview?.exerciseEntries.orEmpty(), onUpdateFinishedWorkout,
                         heartSeriesProvider)
         }
         item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }

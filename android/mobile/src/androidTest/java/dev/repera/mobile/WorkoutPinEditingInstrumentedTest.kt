@@ -48,8 +48,9 @@ class WorkoutPinEditingInstrumentedTest {
         WorkoutLocationPin(lat, lon, 1_700_000_000_000L, name = name, mapItemIdentifier = "osm:N1")
 
     private fun edit(title: String = "Editado", start: String? = null, end: String? = null,
-                     notes: String? = null, pinEdited: Boolean = false, pin: WorkoutLocationPin? = null) =
-        WorkoutRepository.FinishedWorkoutEdit(title, start, end, notes, pinEdited, pin)
+                     notes: String? = null, pinEdited: Boolean = false, pin: WorkoutLocationPin? = null,
+                     blocksJson: String? = null) =
+        WorkoutRepository.FinishedWorkoutEdit(title, start, end, notes, pinEdited, pin, blocksJson)
 
     private fun activePinName(repo: WorkoutRepository): String? =
         repo.activeSessionLocationPinForTest()?.optString("name")
@@ -176,5 +177,29 @@ class WorkoutPinEditingInstrumentedTest {
             assertTrue(threw)
             assertArrayEquals(before, dir.resolve("app_state.json").readBytes())
         } finally { dir.setWritable(true) }
+    }
+
+    @Test fun contentEditReordersKeepsLoggedSetIdentityAndPersistsAtomically() {
+        val (repo, ctx) = repoWithRoutines("r1")
+        // Rutina de dos ejercicios: se crea en el fixture con un solo ejercicio, así que
+        // se registra una serie y se edita el contenido sobre ese entreno.
+        val a = repo.startStrengthRoutine("r1")
+        repo.logCurrentSet(quantity = 5, weightKg = 60.0, rir = 2.0)
+        repo.finish()
+        val saved = repo.finishedWorkoutsSnapshot().first()
+        val loggedId = saved.getJSONArray("exercises").getJSONObject(0)
+            .getJSONArray("loggedSets").getJSONObject(0).getString("id")
+        val blocks = CompletedWorkoutEditing.blocksFrom(saved, null)
+        val set = blocks.getJSONObject(0).getJSONArray("exercises").getJSONObject(0)
+            .getJSONArray("plannedSets").getJSONObject(0)
+        set.put("targetReps", 7).put("targetWeightKg", 62.5)
+        assertTrue(repo.updateFinishedWorkout(a.id, edit(title = "Editado", blocksJson = blocks.toString())))
+        val after = repo.finishedWorkoutsSnapshot().first()
+        val l = after.getJSONArray("exercises").getJSONObject(0).getJSONArray("loggedSets").getJSONObject(0)
+        assertEquals(loggedId, l.getString("id"))
+        assertEquals(7, l.getInt("reps"))
+        assertEquals(62.5, l.getDouble("weightKg"), 1e-9)
+        assertEquals(7, after.getJSONArray("exercises").getJSONObject(0).getInt("completedReps"))
+        assertEquals("Editado", after.getString("title"))
     }
 }
