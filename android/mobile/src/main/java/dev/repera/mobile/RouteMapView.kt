@@ -66,7 +66,6 @@ internal fun RouteMapView(
     val currentPlan by androidx.compose.runtime.rememberUpdatedState(plannedPoints)
     val currentPoints by androidx.compose.runtime.rememberUpdatedState(points)
     var loadedMap by remember { mutableStateOf<MapLibreMap?>(null) }
-    var renderedPoints by remember { mutableStateOf<List<WorkoutRoutePoint>>(emptyList()) }
     androidx.compose.runtime.LaunchedEffect(points, plannedRoute, plannedPoints, loadedMap) {
         val map = loadedMap ?: return@LaunchedEffect
         map.getStyle { style ->
@@ -76,7 +75,7 @@ internal fun RouteMapView(
                     style.removeLayer("route-pt-layer-$i");style.removeSource("route-pt-$i")
                 }
                 applyPlannedOverlay(style,plannedPoints)
-                applyRoute(map, style, points, plannedRoute);renderedPoints = points.toList()
+                applyRoute(map, style, points, plannedRoute)
             }.onFailure { failed = true }
         }
     }
@@ -140,7 +139,7 @@ internal fun RouteMapView(
                     map.setStyle("https://tiles.openfreemap.org/styles/liberty") { style ->
                         runCatching { applyPlannedOverlay(style,currentPlan);applyRoute(map, style, currentPoints, currentPlanned) }
                             .onFailure { failed = true }
-                            .onSuccess { renderedPoints = currentPoints.toList();loadedMap = map;onStyleLoaded?.invoke() }
+                            .onSuccess { loadedMap = map;onStyleLoaded?.invoke() }
                     }
                 }
             }
