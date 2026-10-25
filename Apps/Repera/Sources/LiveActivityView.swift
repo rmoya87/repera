@@ -73,13 +73,14 @@ enum LiveSport: String, CaseIterable, Identifiable {
 
     var usesGPS: Bool {
         switch self {
-        case .running, .cycling, .walking, .hiking, .trail, .mountainBike, .gravel, .surfing, .skiing:
+        case .running, .cycling, .walking, .hiking, .trail, .mountainBike, .gravel, .surfing, .skiing, .golf:
             true
         default: false
         }
     }
 
     var isCycling: Bool { self == .cycling || self == .mountainBike || self == .gravel }
+    var displaysSpeed: Bool { isCycling || self == .surfing || self == .skiing || self == .golf }
 
     var healthType: HKWorkoutActivityType {
         switch self {
@@ -541,7 +542,7 @@ struct LiveActivityView: View {
     @State private var title = ""
     @State private var notes = ""
     @State private var savedWorkoutID: UUID?
-    @State private var position: MapCameraPosition = .automatic
+    @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
 
     var onSaved: (Date) -> Void
     var onOpenWorkout: () -> Void
@@ -688,7 +689,7 @@ struct LiveActivityView: View {
                 HStack(spacing: 6) {
                     smallMetric("Tiempo", value: formattedTime(recorder.duration(at: timeline.date)))
                     smallMetric("Distancia", value: String(format: "%.2f km", recorder.recordedDistanceMeters / 1000))
-                    smallMetric(recorder.sport.isCycling ? "km/h" : "min/km",
+                    smallMetric(recorder.sport.displaysSpeed ? "km/h" : "min/km",
                                 value: paceOrSpeed)
                 }
                 .padding(.horizontal, 12)
@@ -719,7 +720,7 @@ struct LiveActivityView: View {
                     .minimumScaleFactor(0.65)
                     .foregroundStyle(OG.label)
                 Text(recorder.sport.usesGPS ?
-                     (recorder.sport.isCycling ? "Velocidad (km/h)" : "Ritmo (min/km)") : recorder.sport.title)
+                     (recorder.sport.displaysSpeed ? "Velocidad (km/h)" : "Ritmo (min/km)") : recorder.sport.title)
                     .font(.subheadline).foregroundStyle(OG.label2)
                 if recorder.sport.usesGPS {
                     Text(String(format: "%.2f", recorder.recordedDistanceMeters / 1000))
@@ -901,7 +902,7 @@ struct LiveActivityView: View {
     }
 
     private var paceOrSpeed: String {
-        if recorder.sport.isCycling {
+        if recorder.sport.displaysSpeed {
             return recorder.speedKmh.map { String(format: "%.1f", $0) } ?? "—"
         }
         guard let seconds = recorder.paceSecondsPerKm, seconds < 3600 else { return "—:—" }
