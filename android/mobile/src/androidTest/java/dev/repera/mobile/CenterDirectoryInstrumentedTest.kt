@@ -11,8 +11,9 @@ class CenterDirectoryInstrumentedTest {
  @Test fun linkingWaitsForExplicitChoiceAndSendsSelectedKindAndNote() {
   val org=BusinessCenterStore.Organization("org","Centro sintético","gym",null,null,"Solo pruebas")
   var count=0;var kind="";var note:String?=null
+  var linked by mutableStateOf(emptySet<String>())
   compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {
-   CenterDirectoryDialog(true,listOf(org),false,false,emptySet(),{}, {_,k,n ->count++;kind=k;note=n},{})
+   CenterDirectoryDialog(true,listOf(org),false,false,linked,{}, {_,k,n ->count++;kind=k;note=n},{})
   }}
   compose.onNodeWithText("Centro sintético").performClick()
   compose.runOnIdle {assertEquals(0,count)}
@@ -21,6 +22,11 @@ class CenterDirectoryInstrumentedTest {
   capture("centro_solicitud_vinculo_sintetica.png")
   compose.onNodeWithText("Vincularme y continuar").performClick()
   compose.runOnIdle {assertEquals(1,count);assertEquals("appointment",kind);assertEquals("Turno tarde",note)}
+  // No optimistic dismissal: an error can retain the selected organization and note.
+  compose.onNodeWithText("Vincularme y continuar").assertIsDisplayed()
+  compose.onNodeWithText("Nota para el centro (opcional)").assertTextContains("Turno tarde")
+  compose.runOnIdle {linked=setOf("org")}
+  compose.onNodeWithText("Vincularme y continuar").assertDoesNotExist()
  }
  @Test fun leavingRequiresSeparateConfirmationAndCancelDoesNothing() {
   val org=BusinessCenterStore.Organization("org","Centro sintético","gym",null,null,null)

@@ -282,6 +282,7 @@ internal fun CenterTab(
         )
     }
     if(showDirectory) CenterDirectoryDialog(connected,directory,directorySearching,submitting,
-        snapshot?.athleteCenterIds.orEmpty(),onSearchDirectory,onRequestLink) {showDirectory=false}
-    detail?.let {center -> LinkedCenterDialog(center,snapshot,submitting,onLeave) {detail=null}}
+        snapshot?.athleteCenterIds.orEmpty(),onSearchDirectory,onRequestLink,{showDirectory=false},errorMessage)
+    detail?.let {center -> LinkedCenterDialog(center,snapshot,submitting,onLeave,{detail=null},
+        sharingByCenter[center.id]==true,sharingUpdating,{onSetSharing(center.id,it)},errorMessage)}
 }

@@ -11,11 +11,12 @@ import kotlinx.coroutines.delay
 
 @Composable
 internal fun CenterDirectoryDialog(connected:Boolean,rows:List<BusinessCenterStore.Organization>,searching:Boolean,submitting:Boolean,
- linked:Set<String>,onSearch:(String)->Unit,onRequest:(BusinessCenterStore.Organization,String,String?)->Unit,onClose:()->Unit) {
+ linked:Set<String>,onSearch:(String)->Unit,onRequest:(BusinessCenterStore.Organization,String,String?)->Unit,onClose:()->Unit,error:String?=null) {
  var query by rememberSaveable {mutableStateOf("")}
  var selected by remember {mutableStateOf<BusinessCenterStore.Organization?>(null)}
  var passKind by rememberSaveable {mutableStateOf("class")}
  var note by rememberSaveable {mutableStateOf("")}
+ LaunchedEffect(linked) {if(selected?.id in linked) {selected=null;note=""}}
  LaunchedEffect(query,connected) {if(connected) {delay(350);onSearch(query)}}
  AlertDialog(onDismissRequest=onClose,title={Text("Buscar centro o entrenador")},
   text={Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -35,13 +36,16 @@ internal fun CenterDirectoryDialog(connected:Boolean,rows:List<BusinessCenterSto
    }
    OutlinedTextField(note,{note=it},label={Text("Nota para el centro (opcional)")})
    Text("El centro confirmará el bono solicitado.")
-  }},confirmButton={TextButton(enabled=!submitting,onClick={onRequest(org,passKind,note.takeIf {it.isNotBlank()});selected=null}) {Text("Vincularme y continuar")}},
+   error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
+  }},confirmButton={TextButton(enabled=!submitting,onClick={onRequest(org,passKind,note.takeIf {it.isNotBlank()})}) {Text("Vincularme y continuar")}},
   dismissButton={TextButton(onClick={selected=null}) {Text("Cancelar")}})}
 }
 @Composable
 internal fun LinkedCenterDialog(org:BusinessCenterStore.Organization,snapshot:BusinessCenterStore.Snapshot?,submitting:Boolean,
- onLeave:(BusinessCenterStore.Organization)->Unit,onClose:()->Unit) {
+ onLeave:(BusinessCenterStore.Organization)->Unit,onClose:()->Unit,sharing:Boolean=false,sharingBusy:Boolean=false,onSharing:(Boolean)->Unit={},error:String?=null) {
  var confirm by remember {mutableStateOf(false)}
+ var requestedLeave by remember {mutableStateOf(false)}
+ LaunchedEffect(snapshot?.athleteCenterIds) {if(requestedLeave && snapshot!=null && org.id !in snapshot.athleteCenterIds) onClose()}
  AlertDialog(onDismissRequest=onClose,title={Text(org.name)},text={Column(Modifier.verticalScroll(rememberScrollState())) {
   Text(org.tagline ?: org.kind)
   Text("Bonos y sesiones")
@@ -50,13 +54,22 @@ internal fun LinkedCenterDialog(org:BusinessCenterStore.Organization,snapshot:Bu
   passes.forEach {pass ->
    Text(if(pass.kind=="appointment") "Sesiones personales" else if(pass.kind=="unlimited") "Acceso ilimitado" else "Clases")
    Text("${pass.remainingCredits} de ${pass.totalCredits} disponibles")
-   pass.validUntil?.let {Text("Caduca: $it")}
+   pass.validUntil?.let {date ->
+    val formatted=runCatching {java.time.Instant.parse(date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().format(reperaDayFormatter)}.getOrDefault(date)
+    Text("Caduca: $formatted")
+   }
   }
   snapshot?.trainingSessions.orEmpty().filter {it.orgId==org.id}.take(12).forEach {Text("${it.title} · ${it.scheduledDate}")}
+  Row {
+   Switch(sharing,onCheckedChange=onSharing,enabled=!sharingBusy && !submitting)
+   Text("Compartir resultados")
+  }
+  Text("Series, repeticiones y marcas con el equipo. Puedes desactivarlo.")
+  error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
   TextButton(enabled=!submitting,onClick={confirm=true}) {Text("Desvincularme")}
  }},confirmButton={TextButton(onClick=onClose) {Text("Cerrar")}})
  if(confirm) AlertDialog(onDismissRequest={confirm=false},title={Text("¿Desvincularte de ${org.name}?")},
   text={Text("Al desvincularte pierdes el acceso completo asociado a este centro, salvo que tengas Repera Pro.")},
-  confirmButton={TextButton(enabled=!submitting,onClick={confirm=false;onLeave(org);onClose()}) {Text("Desvincularme")}},
+  confirmButton={TextButton(enabled=!submitting,onClick={confirm=false;requestedLeave=true;onLeave(org)}) {Text("Desvincularme")}},
   dismissButton={TextButton(onClick={confirm=false}) {Text("Cancelar")}})
 }
