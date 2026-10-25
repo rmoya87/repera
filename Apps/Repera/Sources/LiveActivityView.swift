@@ -764,7 +764,6 @@ struct LiveActivityView: View {
     @State private var routeError: String?
     @State private var title = ""
     @State private var notes = ""
-    @State private var saveRouteAsFavorite = false
     @State private var savedWorkoutID: UUID?
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
 
@@ -834,7 +833,6 @@ struct LiveActivityView: View {
                 Button("Terminar y revisar") {
                     recorder.finish()
                     title = recorder.sport.title
-                    saveRouteAsFavorite = false
                 }
                 Button("Seguir entrenando", role: .cancel) {}
             }
@@ -1231,11 +1229,6 @@ struct LiveActivityView: View {
                 TextField("Título", text: $title)
                 TextField("Notas (opcional)", text: $notes, axis: .vertical)
                     .lineLimit(2...5)
-                if recorder.sport.usesGPS, recorder.routePoints.count >= 2,
-                   recorder.chosenRoute == nil {
-                    Toggle("Guardar recorrido en Mis rutas", isOn: $saveRouteAsFavorite)
-                        .tint(OG.accent)
-                }
                 if let route = recorder.chosenRoute {
                     Label("Ruta guardada: \(route.title)", systemImage: "star.fill")
                         .font(.footnote).foregroundStyle(OG.label2)
@@ -1246,13 +1239,17 @@ struct LiveActivityView: View {
                     guard var session = recorder.makeSession(title: title, notes: notes) else { return }
                     guard savedWorkoutID != session.id else { return }
                     savedWorkoutID = session.id
-                    if saveRouteAsFavorite {
+                    // Archiva automáticamente todo recorrido GPS nuevo para
+                    // repetirlo desde Cargar ruta, sin requerir un toggle.
+                    // Las rutas reutilizadas conservan el mismo UUID para Evolución.
+                    if session.liveRouteID == nil && session.routePoints.count >= 2
+                        && recorder.sport.usesGPS {
                         do {
                             session.liveRouteID = try routes.addRecordedRoute(from: session)
                         } catch {
-                            savedWorkoutID = nil
-                            routeError = "No se pudo guardar esta ruta en favoritos. Comprueba el almacenamiento disponible."
-                            return
+                            // Nunca perder una actividad terminada por un fallo
+                            // independiente del almacenamiento de favoritos.
+                            routeError = "La actividad se ha registrado, pero no se pudo archivar la ruta. Comprueba el espacio disponible."
                         }
                     }
                     store.saveWorkout(session)
@@ -1261,7 +1258,6 @@ struct LiveActivityView: View {
                     title = ""
                     notes = ""
                     savedWorkoutID = nil
-                    saveRouteAsFavorite = false
                     showingMetrics = false
                     onSaved(date)
                 } label: {
@@ -1298,20 +1294,40 @@ struct LiveActivityView: View {
                                                description: Text("Importa un GPX para seguirlo mientras entrenas."))
                     } else {
                         ForEach(routes.routes) { route in
-                            Button {
-                                recorder.selectRoute(route)
-                                routePicker = false
-                                position = .region(routeRegion(route.points))
+                            NavigationLink {
+                                LiveRouteLibraryDetailView(
+                                    routeID: route.id,
+                                    onUseRoute: { selected in
+                                        recorder.selectRoute(selected)
+                                        position = .region(routeRegion(selected.points))
+                                        routePicker = false
+                                    },
+                                    onDeleteRoute: { deletedID in
+                                        if recorder.chosenRoute?.id == deletedID {
+                                            recorder.selectRoute(nil)
+                                        }
+                                    }
+                                )
                             } label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(route.title).foregroundStyle(OG.label)
-                                    Text("\(route.points.count) puntos")
-                                        .font(.caption).foregroundStyle(OG.label2)
+                                HStack(spacing: 12) {
+                                    Image(systemName: "point.topleft.down.curvedto.point.bottomright.up")
+                                        .font(.title3)
+                                        .foregroundStyle(OG.accent)
+                                        .frame(width: 30)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(route.title)
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(OG.label)
+                                        let count = store.state.workouts.filter {
+                                            $0.liveRouteID == route.id && $0.phase == .finished
+                                        }.count
+                                        Text("\(count) actividades · \(route.points.count) puntos GPS")
+                                            .font(.caption)
+                                            .foregroundStyle(OG.label2)
+                                    }
                                 }
+                                .padding(.vertical, 3)
                             }
-                        }
-                        .onDelete { offsets in
-                            for index in offsets { routes.remove(routes.routes[index].id) }
                         }
                     }
                 }
