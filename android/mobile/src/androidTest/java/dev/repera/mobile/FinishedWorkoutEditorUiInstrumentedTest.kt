@@ -232,4 +232,48 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         val arr = org.json.JSONArray(saved!!.blocksJson)
         assertEquals("b2", arr.getJSONObject(0).getString("id")); assertEquals("b1", arr.getJSONObject(1).getString("id"))
     }
+
+    private val twoStrengthPlusEmpty = """[{"id":"b1","title":"A","kind":"strength","exercises":[
+        {"id":"e1","exerciseId":"x1","plannedSets":[{"id":"p1","targetReps":5}]}]},
+        {"id":"b2","title":"B","kind":"strength","exercises":[]}]"""
+
+    private fun dragExercise(tag: String, dy: Float) = compose.onNodeWithTag(tag).performTouchInput {
+        down(center); advanceEventTime(700); moveBy(Offset(0f, dy)); advanceEventTime(50); up()
+    }
+
+    /** Fuerza→bloque vacío (Apple dropDestination): el ítem conserva id y series. Depende de layout real: solo compilado. */
+    @Test fun dragExerciseIntoEmptyBlockMovesItKeepingId() {
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val w = workout.copy(editableBlocksJson = twoStrengthPlusEmpty)
+        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        dragExercise("ex_drag_0_0", 900f)
+        compose.waitForIdle(); compose.onNodeWithTag("edit_save").performClick()
+        val arr = org.json.JSONArray(saved!!.blocksJson)
+        assertEquals(0, arr.getJSONObject(0).getJSONArray("exercises").length())
+        assertEquals("e1", arr.getJSONObject(1).getJSONArray("exercises").getJSONObject(0).getString("id"))
+    }
+
+    /** Fuerza→WOD convierte a movimiento con el mismo id. */
+    @Test fun dragExerciseIntoWodBlockConvertsToMovement() {
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val w = workout.copy(editableBlocksJson = wodBlocks)
+        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        dragExercise("ex_drag_0_0", 900f)
+        compose.waitForIdle(); compose.onNodeWithTag("edit_save").performClick()
+        val mv = org.json.JSONArray(saved!!.blocksJson).getJSONObject(1).getJSONArray("movements")
+        assertTrue((0 until mv.length()).any { mv.getJSONObject(it).getString("id") == "e1" })
+    }
+
+    /** Soltar fuera de cualquier bloque (muy por encima) no cambia nada ni marca el borrador. */
+    @Test fun dropOutsideAnyBlockLeavesDraftUntouched() {
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val w = workout.copy(editableBlocksJson = twoStrengthPlusEmpty)
+        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        dragExercise("ex_drag_0_0", -3000f)
+        compose.waitForIdle(); compose.onNodeWithTag("edit_save").performClick()
+        assertNull(saved!!.blocksJson)
+    }
 }

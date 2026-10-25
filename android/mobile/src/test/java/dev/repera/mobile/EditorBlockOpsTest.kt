@@ -118,4 +118,33 @@ class EditorBlockOpsTest {
         assertEquals(0, dragTargetIndex(2, -500f, h))
         assertEquals(1, dragTargetIndex(1, 0f, h))
     }
+
+    @Test fun dropTargetsResolveByGeometry() {
+        val bounds = listOf(0f to 100f, 120f to 300f, null)
+        assertEquals(0, EditorBlockOps.dropBlockIndex(50f, bounds))
+        assertEquals(1, EditorBlockOps.dropBlockIndex(200f, bounds))
+        assertNull("hueco entre bloques = inválido", EditorBlockOps.dropBlockIndex(110f, bounds))
+        assertNull(EditorBlockOps.dropBlockIndex(999f, bounds))
+        val items = listOf("a" to (120f to 160f), "b" to (160f to 200f))
+        assertEquals("a", EditorBlockOps.dropBeforeId(130f, items))
+        assertEquals("b", EditorBlockOps.dropBeforeId(170f, items))
+        assertNull("bloque vacío o debajo de todos = al final", EditorBlockOps.dropBeforeId(250f, items))
+        assertNull(EditorBlockOps.dropBeforeId(10f, emptyList()))
+    }
+
+    @Test fun handleItemDrop_invalidDropAndRejectedConversionLeaveDraftUntouched() {
+        val b = blocks(); val snapshot = b.toString()
+        val geo = EditorGeometry().apply { blocks[0] = 0f to 100f; blocks[1] = 120f to 300f }
+        var changed = 0
+        val arr0 = b.getJSONObject(0).getJSONArray("exercises")
+        handleItemDrop(b, geo, 0, "i1", 0, arr0, 110f, 1, { "" }, { null }) { changed++ }   // hueco
+        assertEquals(0, changed); assertEquals(snapshot, b.toString())
+        val mv = b.getJSONObject(1).getJSONArray("movements")
+        handleItemDrop(b, geo, 1, "m2", 1, mv, 50f, 1, { "" }, { "sq" }) { changed++ }       // REST a fuerza
+        assertEquals(0, changed); assertEquals(snapshot, b.toString())
+        handleItemDrop(b, geo, 0, "i1", 0, arr0, 200f, 0, { "Sentadilla" }, { null }) { changed++ } // fuerza→WOD
+        assertEquals(1, changed)
+        assertEquals(3, b.getJSONObject(1).getJSONArray("movements").length())
+        assertEquals(1, arr0.length())
+    }
 }

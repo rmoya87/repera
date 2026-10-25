@@ -171,4 +171,19 @@ object EditorBlockOps {
         list.forEachIndexed { i, o -> dstArr.put(i, o) }
         return true
     }
+
+    /** Bloque cuyo rango vertical (raíz) contiene `y`; null si cae fuera de todos (drop inválido). */
+    fun dropBlockIndex(y: Float, bounds: List<Pair<Float, Float>?>): Int? =
+        bounds.indices.firstOrNull { i -> bounds[i]?.let { y >= it.first && y <= it.second } == true }
+
+    /** Id del primer ítem cuyo centro queda por debajo de `y` (insertar antes de él); null = al final. */
+    fun dropBeforeId(y: Float, items: List<Pair<String, Pair<Float, Float>>>): String? =
+        items.sortedBy { it.second.first }.firstOrNull { (it.second.first + it.second.second) / 2f > y }?.first
+}
+
+/** Geometría (coordenadas de raíz) registrada por el editor para resolver soltar entre bloques. */
+internal class EditorGeometry {
+    val blocks = mutableMapOf<Int, Pair<Float, Float>>()
+    val items = mutableMapOf<Int, MutableMap<String, Pair<Float, Float>>>()
+    fun blockBounds(count: Int): List<Pair<Float, Float>?> = (0 until count).map { blocks[it] }
 }

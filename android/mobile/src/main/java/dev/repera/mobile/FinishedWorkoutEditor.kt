@@ -2,6 +2,8 @@ package dev.repera.mobile
 
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -135,8 +137,11 @@ private fun FinishedContentEditor(
     val nameById = remember(catalog) { catalog.associate { it.id to it.name } }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         val blkHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
+        val geo = remember { EditorGeometry() }
         for (b in 0 until blocks.length()) {
-            DragReorderItem(b, blkHeights, blocks.length(), { f, t -> EditorBlockOps.moveBlock(blocks, f, t); onChanged() }) { handle ->
+            DragReorderItem(b, blkHeights, blocks.length(),
+                onDrop = { _, t -> if (t != b && EditorBlockOps.moveBlock(blocks, b, t)) onChanged() },
+                onBounds = { top, bottom -> geo.blocks[b] = top to bottom }) { handle ->
             val block = blocks.getJSONObject(b)
             var title by remember(block.optString("id")) { mutableStateOf(block.optString("title")) }
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -162,14 +167,18 @@ private fun FinishedContentEditor(
                             onClick = { fmtOpen = false; block.put("wodFormat", f.wireName); onChanged() })
                     }
                 }
-                WodMovementsEditor(blocks, b, nameById, catalog, onEdited, onChanged)
+                WodMovementsEditor(blocks, b, nameById, catalog, geo, onEdited, onChanged)
                 return@DragReorderItem
             }
             val items = block.optJSONArray("exercises") ?: org.json.JSONArray().also { block.put("exercises", it) }
             val exHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
             for (i in 0 until items.length()) {
                 val item = items.getJSONObject(i)
-                DragReorderItem(i, exHeights, items.length(), { f, t -> EditorBlockOps.reorder(items, f, t); onChanged() }) { handle ->
+                DragReorderItem(i, exHeights, items.length(),
+                    onDrop = { cy, t -> handleItemDrop(blocks, geo, b, item.optString("id"), i, items, cy, t,
+                        { id -> nameById[id] ?: "Ejercicio" },
+                        { null }, onChanged) },
+                    onBounds = { top, bottom -> geo.items.getOrPut(b) { mutableMapOf() }[item.optString("id")] = top to bottom }) { handle ->
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     Text("⠿", modifier = handle.testTag("ex_drag_${b}_$i").padding(8.dp))
                     Text(item.optString("exerciseId").let { id ->
@@ -320,7 +329,7 @@ internal fun foldForSearch(text: String): String =
 @Composable
 private fun WodMovementsEditor(
     blocks: org.json.JSONArray, b: Int, nameById: Map<String, String>, catalog: List<ExerciseEntry>,
-    onEdited: () -> Unit, onChanged: () -> Unit
+    geo: EditorGeometry, onEdited: () -> Unit, onChanged: () -> Unit
 ) {
     val block = blocks.getJSONObject(b)
     val moves = block.optJSONArray("movements") ?: org.json.JSONArray().also { block.put("movements", it) }
@@ -328,7 +337,12 @@ private fun WodMovementsEditor(
     for (i in 0 until moves.length()) {
         val m = moves.getJSONObject(i)
         val id = m.optString("id")
-        DragReorderItem(i, mvHeights, moves.length(), { f, t -> EditorBlockOps.reorder(moves, f, t); onChanged() }) { handle ->
+        DragReorderItem(i, mvHeights, moves.length(),
+            onDrop = { cy, t -> handleItemDrop(blocks, geo, b, id, i, moves, cy, t, { "" }, { mv ->
+                mv.optString("exerciseId").takeIf { x -> x.isNotBlank() && catalog.any { c -> c.id == x } }
+                    ?: catalog.firstOrNull { c -> c.name.equals(mv.optString("name"), true) }?.id
+                    ?: mv.optString("name").trim().takeIf { n -> n.isNotEmpty() }?.let { n -> EditorBlockOps.PENDING_PREFIX + n } }, onChanged) },
+            onBounds = { top, bottom -> geo.items.getOrPut(b) { mutableMapOf() }[id] = top to bottom }) { handle ->
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Text("⠿", modifier = handle.testTag("mv_drag_${b}_$i").padding(8.dp))
             Text(if (m.optBoolean("isRest")) "REST" else m.optString("name"),
@@ -482,24 +496,33 @@ private fun WodMovementsEditor(
 @Composable
 internal fun DragReorderItem(
     index: Int, heights: androidx.compose.runtime.snapshots.SnapshotStateMap<Int, Int>, count: Int,
-    onReorder: (Int, Int) -> Unit, content: @Composable (Modifier) -> Unit
+    onDrop: (centerRootY: Float, target: Int) -> Unit,
+    onBounds: (top: Float, bottom: Float) -> Unit = { _, _ -> },
+    content: @Composable (Modifier) -> Unit
 ) {
     var dy by remember { mutableStateOf(0f) }
+    var top by remember { mutableStateOf(0f) }
+    var bottom by remember { mutableStateOf(0f) }
     val handle = Modifier.pointerInput(index, count) {
         detectDragGesturesAfterLongPress(
             onDragStart = {},
             onDrag = { change, amount -> change.consume(); dy += amount.y },
             onDragEnd = {
                 val target = dragTargetIndex(index, dy, (0 until count).map { heights[it] ?: 0 })
+                val center = (top + bottom) / 2f + dy
                 dy = 0f
-                if (target != index) onReorder(index, target)
+                onDrop(center, target)
             },
             onDragCancel = { dy = 0f })
     }
     Column(Modifier
         .zIndex(if (dy != 0f) 1f else 0f)
         .graphicsLayer { translationY = dy }
-        .onSizeChanged { heights[index] = it.height }) { content(handle) }
+        .onSizeChanged { heights[index] = it.height }
+        .onGloballyPositioned { c ->
+            val p = c.positionInRoot().y
+            top = p; bottom = p + c.size.height; onBounds(top, bottom)
+        }) { content(handle) }
 }
 
 /** Índice destino de un arrastre vertical (regla del punto medio sobre alturas reales). Pura y testeable. */
@@ -519,4 +542,21 @@ internal fun dragTargetIndex(from: Int, dy: Float, heights: List<Int>): Int {
         }
     }
     return target
+}
+
+
+/** Soltar un ítem: fuera de todo bloque = inválido (no cambia nada); mismo bloque = reorden por índice;
+ *  otro bloque = moveItem con conversión (REST a fuerza o id sin resolver => rechazado sin quitar). */
+internal fun handleItemDrop(
+    blocks: org.json.JSONArray, geo: EditorGeometry, b: Int, itemId: String, itemIndex: Int,
+    arr: org.json.JSONArray, centerY: Float, sameBlockTarget: Int,
+    nameFor: (String) -> String, resolve: (org.json.JSONObject) -> String?, onChanged: () -> Unit
+) {
+    val tb = EditorBlockOps.dropBlockIndex(centerY, geo.blockBounds(blocks.length())) ?: return
+    if (tb == b) {
+        if (sameBlockTarget != itemIndex && EditorBlockOps.reorder(arr, itemIndex, sameBlockTarget)) onChanged()
+        return
+    }
+    val before = EditorBlockOps.dropBeforeId(centerY, (geo.items[tb] ?: emptyMap<String, Pair<Float, Float>>()).toList())
+    if (EditorBlockOps.moveItem(blocks, b, itemId, tb, before, nameFor, resolve)) onChanged()
 }
