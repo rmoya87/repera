@@ -884,14 +884,18 @@ class VisualVerificationInstrumentedTest {
         }
         compose.onNodeWithText("Buscar lugar").assertIsDisplayed()
         val z0 = cameraRef.get()!!.first
-        compose.onNodeWithTag("place_pin_map").performTouchInput {
-            down(0, center + androidx.compose.ui.geometry.Offset(-120f, 0f))
-            down(1, center + androidx.compose.ui.geometry.Offset(120f, 0f))
-            moveTo(0, center + androidx.compose.ui.geometry.Offset(-280f, 0f))
-            moveTo(1, center + androidx.compose.ui.geometry.Offset(280f, 0f))
-            up(0)
-            up(1)
-        }
+        // Pinch tambien por el pipeline real: la inyeccion Compose comprime
+        // el gesto de dos punteros a ~5ms y MapLibre no lo traduce a zoom
+        // (evidencia run 40209817888: stream de pinch truncado, zoom intacto
+        // en las 3 patas; el pan via UiDevice si funciono).
+        val cy = (pinMapBounds.top + pinMapBounds.height / 2).toInt()
+        val pinchDxOut = minOf(280f, pinMapBounds.width / 2 - 48f).toInt()
+        uiDevice.performTwoPointerGesture(
+            android.graphics.Point(swipeFromX - 120, cy),
+            android.graphics.Point(swipeFromX + 120, cy),
+            android.graphics.Point(swipeFromX - pinchDxOut, cy),
+            android.graphics.Point(swipeFromX + pinchDxOut, cy),
+            20)
         compose.waitUntil(timeoutMillis = 15_000) { cameraRef.get()!!.first > z0 }
         compose.onNodeWithText("Buscar lugar").assertIsDisplayed()
         // Tocar el mapa CIERRA la búsqueda presentada (dismissSearch iOS):
