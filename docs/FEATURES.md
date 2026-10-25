@@ -273,6 +273,12 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 - La acción «Añadir serie» tiene área táctil de altura mínima 44 puntos y se alinea con las filas de series.
 
 
+## GPS compartido entre actividades libres y planificadas
+
+- El mismo \`WorkoutLocationTracker\` procesa el GPS de «Comenzar», rutas externas y entrenamientos outdoor desde «Play»: filtrado, distancia, velocidad, conservación de muestras, autorización y segundo plano. No hay dos odómetros.
+- En los entrenos programados outdoor, el widget también muestra ritmo o velocidad media y distancia, usando la misma fuente de «Comenzar»; la ejecución de fuerza y WOD de interior sigue mostrando ejercicios/series. La clasificación outdoor se infiere cuando no hay un deporte explícito y nunca transforma automáticamente un WOD indoor en carrera.
+- La ruta local conserva todos los puntos y precisiones GPS originales, con cortes de señal preservados. En Salud se crea un único entrenamiento por sesión, con su tipo outdoor correcto y \`HKWorkoutRouteBuilder\` durante la grabación. La asociación se verifica por UUID y no por mero solapamiento horario. Las rutas de Apple Watch no se sobrescriben.
+
 ## Comenzar: deportes GPS y actividad en directo
 
 - La grabación de caminata, carrera y ciclismo comienza desde «Comenzar» y utiliza **Core Location** como fuente única de distancia, puntos y ritmo medio de la sesión. Con ubicación permitida y el modo `location` empaquetado, continúa al bloquear el iPhone o salir de la vista. **Apple Salud no registra ni reconstruye por su cuenta el GPS de una sesión libre de Repera**.
