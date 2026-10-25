@@ -253,6 +253,12 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                             else TextButton(onClick={runtime.resume();startService()}) {Text("Reanudar")}
                             TextButton(onClick={runtime.finish();LiveActivityService.stop(context)}) {Text("Finalizar")}
                         }
+                        Row {
+                            TextButton(onClick={confirmDiscard=true}) {Text("Descartar")}
+                            TextButton(onClick={runtime.toggleSpokenGuidance()}) {
+                                Text(if(runtime.spokenGuidanceEnabled) "Voz activada" else "Voz desactivada")
+                            }
+                        }
                     }
                 }
             }
