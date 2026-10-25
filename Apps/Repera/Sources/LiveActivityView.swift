@@ -1126,6 +1126,7 @@ struct LiveActivityView: View {
     @Environment(HealthKitStore.self) private var health
     @Environment(\.scenePhase) private var scenePhase
     @State private var recorder = LiveActivityRecorder.shared
+    @State private var lastWatchDistanceUpdate = Date.distantPast
     @State private var routes = LiveRoutesStore.shared
     @State private var sportPicker = false
     @State private var routePicker = false
@@ -1219,6 +1220,14 @@ struct LiveActivityView: View {
         .tint(OG.accent)
         .onChange(of: scenePhase) { _, next in
             if next != .active { recorder.checkpoint() }
+        }
+        .onChange(of: recorder.routePoints.count) { _, _ in
+            // El iPhone aporta GPS al reloj; HR y kcal los calcula HealthKit
+            // de watchOS. No enviar cada punto ni un recorrido GPX entero.
+            guard recorder.phase == .recording,
+                  Date().timeIntervalSince(lastWatchDistanceUpdate) >= 12 else { return }
+            lastWatchDistanceUpdate = Date()
+            store.syncLiveActivityToWatch()
         }
         .task(id: store.workoutsEpoch) {
             routes.recoverFromSessions(store.state.workouts)
