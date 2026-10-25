@@ -104,3 +104,9 @@ Esta pasada NO afirma equivalencia de todas las funciones ni un plazo global.
   ReperaHealthExclusion replica ApplematchesReperaSession: idenlazado o un
   único solape>=40%; ambigüedad noexcluye. Distinto del matcherestricto de
   refinamiento.2testsJVM nuevos. No se leyó/escribió Salud real.
+-22:19 objetivosInicio ahora usan día seleccionado: pasos/kcal leídos por día
+  al tenerpermiso, minutos de sesiones locales (duraciónactivaEnVivo) más
+  externas noexcluidas; semanaseleccionada suma sesioneslocales+externas.
+  Falta validaciónvisual y equivalencia completa de duraciónSalud enlazada.
+  Guardacuentarevisión en lecturaSalud evita aplicar datos viejos a otra cuenta.
+  La lectura de pasos/energía no añade permisos, usa los ya existentes.
