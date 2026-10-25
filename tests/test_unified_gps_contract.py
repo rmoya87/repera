@@ -59,6 +59,11 @@ class UnifiedGPSContracts(unittest.TestCase):
         self.assertIn("finishRoute(with: workout, metadata: nil)", self.health)
         self.assertIn('workout.metadata?["ReperaSessionID"]', self.health)
         self.assertIn("await fetchRoutes(for: workout)", self.health)
+        self.assertIn("guard let workoutUUID, let workout = await fetchWorkout", self.health)
+        fetch_impl = self.health.split("private func fetchRoutePoints(", 1)[1].split(
+            "private func mapLocationsToRoutePoints(", 1
+        )[0]
+        self.assertNotIn("fetchRoutes(overlappingStart:", fetch_impl)
         self.assertIn("await HealthKitStore.shared.finishRecordedGPSRoute(", self.store)
 
     def test_planned_outdoor_workout_is_not_strength_by_default(self):
