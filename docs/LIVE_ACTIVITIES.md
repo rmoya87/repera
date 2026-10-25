@@ -27,3 +27,22 @@ El recorrido registrado se guarda en el modelo de Repera y se visualiza en su de
 - Probar un GPX corto, uno largo, uno vacío o malformado y uno con coordenadas fuera de rango.
 - Validar sesión empezada antes de medianoche y finalizada después: debe verse en Inicio en la fecha de inicio.
 - Las clases y la edición avanzada de rutinas siguen entrando por Inicio/Diario. El centro profesional sigue accesible para perfiles vinculados.
+
+## Pantalla bloqueada y Dynamic Island (ActivityKit)
+
+`TrainingActivityAttributes` es un contrato pequeño y codificable compartido entre `Repera` y `ReperaRestWidget`. `TrainingLiveActivityWidget` presenta la misma identidad negra/verde de Repera en todos los deportes: nombre, estado, duración y dos métricas adaptadas al tipo. En pausa, la cabecera cambia a amarillo; al terminar se muestra brevemente el estado completado. La Dynamic Island incorpora modos expanded, compact y minimal. Tocar cualquiera de estas superficies abre `repera://live` o `repera://workout` (no existen botones inertes de pausa dentro del widget).
+
+El reloj se renderiza localmente en el sistema con `Text(date, style: .timer)` y no necesita actualizar ActivityKit cada segundo. El coordinador `WorkoutLiveActivityCoordinator` publica inicio, pausa, reanudación, fin y cambios de métricas. Las actualizaciones GPS son como máximo aproximadamente una cada 15 segundos, aparte de las transiciones de estado. La Live Activity de descanso antigua se conserva como tipo independiente; el sistema decide cuál es visible si coinciden varias.
+
+En los entrenamientos planificados (también los creados con OCR o recibidos del Apple Watch), `ReperaStore` publica el nombre de la sesión, ejercicio actual, progreso de ejercicios y número de series registradas. El widget se actualiza al mutar `activeSession`, persiste aunque `WorkoutView` deje de ser visible y se cierra al finalizar o descartar la sesión. El enlace en la Dynamic Island vuelve a Play si hay una sesión activa.
+
+Apple impone límites de duración y actualización a las Live Activities; por tanto, **no debe confundirse su duración en pantalla con la persistencia y grabación del entrenamiento**. En dispositivos sin soporte de Dynamic Island sigue apareciendo la Live Activity de pantalla bloqueada si el sistema y el usuario la permiten. Sin permiso de Actividades en directo, se sigue grabando el entrenamiento de forma normal. Los controles de pausa de momento están en la aplicación, no son botones App Intent dentro del widget.
+
+### Comprobaciones específicas
+
+- Iniciar/pausar/reanudar/finalizar Carrera y comprobar que el tiempo queda congelado al pausar y continúa sin saltos al reanudar.
+- Repetir con Bicicleta, HIIT y Pádel: nunca inventar velocidad, FC o calorías si falta el sensor.
+- Empezar entrenamiento programado (fuerza/WOD/OCR), completar una serie y cambiar de ejercicio: el widget refleja el progreso.
+- Bloquear el iPhone, abrir Dynamic Island, pulsar y confirmar navegación al flujo correcto.
+- Comprobar coexistencia con la Live Activity del descanso (que sigue siendo independiente).
+- Salir de la app durante una actividad y restaurar la sesión sin perder tiempo o distancia; si se restauró en pausa no contar el tiempo de interrupción.
