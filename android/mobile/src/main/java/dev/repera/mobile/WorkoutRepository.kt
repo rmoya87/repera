@@ -1931,8 +1931,8 @@ class WorkoutRepository(context: Context, googleId: String) {
     /** Edición de un entreno archivado desde el borrador del editor
      *  (HistoryView/DayEditorView iOS + ReperaStore.saveWorkout). Se aplica
      *  SOLO al confirmar. Reglas iOS: fin < inicio => fin = inicio + 60 s; la
-     *  valoración previa (sessionReview) ya no corresponde y se elimina; el
-     *  pin solo se escribe si el entreno no tiene ruta (>= 2 puntos).
+     *  valoración se recalcula (no se borra); el pin solo se escribe si el
+     *  entreno no tiene ruta (>= 2 puntos). Notas y demás datos se conservan.
      *  No crea ni borra entrenos (cuota/tombstones intactos). false si no existe. */
     data class FinishedWorkoutEdit(
         val title: String,
@@ -1956,7 +1956,19 @@ class WorkoutRepository(context: Context, googleId: String) {
         if (end != null) target.put("finishedAt", end.toString())
         val notes = edit.notes?.trim().orEmpty()
         if (notes.isEmpty()) target.remove("notes") else target.put("notes", notes)
-        target.remove("sessionReview")
+        // ReperaStore.saveWorkout iOS (phase == finished): sin vínculo con Salud no
+        // hay kcal verificadas; la duración es fin - inicio (mín. 60 s); y la
+        // valoración se RECALCULA con el historial (attachSessionReview), nunca
+        // se borra por extensión: solo desaparece si el motor devuelve null.
+        if (target.isNull("healthKitWorkoutUUID") || target.optString("healthKitWorkoutUUID").isEmpty()) {
+            target.remove("appleActiveEnergyKcal")
+        }
+        val s2 = start ?: runCatching { java.time.Instant.parse(target.optString("startedAt")) }.getOrNull()
+        val e2 = end ?: runCatching { java.time.Instant.parse(target.optString("finishedAt")) }.getOrNull()
+        if (s2 != null && e2 != null) {
+            target.put("appleDurationSeconds", maxOf(60.0, (e2.toEpochMilli() - s2.toEpochMilli()) / 1000.0))
+        }
+        SessionReviewSupport.attachToFinishedSession(state, target)
         val hasRoute = (target.optJSONArray("routePoints")?.length() ?: 0) >= 2
         if (edit.pinEdited && !hasRoute) {
             val pin = edit.pin

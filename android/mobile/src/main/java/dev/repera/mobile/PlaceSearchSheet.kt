@@ -306,6 +306,15 @@ fun PlaceSearchSheet(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                             .testTag("place_limited_notice"))
                 }
+                if (PlaceSearchPolicy.shouldSearch(query)) {
+                    // Los geocodificadores con datos OSM deben acreditar OpenStreetMap
+                    // (osmfoundation.org/wiki/Licence/Attribution_Guidelines).
+                    Text("Datos de lugares © OpenStreetMap contributors",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                            .testTag("place_osm_attribution"))
+                }
                 resolveError?.let {
                     Text(it, style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,

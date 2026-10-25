@@ -136,13 +136,45 @@ class WorkoutPinEditingInstrumentedTest {
         assertEquals("2026-10-20T10:01:00Z", e.getString("finishedAt"))
     }
 
-    @Test fun editDropsStaleSessionReviewAndBlankNotesRemoveNotes() {
+    @Test fun editRecomputesReviewLikeEngineAndKeepsOtherData() {
         val (repo, _) = repoWithRoutines("r1")
         val a = repo.startStrengthRoutine("r1"); repo.finish()
-        repo.updateFinishedWorkout(a.id, edit(notes = "algo"))
-        repo.updateFinishedWorkout(a.id, edit(notes = "   "))
+        repo.updateFinishedWorkout(a.id, edit(notes = "algo", title = "T"))
         val e = repo.finishedWorkoutsSnapshot().first()
-        assertFalse(e.has("notes"))
-        assertFalse(e.has("sessionReview"))
+        // La valoración debe coincidir con lo que calcula el motor sobre el estado actual
+        // (presente solo si el motor devuelve algo); las notas no se tocan por extensión.
+        val copy = JSONObject(e.toString())
+        val expected = SessionReviewSupport.attachToFinishedSession(
+            JSONObject().put("workouts", JSONArray().put(copy)), copy)
+        assertEquals(expected != null, e.has("sessionReview"))
+        assertEquals("algo", e.getString("notes"))
+        repo.updateFinishedWorkout(a.id, edit(notes = "   ", title = "T"))
+        assertFalse(repo.finishedWorkoutsSnapshot().first().has("notes"))
+    }
+
+    @Test fun durationFollowsDatesAndKcalDroppedWithoutHealthLink() {
+        val (repo, _) = repoWithRoutines("r1")
+        val a = repo.startStrengthRoutine("r1"); repo.finish()
+        repo.updateFinishedWorkout(a.id, edit(start = "2026-10-20T10:00:00Z", end = "2026-10-20T11:00:00Z"))
+        val e = repo.finishedWorkoutsSnapshot().first()
+        assertEquals(3600.0, e.getDouble("appleDurationSeconds"), 1e-6)
+        assertFalse(e.has("appleActiveEnergyKcal"))
+    }
+
+    @Test fun persistenceFailureThrowsAndLeavesDiskUntouched() {
+        val (repo, ctx) = repoWithRoutines("r1")
+        val a = repo.startStrengthRoutine("r1"); repo.finish()
+        val dir = ctx.filesDir.resolve("users").listFiles()!!.first { d ->
+            d.resolve("app_state.json").exists() && d.lastModified() >= 0 &&
+                String(d.resolve("app_state.json").readBytes()).contains(a.id) }
+        val before = dir.resolve("app_state.json").readBytes()
+        assertTrue(dir.setWritable(false))
+        try {
+            var threw = false
+            try { repo.updateFinishedWorkout(a.id, edit(title = "No debe persistir")) }
+            catch (e: Exception) { threw = true }
+            assertTrue(threw)
+            assertArrayEquals(before, dir.resolve("app_state.json").readBytes())
+        } finally { dir.setWritable(true) }
     }
 }
