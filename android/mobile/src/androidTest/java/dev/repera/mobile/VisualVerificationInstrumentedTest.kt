@@ -708,6 +708,11 @@ class VisualVerificationInstrumentedTest {
         compose.onNodeWithTag("edit_finished_workout").performScrollTo().performClick()
         compose.waitForIdle()
         save("editor_terminado_edicion", compose.onRoot().captureToImage())
+        // Acciones inferiores (Guardar / Cancelar / guardar como favorito):
+        // main 25/10 — no basta la zona superior.
+        compose.onNodeWithTag("edit_save").performScrollTo()
+        compose.waitForIdle()
+        save("editor_terminado_acciones", compose.onRoot().captureToImage())
     }
 
     @Test

@@ -306,22 +306,21 @@ private fun BlockEditorCard(
                     TextButton(onClick = it) { Text("Quitar") }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.fillMaxWidth()) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    blockFormats.chunked(4).forEach { rowFormats ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            rowFormats.forEach { wire ->
-                                FilterChip(
-                                    selected = block.format == wire,
-                                    onClick = { block.format = wire },
-                                    label = { Text(formatLabel(wire)) }
-                                )
-                            }
-                        }
-                    }
+            // FlowRow: con chunked(4) el último chip de la fila quedaba estrangulado
+            // ("EMOM / Every X'" se envolvía letra a letra, visto en captura de CI).
+            @androidx.compose.runtime.Composable
+            fun chips() {
+                blockFormats.forEach { wire ->
+                    FilterChip(
+                        selected = block.format == wire,
+                        onClick = { block.format = wire },
+                        label = { Text(formatLabel(wire), maxLines = 1, softWrap = false) }
+                    )
                 }
             }
+            androidx.compose.foundation.layout.FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth()) { chips() }
             when (block.format) {
                 "amrap", "afap", "chipper", "buyInCashOut", "maxEffort" ->
                     NumberRow(block, "Minutos (cap)" to "timeCap")
@@ -360,6 +359,8 @@ private fun BlockEditorCard(
                       modifier = Modifier.testTag("plan_entry_swipe"),
                       backgroundContent = { Text("Quitar", color = MaterialTheme.colorScheme.error,
                           modifier = Modifier.fillMaxWidth().padding(16.dp)) }) {
+                    // Fondo opaco: el "Quitar" rojo traslucía en reposo (captura CI 25/10).
+                    androidx.compose.material3.Surface {
                     EntryEditorRow(
                         entry = entry,
                         resolvedName = entry.name.ifBlank {
@@ -375,6 +376,7 @@ private fun BlockEditorCard(
                         onUp = if (index > 0) ({ val m = block.entries.removeAt(index); block.entries.add(index - 1, m) }) else null,
                         onDown = if (index < block.entries.size - 1) ({ val m = block.entries.removeAt(index); block.entries.add(index + 1, m) }) else null
                     )
+                    }
                   }
                 }
               }

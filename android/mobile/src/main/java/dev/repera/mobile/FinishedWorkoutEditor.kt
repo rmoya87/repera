@@ -616,6 +616,10 @@ internal fun SwipeRemove(id: String, tag: String, onRemove: () -> Unit, content:
         androidx.compose.material3.SwipeToDismissBox(state = st, enableDismissFromStartToEnd = false,
             modifier = Modifier.testTag(tag),
             backgroundContent = { Text("Quitar", color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.fillMaxWidth().padding(16.dp)) }) { content() }
+                modifier = Modifier.fillMaxWidth().padding(16.dp)) }) {
+            // Fondo opaco: sin él el "Quitar" rojo trasluce entre los huecos
+            // de la fila en reposo (visto en captura de CI 25/10).
+            androidx.compose.material3.Surface { content() }
+        }
     }
 }

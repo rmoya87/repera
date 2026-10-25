@@ -89,6 +89,8 @@ import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
 
 internal val brandGreen = Color(0xFF30D158)
+/** Verde legible como texto/primary sobre fondos claros (AA ~4.9:1); brandGreen da ~2:1. */
+internal val brandGreenReadable = Color(0xFF0E7A38)
 
 @Composable
 internal fun ActiveWorkoutCard(
