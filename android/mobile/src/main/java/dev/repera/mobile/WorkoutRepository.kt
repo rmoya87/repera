@@ -37,6 +37,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         save(state)
     }
 
+    @Synchronized internal fun updateProfile(value:ProfileSettings) {val state=requireState();ProfileSettings.apply(state,value);save(state)}
+
     @Synchronized internal fun updateHealthGoals(value:HealthGoals) {
         val state=requireState();HealthGoals.apply(state,value);save(state)
     }

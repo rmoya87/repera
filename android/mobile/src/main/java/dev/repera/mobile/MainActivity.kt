@@ -515,7 +515,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             } else {
             ReperaMobileScreen(
                 isAuthenticated = profile != null,
-                displayName = profile?.displayName,
+                displayName = snapshot?.profileSettings?.displayName ?: profile?.displayName,
                 busy = busy,
                 syncing = syncing,
                 status = status,
@@ -769,6 +769,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 accountId = profile?.uniqueId.orEmpty(),
                 initialExternalRoute = externalRoute,
                 onExternalRouteHandled = { externalRoute = null },
+                onUpdateProfile = {value -> runWorkoutAction {updateProfile(value)}},
                 onUpdateHealthGoals = { goals -> runWorkoutAction { updateHealthGoals(goals) } },
                 onUpdateRotation = { plan -> runWorkoutAction { updateRotation(plan) } },
                 onUpdateTrainingSettings = { value -> runWorkoutAction { updateTrainingSettings(value) } },
@@ -1581,7 +1582,8 @@ data class StateOverview(
     val completeHistory: List<WorkoutHistoryEntry> = emptyList(),
     internal val trainingSettings:TrainingSettings = TrainingSettings(),
     internal val rotationPlan:dev.repera.domain.RotationPlan? = null,
-    val healthGoals:HealthGoals=HealthGoals()
+    val healthGoals:HealthGoals=HealthGoals(),
+    val profileSettings:ProfileSettings=ProfileSettings()
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?, health: HealthSamples? = null,
@@ -1910,7 +1912,7 @@ data class StateOverview(
                 )
             }
             return StateOverview(
-                trainingSettings=trainingSettings,rotationPlan=RotationSettings.read(json),healthGoals=HealthGoals.read(json),
+                trainingSettings=trainingSettings,rotationPlan=RotationSettings.read(json),healthGoals=HealthGoals.read(json),profileSettings=ProfileSettings.read(json),
                 liveSportSessions = LiveSportSnapshot.sessions(json),
                 recovery = recoveryState,
                 favoriteTimerCount = json.optJSONArray("favoriteTimers")?.length() ?: 0,

@@ -160,6 +160,7 @@ fun ReperaMobileScreen(
     onFinish: () -> Unit,
     onDiscardSession: () -> Unit = {},
     accountId: String = "",
+    onUpdateProfile:(ProfileSettings)->Unit = {},
     onSendCenterMessage:(String,String,String)->Unit = {_,_,_->},
     onUpdateHealthGoals:(HealthGoals)->Unit = {},
     onUpdateRotation:(dev.repera.domain.RotationPlan?)->Unit = {},
@@ -572,6 +573,7 @@ fun ReperaMobileScreen(
                         onOpenPro={subs?.presentPaywall(dev.repera.domain.monetization.PaywallContext.SETTINGS,
                             feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)},
                         proStatus=if(subs?.businessSponsoredAccess==true) "Acceso por centro o entrenador" else subs?.status?.displayName,
+                        onUpdateProfile=onUpdateProfile,
                         overview=overview,onUpdateTrainingSettings=onUpdateTrainingSettings,onUpdateRotation=onUpdateRotation,onUpdateHealthGoals=onUpdateHealthGoals,
                         onExportJson=onExportJson,onHealthConnect=onHealthConnect,onSignOut=onSignOut
                     )
@@ -746,11 +748,13 @@ internal fun SettingsTab(
     onSignOut:()->Unit = {},
     onOpenCenter:()->Unit = {},
     onOpenPro:()->Unit = {},
-    proStatus:String? = null
+    proStatus:String? = null,
+    onUpdateProfile:(ProfileSettings)->Unit = {}
 ) {
     Column(modifier = Modifier.fillMaxSize().then(Modifier.verticalScroll(rememberScrollState())).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Ajustes", style = MaterialTheme.typography.titleLarge)
+        ProfileSettingsSection(overview?.profileSettings ?: ProfileSettings(),busy || overview==null,onUpdateProfile)
         TrainingSettingsSection(overview?.trainingSettings ?: TrainingSettings(),busy || overview==null,onUpdateTrainingSettings)
         if(overview?.trainingSettings?.scheduleMode=="rotation")
             RotationSettingsSection(overview.rotationPlan,overview.routineEntries,busy,onUpdateRotation)
