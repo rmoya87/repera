@@ -13,6 +13,7 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 | Documento | Contenido |
 |-----------|-----------|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Capas, targets, paquetes, datos |
+| [docs/GPS_TRACKING.md](docs/GPS_TRACKING.md) | GPS único de Comenzar/Play, HealthKit, rutas, bloqueo, límites de iOS y pruebas |
 | [docs/REMOTE_EXERCISE_CATALOG.md](docs/REMOTE_EXERCISE_CATALOG.md) | Catálogo Supabase incremental, caché offline, BGAppRefresh nativo iOS 27 y despliegue |
 | [docs/FEATURES.md](docs/FEATURES.md) | Funcionalidad por pestaña / flujo |
 | [docs/MOVILITY_CATALOG.md](docs/MOVILITY_CATALOG.md) | Los 82 ejercicios de movilidad, por región y alias inglés |
