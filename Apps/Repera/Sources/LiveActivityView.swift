@@ -757,7 +757,6 @@ struct LiveActivityView: View {
     @State private var importing = false
     @State private var importAfterRouteSheet = false
     @State private var showDiscard = false
-    @State private var showingFinish = false
     /// Vista inicial: mapa para exteriores. Al iniciar, métricas a primer plano.
     /// El botón flotante permite volver al mapa sin pestañas ni controles segmentados.
     @State private var showingMetrics = false
@@ -828,13 +827,6 @@ struct LiveActivityView: View {
                 Button("Cancelar", role: .cancel) {}
             } message: {
                 Text("El recorrido y los datos registrados se perderán.")
-            }
-            .confirmationDialog("¿Terminar el entrenamiento?", isPresented: $showingFinish) {
-                Button("Terminar y revisar") {
-                    recorder.finish()
-                    title = recorder.sport.title
-                }
-                Button("Seguir entrenando", role: .cancel) {}
             }
         }
         .tint(OG.accent)
@@ -918,27 +910,8 @@ struct LiveActivityView: View {
 
     private var mapHeader: some View {
         HStack(spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: recorder.phase == .paused ? "pause.fill" : "location.fill")
-                    .foregroundStyle(recorder.phase == .paused ? OG.orange : OG.accent)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(recorder.phase == .paused ? "En pausa" : recorder.phase == .recording ? "Grabando" : "Comenzar")
-                        .font(.subheadline.weight(.bold))
-                    if let route = recorder.chosenRoute {
-                        Text(route.title)
-                            .font(.caption2)
-                            .lineLimit(1)
-                    } else {
-                        Text(recorder.sport.title)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .glassEffect(.regular, in: .capsule)
-
+            // El mapa queda despejado: sin globo «Comenzar / Bicicleta».
+            // El estado de la sesión y las métricas viven en la parte inferior.
             Spacer(minLength: 0)
 
             if recorder.phase == .idle, let onOpenCenter {
@@ -1171,7 +1144,7 @@ struct LiveActivityView: View {
                     }
                     .buttonStyle(.plain)
                     Button {
-                        showingFinish = true
+                        finishAndShowSave()
                     } label: {
                         Label("Finalizar", systemImage: "flag.checkered")
                             .font(.subheadline.weight(.bold))
@@ -1216,63 +1189,189 @@ struct LiveActivityView: View {
         }
     }
 
+    /// Finalizar conduce directamente al editor de guardado (sin confirmación
+    /// intermedia). El recorder congela los datos antes de mostrar el detalle.
+    private func finishAndShowSave() {
+        guard recorder.phase == .recording || recorder.phase == .paused else { return }
+        recorder.finish()
+        title = recorder.sport.title
+        notes = ""
+    }
+
+    /// Misma presentación de detalle que Entreno/Historial: mapa y parciales
+    /// compartidos, con campos para el nuevo registro (aún sin persistir).
     private var review: some View {
-        Form {
-            Section("Resumen") {
-                LabeledContent("Deporte", value: recorder.sport.title)
-                LabeledContent("Tiempo activo", value: formattedTime(recorder.durationSeconds))
-                if recorder.sport.usesGPS {
-                    LabeledContent("Distancia", value: String(format: "%.2f km", recorder.recordedDistanceMeters / 1000))
-                }
-            }
-            Section("Actividad") {
-                TextField("Título", text: $title)
-                TextField("Notas (opcional)", text: $notes, axis: .vertical)
-                    .lineLimit(2...5)
-                if let route = recorder.chosenRoute {
-                    Label("Ruta guardada: \(route.title)", systemImage: "star.fill")
-                        .font(.footnote).foregroundStyle(OG.label2)
-                }
-            }
-            Section {
-                Button {
-                    guard var session = recorder.makeSession(title: title, notes: notes) else { return }
-                    guard savedWorkoutID != session.id else { return }
-                    savedWorkoutID = session.id
-                    // Archiva automáticamente todo recorrido GPS nuevo para
-                    // repetirlo desde Cargar ruta, sin requerir un toggle.
-                    // Las rutas reutilizadas conservan el mismo UUID para Evolución.
-                    if session.liveRouteID == nil && session.routePoints.count >= 2
-                        && recorder.sport.usesGPS {
-                        do {
-                            session.liveRouteID = try routes.addRecordedRoute(from: session)
-                        } catch {
-                            // Nunca perder una actividad terminada por un fallo
-                            // independiente del almacenamiento de favoritos.
-                            routeError = "La actividad se ha registrado, pero no se pudo archivar la ruta. Comprueba el espacio disponible."
+        List {
+            if let session = recorder.makeSession(title: title, notes: notes) {
+                Section {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text((session.startedAt ?? Date())
+                            .formatted(date: .complete, time: .shortened))
+                            .font(.subheadline)
+                            .foregroundStyle(OG.label2)
+                        HStack(spacing: 10) {
+                            reviewTile(
+                                "Tiempo activo",
+                                value: formattedTime(recorder.durationSeconds),
+                                icon: "clock.fill", tint: OG.blue
+                            )
+                            if recorder.sport.usesGPS {
+                                reviewTile(
+                                    "Distancia",
+                                    value: String(format: "%.2f km",
+                                        session.recordedDistanceMeters ?? 0 / 1000),
+                                    icon: "point.bottomleft.forward.to.point.topright.scurvepath",
+                                    tint: OG.accent
+                                )
+                            }
+                            reviewTile(
+                                "Energía",
+                                value: "—",
+                                icon: "flame.fill",
+                                tint: OG.orange
+                            )
+                        }
+                        if recorder.sport.usesGPS,
+                           let distance = session.recordedDistanceMeters, distance > 0,
+                           recorder.durationSeconds > 0 {
+                            let km = distance / 1000
+                            let speed = km / (recorder.durationSeconds / 3600)
+                            HStack(spacing: 8) {
+                                Label(String(format: "%.1f km/h de media", speed),
+                                      systemImage: "speedometer")
+                                Spacer()
+                                if !recorder.sport.displaysSpeed {
+                                    let sec = Int(recorder.durationSeconds / km)
+                                    Text(String(format: "%d:%02d min/km", sec / 60, sec % 60))
+                                }
+                            }
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
                         }
                     }
-                    store.saveWorkout(session)
-                    let date = session.startedAt ?? Date()
-                    recorder.discard(saved: true)
-                    title = ""
-                    notes = ""
-                    savedWorkoutID = nil
-                    showingMetrics = false
-                    onSaved(date)
-                } label: {
-                    Text("Guardar actividad")
-                        .frame(maxWidth: .infinity)
-                        .font(.headline)
+                    .ogCardListRow(top: 4, bottom: 4)
+                } header: {
+                    Text("Resumen").foregroundStyle(OG.accent).textCase(nil)
                 }
-                .buttonStyle(.borderedProminent).tint(OG.accent)
-                .foregroundStyle(.black)
-            }
-            Section {
-                Button("Descartar actividad", role: .destructive) { showDiscard = true }
+
+                if session.routePoints.count >= 2 {
+                    let route = session.routePoints.map { point in
+                        HealthKitStore.RoutePoint(
+                            id: point.id,
+                            latitude: point.latitude,
+                            longitude: point.longitude,
+                            date: point.recordedAt,
+                            speedMps: point.speedMps,
+                            altitudeMeters: point.altitudeMeters
+                        )
+                    }
+                    Section {
+                        SessionMapWeatherCard(
+                            latitude: route.first?.latitude,
+                            longitude: route.first?.longitude,
+                            workoutDate: session.startedAt ?? .now
+                        ) {
+                            HealthWorkoutRouteMap(points: route, isInteractive: false)
+                        }
+                        .ogCardListRow()
+                    } header: {
+                        Text("Recorrido").foregroundStyle(OG.accent).textCase(nil)
+                    }
+                    Section {
+                        CardioSplitsView(
+                            routePoints: route, heartRate: [],
+                            cycling: recorder.sport.displaysSpeed
+                        )
+                        .ogCardListRow()
+                    } header: {
+                        Text("Parciales").foregroundStyle(OG.accent).textCase(nil)
+                    }
+                } else if recorder.sport.usesGPS {
+                    Section {
+                        ContentUnavailableView(
+                            "Recorrido sin puntos GPS",
+                            systemImage: "location.slash",
+                            description: Text("El tiempo se ha guardado, pero no hay suficientes posiciones para dibujar el recorrido.")
+                        )
+                        .ogCardListRow()
+                    } header: {
+                        Text("Recorrido").foregroundStyle(OG.accent).textCase(nil)
+                    }
+                }
+
+                Section("Detalles de la actividad") {
+                    TextField("Nombre", text: $title)
+                        .foregroundStyle(OG.label)
+                    TextField("Notas (opcional)", text: $notes, axis: .vertical)
+                        .lineLimit(2...5)
+                    if let route = recorder.chosenRoute {
+                        Label("Ruta: \(route.title)", systemImage: "star.fill")
+                            .foregroundStyle(OG.label2)
+                    }
+                }
+                Section {
+                    Button {
+                        saveRecordedActivity()
+                    } label: {
+                        Label("Guardar actividad", systemImage: "checkmark")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, minHeight: 52)
+                            .foregroundStyle(.black)
+                            .background(OG.accent, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .ogCardListRow()
+                }
+
+                Section {
+                    Button("Descartar actividad", role: .destructive) { showDiscard = true }
+                }
             }
         }
-        .scrollContentBackground(.hidden)
+        .ogListChrome()
+        .listSectionSpacing(12)
+    }
+
+    private func reviewTile(
+        _ label: String, value: String, icon: String, tint: Color
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(tint)
+            Text(value)
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .foregroundStyle(OG.label)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+            Text(label).font(.caption2).foregroundStyle(OG.label3)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+    }
+
+    private func saveRecordedActivity() {
+        guard var session = recorder.makeSession(title: title, notes: notes) else { return }
+        guard savedWorkoutID != session.id else { return }
+        savedWorkoutID = session.id
+        if session.liveRouteID == nil && session.routePoints.count >= 2 &&
+            recorder.sport.usesGPS {
+            do {
+                session.liveRouteID = try routes.addRecordedRoute(from: session)
+            } catch {
+                // No perder el entrenamiento registrado si falla el catálogo GPX.
+                routeError = "No se pudo archivar la ruta. La actividad sí se guardará."
+            }
+        }
+        store.saveWorkout(session)
+        let day = session.startedAt ?? Date()
+        recorder.discard(saved: true)
+        title = ""
+        notes = ""
+        savedWorkoutID = nil
+        showingMetrics = false
+        onSaved(day)
     }
 
     private var routeSheet: some View {
