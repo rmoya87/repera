@@ -337,12 +337,14 @@ final class WatchSessionHub: NSObject {
     /// HealthKit sends physical two-button pause requests and state changes.
     /// Repera remains the owner of interval and set timers; both clocks pause together.
     private func applyHealthPauseRequest() {
-        guard hasWorkoutInProgress, active?.phase == .counting, !reviewingBlock else { return }
+        guard hasWorkoutInProgress, !reviewingBlock,
+              active?.phase == .counting || active?.liveSportID != nil else { return }
         if isPaused { play() } else { pause() }
     }
 
     private func alignWithHealthState(paused: Bool) {
-        guard hasWorkoutInProgress, active?.phase == .counting, !reviewingBlock,
+        guard hasWorkoutInProgress, !reviewingBlock,
+              active?.phase == .counting || active?.liveSportID != nil,
               paused != isPaused else { return }
         if paused { pause() } else { play() }
     }
@@ -386,8 +388,71 @@ final class WatchSessionHub: NSObject {
         checkpoint()
     }
 
+    /// «Comenzar» comparte el UUID, la persistencia y el transporte offline
+    /// de Play, pero no inventa ejercicios/series para deportes sin prescripción.
+    private func acceptFreeWorkout(_ remote: WorkoutSession) {
+        if remote.phase == .finished {
+            if active?.id == remote.id { finishWorkout() }
+            return
+        }
+        guard let type = remote.liveSportID else { return }
+        if let active, active.id == remote.id {
+            // GPS y rutas son del iPhone; sensores/calorías pertenecen al Watch.
+            var merged = active
+            merged.recordedDistanceMeters = remote.recordedDistanceMeters
+            merged.liveRouteID = remote.liveRouteID
+            controller = SessionController(session: merged)
+            if remote.phase == .ready && !isPaused { pauseFree() }
+            if remote.phase == .counting && isPaused { resumeFree() }
+            save()
+            return
+        }
+        guard controller == nil, !awaitingHealthSave,
+              lastFinished?.id != remote.id else { return }
+        controller = SessionController(session: remote)
+        startedOnThisWatch = true
+        lastFinished = nil
+        summaryDismissed = false
+        acknowledgedSessionID = nil
+        isPaused = remote.phase == .ready
+        restRemaining = 0
+        blockElapsed = 0
+        sessionElapsed = max(0, Int(remote.activeDurationSeconds ?? 0))
+        lastClockTick = isPaused ? nil : Date()
+        health.start(
+            id: remote.id, at: remote.startedAt ?? Date(),
+            includesWOD: false, includesStrength: false, liveSportID: type
+        )
+        startClock()
+        checkpoint()
+        if isPaused { health.pause() }
+    }
+
+    private func pauseFree() {
+        guard var session = active, session.liveSportID != nil, !isPaused else { return }
+        tickClock()
+        isPaused = true
+        lastClockTick = nil
+        session.phase = .ready
+        session.activeDurationSeconds = Double(sessionElapsed)
+        controller = SessionController(session: session)
+        if startedOnThisWatch { health.pause() }
+        checkpoint()
+    }
+
+    private func resumeFree() {
+        guard var session = active, session.liveSportID != nil, isPaused else { return }
+        isPaused = false
+        lastClockTick = Date()
+        session.phase = .counting
+        controller = SessionController(session: session)
+        if startedOnThisWatch { health.resume() }
+        checkpoint()
+    }
+
     /// One play per block / standalone exercise. A counting session does not reset.
     func play() {
+        if active?.liveSportID != nil { resumeFree(); return }
         guard var ctrl = controller, ctrl.session.phase != .finished else { return }
         if isPaused {
             isPaused = false
@@ -425,6 +490,7 @@ final class WatchSessionHub: NSObject {
     }
 
     func pause() {
+        if active?.liveSportID != nil { pauseFree(); return }
         guard hasWorkoutInProgress, active?.phase == .counting, !isPaused else { return }
         tickClock()
         isPaused = true
@@ -915,6 +981,15 @@ final class WatchSessionHub: NSObject {
 
     /// The final action is explicit and saves the already-confirmed results.
     func finishWorkout() {
+        if var sport = active, sport.liveSportID != nil, sport.phase != .finished {
+            tickClock()
+            sport.phase = .finished
+            sport.finishedAt = Date()
+            sport.activeDurationSeconds = Double(sessionElapsed)
+            controller = SessionController(session: sport)
+            completeSession()
+            return
+        }
         guard var ctrl = controller, ctrl.session.phase != .finished,
               !awaitingHealthSave else { return }
         tickClock()
@@ -1057,7 +1132,7 @@ final class WatchSessionHub: NSObject {
     private func startMotion() {
         stopMotion()
         guard !isPaused, restRemaining == 0, motion.isDeviceMotionAvailable,
-              active?.phase == .counting,
+              active?.liveSportID == nil, active?.phase == .counting,
               loggingStyle != .machineWork, loggingStyle != .repsAndTime else { return }
         motion.deviceMotionUpdateInterval = 1.0 / 25.0
         motion.startDeviceMotionUpdates(using: .xArbitraryZVertical)
@@ -1074,7 +1149,7 @@ final class WatchSessionHub: NSObject {
 
     private func tickMotion() {
         guard !isPaused, !reviewingBlock, restRemaining == 0,
-              active?.phase == .counting,
+              active?.liveSportID == nil, active?.phase == .counting,
               loggingStyle != .machineWork, loggingStyle != .repsAndTime,
               selectedSetIndex == nil, let data = motion.deviceMotion else { return }
         let u = data.userAcceleration
@@ -1146,6 +1221,10 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
     nonisolated func watchConnectivityDidReceive(session: WorkoutSession?) {
         Task { @MainActor in
             guard let session else { return } // Nil from phone cannot erase offline edits.
+            if session.liveSportID != nil {
+                self.acceptFreeWorkout(session)
+                return
+            }
             guard self.controller == nil, self.lastFinished?.id != session.id,
                   session.phase != .finished else { return }
             self.controller = SessionController(session: session)
