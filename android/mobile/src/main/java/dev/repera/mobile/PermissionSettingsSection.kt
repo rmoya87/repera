@@ -16,6 +16,8 @@ import androidx.core.app.NotificationManagerCompat
 /** Reads real grants; only explicit button taps request a permission. */
 @Composable internal fun PermissionSettingsSection(onHealthConnect:()->Unit) {
     val context=LocalContext.current
+    var healthStatus by remember {mutableStateOf("Comprobando")}
+
     var revision by remember { mutableIntStateOf(0) }
     val owner=androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(owner) {
@@ -24,6 +26,12 @@ import androidx.core.app.NotificationManagerCompat
         }
         owner.lifecycle.addObserver(observer)
         onDispose {owner.lifecycle.removeObserver(observer)}
+    }
+    LaunchedEffect(revision) {
+        healthStatus=runCatching {
+            val reader=HealthConnectReader(context)
+            if(!reader.available()) "No disponible" else if(reader.hasPermissions()) "Autorizada" else "Sin autorización completa"
+        }.getOrDefault("No se pudo comprobar")
     }
     fun openSettings() {context.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:${context.packageName}")))}
     val location=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {revision++}
@@ -39,6 +47,7 @@ import androidx.core.app.NotificationManagerCompat
     OutlinedButton(onClick={
         location.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION))
     }) {Text("Ubicación: ${if(locationGranted) "Permitida" else "No permitida"}")}
+    Text("Salud: $healthStatus")
     OutlinedButton(onClick=onHealthConnect) {Text("Conectar con Salud")}
     OutlinedButton(onClick=::openSettings) {Text("Abrir Ajustes del sistema")}
 }
