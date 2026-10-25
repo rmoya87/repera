@@ -1,4 +1,5 @@
 import Foundation
+import HealthKit
 import ReperaDomain
 import Observation
 import WatchConnectivity
@@ -694,13 +695,36 @@ final class ReperaStore: NSObject {
         return true
     }
 
+    /// One classification is shared by the live HealthKit builder and its
+    /// final HKWorkout, avoiding an indoor strength workout for a planned run.
+    private func workoutHealthType(for session: WorkoutSession) -> HKWorkoutActivityType {
+        if let sport = session.liveSportID.flatMap(LiveSport.init(rawValue:)) {
+            return sport.healthType
+        }
+        guard WorkoutLocationTracker.shouldTrackRoute(for: session) else {
+            return .traditionalStrengthTraining
+        }
+        let title = session.title.folding(options: .diacriticInsensitive, locale: .current).lowercased()
+        if ["bici", "cicl", "bike", "cycling", "gravel"].contains(where: title.contains) {
+            return .cycling
+        }
+        if ["camin", "walk", "sender", "hiking"].contains(where: title.contains) {
+            return .walking
+        }
+        if ["carrera", "running", "trail", "correr"].contains(where: title.contains) {
+            return .running
+        }
+        return .other
+    }
+
     private func beginHealthTracking(for session: WorkoutSession) {
         let start = session.startedAt ?? Date()
+        let outdoor = WorkoutLocationTracker.shouldTrackRoute(for: session)
+        let activityType = workoutHealthType(for: session)
         Task {
             await HealthKitStore.shared.beginWorkout(
-                sessionId: session.id,
-                title: session.title,
-                start: start
+                sessionId: session.id, title: session.title, start: start,
+                activityType: activityType, locationType: outdoor ? .outdoor : .indoor
             )
         }
     }
@@ -708,22 +732,22 @@ final class ReperaStore: NSObject {
     private func beginLocationTracking(for session: WorkoutSession) {
         let sessionID = session.id
         let trackRoute = WorkoutLocationTracker.shouldTrackRoute(for: session)
+        let cycling = workoutHealthType(for: session) == .cycling
         Task {
             let tracker = WorkoutLocationTracker.shared
-            // Si aún no se pidió permiso, el modal del sistema sale aquí (Play / empezar).
-            guard await tracker.ensureWhenInUseAuthorized() else { return }
-            if let pin = await tracker.capturePin() {
-                if var active = state.activeSession, active.id == sessionID,
-                   active.locationPin == nil {
-                    // Respetar cualquier pin elegido por el usuario, incluso
-                    // uno sin nombre ni identificador de MapKit.
-                    active.locationPin = pin
-                    state.activeSession = active
-                    persist()
-                }
+            guard await tracker.ensureWhenInUseAuthorized(),
+                  state.activeSession?.id == sessionID else { return }
+            // Start immediately; waiting up to four seconds for a location pin
+            // must not discard the first metres of a planned workout.
+            if trackRoute, tracker.startRouteTracking(sessionID: sessionID, cycling: cycling) {
+                await HealthKitStore.shared.beginRecordedGPSRoute(sessionID: sessionID)
             }
-            if trackRoute {
-                tracker.startRouteTracking(sessionID: sessionID)
+            if let pin = await tracker.capturePin(),
+               var active = state.activeSession, active.id == sessionID,
+               active.locationPin == nil {
+                active.locationPin = pin
+                state.activeSession = active
+                persist()
             }
         }
     }
@@ -831,9 +855,13 @@ final class ReperaStore: NSObject {
         pushActiveToWatch(immediate: true)
 
         if save {
-            let routePoints = WorkoutLocationTracker.shared.stopRouteTracking()
+            let tracker = WorkoutLocationTracker.shared
+            let distance = tracker.trackingSessionID == session.id
+                ? tracker.recordedDistanceMeters : 0
+            let routePoints = tracker.stopRouteTracking(sessionID: session.id)
             if !routePoints.isEmpty {
                 session.routePoints = routePoints
+                session.recordedDistanceMeters = distance
             }
             // Hasta que Apple Salud confirme una medición, las kcal son desconocidas.
             session.appleActiveEnergyKcal = nil
@@ -851,8 +879,21 @@ final class ReperaStore: NSObject {
                     sessionId: sessionId,
                     title: title,
                     start: start,
-                    end: end
+                    end: end,
+                    activityType: workoutHealthType(for: session),
+                    locationType: WorkoutLocationTracker.shouldTrackRoute(for: session)
+                        ? .outdoor : .indoor
                 )
+                if let uuid = apple.workoutUUID, !routePoints.isEmpty {
+                    let streamed = await HealthKitStore.shared.finishRecordedGPSRoute(
+                        sessionID: sessionId, workoutUUID: uuid
+                    )
+                    if !streamed {
+                        await HealthKitStore.shared.attachRecordedRouteIfNeeded(
+                            sessionId: sessionId, workoutUUID: uuid, points: routePoints
+                        )
+                    }
+                }
                 if var updated = state.workouts.first(where: { $0.id == sessionId }) {
                     updated.startedAt = apple.startedAt
                     updated.finishedAt = apple.finishedAt
@@ -868,8 +909,11 @@ final class ReperaStore: NSObject {
                 await refineSessionReviewWithHealth(sessionId: sessionId)
             }
         } else {
-            _ = WorkoutLocationTracker.shared.stopRouteTracking()
-            Task { await HealthKitStore.shared.discardLiveTracking() }
+            _ = WorkoutLocationTracker.shared.stopRouteTracking(sessionID: session.id)
+            Task {
+                HealthKitStore.shared.discardRecordedGPSRoute(sessionID: session.id)
+                await HealthKitStore.shared.discardLiveTracking()
+            }
         }
     }
 
@@ -1345,18 +1389,22 @@ final class ReperaStore: NSObject {
             title: session.title,
             start: start,
             end: end,
-            activityType: liveSport?.healthType ?? .traditionalStrengthTraining,
-            locationType: liveSport?.usesGPS == true ? .outdoor : .indoor
+            activityType: liveSport?.healthType ?? workoutHealthType(for: session),
+            locationType: WorkoutLocationTracker.shouldTrackRoute(for: session) ? .outdoor : .indoor
         )
         guard let uuid = apple.workoutUUID,
               var current = state.workouts.first(where: { $0.id == sessionId })
         else { return false }
         if current.routePoints.count >= 2 {
-            await HealthKitStore.shared.attachRecordedRouteIfNeeded(
-                sessionId: current.id,
-                workoutUUID: uuid,
-                points: current.routePoints
+            let streamed = await HealthKitStore.shared.finishRecordedGPSRoute(
+                sessionID: current.id, workoutUUID: uuid
             )
+            if !streamed {
+                await HealthKitStore.shared.attachRecordedRouteIfNeeded(
+                    sessionId: current.id, workoutUUID: uuid,
+                    points: current.routePoints
+                )
+            }
         }
         guard current.healthKitWorkoutUUID == nil else { return true }
         current.healthKitWorkoutUUID = uuid
