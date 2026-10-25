@@ -933,6 +933,7 @@ final class LiveActivityRecorder: NSObject {
             result = "\(split.clock) min/km"
         }
         latestKilometerReport = "Km \(split.kilometer) · \(result)"
+        var didSpeak = false
         if sport.usesGPS {
             let seconds = max(1, Int(split.seconds.rounded()))
             let minutes = seconds / 60
@@ -943,7 +944,7 @@ final class LiveActivityRecorder: NSObject {
             let message = sport.displaysSpeed
                 ? "Has completado el kilómetro \(split.kilometer). Tu velocidad media ha sido de \(String(format: "%.1f", 3600 / split.seconds)) kilómetros por hora."
                 : "Has completado el kilómetro \(split.kilometer). Lo has hecho en \(spokenTime)."
-            speakNavigation(message)
+            didSpeak = speakNavigation(message)
         }
         if UIApplication.shared.applicationState == .active {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -951,7 +952,8 @@ final class LiveActivityRecorder: NSObject {
         notifyDuringBackground(
             identifier: "repera.km.\(startedAt?.timeIntervalSince1970 ?? 0).\(split.kilometer)",
             title: "Kilómetro \(split.kilometer) completado",
-            body: result
+            body: result,
+            fallbackWhenSpeechFailed: !didSpeak
         )
         persistSnapshot()
     }
@@ -1000,22 +1002,24 @@ final class LiveActivityRecorder: NSObject {
                 announcedTurnIndices.insert(next.routeIndex)
                 // La guía procede solo de la geometría GPX: no sustituye
                 // señalización ni navegación vial oficial.
-                speakNavigation(upcomingTurn ?? next.instruction)
+                let didSpeak = speakNavigation(upcomingTurn ?? next.instruction)
                 notifyDuringBackground(
                     identifier: "repera.turn.\(startedAt?.timeIntervalSince1970 ?? 0).\(next.routeIndex)",
                     title: "Giro orientativo del GPX",
-                    body: upcomingTurn ?? next.instruction
+                    body: upcomingTurn ?? next.instruction,
+                    fallbackWhenSpeechFailed: !didSpeak
                 )
             }
         }
     }
 
     private func notifyDuringBackground(
-        identifier: String, title: String, body: String
+        identifier: String, title: String, body: String,
+        fallbackWhenSpeechFailed: Bool = false
     ) {
-        // Con voz, la indicación hablada reemplaza a la notificación duplicada.
-        // Sin voz, el aviso es VISUAL y nunca modifica la reproducción ajena.
-        guard !spokenGuidanceEnabled,
+        // No duplicar avisos hablados. Si falla la locución en segundo plano,
+        // permitir solo el aviso visual (jamás interrumpir el audio de otra app).
+        guard (!spokenGuidanceEnabled || fallbackWhenSpeechFailed),
               UIApplication.shared.applicationState != .active else { return }
         let content = UNMutableNotificationContent()
         content.title = title
