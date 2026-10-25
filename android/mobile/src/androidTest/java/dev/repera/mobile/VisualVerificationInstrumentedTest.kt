@@ -884,18 +884,20 @@ class VisualVerificationInstrumentedTest {
         }
         compose.onNodeWithText("Buscar lugar").assertIsDisplayed()
         val z0 = cameraRef.get()!!.first
-        // Pinch tambien por el pipeline real: la inyeccion Compose comprime
-        // el gesto de dos punteros a ~5ms y MapLibre no lo traduce a zoom
-        // (evidencia run 40209817888: stream de pinch truncado, zoom intacto
-        // en las 3 patas; el pan via UiDevice si funciono).
-        // uiautomator 2.3.0 no tiene UiDevice.performTwoPointerGesture;
-        // UiObject2.pinchOpen usa el mismo pipeline real de input.
-        // El MapView (SurfaceView) no aparece en el arbol de accesibilidad
-        // por clase; el nodo Compose expone su testTag como resource-id.
-        val mapObj = uiDevice.findObject(
-            androidx.test.uiautomator.By.res("place_pin_map"))
-            ?: error("place_pin_map no encontrado por uiautomator")
-        mapObj.pinchOpen(0.4f, 200)
+        // Pinch por inyeccion directa de MotionEvent al pipeline real
+        // (UiAutomation.injectInputEvent: el mismo transporte que usa
+        // UiDevice.swipe, que ya movio la camara con reason=1). El
+        // MapView/SurfaceView NO es localizable en el arbol de
+        // accesibilidad (run 40213663290 By.clazz y run 40215348119
+        // By.res con testTagsAsResourceId: ninguno lo ve), asi que el
+        // gesto de dos punteros se construye por coordenadas sobre los
+        // bounds ya validados por el pan, con tiempos reales entre MOVEs
+        // (la inyeccion Compose comprime el stream a ~5ms y MapLibre lo
+        // descarta, run 40209817888).
+        injectPinchOpen(
+            cx = swipeFromX.toFloat(), cy = swipeFromY.toFloat(),
+            startRadius = minOf(pinMapBounds.width, pinMapBounds.height) * 0.10f,
+            endRadius = minOf(pinMapBounds.width, pinMapBounds.height) * 0.40f)
         compose.waitUntil(timeoutMillis = 15_000) { cameraRef.get()!!.first > z0 }
         compose.onNodeWithText("Buscar lugar").assertIsDisplayed()
         // Tocar el mapa CIERRA la búsqueda presentada (dismissSearch iOS):
@@ -1074,4 +1076,63 @@ class VisualVerificationInstrumentedTest {
         compose.waitForIdle()
         save("editor_terminado_drag_despues", compose.onRoot().captureToImage())
     }
+    // Inyecta un pinch-open de dos punteros por el pipeline REAL de input
+    // (UiAutomation.injectInputEvent), con tiempos reales entre eventos.
+    // Necesario porque ni la inyeccion Compose (comprime a ~5ms) ni los
+    // localizadores de uiautomator (el SurfaceView de MapLibre no aparece
+    // en el arbol de accesibilidad) sirven para este gesto.
+    private fun injectPinchOpen(
+        cx: Float, cy: Float, startRadius: Float, endRadius: Float,
+        steps: Int = 20, stepDelayMs: Long = 12,
+    ) {
+        val automation = androidx.test.platform.app.InstrumentationRegistry
+            .getInstrumentation().uiAutomation
+        val downTime = android.os.SystemClock.uptimeMillis()
+        fun props(count: Int): Array<android.view.MotionEvent.PointerProperties> =
+            Array(count) { i ->
+                android.view.MotionEvent.PointerProperties().apply {
+                    id = i
+                    toolType = android.view.MotionEvent.TOOL_TYPE_FINGER
+                }
+            }
+        fun coords(count: Int, r: Float): Array<android.view.MotionEvent.PointerCoords> =
+            Array(count) { i ->
+                android.view.MotionEvent.PointerCoords().apply {
+                    x = if (i == 0) cx - r else cx + r
+                    y = cy
+                    pressure = 1f
+                    size = 1f
+                }
+            }
+        fun inject(action: Int, count: Int, r: Float) {
+            val ev = android.view.MotionEvent.obtain(
+                downTime, android.os.SystemClock.uptimeMillis(), action,
+                count, props(count), coords(count, r),
+                0, 0, 1f, 1f, 0, 0,
+                android.view.InputDevice.SOURCE_TOUCHSCREEN, 0)
+            try {
+                if (!automation.injectInputEvent(ev, true)) {
+                    error("injectInputEvent rechazado (action=$action)")
+                }
+            } finally {
+                ev.recycle()
+            }
+        }
+        val secondDown = android.view.MotionEvent.ACTION_POINTER_DOWN or
+            (1 shl android.view.MotionEvent.ACTION_POINTER_INDEX_SHIFT)
+        val secondUp = android.view.MotionEvent.ACTION_POINTER_UP or
+            (1 shl android.view.MotionEvent.ACTION_POINTER_INDEX_SHIFT)
+        inject(android.view.MotionEvent.ACTION_DOWN, 1, startRadius)
+        inject(secondDown, 2, startRadius)
+        val dr = (endRadius - startRadius) / steps
+        var r = startRadius
+        repeat(steps) {
+            r += dr
+            inject(android.view.MotionEvent.ACTION_MOVE, 2, r)
+            android.os.SystemClock.sleep(stepDelayMs)
+        }
+        inject(secondUp, 2, endRadius)
+        inject(android.view.MotionEvent.ACTION_UP, 1, endRadius)
+    }
+
 }
