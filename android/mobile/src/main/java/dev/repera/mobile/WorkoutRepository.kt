@@ -1429,22 +1429,62 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
      * como sesión (sin persistir). null si no hay rutina de hoy o hay sesión
      * activa. Equivale al todayPlan que el iPhone envía al Apple Watch.
      */
-    @Synchronized fun todayPlanSession(today: LocalDate = LocalDate.now()): JSONObject? {
+    @Synchronized fun todayPlanSession(today: LocalDate = LocalDate.now(),
+        professional:List<BusinessCenterStore.ProfessionalSession> = emptyList()): JSONObject? {
         val state = loadOrNull() ?: return null
         if (!state.isNull("activeSession")) return null
-        val routines = state.optJSONArray("routines") ?: return null
+        val routines = state.optJSONArray("routines") ?: JSONArray()
         val choices=(0 until routines.length()).map { routines.getJSONObject(it) }
         val rotationID=RotationSettings.nextRoutineId(state)
         val routine = if(TrainingSettings.read(state).scheduleMode=="rotation") choices.firstOrNull {it.optString("id")==rotationID}
         else choices.firstOrNull { routine ->
-                val scheduled = routine.optString("scheduledDate")
-                    .takeIf { it.isNotBlank() && it != "null" }
-                    ?.take(10)
-                scheduled == today.toString() ||
-                    (scheduled == null &&
-                        routine.optInt("weekday", -1) == today.dayOfWeek.value)
-            } ?: return null
-        return runCatching { assembleSession(state, routine ?: return null) }.getOrNull()
+            val scheduled=routine.optString("scheduledDate").takeIf {it.isNotBlank() && it!="null"}?.take(10)
+            scheduled==today.toString() || (scheduled==null && routine.optInt("weekday",-1)==today.dayOfWeek.value)
+        }
+        val personal=routine?.let {runCatching {assembleSession(state,it)}.getOrNull()}
+        if(personal?.optJSONArray("exercises")?.length()?.let {it>0}==true) return personal
+        val assigned=professional.firstOrNull {it.scheduledDate==today.toString() && it.status=="scheduled" &&
+            it.prescription?.optInt("schemaVersion")==1 && (it.prescription.optJSONArray("blocks")?.length() ?: 0)>0} ?: return null
+        // Apple professionalWorkoutForWatchToday: clone catalog for resolution,
+        // no writes, no personal catalog/routine additions and no progression.
+        val temporary=JSONObject(state.toString())
+        val catalog=temporary.optJSONArray("exercises") ?: JSONArray().also {temporary.put("exercises",it)}
+        val blocks=JSONArray()
+        val source=assigned.prescription!!.getJSONArray("blocks")
+        for(i in 0 until source.length()) {
+            val prescribed=source.getJSONObject(i);val wod=prescribed.optString("kind")=="wod"
+            val block=JSONObject().put("id",prescribed.getString("id")).put("title",prescribed.optString("title"))
+                .put("kind",if(wod) "wod" else "strength").put("exercises",JSONArray()).put("movements",JSONArray())
+            val format=prescribed.optString("wodFormat").let {raw -> when(raw.lowercase().replace("_","")) {
+                "rft","fortime" -> "forTime";"every","emom" -> "emom";else -> raw
+            }}
+            if(format.isNotEmpty() && format!="null") block.put("wodFormat",format)
+            listOf("rounds","timeCapMinutes").forEach {key -> if(prescribed.has(key) && !prescribed.isNull(key)) block.put(key,prescribed.get(key))}
+            val entries=prescribed.optJSONArray(if(wod) "movements" else "exercises") ?: JSONArray()
+            for(j in 0 until entries.length()) {
+                val entry=entries.getJSONObject(j)
+                val known=(0 until catalog.length()).map {catalog.getJSONObject(it)}
+                val resolved=known.firstOrNull {it.optString("id")==entry.optString("catalogKey")} ?:
+                    known.firstOrNull {dev.repera.domain.ExerciseEquivalence.sameName(it.optString("name"),entry.optString("name"))} ?:
+                    JSONObject().put("id",UUID.randomUUID().toString()).put("name",entry.optString("name"))
+                        .put("muscleGroup","Entrenador").put("isCustom",true).also {catalog.put(it)}
+                val planned=entry.optJSONArray("plannedSets")?.let {JSONArray(it.toString())} ?: JSONArray()
+                for(k in 0 until planned.length()) {val set=planned.getJSONObject(k);set.put("targetReps",set.optInt("targetReps").coerceAtLeast(0))}
+                val item=JSONObject().put("id",entry.getString("id")).put("exerciseId",resolved.getString("id"))
+                if(wod) {
+                    item.put("name",resolved.getString("name"))
+                    listOf("reps","notes").forEach {key -> if(entry.has(key) && !entry.isNull(key)) item.put(key,entry.get(key))}
+                    if(planned.length()>0) item.put("explicitPlannedSets",planned)
+                    block.getJSONArray("movements").put(item)
+                } else {
+                    if(planned.length()==0) planned.put(JSONObject().put("id",UUID.randomUUID().toString()).put("targetReps",entry.optInt("reps").coerceAtLeast(0)))
+                    item.put("plannedSets",planned);block.getJSONArray("exercises").put(item)
+                }
+            }
+            blocks.put(block)
+        }
+        val projected=JSONObject().put("id",assigned.id).put("title",assigned.title).put("blocks",blocks).put("progression","off")
+        return runCatching {assembleSession(temporary,projected,allowAdvanced=false)}.getOrNull()
     }
 
     /**

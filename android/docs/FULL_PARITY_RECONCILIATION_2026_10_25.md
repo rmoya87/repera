@@ -80,3 +80,8 @@ Esta pasada NO afirma equivalencia de todas las funciones ni un plazo global.
   de cuenta evita aplicar carga o error de cuenta anterior y borra datos al cambiar.
 - BusinessProjectionInstrumentedTest2 preparados, compilan, noejecutados;
   capturas pendientes. No cerrar paridad mensajes/profesional ni HealthGoals.
+-22:10 proyección planprofesionalWear añadida como fallback a rutina propia,
+  sin persistencia y progresiónoff; resolución catálogo existente porid/nombre o
+  ejercicio temporal. Guardas sesiónactiva/fecha/schema/status. Test integrado
+  preparado comprueba prioridadpersonal y noescritura, noejecutado aún.
+  Logout limpia también caché plan/timer delreloj. E2E físico siguependiente.
