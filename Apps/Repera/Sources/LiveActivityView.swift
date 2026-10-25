@@ -147,8 +147,14 @@ final class LiveRoutesStore {
 }
 
 private enum LiveRouteError: LocalizedError {
-    case empty
-    var errorDescription: String? { "El archivo no contiene un recorrido GPX válido." }
+    case empty, invalidXML
+
+    var errorDescription: String? {
+        switch self {
+        case .empty: "Este GPX no contiene al menos dos puntos de recorrido."
+        case .invalidXML: "El archivo GPX está dañado o no tiene un formato válido."
+        }
+    }
 }
 
 private final class LiveGPXParser: NSObject, XMLParserDelegate {
@@ -160,7 +166,8 @@ private final class LiveGPXParser: NSObject, XMLParserDelegate {
     func parse(_ data: Data) throws -> [WorkoutRoutePoint] {
         let parser = XMLParser(data: data)
         parser.delegate = self
-        guard parser.parse(), points.count >= 2 else { throw LiveRouteError.empty }
+        guard parser.parse() else { throw LiveRouteError.invalidXML }
+        guard points.count >= 2 else { throw LiveRouteError.empty }
         return points
     }
 
@@ -533,7 +540,18 @@ extension LiveActivityRecorder: CLLocationManagerDelegate {
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        let message = error.localizedDescription
+        let code = (error as? CLError)?.code
+        // CoreLocation puede emitir locationUnknown al adquirir señal; no es un fallo
+        // persistente y no debe mostrar "The operation couldn't be completed".
+        if code == .locationUnknown { return }
+        let message: String
+        if code == .denied {
+            message = "Activa la ubicación para registrar el recorrido."
+        } else if code == .network {
+            message = "La ubicación no está disponible. Seguimos registrando el tiempo."
+        } else {
+            message = "GPS temporalmente no disponible. Seguimos registrando el tiempo."
+        }
         Task { @MainActor [weak self] in self?.gpsMessage = message }
     }
 }
@@ -716,6 +734,14 @@ struct LiveActivityView: View {
                         .font(.caption.weight(.semibold))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
+                        .glassEffect(.regular, in: .capsule)
+                }
+                if let gpsMessage = recorder.gpsMessage, recorder.phase == .idle {
+                    Text(gpsMessage)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(OG.label)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
                         .glassEffect(.regular, in: .capsule)
                 }
                 Spacer(minLength: 0)
@@ -1024,8 +1050,10 @@ struct LiveActivityView: View {
                 guard let route = routes.routes.first else { return }
                 recorder.selectRoute(route)
                 position = .region(routeRegion(route.points))
+            } catch let error as LiveRouteError {
+                routeError = error.localizedDescription
             } catch {
-                routeError = "No hemos podido leer este recorrido. Guárdalo en Archivos como GPX e inténtalo de nuevo."
+                routeError = "No se puede leer este archivo. Descárgalo en Archivos o exporta de nuevo la ruta como GPX."
             }
         case .failure(let error):
             // Cerrar el selector de Archivos no es un fallo de la aplicación.
