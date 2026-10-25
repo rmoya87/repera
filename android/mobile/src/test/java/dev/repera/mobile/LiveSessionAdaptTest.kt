@@ -77,6 +77,14 @@ class LiveSessionAdaptTest {
             Instant.ofEpochMilli(w.epochMillis).atZone(zone).toLocalDate())
     }
 
+    @Test fun liveWithoutActiveFieldStillUsesWallEndNotStartDayAsEnd() {
+        val session=JSONObject().put("id","fallback").put("phase","finished")
+            .put("liveSportID","running").put("startedAt","2026-09-12T23:30:00Z")
+            .put("finishedAt","2026-09-13T00:30:00Z").put("exercises",JSONArray())
+        assertEquals(60.0,ProgressSnapshotBuilder.statsWorkouts(stateWith(session),zone).single().durationMinutes,0.0)
+        session.put("activeDurationSeconds",0.0)
+        assertEquals(0.0,ProgressSnapshotBuilder.statsWorkouts(stateWith(session),zone).single().durationMinutes,0.0)
+    }
     @Test fun olderWorkoutsWithoutLiveFieldsAdaptUnchanged() {
         // Sin campos live (registros anteriores): nada cambia.
         val session = JSONObject()
