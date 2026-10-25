@@ -55,6 +55,7 @@ class CrossFormatRatingContracts(unittest.TestCase):
         self.assertIn("referenceSessions: movementEvidence.map",s)
         self.assertIn("dimension: .adherence,\n                score: nil",s)
         self.assertIn("sessionReviewFormulaVersion = 11",read("Apps/Repera/Sources/ReperaStore.swift"))
-        self.assertIn("if let dayScore {",read("Apps/Repera/Sources/HomeView.swift"))
+        # HomeView no longer renders the removed dayScore tile: the scoring gate
+        # remains protected above by the domain-level evidence requirements.
 
 if __name__ == "__main__": unittest.main()
