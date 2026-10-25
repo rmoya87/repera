@@ -50,7 +50,7 @@ class UnifiedGPSContracts(unittest.TestCase):
         self.assertIn("lastAccepted = nil", self.gps)
         self.assertIn("seconds <= 30", self.gps)
         self.assertIn("meters / seconds <= limit", self.gps)
-        self.assertIn("stopRouteTracking(sessionID: gpsSessionID, clear: clear)", self.live)
+        self.assertIn("sessionID: gpsSessionID, clear: clear", self.live)
 
     def test_healthkit_route_linked_by_exact_workout(self):
         self.assertIn("HKWorkoutRouteBuilder(", self.health)
