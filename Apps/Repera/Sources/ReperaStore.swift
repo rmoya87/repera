@@ -600,6 +600,10 @@ final class ReperaStore: NSObject {
     }
 
     func startSession(from routine: Routine) {
+        guard !LiveActivityRecorder.shared.isActive else {
+            HealthKitStore.shared.lastError = "Finaliza o descarta la actividad En vivo antes de iniciar otro entrenamiento."
+            return
+        }
         guard !HealthKitStore.shared.isWatchWorkoutMirrored else {
             HealthKitStore.shared.lastError = "El Apple Watch ya está registrando un entrenamiento. Termínalo desde el reloj antes de iniciar otro."
             return
@@ -637,6 +641,10 @@ final class ReperaStore: NSObject {
         ocrText: String? = nil,
         blocks: [RoutineBlock]? = nil
     ) -> Bool {
+        guard !LiveActivityRecorder.shared.isActive else {
+            HealthKitStore.shared.lastError = "Finaliza o descarta la actividad En vivo antes de iniciar otro entrenamiento."
+            return false
+        }
         guard !HealthKitStore.shared.isWatchWorkoutMirrored else {
             HealthKitStore.shared.lastError = "El Apple Watch ya está registrando un entrenamiento. Finalízalo primero desde el reloj."
             return false
@@ -815,6 +823,11 @@ final class ReperaStore: NSObject {
         restCoordinator.endForSessionClose()
         state.activeSession = nil
         persist()
+        // El widget de entrenamiento tiene su propio ciclo de vida, no se
+        // cancela junto con el timer de descansos.
+        Task {
+            await WorkoutLiveActivityCoordinator.shared.completePlanned(session, saved: save)
+        }
         pushActiveToWatch(immediate: true)
 
         if save {
@@ -1447,6 +1460,11 @@ final class ReperaStore: NSObject {
             }
 
             if changed { persistWorkouts() }
+            if session.finishedAt != nil {
+                Task {
+                    await WorkoutLiveActivityCoordinator.shared.completePlanned(session, saved: true)
+                }
+            }
             let snapshot = state
             let needsSync = changed
             Task { @MainActor in
@@ -1562,6 +1580,11 @@ final class ReperaStore: NSObject {
     /// - Parameter immediate: start / end / Watch inbound — flush now. Set logging uses debounce.
     private func pushActiveToWatch(immediate: Bool = false) {
         publishSessionChrome()
+        if let active = state.activeSession, active.startedAt != nil {
+            Task {
+                await WorkoutLiveActivityCoordinator.shared.updatePlanned(active)
+            }
+        }
         if immediate {
             watchPushTask?.cancel()
             watchPushTask = nil
