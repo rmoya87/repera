@@ -350,13 +350,15 @@ class WorkoutRepository(context: Context, googleId: String) {
         return id
     }
 
-    @Synchronized fun replaceRoutineBlocks(id: String, blocks: List<RoutineBlockDraft>) {
+    @Synchronized fun replaceRoutineBlocks(
+        id: String, blocks: List<RoutineBlockDraft>, canCreateCustom: (Int) -> Boolean = { true }
+    ) {
         val state = requireState()
         val routines = state.getJSONArray("routines")
         val routine = (0 until routines.length())
             .map { routines.getJSONObject(it) }
             .firstOrNull { it.optString("id") == id } ?: error("Rutina no encontrada")
-        routine.put("blocks", validatedDraftBlocks(blocks, state))
+        routine.put("blocks", validatedDraftBlocks(materializePendingCustoms(blocks, state, canCreateCustom), state))
         save(state)
     }
 
@@ -412,7 +414,8 @@ class WorkoutRepository(context: Context, googleId: String) {
     @Synchronized fun createRoutineFromDrafts(
         title: String,
         drafts: List<RoutineBlockDraft>,
-        schedule: RoutineSchedule = RoutineSchedule()
+        schedule: RoutineSchedule = RoutineSchedule(),
+        canCreateCustom: (Int) -> Boolean = { true }
     ): String {
         val cleaned = title.trim()
         require(cleaned.isNotBlank() && cleaned.length <= 100) { "Escribe un título válido" }
@@ -424,7 +427,7 @@ class WorkoutRepository(context: Context, googleId: String) {
         val nativeRoutine = JSONObject()
             .put("id", id)
             .put("title", cleaned)
-            .put("blocks", validatedDraftBlocks(drafts, state))
+            .put("blocks", validatedDraftBlocks(materializePendingCustoms(drafts, state, canCreateCustom), state))
             .put("progression", "off")
             .put("isFavorite", false)
         if (schedule.scheduledDate != null) {
@@ -2501,3 +2504,43 @@ data class RoutineSchedule(
     val weekday: Int? = null,
     val timeMinutes: Int? = null
 )
+
+/**
+ * Crea los ejercicios personalizados diferidos (`pending:<nombre>`) del editor de plan
+ * SOLO al guardar: capacidad del lote validada antes de escribir, identidad por nombre
+ * normalizado, y una única escritura posterior (la llamante guarda el estado al final).
+ * Diferencia documentada con Apple (addCustomExercise persiste al instante).
+ */
+internal fun materializePendingCustoms(
+    blocks: List<RoutineBlockDraft>, state: JSONObject, canCreateCustom: (Int) -> Boolean
+): List<RoutineBlockDraft> {
+    val pend = linkedSetOf<String>()
+    blocks.forEach { b -> b.entries.forEach {
+        if (it.exerciseId.startsWith(EditorBlockOps.PENDING_PREFIX)) pend += it.exerciseId.removePrefix(EditorBlockOps.PENDING_PREFIX) } }
+    if (pend.isEmpty()) return blocks
+    val catalog = state.getJSONArray("exercises")
+    val byNorm = mutableMapOf<String, String>()
+    for (i in 0 until catalog.length()) catalog.getJSONObject(i).let {
+        byNorm.putIfAbsent(foldForSearch(it.optString("name")), it.getString("id")) }
+    val toCreate = pend.map { foldForSearch(it) }.distinct().filter { it !in byNorm }
+    val customsNow = (0 until catalog.length()).count { catalog.getJSONObject(it).optBoolean("isCustom") }
+    if (toCreate.isNotEmpty())
+        check(canCreateCustom(customsNow + toCreate.size - 1)) { "Límite de ejercicios personalizados alcanzado" }
+    val idByName = mutableMapOf<String, String>()
+    for (name in pend) {
+        val norm = foldForSearch(name)
+        byNorm[norm]?.let { idByName[name] = it; continue }
+        val newId = UUID.randomUUID().toString()
+        catalog.put(JSONObject().put("id", newId).put("name", name.trim()).put("muscleGroup", "Otros")
+            .put("equipment", JSONObject.NULL).put("targetMuscle", "")
+            .put("secondaryMuscles", JSONArray()).put("isCustom", true))
+        byNorm[norm] = newId; idByName[name] = newId
+    }
+    return blocks.map { b -> b.copy(entries = b.entries.map { e ->
+        if (!e.exerciseId.startsWith(EditorBlockOps.PENDING_PREFIX)) e else {
+            val real = idByName.getValue(e.exerciseId.removePrefix(EditorBlockOps.PENDING_PREFIX))
+            e.copy(exerciseId = real, sourceJson = e.sourceJson?.let { j ->
+                runCatching { JSONObject(j).put("exerciseId", real).toString() }.getOrDefault(j) })
+        } }) }
+}
+

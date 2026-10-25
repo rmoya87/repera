@@ -603,14 +603,17 @@ private object PlanEntryMoves {
                 .put("reps", entry.quantity.toIntOrNull() ?: 10)
         if (source.optBoolean("isRest")) return "El descanso (REST) no se puede pasar a un bloque de fuerza"
         val catalogId = entry.exerciseId.takeIf { id -> id.isNotBlank() && exercises.any { it.id == id } }
-            ?: exercises.firstOrNull { it.name.equals(source.optString("name"), true) }?.id
-            ?: return "«" + source.optString("name") + "» no está en el catálogo: añádelo como ejercicio personalizado antes de pasarlo a fuerza"
+            ?: exercises.firstOrNull { foldForSearch(it.name) == foldForSearch(source.optString("name")) }?.id
+            ?: (EditorBlockOps.PENDING_PREFIX + source.optString("name").trim().ifBlank { return "El movimiento no tiene nombre" })
+        if (dst.entries.any { it.exerciseId == catalogId }) return "«" + source.optString("name") + "» ya está en ese bloque de fuerza"
         val (item, lost) = EditorBlockOps.planMovementToStrength(source, catalogId)
         val planned = EditorBlockOps.jsonToDraftSets(item.getJSONArray("plannedSets"))
         src.entries.removeAt(entryIndex)
-        dst.entries.add(EntryUi(catalogId, "", planned.first().targetReps, planned.size, planned.first().targetWeightKg,
+        dst.entries.add(EntryUi(catalogId, if (catalogId.startsWith(EditorBlockOps.PENDING_PREFIX)) source.optString("name").trim() else "", planned.first().targetReps, planned.size, planned.first().targetWeightKg,
             planned, item.getString("id"), item.toString()))
-        return if (lost.isEmpty()) null
-        else "Al pasar a fuerza se descartan: " + lost.joinToString(", ") + " (como en Apple)"
+        val created = if (catalogId.startsWith(EditorBlockOps.PENDING_PREFIX))
+            "«" + source.optString("name").trim() + "» se creará como ejercicio personalizado al guardar. " else ""
+        return if (lost.isEmpty()) created.trim().ifEmpty { null }
+        else created + "Al pasar a fuerza se descartan: " + lost.joinToString(", ") + " (como en Apple)"
     }
 }

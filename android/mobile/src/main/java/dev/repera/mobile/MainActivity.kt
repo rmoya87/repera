@@ -578,7 +578,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 },
                 onDeleteRoutine = { id -> runWorkoutAction { deleteRoutine(id) } },
                 onReplaceRoutineBlocks = { id, drafts ->
-                    runWorkoutAction { replaceRoutineBlocks(id, drafts) }
+                    runWorkoutAction {
+                        replaceRoutineBlocks(id, drafts) { before ->
+                            subscriptions.syncCounts(snapshot?.routines ?: 0, before)
+                            subscriptions.canCreateCustomExercise(true).allowed
+                        }
+                    }
                 },
                 onCreateRoutine = { title, format, entries, minutes, rounds, schedule, interval, work, rest, ladder ->
                     runWorkoutAction { createRoutine(title, format, entries, minutes, rounds,
@@ -590,7 +595,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onSaveOneOffRoutine = { title, drafts, dayIso ->
                     runWorkoutAction {
                         createRoutineFromDrafts(title, drafts,
-                            RoutineSchedule(scheduledDate = dayIso))
+                            RoutineSchedule(scheduledDate = dayIso)) { before ->
+                            subscriptions.syncCounts(snapshot?.routines ?: 0, before)
+                            subscriptions.canCreateCustomExercise(true).allowed
+                        }
                     }
                 },
                 centerConnected = verifiedSupabase != null,

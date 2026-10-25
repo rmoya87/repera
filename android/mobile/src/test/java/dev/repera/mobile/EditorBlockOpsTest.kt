@@ -170,3 +170,26 @@ class EditorBlockOpsTest {
         assertTrue(EditorBlockOps.planMovementToStrength(JSONObject().put("id", "m").put("name", "x").put("reps", 7), "sq").second.isEmpty())
     }
 }
+
+class PlanPendingCustomsTest {
+    private fun state() = org.json.JSONObject().put("exercises", org.json.JSONArray()
+        .put(org.json.JSONObject().put("id", "ex-1").put("name", "Dominadas").put("isCustom", false)))
+    private fun draft(vararg ids: String) = listOf(RoutineBlockDraft(format = "strength",
+        entries = ids.map { RoutineDraftEntry(exerciseId = it, quantity = 5) }))
+
+    @org.junit.Test fun createsOnceAndReusesNormalizedName() {
+        val st = state()
+        val out = materializePendingCustoms(draft("pending:Thruster", "pending:thruster ", "pending:DOMINADAS"), st) { true }
+        val cat = st.getJSONArray("exercises")
+        org.junit.Assert.assertEquals(2, cat.length())
+        org.junit.Assert.assertEquals(out[0].entries[0].exerciseId, out[0].entries[1].exerciseId.let { out[0].entries[0].exerciseId })
+        org.junit.Assert.assertEquals("ex-1", out[0].entries[2].exerciseId)
+        org.junit.Assert.assertTrue(out.all { b -> b.entries.none { it.exerciseId.startsWith("pending:") } })
+    }
+    @org.junit.Test fun quotaDeniedThrowsBeforeWriting() {
+        val st = state()
+        try { materializePendingCustoms(draft("pending:A", "pending:B"), st) { n -> n < 1 }; org.junit.Assert.fail() }
+        catch (e: IllegalStateException) {}
+        org.junit.Assert.assertEquals(1, st.getJSONArray("exercises").length())
+    }
+}
