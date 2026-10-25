@@ -1521,7 +1521,18 @@ final class HealthKitStore {
               store.authorizationStatus(for: HKSeriesType.workoutRoute()) == .sharingAuthorized
         else { return }
         if gpsRouteBuilders[sessionID] == nil {
-            gpsRouteBuilders[sessionID] = HKWorkoutRouteBuilder(healthStore: store, device: .local())
+            if trackedSessionId == sessionID, let liveBuilder,
+               let route = liveBuilder.seriesBuilder(for: HKSeriesType.workoutRoute())
+                    as? HKWorkoutRouteBuilder {
+                // Apple-preferred path: native series builder belongs to its workout.
+                gpsRouteBuilders[sessionID] = route
+            } else {
+                // Backward-compatible fallback for a workout restored while
+                // its HKWorkoutBuilder was unavailable.
+                gpsRouteBuilders[sessionID] = HKWorkoutRouteBuilder(
+                    healthStore: store, device: .local()
+                )
+            }
         }
         if (gpsRouteQueue[sessionID]?.count ?? 0) > 0 {
             scheduleRouteDrain(sessionID: sessionID)
