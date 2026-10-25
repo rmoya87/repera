@@ -21,6 +21,8 @@ class LiveActivityControlsInstrumentedTest {
     @get:Rule val compose = createAndroidComposeRule<androidx.activity.ComponentActivity>()
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private fun capture(name: String) {
+        compose.waitForIdle()
+        Thread.sleep(600) // Wait for frame commit, not only semantic tree.
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()!!
         val values = android.content.ContentValues().apply {
             put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, name)
@@ -53,6 +55,8 @@ class LiveActivityControlsInstrumentedTest {
             LiveActivityScreen(account, {}, {})
         } }
         compose.onNodeWithTag("live_sport_picker").performClick()
+        compose.onNodeWithTag("choose_sport_running").assertIsDisplayed()
+        compose.waitForIdle();Thread.sleep(500)
         capture("comenzar_selector_deporte.png")
         compose.onNodeWithTag("choose_sport_padel").performScrollTo().performClick()
         compose.onNodeWithTag("live_sport_picker").assertTextContains("Elegir actividad: Pádel")

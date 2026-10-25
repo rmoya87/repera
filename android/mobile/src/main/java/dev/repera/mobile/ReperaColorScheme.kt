@@ -19,7 +19,7 @@ internal fun reperaColorScheme(dark: Boolean): ColorScheme = if (dark) {
         surfaceVariant = Color(0xFF2C2C2E), onSurfaceVariant = Color(0xFFAEB0B2),
         surfaceContainer = Color(0xFF1C1C1E), surfaceContainerLow = Color(0xFF0C0C0C),
         surfaceContainerHigh = Color(0xFF2C2C2E), surfaceContainerHighest = Color(0xFF3A3A3C),
-        surfaceContainerLowest = Color.Black, outline = Color(0xFF787880), surfaceTint = brandGreen)
+        surfaceContainerLowest = Color.Black, outline = Color(0xFF787880), outlineVariant = Color(0xFF3A3A3C), surfaceTint = brandGreen)
 } else {
     lightColorScheme(
         primary = brandGreenReadable, onPrimary = Color.White,
@@ -32,5 +32,5 @@ internal fun reperaColorScheme(dark: Boolean): ColorScheme = if (dark) {
         surfaceVariant = Color(0xFFF2F5F3), onSurfaceVariant = Color(0xFF5D6E63),
         surfaceContainer = Color.White, surfaceContainerLow = Color(0xFFF2F5F3),
         surfaceContainerHigh = Color(0xFFEBEFED), surfaceContainerHighest = Color(0xFFDCE4DF),
-        surfaceContainerLowest = Color.White, outline = Color(0xFF89998F), surfaceTint = brandGreenReadable)
+        surfaceContainerLowest = Color.White, outline = Color(0xFF89998F), outlineVariant = Color(0xFFDCE4DF), surfaceTint = brandGreenReadable)
 }
