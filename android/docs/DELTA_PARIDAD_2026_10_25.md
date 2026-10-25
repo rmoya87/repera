@@ -396,3 +396,19 @@ main móvil invisible.)
 - Siguiente enfocado40229854247 en ejecución a debug a1e9d4f8, bloque de
   favoritos/fecha/GPX/tema/proveedor. No contiene cambios65bfedff de cámara
   navegador/voz/descarte en mapa. Local domain282/0, mobile199/0.
+
+## Bloque21:26 CET, sin cierre GPS
+- Run40229854247 FAILURE a debug a1e9d4f8. Clases controles6/0, save5/0,
+  historial6/0, tema2/0; proveedor simulado1/1 fallido (cero primer callback).
+  Cero omitidos. Capturas22 claro/oscuro de11 pantallas inspeccionadas,
+  legibles/sin violeta en viewports mostrados; NO todos los estados de app.
+- Swipe revela acción, no escribe hasta tap (prueba6 historial). GPX azul
+  permanece debajo de traza sobre teselas. Save devuelve día de inicio y
+  calendario aplica foco (controles6 y tema2). No inferir GPS validado.
+- Hipótesis proveedor: prueba solicitaba ubicación foreground SIN Activity
+  ni FGS.178cb079 añade Activity visible + grantRuntimePermission; conserva
+  callbacks/distance/pausa/reanudación como aserciones. Pendiente ejecución.
+- Enfocado nuevo debug7a8d5e60 solo controles/proveedor; además ejecuta modo
+  navegador/2D/seguimiento desde posición medida, voz/descarte del mapa.
+  Diferencia abierta: no relieve3D de Apple, pitch MapLibre60° vs Apple67°.
+- No beta/merge/main/Apple cambios. Domain282/0, mobile199/0 locales.
