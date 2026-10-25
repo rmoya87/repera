@@ -170,6 +170,7 @@ class ReperaThemeInstrumentedTest {
         compose.onNodeWithText("Entrenamientos · " + focusedDay!!.format(reperaDayFormatter))
             .performScrollTo().assertIsDisplayed()
         compose.runOnIdle {screen=1}
+        compose.onNodeWithTag("progress_topic_1").performClick()
         compose.onNodeWithTag("progress_list").performScrollToNode(hasText("Peso corporal"))
         compose.onNodeWithText("Peso corporal").assertIsDisplayed()
         Thread.sleep(500)

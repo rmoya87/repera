@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -70,6 +71,7 @@ import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
 
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 internal fun ProgressTab(
     busy: Boolean,
@@ -89,11 +91,13 @@ internal fun ProgressTab(
     onOpenExercise:(String)->Unit = {},
     modifier: Modifier = Modifier
 ) {
-    // Deliberately limited to the recent archive loaded by StateOverview.
-    // It must never be presented as complete lifetime or billing-gated analytics.
+    // The inline archive is recent; aggregate snapshots use the complete local archive.
     val recent = overview?.history.orEmpty()
     val subscriptions = LocalSubscriptions.current
+    var topic by rememberSaveable {mutableStateOf("Entreno")}
+    val pro=subscriptions?.isPro ?: true
     var selectedRange by rememberSaveable { mutableStateOf(ProgressTimeRange.WEEK.wire) }
+    LaunchedEffect(pro) {if(!pro) selectedRange=ProgressTimeRange.WEEK.wire}
     val snapshot = overview?.progressByRange?.get(selectedRange)
     val today = LocalDate.now()
     val weekStart = dev.repera.domain.StatsEngine.startOfWeek(today,overview?.trainingSettings?.weekStartsOnMonday ?: true)
@@ -109,6 +113,15 @@ internal fun ProgressTab(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { Text("Progreso", style = MaterialTheme.typography.headlineMedium) }
+        item {
+            androidx.compose.material3.SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                listOf("Entreno","Actividad","Recuperación").forEachIndexed {index,label ->
+                    SegmentedButton(selected=topic==label,onClick={topic=label},modifier=Modifier.testTag("progress_topic_$index"),
+                        shape=androidx.compose.material3.SegmentedButtonDefaults.itemShape(index,3),label={Text(label,maxLines=1)})
+                }
+            }
+        }
+        if(topic=="Entreno") {
         item { CountCard("Entrenamientos registrados", overview?.workouts, overview != null) }
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
@@ -127,7 +140,8 @@ internal fun ProgressTab(
                 }
             }
         }
-        item { TextButton(onClick=onOpenBodyWeights,enabled=overview!=null) {Text("Peso corporal · registrar e historial")} }
+        }
+        if(topic=="Actividad") item { TextButton(onClick=onOpenBodyWeights,enabled=overview!=null) {Text("Peso corporal · registrar e historial")} }
         item {
             androidx.compose.foundation.layout.FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -155,6 +169,7 @@ internal fun ProgressTab(
             }
         }
         if (snapshot != null) {
+            if(topic=="Entreno") {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(18.dp),
@@ -197,6 +212,9 @@ internal fun ProgressTab(
                     }
                 }
             }
+            }
+            if(topic=="Recuperación") {
+            if(overview?.recovery?.let {it.readiness==null && it.sleepIndex==null} != false) item {Text("Sin datos de recuperación. Activa Salud y registra sueño o constantes para ver tu descanso.")}
             overview?.recovery?.let { recovery ->
                 if (recovery.readiness != null || recovery.sleepIndex != null) {
                     item {
@@ -232,13 +250,25 @@ internal fun ProgressTab(
                     }
                 }
             }
+            }
+            if(topic=="Actividad") {
             item {
-                if(subscriptions==null || subscriptions.isPro) SessionScoreProgressCard(overview?.sessionScoresByRange?.get(selectedRange).orEmpty())
+                if(pro) SessionScoreProgressCard(overview?.sessionScoresByRange?.get(selectedRange).orEmpty())
                 else SessionScoreProgressCard((0..6).map {i ->dev.repera.domain.ProgressDayPoint(today.minusDays(6L-i),listOf(6.0,7.0,7.0,8.0,6.0,8.0,9.0)[i])},preview=true)
             }
-            overview?.chartsByRange?.get(selectedRange)?.let { charts ->
-                item { ProgressChartsCard(charts) }
+            val charts=if(pro) overview?.chartsByRange?.get(selectedRange) else ProgressPreview.charts(today,overview?.trainingSettings?.weekStartsOnMonday ?: true)
+            item {
+                if(!pro) Text("Ejemplo · FC y calorías ficticias, no son tus datos de Salud")
+                if(charts!=null) ProgressChartsCard(charts,showEmpty=true)
             }
+            if(!pro) item {dev.repera.mobile.monetization.ProTeaserCard(title="Métricas de actividad avanzadas",bodyText="Consulta frecuencia cardíaca, calorías y evolución de peso con Repera Pro.",onClick={subscriptions?.presentPaywall(dev.repera.domain.monetization.PaywallContext.PROGRESS,feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)})}
+            if(!pro) item {Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp)) {
+                Text("Peso corporal · ejemplo",style=MaterialTheme.typography.titleMedium)
+                Text("Datos ficticios. Objetivo de ejemplo:74kg")
+                DayPointLineChart(ProgressPreview.weight(today),goal=74.0)
+            }}}
+            }
+            if(topic=="Entreno") {
             if (snapshot.heatmapTime.isNotEmpty()) {
                 // ActivityHeatmapView iOS: UNA tarjeta con picker segmentado.
                 item { ActivityHeatmapCard(snapshot.heatmapTime,
@@ -278,7 +308,9 @@ internal fun ProgressTab(
                         hasHardSets = snapshot.hasHardSets)
                 }
             }
-            if (snapshot.weightPoints.isNotEmpty()) {
+            }
+            if(topic=="Actividad" && pro && snapshot.weightPoints.isEmpty()) item {Text("Peso corporal: sin mediciones en el periodo.")}
+            if (topic=="Actividad" && pro && snapshot.weightPoints.isNotEmpty()) {
                 item {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(18.dp),
@@ -322,6 +354,7 @@ internal fun ProgressTab(
                 }
             }
         }
+        if(topic=="Entreno") {
         if (overview?.weeklyMuscleGroups?.isNotEmpty() == true) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
@@ -357,6 +390,7 @@ internal fun ProgressTab(
             }
         } else {
             item { Text("Todavía no hay entrenamientos para analizar") }
+        }
         }
         item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
         item {

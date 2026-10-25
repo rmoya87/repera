@@ -376,7 +376,7 @@ object ProgressSnapshotBuilder {
             previousStreak = previousStreak,
             records = records,
             chartExercises=filtered.flatMap {it.exercises}.groupBy {it.exerciseId}.map {(id,items) ->
-                ProgressExerciseRow(id,items.first().exerciseName,items.flatMap {it.sets}.filterNot {it.isWarmup}.mapNotNull {it.weightKg}.maxOrNull(),
+                ProgressExerciseRow(id,items.first().exerciseName,items.flatMap {it.sets}.filter { !it.isWarmup && it.reps>0 }.mapNotNull {it.weightKg?.takeIf {kg ->kg>0}}.maxOrNull(),
                     filtered.filter {w ->w.exercises.any {it.exerciseId==id}}.maxOf {it.epochMillis})
             }.sortedWith(compareByDescending<ProgressExerciseRow> {it.lastEpochMillis}.thenBy {it.name}),
             muscleStatuses = statuses,

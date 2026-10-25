@@ -47,11 +47,19 @@ import dev.repera.domain.ProgressPreparedCharts
 /** Gráficas de Progreso (pulso y calorías) a partir de las series
  *  preparadas por ProgressChartBuilder. Sin librerías externas. */
 @Composable
-internal fun ProgressChartsCard(charts: ProgressPreparedCharts) {
-    if (charts.calories.isEmpty() && charts.heartRate.isEmpty()) return
+internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean=false) {
+    if (!showEmpty && charts.calories.isEmpty() && charts.heartRate.isEmpty()) return
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(18.dp)) {
             Text("Actividad y pulso", style = MaterialTheme.typography.titleLarge)
+            if(showEmpty && charts.calories.isEmpty()) {
+                Text("Calorías activas · sin mediciones en el periodo")
+                EmptyHealthChartAxes(0.0,1000.0)
+            }
+            if(showEmpty && charts.heartRate.isEmpty()) {
+                Text("Frecuencia cardíaca · sin mediciones en el periodo")
+                EmptyHealthChartAxes(40.0,200.0)
+            }
             if (charts.calories.isNotEmpty()) {
                 Text("Calorías activas · ${charts.caloriesTotal.toInt()} kcal en el rango",
                     style = MaterialTheme.typography.bodyMedium)
@@ -495,4 +503,15 @@ internal fun DayPointLineChart(
             }
         }
     }
+}
+
+@Composable
+private fun EmptyHealthChartAxes(low:Double,high:Double) {
+    val axis=MaterialTheme.colorScheme.onSurfaceVariant
+    Text(formatWeight(high),style=MaterialTheme.typography.bodySmall)
+    Canvas(Modifier.fillMaxWidth().height(96.dp)) {
+        drawLine(axis,Offset(0f,0f),Offset(0f,size.height),2f)
+        drawLine(axis,Offset(0f,size.height),Offset(size.width,size.height),2f)
+    }
+    Text(formatWeight(low),style=MaterialTheme.typography.bodySmall)
 }
