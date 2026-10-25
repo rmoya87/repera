@@ -145,6 +145,12 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         applyContext(message)
     }
 
+    /// Completed / discarded Comenzar sessions cannot be coalesced. Same
+    /// delivery method as the Watch's completed-outbox pipeline.
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
+        applyContext(userInfo)
+    }
+
     private func applyContext(_ payload: [String: Any]) {
         if let ack = payload["completedAck"] as? String,
            let id = UUID(uuidString: ack) {
