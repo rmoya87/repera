@@ -107,11 +107,55 @@ enum LiveSport: String, CaseIterable, Identifiable {
 }
 
 struct LiveSavedRoute: Identifiable, Codable {
-    var id: UUID = UUID()
+    var id: UUID
     var title: String
     var points: [WorkoutRoutePoint]
     /// Nil para GPX importados sin deporte asignado.
-    var sportID: String? = nil
+    var sportID: String?
+    var isFavorite: Bool
+    var createdAt: Date
+
+    init(
+        id: UUID = UUID(), title: String, points: [WorkoutRoutePoint],
+        sportID: String? = nil, isFavorite: Bool = false, createdAt: Date = .now
+    ) {
+        self.id = id
+        self.title = title
+        self.points = points
+        self.sportID = sportID
+        self.isFavorite = isFavorite
+        self.createdAt = createdAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, points, sportID, isFavorite, createdAt
+    }
+
+    /// Los GPX y las rutas de versiones anteriores carecen de favorito/fecha.
+    /// No convertir automáticamente todas las rutas antiguas en favoritas.
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(UUID.self, forKey: .id)
+        title = try values.decode(String.self, forKey: .title)
+        points = try values.decode([WorkoutRoutePoint].self, forKey: .points)
+        sportID = try values.decodeIfPresent(String.self, forKey: .sportID)
+        isFavorite = try values.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+        createdAt = try values.decodeIfPresent(Date.self, forKey: .createdAt) ?? .distantPast
+    }
+
+    var distanceKm: Double {
+        guard points.count > 1 else { return 0 }
+        let meters = zip(points, points.dropFirst()).reduce(0.0) { sum, pair in
+            let a = CLLocation(latitude: pair.0.latitude, longitude: pair.0.longitude)
+            let b = CLLocation(latitude: pair.1.latitude, longitude: pair.1.longitude)
+            return sum + a.distance(from: b)
+        }
+        return meters / 1000
+    }
+
+    var sportTitle: String {
+        sportID.flatMap(LiveSport.init(rawValue:))?.title ?? "Sin deporte"
+    }
 }
 
 /// Biblioteca offline pequeña de GPX; los recorridos completados se conservan en cada WorkoutSession.
@@ -120,6 +164,19 @@ struct LiveSavedRoute: Identifiable, Codable {
 final class LiveRoutesStore {
     static let shared = LiveRoutesStore()
     private(set) var routes: [LiveSavedRoute] = []
+
+    /// Lo más reciente primero; el orden anterior se conserva al migrar sin fecha.
+    var latestRoutes: [LiveSavedRoute] {
+        routes.enumerated().sorted { lhs, rhs in
+            lhs.element.createdAt == rhs.element.createdAt
+                ? lhs.offset < rhs.offset
+                : lhs.element.createdAt > rhs.element.createdAt
+        }.map(\.element)
+    }
+
+    var favoriteRoutes: [LiveSavedRoute] {
+        latestRoutes.filter(\.isFavorite)
+    }
     private let legacyKey = "repera.live.routes.v1"
     /// Tombstones: deleting a saved route must not recreate it on cloud sync.
     private let deletedRoutesKey = "repera.live.routes.deleted.v1"
@@ -155,7 +212,6 @@ final class LiveRoutesStore {
         guard points.count >= 2 else { throw LiveRouteError.empty }
         let previous = routes
         routes.insert(LiveSavedRoute(title: name, points: points), at: 0)
-        if routes.count > 30 { routes = Array(routes.prefix(30)) }
         do {
             try persist()
         } catch {
@@ -165,12 +221,13 @@ final class LiveRoutesStore {
     }
 
     /// Crea una ruta favorita estable a partir de una sesión real con GPS.
-    func addRecordedRoute(from session: WorkoutSession) throws -> UUID {
+    func addRecordedRoute(from session: WorkoutSession, favorite: Bool = false) throws -> UUID {
         guard session.routePoints.count >= 2,
               let sportID = session.liveSportID else { throw LiveRouteError.empty }
         let previous = routes
         let favorite = LiveSavedRoute(
-            title: session.title, points: session.routePoints, sportID: sportID
+            title: session.title, points: session.routePoints, sportID: sportID,
+            isFavorite: favorite, createdAt: session.startedAt ?? .now
         )
         routes.insert(favorite, at: 0)
         do {
@@ -190,6 +247,19 @@ final class LiveRoutesStore {
         let previous = routes
         routes[index].title = cleanName
         routes[index].sportID = sportID
+        do {
+            try persist()
+        } catch {
+            routes = previous
+            throw error
+        }
+    }
+
+    /// La estrella se persiste en el mismo archivo local, sin modificar el GPX.
+    func setFavorite(_ id: UUID, _ favorite: Bool) throws {
+        guard let index = routes.firstIndex(where: { $0.id == id }) else { return }
+        let previous = routes
+        routes[index].isFavorite = favorite
         do {
             try persist()
         } catch {
