@@ -192,7 +192,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                             Text(previewMessage ?: "Sin ubicación. Pulsa Centrar para situarte.",style=MaterialTheme.typography.bodySmall)
                     }
                     runtime.upcomingTurn?.let { Text(it) }
-                    runtime.lastError?.let { Text(it,color=MaterialTheme.colorScheme.error) }
+                    (error ?: runtime.lastError)?.let { Text(it,color=MaterialTheme.colorScheme.error) }
                 }
             }
             Surface(Modifier.align(Alignment.BottomCenter).padding(12.dp), shape = MaterialTheme.shapes.large,
@@ -214,6 +214,11 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                         }
                         FlowRow {
                             TextButton(onClick={showRoutes=true;showingMetrics=true}) {Text("Rutas")}
+                            TextButton(onClick={
+                                runtime.toggleSpokenGuidance()
+                                if (!runtime.spokenGuidanceEnabled && android.os.Build.VERSION.SDK_INT >= 33)
+                                    notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            }) { Text(if (runtime.spokenGuidanceEnabled) "Voz activada" else "Voz desactivada") }
                             TextButton(onClick=onOpenTools) {Text("Crear")}
                             onOpenCenter?.let { TextButton(onClick=it) {Text("Center")} }
                         }

@@ -30,10 +30,15 @@ internal class LiveLocationSource(private val context: Context,
             lastError="Otro entrenamiento ya está utilizando el GPS.";return false
         }
         try {
-            mgr.requestLocationUpdates(LocationManager.FUSED_PROVIDER,1000L,if (sport.isCycling) 5f else 3f,listener,Looper.getMainLooper())
+            val enabled = mgr.getProviders(true)
+            val provider = listOf(LocationManager.FUSED_PROVIDER,LocationManager.GPS_PROVIDER,LocationManager.NETWORK_PROVIDER)
+                .firstOrNull { it in enabled } ?: error("Sin proveedor de ubicación activo")
+            mgr.requestLocationUpdates(provider,1000L,if (sport.isCycling) 5f else 3f,listener,Looper.getMainLooper())
             lastError=null;return true
         } catch (e: SecurityException) {
             odometer.stop(sessionID,false);lastError="GPS no autorizado. Seguimos registrando el tiempo.";return false
+        } catch (e: IllegalStateException) {
+            odometer.stop(sessionID,false);lastError="Activa la ubicación para registrar el recorrido. Seguimos registrando el tiempo.";return false
         } catch (e: IllegalArgumentException) {
             odometer.stop(sessionID,false);lastError="Proveedor GPS no disponible. Seguimos registrando el tiempo.";return false
         }
