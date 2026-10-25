@@ -340,4 +340,14 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         val after = org.json.JSONArray(saved!!.blocksJson).getJSONObject(0).getJSONArray("exercises").length()
         assertEquals(before - 1, after)
     }
+
+    @Test fun saveAsFavoriteFlagReachesEdit() {
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val w = workout.copy(editableBlocksJson = blocks)
+        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, emptyList()) { saved = it } }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        compose.onNodeWithTag("edit_save_favorite").performClick()
+        compose.onNodeWithTag("edit_save").performClick()
+        assertEquals(true, saved!!.saveAsFavorite)
+    }
 }

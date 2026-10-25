@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import dev.repera.mobile.monetization.LocalSubscriptions
 import android.net.Uri
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
@@ -88,6 +89,7 @@ fun ReperaMobileScreen(
     onAddWodTemplate: (String) -> Unit,
     onCreateRoutineFromScan: (String, List<dev.repera.domain.RoutineBlock>) -> Unit,
     onSaveOneOffRoutine: (String, List<RoutineBlockDraft>, String) -> Unit = { _, _, _ -> },
+    onStartSessionFromDrafts: (String, List<RoutineBlockDraft>, Boolean) -> Unit = { _, _, _ -> },
     centerConnected: Boolean,
     centerLoading: Boolean,
     centerSubmitting: Boolean,
@@ -316,6 +318,35 @@ fun ReperaMobileScreen(
                         onDayPlusScan = { navController.navigate("escaner") }
                     )
                 }
+                composable("entreno-libre") {
+                    // DayEditorView .session: borrador puro; nada se persiste hasta «Empezar» (y solo con Favorito se guarda rutina).
+                    val subs = LocalSubscriptions.current
+                    val draft = remember {
+                        RoutineEntry(id = java.util.UUID.randomUUID().toString(), title = "Mi entreno", supported = true,
+                            blocks = emptyList())
+                    }
+                    var favorite by remember { mutableStateOf(false) }
+                    RoutineBlocksEditorScreen(
+                        routine = draft,
+                        exercises = overview?.exerciseEntries.orEmpty(),
+                        busy = busy || activeWorkout != null,
+                        loadGuideProvider = loadGuideProvider,
+                        importableRoutines = overview?.routineEntries.orEmpty(),
+                        sessionMode = true,
+                        onFavoriteChosen = { favorite = it },
+                        onReplace = { drafts ->
+                            if (favorite && subs != null && !subs.canCreateLibraryRoutine(isNew = true).allowed) {
+                                subs.presentPaywall(
+                                    dev.repera.domain.monetization.PaywallContext.ROUTINES_LIMIT,
+                                    feature = dev.repera.domain.monetization.ReperaFeature.UNLIMITED_ROUTINES)
+                            } else {
+                                onStartSessionFromDrafts(draft.title, drafts, favorite)
+                                navController.popBackStack()
+                            }
+                        },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
                 composable("crear") {
                     CreateTab(
                         busy = busy,
@@ -326,6 +357,7 @@ fun ReperaMobileScreen(
                         onAddWodTemplate = onAddWodTemplate,
                         onOpenBoardScan = { navController.navigate("escaner") },
                         onOpenTimer = { navController.navigate("temporizador") },
+                        onOpenFreeWorkout = { navController.navigate("entreno-libre") },
                         onInitializeLocal = onInitializeLocal,
                         onImportJson = onImportJson,
                         onDriveSync = onDriveSync,

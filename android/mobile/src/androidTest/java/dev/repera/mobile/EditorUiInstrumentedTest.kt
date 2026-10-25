@@ -222,4 +222,15 @@ class EditorUiInstrumentedTest {
         assertEquals("b-w", delivered!![0].blockId)
         assertEquals(0, delivered!![1].entries.size)
     }
+
+    @Test fun sessionModeStartsWithFavoriteChoice() {
+        var delivered: List<RoutineBlockDraft>? = null
+        var fav: Boolean? = null
+        compose.setContent { MaterialThemeForTest {
+            RoutineBlocksEditorScreen(routine = planRoutine(), exercises = listOf(exercise), busy = false,
+                onReplace = { delivered = it }, onBack = {}, sessionMode = true, onFavoriteChosen = { fav = it }) } }
+        compose.onNodeWithTag("session_favorite_switch").performClick()
+        compose.onNodeWithText("Empezar").performClick(); compose.waitForIdle()
+        assertEquals(true, fav); assertEquals(2, delivered!!.size)
+    }
 }

@@ -88,12 +88,19 @@ internal fun FinishedWorkoutEditorSection(
         OutlinedTextField(value = notes, onValueChange = { notes = it },
             label = { Text("Notas: cómo te sentiste, molestias…") }, minLines = 2, maxLines = 5,
             modifier = Modifier.fillMaxWidth().testTag("edit_notes"))
+        var saveAsFavorite by remember { mutableStateOf(false) }
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            androidx.compose.material3.Switch(checked = saveAsFavorite, onCheckedChange = { saveAsFavorite = it },
+                modifier = Modifier.testTag("edit_save_favorite"))
+            Text("  Guardar también como favorito")
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(enabled = !busy, modifier = Modifier.testTag("edit_save"), onClick = {
                 onSave(WorkoutRepository.FinishedWorkoutEdit(
                     title = title, startedAtIso = startIso, finishedAtIso = endIso,
                     notes = notes, pinEdited = pinEdited, pin = pin,
-                    blocksJson = if (contentDirty) blocks?.toString() else null))
+                    blocksJson = if (contentDirty) blocks?.toString() else null,
+                    saveAsFavorite = saveAsFavorite))
                 editing = false
             }) { Text("Guardar") }
             TextButton(modifier = Modifier.testTag("edit_cancel"),

@@ -48,8 +48,12 @@ fun RoutineBlocksEditorScreen(
     importableRoutines: List<RoutineEntry> = emptyList(),
     /** Como DayEditorView: al elegir una plantilla con título vacío/«Entreno»/«Nuevo entreno», el título pasa a ser el de la
      *  plantilla. Se notifica justo antes de onReplace (Guardar); nada se persiste antes. */
-    onTitleSuggested: (String) -> Unit = {}
+    onTitleSuggested: (String) -> Unit = {},
+    /** Modo sesión de Apple: interruptor «Favorito» y botón «Empezar». onFavoriteChosen se llama justo antes de onReplace. */
+    sessionMode: Boolean = false,
+    onFavoriteChosen: (Boolean) -> Unit = {}
 ) {
+    var asFavorite by remember(routine.id) { mutableStateOf(false) }
     var suggestedTitle by remember(routine.id) { mutableStateOf<String?>(null) }
     val nameById = remember(exercises) { exercises.associate { it.id to it.name } }
     val blocks = remember(routine.id) {
@@ -80,11 +84,17 @@ fun RoutineBlocksEditorScreen(
                     drafts.add(parsed)
                 }
                 suggestedTitle?.let(onTitleSuggested)
+                if (sessionMode) onFavoriteChosen(asFavorite)
                 onReplace(drafts)
-            }, enabled = !busy) { Text("Guardar") }
+            }, enabled = !busy) { Text(if (sessionMode) "Empezar" else "Guardar") }
         }
         Text("Contenido de «" + routine.title + "»",
             style = MaterialTheme.typography.titleLarge)
+        if (sessionMode) Row(verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.Switch(checked = asFavorite, onCheckedChange = { asFavorite = it },
+                modifier = Modifier.testTag("session_favorite_switch"))
+            Text("  Favorito")
+        }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
         val blockHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }

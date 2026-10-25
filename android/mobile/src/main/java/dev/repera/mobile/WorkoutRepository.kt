@@ -643,6 +643,30 @@ class WorkoutRepository(context: Context, googleId: String) {
         return state.optJSONObject("activeSession")?.let { summarize(it) }
     }
 
+    /**
+     * DayEditorView modo .session (StartHub «Crear entreno»): empieza una sesión desde un borrador. Título por
+     * defecto «Mi entreno», progresión off, sin día. Con `saveAsFavorite` la rutina se guarda como favorita (la
+     * llamante ya validó la cuota de rutinas, como Apple con saveRoutine). Sin favorito NO se persiste rutina alguna.
+     * Todo se valida y construye antes de la única escritura: un fallo no deja sesión ni rutina.
+     */
+    @Synchronized fun startSessionFromDrafts(
+        title: String, drafts: List<RoutineBlockDraft>, saveAsFavorite: Boolean,
+        canCreateCustom: (Int) -> Boolean = { true }
+    ): ActiveWorkout {
+        val state = loadOrNull() ?: error("Importa primero un historial o crea tus datos locales")
+        check(state.isNull("activeSession")) { "Ya existe una sesión activa" }
+        val cleaned = title.trim().ifEmpty { "Mi entreno" }
+        require(cleaned.length <= 100) { "Escribe un título válido" }
+        val routine = JSONObject().put("id", UUID.randomUUID().toString()).put("title", cleaned)
+            .put("blocks", validatedDraftBlocks(materializePendingCustoms(drafts, state, canCreateCustom), state))
+            .put("progression", "off").put("isFavorite", saveAsFavorite)
+        val session = assembleSession(state, routine)
+        if (saveAsFavorite) state.getJSONArray("routines").put(routine)
+        state.put("activeSession", session)
+        save(state)
+        return summarize(session)
+    }
+
     @Synchronized fun startStrengthRoutine(id: String): ActiveWorkout = startRoutine(id)
 
     @Synchronized fun startRoutine(id: String): ActiveWorkout {
@@ -1977,7 +2001,9 @@ class WorkoutRepository(context: Context, googleId: String) {
         val pinEdited: Boolean,
         val pin: dev.repera.domain.WorkoutLocationPin?,
         /** Bloques editados (JSON, con ids) del editor de contenido; null = contenido intacto. */
-        val blocksJson: String? = null
+        val blocksJson: String? = null,
+        /** «Favorito» de DayEditorView al editar un entreno terminado: copia independiente (ids nuevos), nunca la misma rutina. */
+        val saveAsFavorite: Boolean = false
     )
 
     /**
@@ -2055,6 +2081,15 @@ class WorkoutRepository(context: Context, googleId: String) {
                     pin.mapItemIdentifier?.let { put("mapItemIdentifier", it) }
                     pin.pointOfInterestCategory?.let { put("pointOfInterestCategory", it) }
                 })
+        }
+        if (edit.saveAsFavorite) {
+            val src = target.optJSONArray("routineBlocks") ?: JSONArray()
+            val copy = JSONArray()
+            for (k in 0 until src.length())
+                EditorBlockOps.freshIds(src.getJSONObject(k).toString())?.let { copy.put(JSONObject(it)) }
+            if (copy.length() > 0) state.getJSONArray("routines").put(JSONObject()
+                .put("id", UUID.randomUUID().toString()).put("title", cleanTitle).put("blocks", copy)
+                .put("progression", "off").put("isFavorite", true))
         }
         save(state)
         return true

@@ -592,6 +592,14 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onCreateRoutineFromScan = { title, blocks ->
                     runWorkoutAction { createRoutineFromScan(title, blocks) }
                 },
+                onStartSessionFromDrafts = { title, drafts, fav ->
+                    runWorkoutAction(onSuccess = { beginLocationCapture() }) {
+                        startSessionFromDrafts(title, drafts, fav) { before ->
+                            subscriptions.syncCounts(snapshot?.routines ?: 0, before)
+                            subscriptions.canCreateCustomExercise(true).allowed
+                        }
+                    }
+                },
                 onSaveOneOffRoutine = { title, drafts, dayIso ->
                     runWorkoutAction {
                         createRoutineFromDrafts(title, drafts,
@@ -738,6 +746,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 // sin guardarla y detiene la captura de ubicación.
                 accountId = profile?.uniqueId.orEmpty(),
                 onUpdateFinishedWorkout = { workoutId, edit ->
+                  // Como Apple: con Favorito, si la cuota de rutinas no deja, paywall y NO se aplica nada.
+                  if (edit.saveAsFavorite && !subscriptions.canCreateLibraryRoutine(isNew = true).allowed) {
+                    subscriptions.presentPaywall(
+                        dev.repera.domain.monetization.PaywallContext.ROUTINES_LIMIT,
+                        feature = dev.repera.domain.monetization.ReperaFeature.UNLIMITED_ROUTINES)
+                  } else
                     runWorkoutAction {
                         updateFinishedWorkout(workoutId, edit) { before ->
                             subscriptions.syncCounts(snapshot?.routines ?: 0, before)

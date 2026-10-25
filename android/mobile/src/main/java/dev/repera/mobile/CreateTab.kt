@@ -58,6 +58,7 @@ import dev.repera.domain.WodClockSpec
 import java.time.LocalDate
 import java.time.LocalTime
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
@@ -74,6 +75,7 @@ internal fun CreateTab(
     onAddWodTemplate: (String) -> Unit,
     onOpenBoardScan: () -> Unit,
     onOpenTimer: () -> Unit,
+    onOpenFreeWorkout: () -> Unit = {},
     onInitializeLocal: () -> Unit,
     onImportJson: () -> Unit,
     onDriveSync: () -> Unit,
@@ -90,6 +92,10 @@ internal fun CreateTab(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { Text("Crear", style = MaterialTheme.typography.headlineMedium) }
+        item {
+            OutlinedButton(onClick = onOpenFreeWorkout, enabled = !busy,
+                modifier = Modifier.fillMaxWidth().testTag("create_free_workout")) { Text("Crear entreno") }
+        }
         if (overview != null) {
             item {
                 RoutineCreatorCard(
