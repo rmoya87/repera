@@ -174,6 +174,23 @@ final class LiveRoutesStore {
         }.map { $0.element }
     }
 
+    /// Una ruta repetida vuelve a la parte superior aunque se importara hace meses.
+    func recentRoutes(using workouts: [WorkoutSession]) -> [LiveSavedRoute] {
+        var lastActivity: [UUID: Date] = [:]
+        for workout in workouts where workout.phase == .finished {
+            guard let id = workout.liveRouteID else { continue }
+            let date = workout.startedAt ?? workout.finishedAt ?? .distantPast
+            if date > (lastActivity[id] ?? .distantPast) {
+                lastActivity[id] = date
+            }
+        }
+        return routes.enumerated().sorted { lhs, rhs in
+            let left = max(lhs.element.createdAt, lastActivity[lhs.element.id] ?? .distantPast)
+            let right = max(rhs.element.createdAt, lastActivity[rhs.element.id] ?? .distantPast)
+            return left == right ? lhs.offset < rhs.offset : left > right
+        }.map { $0.element }
+    }
+
     var favoriteRoutes: [LiveSavedRoute] {
         latestRoutes.filter(\.isFavorite)
     }
@@ -2108,6 +2125,16 @@ private struct LiveRouteTrace: Shape {
 /// Biblioteca: cinco últimas rutas, acceso al histórico completo y favoritos explícitos.
 private struct LiveRouteLibraryPickerView: View {
     @State private var routes = LiveRoutesStore.shared
+    @Environment(ReperaStore.self) private var store
+
+    private var recentRoutes: [LiveSavedRoute] {
+        routes.recentRoutes(using: store.state.workouts)
+    }
+
+    private var favorites: [LiveSavedRoute] {
+        recentRoutes.filter(\.isFavorite)
+    }
+
     var onClose: () -> Void
     var onImport: () -> Void
     var onUseRoute: (LiveSavedRoute) -> Void
@@ -2139,20 +2166,20 @@ private struct LiveRouteLibraryPickerView: View {
                 .listRowSeparator(.hidden)
 
                 Section("Últimas rutas") {
-                    if routes.latestRoutes.isEmpty {
+                    if recentRoutes.isEmpty {
                         ContentUnavailableView(
                             "Todavía no hay rutas",
                             systemImage: "map",
                             description: Text("Graba un recorrido o importa un GPX para empezar.")
                         )
                     } else {
-                        ForEach(Array(routes.latestRoutes.prefix(5))) { route in
+                        ForEach(Array(recentRoutes.prefix(5))) { route in
                             LiveRouteLibraryRow(
                                 routeID: route.id,
                                 onUseRoute: onUseRoute, onDeleteRoute: onDeleteRoute
                             )
                         }
-                        if routes.latestRoutes.count > 5 {
+                        if recentRoutes.count > 5 {
                             NavigationLink {
                                 LiveAllRoutesView(
                                     onUseRoute: onUseRoute, onDeleteRoute: onDeleteRoute
@@ -2161,7 +2188,7 @@ private struct LiveRouteLibraryPickerView: View {
                                 HStack {
                                     Text("Ver más").fontWeight(.semibold)
                                     Spacer()
-                                    Text("\(routes.latestRoutes.count) rutas")
+                                    Text("\(recentRoutes.count) rutas")
                                         .foregroundStyle(OG.label2)
                                 }
                             }
@@ -2170,12 +2197,12 @@ private struct LiveRouteLibraryPickerView: View {
                 }
 
                 Section("Favoritos") {
-                    if routes.favoriteRoutes.isEmpty {
+                    if favorites.isEmpty {
                         Text("Pulsa la estrella de una ruta para añadirla aquí.")
                             .font(.subheadline)
                             .foregroundStyle(OG.label2)
                     } else {
-                        ForEach(routes.favoriteRoutes) { route in
+                        ForEach(favorites) { route in
                             LiveRouteLibraryRow(
                                 routeID: route.id,
                                 onUseRoute: onUseRoute, onDeleteRoute: onDeleteRoute
@@ -2200,13 +2227,14 @@ private struct LiveRouteLibraryPickerView: View {
 }
 
 private struct LiveAllRoutesView: View {
+    @Environment(ReperaStore.self) private var store
     @State private var routes = LiveRoutesStore.shared
     var onUseRoute: (LiveSavedRoute) -> Void
     var onDeleteRoute: (UUID) -> Void
 
     var body: some View {
         List {
-            ForEach(routes.latestRoutes) { route in
+            ForEach(routes.recentRoutes(using: store.state.workouts)) { route in
                 LiveRouteLibraryRow(
                     routeID: route.id,
                     onUseRoute: onUseRoute, onDeleteRoute: onDeleteRoute
