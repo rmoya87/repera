@@ -108,10 +108,32 @@ internal fun PlacePinMap(
             MapLibre.getInstance(context)
             MapView(context).also { mapView = it }.apply {
                 onCreate(null)
-                getMapAsync { map ->
-                    if (onMapClick != null) {
-                        map.addOnMapClickListener { onMapClick.invoke(); true }
+                if (onMapClick != null) {
+                    // Tap a nivel de vista, NO listener MapLibre: getMapAsync
+                    // es asíncrono y un toque temprano (mapa aún no entregado)
+                    // se perdía en silencio. Devuelve siempre false: el pan /
+                    // zoom del mapa sigue llegando intacto a MapLibre.
+                    var downX = 0f
+                    var downY = 0f
+                    var downAt = 0L
+                    val slop = android.view.ViewConfiguration.get(context).scaledTouchSlop
+                    setOnTouchListener { _, ev ->
+                        when (ev.actionMasked) {
+                            android.view.MotionEvent.ACTION_DOWN -> {
+                                downX = ev.x; downY = ev.y; downAt = ev.eventTime
+                            }
+                            android.view.MotionEvent.ACTION_UP -> {
+                                val quick = ev.eventTime - downAt <=
+                                    android.view.ViewConfiguration.getTapTimeout() * 2
+                                val still = kotlin.math.abs(ev.x - downX) <= slop &&
+                                    kotlin.math.abs(ev.y - downY) <= slop
+                                if (quick && still) onMapClick.invoke()
+                            }
+                        }
+                        false
                     }
+                }
+                getMapAsync { map ->
                     map.uiSettings.apply {
                         isLogoEnabled = true
                         isAttributionEnabled = true
@@ -209,10 +231,7 @@ fun PlaceSearchSheet(
     onSelect: (WorkoutLocationPin?) -> Unit,
     onDismiss: () -> Unit,
     /** Solo verificación: proveedor simulado. Producción siempre usa el compuesto. */
-    providerOverride: PlaceSearchProvider? = null,
-    /** Solo verificación: avisa cuando el estilo del mapa terminó de cargar
-     *  (y por tanto getMapAsync ya entregó el mapa y sus listeners). */
-    onMapStyleLoaded: (() -> Unit)? = null
+    providerOverride: PlaceSearchProvider? = null
 ) {
     val context = LocalContext.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
@@ -458,7 +477,6 @@ fun PlaceSearchSheet(
                     Box(Modifier.fillMaxSize()) {
                         PlacePinMap(p.latitude, p.longitude, isInteractive = true,
                             modifier = Modifier.fillMaxSize(),
-                            onStyleLoaded = onMapStyleLoaded,
                             onMapClick = {
                                 searchFocused = false
                                 focusManager.clearFocus(force = true)
@@ -498,7 +516,6 @@ fun PlaceSearchSheet(
                     if (center != null) {
                         PlacePinMap(center.first, center.second, isInteractive = true,
                             modifier = Modifier.fillMaxSize(),
-                            onStyleLoaded = onMapStyleLoaded,
                             onMapClick = {
                                 searchFocused = false
                                 focusManager.clearFocus(force = true)
