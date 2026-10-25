@@ -76,4 +76,27 @@ class LiveSportHistoryInstrumentedTest {
         compose.onNodeWithText("05:00 min/km").assertIsDisplayed()
         compose.onNodeWithText("05:12 min/km").assertIsDisplayed()
     }
+    @Test fun routeEvolutionExcludesIncompleteAttemptsFromBestTimeAndChart() {
+        val route = LiveSavedRoute(id = "route", title = "Parque", sportID = "running", isFavorite = true,
+            points = listOf(dev.repera.domain.WorkoutRoutePoint(0,40.0,-3.0,0),
+                dev.repera.domain.WorkoutRoutePoint(1,40.045,-3.0,300_000)))
+        val sessions = listOf(
+            session("first", "running", 5000.0).copy(liveRouteID = "route", activeDurationSeconds = 1800.0),
+            session("second", "running", 4900.0).copy(liveRouteID = "route", activeDurationSeconds = 1700.0, startedEpochMillis = 1793005200000L),
+            session("cut", "running", 1000.0).copy(liveRouteID = "route", activeDurationSeconds = 300.0))
+        compose.setContent {
+            MaterialTheme(colorScheme = darkColorScheme(primary = brandGreen)) {
+                Surface(Modifier.fillMaxSize()) {
+                    LiveRouteEvolutionScreen(route, LiveSport.RUNNING, sessions, {}, {})
+                }
+            }
+        }
+        compose.onNodeWithText("Evolución del recorrido").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("3 veces · Mejor tiempo: 28:20").assertExists()
+        compose.onNodeWithText("Los intentos con un recorrido incompleto no cuentan para el mejor tiempo.").assertExists()
+        save("deportes_evolucion_ruta")
+        compose.onNodeWithText("Distancia", useUnmergedTree = true).performScrollTo().performClick()
+        compose.onNodeWithContentDescription("2 intentos: 5.00 km, 4.90 km").assertExists()
+    }
+
 }

@@ -191,3 +191,14 @@ main móvil invisible.)
   signout detiene runtime/FGS. UI y nuevo test de guardado COMPILAN, aún no
   ejecutados: no se declara finalización de D4/D6 ni fidelidad visual.
   Restan audio/rutas-favoritos-evolución/import UI/deeplinks y ejecución.
+
+## D3 wiring de rutas, 19:46 CET
+- Favoritos enlazados desde historial, guardado de ruta registrada y UUID en
+  sesión, pantalla evolución con mapa/intentos completos/best time y métricas
+  minutos/ritmo/velocidad/km. No agrupa intentos por día. Reutiliza almacén D4.
+- Test UI nuevo: salida incompleta no rebaja mejor tiempo ni entra en gráfica;
+  métricas alternables y captura. COMPILA, aún no ejecutado ni inspeccionado.
+- Diferencias pendientes conocidas: acción accesible Guardar ruta en botón
+  (swipe Apple no portado), interpolación de gráfica lineal (Apple catmullRom),
+  detalle de sesión actual no tiene toda la edición del detalle antiguo.
+  No cierre D3 todavía. Necesita validar fixtures/capturas y completar wiring.

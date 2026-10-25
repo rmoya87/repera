@@ -85,7 +85,8 @@ internal fun ExercisesTab(
     onExportJson: () -> Unit,
     onSignOut: () -> Unit,
     onNavigateHome: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    accountId: String = "", onArchiveChanged: () -> Unit = {}
 ) {
     var selectedLiveSessionID by rememberSaveable { mutableStateOf<String?>(null) }
     var libraryMode by rememberSaveable { mutableStateOf("Ejercicios") }
@@ -97,6 +98,13 @@ internal fun ExercisesTab(
     // por defecto alfabético; búsqueda siempre plana por relevancia.
     var exerciseSort by rememberSaveable { mutableStateOf("Alfabético") }
     val context = LocalContext.current
+    var routeVersion by remember { mutableStateOf(0) }
+    var routeError by remember { mutableStateOf<String?>(null) }
+    val routeStore = remember(accountId) {
+        if (accountId.isBlank()) null else runCatching { LiveRoutesStore(context, accountId) }.getOrNull()
+    }
+    var evolutionRouteID by rememberSaveable { mutableStateOf<String?>(null) }
+    val savedRoutes = remember(routeStore, routeVersion) { routeStore?.routes.orEmpty() }
     val englishAliases = remember(context) { ExerciseSearchAssets.load(context) }
     // LazyListScope is not @Composable: calculate the filtered list here,
     // where remember is legal, then hand the immutable result to LazyColumn.
@@ -146,10 +154,36 @@ internal fun ExercisesTab(
                     item { LiveKilometerSplitsSection(detail.liveKilometerSplitsSeconds) }
                     detail.notes?.let { note -> item { Text(note) } }
                 }
+            } else if (selected != null && evolutionRouteID != null && savedRoutes.any { it.id == evolutionRouteID }) {
+                LiveRouteEvolutionScreen(savedRoutes.first { it.id == evolutionRouteID }, selected,
+                    overview?.liveSportSessions.orEmpty(), onBack = { evolutionRouteID = null },
+                    onOpenSession = { selectedLiveSessionID = it })
             } else if (selected != null) {
+                routeError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 LiveSportHistoryScreen(selected, overview?.liveSportSessions.orEmpty(),
                     onBack = { selectedSportID = null },
-                    onOpenSession = { selectedLiveSessionID = it })
+                    onOpenSession = { selectedLiveSessionID = it },
+                    favoriteRoutes = savedRoutes.filter { r -> r.isFavorite &&
+                        (r.sportID == selected.id || overview?.liveSportSessions.orEmpty().any { it.sportID == selected.id && it.liveRouteID == r.id }) },
+                    canSaveRoute = { id -> routeStore != null &&
+                        overview?.completeHistory?.firstOrNull { it.id == id }?.routePoints.orEmpty().size >= 2 &&
+                        savedRoutes.none { r -> r.isFavorite && overview?.liveSportSessions.orEmpty().any { it.id == id && it.liveRouteID == r.id } } },
+                    onOpenRoute = { evolutionRouteID = it.id },
+                    onSaveRoute = { id ->
+                        try {
+                            val store = routeStore ?: error("Almacén no disponible")
+                            val session = overview!!.liveSportSessions.first { it.id == id }
+                            val existing = savedRoutes.firstOrNull { it.id == session.liveRouteID }
+                            if (existing != null) store.setFavorite(existing.id, true)
+                            else {
+                                val detail = overview.completeHistory.first { it.id == id }
+                                val route = store.addRecordedRoute(detail.title, detail.routePoints, selected.id,
+                                    true, session.startedEpochMillis ?: System.currentTimeMillis())
+                                WorkoutRepository(context, accountId).setLiveRouteID(id, route.id)
+                            }
+                            routeVersion++;routeError = null;onArchiveChanged()
+                        } catch (_: Exception) { routeError = "No se pudo guardar la ruta. Comprueba el almacenamiento e inténtalo de nuevo." }
+                    })
             } else {
                 TextButton(onClick = { libraryMode = "Ejercicios" }) { Text("Volver a Ejercicios") }
                 OutlinedTextField(value = sportSearch, onValueChange = { sportSearch = it },

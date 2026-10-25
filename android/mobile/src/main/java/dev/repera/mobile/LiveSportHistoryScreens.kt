@@ -47,7 +47,10 @@ internal fun LiveSportsCatalogScreen(
 @Composable
 internal fun LiveSportHistoryScreen(
     sport: LiveSport, sessions: List<LiveSportHistory.LiveSession>,
-    onBack: () -> Unit, onOpenSession: (String) -> Unit = {}, modifier: Modifier = Modifier
+    onBack: () -> Unit, onOpenSession: (String) -> Unit = {}, modifier: Modifier = Modifier,
+    favoriteRoutes: List<LiveSavedRoute> = emptyList(),
+    canSaveRoute: (String) -> Boolean = { false },
+    onSaveRoute: (String) -> Unit = {}, onOpenRoute: (LiveSavedRoute) -> Unit = {}
 ) {
     val own = LiveSportHistory.sessionsOf(sport, sessions)
     val summary = LiveSportHistory.summary(sport, sessions)
@@ -76,6 +79,14 @@ internal fun LiveSportHistoryScreen(
                 }
             }
         }
+        if (sport.usesGPS && favoriteRoutes.isNotEmpty()) {
+            item { Text("Rutas favoritas · evolución", style = MaterialTheme.typography.titleMedium) }
+            items(favoriteRoutes, key = { "route-${it.id}" }) { route ->
+                OutlinedButton(onClick = { onOpenRoute(route) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("★ ${route.title} · ${own.count { it.liveRouteID == route.id }} veces realizada")
+                }
+            }
+        }
         item { Text(if (sport.usesGPS) "Recorridos realizados" else "Actividades realizadas",
             style = MaterialTheme.typography.titleMedium) }
         items(own, key = { it.id }) { session ->
@@ -94,6 +105,9 @@ internal fun LiveSportHistoryScreen(
                         session.activeEnergyKcal?.takeIf { it > 0 }?.let { add("${it.roundToInt()} kcal") }
                     }
                     Text(metrics.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+                    if (sport.usesGPS && canSaveRoute(session.id)) {
+                        TextButton(onClick = { onSaveRoute(session.id) }) { Text("Guardar ruta") }
+                    }
                 }
             }
         }

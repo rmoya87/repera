@@ -31,6 +31,15 @@ class WorkoutRepository(context: Context, googleId: String) {
         }
     }
 
+    @Synchronized fun setLiveRouteID(sessionID: String, routeID: String) {
+        val state = requireState()
+        val archive = state.getJSONArray("workouts")
+        val session = (0 until archive.length()).map { archive.getJSONObject(it) }
+            .firstOrNull { it.optString("id") == sessionID } ?: error("Actividad no encontrada")
+        require(session.optString("phase") == "finished" && !session.isNull("liveSportID"))
+        session.put("liveRouteID", routeID);save(state)
+    }
+
     /** Actividad En vivo confirmada desde revisión, sin ejercicios ficticios
      * ni escritura de Salud. UUID idempotente evita duplicar tras reintento. */
     @Synchronized fun saveLiveActivity(snapshot: dev.repera.domain.LiveActivityState.Snapshot,

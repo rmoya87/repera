@@ -495,6 +495,7 @@ fun ReperaMobileScreen(
                 }
                 composable("ejercicios") {
                     ExercisesTab(
+                        accountId = accountId, onArchiveChanged = onLiveActivitySaved,
                         busy = busy,
                         syncing = syncing,
                         status = status,
