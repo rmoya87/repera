@@ -764,6 +764,20 @@ class VisualVerificationInstrumentedTest {
         }
     }
 
+    /** El SurfaceView GL del mapa fuerza una re-sincronización de superficie
+     *  del diálogo al entrar (API 30 con GL por software: la captura sale en
+     *  blanco y el título reporta no mostrado un instante, "No local sync
+     *  point" en logcat). El ESTADO ya está fijado de forma síncrona al
+     *  pulsar; esperar a que el título quede visible separa el estado real
+     *  del artefacto de composición de superficie del emulador. */
+    private fun waitTitleDisplayed(title: String) {
+        compose.waitUntil(timeoutMillis = 15_000) {
+            compose.onAllNodesWithText(title).fetchSemanticsNodes().any {
+                it.layoutInfo.isPlaced && it.boundsInRoot.width > 0 && it.boundsInRoot.height > 0
+            }
+        }
+    }
+
     @Test
     fun flujoBusquedaLugarConProveedorSimulado() {
         var selected: WorkoutLocationPin? = null
@@ -784,14 +798,14 @@ class VisualVerificationInstrumentedTest {
         compose.waitForIdle()
         save("lugar_hoja_confirmar", compose.onRoot().captureToImage())
         // Estado lógico tras elegir: modo confirmar, panel cerrado (iOS).
-        compose.onNodeWithText("Lugar").assertIsDisplayed()
+        waitTitleDisplayed("Lugar")
         compose.onNodeWithText("Busca un gimnasio, parque o dirección")
             .assertDoesNotExist()
         // Tocar el campo PRESENTA la búsqueda de nuevo (iOS searchable):
         // título de búsqueda + panel visible. No es un fallo del estado.
         compose.onNodeWithTag("place_query").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("Buscar lugar").assertIsDisplayed()
+        waitTitleDisplayed("Buscar lugar")
         compose.onNodeWithText("Busca un gimnasio, parque o dirección")
             .assertIsDisplayed()
         // Tocar el mapa CIERRA la búsqueda presentada (dismissSearch iOS):
@@ -800,7 +814,7 @@ class VisualVerificationInstrumentedTest {
         // sin esperar la entrega asíncrona del mapa GL.
         compose.onNodeWithTag("place_pin_map").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("Lugar").assertIsDisplayed()
+        waitTitleDisplayed("Lugar")
         compose.onNodeWithText("Busca un gimnasio, parque o dirección")
             .assertDoesNotExist()
         compose.onNodeWithTag("place_confirm").performClick()
