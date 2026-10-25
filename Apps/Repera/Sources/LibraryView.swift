@@ -205,9 +205,9 @@ struct LibraryView: View {
                                     ExerciseDetailView(
                                         exerciseId: selectedExerciseID,
                                         onOpenedWorkout: onOpenedWorkout,
-                                        showsQuickLogToolbarAction: true
+                                        showsQuickLogToolbarAction: true,
+                                        showsInlineHeader: true
                                     )
-                                    .toolbar(.visible, for: .navigationBar)
                                 }
                                 .id(selectedExerciseID)
                             } else {
