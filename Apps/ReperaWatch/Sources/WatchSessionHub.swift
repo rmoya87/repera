@@ -286,6 +286,7 @@ final class WatchSessionHub: NSObject {
     }
 
     func activate() {
+        health.onRecordingReady = { [weak self] in self?.checkpoint() }
         health.onPauseResumeRequest = { [weak self] in self?.applyHealthPauseRequest() }
         health.onPauseStateChanged = { [weak self] paused in
             self?.alignWithHealthState(paused: paused)
@@ -1139,7 +1140,8 @@ final class WatchSessionHub: NSObject {
             }
         }
         if sessionElapsed % 10 < delta {
-            save()
+            if active?.liveSportID != nil { checkpoint() }
+            else { save() }
         }
     }
 
@@ -1178,7 +1180,12 @@ final class WatchSessionHub: NSObject {
 
     private func checkpoint() {
         save()
-        if let current = active { connectivity.sendCurrent(current) }
+        if var current = active {
+            if current.liveSportID != nil && health.isRecording {
+                current.appleHealthProvenance = "watchHealthKitPending"
+            }
+            connectivity.sendCurrent(current)
+        }
     }
 
     private func save() {
