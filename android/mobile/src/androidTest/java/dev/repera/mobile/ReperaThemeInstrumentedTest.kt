@@ -8,6 +8,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
@@ -83,6 +86,7 @@ class ReperaThemeInstrumentedTest {
     private fun inspectScreens(dark: Boolean) {
         val overview = estadoSinteticoOverview()
         var screen by mutableStateOf(0)
+        var focusedDay by mutableStateOf<java.time.LocalDate?>(null)
         val account = "test-theme-${java.util.UUID.randomUUID()}"
         LiveActivityRuntime.forAccount(compose.activity,account).choose(dev.repera.domain.LiveSport.PADEL)
         compose.setContent {
@@ -90,6 +94,7 @@ class ReperaThemeInstrumentedTest {
                 Surface(Modifier.fillMaxSize()) {
                     when(screen) {
                     0 -> HomeTab(
+                        focusDay=focusedDay,
                         displayName = "Deportista", busy = false, syncing = false,
                         status = null, overview = overview, todayHealth = null,
                         onHealthConnect = {}, activeWorkout = null, wodTimer = null,
@@ -129,6 +134,12 @@ class ReperaThemeInstrumentedTest {
                     9 -> CreateTab(busy=false,syncing=false,status=null,overview=overview,
                         onCreateRoutine={_,_,_,_,_,_,_,_,_,_->},onAddWodTemplate={},onOpenBoardScan={},
                         onOpenTimer={},onInitializeLocal={},onImportJson={},onDriveSync={},onExportJson={},onSignOut={})
+                    10 -> ActiveWorkoutScreen(
+                        ActiveWorkout(id="theme-active",title="Pierna",index=0,total=1,
+                            exerciseName="Sentadilla",completedSets=0,prescribedQuantity=5,
+                            prescribedWeightKg=80.0,allowsWeight=true,sets=emptyList()),
+                        false,null,{},{},{_,_,_->},{_,_,_,_->},{},{_,_,_->},{},
+                        {_,_,_,_,_,_,_->},{_,_,_->},{_,_->},{_,_,_,_,_,_->},{},{},{},{},{},{},null,account,{})
                     5 -> Column(Modifier.padding(16.dp)) {
                         FinishedWorkoutEditorSection(overview.completeHistory.first(),account,false) {}
                     }
@@ -136,7 +147,7 @@ class ReperaThemeInstrumentedTest {
                 }
             }
         }
-        val names = listOf("inicio","progreso","ejercicios","comenzar_padel","historial_deporte","editor_terminado","diario","ajustes","catalogo_deportes","crear")
+        val names = listOf("inicio","progreso","ejercicios","comenzar_padel","historial_deporte","editor_terminado","diario","ajustes","catalogo_deportes","crear","entreno_activo")
         names.forEachIndexed { index,name ->
             compose.runOnIdle { screen=index }
             compose.waitForIdle()
@@ -152,6 +163,9 @@ class ReperaThemeInstrumentedTest {
             val uri=context.contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values)!!
             context.contentResolver.openOutputStream(uri)!!.use {bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
         }
+        compose.runOnIdle { screen=0;focusedDay=java.time.LocalDate.of(2026,10,7) }
+        compose.onNodeWithText("Entrenamientos · " + focusedDay!!.format(reperaDayFormatter))
+            .performScrollTo().assertIsDisplayed()
         compose.runOnIdle { LiveActivityRuntime.stopAll() }
     }
 }

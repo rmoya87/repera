@@ -362,3 +362,13 @@ main móvil invisible.)
 - Meteo/viento sigue sin equivalente: Apple usa WeatherKit autenticado;
   Android no tiene transporte/backend existente. No se añaden proveedores
   ni se transmiten coordenadas privadas a servicios nuevos silenciosamente.
+
+## D6 navegación, 21:10 CET local
+- Verificación exacta Apple5890215d: repera://workout NO resuelve un UUID;
+  abre flujo de sesión activa si existe o Inicio sin sesión. Android ahora
+  abre ruta dedicada de sesión activa (fuerza/WOD y lugar), en vez de dejar
+  la tarjeta por debajo del calendario. Nuevo componente reutiliza callbacks
+  ya existentes. Pendiente ejecución/capturas claro/oscuro.
+- Cobertura tema preparada11 pantallas×2, con aserción del focusDay de Inicio.
+- Preparada prueba proveedor Android simulado: dos fixes con distancia,
+  pausa sin callbacks y reanudación sin unir salto. No GPS/hardware real.

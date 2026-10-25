@@ -484,7 +484,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private fun routeFromIntent(intent: android.content.Intent?): String? {
         val uri = intent?.data ?: return null
         if (uri.scheme != "repera") return null
-        return when (uri.host) { "live" -> "en-vivo"; "workout" -> "inicio"; else -> null }
+        return when (uri.host) { "live" -> "en-vivo"; "workout" -> "entreno-activo"; else -> null }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

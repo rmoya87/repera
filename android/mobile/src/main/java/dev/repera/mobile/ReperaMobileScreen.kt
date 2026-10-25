@@ -236,8 +236,10 @@ fun ReperaMobileScreen(
             }
         }
         LaunchedEffect(initialExternalRoute) {
-            initialExternalRoute?.takeIf { it == "en-vivo" || it == "inicio" }?.let {
-                navigateTab(it);onExternalRouteHandled()
+            initialExternalRoute?.takeIf { it == "en-vivo" || it == "inicio" || it == "entreno-activo" }?.let {
+                if(it=="entreno-activo" && activeWorkout==null) navigateTab("inicio")
+                else navigateTab(it)
+                onExternalRouteHandled()
             }
         }
         var homeFocusDay by remember { mutableStateOf<java.time.LocalDate?>(null) }
@@ -457,9 +459,21 @@ fun ReperaMobileScreen(
                         onBack = { navController.popBackStack() }
                     )
                 }
+                composable("entreno-activo") {
+                    val workout=activeWorkout
+                    if(workout==null) {
+                        LaunchedEffect(Unit) { navigateTab("inicio") }
+                    } else {
+                        ActiveWorkoutScreen(workout,busy,wodTimer,onWodTimerAction,onWodTimerTick,
+                            onWodScore,onWodMovement,onCompleteWodBlock,onReviseWodMovement,onDeleteWodMovement,
+                            onLogSet,onLogDropSet,onLogRestPauseSet,onReviseSet,onDeleteSet,onNext,onFinish,
+                            onDiscardSession,{navController.navigate("reloj")},{navController.popBackStack()},
+                            overview?.activeLocationPin,accountId,onActivePinChange)
+                    }
+                }
                 composable("en-vivo") {
                     LiveActivityScreen(accountId = accountId,
-                        hasActiveWorkout = activeWorkout != null, onOpenWorkout = { navigateTab("inicio") },
+                        hasActiveWorkout = activeWorkout != null, onOpenWorkout = { navController.navigate("entreno-activo") },
                         onSaved = { onLiveActivitySaved(); navigateTab("inicio") },
                         onSavedDay={ homeFocusDay=java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate() },
                         onOpenTools = { navController.navigate("crear") },
