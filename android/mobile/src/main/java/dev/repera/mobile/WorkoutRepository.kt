@@ -41,6 +41,13 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         return count
     }
 
+    @Synchronized fun setTestedOneRM(exerciseId:String,value:Double?) {
+        val state=requireState()
+        val catalog=state.getJSONArray("exercises")
+        require((0 until catalog.length()).any {catalog.getJSONObject(it).optString("id")==exerciseId})
+        ExerciseLoadPreference.setTested(state,exerciseId,value);save(state)
+    }
+
     @Synchronized internal fun updateTrainingSettings(value:TrainingSettings) {
         val state=requireState()
         TrainingSettings.apply(state,value)

@@ -521,6 +521,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 syncing = syncing,
                 status = status,
                 overview = snapshot,
+                onSetTestedOneRM = { id,value -> runWorkoutAction { setTestedOneRM(id,value) } },
                 exerciseSeries = { exerciseId, metric, range ->
                     val uid = profile?.uniqueId
                     val bytes = uid?.let { LocalSnapshotStore(this, it).read() }
@@ -1615,7 +1616,8 @@ data class StateOverview(
     val dayWorkoutMinutes:Map<java.time.LocalDate,Double> = emptyMap(),
     val dayWorkoutCounts:Map<java.time.LocalDate,Int> = emptyMap(),
     val dayEnergyKcal:Map<java.time.LocalDate,Double> = emptyMap(),
-    val bodyWeightHistory:List<BodyWeightHistoryEntry> = emptyList()
+    val bodyWeightHistory:List<BodyWeightHistoryEntry> = emptyList(),
+    val testedOneRMByExercise:Map<String,Double> = emptyMap()
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?, health: HealthSamples? = null,
@@ -1974,6 +1976,7 @@ data class StateOverview(
                 exercises = exerciseEntries.size,
                 bodyWeights = json.optJSONArray("bodyWeights")?.length() ?: 0,
                 bodyWeightHistory = BodyWeightHistory.entries(json),
+                testedOneRMByExercise = ExerciseLoadPreference.all(json),
                 activeSessionTitle = json.optJSONObject("activeSession")?.optString("title"),
                 activeSessionId = json.optJSONObject("activeSession")?.optString("id")?.takeIf { it.isNotEmpty() },
                 activeLocationPin = json.optJSONObject("activeSession")?.optJSONObject("locationPin")?.let { o ->

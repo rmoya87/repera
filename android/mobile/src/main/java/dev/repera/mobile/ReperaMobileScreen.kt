@@ -144,6 +144,7 @@ fun ReperaMobileScreen(
     onReviseSet: (String, Int, Double?, String?, Int?, Int?) -> Unit,
     onDeleteSet: (String) -> Unit,
     onReviseFinishedSet: (String, String, String, Int, Double?, Int?) -> Unit,
+    onSetTestedOneRM:(String,Double?)->Unit = {_,_->},
     exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
         List<ExerciseProgressPoint> = { _, _, _ -> emptyList() },
     sessionAppearances: (exerciseId: String, highlightSessionId: String,
@@ -732,6 +733,11 @@ fun ReperaMobileScreen(
                     } else {
                         ExerciseDetailScreen(
                             entry = entry,
+                            testedOneRM = overview?.testedOneRMByExercise?.get(entry.id),
+                            estimatedOneRM = overview?.exerciseProgress?.get(entry.id)?.estimatedOneRM,
+                            incrementKg = overview?.trainingSettings?.weightIncrementKg ?: 2.5,
+                            onSetTestedOneRM = {onSetTestedOneRM(entry.id,it)},
+                            busy = busy,
                             exerciseSeries = exerciseSeries,
                             highlightSessionId = highlightSessionId,
                             highlightInstanceId = highlightInstanceId,

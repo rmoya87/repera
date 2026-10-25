@@ -23,6 +23,9 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +48,11 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun ExerciseDetailScreen(
     entry: ExerciseEntry,
+    testedOneRM:Double? = null,
+    estimatedOneRM:Double? = null,
+    incrementKg:Double = 2.5,
+    onSetTestedOneRM:(Double?)->Unit = {},
+    busy:Boolean = false,
     exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
         List<ExerciseProgressPoint> = { _, _, _ -> emptyList() },
     highlightSessionId: String? = null,
@@ -92,7 +100,7 @@ internal fun ExerciseDetailScreen(
                 ?.decision(dev.repera.domain.monetization.ReperaFeature.EXERCISE_EVOLUTION)
                 ?.allowed ?: true
             if (evolutionAllowed) {
-                ExerciseEvolutionSection(entry = entry, exerciseSeries = exerciseSeries)
+                ExerciseEvolutionSection(entry = entry, exerciseSeries = exerciseSeries, testedOneRM=testedOneRM, onSetTestedOneRM=onSetTestedOneRM,busy=busy)
             } else {
                 dev.repera.mobile.monetization.ProTeaserCard(
                     title = "Tu evolución",
@@ -106,6 +114,9 @@ internal fun ExerciseDetailScreen(
                     )
                 }
             }
+        }
+        if (!isMobility) item {
+            SuggestedExerciseLoadCard(testedOneRM,estimatedOneRM,incrementKg)
         }
         if (frames.size <= 1) {
             item { ArtImage(frames.firstOrNull(), entry.name, Modifier.fillMaxWidth().aspectRatio(4f / 3f)) }
@@ -185,7 +196,8 @@ private fun ArtImage(stem: String?, contentDescription: String, modifier: Modifi
 private fun ExerciseEvolutionSection(
     entry: ExerciseEntry,
     exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
-        List<ExerciseProgressPoint>
+        List<ExerciseProgressPoint>,
+    testedOneRM:Double?,onSetTestedOneRM:(Double?)->Unit,busy:Boolean
 ) {
     val metrics = ExerciseProgressMetric.available(
         if (entry.loggingStyle == "machineWork") "machineWork"
@@ -201,10 +213,14 @@ private fun ExerciseEvolutionSection(
     val points = remember(entry.id, metric, range) {
         exerciseSeries(entry.id, selectedMetric, selectedRange)
     }
+    var selectedPoint by remember(entry.id,metric,range) {mutableStateOf<Int?>(null)}
+    val ceiling=testedOneRM?.takeIf { entry.sportTag!="Movilidad" && entry.loggingStyle!="machineWork" && entry.loggingStyle!="repsAndTime" && (selectedMetric==ExerciseProgressMetric.TOP_SET || selectedMetric==ExerciseProgressMetric.ESTIMATED_ONE_RM) }
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Evolución", style = MaterialTheme.typography.titleLarge)
+            if(entry.sportTag!="Movilidad" && entry.loggingStyle!="machineWork" && entry.loggingStyle!="repsAndTime")
+                TestedOneRMEditor(testedOneRM,busy,onSetTestedOneRM)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxWidth()
                     .horizontalScroll(rememberScrollState())) {
@@ -226,15 +242,24 @@ private fun ExerciseEvolutionSection(
                     style = MaterialTheme.typography.bodyMedium)
             } else {
                 val line = MaterialTheme.colorScheme.primary
+                val ceilingColor=MaterialTheme.colorScheme.onSurfaceVariant
+                fun selectAt(x:Float,width:Int) {
+                    selectedPoint=if(points.size==1) 0 else ((x/width.coerceAtLeast(1))*(points.size-1)).toInt().coerceIn(points.indices)
+                }
                 androidx.compose.foundation.Canvas(modifier = Modifier
-                    .fillMaxWidth().height(120.dp)) {
-                    val minV = points.minOf { it.value }
-                    val maxV = points.maxOf { it.value }
+                    .fillMaxWidth().height(120.dp)
+                    .pointerInput(points) {detectTapGestures {selectAt(it.x,size.width)}}
+                    .pointerInput(points) {detectHorizontalDragGestures {change,_ -> selectAt(change.position.x,size.width)}}) {
+                    val minV = minOf(points.minOf { it.value },ceiling ?: Double.MAX_VALUE)
+                    val maxV = maxOf(points.maxOf { it.value },ceiling ?: 0.0)
                     val span = (maxV - minV).coerceAtLeast(1e-9)
                     fun x(i: Int) = if (points.size == 1) size.width / 2f
                         else i * size.width / (points.size - 1)
                     fun y(v: Double) =
                         size.height - ((v - minV) / span * size.height * 0.9f).toFloat() - size.height * 0.05f
+                    ceiling?.let {drawLine(ceilingColor,androidx.compose.ui.geometry.Offset(0f,y(it)),androidx.compose.ui.geometry.Offset(size.width,y(it)),strokeWidth=2f,
+                        pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f,8f)))}
+                    selectedPoint?.let {i -> drawLine(ceilingColor,androidx.compose.ui.geometry.Offset(x(i),0f),androidx.compose.ui.geometry.Offset(x(i),size.height),strokeWidth=2f)}
                     val path = androidx.compose.ui.graphics.Path()
                     points.forEachIndexed { i, p ->
                         if (i == 0) path.moveTo(x(i), y(p.value))
@@ -247,8 +272,10 @@ private fun ExerciseEvolutionSection(
                             center = androidx.compose.ui.geometry.Offset(x(i), y(p.value)))
                     }
                 }
-                val last = points.last()
-                Text("Último: ${formatPointValue(selectedMetric, last)} · " +
+                ceiling?.let {Text("Tope 1RM · $it kg",style=MaterialTheme.typography.bodySmall)}
+                val last = points[selectedPoint ?: points.lastIndex]
+                Text(java.time.Instant.ofEpochMilli(last.epochMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDate().format(reperaDayFormatter),style=MaterialTheme.typography.bodySmall)
+                Text("${if(selectedPoint==null) "Último" else "Seleccionado"}: ${formatPointValue(selectedMetric, last)} · " +
                     "${points.size} registros",
                     style = MaterialTheme.typography.bodyMedium)
             }
