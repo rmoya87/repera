@@ -405,6 +405,7 @@ private enum LiveGPXTurnDetection {
 }
 
 private struct LiveSnapshot: Codable {
+    var watchTrackingConfirmed: Bool?
     var sessionID: UUID?
     var sport: String
     var phase: String
@@ -428,6 +429,7 @@ final class LiveActivityRecorder: NSObject {
     enum Phase: String { case idle, recording, paused, review }
     private(set) var phase: Phase = .idle
     private(set) var sessionID: UUID?
+    private(set) var watchTrackingConfirmed = false
     private(set) var sport: LiveSport = .running
     private(set) var startedAt: Date?
     private(set) var finishedAt: Date?
@@ -479,6 +481,7 @@ final class LiveActivityRecorder: NSObject {
            snapshot.phase != Phase.idle.rawValue {
             sport = restoredSport
             sessionID = snapshot.sessionID ?? UUID()
+            watchTrackingConfirmed = snapshot.watchTrackingConfirmed ?? false
             startedAt = snapshot.startedAt
             pausedAt = snapshot.pausedAt ?? snapshot.savedAt
             pausedSeconds = snapshot.pausedSeconds
@@ -568,6 +571,7 @@ final class LiveActivityRecorder: NSObject {
     func start() {
         guard phase == .idle else { return }
         sessionID = UUID()
+        watchTrackingConfirmed = false
         startedAt = Date()
         finishedAt = nil
         pausedAt = nil
@@ -720,6 +724,7 @@ final class LiveActivityRecorder: NSObject {
             startedAt: startedAt,
             finishedAt: max(finishedAt, startedAt.addingTimeInterval(1)),
             notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
+            appleHealthProvenance: watchTrackingConfirmed ? "watchHealthKitPending" : nil,
             routePoints: routePoints,
             liveSportID: sport.rawValue,
             liveRouteID: chosenRoute?.id,
@@ -752,6 +757,10 @@ final class LiveActivityRecorder: NSObject {
     /// La actualización no genera un nuevo entreno ni otra escritura a Salud.
     func applyWatchState(_ session: WorkoutSession) {
         guard let id = sessionID, session.id == id, phase != .idle else { return }
+        if session.appleHealthProvenance == "watchHealthKitPending" ||
+            session.appleHealthProvenance == "watchHealthKit" {
+            watchTrackingConfirmed = true
+        }
         switch session.phase {
         case .ready where phase == .recording: pause()
         case .counting where phase == .paused: resume()
@@ -771,6 +780,7 @@ final class LiveActivityRecorder: NSObject {
         stopGPS()
         phase = .idle
         sessionID = nil
+        watchTrackingConfirmed = false
         startedAt = nil
         finishedAt = nil
         pausedAt = nil
@@ -791,6 +801,7 @@ final class LiveActivityRecorder: NSObject {
     private func persistSnapshot() {
         guard let start = startedAt, phase != .idle else { return }
         let snap = LiveSnapshot(
+            watchTrackingConfirmed: watchTrackingConfirmed,
             sessionID: sessionID,
             sport: sport.rawValue, phase: phase.rawValue,
             startedAt: start, pausedAt: pausedAt, pausedSeconds: pausedSeconds,
