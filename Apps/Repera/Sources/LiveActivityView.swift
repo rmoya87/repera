@@ -524,6 +524,7 @@ struct LiveActivityView: View {
 
     var onSaved: (Date) -> Void
     var onOpenWorkout: () -> Void
+    var onOpenCenter: (() -> Void)? = nil
 
     var body: some View {
         NavigationStack {
@@ -559,6 +560,13 @@ struct LiveActivityView: View {
                             sportPicker = true
                         } label: {
                             Label("Deporte", systemImage: "list.bullet")
+                        }
+                    }
+                    if let onOpenCenter {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button(action: onOpenCenter) {
+                                Label("Mi centro", systemImage: "building.2")
+                            }
                         }
                     }
                 } else if recorder.phase != .review {
@@ -655,13 +663,15 @@ struct LiveActivityView: View {
             .frame(maxHeight: .infinity)
             .padding(.horizontal, 12)
 
-            HStack(spacing: 6) {
-                smallMetric("Tiempo", value: formattedTime(recorder.durationSeconds))
-                smallMetric("Distancia", value: String(format: "%.2f km", recorder.recordedDistanceMeters / 1000))
-                smallMetric(recorder.sport.isCycling ? "km/h" : "min/km",
-                            value: paceOrSpeed)
+            TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                HStack(spacing: 6) {
+                    smallMetric("Tiempo", value: formattedTime(recorder.duration(at: timeline.date)))
+                    smallMetric("Distancia", value: String(format: "%.2f km", recorder.recordedDistanceMeters / 1000))
+                    smallMetric(recorder.sport.isCycling ? "km/h" : "min/km",
+                                value: paceOrSpeed)
+                }
+                .padding(.horizontal, 12)
             }
-            .padding(.horizontal, 12)
             if let message = recorder.gpsMessage {
                 Text(message).font(.caption).foregroundStyle(OG.label2).padding(.horizontal, 16)
             }
