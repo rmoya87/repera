@@ -2092,7 +2092,9 @@ private struct LiveRouteTrace: Shape {
         }
         guard valid.count >= 2 else { return Path() }
         let factor = cos((valid.map(\.latitude).reduce(0, +) / Double(valid.count)) * .pi / 180)
-        let positions = valid.map { CGPoint(x: $0.longitude * factor, y: $0.latitude) }
+        let positions = valid.map {
+            CGPoint(x: CGFloat($0.longitude * factor), y: CGFloat($0.latitude))
+        }
         let minX = positions.map(\.x).min() ?? 0
         let maxX = positions.map(\.x).max() ?? 0
         let minY = positions.map(\.y).min() ?? 0
