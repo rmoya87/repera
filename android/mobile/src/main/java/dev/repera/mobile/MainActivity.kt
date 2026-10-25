@@ -72,7 +72,15 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var healthSamples by mutableStateOf<HealthSamples?>(null)
     private var recoveryRead by mutableStateOf<RecoveryRead?>(null)
     private val credentialManager by lazy { CredentialManager.create(this) }
+    private var centerRevision=0L
     private var verifiedSupabase: SupabaseIdentity.Session? = null
+        set(value) {
+            if(field?.userId!=value?.userId) {
+                centerRevision++
+                centerSnapshot=null;centerError=null;centerLoading=false;centerSubmitting=false
+            }
+            field=value
+        }
     private var lastCatalogCheckAt = 0L
     private var catalogRefreshRunning = false
     private var centerSnapshot by mutableStateOf<BusinessCenterStore.Snapshot?>(null)
@@ -628,6 +636,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 centerSubmitting = centerSubmitting,
                 centerError = centerError,
                 centerSnapshot = centerSnapshot,
+                onSendCenterMessage = { org,title,body -> centerAction { s -> sendMessage(s,org,title,body) } },
                 onCenterRefresh = {
                     refreshCenter()
                     syncSupabaseMirrors()
@@ -977,16 +986,19 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val session = verifiedSupabase ?: return
         if (centerLoading) return
         centerLoading = true
+        val revision=centerRevision
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 BusinessCenterStore().refresh(session)
             }
+            if(centerRevision!=revision || verifiedSupabase?.userId!=session.userId) return@launch
             when (result) {
                 is BusinessCenterStore.LoadResult.Loaded -> {
                     centerSnapshot = result.snapshot
                     centerError = null
                 }
                 is BusinessCenterStore.LoadResult.Failed -> {
+                    centerSnapshot=null
                     centerError = result.message
                 }
             }
@@ -1000,18 +1012,15 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val session = verifiedSupabase ?: return
         if (centerSubmitting) return
         centerSubmitting = true
+        val revision=centerRevision
         lifecycleScope.launch {
-            try {
-                withContext(Dispatchers.IO) {
-                    BusinessCenterStore().action(session)
-                }
-                centerError = null
-            } catch (error: Exception) {
-                centerError = error.localizedMessage ?: "Operación no completada"
-            } finally {
-                centerSubmitting = false
+            val failure=withContext(Dispatchers.IO) {
+                runCatching {BusinessCenterStore().action(session)}.exceptionOrNull()
             }
-            refreshCenter()
+            if(centerRevision!=revision || verifiedSupabase?.userId!=session.userId) return@launch
+            centerError=failure?.localizedMessage
+            centerSubmitting=false
+            if(failure==null) refreshCenter()
         }
     }
 

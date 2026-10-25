@@ -107,7 +107,10 @@ internal fun HomeTab(
     onDeleteRoutine: (String) -> Unit = {},
     onOpenClock: () -> Unit,
     modifier: Modifier = Modifier,
-    focusDay: java.time.LocalDate? = null
+    focusDay: java.time.LocalDate? = null,
+    professionalSessions:List<BusinessCenterStore.ProfessionalSession> = emptyList(),
+    centerName:(String)->String = {"Centro"},
+    onOpenMessages:()->Unit = {}
 ) {
     var homeDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     LaunchedEffect(focusDay) { focusDay?.let { homeDateIso=it.toString() } }
@@ -120,6 +123,7 @@ internal fun HomeTab(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
+            TextButton(onClick=onOpenMessages) {Text("Mensajes con centro o entrenador")}
             Text("Hola, " + (displayName ?: "Deportista"),
                 style = MaterialTheme.typography.headlineMedium)
         }
@@ -145,6 +149,9 @@ internal fun HomeTab(
                     ) { Text("Conectar o actualizar Salud") }
                 }
             }
+        }
+        items(professionalSessions.filter {it.scheduledDate==homeDateIso}) {session ->
+            ProfessionalSessionCard(session,centerName(session.orgId),true)
         }
         item {
             val day = LocalDate.parse(homeDateIso)
