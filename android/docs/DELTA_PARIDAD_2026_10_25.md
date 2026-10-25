@@ -116,3 +116,9 @@ main móvil invisible.)
 - Local: domain 264/0, mobile JVM 185/0; UI tests compilan pero aún no se
   ejecutaron. No confundir con SHA CI ni con paridad D3 completa.
 - Beta sigue en draft 51500. No desplegar automáticamente un delta parcial.
+
+- D4 arranque de dominio: parser GPX offline (trkpt/rtept + namespaces,
+  timestamps opcionales, coordenadas válidas, tope 20.000) y detección de
+  giros portada (ventana 30m, mínimo 20m, ángulo 52°, deduplicación 55m,
+  muestreo hasta ~1200 vértices). 5 tests nuevos verdes. DTD/entidades
+  externas rechazadas. No hay aún recorder/FGS/UI ni persistencia de rutas.
