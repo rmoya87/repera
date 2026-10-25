@@ -1860,7 +1860,7 @@ internal fun loadGuideSetLine(set: LoadGuideSet): String =
  *  cardíaco» de CardioRouteComponents iOS): cabecera con punto elegido o
  *  media, línea con regla discontinua y marcador durante el arrastre. */
 @Composable
-private fun HeartRateCurveSection(
+internal fun HeartRateCurveSection(
     sessionId: String,
     provider: suspend (String) -> List<Pair<Long, Int>>
 ) {
