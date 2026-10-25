@@ -134,10 +134,13 @@ private fun FinishedContentEditor(
 ) {
     val nameById = remember(catalog) { catalog.associate { it.id to it.name } }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        val blkHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
         for (b in 0 until blocks.length()) {
+            DragReorderItem(b, blkHeights, blocks.length(), { f, t -> EditorBlockOps.moveBlock(blocks, f, t); onChanged() }) { handle ->
             val block = blocks.getJSONObject(b)
             var title by remember(block.optString("id")) { mutableStateOf(block.optString("title")) }
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text("⠿", modifier = handle.testTag("block_drag_$b").padding(8.dp))
                 OutlinedTextField(value = title, singleLine = true, label = { Text("Bloque ${b + 1}") },
                     modifier = Modifier.weight(1f).testTag("block_title_$b"),
                     onValueChange = { title = it; block.put("title", it); onEdited() })
@@ -160,7 +163,7 @@ private fun FinishedContentEditor(
                     }
                 }
                 WodMovementsEditor(blocks, b, nameById, catalog, onEdited, onChanged)
-                continue
+                return@DragReorderItem
             }
             val items = block.optJSONArray("exercises") ?: org.json.JSONArray().also { block.put("exercises", it) }
             val exHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
@@ -290,6 +293,7 @@ private fun FinishedContentEditor(
                     confirmButton = {},
                     dismissButton = { TextButton(onClick = { picking = false }) { Text("Cancelar") } }
                 )
+            }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

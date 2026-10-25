@@ -218,4 +218,18 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         compose.onNodeWithTag("edit_save").performClick()
         assertNull(saved!!.blocksJson)
     }
+
+    @Test fun longPressDragReordersBlocks() {
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val w = workout.copy(editableBlocksJson = wodBlocks)
+        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        compose.onNodeWithTag("block_drag_0").performTouchInput {
+            down(center); advanceEventTime(700); moveBy(Offset(0f, 2500f)); advanceEventTime(50); up()
+        }
+        compose.waitForIdle()
+        compose.onNodeWithTag("edit_save").performClick()
+        val arr = org.json.JSONArray(saved!!.blocksJson)
+        assertEquals("b2", arr.getJSONObject(0).getString("id")); assertEquals("b1", arr.getJSONObject(1).getString("id"))
+    }
 }

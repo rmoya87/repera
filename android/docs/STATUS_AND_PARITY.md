@@ -504,4 +504,4 @@ capacidad; los sustitutos eran paridad exacta por código muerto en iOS).
 
 ### Arrastre long-press (gap a, parcial)
 - Asa «⠿» por ejercicio de fuerza y por movimiento WOD: `detectDragGesturesAfterLongPress`; mientras se arrastra solo se traslada la fila (graphicsLayer, sin recomponer el contenido) y al soltar se aplica UN reorden (`EditorBlockOps.reorder`). Destino por regla del punto medio sobre alturas reales (`dragTargetIndex`, JVM ejecutado). Los botones ↑↓ conviven.
-- NO hecho: arrastre de bloques completos y soltar entre bloques (hoy: Mover). Tests de gesto (2) compilados, no ejecutados; el comportamiento táctil real no está verificado.
+- Arrastre de bloques completos añadido (asa en el título del bloque). NO hecho: soltar un ítem en OTRO bloque arrastrando (hoy: Mover). Tests de gesto (2) compilados, no ejecutados; el comportamiento táctil real no está verificado.
