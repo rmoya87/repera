@@ -6,6 +6,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
@@ -128,7 +130,9 @@ class ReperaThemeInstrumentedTest {
         val names = listOf("inicio","progreso","ejercicios","comenzar_padel","historial_deporte","editor_terminado")
         names.forEachIndexed { index,name ->
             compose.runOnIdle { screen=index }
-            compose.waitForIdle();Thread.sleep(800)
+            compose.waitForIdle()
+            if(index==5) { compose.onNodeWithTag("edit_finished_workout").performClick();compose.waitForIdle() }
+            Thread.sleep(800)
             val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()!!
             val context=InstrumentationRegistry.getInstrumentation().targetContext
             val values=android.content.ContentValues().apply {
